@@ -19,6 +19,8 @@ export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
   slotId: integer("slot_id").notNull().references(() => slots.id),
   customerId: varchar("customer_id").notNull().references(() => users.id),
+  customerName: varchar("customer_name", { length: 255 }).notNull(),
+  customerPhone: varchar("customer_phone", { length: 50 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

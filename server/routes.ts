@@ -77,7 +77,10 @@ export async function registerRoutes(
       if (slot.isBooked) return res.status(400).json({ message: "Slot already booked" });
 
       // Force customerId to be current user
-      const bookingData = { ...input, customerId: user.claims.sub };
+      const bookingData = { 
+        ...input, 
+        customerId: user.claims.sub,
+      };
       const booking = await storage.createBooking(bookingData);
 
       // Create notifications

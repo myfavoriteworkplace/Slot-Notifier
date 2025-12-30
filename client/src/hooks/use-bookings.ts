@@ -24,12 +24,11 @@ export function useCreateBooking() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: InsertBooking) => {
-      const validated = api.bookings.create.input.parse(data);
+    mutationFn: async (data: { slotId: number; customerName: string; customerPhone: string }) => {
       const res = await fetch(api.bookings.create.path, {
         method: api.bookings.create.method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validated),
+        body: JSON.stringify(data),
         credentials: "include",
       });
 

@@ -85,8 +85,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Bookings
-  async createBooking(insertBooking: InsertBooking): Promise<Booking> {
-    const [booking] = await db.insert(bookings).values(insertBooking).returning();
+  async createBooking(insertBooking: any): Promise<Booking> {
+    const [booking] = await db.insert(bookings).values({
+      slotId: insertBooking.slotId,
+      customerId: insertBooking.customerId,
+      customerName: insertBooking.customerName,
+      customerPhone: insertBooking.customerPhone,
+    }).returning();
     
     // Mark slot as booked
     await this.updateSlot(booking.slotId, { isBooked: true });

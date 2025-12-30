@@ -54,7 +54,11 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/bookings',
-      input: insertBookingSchema,
+      input: z.object({
+        slotId: z.number(),
+        customerName: z.string().min(1, "Name is required"),
+        customerPhone: z.string().min(1, "Phone number is required"),
+      }),
       responses: {
         201: z.custom<typeof bookings.$inferSelect>(),
         400: errorSchemas.validation,
