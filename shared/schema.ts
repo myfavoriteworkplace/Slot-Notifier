@@ -1,18 +1,88 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, varchar, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { users } from "./models/auth";
+import { relations } from "drizzle-orm";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+// Export auth models so they are picked up
+export * from "./models/auth";
+
+export const slots = pgTable("slots", {
+  id: serial("id").primaryKey(),
+  ownerId: varchar("owner_id").notNull().references(() => users.id),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  isBooked: boolean("is_booked").default(false).notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const bookings = pgTable("bookings", {
+  id: serial("id").primaryKey(),
+  slotId: integer("slot_id").notNull().references(() => slots.id),
+  customerId: varchar("customer_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  message: text("message").notNull(),
+  read: boolean("read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Relations
+export const slotsRelations = relations(slots, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [slots.ownerId],
+    references: [users.id],
+  }),
+  booking: one(bookings, {
+    fields: [slots.id],
+    references: [bookings.slotId],
+  }),
+}));
+
+export const bookingsRelations = relations(bookings, ({ one }) => ({
+  slot: one(slots, {
+    fields: [bookings.slotId],
+    references: [slots.id],
+  }),
+  customer: one(users, {
+    fields: [bookings.customerId],
+    references: [users.id],
+  }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
+// Schemas
+export const insertSlotSchema = createInsertSchema(slots).omit({ 
+  id: true, 
+  ownerId: true, 
+  isBooked: true 
+});
+
+export const insertBookingSchema = createInsertSchema(bookings).omit({ 
+  id: true, 
+  customerId: true, 
+  createdAt: true 
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ 
+  id: true, 
+  createdAt: true,
+  read: true
+});
+
+// Types
+export type Slot = typeof slots.$inferSelect;
+export type InsertSlot = z.infer<typeof insertSlotSchema>;
+export type Booking = typeof bookings.$inferSelect;
+export type InsertBooking = z.infer<typeof insertBookingSchema>;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
