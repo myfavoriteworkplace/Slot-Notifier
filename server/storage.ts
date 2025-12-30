@@ -1,6 +1,6 @@
 import { 
   users, slots, bookings, notifications,
-  type User, type InsertUser,
+  type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
   type Notification, type InsertNotification
@@ -32,7 +32,7 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   // Slots
-  async createSlot(insertSlot: InsertSlot): Promise<Slot> {
+  async createSlot(insertSlot: any): Promise<Slot> {
     const [slot] = await db.insert(slots).values(insertSlot).returning();
     return slot;
   }

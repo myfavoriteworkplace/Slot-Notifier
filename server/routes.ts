@@ -88,7 +88,6 @@ export async function registerRoutes(
       await storage.createNotification({
         userId: bookingData.customerId,
         message: `You have successfully booked a slot on ${slot.startTime.toLocaleString()}`,
-        read: false
       });
       // Mock Email to Customer
       console.log(`[EMAIL MOCK] To: ${user.claims.email}, Subject: Booking Confirmed, Body: You booked a slot at ${slot.startTime}`);
@@ -97,7 +96,6 @@ export async function registerRoutes(
       await storage.createNotification({
         userId: slot.ownerId,
         message: `Your slot on ${slot.startTime.toLocaleString()} has been booked!`,
-        read: false
       });
        // Mock Email to Owner
        console.log(`[EMAIL MOCK] To: Owner (ID: ${slot.ownerId}), Subject: New Booking, Body: Slot at ${slot.startTime} booked.`);

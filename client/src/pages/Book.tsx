@@ -93,7 +93,7 @@ export default function Book() {
             <div className="py-16 text-center bg-muted/20 rounded-2xl border border-dashed">
               <p className="text-muted-foreground font-medium">No slots available for this date.</p>
               <Button 
-                variant="link" 
+                variant="outline" 
                 onClick={() => setSelectedDate(addDays(selectedDate, 1))}
                 className="mt-2 text-primary"
               >
