@@ -49,7 +49,6 @@ export function CreateSlotDialog({ onDateSelect }: CreateSlotDialogProps) {
       {
         startTime: startDateTime,
         endTime: endDateTime,
-        ownerId: user?.id || "", 
       },
       {
         onSuccess: () => {

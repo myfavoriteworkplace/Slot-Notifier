@@ -53,8 +53,6 @@ export default function Dashboard() {
       createSlot({
         startTime,
         endTime,
-        ownerId: user.id,
-        isBooked: false
       });
     });
   };
