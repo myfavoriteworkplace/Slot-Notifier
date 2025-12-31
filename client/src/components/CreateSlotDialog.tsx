@@ -13,36 +13,42 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
-import { addHours, format, parse } from "date-fns";
+import { addHours, format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
+import { Calendar } from "@/components/ui/calendar";
 
-export function CreateSlotDialog() {
+interface CreateSlotDialogProps {
+  onDateSelect?: (date: Date | undefined) => void;
+}
+
+export function CreateSlotDialog({ onDateSelect }: CreateSlotDialogProps) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const { user } = useAuth();
+  const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
   
   const createSlot = useCreateSlot();
+
+  const handleQuickAdd = (selectedDate: Date | undefined) => {
+    setCalendarDate(selectedDate);
+    if (onDateSelect && selectedDate) {
+      onDateSelect(selectedDate);
+      setOpen(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!date || !startTime) return;
 
-    // Construct Date objects
     const startDateTime = new Date(`${date}T${startTime}`);
-    // Default slot duration is 1 hour for MVP simplicity
     const endDateTime = addHours(startDateTime, 1);
 
     createSlot.mutate(
       {
         startTime: startDateTime,
         endTime: endDateTime,
-        // @ts-ignore - Schema expects ownerId but backend extracts it from auth. 
-        // We pass empty/dummy if strictly required by type, or backend ignores.
-        // Actually schema requires ownerId. Let's pass it if available or handle in backend.
-        // The backend schema implies ownerId is required in insert. 
-        // Best practice: Backend should override this from session.
-        // For now, passing user.id assuming hook handles auth context or backend does.
         ownerId: user?.id || "", 
       },
       {
@@ -65,46 +71,70 @@ export function CreateSlotDialog() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add New Slot</DialogTitle>
+          <DialogTitle>Add Availability</DialogTitle>
           <DialogDescription>
-            Create an available time slot for customers to book.
+            Create a single slot or select a date for 3 automatic slots (9AM, 1PM, 5PM).
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+        
+        <div className="flex flex-col gap-6 py-4">
           <div className="space-y-2">
-            <Label htmlFor="date">Date</Label>
-            <Input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-              min={new Date().toISOString().split("T")[0]}
-              className="rounded-xl border-border/50 bg-muted/30"
-            />
+            <Label className="text-sm font-semibold">Option 1: Quick Add 3 Slots</Label>
+            <div className="flex justify-center p-2 border rounded-xl bg-muted/20">
+              <Calendar
+                mode="single"
+                selected={calendarDate}
+                onSelect={handleQuickAdd}
+                className="rounded-md"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="time">Start Time</Label>
-            <Input
-              id="time"
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              required
-              className="rounded-xl border-border/50 bg-muted/30"
-            />
-            <p className="text-xs text-muted-foreground">Slots are created for 1 hour duration by default.</p>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or</span>
+            </div>
           </div>
-          <DialogFooter>
-            <Button 
-              type="submit" 
-              disabled={createSlot.isPending}
-              className="w-full sm:w-auto"
-            >
-              {createSlot.isPending ? "Creating..." : "Create Slot"}
-            </Button>
-          </DialogFooter>
-        </form>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Label className="text-sm font-semibold">Option 2: Custom Single Slot</Label>
+            <div className="space-y-2">
+              <Label htmlFor="date">Date</Label>
+              <Input
+                id="date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required={!open}
+                min={new Date().toISOString().split("T")[0]}
+                className="rounded-xl border-border/50 bg-muted/30"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="time">Start Time</Label>
+              <Input
+                id="time"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                required={!open}
+                className="rounded-xl border-border/50 bg-muted/30"
+              />
+            </div>
+            <DialogFooter>
+              <Button 
+                type="submit" 
+                disabled={createSlot.isPending}
+                className="w-full"
+              >
+                {createSlot.isPending ? "Creating..." : "Create Single Slot"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

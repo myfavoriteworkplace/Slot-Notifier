@@ -1,4 +1,4 @@
-import { useSlots } from "@/hooks/use-slots";
+import { useSlots, useCreateSlot } from "@/hooks/use-slots";
 import { CreateSlotDialog } from "@/components/CreateSlotDialog";
 import { SlotCard } from "@/components/SlotCard";
 import { useAuth } from "@/hooks/use-auth";
@@ -31,6 +31,34 @@ export default function Dashboard() {
     new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
   );
 
+  const { mutate: createSlot } = useCreateSlot();
+
+  const onDateSelect = (date: Date | undefined) => {
+    if (!date || !user) return;
+    
+    // Automatically create 3 slots for this date
+    const times = [
+      { h: 9, m: 0 },
+      { h: 13, m: 0 },
+      { h: 17, m: 0 }
+    ];
+
+    times.forEach(({ h, m }) => {
+      const startTime = new Date(date);
+      startTime.setHours(h, m, 0, 0);
+      
+      const endTime = new Date(startTime);
+      endTime.setHours(h + 1);
+
+      createSlot({
+        startTime,
+        endTime,
+        ownerId: user.id,
+        isBooked: false
+      });
+    });
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -38,7 +66,9 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Manage your availability and view bookings.</p>
         </div>
-        <CreateSlotDialog />
+        <div className="flex items-center gap-2">
+          <CreateSlotDialog onDateSelect={onDateSelect} />
+        </div>
       </div>
 
       {slotsLoading ? (
