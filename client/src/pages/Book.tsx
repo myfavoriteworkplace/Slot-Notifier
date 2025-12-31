@@ -37,6 +37,9 @@ export default function Book() {
     isSameDay(new Date(slot.startTime), selectedDate)
   ).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
+  // Log for debugging
+  console.log('Slots for date:', slotsForDate);
+
   return (
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
