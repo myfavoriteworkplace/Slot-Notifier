@@ -47,7 +47,13 @@ export default function Landing() {
                 <Button 
                   size="lg" 
                   className="rounded-full px-8 text-base shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all"
-                  onClick={() => window.location.href = "/api/login"}
+                  onClick={() => {
+                    if (isAuthenticated) {
+                      setLocation(user?.role === 'owner' ? "/dashboard" : "/book");
+                    } else {
+                      window.location.href = "/api/login";
+                    }
+                  }}
                 >
                   Get Started <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
