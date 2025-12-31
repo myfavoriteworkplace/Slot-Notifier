@@ -71,11 +71,15 @@ export function SlotCard({ slot }: SlotCardProps) {
 
   return (
     <>
-      <div className={`
-        relative group overflow-hidden rounded-2xl border p-5 transition-all duration-300
-        hover:shadow-lg hover:-translate-y-1
-        ${slot.isBooked ? 'bg-muted/30 border-border/50' : 'bg-card border-border'}
-      `}>
+      <div 
+        onClick={() => isBookable && setIsBookingOpen(true)}
+        className={`
+          relative group overflow-hidden rounded-2xl border p-5 transition-all duration-300 cursor-pointer
+          hover:shadow-lg hover:-translate-y-1
+          ${slot.isBooked ? 'bg-muted/30 border-border/50' : 'bg-card border-border'}
+          ${!isBookable && 'cursor-default'}
+        `}
+      >
         <div className="flex justify-between items-start mb-4">
           <Badge variant="outline" className={`rounded-md px-2 py-1 ${statusColor}`}>
             {slot.isBooked ? "Booked" : isExpired ? "Expired" : "Available"}

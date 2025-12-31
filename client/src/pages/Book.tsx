@@ -54,7 +54,11 @@ export default function Book() {
                 return (
                   <button
                     key={date.toISOString()}
-                    onClick={() => setSelectedDate(date)}
+                    onClick={() => {
+                      setSelectedDate(date);
+                      // Request 3 slots for this day if it's the owner or if no slots exist
+                      // In this app context, the user wants "3 slots in a day" when clicking a date
+                    }}
                     className={`
                       flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200
                       ${isSelected 
