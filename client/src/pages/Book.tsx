@@ -3,7 +3,7 @@ import { useSlots } from "@/hooks/use-slots";
 import { SlotCard } from "@/components/SlotCard";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { Loader2, Calendar as CalendarIcon, ChevronDown } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, ChevronDown, CalendarDays } from "lucide-react";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -14,6 +14,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export default function Book() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -117,38 +120,69 @@ export default function Book() {
 
         {/* Date Selection Strip */}
         {selectedClinic && (
-          <div className="mb-10 relative animate-in fade-in slide-in-from-top-2 duration-500">
-            <ScrollArea className="w-full whitespace-nowrap pb-4">
-              <div className="flex space-x-4 px-1">
-                {dates.map((date) => {
-                  const isSelected = isSameDay(date, selectedDate);
-                  return (
-                    <button
-                      key={date.toISOString()}
-                      onClick={() => {
+          <div className="mb-10 flex flex-col sm:flex-row items-start sm:items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
+            <div className="flex-1 w-full overflow-hidden">
+              <ScrollArea className="w-full whitespace-nowrap pb-4">
+                <div className="flex space-x-4 px-1">
+                  {dates.map((date) => {
+                    const isSelected = isSameDay(date, selectedDate);
+                    return (
+                      <button
+                        key={date.toISOString()}
+                        onClick={() => {
+                          setSelectedDate(date);
+                          setShowSlots(false);
+                          setIsDetailsOpen(true);
+                        }}
+                        className={`
+                          flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200
+                          ${isSelected 
+                            ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
+                            : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
+                        `}
+                      >
+                        <span className="text-xs font-medium uppercase mb-1 opacity-80">
+                          {format(date, "EEE")}
+                        </span>
+                        <span className="text-xl font-bold">
+                          {format(date, "d")}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </div>
+
+            <div className="flex-shrink-0 pt-1 sm:pt-0 pb-4">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-20 w-16 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-muted/50 transition-all"
+                  >
+                    <CalendarDays className="h-6 w-6 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 rounded-xl shadow-2xl border-border/50" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      if (date) {
                         setSelectedDate(date);
                         setShowSlots(false);
                         setIsDetailsOpen(true);
-                      }}
-                      className={`
-                        flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200
-                        ${isSelected 
-                          ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
-                          : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
-                      `}
-                    >
-                      <span className="text-xs font-medium uppercase mb-1 opacity-80">
-                        {format(date, "EEE")}
-                      </span>
-                      <span className="text-xl font-bold">
-                        {format(date, "d")}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+                      }
+                    }}
+                    disabled={(date) => date < startOfToday()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         )}
       </div>
