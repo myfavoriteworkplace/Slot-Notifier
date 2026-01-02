@@ -51,6 +51,7 @@ export default function Book() {
   ).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [showSlots, setShowSlots] = useState(false);
 
   const predefinedSlots = [
     { id: "1", label: "9:00AM TO 12:00PM", start: 9, end: 12 },
@@ -68,11 +69,10 @@ export default function Book() {
     const endTime = new Date(selectedDate);
     endTime.setHours(slotInfo.end, 0, 0, 0);
 
-    // In a real app, we'd check if this specific slot exists or create it.
-    // For this UI request, we'll assume the slots are the booking targets.
-    // However, the backend expects a slotId. 
-    // We'll proceed with the UI change as requested.
+    // Reset states
     setIsDetailsOpen(false);
+    setShowSlots(false);
+    setSelectedSlot(null);
   };
 
   return (
@@ -94,6 +94,7 @@ export default function Book() {
                     key={date.toISOString()}
                     onClick={() => {
                       setSelectedDate(date);
+                      setShowSlots(false);
                       setIsDetailsOpen(true);
                     }}
                     className={`
@@ -118,7 +119,10 @@ export default function Book() {
         </div>
       </div>
 
-      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+      <Dialog open={isDetailsOpen} onOpenChange={(open) => {
+        setIsDetailsOpen(open);
+        if (!open) setShowSlots(false);
+      }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Book your session</DialogTitle>
@@ -148,34 +152,44 @@ export default function Book() {
               />
             </div>
 
-            <div className="space-y-3 mt-4">
-              <Label className="text-sm font-semibold">Select Time Slot</Label>
-              <div className="grid gap-2">
-                {predefinedSlots.map((slot) => (
-                  <button
-                    key={slot.id}
-                    onClick={() => setSelectedSlot(slot.id)}
-                    className={`p-3 rounded-lg border text-left transition-all ${
-                      selectedSlot === slot.id 
-                        ? "border-primary bg-primary/5 ring-1 ring-primary" 
-                        : "border-border hover:bg-muted"
-                    }`}
+            {!showSlots ? (
+              <Button 
+                onClick={() => setShowSlots(true)}
+                disabled={!customerName || !customerPhone}
+                className="w-full mt-4"
+              >
+                Check Available Slots
+              </Button>
+            ) : (
+              <div className="space-y-3 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                <Label className="text-sm font-semibold">Select Time Slot</Label>
+                <div className="grid gap-2">
+                  {predefinedSlots.map((slot) => (
+                    <button
+                      key={slot.id}
+                      onClick={() => setSelectedSlot(slot.id)}
+                      className={`p-3 rounded-lg border text-left transition-all ${
+                        selectedSlot === slot.id 
+                          ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                          : "border-border hover:bg-muted"
+                      }`}
+                    >
+                      <div className="font-medium">{slot.label}</div>
+                    </button>
+                  ))}
+                </div>
+                <DialogFooter className="mt-6">
+                  <Button 
+                    onClick={handleBook}
+                    disabled={!selectedSlot}
+                    className="w-full"
                   >
-                    <div className="font-medium">{slot.label}</div>
-                  </button>
-                ))}
+                    Confirm Booking
+                  </Button>
+                </DialogFooter>
               </div>
-            </div>
+            )}
           </div>
-          <DialogFooter>
-            <Button 
-              onClick={handleBook}
-              disabled={!customerName || !customerPhone || !selectedSlot}
-              className="w-full"
-            >
-              Confirm Booking
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
