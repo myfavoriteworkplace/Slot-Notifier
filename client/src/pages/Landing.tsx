@@ -7,14 +7,11 @@ export default function Landing() {
   const { isAuthenticated, user } = useAuth();
   const [_, setLocation] = useLocation();
 
-  if (isAuthenticated) {
-    if (user?.role === "owner") {
+    if (isAuthenticated) {
+      // Allow access to both, redirect to dashboard as primary entry
       setLocation("/dashboard");
-    } else {
-      setLocation("/book");
+      return null;
     }
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

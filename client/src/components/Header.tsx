@@ -40,15 +40,12 @@ export function Header() {
 
             {isAuthenticated && (
               <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-                {user?.role === 'owner' ? (
-                  <Link href="/dashboard" className={location === "/dashboard" ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>
-                    Dashboard
-                  </Link>
-                ) : (
-                  <Link href="/book" className={location === "/book" ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>
-                    Book a Slot
-                  </Link>
-                )}
+                <Link href="/dashboard" className={location === "/dashboard" ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>
+                  Dashboard
+                </Link>
+                <Link href="/book" className={location === "/book" ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>
+                  Book a Slot
+                </Link>
               </nav>
             )}
           </div>

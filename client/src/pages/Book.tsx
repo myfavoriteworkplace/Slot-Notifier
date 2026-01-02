@@ -24,7 +24,7 @@ export default function Book() {
     );
   }
 
-  if (!isAuthenticated || user?.role !== "customer") {
+  if (!isAuthenticated) {
     setLocation("/");
     return null;
   }

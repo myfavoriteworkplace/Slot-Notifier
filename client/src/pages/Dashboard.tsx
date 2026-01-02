@@ -22,7 +22,7 @@ export default function Dashboard() {
     );
   }
 
-  if (!isAuthenticated || user?.role !== "owner") {
+  if (!isAuthenticated) {
     setLocation("/");
     return null;
   }
