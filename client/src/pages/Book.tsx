@@ -116,39 +116,41 @@ export default function Book() {
         </div>
 
         {/* Date Selection Strip */}
-        <div className="mb-10 relative">
-          <ScrollArea className="w-full whitespace-nowrap pb-4">
-            <div className="flex space-x-4 px-1">
-              {dates.map((date) => {
-                const isSelected = isSameDay(date, selectedDate);
-                return (
-                  <button
-                    key={date.toISOString()}
-                    onClick={() => {
-                      setSelectedDate(date);
-                      setShowSlots(false);
-                      setIsDetailsOpen(true);
-                    }}
-                    className={`
-                      flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200
-                      ${isSelected 
-                        ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
-                        : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
-                    `}
-                  >
-                    <span className="text-xs font-medium uppercase mb-1 opacity-80">
-                      {format(date, "EEE")}
-                    </span>
-                    <span className="text-xl font-bold">
-                      {format(date, "d")}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-        </div>
+        {selectedClinic && (
+          <div className="mb-10 relative animate-in fade-in slide-in-from-top-2 duration-500">
+            <ScrollArea className="w-full whitespace-nowrap pb-4">
+              <div className="flex space-x-4 px-1">
+                {dates.map((date) => {
+                  const isSelected = isSameDay(date, selectedDate);
+                  return (
+                    <button
+                      key={date.toISOString()}
+                      onClick={() => {
+                        setSelectedDate(date);
+                        setShowSlots(false);
+                        setIsDetailsOpen(true);
+                      }}
+                      className={`
+                        flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200
+                        ${isSelected 
+                          ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
+                          : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
+                      `}
+                    >
+                      <span className="text-xs font-medium uppercase mb-1 opacity-80">
+                        {format(date, "EEE")}
+                      </span>
+                      <span className="text-xl font-bold">
+                        {format(date, "d")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          </div>
+        )}
       </div>
 
       <Dialog open={isDetailsOpen} onOpenChange={(open) => {
