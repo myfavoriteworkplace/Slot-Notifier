@@ -3,17 +3,30 @@ import { useSlots } from "@/hooks/use-slots";
 import { SlotCard } from "@/components/SlotCard";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { Loader2, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon } from "lucide-react";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function Book() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [_, setLocation] = useLocation();
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   
-  // Fetch slots for the selected date (filtering client-side for now as backend supports optional filtering)
+  // Fetch slots for the selected date
   const { data: slots, isLoading: slotsLoading } = useSlots();
 
   if (authLoading) {
@@ -37,6 +50,11 @@ export default function Book() {
     isSameDay(new Date(slot.startTime), selectedDate)
   ).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+    setIsDetailsOpen(true);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
@@ -54,11 +72,7 @@ export default function Book() {
                 return (
                   <button
                     key={date.toISOString()}
-                    onClick={() => {
-                      setSelectedDate(date);
-                      // Request 3 slots for this day if it's the owner or if no slots exist
-                      // In this app context, the user wants "3 slots in a day" when clicking a date
-                    }}
+                    onClick={() => handleDateClick(date)}
                     className={`
                       flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200
                       ${isSelected 
@@ -107,12 +121,62 @@ export default function Book() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {slotsForDate.map((slot) => (
-                <SlotCard key={slot.id} slot={slot} />
+                <SlotCard 
+                  key={slot.id} 
+                  slot={slot} 
+                  customerName={customerName}
+                  customerPhone={customerPhone}
+                />
               ))}
             </div>
           )}
         </div>
       </div>
+
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Your Details</DialogTitle>
+            <DialogDescription>
+              Enter your name and phone number to see available times for {format(selectedDate, "MMMM do")}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="col-span-3"
+                placeholder="John Doe"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="phone" className="text-right">
+                Phone
+              </Label>
+              <Input
+                id="phone"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                className="col-span-3"
+                placeholder="+1 (555) 000-0000"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={() => setIsDetailsOpen(false)}
+              disabled={!customerName || !customerPhone}
+            >
+              Show Available Times
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

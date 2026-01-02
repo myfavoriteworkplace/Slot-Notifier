@@ -31,15 +31,17 @@ import { useState } from "react";
 
 interface SlotCardProps {
   slot: Slot;
+  customerName?: string;
+  customerPhone?: string;
 }
 
-export function SlotCard({ slot }: SlotCardProps) {
+export function SlotCard({ slot, customerName, customerPhone }: SlotCardProps) {
   const { user } = useAuth();
   const deleteSlot = useDeleteSlot();
   const createBooking = useCreateBooking();
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
+  const [localName, setLocalName] = useState("");
+  const [localPhone, setLocalPhone] = useState("");
   
   const startTime = new Date(slot.startTime);
   const endTime = new Date(slot.endTime);
@@ -55,24 +57,38 @@ export function SlotCard({ slot }: SlotCardProps) {
       : "bg-green-500/10 text-green-600 border-green-500/20";
 
   const handleBook = () => {
-    if (!customerName || !customerPhone) return;
+    const finalName = customerName || localName;
+    const finalPhone = customerPhone || localPhone;
+
+    if (!finalName || !finalPhone) return;
     createBooking.mutate({
       slotId: slot.id,
-      customerName,
-      customerPhone,
+      customerName: finalName,
+      customerPhone: finalPhone,
     }, {
       onSuccess: () => {
         setIsBookingOpen(false);
-        setCustomerName("");
-        setCustomerPhone("");
+        setLocalName("");
+        setLocalPhone("");
       }
     });
+  };
+
+  const onSlotClick = () => {
+    if (!isBookable) return;
+    
+    // If name/phone already provided via props, book immediately
+    if (customerName && customerPhone) {
+      handleBook();
+    } else {
+      setIsBookingOpen(true);
+    }
   };
 
   return (
     <>
       <div 
-        onClick={() => isBookable && setIsBookingOpen(true)}
+        onClick={onSlotClick}
         className={`
           relative group overflow-hidden rounded-2xl border p-5 transition-all duration-300 cursor-pointer
           hover:shadow-lg hover:-translate-y-1
@@ -173,8 +189,8 @@ export function SlotCard({ slot }: SlotCardProps) {
               </Label>
               <Input
                 id="name"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
+                value={localName}
+                onChange={(e) => setLocalName(e.target.value)}
                 className="col-span-3"
                 placeholder="John Doe"
               />
@@ -185,8 +201,8 @@ export function SlotCard({ slot }: SlotCardProps) {
               </Label>
               <Input
                 id="phone"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
+                value={localPhone}
+                onChange={(e) => setLocalPhone(e.target.value)}
                 className="col-span-3"
                 placeholder="+1 (555) 000-0000"
               />
@@ -195,7 +211,7 @@ export function SlotCard({ slot }: SlotCardProps) {
           <DialogFooter>
             <Button 
               onClick={handleBook} 
-              disabled={createBooking.isPending || !customerName || !customerPhone}
+              disabled={createBooking.isPending || !localName || !localPhone}
             >
               {createBooking.isPending ? "Booking..." : "Confirm Booking"}
             </Button>
