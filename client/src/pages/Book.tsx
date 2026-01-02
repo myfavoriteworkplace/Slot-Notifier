@@ -95,15 +95,15 @@ export default function Book() {
 
   return (
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="text-center mb-10">
+      <div className="max-w-5xl">
+        <div className="text-left mb-10">
           <h1 className="text-3xl font-bold tracking-tight mb-2">Book a Session</h1>
           <p className="text-muted-foreground">Select a date to see available times.</p>
         </div>
 
         {/* Clinic Selection */}
-        <div className="max-w-md mx-auto mb-10">
-          <Label className="text-sm font-medium mb-2 block">Select Clinic</Label>
+        <div className="max-w-md mb-10 text-left">
+          <Label className="text-sm font-medium mb-2 block text-left">Select Clinic</Label>
           <Select value={selectedClinic} onValueChange={setSelectedClinic}>
             <SelectTrigger className="w-full rounded-xl h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50">
               <SelectValue placeholder="Choose a dental clinic" />

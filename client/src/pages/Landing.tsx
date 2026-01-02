@@ -32,7 +32,7 @@ export default function Landing() {
 
         <div className="py-24 sm:py-32 lg:pb-40">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center">
+            <div className="max-w-2xl text-left">
               <h1 className="text-4xl font-display font-bold tracking-tight text-foreground sm:text-6xl animate-fade-in-up">
                 Booking made <span className="text-gradient">effortless</span>
               </h1>
@@ -40,7 +40,7 @@ export default function Landing() {
                 Streamline your scheduling process. Owners can easily manage availability, 
                 and customers can book slots in seconds. No more back-and-forth emails.
               </p>
-              <div className="mt-10 flex items-center justify-center gap-x-6 animate-fade-in-up delay-200">
+              <div className="mt-10 flex items-center justify-start gap-x-6 animate-fade-in-up delay-200">
                 <Button 
                   size="lg" 
                   className="rounded-full px-8 text-base shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all"
