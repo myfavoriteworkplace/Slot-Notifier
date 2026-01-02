@@ -3,7 +3,7 @@ import { useSlots } from "@/hooks/use-slots";
 import { SlotCard } from "@/components/SlotCard";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { Loader2, Calendar as CalendarIcon } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, ChevronDown } from "lucide-react";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Book() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -25,6 +32,14 @@ export default function Book() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [selectedClinic, setSelectedClinic] = useState<string>("");
+
+  const clinics = [
+    "Dr Gijo's Dental Solutions",
+    "Parappuram's Smile Dental Clinic Muvattupuzha",
+    "Smiletree Multispeciality Dental Clinic Muvattupuzha",
+    "Valiyakulangara dental clinic Muvattupuzha"
+  ];
   
   // Fetch slots for the selected date
   const { data: slots, isLoading: slotsLoading } = useSlots();
@@ -60,7 +75,7 @@ export default function Book() {
   ];
 
   const handleBook = () => {
-    if (!selectedSlot || !customerName || !customerPhone) return;
+    if (!selectedSlot || !customerName || !customerPhone || !selectedClinic) return;
     const slotInfo = predefinedSlots.find(s => s.id === selectedSlot);
     if (!slotInfo) return;
 
@@ -81,6 +96,23 @@ export default function Book() {
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold tracking-tight mb-2">Book a Session</h1>
           <p className="text-muted-foreground">Select a date to see available times.</p>
+        </div>
+
+        {/* Clinic Selection */}
+        <div className="max-w-md mx-auto mb-10">
+          <Label className="text-sm font-medium mb-2 block">Select Clinic</Label>
+          <Select value={selectedClinic} onValueChange={setSelectedClinic}>
+            <SelectTrigger className="w-full rounded-xl h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50">
+              <SelectValue placeholder="Choose a dental clinic" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl shadow-lg border-border/50">
+              {clinics.map((clinic) => (
+                <SelectItem key={clinic} value={clinic} className="py-3 rounded-lg cursor-pointer">
+                  {clinic}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Date Selection Strip */}
@@ -155,7 +187,7 @@ export default function Book() {
             {!showSlots ? (
               <Button 
                 onClick={() => setShowSlots(true)}
-                disabled={!customerName || !customerPhone}
+                disabled={!customerName || !customerPhone || !selectedClinic}
                 className="w-full mt-4"
               >
                 Check Available Slots
