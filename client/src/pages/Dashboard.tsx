@@ -4,15 +4,29 @@ import { SlotCard } from "@/components/SlotCard";
 import { useAuth } from "@/hooks/use-auth";
 import { useBookings } from "@/hooks/use-bookings";
 import { useLocation } from "wouter";
-import { Loader2, Calendar as CalendarIcon, ListFilter, User as UserIcon, Phone, Clock } from "lucide-react";
-import { format } from "date-fns";
+import { Loader2, Calendar as CalendarIcon, ListFilter, User as UserIcon, Phone, Clock, Search } from "lucide-react";
+import { format, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { useState } from "react";
 
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [_, setLocation] = useLocation();
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [filterClinic, setFilterClinic] = useState<string>("all");
+
+  const clinics = [
+    "Dr Gijo's Dental Solutions",
+    "Parappuram's Smile Dental Clinic Muvattupuzha",
+    "Smiletree Multispeciality Dental Clinic Muvattupuzha",
+    "Valiyakulangara dental clinic Muvattupuzha"
+  ];
+
   const { data: slots, isLoading: slotsLoading } = useSlots({ 
     ownerId: user?.id 
   });
@@ -30,9 +44,16 @@ export default function Dashboard() {
     setLocation("/");
     return null;
   }
+
   const sortedSlots = slots?.sort((a, b) => 
     new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
   );
+
+  const filteredBookings = bookings?.filter(booking => {
+    const dateMatch = !filterDate || isSameDay(new Date(booking.slot.startTime), filterDate);
+    const clinicMatch = filterClinic === "all" || booking.slot.clinicName === filterClinic;
+    return dateMatch && clinicMatch;
+  });
 
   const { mutate: createSlot } = useCreateSlot();
 
@@ -118,16 +139,68 @@ export default function Dashboard() {
           </div>
 
           <section>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold tracking-tight text-left">Recent Bookings</h2>
+            <div className="flex flex-col space-y-4 mb-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold tracking-tight text-left">Recent Bookings</h2>
+              </div>
+              
+              <div className="flex flex-wrap gap-4 items-end bg-muted/30 p-4 rounded-xl border border-border/50">
+                <div className="space-y-1.5 flex-1 min-w-[200px]">
+                  <p className="text-xs font-medium text-muted-foreground px-1">Filter by Clinic</p>
+                  <Select value={filterClinic} onValueChange={setFilterClinic}>
+                    <SelectTrigger className="rounded-xl h-10 border-border/50 bg-background">
+                      <SelectValue placeholder="All Clinics" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="all">All Clinics</SelectItem>
+                      {clinics.map(clinic => (
+                        <SelectItem key={clinic} value={clinic}>{clinic}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5 flex-1 min-w-[200px]">
+                  <p className="text-xs font-medium text-muted-foreground px-1">Filter by Date</p>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={`w-full justify-start text-left font-normal rounded-xl h-10 bg-background border-border/50 ${!filterDate && "text-muted-foreground"}`}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {filterDate ? format(filterDate, "PPP") : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={filterDate}
+                        onSelect={setFilterDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setFilterDate(undefined);
+                    setFilterClinic("all");
+                  }}
+                  className="rounded-xl h-10 px-4 text-muted-foreground hover:text-foreground"
+                >
+                  Clear Filters
+                </Button>
+              </div>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {bookings?.length === 0 ? (
+              {filteredBookings?.length === 0 ? (
                 <div className="col-span-full py-12 text-center bg-muted/20 rounded-2xl border border-dashed">
-                  <p className="text-muted-foreground">No bookings yet.</p>
+                  <p className="text-muted-foreground">No bookings match your filters.</p>
                 </div>
               ) : (
-                bookings?.map((booking) => (
+                filteredBookings?.map((booking) => (
                   <Card key={booking.id} className="overflow-hidden border-border/50 hover:shadow-md transition-shadow">
                     <CardHeader className="bg-primary/5 pb-4">
                       <div className="flex justify-between items-start">
