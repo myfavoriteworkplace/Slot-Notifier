@@ -74,13 +74,14 @@ export async function registerRoutes(
       let slot;
       
       // If slotId is -1, it's a dynamic slot from the clinic selection UI
-      if (input.slotId === -1 && (input as any).clinicName) {
+      if (input.slotId === -1 && (req.body as any).clinicName) {
         // Create the slot first
+        const dbUser = await storage.getUser(user.claims.sub);
         slot = await storage.createSlot({
-          ownerId: "52084938", // Fallback to a known owner if needed, but ideally should be dynamic
-          startTime: new Date((input as any).startTime),
-          endTime: new Date((input as any).endTime),
-          clinicName: (input as any).clinicName,
+          ownerId: user.claims.sub, 
+          startTime: new Date((req.body as any).startTime),
+          endTime: new Date((req.body as any).endTime),
+          clinicName: (req.body as any).clinicName,
         } as any);
       } else {
         slot = await storage.getSlot(input.slotId);
