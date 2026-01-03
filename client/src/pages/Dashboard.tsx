@@ -30,7 +30,6 @@ export default function Dashboard() {
     setLocation("/");
     return null;
   }
-
   const sortedSlots = slots?.sort((a, b) => 
     new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
   );
