@@ -13,6 +13,7 @@ export const slots = pgTable("slots", {
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time").notNull(),
   isBooked: boolean("is_booked").default(false).notNull(),
+  clinicName: varchar("clinic_name", { length: 255 }),
 });
 
 export const bookings = pgTable("bookings", {

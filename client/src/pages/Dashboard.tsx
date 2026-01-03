@@ -137,6 +137,11 @@ export default function Dashboard() {
                             <Phone className="h-3 w-3" />
                             {booking.customerPhone}
                           </div>
+                          {booking.slot.clinicName && (
+                            <div className="text-xs font-semibold text-primary mt-1">
+                              {booking.slot.clinicName}
+                            </div>
+                          )}
                         </div>
                         <Badge variant="outline" className="bg-background">
                           Booked

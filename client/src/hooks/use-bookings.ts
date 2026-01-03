@@ -24,7 +24,7 @@ export function useCreateBooking() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: { slotId: number; customerName: string; customerPhone: string }) => {
+    mutationFn: async (data: { slotId: number; customerName: string; customerPhone: string; clinicName?: string; startTime?: string; endTime?: string }) => {
       const res = await fetch(api.bookings.create.path, {
         method: api.bookings.create.method,
         headers: { "Content-Type": "application/json" },

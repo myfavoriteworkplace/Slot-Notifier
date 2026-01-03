@@ -87,10 +87,22 @@ export default function Book() {
     const endTime = new Date(selectedDate);
     endTime.setHours(slotInfo.end, 0, 0, 0);
 
-    // Reset states
-    setIsDetailsOpen(false);
-    setShowSlots(false);
-    setSelectedSlot(null);
+    createBooking.mutate({
+      slotId: -1, // Placeholder as we'll handle this in the backend/storage
+      customerName,
+      customerPhone,
+      clinicName: selectedClinic,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString()
+    } as any, {
+      onSuccess: () => {
+        setIsDetailsOpen(false);
+        setShowSlots(false);
+        setSelectedSlot(null);
+        setCustomerName("");
+        setCustomerPhone("");
+      }
+    });
   };
 
   return (

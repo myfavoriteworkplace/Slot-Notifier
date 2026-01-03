@@ -71,7 +71,20 @@ export async function registerRoutes(
     
     try {
       const input = api.bookings.create.input.parse(req.body);
-      const slot = await storage.getSlot(input.slotId);
+      let slot;
+      
+      // If slotId is -1, it's a dynamic slot from the clinic selection UI
+      if (input.slotId === -1 && (input as any).clinicName) {
+        // Create the slot first
+        slot = await storage.createSlot({
+          ownerId: "52084938", // Fallback to a known owner if needed, but ideally should be dynamic
+          startTime: new Date((input as any).startTime),
+          endTime: new Date((input as any).endTime),
+          clinicName: (input as any).clinicName,
+        } as any);
+      } else {
+        slot = await storage.getSlot(input.slotId);
+      }
       
       if (!slot) return res.status(404).json({ message: "Slot not found" });
       if (slot.isBooked) return res.status(400).json({ message: "Slot already booked" });
@@ -79,6 +92,7 @@ export async function registerRoutes(
       // Force customerId to be current user
       const bookingData = { 
         ...input, 
+        slotId: slot.id,
         customerId: user.claims.sub,
       };
       const booking = await storage.createBooking(bookingData);
