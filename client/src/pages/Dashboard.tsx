@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [_, setLocation] = useLocation();
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterClinic, setFilterClinic] = useState<string>("all");
+  const [defaultSlotsCount, setDefaultSlotsCount] = useState<number>(3);
 
   const clinics = [
     "Dr Gijo's Dental Solutions",
@@ -60,25 +61,20 @@ export default function Dashboard() {
   const onDateSelect = (date: Date | undefined) => {
     if (!date || !user) return;
     
-    // Automatically create 3 slots for this date
-    const times = [
-      { h: 9, m: 0 },
-      { h: 13, m: 0 },
-      { h: 17, m: 0 }
-    ];
-
-    times.forEach(({ h, m }) => {
+    // Automatically create slots for this date based on configuration
+    const startHour = 9;
+    for (let i = 0; i < defaultSlotsCount; i++) {
       const startTime = new Date(date);
-      startTime.setHours(h, m, 0, 0);
+      startTime.setHours(startHour + (i * 2), 0, 0, 0); // Every 2 hours
       
       const endTime = new Date(startTime);
-      endTime.setHours(h + 1);
+      endTime.setHours(startHour + (i * 2) + 1);
 
       createSlot({
         startTime,
         endTime,
       });
-    });
+    }
   };
 
   return (
@@ -88,7 +84,18 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Manage your availability and view bookings.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 bg-card border rounded-xl px-3 h-10 shadow-sm">
+            <Label className="text-xs font-medium whitespace-nowrap">Default Slots:</Label>
+            <Input 
+              type="number" 
+              min="1" 
+              max="10" 
+              value={defaultSlotsCount} 
+              onChange={(e) => setDefaultSlotsCount(parseInt(e.target.value) || 1)}
+              className="w-16 h-7 border-none bg-transparent focus-visible:ring-0 text-center font-bold"
+            />
+          </div>
           <CreateSlotDialog onDateSelect={onDateSelect} />
         </div>
       </div>

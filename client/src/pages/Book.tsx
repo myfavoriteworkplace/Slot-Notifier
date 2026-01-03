@@ -134,7 +134,16 @@ export default function Book() {
 
         {/* Date Selection Strip */}
         {selectedClinic && (
-          <div className="mb-10 flex flex-col sm:flex-row items-start sm:items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
+          <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-500">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Date</h2>
+              {slotsForDate && (
+                <Badge variant="secondary" className="bg-primary/10 text-primary border-none">
+                  {slotsForDate.filter(s => !s.isBooked).length} Slots Available
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <div className="flex-1 w-full overflow-hidden">
               <ScrollArea className="w-full whitespace-nowrap pb-4">
                 <div className="flex space-x-4 px-1">
