@@ -49,6 +49,9 @@ export default function Book() {
   // Fetch slots for the selected date
   const { data: slots, isLoading: slotsLoading } = useSlots();
 
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [showSlots, setShowSlots] = useState(false);
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -69,9 +72,6 @@ export default function Book() {
   const slotsForDate = slots?.filter(slot => 
     isSameDay(new Date(slot.startTime), selectedDate)
   ).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [showSlots, setShowSlots] = useState(false);
 
   const predefinedSlots = [
     { id: "1", label: "9:00AM TO 12:00PM", start: 9, end: 12 },
