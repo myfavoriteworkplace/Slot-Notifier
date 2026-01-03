@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSlots } from "@/hooks/use-slots";
+import { useCreateBooking } from "@/hooks/use-bookings";
 import { SlotCard } from "@/components/SlotCard";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
@@ -36,6 +37,7 @@ export default function Book() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [selectedClinic, setSelectedClinic] = useState<string>("");
+  const createBooking = useCreateBooking();
 
   const clinics = [
     "Dr Gijo's Dental Solutions",
