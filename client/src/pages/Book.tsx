@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 
 export default function Book() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -144,67 +145,68 @@ export default function Book() {
               )}
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex-1 w-full overflow-hidden">
-              <ScrollArea className="w-full whitespace-nowrap pb-4">
-                <div className="flex space-x-4 px-1">
-                  {dates.map((date) => {
-                    const isSelected = isSameDay(date, selectedDate);
-                    return (
-                      <button
-                        key={date.toISOString()}
-                        onClick={() => {
+              <div className="flex-1 w-full overflow-hidden">
+                <ScrollArea className="w-full whitespace-nowrap pb-4">
+                  <div className="flex space-x-4 px-1">
+                    {dates.map((date) => {
+                      const isSelected = isSameDay(date, selectedDate);
+                      return (
+                        <button
+                          key={date.toISOString()}
+                          onClick={() => {
+                            setSelectedDate(date);
+                            setShowSlots(false);
+                            setIsDetailsOpen(true);
+                          }}
+                          className={`
+                            flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200
+                            ${isSelected 
+                              ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
+                              : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
+                          `}
+                        >
+                          <span className="text-xs font-medium uppercase mb-1 opacity-80">
+                            {format(date, "EEE")}
+                          </span>
+                          <span className="text-xl font-bold">
+                            {format(date, "d")}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              </div>
+
+              <div className="flex-shrink-0 pt-1 sm:pt-0 pb-4">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="h-20 w-16 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-muted/50 transition-all"
+                    >
+                      <CalendarDays className="h-6 w-6 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-xl shadow-2xl border-border/50" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        if (date) {
                           setSelectedDate(date);
                           setShowSlots(false);
                           setIsDetailsOpen(true);
-                        }}
-                        className={`
-                          flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200
-                          ${isSelected 
-                            ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
-                            : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
-                        `}
-                      >
-                        <span className="text-xs font-medium uppercase mb-1 opacity-80">
-                          {format(date, "EEE")}
-                        </span>
-                        <span className="text-xl font-bold">
-                          {format(date, "d")}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            </div>
-
-            <div className="flex-shrink-0 pt-1 sm:pt-0 pb-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    className="h-20 w-16 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-muted/50 transition-all"
-                  >
-                    <CalendarDays className="h-6 w-6 text-muted-foreground" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 rounded-xl shadow-2xl border-border/50" align="end">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => {
-                      if (date) {
-                        setSelectedDate(date);
-                        setShowSlots(false);
-                        setIsDetailsOpen(true);
-                      }
-                    }}
-                    disabled={(date) => date < startOfToday()}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+                        }
+                      }}
+                      disabled={(date) => date < startOfToday()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </div>
         )}
