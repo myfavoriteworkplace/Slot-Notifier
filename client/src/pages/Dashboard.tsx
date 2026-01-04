@@ -9,41 +9,40 @@ import { format, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Dashboard() {
+  // Move hooks to the top of the component to ensure they're always called in the same order
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [_, setLocation] = useLocation();
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterClinic, setFilterClinic] = useState<string>("all");
   const [defaultSlotsCount, setDefaultSlotsCount] = useState<number>(3);
 
-  const clinics = [
-    "Dr Gijo's Dental Solutions",
-    "Parappuram's Smile Dental Clinic Muvattupuzha",
-    "Smiletree Multispeciality Dental Clinic Muvattupuzha",
-    "Valiyakulangara dental clinic Muvattupuzha"
-  ];
-
   const { data: slots, isLoading: slotsLoading } = useSlots({ 
     ownerId: user?.id 
   });
   const { data: bookings, isLoading: bookingsLoading } = useBookings();
+  const { mutate: createSlot } = useCreateSlot();
 
-  if (authLoading) {
+  // useEffect to handle redirection instead of early return for hooks consistency
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      setLocation("/");
+    }
+  }, [authLoading, isAuthenticated, setLocation]);
+
+  if (authLoading || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
-  }
-
-  if (!isAuthenticated) {
-    setLocation("/");
-    return null;
   }
 
   const sortedSlots = slots?.sort((a, b) => 
@@ -56,7 +55,12 @@ export default function Dashboard() {
     return dateMatch && clinicMatch;
   });
 
-  const { mutate: createSlot } = useCreateSlot();
+  const clinics = [
+    "Dr Gijo's Dental Solutions",
+    "Parappuram's Smile Dental Clinic Muvattupuzha",
+    "Smiletree Multispeciality Dental Clinic Muvattupuzha",
+    "Valiyakulangara dental clinic Muvattupuzha"
+  ];
 
   const onDateSelect = (date: Date | undefined) => {
     if (!date || !user) return;
@@ -92,7 +96,7 @@ export default function Dashboard() {
               min="1" 
               max="10" 
               value={defaultSlotsCount} 
-              onChange={(e) => setDefaultSlotsCount(parseInt(e.target.value) || 1)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDefaultSlotsCount(parseInt(e.target.value) || 1)}
               className="w-16 h-7 border-none bg-transparent focus-visible:ring-0 text-center font-bold"
             />
           </div>
