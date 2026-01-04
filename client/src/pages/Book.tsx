@@ -258,19 +258,43 @@ export default function Book() {
               <div className="space-y-3 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
                 <Label className="text-sm font-semibold">Select Time Slot</Label>
                 <div className="grid gap-2">
-                  {predefinedSlots.map((slot) => (
-                    <button
-                      key={slot.id}
-                      onClick={() => setSelectedSlot(slot.id)}
-                      className={`p-3 rounded-lg border text-left transition-all ${
-                        selectedSlot === slot.id 
-                          ? "border-primary bg-primary/5 ring-1 ring-primary" 
-                          : "border-border hover:bg-muted"
-                      }`}
-                    >
-                      <div className="font-medium">{slot.label}</div>
-                    </button>
-                  ))}
+                  {predefinedSlots.map((slot) => {
+                    // Check if this slot is full for the selected clinic on the selected date
+                    const startTime = new Date(selectedDate);
+                    startTime.setHours(slot.start, 0, 0, 0);
+                    const endTime = new Date(selectedDate);
+                    endTime.setHours(slot.end, 0, 0, 0);
+
+                    // Count bookings for this specific slot, clinic, and day
+                    const slotBookings = slots?.filter(s => 
+                      s.isBooked && 
+                      s.clinicName === selectedClinic &&
+                      isSameDay(new Date(s.startTime), selectedDate) &&
+                      new Date(s.startTime).getHours() === slot.start
+                    ).length || 0;
+
+                    const isSlotFull = slotBookings >= 3;
+
+                    return (
+                      <button
+                        key={slot.id}
+                        disabled={isSlotFull}
+                        onClick={() => setSelectedSlot(slot.id)}
+                        className={`p-3 rounded-lg border text-left transition-all ${
+                          selectedSlot === slot.id 
+                            ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                            : isSlotFull
+                              ? "border-destructive/20 bg-destructive/10 text-destructive cursor-not-allowed"
+                              : "border-border hover:bg-muted"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div className="font-medium">{slot.label}</div>
+                          {isSlotFull && <span className="text-[10px] font-bold uppercase">Full</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
                 <DialogFooter className="mt-6">
                   <Button 
