@@ -159,7 +159,7 @@ export default function Book() {
                             setIsDetailsOpen(true);
                           }}
                           className={`
-                            flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200
+                            flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200 relative
                             ${isSelected 
                               ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
                               : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
@@ -171,6 +171,13 @@ export default function Book() {
                           <span className="text-xl font-bold">
                             {format(date, "d")}
                           </span>
+                          {slots && (
+                            <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                              isSelected ? 'bg-background text-primary border-primary' : 'bg-primary/10 text-primary border-primary/20'
+                            }`}>
+                              {slots.filter(s => isSameDay(new Date(s.startTime), date) && !s.isBooked).length}
+                            </div>
+                          )}
                         </button>
                       );
                     })}

@@ -22,7 +22,7 @@ export default function Dashboard() {
   const [_, setLocation] = useLocation();
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterClinic, setFilterClinic] = useState<string>("all");
-  const [defaultSlotsCount, setDefaultSlotsCount] = useState<number>(3);
+  const [defaultSlotsCount, setDefaultSlotsCount] = useState<number>(10);
 
   const { data: slots, isLoading: slotsLoading } = useSlots({ 
     ownerId: user?.id 
