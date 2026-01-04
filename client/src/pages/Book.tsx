@@ -138,11 +138,6 @@ export default function Book() {
           <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-500">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Date</h2>
-              {slotsForDate && (
-                <Badge variant="secondary" className="bg-primary/10 text-primary border-none">
-                  {slotsForDate.filter(s => !s.isBooked).length} Slots Available
-                </Badge>
-              )}
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="flex-1 w-full overflow-hidden">
@@ -150,6 +145,10 @@ export default function Book() {
                   <div className="flex space-x-4 px-1">
                     {dates.map((date) => {
                       const isSelected = isSameDay(date, selectedDate);
+                      const daySlots = slots?.filter(s => isSameDay(new Date(s.startTime), date));
+                      const bookedCount = daySlots?.filter(s => s.isBooked).length || 0;
+                      const isFull = bookedCount >= 10;
+
                       return (
                         <button
                           key={date.toISOString()}
@@ -162,7 +161,9 @@ export default function Book() {
                             flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200 relative
                             ${isSelected 
                               ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
-                              : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
+                              : isFull
+                                ? 'bg-destructive/10 border-destructive/20 text-destructive'
+                                : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
                           `}
                         >
                           <span className="text-xs font-medium uppercase mb-1 opacity-80">
@@ -171,13 +172,6 @@ export default function Book() {
                           <span className="text-xl font-bold">
                             {format(date, "d")}
                           </span>
-                          {slots && (
-                            <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                              isSelected ? 'bg-background text-primary border-primary' : 'bg-primary/10 text-primary border-primary/20'
-                            }`}>
-                              {slots.filter(s => isSameDay(new Date(s.startTime), date) && !s.isBooked).length}
-                            </div>
-                          )}
                         </button>
                       );
                     })}
