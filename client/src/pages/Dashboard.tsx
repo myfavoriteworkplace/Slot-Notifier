@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useBookings } from "@/hooks/use-bookings";
 import { useLocation } from "wouter";
 import { Loader2, Calendar as CalendarIcon, ListFilter, User as UserIcon, Phone, Clock, Search } from "lucide-react";
-import { format, isSameDay } from "date-fns";
+import { format, isSameDay, startOfToday } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,10 +17,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { useState, useEffect } from "react";
 
 export default function Dashboard() {
-  // Move hooks to the top of the component to ensure they're always called in the same order
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [_, setLocation] = useLocation();
-  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [filterDate, setFilterDate] = useState<Date | undefined>(startOfToday());
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
   const [filterClinic, setFilterClinic] = useState<string>("all");
   const [defaultSlotsCount, setDefaultSlotsCount] = useState<number>(10);
 
@@ -30,7 +30,6 @@ export default function Dashboard() {
   const { data: bookings, isLoading: bookingsLoading } = useBookings();
   const { mutate: createSlot } = useCreateSlot();
 
-  // useEffect to handle redirection instead of early return for hooks consistency
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       setLocation("/");
@@ -50,7 +49,15 @@ export default function Dashboard() {
   );
 
   const filteredBookings = bookings?.filter(booking => {
-    const dateMatch = !filterDate || isSameDay(new Date(booking.slot.startTime), filterDate);
+    const bookingDate = new Date(booking.slot.startTime);
+    let dateMatch = true;
+
+    if (filterDate && filterEndDate) {
+      dateMatch = bookingDate >= filterDate && bookingDate <= filterEndDate;
+    } else if (filterDate) {
+      dateMatch = isSameDay(bookingDate, filterDate);
+    }
+
     const clinicMatch = filterClinic === "all" || booking.slot.clinicName === filterClinic;
     return dateMatch && clinicMatch;
   });
@@ -65,11 +72,10 @@ export default function Dashboard() {
   const onDateSelect = (date: Date | undefined) => {
     if (!date || !user) return;
     
-    // Automatically create slots for this date based on configuration
     const startHour = 9;
     for (let i = 0; i < defaultSlotsCount; i++) {
       const startTime = new Date(date);
-      startTime.setHours(startHour + (i * 2), 0, 0, 0); // Every 2 hours
+      startTime.setHours(startHour + (i * 2), 0, 0, 0);
       
       const endTime = new Date(startTime);
       endTime.setHours(startHour + (i * 2) + 1);
@@ -85,8 +91,8 @@ export default function Dashboard() {
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Manage your availability and view bookings.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-left">Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-left">Manage your availability and view bookings.</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-card border rounded-xl px-3 h-10 shadow-sm">
@@ -115,24 +121,23 @@ export default function Dashboard() {
           <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
             <CalendarIcon className="h-6 w-6 text-primary" />
           </div>
-          <h3 className="text-lg font-semibold">No slots created</h3>
-          <p className="text-muted-foreground max-w-sm mt-2 mb-6">
+          <h3 className="text-lg font-semibold text-left">No slots created</h3>
+          <p className="text-muted-foreground max-w-sm mt-2 mb-6 text-left">
             Get started by creating your first time slot. Customers will be able to book it immediately.
           </p>
           <CreateSlotDialog onDateSelect={onDateSelect} />
         </div>
       ) : (
         <div className="space-y-12">
-          {/* Stats Overview */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card className="shadow-sm border-border/50">
-              <CardContent className="p-6">
+              <CardContent className="p-6 text-left">
                 <p className="text-sm font-medium text-muted-foreground">Total Slots</p>
                 <p className="text-2xl font-bold mt-2">{slots?.length}</p>
               </CardContent>
             </Card>
             <Card className="shadow-sm border-border/50">
-              <CardContent className="p-6">
+              <CardContent className="p-6 text-left">
                 <p className="text-sm font-medium text-muted-foreground">Booked Slots</p>
                 <p className="text-2xl font-bold mt-2 text-accent">
                   {slots?.filter(s => s.isBooked).length}
@@ -140,7 +145,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
             <Card className="shadow-sm border-border/50">
-              <CardContent className="p-6">
+              <CardContent className="p-6 text-left">
                 <p className="text-sm font-medium text-muted-foreground">Available Slots</p>
                 <p className="text-2xl font-bold mt-2 text-primary">
                   {slots?.filter(s => !s.isBooked).length}
@@ -157,7 +162,7 @@ export default function Dashboard() {
               
               <div className="flex flex-wrap gap-4 items-end bg-muted/30 p-4 rounded-xl border border-border/50">
                 <div className="space-y-1.5 flex-1 min-w-[200px]">
-                  <p className="text-xs font-medium text-muted-foreground px-1">Filter by Clinic</p>
+                  <p className="text-xs font-medium text-muted-foreground px-1 text-left">Clinic</p>
                   <Select value={filterClinic} onValueChange={setFilterClinic}>
                     <SelectTrigger className="rounded-xl h-10 border-border/50 bg-background">
                       <SelectValue placeholder="All Clinics" />
@@ -172,7 +177,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="space-y-1.5 flex-1 min-w-[200px]">
-                  <p className="text-xs font-medium text-muted-foreground px-1">Filter by Date</p>
+                  <p className="text-xs font-medium text-muted-foreground px-1 text-left">Start Date</p>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className={`w-full justify-start text-left font-normal rounded-xl h-10 bg-background border-border/50 ${!filterDate && "text-muted-foreground"}`}>
@@ -191,16 +196,37 @@ export default function Dashboard() {
                   </Popover>
                 </div>
 
+                <div className="space-y-1.5 flex-1 min-w-[200px]">
+                  <p className="text-xs font-medium text-muted-foreground px-1 text-left">End Date (Optional)</p>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={`w-full justify-start text-left font-normal rounded-xl h-10 bg-background border-border/50 ${!filterEndDate && "text-muted-foreground"}`}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {filterEndDate ? format(filterEndDate, "PPP") : "Select end date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={filterEndDate}
+                        onSelect={setFilterEndDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   onClick={() => {
-                    setFilterDate(undefined);
+                    setFilterDate(startOfToday());
+                    setFilterEndDate(undefined);
                     setFilterClinic("all");
                   }}
                   className="rounded-xl h-10 px-4 text-muted-foreground hover:text-foreground"
                 >
-                  Clear Filters
+                  Reset
                 </Button>
               </div>
             </div>
@@ -208,21 +234,21 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredBookings?.length === 0 ? (
                 <div className="col-span-full py-12 text-center bg-muted/20 rounded-2xl border border-dashed">
-                  <p className="text-muted-foreground">No bookings match your filters.</p>
+                  <p className="text-muted-foreground">No bookings found for the selected criteria.</p>
                 </div>
               ) : (
                 filteredBookings?.map((booking) => (
                   <Card key={booking.id} className="overflow-hidden border-border/50 hover:shadow-md transition-shadow">
-                    <CardHeader className="bg-primary/5 pb-4">
+                    <CardHeader className="bg-primary/5 pb-4 text-left">
                       <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg">{booking.customerName}</CardTitle>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                        <div className="text-left">
+                          <CardTitle className="text-lg text-left">{booking.customerName}</CardTitle>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 text-left">
                             <Phone className="h-3 w-3" />
                             {booking.customerPhone}
                           </div>
                           {booking.slot.clinicName && (
-                            <div className="text-xs font-semibold text-primary mt-1">
+                            <div className="text-xs font-semibold text-primary mt-1 text-left">
                               {booking.slot.clinicName}
                             </div>
                           )}
@@ -232,16 +258,16 @@ export default function Dashboard() {
                         </Badge>
                       </div>
                     </CardHeader>
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex items-center gap-3 text-sm">
+                    <CardContent className="p-4 space-y-3 text-left">
+                      <div className="flex items-center gap-3 text-sm text-left">
                         <CalendarIcon className="h-4 w-4 text-primary" />
-                        <span className="font-medium">
+                        <span className="font-medium text-left">
                           {format(new Date(booking.slot.startTime), "EEEE, MMMM do")}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground text-left">
                         <Clock className="h-4 w-4" />
-                        <span>
+                        <span className="text-left">
                           {format(new Date(booking.slot.startTime), "h:mm a")} - {format(new Date(booking.slot.endTime), "h:mm a")}
                         </span>
                       </div>
