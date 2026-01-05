@@ -47,7 +47,6 @@ export default function Book() {
     "Valiyakulangara dental clinic Muvattupuzha"
   ];
   
-  // Fetch slots for the selected date
   const { data: slots, isLoading: slotsLoading } = useSlots();
 
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -66,10 +65,8 @@ export default function Book() {
     return null;
   }
 
-  // Generate next 14 days for date picker
   const dates = Array.from({ length: 14 }, (_, i) => addDays(startOfToday(), i));
 
-  // Filter slots for selected date
   const slotsForDate = slots?.filter(slot => 
     isSameDay(new Date(slot.startTime), selectedDate)
   ).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
@@ -91,7 +88,7 @@ export default function Book() {
     endTime.setHours(slotInfo.end, 0, 0, 0);
 
     createBooking.mutate({
-      slotId: -1, // Placeholder as we'll handle this in the backend/storage
+      slotId: -1,
       customerName,
       customerPhone,
       clinicName: selectedClinic,
@@ -112,11 +109,10 @@ export default function Book() {
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <div className="max-w-5xl">
         <div className="text-left mb-10">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Book a Session</h1>
-          <p className="text-muted-foreground">Select a date to see available times.</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2 text-left">Book a Session</h1>
+          <p className="text-muted-foreground text-left">Select a date to see available times.</p>
         </div>
 
-        {/* Clinic Selection */}
         <div className="max-w-md mb-10 text-left">
           <Label className="text-sm font-medium mb-2 block text-left">Select Clinic</Label>
           <Select value={selectedClinic} onValueChange={setSelectedClinic}>
@@ -133,11 +129,10 @@ export default function Book() {
           </Select>
         </div>
 
-        {/* Date Selection Strip */}
         {selectedClinic && (
           <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-500">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Select Date</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground text-left">Select Date</h2>
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="flex-1 w-full overflow-hidden">
@@ -152,6 +147,7 @@ export default function Book() {
                       return (
                         <button
                           key={date.toISOString()}
+                          disabled={isFull}
                           onClick={() => {
                             setSelectedDate(date);
                             setShowSlots(false);
@@ -162,7 +158,7 @@ export default function Book() {
                             ${isSelected 
                               ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
                               : isFull
-                                ? 'bg-destructive/10 border-destructive/20 text-destructive'
+                                ? 'bg-destructive/10 border-destructive/20 text-destructive cursor-not-allowed opacity-60'
                                 : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
                           `}
                         >
@@ -172,6 +168,7 @@ export default function Book() {
                           <span className="text-xl font-bold">
                             {format(date, "d")}
                           </span>
+                          {isFull && <span className="absolute top-1 right-1 text-[8px] font-bold uppercase text-destructive">Full</span>}
                         </button>
                       );
                     })}
@@ -219,8 +216,8 @@ export default function Book() {
       }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Book your session</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-left">Book your session</DialogTitle>
+            <DialogDescription className="text-left">
               Enter your details and select a time for {format(selectedDate, "MMMM do")}.
             </DialogDescription>
           </DialogHeader>
@@ -256,16 +253,9 @@ export default function Book() {
               </Button>
             ) : (
               <div className="space-y-3 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                <Label className="text-sm font-semibold">Select Time Slot</Label>
+                <Label className="text-sm font-semibold text-left block">Select Time Slot</Label>
                 <div className="grid gap-2">
                   {predefinedSlots.map((slot) => {
-                    // Check if this slot is full for the selected clinic on the selected date
-                    const startTime = new Date(selectedDate);
-                    startTime.setHours(slot.start, 0, 0, 0);
-                    const endTime = new Date(selectedDate);
-                    endTime.setHours(slot.end, 0, 0, 0);
-
-                    // Count bookings for this specific slot, clinic, and day
                     const slotBookings = slots?.filter(s => 
                       s.isBooked && 
                       s.clinicName === selectedClinic &&
@@ -284,13 +274,13 @@ export default function Book() {
                           selectedSlot === slot.id 
                             ? "border-primary bg-primary/5 ring-1 ring-primary" 
                             : isSlotFull
-                              ? "border-destructive/20 bg-destructive/10 text-destructive cursor-not-allowed"
+                              ? "border-destructive/20 bg-destructive/10 text-destructive cursor-not-allowed opacity-60"
                               : "border-border hover:bg-muted"
                         }`}
                       >
                         <div className="flex justify-between items-center">
-                          <div className="font-medium">{slot.label}</div>
-                          {isSlotFull && <span className="text-[10px] font-bold uppercase">Full</span>}
+                          <div className="font-medium text-left">{slot.label}</div>
+                          {isSlotFull && <span className="text-[10px] font-bold uppercase text-destructive">Full</span>}
                         </div>
                       </button>
                     );
