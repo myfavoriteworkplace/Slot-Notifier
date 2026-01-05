@@ -142,7 +142,7 @@ export default function Book() {
                       const isSelected = isSameDay(date, selectedDate);
                       const daySlots = slots?.filter(s => isSameDay(new Date(s.startTime), date));
                       const bookedCount = daySlots?.filter(s => s.isBooked).length || 0;
-                      const isFull = bookedCount >= 10;
+                      const isFull = bookedCount >= 9;
 
                       return (
                         <button
