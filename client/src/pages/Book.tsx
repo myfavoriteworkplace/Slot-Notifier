@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSlots } from "@/hooks/use-slots";
 import { useCreateBooking } from "@/hooks/use-bookings";
 import { SlotCard } from "@/components/SlotCard";
@@ -30,6 +30,21 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 
+interface SlotTiming {
+  id: string;
+  label: string;
+  startHour: number;
+  startMinute: number;
+  endHour: number;
+  endMinute: number;
+}
+
+const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
+  { id: "1", label: "Morning", startHour: 9, startMinute: 0, endHour: 12, endMinute: 0 },
+  { id: "2", label: "Afternoon", startHour: 14, startMinute: 0, endHour: 16, endMinute: 0 },
+  { id: "3", label: "Evening", startHour: 16, startMinute: 0, endHour: 18, endMinute: 0 },
+];
+
 export default function Book() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [_, setLocation] = useLocation();
@@ -39,6 +54,15 @@ export default function Book() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [selectedClinic, setSelectedClinic] = useState<string>("");
   const createBooking = useCreateBooking();
+
+  const [slotTimings, setSlotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('slotTimings');
+    if (saved) {
+      setSlotTimings(JSON.parse(saved));
+    }
+  }, []);
 
   const clinics = [
     "Dr Gijo's Dental Solutions",
@@ -71,21 +95,21 @@ export default function Book() {
     isSameDay(new Date(slot.startTime), selectedDate)
   ).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
-  const predefinedSlots = [
-    { id: "1", label: "9:00AM TO 12:00PM", start: 9, end: 12 },
-    { id: "2", label: "2:00PM - 4:00PM", start: 14, end: 16 },
-    { id: "3", label: "4:00PM TO 6:00PM", start: 16, end: 18 },
-  ];
+  const formatTime = (hour: number, minute: number) => {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    return `${displayHour}:${minute.toString().padStart(2, '0')}${period}`;
+  };
 
   const handleBook = () => {
     if (!selectedSlot || !customerName || !customerPhone || !selectedClinic) return;
-    const slotInfo = predefinedSlots.find(s => s.id === selectedSlot);
+    const slotInfo = slotTimings.find(s => s.id === selectedSlot);
     if (!slotInfo) return;
 
     const startTime = new Date(selectedDate);
-    startTime.setHours(slotInfo.start, 0, 0, 0);
+    startTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
     const endTime = new Date(selectedDate);
-    endTime.setHours(slotInfo.end, 0, 0, 0);
+    endTime.setHours(slotInfo.endHour, slotInfo.endMinute, 0, 0);
 
     createBooking.mutate({
       slotId: -1,
@@ -140,7 +164,10 @@ export default function Book() {
                   <div className="flex space-x-4 px-1">
                     {dates.map((date) => {
                       const isSelected = isSameDay(date, selectedDate);
-                      const daySlots = slots?.filter(s => isSameDay(new Date(s.startTime), date));
+                      const daySlots = slots?.filter(s => 
+                        isSameDay(new Date(s.startTime), date) && 
+                        s.clinicName === selectedClinic
+                      );
                       const bookedCount = daySlots?.filter(s => s.isBooked).length || 0;
                       const isFull = bookedCount >= 9;
 
@@ -255,15 +282,16 @@ export default function Book() {
               <div className="space-y-3 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
                 <Label className="text-sm font-semibold text-left block">Select Time Slot</Label>
                 <div className="grid gap-2">
-                  {predefinedSlots.map((slot) => {
+                  {slotTimings.map((slot) => {
                     const slotBookings = slots?.filter(s => 
                       s.isBooked && 
                       s.clinicName === selectedClinic &&
                       isSameDay(new Date(s.startTime), selectedDate) &&
-                      new Date(s.startTime).getHours() === slot.start
+                      new Date(s.startTime).getHours() === slot.startHour
                     ).length || 0;
 
                     const isSlotFull = slotBookings >= 3;
+                    const slotLabel = `${formatTime(slot.startHour, slot.startMinute)} TO ${formatTime(slot.endHour, slot.endMinute)}`;
 
                     return (
                       <button
@@ -279,7 +307,7 @@ export default function Book() {
                         }`}
                       >
                         <div className="flex justify-between items-center">
-                          <div className="font-medium text-left">{slot.label}</div>
+                          <div className="font-medium text-left">{slotLabel}</div>
                           {isSlotFull && <span className="text-[10px] font-bold uppercase text-destructive">Full</span>}
                         </div>
                       </button>

@@ -4,7 +4,7 @@ import { SlotCard } from "@/components/SlotCard";
 import { useAuth } from "@/hooks/use-auth";
 import { useBookings } from "@/hooks/use-bookings";
 import { useLocation } from "wouter";
-import { Loader2, Calendar as CalendarIcon, ListFilter, User as UserIcon, Phone, Clock, Search } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, ListFilter, User as UserIcon, Phone, Clock, Search, Settings, Save } from "lucide-react";
 import { format, isSameDay, startOfToday } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+
+interface SlotTiming {
+  id: string;
+  label: string;
+  startHour: number;
+  startMinute: number;
+  endHour: number;
+  endMinute: number;
+}
+
+const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
+  { id: "1", label: "Morning", startHour: 9, startMinute: 0, endHour: 12, endMinute: 0 },
+  { id: "2", label: "Afternoon", startHour: 14, startMinute: 0, endHour: 16, endMinute: 0 },
+  { id: "3", label: "Evening", startHour: 16, startMinute: 0, endHour: 18, endMinute: 0 },
+];
 
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -23,6 +48,13 @@ export default function Dashboard() {
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
   const [filterClinic, setFilterClinic] = useState<string>("all");
   const [defaultSlotsCount, setDefaultSlotsCount] = useState<number>(9);
+  const [slotTimings, setSlotTimings] = useState<SlotTiming[]>(() => {
+    const saved = localStorage.getItem('slotTimings');
+    return saved ? JSON.parse(saved) : DEFAULT_SLOT_TIMINGS;
+  });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [editingTimings, setEditingTimings] = useState<SlotTiming[]>(slotTimings);
+  const { toast } = useToast();
 
   const { data: slots, isLoading: slotsLoading } = useSlots({ 
     ownerId: user?.id 
@@ -72,19 +104,43 @@ export default function Dashboard() {
   const onDateSelect = (date: Date | undefined) => {
     if (!date || !user) return;
     
-    const startHour = 9;
-    for (let i = 0; i < defaultSlotsCount; i++) {
-      const startTime = new Date(date);
-      startTime.setHours(startHour + (i * 2), 0, 0, 0);
-      
-      const endTime = new Date(startTime);
-      endTime.setHours(startHour + (i * 2) + 1);
+    // Create slots based on configured timings (3 bookings per slot = 9 total)
+    for (const timing of slotTimings) {
+      for (let i = 0; i < 3; i++) {
+        const startTime = new Date(date);
+        startTime.setHours(timing.startHour, timing.startMinute, 0, 0);
+        
+        const endTime = new Date(date);
+        endTime.setHours(timing.endHour, timing.endMinute, 0, 0);
 
-      createSlot({
-        startTime,
-        endTime,
-      });
+        createSlot({
+          startTime,
+          endTime,
+        });
+      }
     }
+  };
+
+  const formatTime = (hour: number, minute: number) => {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+  };
+
+  const handleSaveTimings = () => {
+    setSlotTimings(editingTimings);
+    localStorage.setItem('slotTimings', JSON.stringify(editingTimings));
+    setIsSettingsOpen(false);
+    toast({
+      title: "Settings Saved",
+      description: "Time slot settings have been updated successfully.",
+    });
+  };
+
+  const updateTiming = (index: number, field: keyof SlotTiming, value: number | string) => {
+    const updated = [...editingTimings];
+    updated[index] = { ...updated[index], [field]: value };
+    setEditingTimings(updated);
   };
 
   return (
@@ -95,12 +151,128 @@ export default function Dashboard() {
           <p className="text-muted-foreground mt-1 text-left">Manage your availability and view bookings.</p>
         </div>
         <div className="flex items-center gap-4">
+          <Dialog open={isSettingsOpen} onOpenChange={(open) => {
+            setIsSettingsOpen(open);
+            if (open) setEditingTimings(slotTimings);
+          }}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" className="rounded-xl" data-testid="button-slot-settings">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle className="text-left">Configure Time Slots</DialogTitle>
+                <DialogDescription className="text-left">
+                  Edit the available booking time slots for your clinic.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6 py-4">
+                {editingTimings.map((slot, index) => (
+                  <div key={slot.id} className="space-y-3 p-4 bg-muted/30 rounded-xl border border-border/50">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-semibold text-left">Slot {index + 1}</Label>
+                      <Input
+                        value={slot.label}
+                        onChange={(e) => updateTiming(index, 'label', e.target.value)}
+                        className="h-8 text-sm flex-1"
+                        placeholder="Slot name"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground text-left">Start Time</Label>
+                        <div className="flex gap-2">
+                          <Select 
+                            value={slot.startHour.toString()} 
+                            onValueChange={(v) => updateTiming(index, 'startHour', parseInt(v))}
+                          >
+                            <SelectTrigger className="h-9 rounded-lg">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 24 }, (_, i) => (
+                                <SelectItem key={i} value={i.toString()}>
+                                  {i.toString().padStart(2, '0')}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <span className="flex items-center text-muted-foreground">:</span>
+                          <Select 
+                            value={slot.startMinute.toString()} 
+                            onValueChange={(v) => updateTiming(index, 'startMinute', parseInt(v))}
+                          >
+                            <SelectTrigger className="h-9 rounded-lg">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[0, 15, 30, 45].map((m) => (
+                                <SelectItem key={m} value={m.toString()}>
+                                  {m.toString().padStart(2, '0')}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground text-left">End Time</Label>
+                        <div className="flex gap-2">
+                          <Select 
+                            value={slot.endHour.toString()} 
+                            onValueChange={(v) => updateTiming(index, 'endHour', parseInt(v))}
+                          >
+                            <SelectTrigger className="h-9 rounded-lg">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 24 }, (_, i) => (
+                                <SelectItem key={i} value={i.toString()}>
+                                  {i.toString().padStart(2, '0')}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <span className="flex items-center text-muted-foreground">:</span>
+                          <Select 
+                            value={slot.endMinute.toString()} 
+                            onValueChange={(v) => updateTiming(index, 'endMinute', parseInt(v))}
+                          >
+                            <SelectTrigger className="h-9 rounded-lg">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[0, 15, 30, 45].map((m) => (
+                                <SelectItem key={m} value={m.toString()}>
+                                  {m.toString().padStart(2, '0')}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground text-left">
+                      {formatTime(slot.startHour, slot.startMinute)} - {formatTime(slot.endHour, slot.endMinute)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button onClick={handleSaveTimings} className="w-full gap-2" data-testid="button-save-slot-settings">
+                  <Save className="h-4 w-4" />
+                  Save Settings
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <div className="flex items-center gap-2 bg-card border rounded-xl px-3 h-10 shadow-sm">
             <Label className="text-xs font-medium whitespace-nowrap">Default Slots:</Label>
             <Input 
               type="number" 
               min="1" 
-              max="10" 
+              max="9" 
               value={defaultSlotsCount} 
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDefaultSlotsCount(parseInt(e.target.value) || 1)}
               className="w-16 h-7 border-none bg-transparent focus-visible:ring-0 text-center font-bold"
