@@ -16,7 +16,7 @@ type BookingWithSlot = Booking & { slot: Slot };
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut } = useClinicAuth();
   const [_, setLocation] = useLocation();
-  const [filterDate, setFilterDate] = useState<Date | undefined>(startOfToday());
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
 
   const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
@@ -168,12 +168,12 @@ export default function ClinicDashboard() {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => {
-                  setFilterDate(startOfToday());
+                  setFilterDate(undefined);
                   setFilterEndDate(undefined);
                 }}
                 className="rounded-xl h-10 px-4 text-muted-foreground hover:text-foreground"
               >
-                Reset
+                Clear Filters
               </Button>
             </div>
           </div>
