@@ -2,7 +2,7 @@ import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut } from "lucide-react";
-import { format, isSameDay, startOfToday } from "date-fns";
+import { format, startOfDay, endOfDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,7 @@ type BookingWithSlot = Booking & { slot: Slot };
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut } = useClinicAuth();
   const [_, setLocation] = useLocation();
-  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [filterDate, setFilterDate] = useState<Date | undefined>(new Date());
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
 
   const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
@@ -51,16 +51,25 @@ export default function ClinicDashboard() {
 
   const filteredBookings = bookings?.filter(booking => {
     const bookingDate = new Date(booking.slot.startTime);
-    let dateMatch = true;
-
+    
     if (filterDate && filterEndDate) {
-      dateMatch = bookingDate >= filterDate && bookingDate <= filterEndDate;
+      return bookingDate >= startOfDay(filterDate) && bookingDate <= endOfDay(filterEndDate);
     } else if (filterDate) {
-      dateMatch = isSameDay(bookingDate, filterDate);
+      // Compare using local date strings to avoid timezone issues
+      const bookingDateStr = format(bookingDate, 'yyyy-MM-dd');
+      const filterDateStr = format(filterDate, 'yyyy-MM-dd');
+      return bookingDateStr === filterDateStr;
     }
-
-    return dateMatch;
+    
+    return true;
   });
+  
+  // Count today's bookings using the same timezone-safe comparison
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todaysBookingsCount = bookings?.filter(b => {
+    const bookingDateStr = format(new Date(b.slot.startTime), 'yyyy-MM-dd');
+    return bookingDateStr === todayStr;
+  }).length || 0;
 
   const handleLogout = () => {
     logout();
@@ -103,7 +112,7 @@ export default function ClinicDashboard() {
             <CardContent className="p-6 text-left">
               <p className="text-sm font-medium text-muted-foreground">Today's Bookings</p>
               <p className="text-2xl font-bold mt-2 text-primary">
-                {bookings?.filter(b => isSameDay(new Date(b.slot.startTime), startOfToday())).length || 0}
+                {todaysBookingsCount}
               </p>
             </CardContent>
           </Card>
@@ -168,12 +177,23 @@ export default function ClinicDashboard() {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => {
+                  setFilterDate(new Date());
+                  setFilterEndDate(undefined);
+                }}
+                className="rounded-xl h-10 px-4 text-muted-foreground hover:text-foreground"
+              >
+                Today
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
                   setFilterDate(undefined);
                   setFilterEndDate(undefined);
                 }}
                 className="rounded-xl h-10 px-4 text-muted-foreground hover:text-foreground"
               >
-                Clear Filters
+                All
               </Button>
             </div>
           </div>
