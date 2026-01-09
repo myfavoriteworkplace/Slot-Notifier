@@ -22,7 +22,7 @@ import { formatDistanceToNow } from "date-fns";
 
 export function Header() {
   const { user, logout, isAuthenticated } = useAuth();
-  const { clinic, isAuthenticated: isClinicAuthenticated } = useClinicAuth();
+  const { clinic, isAuthenticated: isClinicAuthenticated, logout: clinicLogout } = useClinicAuth();
   const [location] = useLocation();
   const { data: notifications = [] } = useNotifications();
   const { mutate: markRead } = useMarkNotificationRead();
@@ -128,6 +128,24 @@ export function Header() {
                   </Button>
                 </div>
               </>
+            )}
+            
+            {isClinicAuthenticated && (
+              <div className="flex items-center gap-3 pl-2 border-l ml-2">
+                <div className="text-right">
+                  <p className="text-sm font-medium leading-none">{clinic?.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Clinic Admin</p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => clinicLogout()}
+                  className="text-muted-foreground hover:text-destructive transition-colors"
+                  data-testid="button-clinic-logout"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
             )}
             
             {!isAuthenticated && !isClinicAuthenticated && (
