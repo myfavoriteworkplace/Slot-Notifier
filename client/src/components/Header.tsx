@@ -33,8 +33,11 @@ export function Header() {
   const tabs = [
     ...(isSuperUser ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
     ...(isClinicAuthenticated ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
-    { href: "/book", label: "Book a Slot", icon: CalendarPlus },
-    { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
+    // Only show Book a Slot and Clinic Portal when NOT logged in as clinic admin
+    ...(!isClinicAuthenticated ? [
+      { href: "/book", label: "Book a Slot", icon: CalendarPlus },
+      { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
+    ] : []),
   ];
 
   return (
