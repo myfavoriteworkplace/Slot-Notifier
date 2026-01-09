@@ -238,6 +238,11 @@ export default function ClinicDashboard() {
                           {format(new Date(booking.slot.startTime), "h:mm a")} - {format(new Date(booking.slot.endTime), "h:mm a")}
                         </span>
                       </div>
+                      {booking.createdAt && (
+                        <div className="pt-2 mt-2 border-t border-border/50 text-xs text-muted-foreground text-left">
+                          Booked on {format(new Date(booking.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))
