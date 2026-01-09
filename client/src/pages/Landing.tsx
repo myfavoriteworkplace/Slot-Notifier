@@ -1,17 +1,32 @@
 import { useAuth } from "@/hooks/use-auth";
+import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Calendar, Check, Clock, Shield, Users } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { useEffect } from "react";
 
 export default function Landing() {
   const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated: isClinicAuthenticated } = useClinicAuth();
   const [_, setLocation] = useLocation();
 
-    if (isAuthenticated) {
-      // Allow access to both, redirect to dashboard as primary entry
-      setLocation("/dashboard");
-      return null;
+  useEffect(() => {
+    // Redirect logged-in users to their appropriate dashboard
+    if (isClinicAuthenticated) {
+      setLocation("/clinic-dashboard");
+    } else if (isAuthenticated) {
+      if (user?.role === 'superuser') {
+        setLocation("/admin");
+      } else {
+        setLocation("/book");
+      }
     }
+  }, [isAuthenticated, isClinicAuthenticated, user, setLocation]);
+
+  // Show nothing while redirecting
+  if (isAuthenticated || isClinicAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
