@@ -32,9 +32,11 @@ export default function ClinicDashboard() {
   const { toast } = useToast();
   const [filterDate, setFilterDate] = useState<Date | undefined>(new Date());
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
+  const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
 
   const cancelBookingMutation = useMutation({
     mutationFn: async (bookingId: number) => {
+      setCancellingBookingId(bookingId);
       const res = await fetch(`/api/clinic/bookings/${bookingId}`, {
         method: 'DELETE',
         credentials: 'include',
@@ -45,9 +47,11 @@ export default function ClinicDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
       toast({ title: "Booking cancelled successfully" });
+      setCancellingBookingId(null);
     },
     onError: () => {
       toast({ title: "Failed to cancel booking", variant: "destructive" });
+      setCancellingBookingId(null);
     },
   });
 
@@ -282,10 +286,10 @@ export default function ClinicDashboard() {
                               variant="outline"
                               size="sm"
                               className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
-                              disabled={cancelBookingMutation.isPending}
+                              disabled={cancellingBookingId === booking.id}
                               data-testid={`button-cancel-booking-${booking.id}`}
                             >
-                              {cancelBookingMutation.isPending ? (
+                              {cancellingBookingId === booking.id ? (
                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                               ) : (
                                 <X className="h-4 w-4 mr-2" />
