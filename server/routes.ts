@@ -153,6 +153,70 @@ export async function registerRoutes(
     res.json(updated);
   });
 
+  // Clinics API
+  app.get(api.clinics.list.path, async (req, res) => {
+    const includeArchived = req.query.includeArchived === 'true';
+    const clinics = await storage.getClinics(includeArchived);
+    res.json(clinics);
+  });
+
+  app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    const dbUser = await storage.getUser(user.claims.sub);
+    
+    if (!dbUser || dbUser.role !== 'superuser') {
+      return res.status(403).json({ message: "Only super users can add clinics" });
+    }
+
+    try {
+      const input = api.clinics.create.input.parse(req.body);
+      const clinic = await storage.createClinic(input);
+      res.status(201).json(clinic);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      throw err;
+    }
+  });
+
+  app.patch(api.clinics.archive.path, isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    const dbUser = await storage.getUser(user.claims.sub);
+    
+    if (!dbUser || dbUser.role !== 'superuser') {
+      return res.status(403).json({ message: "Only super users can archive clinics" });
+    }
+
+    const clinicId = parseInt(req.params.id);
+    try {
+      const clinic = await storage.archiveClinic(clinicId);
+      res.json(clinic);
+    } catch {
+      return res.status(404).json({ message: "Clinic not found" });
+    }
+  });
+
+  app.patch(api.clinics.unarchive.path, isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    const dbUser = await storage.getUser(user.claims.sub);
+    
+    if (!dbUser || dbUser.role !== 'superuser') {
+      return res.status(403).json({ message: "Only super users can unarchive clinics" });
+    }
+
+    const clinicId = parseInt(req.params.id);
+    try {
+      const clinic = await storage.unarchiveClinic(clinicId);
+      res.json(clinic);
+    } catch {
+      return res.status(404).json({ message: "Clinic not found" });
+    }
+  });
+
   // Seed data endpoint (dev only)
   app.post("/api/seed", async (req, res) => {
     // Basic seed data

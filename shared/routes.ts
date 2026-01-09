@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertSlotSchema, insertBookingSchema, slots, bookings, notifications } from './schema';
+import { insertSlotSchema, insertBookingSchema, insertClinicSchema, slots, bookings, notifications, clinics } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -90,6 +90,46 @@ export const api = {
         200: z.custom<typeof notifications.$inferSelect>(),
         404: errorSchemas.notFound,
         401: errorSchemas.unauthorized,
+      },
+    }
+  },
+  clinics: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/clinics',
+      responses: {
+        200: z.array(z.custom<typeof clinics.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/clinics',
+      input: insertClinicSchema,
+      responses: {
+        201: z.custom<typeof clinics.$inferSelect>(),
+        400: errorSchemas.validation,
+        401: errorSchemas.unauthorized,
+        403: z.object({ message: z.string() }),
+      },
+    },
+    archive: {
+      method: 'PATCH' as const,
+      path: '/api/clinics/:id/archive',
+      responses: {
+        200: z.custom<typeof clinics.$inferSelect>(),
+        404: errorSchemas.notFound,
+        401: errorSchemas.unauthorized,
+        403: z.object({ message: z.string() }),
+      },
+    },
+    unarchive: {
+      method: 'PATCH' as const,
+      path: '/api/clinics/:id/unarchive',
+      responses: {
+        200: z.custom<typeof clinics.$inferSelect>(),
+        404: errorSchemas.notFound,
+        401: errorSchemas.unauthorized,
+        403: z.object({ message: z.string() }),
       },
     }
   }
