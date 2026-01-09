@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X, Download } from "lucide-react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,6 +114,36 @@ export default function ClinicDashboard() {
     setLocation("/clinic-login");
   };
 
+  const downloadExcel = () => {
+    if (!filteredBookings || filteredBookings.length === 0) {
+      toast({ title: "No bookings to download", variant: "destructive" });
+      return;
+    }
+
+    const headers = ["Name", "Phone Number", "Booking Date", "Time Slot"];
+    const rows = filteredBookings.map(booking => [
+      booking.customerName,
+      booking.customerPhone,
+      format(new Date(booking.slot.startTime), "yyyy-MM-dd"),
+      `${format(new Date(booking.slot.startTime), "h:mm a")} - ${format(new Date(booking.slot.endTime), "h:mm a")}`
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `bookings_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-4 mb-6 sm:mb-8">
@@ -156,8 +186,19 @@ export default function ClinicDashboard() {
 
         <section>
           <div className="flex flex-col space-y-4 mb-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <h2 className="text-2xl font-bold tracking-tight text-left">Bookings</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadExcel}
+                className="gap-2"
+                disabled={!filteredBookings || filteredBookings.length === 0}
+                data-testid="button-download-excel"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Download</span>
+              </Button>
             </div>
             
             <div className="bg-muted/30 p-4 rounded-xl border border-border/50 space-y-4">
