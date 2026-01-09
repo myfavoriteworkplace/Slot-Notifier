@@ -158,69 +158,73 @@ export default function ClinicDashboard() {
               <h2 className="text-2xl font-bold tracking-tight text-left">Bookings</h2>
             </div>
             
-            <div className="flex flex-wrap gap-4 items-end bg-muted/30 p-4 rounded-xl border border-border/50">
-              <div className="space-y-1.5 flex-1 min-w-[200px]">
-                <p className="text-xs font-medium text-muted-foreground px-1 text-left">Start Date</p>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={`w-full justify-start text-left font-normal rounded-xl h-10 bg-background border-border/50 ${!filterDate && "text-muted-foreground"}`}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filterDate ? format(filterDate, "PPP") : "Select date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={filterDate}
-                      onSelect={setFilterDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+            <div className="bg-muted/30 p-4 rounded-xl border border-border/50 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground px-1 text-left">Start Date</p>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={`w-full justify-start text-left font-normal rounded-xl h-10 bg-background border-border/50 ${!filterDate && "text-muted-foreground"}`}>
+                        <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{filterDate ? format(filterDate, "PPP") : "Select date"}</span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={filterDate}
+                        onSelect={setFilterDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground px-1 text-left">End Date (Optional)</p>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={`w-full justify-start text-left font-normal rounded-xl h-10 bg-background border-border/50 ${!filterEndDate && "text-muted-foreground"}`}>
+                        <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{filterEndDate ? format(filterEndDate, "PPP") : "Select end date"}</span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={filterEndDate}
+                        onSelect={setFilterEndDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
 
-              <div className="space-y-1.5 flex-1 min-w-[200px]">
-                <p className="text-xs font-medium text-muted-foreground px-1 text-left">End Date (Optional)</p>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={`w-full justify-start text-left font-normal rounded-xl h-10 bg-background border-border/50 ${!filterEndDate && "text-muted-foreground"}`}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filterEndDate ? format(filterEndDate, "PPP") : "Select end date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={filterEndDate}
-                      onSelect={setFilterEndDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+              <div className="flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setFilterDate(new Date());
+                    setFilterEndDate(undefined);
+                  }}
+                  className="rounded-xl h-10 px-4 text-muted-foreground hover:text-foreground"
+                >
+                  Today
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setFilterDate(undefined);
+                    setFilterEndDate(undefined);
+                  }}
+                  className="rounded-xl h-10 px-4 text-muted-foreground hover:text-foreground"
+                >
+                  All
+                </Button>
               </div>
-
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => {
-                  setFilterDate(new Date());
-                  setFilterEndDate(undefined);
-                }}
-                className="rounded-xl h-10 px-4 text-muted-foreground hover:text-foreground"
-              >
-                Today
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => {
-                  setFilterDate(undefined);
-                  setFilterEndDate(undefined);
-                }}
-                className="rounded-xl h-10 px-4 text-muted-foreground hover:text-foreground"
-              >
-                All
-              </Button>
             </div>
           </div>
 
