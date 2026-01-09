@@ -1,9 +1,10 @@
 import { 
-  users, slots, bookings, notifications,
+  users, slots, bookings, notifications, clinics,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
-  type Notification, type InsertNotification
+  type Notification, type InsertNotification,
+  type Clinic, type InsertClinic
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
@@ -28,6 +29,12 @@ export interface IStorage {
 
   // Users (from auth storage)
   getUser(id: string): Promise<User | undefined>;
+  
+  // Clinics
+  createClinic(clinic: InsertClinic): Promise<Clinic>;
+  getClinics(includeArchived?: boolean): Promise<Clinic[]>;
+  archiveClinic(id: number): Promise<Clinic>;
+  unarchiveClinic(id: number): Promise<Clinic>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -149,6 +156,37 @@ export class DatabaseStorage implements IStorage {
   // Auth User wrapper
   async getUser(id: string): Promise<User | undefined> {
     return authStorage.getUser(id);
+  }
+
+  // Clinics
+  async createClinic(insertClinic: InsertClinic): Promise<Clinic> {
+    const [clinic] = await db.insert(clinics).values(insertClinic).returning();
+    return clinic;
+  }
+
+  async getClinics(includeArchived: boolean = false): Promise<Clinic[]> {
+    if (includeArchived) {
+      return await db.select().from(clinics).orderBy(clinics.name);
+    }
+    return await db.select().from(clinics)
+      .where(eq(clinics.isArchived, false))
+      .orderBy(clinics.name);
+  }
+
+  async archiveClinic(id: number): Promise<Clinic> {
+    const [updated] = await db.update(clinics)
+      .set({ isArchived: true })
+      .where(eq(clinics.id, id))
+      .returning();
+    return updated;
+  }
+
+  async unarchiveClinic(id: number): Promise<Clinic> {
+    const [updated] = await db.update(clinics)
+      .set({ isArchived: false })
+      .where(eq(clinics.id, id))
+      .returning();
+    return updated;
   }
 }
 

@@ -7,6 +7,13 @@ import { relations } from "drizzle-orm";
 // Export auth models so they are picked up
 export * from "./models/auth";
 
+export const clinics = pgTable("clinics", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  isArchived: boolean("is_archived").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const slots = pgTable("slots", {
   id: serial("id").primaryKey(),
   ownerId: varchar("owner_id").notNull().references(() => users.id),
@@ -82,6 +89,12 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   read: true
 });
 
+export const insertClinicSchema = createInsertSchema(clinics).omit({ 
+  id: true, 
+  createdAt: true,
+  isArchived: true
+});
+
 // Types
 export type Slot = typeof slots.$inferSelect;
 export type InsertSlot = z.infer<typeof insertSlotSchema>;
@@ -89,3 +102,5 @@ export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Clinic = typeof clinics.$inferSelect;
+export type InsertClinic = z.infer<typeof insertClinicSchema>;
