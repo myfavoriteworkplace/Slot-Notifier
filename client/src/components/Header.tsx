@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notifications";
 import { 
   Bell, 
@@ -21,25 +22,20 @@ import { formatDistanceToNow } from "date-fns";
 
 export function Header() {
   const { user, logout, isAuthenticated } = useAuth();
+  const { clinic, isAuthenticated: isClinicAuthenticated } = useClinicAuth();
   const [location] = useLocation();
   const { data: notifications = [] } = useNotifications();
   const { mutate: markRead } = useMarkNotificationRead();
 
   const unreadCount = notifications.filter(n => !n.read).length;
+  const isSuperUser = isAuthenticated && user?.role === 'superuser';
 
-  const publicTabs = [
+  const tabs = [
+    ...(isSuperUser ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
+    ...(isClinicAuthenticated ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
     { href: "/book", label: "Book a Slot", icon: CalendarPlus },
     { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
   ];
-
-  const authTabs = [
-    { href: "/admin", label: "Admin", icon: Shield },
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/book", label: "Book a Slot", icon: CalendarPlus },
-    { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
-  ];
-
-  const tabs = isAuthenticated ? authTabs : publicTabs;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-md">
