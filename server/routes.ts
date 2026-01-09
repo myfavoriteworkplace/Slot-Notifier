@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
+import bcrypt from "bcrypt";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -223,6 +224,103 @@ export async function registerRoutes(
     // Assuming user is already logged in as someone to create slots for
     // This is just a helper, in reality we'd need valid user IDs
     res.json({ message: "Seed endpoint hit. Create users via Auth UI first." });
+  });
+
+  // Clinic Authentication
+  app.post("/api/clinic/login", async (req, res) => {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+
+    const clinic = await storage.getClinicByUsername(username);
+    if (!clinic) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
+
+    if (!clinic.passwordHash) {
+      return res.status(401).json({ message: "Clinic account not set up. Contact administrator." });
+    }
+
+    const isValid = await bcrypt.compare(password, clinic.passwordHash);
+    if (!isValid) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
+
+    if (clinic.isArchived) {
+      return res.status(401).json({ message: "This clinic account is deactivated" });
+    }
+
+    // Store clinic session
+    (req.session as any).clinicId = clinic.id;
+    (req.session as any).clinicName = clinic.name;
+    (req.session as any).authType = 'clinic';
+
+    res.json({
+      id: clinic.id,
+      name: clinic.name,
+      username: clinic.username,
+    });
+  });
+
+  app.post("/api/clinic/logout", (req, res) => {
+    delete (req.session as any).clinicId;
+    delete (req.session as any).clinicName;
+    delete (req.session as any).authType;
+    res.json({ message: "Logged out" });
+  });
+
+  app.get("/api/clinic/me", (req, res) => {
+    const clinicId = (req.session as any).clinicId;
+    const clinicName = (req.session as any).clinicName;
+    const authType = (req.session as any).authType;
+
+    if (authType === 'clinic' && clinicId) {
+      return res.json({ id: clinicId, name: clinicName });
+    }
+    return res.status(401).json({ message: "Not authenticated as clinic" });
+  });
+
+  // Clinic bookings (filtered by clinic)
+  app.get("/api/clinic/bookings", async (req, res) => {
+    const clinicId = (req.session as any).clinicId;
+    const authType = (req.session as any).authType;
+
+    if (authType !== 'clinic' || !clinicId) {
+      return res.status(401).json({ message: "Not authenticated as clinic" });
+    }
+
+    const bookings = await storage.getBookingsByClinicId(clinicId);
+    res.json(bookings);
+  });
+
+  // Update clinic when creating (with credentials)
+  app.patch("/api/clinics/:id/credentials", isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    const dbUser = await storage.getUser(user.claims.sub);
+    
+    if (!dbUser || dbUser.role !== 'superuser') {
+      return res.status(403).json({ message: "Only super users can set clinic credentials" });
+    }
+
+    const clinicId = parseInt(req.params.id);
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+
+    // Check if username is already taken
+    const existingClinic = await storage.getClinicByUsername(username);
+    if (existingClinic && existingClinic.id !== clinicId) {
+      return res.status(400).json({ message: "Username already in use" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const clinic = await storage.updateClinic(clinicId, { username, passwordHash });
+    
+    res.json({ id: clinic.id, name: clinic.name, username: clinic.username });
   });
 
   return httpServer;

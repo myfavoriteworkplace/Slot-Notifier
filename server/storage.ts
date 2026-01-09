@@ -21,6 +21,7 @@ export interface IStorage {
   // Bookings
   createBooking(booking: InsertBooking): Promise<Booking>;
   getBookings(userId: string, role: string): Promise<(Booking & { slot: Slot })[]>;
+  getBookingsByClinicId(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
   
   // Notifications
   createNotification(notification: InsertNotification): Promise<Notification>;
@@ -33,6 +34,9 @@ export interface IStorage {
   // Clinics
   createClinic(clinic: InsertClinic): Promise<Clinic>;
   getClinics(includeArchived?: boolean): Promise<Clinic[]>;
+  getClinic(id: number): Promise<Clinic | undefined>;
+  getClinicByUsername(username: string): Promise<Clinic | undefined>;
+  updateClinic(id: number, updates: Partial<Clinic>): Promise<Clinic>;
   archiveClinic(id: number): Promise<Clinic>;
   unarchiveClinic(id: number): Promise<Clinic>;
 }
@@ -133,6 +137,18 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getBookingsByClinicId(clinicId: number): Promise<(Booking & { slot: Slot })[]> {
+    const results = await db.select({
+      booking: bookings,
+      slot: slots
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(eq(slots.clinicId, clinicId));
+    
+    return results.map(r => ({ ...r.booking, slot: r.slot }));
+  }
+
   // Notifications
   async createNotification(insertNotification: InsertNotification): Promise<Notification> {
     const [notification] = await db.insert(notifications).values(insertNotification).returning();
@@ -171,6 +187,24 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(clinics)
       .where(eq(clinics.isArchived, false))
       .orderBy(clinics.name);
+  }
+
+  async getClinic(id: number): Promise<Clinic | undefined> {
+    const [clinic] = await db.select().from(clinics).where(eq(clinics.id, id));
+    return clinic;
+  }
+
+  async getClinicByUsername(username: string): Promise<Clinic | undefined> {
+    const [clinic] = await db.select().from(clinics).where(eq(clinics.username, username));
+    return clinic;
+  }
+
+  async updateClinic(id: number, updates: Partial<Clinic>): Promise<Clinic> {
+    const [updated] = await db.update(clinics)
+      .set(updates)
+      .where(eq(clinics.id, id))
+      .returning();
+    return updated;
   }
 
   async archiveClinic(id: number): Promise<Clinic> {
