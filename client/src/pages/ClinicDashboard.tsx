@@ -104,9 +104,17 @@ export default function ClinicDashboard() {
   
   // Count today's bookings using the same timezone-safe comparison
   const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStart = startOfDay(new Date());
+  
   const todaysBookingsCount = bookings?.filter(b => {
     const bookingDateStr = format(new Date(b.slot.startTime), 'yyyy-MM-dd');
     return bookingDateStr === todayStr;
+  }).length || 0;
+
+  // Count future bookings (including today)
+  const futureBookingsCount = bookings?.filter(b => {
+    const bookingDate = new Date(b.slot.startTime);
+    return bookingDate >= todayStart;
   }).length || 0;
 
   const handleLogout = () => {
@@ -162,8 +170,8 @@ export default function ClinicDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="shadow-sm border-border/50">
             <CardContent className="p-6 text-left">
-              <p className="text-sm font-medium text-muted-foreground">Total Bookings</p>
-              <p className="text-2xl font-bold mt-2">{bookings?.length || 0}</p>
+              <p className="text-sm font-medium text-muted-foreground">Total Future Bookings</p>
+              <p className="text-2xl font-bold mt-2">{futureBookingsCount}</p>
             </CardContent>
           </Card>
           <Card className="shadow-sm border-border/50">
