@@ -31,7 +31,7 @@ export default function ClinicDashboard() {
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
   const [filterDate, setFilterDate] = useState<Date | undefined>(new Date());
-  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
 
   const cancelBookingMutation = useMutation({
