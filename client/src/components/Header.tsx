@@ -5,20 +5,18 @@ import {
   Bell, 
   LogOut, 
   Calendar, 
-  User as UserIcon,
+  CalendarPlus,
   LayoutDashboard,
-  Settings
+  Shield,
+  Building2
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 
 export function Header() {
@@ -29,44 +27,50 @@ export function Header() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const tabs = [
+    { href: "/book", label: "Book a Slot", icon: CalendarPlus },
+    { href: "/admin", label: "Admin", icon: Shield },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
+  ];
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-md">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
-          <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-2 font-display text-xl font-bold tracking-tight text-primary hover:opacity-80 transition-opacity">
-              <Calendar className="h-6 w-6" />
-              <span>SlotBooker</span>
-            </Link>
+        <div className="flex h-16 items-center justify-between gap-4">
+          <Link href="/" className="flex items-center gap-2 font-display text-xl font-bold tracking-tight text-primary hover:opacity-80 transition-opacity" data-testid="link-home">
+            <Calendar className="h-6 w-6" />
+            <span className="hidden sm:inline">SlotBooker</span>
+          </Link>
 
-            {isAuthenticated && (
-              <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-                <Link href="/dashboard" className={location === "/dashboard" ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>
-                  Dashboard
-                </Link>
-                <Link href="/book" className={location === "/book" ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>
-                  Book a Slot
-                </Link>
-                {user?.role === 'superuser' && (
-                  <Link href="/admin" className={location === "/admin" ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>
-                    Admin
-                  </Link>
-                )}
-              </nav>
-            )}
-          </div>
-
-          <div className="flex items-center gap-4">
-            {isAuthenticated ? (
-              <>
-                <Link href="/clinic-login">
-                  <Button variant="outline" size="sm" className="hidden md:flex">
-                    Clinic Portal
+          <nav className="flex items-center gap-1 sm:gap-2">
+            {tabs.map((tab) => {
+              const isActive = location === tab.href || 
+                (tab.href === "/clinic-login" && location === "/clinic-dashboard");
+              const Icon = tab.icon;
+              
+              return (
+                <Link key={tab.href} href={tab.href}>
+                  <Button
+                    variant={isActive ? "default" : "ghost"}
+                    size="sm"
+                    className={`gap-2 ${isActive ? "" : "text-muted-foreground hover:text-foreground"}`}
+                    data-testid={`tab-${tab.label.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className="hidden md:inline">{tab.label}</span>
                   </Button>
                 </Link>
+              );
+            })}
+          </nav>
+
+          <div className="flex items-center gap-2">
+            {isAuthenticated && (
+              <>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative hover:bg-muted/50 rounded-full">
+                    <Button variant="ghost" size="icon" className="relative hover:bg-muted/50 rounded-full" data-testid="button-notifications">
                       <Bell className="h-5 w-5 text-muted-foreground" />
                       {unreadCount > 0 && (
                         <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-accent animate-pulse" />
@@ -102,24 +106,31 @@ export function Header() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <div className="flex items-center gap-4 pl-4 border-l">
-                  <div className="hidden sm:block text-right">
+                <div className="hidden sm:flex items-center gap-3 pl-2 border-l ml-2">
+                  <div className="text-right">
                     <p className="text-sm font-medium leading-none">{user?.firstName} {user?.lastName}</p>
-                    <p className="text-xs text-muted-foreground mt-1 capitalize">{user?.role}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 capitalize">{user?.role}</p>
                   </div>
                   <Button 
                     variant="ghost" 
-                    size="sm"
+                    size="icon"
                     onClick={() => logout()}
                     className="text-muted-foreground hover:text-destructive transition-colors"
+                    data-testid="button-logout"
                   >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    <span className="hidden sm:inline">Logout</span>
+                    <LogOut className="h-4 w-4" />
                   </Button>
                 </div>
               </>
-            ) : (
-              <Button onClick={() => window.location.href = "/api/login"} className="font-semibold shadow-lg shadow-primary/20">
+            )}
+            
+            {!isAuthenticated && (
+              <Button 
+                onClick={() => window.location.href = "/api/login"} 
+                size="sm"
+                className="font-semibold"
+                data-testid="button-login"
+              >
                 Login
               </Button>
             )}
