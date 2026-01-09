@@ -11,6 +11,8 @@ export const clinics = pgTable("clinics", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   address: varchar("address", { length: 500 }),
+  username: varchar("username", { length: 100 }).unique(),
+  passwordHash: varchar("password_hash", { length: 255 }),
   isArchived: boolean("is_archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -22,6 +24,7 @@ export const slots = pgTable("slots", {
   endTime: timestamp("end_time").notNull(),
   isBooked: boolean("is_booked").default(false).notNull(),
   clinicName: varchar("clinic_name", { length: 255 }),
+  clinicId: integer("clinic_id").references(() => clinics.id),
 });
 
 export const bookings = pgTable("bookings", {
