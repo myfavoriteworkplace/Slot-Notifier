@@ -85,16 +85,15 @@ The application supports public booking without login:
 
 ### Flow
 1. Customer selects clinic, date/time, enters name, phone, and email
-2. System generates 6-digit OTP code (expires in 10 minutes)
-3. OTP is logged to console (email integration not yet configured)
-4. Customer enters OTP to verify and confirm booking
+2. Booking is confirmed immediately (no OTP verification)
+3. Confirmation logged to console (email integration not yet configured)
 
 ### Email Integration
-**Status**: Not configured - OTP codes are logged to server console
+**Status**: Not configured - Confirmations are logged to server console
 **TODO**: Set up Resend or SendGrid integration when ready to send real emails
 - Look for `[EMAIL]` in server logs to see what would be sent
 - Update `server/routes.ts` to use actual email service
 
 ### Capacity
 - Maximum 3 bookings per time slot per clinic
-- Enforced at booking creation and OTP verification
+- Enforced at booking creation

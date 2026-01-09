@@ -24,13 +24,14 @@ export interface IStorage {
   getBookings(userId: string, role: string): Promise<(Booking & { slot: Slot })[]>;
   getBookingsByClinicId(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
   getBookingById(id: number): Promise<Booking | undefined>;
-  createPendingBooking(data: {
+  createPublicBooking(data: {
     slotId: number;
     customerName: string;
     customerPhone: string;
     customerEmail: string;
-    verificationCode: string;
-    verificationExpiresAt: Date;
+    verificationCode?: string | null;
+    verificationExpiresAt?: Date | null;
+    verificationStatus?: 'pending' | 'verified';
   }): Promise<Booking>;
   verifyBooking(id: number): Promise<Booking>;
   deletePendingBooking(id: number): Promise<void>;
@@ -185,22 +186,23 @@ export class DatabaseStorage implements IStorage {
     return booking;
   }
 
-  async createPendingBooking(data: {
+  async createPublicBooking(data: {
     slotId: number;
     customerName: string;
     customerPhone: string;
     customerEmail: string;
-    verificationCode: string;
-    verificationExpiresAt: Date;
+    verificationCode?: string | null;
+    verificationExpiresAt?: Date | null;
+    verificationStatus?: 'pending' | 'verified';
   }): Promise<Booking> {
     const [booking] = await db.insert(bookings).values({
       slotId: data.slotId,
       customerName: data.customerName,
       customerPhone: data.customerPhone,
       customerEmail: data.customerEmail,
-      verificationCode: data.verificationCode,
-      verificationStatus: 'pending',
-      verificationExpiresAt: data.verificationExpiresAt,
+      verificationCode: data.verificationCode || null,
+      verificationStatus: data.verificationStatus || 'verified',
+      verificationExpiresAt: data.verificationExpiresAt || null,
     }).returning();
     return booking;
   }

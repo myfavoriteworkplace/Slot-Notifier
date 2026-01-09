@@ -328,7 +328,7 @@ export async function registerRoutes(
     res.json({ id: clinic.id, name: clinic.name, username: clinic.username });
   });
 
-  // Public Booking API (no auth required)
+  // Public Booking API (no auth required) - Direct booking without OTP
   app.post("/api/public/bookings", async (req, res) => {
     try {
       const { customerName, customerPhone, customerEmail, clinicId, clinicName, startTime, endTime } = req.body;
@@ -349,49 +349,43 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Clinic not found" });
       }
 
-      // Check capacity: count existing bookings (verified + pending) for this clinic/time
+      // Check capacity: count existing confirmed bookings for this clinic/time
       const requestedStart = new Date(startTime);
-      const existingBookings = await storage.countBookingsForClinicTime(clinicId, clinic.name, requestedStart);
+      const existingBookings = await storage.countVerifiedBookingsForClinicTime(clinicId, clinic.name, requestedStart);
       
       const MAX_BOOKINGS_PER_SLOT = 3; // Maximum bookings per time slot per clinic
       if (existingBookings >= MAX_BOOKINGS_PER_SLOT) {
         return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
       }
 
-      // Generate OTP (6 digits)
-      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-      const verificationExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-      // Create the slot (public bookings have no owner)
+      // Create the slot (public bookings have no owner) - mark as booked immediately
       const slot = await storage.createSlot({
         ownerId: null,
         startTime: new Date(startTime),
         endTime: new Date(endTime),
         clinicName: clinicName || clinic.name,
         clinicId: clinicId,
-        isBooked: false,
+        isBooked: true,
       } as any);
 
-      // Create pending booking
-      const booking = await storage.createPendingBooking({
+      // Create confirmed booking directly (no OTP verification)
+      const booking = await storage.createPublicBooking({
         slotId: slot.id,
         customerName,
         customerPhone,
         customerEmail,
-        verificationCode,
-        verificationExpiresAt,
+        verificationCode: null,
+        verificationExpiresAt: null,
+        verificationStatus: 'verified',
       });
 
-      // Send OTP via email (console log for now until email integration is set up)
-      console.log(`[EMAIL] To: ${customerEmail}, Subject: Your Booking Verification Code, Body: Your OTP is ${verificationCode}`);
-      
-      // TODO: Send actual email when integration is configured
-      // await sendEmail(customerEmail, "Your Booking Verification Code", `Your OTP is ${verificationCode}`);
+      // Log confirmation (email can be added later)
+      console.log(`[EMAIL] To: ${customerEmail}, Subject: Booking Confirmed!, Body: Your appointment on ${requestedStart.toLocaleString()} at ${clinic.name} is confirmed.`);
 
       res.status(201).json({ 
         bookingId: booking.id, 
-        message: "Verification code sent to your email",
-        expiresAt: verificationExpiresAt
+        message: "Booking confirmed!",
+        confirmed: true
       });
     } catch (err) {
       console.error("Public booking error:", err);

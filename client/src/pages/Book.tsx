@@ -26,11 +26,6 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
 
 interface SlotTiming {
   id: string;
@@ -58,9 +53,7 @@ export default function Book() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [showSlots, setShowSlots] = useState(false);
   
-  const [step, setStep] = useState<'details' | 'otp' | 'success'>('details');
-  const [pendingBookingId, setPendingBookingId] = useState<number | null>(null);
-  const [otpCode, setOtpCode] = useState("");
+  const [step, setStep] = useState<'details' | 'success'>('details');
 
   const [slotTimings, setSlotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
@@ -86,28 +79,6 @@ export default function Book() {
       const response = await apiRequest('POST', '/api/public/bookings', data);
       return response.json();
     },
-    onSuccess: (data: any) => {
-      setPendingBookingId(data.bookingId);
-      setStep('otp');
-      toast({
-        title: "Verification Code Sent",
-        description: "Please check your email for the verification code.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Booking Failed",
-        description: error.message || "Failed to create booking",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const verifyMutation = useMutation({
-    mutationFn: async (data: { bookingId: number; code: string }) => {
-      const response = await apiRequest('POST', '/api/public/bookings/verify', data);
-      return response.json();
-    },
     onSuccess: () => {
       setStep('success');
       toast({
@@ -117,28 +88,8 @@ export default function Book() {
     },
     onError: (error: any) => {
       toast({
-        title: "Verification Failed",
-        description: error.message || "Invalid verification code",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const resendMutation = useMutation({
-    mutationFn: async (bookingId: number) => {
-      const response = await apiRequest('POST', '/api/public/bookings/resend', { bookingId });
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Code Resent",
-        description: "A new verification code has been sent to your email.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Resend Failed",
-        description: error.message || "Failed to resend code",
+        title: "Booking Failed",
+        description: error.message || "Failed to create booking",
         variant: "destructive",
       });
     },
@@ -185,16 +136,6 @@ export default function Book() {
     });
   };
 
-  const handleVerify = () => {
-    if (!pendingBookingId || otpCode.length !== 6) return;
-    verifyMutation.mutate({ bookingId: pendingBookingId, code: otpCode });
-  };
-
-  const handleResend = () => {
-    if (!pendingBookingId) return;
-    resendMutation.mutate(pendingBookingId);
-  };
-
   const resetForm = () => {
     setIsDetailsOpen(false);
     setShowSlots(false);
@@ -203,8 +144,6 @@ export default function Book() {
     setCustomerPhone("");
     setCustomerEmail("");
     setStep('details');
-    setPendingBookingId(null);
-    setOtpCode("");
   };
 
   if (clinicsLoading) {
@@ -430,70 +369,15 @@ export default function Book() {
                         {createBookingMutation.isPending ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Sending Code...
+                            Booking...
                           </>
                         ) : (
-                          'Send Verification Code'
+                          'Confirm Booking'
                         )}
                       </Button>
                     </DialogFooter>
                   </div>
                 )}
-              </div>
-            </>
-          )}
-
-          {step === 'otp' && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-left">Verify Your Email</DialogTitle>
-                <DialogDescription className="text-left">
-                  Enter the 6-digit code sent to {customerEmail}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-6 flex flex-col items-center gap-6">
-                <InputOTP
-                  maxLength={6}
-                  value={otpCode}
-                  onChange={setOtpCode}
-                  data-testid="input-otp"
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
-
-                <div className="flex flex-col gap-3 w-full">
-                  <Button 
-                    onClick={handleVerify}
-                    disabled={otpCode.length !== 6 || verifyMutation.isPending}
-                    className="w-full"
-                    data-testid="button-verify-otp"
-                  >
-                    {verifyMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Verifying...
-                      </>
-                    ) : (
-                      'Verify & Confirm Booking'
-                    )}
-                  </Button>
-                  <Button 
-                    variant="ghost"
-                    onClick={handleResend}
-                    disabled={resendMutation.isPending}
-                    className="w-full"
-                    data-testid="button-resend-otp"
-                  >
-                    {resendMutation.isPending ? 'Sending...' : "Didn't receive code? Resend"}
-                  </Button>
-                </div>
               </div>
             </>
           )}
@@ -505,7 +389,6 @@ export default function Book() {
                 <DialogTitle className="text-center">Booking Confirmed!</DialogTitle>
                 <DialogDescription className="text-center">
                   Your appointment on {format(selectedDate, "MMMM do, yyyy")} has been confirmed.
-                  A confirmation email has been sent to {customerEmail}.
                 </DialogDescription>
               </DialogHeader>
               <Button 
