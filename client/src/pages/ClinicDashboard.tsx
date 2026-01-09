@@ -65,6 +65,8 @@ export default function ClinicDashboard() {
       return res.json();
     },
     enabled: isAuthenticated,
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   useEffect(() => {

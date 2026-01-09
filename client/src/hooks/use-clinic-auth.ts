@@ -58,6 +58,8 @@ export function useClinicAuth() {
     mutationFn: clinicLogin,
     onSuccess: (data) => {
       queryClient.setQueryData(["/api/clinic/me"], data);
+      // Invalidate bookings cache so fresh data is fetched after login
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
     },
   });
 
