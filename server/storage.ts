@@ -17,11 +17,26 @@ export interface IStorage {
   getSlot(id: number): Promise<Slot | undefined>;
   updateSlot(id: number, updates: Partial<Slot>): Promise<Slot>;
   deleteSlot(id: number): Promise<void>;
+  markSlotBooked(id: number): Promise<Slot>;
 
   // Bookings
   createBooking(booking: InsertBooking): Promise<Booking>;
   getBookings(userId: string, role: string): Promise<(Booking & { slot: Slot })[]>;
   getBookingsByClinicId(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
+  getBookingById(id: number): Promise<Booking | undefined>;
+  createPendingBooking(data: {
+    slotId: number;
+    customerName: string;
+    customerPhone: string;
+    customerEmail: string;
+    verificationCode: string;
+    verificationExpiresAt: Date;
+  }): Promise<Booking>;
+  verifyBooking(id: number): Promise<Booking>;
+  deletePendingBooking(id: number): Promise<void>;
+  updateBookingVerification(id: number, code: string, expiresAt: Date): Promise<Booking>;
+  countBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number>;
+  countVerifiedBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number>;
   
   // Notifications
   createNotification(notification: InsertNotification): Promise<Notification>;
@@ -95,6 +110,14 @@ export class DatabaseStorage implements IStorage {
     await db.delete(slots).where(eq(slots.id, id));
   }
 
+  async markSlotBooked(id: number): Promise<Slot> {
+    const [updated] = await db.update(slots)
+      .set({ isBooked: true })
+      .where(eq(slots.id, id))
+      .returning();
+    return updated;
+  }
+
   // Bookings
   async createBooking(insertBooking: any): Promise<Booking> {
     const [booking] = await db.insert(bookings).values({
@@ -155,6 +178,125 @@ export class DatabaseStorage implements IStorage {
     );
     
     return filtered.map(r => ({ ...r.booking, slot: r.slot }));
+  }
+
+  async getBookingById(id: number): Promise<Booking | undefined> {
+    const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
+    return booking;
+  }
+
+  async createPendingBooking(data: {
+    slotId: number;
+    customerName: string;
+    customerPhone: string;
+    customerEmail: string;
+    verificationCode: string;
+    verificationExpiresAt: Date;
+  }): Promise<Booking> {
+    const [booking] = await db.insert(bookings).values({
+      slotId: data.slotId,
+      customerName: data.customerName,
+      customerPhone: data.customerPhone,
+      customerEmail: data.customerEmail,
+      verificationCode: data.verificationCode,
+      verificationStatus: 'pending',
+      verificationExpiresAt: data.verificationExpiresAt,
+    }).returning();
+    return booking;
+  }
+
+  async verifyBooking(id: number): Promise<Booking> {
+    const [updated] = await db.update(bookings)
+      .set({ 
+        verificationStatus: 'verified',
+        verificationCode: null,
+        verificationExpiresAt: null
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePendingBooking(id: number): Promise<void> {
+    const booking = await this.getBookingById(id);
+    if (booking) {
+      await db.delete(bookings).where(eq(bookings.id, id));
+      // Also delete the associated slot
+      await this.deleteSlot(booking.slotId);
+    }
+  }
+
+  async updateBookingVerification(id: number, code: string, expiresAt: Date): Promise<Booking> {
+    const [updated] = await db.update(bookings)
+      .set({ 
+        verificationCode: code,
+        verificationExpiresAt: expiresAt
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async countBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number> {
+    // Create a time window: match slots that start within 1 minute of the requested time
+    const startWindow = new Date(startTime.getTime() - 60000); // 1 minute before
+    const endWindow = new Date(startTime.getTime() + 60000);   // 1 minute after
+
+    // Get all slots that match the time window
+    const results = await db.select({
+      booking: bookings,
+      slot: slots
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(
+      and(
+        gte(slots.startTime, startWindow),
+        lte(slots.startTime, endWindow)
+      )
+    );
+
+    // Filter by clinic (by clinicId or clinicName)
+    // Only count non-expired pending or verified bookings
+    const matchingBookings = results.filter(r => {
+      const isMatchingClinic = r.slot.clinicId === clinicId || r.slot.clinicName === clinicName;
+      const isNotExpired = r.booking.verificationStatus === 'verified' || 
+        (r.booking.verificationStatus === 'pending' && 
+         r.booking.verificationExpiresAt && 
+         new Date() < r.booking.verificationExpiresAt);
+      
+      return isMatchingClinic && isNotExpired;
+    });
+
+    return matchingBookings.length;
+  }
+
+  async countVerifiedBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number> {
+    // Create a time window: match slots that start within 1 minute of the requested time
+    const startWindow = new Date(startTime.getTime() - 60000);
+    const endWindow = new Date(startTime.getTime() + 60000);
+
+    const results = await db.select({
+      booking: bookings,
+      slot: slots
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(
+      and(
+        gte(slots.startTime, startWindow),
+        lte(slots.startTime, endWindow)
+      )
+    );
+
+    // Filter by clinic and count only verified bookings
+    const verifiedBookings = results.filter(r => {
+      const isMatchingClinic = r.slot.clinicId === clinicId || r.slot.clinicName === clinicName;
+      const isVerified = r.booking.verificationStatus === 'verified';
+      return isMatchingClinic && isVerified;
+    });
+
+    return verifiedBookings.length;
   }
 
   // Notifications

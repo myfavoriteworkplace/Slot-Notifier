@@ -1,12 +1,9 @@
 import { useState, useEffect } from "react";
-import { useSlots } from "@/hooks/use-slots";
-import { useCreateBooking } from "@/hooks/use-bookings";
-import { SlotCard } from "@/components/SlotCard";
-import { useAuth } from "@/hooks/use-auth";
-import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { Loader2, Calendar as CalendarIcon, ChevronDown, CalendarDays } from "lucide-react";
-import type { Clinic } from "@shared/schema";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, CalendarDays, CheckCircle2 } from "lucide-react";
+import type { Clinic, Slot } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -17,7 +14,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +26,11 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Badge } from "@/components/ui/badge";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 
 interface SlotTiming {
   id: string;
@@ -48,14 +48,19 @@ const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
 ];
 
 export default function Book() {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const [_, setLocation] = useLocation();
+  const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [selectedClinic, setSelectedClinic] = useState<string>("");
-  const createBooking = useCreateBooking();
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [showSlots, setShowSlots] = useState(false);
+  
+  const [step, setStep] = useState<'details' | 'otp' | 'success'>('details');
+  const [pendingBookingId, setPendingBookingId] = useState<number | null>(null);
+  const [otpCode, setOtpCode] = useState("");
 
   const [slotTimings, setSlotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
@@ -70,31 +75,76 @@ export default function Book() {
     queryKey: ['/api/clinics'],
   });
 
-  const clinics = clinicsData?.map(c => c.name) || [];
+  const clinics = clinicsData?.filter(c => !c.isArchived) || [];
   
-  const { data: slots, isLoading: slotsLoading } = useSlots();
+  const { data: slots, isLoading: slotsLoading } = useQuery<Slot[]>({
+    queryKey: ['/api/slots'],
+  });
 
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [showSlots, setShowSlots] = useState(false);
+  const createBookingMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest('POST', '/api/public/bookings', data);
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      setPendingBookingId(data.bookingId);
+      setStep('otp');
+      toast({
+        title: "Verification Code Sent",
+        description: "Please check your email for the verification code.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Booking Failed",
+        description: error.message || "Failed to create booking",
+        variant: "destructive",
+      });
+    },
+  });
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const verifyMutation = useMutation({
+    mutationFn: async (data: { bookingId: number; code: string }) => {
+      const response = await apiRequest('POST', '/api/public/bookings/verify', data);
+      return response.json();
+    },
+    onSuccess: () => {
+      setStep('success');
+      toast({
+        title: "Booking Confirmed!",
+        description: "Your appointment has been successfully booked.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Verification Failed",
+        description: error.message || "Invalid verification code",
+        variant: "destructive",
+      });
+    },
+  });
 
-  if (!isAuthenticated) {
-    setLocation("/");
-    return null;
-  }
+  const resendMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      const response = await apiRequest('POST', '/api/public/bookings/resend', { bookingId });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Code Resent",
+        description: "A new verification code has been sent to your email.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Resend Failed",
+        description: error.message || "Failed to resend code",
+        variant: "destructive",
+      });
+    },
+  });
 
   const dates = Array.from({ length: 14 }, (_, i) => addDays(startOfToday(), i));
-
-  const slotsForDate = slots?.filter(slot => 
-    isSameDay(new Date(slot.startTime), selectedDate)
-  ).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
   const formatTime = (hour: number, minute: number) => {
     const period = hour >= 12 ? 'PM' : 'AM';
@@ -103,7 +153,7 @@ export default function Book() {
   };
 
   const handleBook = () => {
-    if (!selectedSlot || !customerName || !customerPhone || !selectedClinic) return;
+    if (!selectedSlot || !customerName || !customerPhone || !customerEmail || !selectedClinic) return;
     const slotInfo = slotTimings.find(s => s.id === selectedSlot);
     if (!slotInfo) return;
 
@@ -115,43 +165,74 @@ export default function Book() {
     const selectedClinicData = clinicsData?.find(c => c.name === selectedClinic);
     const clinicId = selectedClinicData?.id;
 
-    createBooking.mutate({
-      slotId: -1,
+    if (!clinicId) {
+      toast({
+        title: "Error",
+        description: "Please select a valid clinic",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createBookingMutation.mutate({
       customerName,
       customerPhone,
+      customerEmail,
+      clinicId,
       clinicName: selectedClinic,
-      clinicId: clinicId,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString()
-    } as any, {
-      onSuccess: () => {
-        setIsDetailsOpen(false);
-        setShowSlots(false);
-        setSelectedSlot(null);
-        setCustomerName("");
-        setCustomerPhone("");
-      }
     });
   };
+
+  const handleVerify = () => {
+    if (!pendingBookingId || otpCode.length !== 6) return;
+    verifyMutation.mutate({ bookingId: pendingBookingId, code: otpCode });
+  };
+
+  const handleResend = () => {
+    if (!pendingBookingId) return;
+    resendMutation.mutate(pendingBookingId);
+  };
+
+  const resetForm = () => {
+    setIsDetailsOpen(false);
+    setShowSlots(false);
+    setSelectedSlot(null);
+    setCustomerName("");
+    setCustomerPhone("");
+    setCustomerEmail("");
+    setStep('details');
+    setPendingBookingId(null);
+    setOtpCode("");
+  };
+
+  if (clinicsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" data-testid="loader-clinics" />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <div className="max-w-5xl">
         <div className="text-left mb-10">
           <h1 className="text-3xl font-bold tracking-tight mb-2 text-left">Book a Session</h1>
-          <p className="text-muted-foreground text-left">Select a date to see available times.</p>
+          <p className="text-muted-foreground text-left">Select a clinic and date to book your appointment.</p>
         </div>
 
         <div className="max-w-md mb-10 text-left">
           <Label className="text-sm font-medium mb-2 block text-left">Select Clinic</Label>
           <Select value={selectedClinic} onValueChange={setSelectedClinic}>
-            <SelectTrigger className="w-full rounded-xl h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50">
+            <SelectTrigger className="w-full rounded-xl h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50" data-testid="select-clinic">
               <SelectValue placeholder="Choose a dental clinic" />
             </SelectTrigger>
             <SelectContent className="rounded-xl shadow-lg border-border/50">
               {clinics.map((clinic) => (
-                <SelectItem key={clinic} value={clinic} className="py-3 rounded-lg cursor-pointer">
-                  {clinic}
+                <SelectItem key={clinic.id} value={clinic.name} className="py-3 rounded-lg cursor-pointer" data-testid={`clinic-option-${clinic.id}`}>
+                  {clinic.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -185,6 +266,7 @@ export default function Book() {
                             setShowSlots(false);
                             setIsDetailsOpen(true);
                           }}
+                          data-testid={`date-button-${format(date, 'yyyy-MM-dd')}`}
                           className={`
                             flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200 relative
                             ${isSelected 
@@ -216,6 +298,7 @@ export default function Book() {
                       variant="outline" 
                       size="icon" 
                       className="h-20 w-16 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-muted/50 transition-all"
+                      data-testid="button-calendar-picker"
                     >
                       <CalendarDays className="h-6 w-6 text-muted-foreground" />
                     </Button>
@@ -243,94 +326,197 @@ export default function Book() {
       </div>
 
       <Dialog open={isDetailsOpen} onOpenChange={(open) => {
-        setIsDetailsOpen(open);
-        if (!open) setShowSlots(false);
+        if (!open) resetForm();
+        else setIsDetailsOpen(open);
       }}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="text-left">Book your session</DialogTitle>
-            <DialogDescription className="text-left">
-              Enter your details and select a time for {format(selectedDate, "MMMM do")}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">Name</Label>
-              <Input
-                id="name"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="col-span-3"
-                placeholder="John Doe"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phone" className="text-right">Phone</Label>
-              <Input
-                id="phone"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                className="col-span-3"
-                placeholder="+1 (555) 000-0000"
-              />
-            </div>
-
-            {!showSlots ? (
-              <Button 
-                onClick={() => setShowSlots(true)}
-                disabled={!customerName || !customerPhone || !selectedClinic}
-                className="w-full mt-4"
-              >
-                Check Available Slots
-              </Button>
-            ) : (
-              <div className="space-y-3 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                <Label className="text-sm font-semibold text-left block">Select Time Slot</Label>
-                <div className="grid gap-2">
-                  {slotTimings.map((slot) => {
-                    const slotBookings = slots?.filter(s => 
-                      s.isBooked && 
-                      s.clinicName === selectedClinic &&
-                      isSameDay(new Date(s.startTime), selectedDate) &&
-                      new Date(s.startTime).getHours() === slot.startHour
-                    ).length || 0;
-
-                    const isSlotFull = slotBookings >= 3;
-                    const slotLabel = `${formatTime(slot.startHour, slot.startMinute)} TO ${formatTime(slot.endHour, slot.endMinute)}`;
-
-                    return (
-                      <button
-                        key={slot.id}
-                        disabled={isSlotFull}
-                        onClick={() => setSelectedSlot(slot.id)}
-                        className={`p-3 rounded-lg border text-left transition-all ${
-                          selectedSlot === slot.id 
-                            ? "border-primary bg-primary/5 ring-1 ring-primary" 
-                            : isSlotFull
-                              ? "border-destructive/20 bg-destructive/10 text-destructive cursor-not-allowed opacity-60"
-                              : "border-border hover:bg-muted"
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div className="font-medium text-left">{slotLabel}</div>
-                          {isSlotFull && <span className="text-[10px] font-bold uppercase text-destructive">Full</span>}
-                        </div>
-                      </button>
-                    );
-                  })}
+          {step === 'details' && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-left">Book your session</DialogTitle>
+                <DialogDescription className="text-left">
+                  Enter your details and select a time for {format(selectedDate, "MMMM do")}.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">Name</Label>
+                  <Input
+                    id="name"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="col-span-3"
+                    placeholder="John Doe"
+                    data-testid="input-name"
+                  />
                 </div>
-                <DialogFooter className="mt-6">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="phone" className="text-right">Phone</Label>
+                  <Input
+                    id="phone"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="col-span-3"
+                    placeholder="+91 9876543210"
+                    data-testid="input-phone"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="email" className="text-right">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    className="col-span-3"
+                    placeholder="you@example.com"
+                    data-testid="input-email"
+                  />
+                </div>
+
+                {!showSlots ? (
                   <Button 
-                    onClick={handleBook}
-                    disabled={!selectedSlot}
-                    className="w-full"
+                    onClick={() => setShowSlots(true)}
+                    disabled={!customerName || !customerPhone || !customerEmail || !selectedClinic}
+                    className="w-full mt-4"
+                    data-testid="button-check-slots"
                   >
-                    Confirm Booking
+                    Check Available Slots
                   </Button>
-                </DialogFooter>
+                ) : (
+                  <div className="space-y-3 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <Label className="text-sm font-semibold text-left block">Select Time Slot</Label>
+                    <div className="grid gap-2">
+                      {slotTimings.map((slot) => {
+                        const slotBookings = slots?.filter(s => 
+                          s.isBooked && 
+                          s.clinicName === selectedClinic &&
+                          isSameDay(new Date(s.startTime), selectedDate) &&
+                          new Date(s.startTime).getHours() === slot.startHour
+                        ).length || 0;
+
+                        const isSlotFull = slotBookings >= 3;
+                        const slotLabel = `${formatTime(slot.startHour, slot.startMinute)} TO ${formatTime(slot.endHour, slot.endMinute)}`;
+
+                        return (
+                          <button
+                            key={slot.id}
+                            disabled={isSlotFull}
+                            onClick={() => setSelectedSlot(slot.id)}
+                            data-testid={`slot-button-${slot.id}`}
+                            className={`p-3 rounded-lg border text-left transition-all ${
+                              selectedSlot === slot.id 
+                                ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                                : isSlotFull
+                                  ? "border-destructive/20 bg-destructive/10 text-destructive cursor-not-allowed opacity-60"
+                                  : "border-border hover:bg-muted"
+                            }`}
+                          >
+                            <div className="flex justify-between items-center">
+                              <div className="font-medium text-left">{slotLabel}</div>
+                              {isSlotFull && <span className="text-[10px] font-bold uppercase text-destructive">Full</span>}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <DialogFooter className="mt-6">
+                      <Button 
+                        onClick={handleBook}
+                        disabled={!selectedSlot || createBookingMutation.isPending}
+                        className="w-full"
+                        data-testid="button-confirm-booking"
+                      >
+                        {createBookingMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Sending Code...
+                          </>
+                        ) : (
+                          'Send Verification Code'
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
+
+          {step === 'otp' && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-left">Verify Your Email</DialogTitle>
+                <DialogDescription className="text-left">
+                  Enter the 6-digit code sent to {customerEmail}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-6 flex flex-col items-center gap-6">
+                <InputOTP
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={setOtpCode}
+                  data-testid="input-otp"
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+
+                <div className="flex flex-col gap-3 w-full">
+                  <Button 
+                    onClick={handleVerify}
+                    disabled={otpCode.length !== 6 || verifyMutation.isPending}
+                    className="w-full"
+                    data-testid="button-verify-otp"
+                  >
+                    {verifyMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      'Verify & Confirm Booking'
+                    )}
+                  </Button>
+                  <Button 
+                    variant="ghost"
+                    onClick={handleResend}
+                    disabled={resendMutation.isPending}
+                    className="w-full"
+                    data-testid="button-resend-otp"
+                  >
+                    {resendMutation.isPending ? 'Sending...' : "Didn't receive code? Resend"}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {step === 'success' && (
+            <div className="py-8 flex flex-col items-center gap-4">
+              <CheckCircle2 className="h-16 w-16 text-green-500" />
+              <DialogHeader>
+                <DialogTitle className="text-center">Booking Confirmed!</DialogTitle>
+                <DialogDescription className="text-center">
+                  Your appointment on {format(selectedDate, "MMMM do, yyyy")} has been confirmed.
+                  A confirmation email has been sent to {customerEmail}.
+                </DialogDescription>
+              </DialogHeader>
+              <Button 
+                onClick={resetForm}
+                className="mt-4"
+                data-testid="button-done"
+              >
+                Done
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

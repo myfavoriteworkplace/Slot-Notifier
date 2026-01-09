@@ -109,13 +109,15 @@ export async function registerRoutes(
       // Mock Email to Customer
       console.log(`[EMAIL MOCK] To: ${user.claims.email}, Subject: Booking Confirmed, Body: You booked a slot at ${slot.startTime}`);
 
-      // 2. Notify Owner
-      await storage.createNotification({
-        userId: slot.ownerId,
-        message: `Your slot on ${slot.startTime.toLocaleString()} has been booked!`,
-      });
-       // Mock Email to Owner
-       console.log(`[EMAIL MOCK] To: Owner (ID: ${slot.ownerId}), Subject: New Booking, Body: Slot at ${slot.startTime} booked.`);
+      // 2. Notify Owner (if slot has an owner)
+      if (slot.ownerId) {
+        await storage.createNotification({
+          userId: slot.ownerId,
+          message: `Your slot on ${slot.startTime.toLocaleString()} has been booked!`,
+        });
+        // Mock Email to Owner
+        console.log(`[EMAIL MOCK] To: Owner (ID: ${slot.ownerId}), Subject: New Booking, Body: Slot at ${slot.startTime} booked.`);
+      }
 
       res.status(201).json(booking);
     } catch (err) {
@@ -324,6 +326,182 @@ export async function registerRoutes(
     const clinic = await storage.updateClinic(clinicId, { username, passwordHash });
     
     res.json({ id: clinic.id, name: clinic.name, username: clinic.username });
+  });
+
+  // Public Booking API (no auth required)
+  app.post("/api/public/bookings", async (req, res) => {
+    try {
+      const { customerName, customerPhone, customerEmail, clinicId, clinicName, startTime, endTime } = req.body;
+      
+      if (!customerName || !customerPhone || !customerEmail || !clinicId || !startTime || !endTime) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(customerEmail)) {
+        return res.status(400).json({ message: "Invalid email format" });
+      }
+
+      // Get the clinic
+      const clinic = await storage.getClinic(clinicId);
+      if (!clinic) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+
+      // Check capacity: count existing bookings (verified + pending) for this clinic/time
+      const requestedStart = new Date(startTime);
+      const existingBookings = await storage.countBookingsForClinicTime(clinicId, clinic.name, requestedStart);
+      
+      const MAX_BOOKINGS_PER_SLOT = 3; // Maximum bookings per time slot per clinic
+      if (existingBookings >= MAX_BOOKINGS_PER_SLOT) {
+        return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
+      }
+
+      // Generate OTP (6 digits)
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const verificationExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      // Create the slot (public bookings have no owner)
+      const slot = await storage.createSlot({
+        ownerId: null,
+        startTime: new Date(startTime),
+        endTime: new Date(endTime),
+        clinicName: clinicName || clinic.name,
+        clinicId: clinicId,
+        isBooked: false,
+      } as any);
+
+      // Create pending booking
+      const booking = await storage.createPendingBooking({
+        slotId: slot.id,
+        customerName,
+        customerPhone,
+        customerEmail,
+        verificationCode,
+        verificationExpiresAt,
+      });
+
+      // Send OTP via email (console log for now until email integration is set up)
+      console.log(`[EMAIL] To: ${customerEmail}, Subject: Your Booking Verification Code, Body: Your OTP is ${verificationCode}`);
+      
+      // TODO: Send actual email when integration is configured
+      // await sendEmail(customerEmail, "Your Booking Verification Code", `Your OTP is ${verificationCode}`);
+
+      res.status(201).json({ 
+        bookingId: booking.id, 
+        message: "Verification code sent to your email",
+        expiresAt: verificationExpiresAt
+      });
+    } catch (err) {
+      console.error("Public booking error:", err);
+      res.status(500).json({ message: "Failed to create booking" });
+    }
+  });
+
+  app.post("/api/public/bookings/verify", async (req, res) => {
+    const { bookingId, code } = req.body;
+    
+    if (!bookingId || !code) {
+      return res.status(400).json({ message: "Booking ID and verification code are required" });
+    }
+
+    const booking = await storage.getBookingById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    if (booking.verificationStatus === 'verified') {
+      return res.status(400).json({ message: "Booking already verified" });
+    }
+
+    if (booking.verificationExpiresAt && new Date() > booking.verificationExpiresAt) {
+      // Delete the pending booking and its slot
+      await storage.deletePendingBooking(bookingId);
+      return res.status(400).json({ message: "Verification code expired. Please book again." });
+    }
+
+    if (booking.verificationCode !== code) {
+      return res.status(400).json({ message: "Invalid verification code" });
+    }
+
+    // Get the slot to check capacity one more time before confirming
+    const slot = await storage.getSlot(booking.slotId);
+    if (!slot) {
+      return res.status(404).json({ message: "Slot not found" });
+    }
+
+    // Re-check capacity at verification time to prevent race condition overbooking
+    const currentBookings = await storage.countBookingsForClinicTime(
+      slot.clinicId || 0, 
+      slot.clinicName || '', 
+      slot.startTime
+    );
+    
+    const MAX_BOOKINGS_PER_SLOT = 3;
+    // Count only verified bookings for this final check (since this booking is still pending)
+    const verifiedCount = await storage.countVerifiedBookingsForClinicTime(
+      slot.clinicId || 0,
+      slot.clinicName || '',
+      slot.startTime
+    );
+    
+    if (verifiedCount >= MAX_BOOKINGS_PER_SLOT) {
+      // Capacity exceeded during verification - delete this pending booking
+      await storage.deletePendingBooking(bookingId);
+      return res.status(400).json({ message: "Sorry, this time slot became fully booked. Please choose another time." });
+    }
+
+    // Verify the booking
+    const verifiedBooking = await storage.verifyBooking(bookingId);
+    
+    // Mark slot as booked
+    await storage.markSlotBooked(booking.slotId);
+
+    // Send confirmation email
+    console.log(`[EMAIL] To: ${booking.customerEmail}, Subject: Booking Confirmed!, Body: Your appointment on ${slot.startTime.toLocaleString()} is confirmed.`);
+
+    res.json({ 
+      message: "Booking confirmed!",
+      booking: verifiedBooking
+    });
+  });
+
+  app.post("/api/public/bookings/resend", async (req, res) => {
+    const { bookingId } = req.body;
+    
+    if (!bookingId) {
+      return res.status(400).json({ message: "Booking ID is required" });
+    }
+
+    const booking = await storage.getBookingById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    if (booking.verificationStatus === 'verified') {
+      return res.status(400).json({ message: "Booking already verified" });
+    }
+
+    // Check if booking has expired - if so, delete it and ask user to book again
+    if (booking.verificationExpiresAt && new Date() > booking.verificationExpiresAt) {
+      await storage.deletePendingBooking(bookingId);
+      return res.status(400).json({ message: "Booking expired. Please create a new booking." });
+    }
+
+    // Generate new OTP with fresh expiry
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await storage.updateBookingVerification(bookingId, verificationCode, verificationExpiresAt);
+
+    // Send OTP via email
+    console.log(`[EMAIL] To: ${booking.customerEmail}, Subject: Your New Verification Code, Body: Your OTP is ${verificationCode}`);
+
+    res.json({ 
+      message: "New verification code sent to your email",
+      expiresAt: verificationExpiresAt
+    });
   });
 
   return httpServer;

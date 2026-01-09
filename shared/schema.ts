@@ -19,7 +19,7 @@ export const clinics = pgTable("clinics", {
 
 export const slots = pgTable("slots", {
   id: serial("id").primaryKey(),
-  ownerId: varchar("owner_id").notNull().references(() => users.id),
+  ownerId: varchar("owner_id").references(() => users.id),
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time").notNull(),
   isBooked: boolean("is_booked").default(false).notNull(),
