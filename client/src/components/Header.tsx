@@ -148,7 +148,7 @@ export function Header() {
               </div>
             )}
             
-            {!isAuthenticated && !isClinicAuthenticated && (
+            {!isAuthenticated && !isClinicAuthenticated && location !== "/clinic-login" && (
               <Button 
                 onClick={() => window.location.href = "/api/login"} 
                 size="sm"
