@@ -54,8 +54,26 @@ export default function Book() {
   const [showSlots, setShowSlots] = useState(false);
   
   const [step, setStep] = useState<'details' | 'success'>('details');
+  const [phoneError, setPhoneError] = useState("");
 
   const [slotTimings, setSlotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
+
+  const validateIndianPhone = (phone: string): boolean => {
+    const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    const indiaRegex = /^(\+91|91)?[6-9]\d{9}$/;
+    return indiaRegex.test(cleaned);
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setCustomerPhone(value);
+    if (value && !validateIndianPhone(value)) {
+      setPhoneError("Please enter a valid Indian mobile number (10 digits starting with 6-9)");
+    } else {
+      setPhoneError("");
+    }
+  };
+
+  const isPhoneValid = customerPhone && validateIndianPhone(customerPhone);
 
   useEffect(() => {
     const saved = localStorage.getItem('slotTimings');
@@ -143,6 +161,7 @@ export default function Book() {
     setCustomerName("");
     setCustomerPhone("");
     setCustomerEmail("");
+    setPhoneError("");
     setStep('details');
   };
 
@@ -291,14 +310,19 @@ export default function Book() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="phone" className="text-right">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="col-span-3"
-                    placeholder="+91 9876543210"
-                    data-testid="input-phone"
-                  />
+                  <div className="col-span-3 space-y-1">
+                    <Input
+                      id="phone"
+                      value={customerPhone}
+                      onChange={(e) => handlePhoneChange(e.target.value)}
+                      className={phoneError ? "border-destructive" : ""}
+                      placeholder="+91 9876543210"
+                      data-testid="input-phone"
+                    />
+                    {phoneError && (
+                      <p className="text-xs text-destructive">{phoneError}</p>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="email" className="text-right">Email</Label>
@@ -316,7 +340,7 @@ export default function Book() {
                 {!showSlots ? (
                   <Button 
                     onClick={() => setShowSlots(true)}
-                    disabled={!customerName || !customerPhone || !customerEmail || !selectedClinic}
+                    disabled={!customerName || !isPhoneValid || !customerEmail || !selectedClinic}
                     className="w-full mt-4"
                     data-testid="button-check-slots"
                   >
