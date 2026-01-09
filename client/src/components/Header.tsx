@@ -28,9 +28,9 @@ export function Header() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const tabs = [
-    { href: "/book", label: "Book a Slot", icon: CalendarPlus },
     { href: "/admin", label: "Admin", icon: Shield },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/book", label: "Book a Slot", icon: CalendarPlus },
     { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
   ];
 
