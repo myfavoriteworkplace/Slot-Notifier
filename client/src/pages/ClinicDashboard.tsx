@@ -10,6 +10,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useState, useEffect } from "react";
 import type { Slot, Booking } from "@shared/schema";
 
@@ -265,21 +276,41 @@ export default function ClinicDashboard() {
                         </div>
                       )}
                       <div className="pt-3 mt-3 border-t border-border/50">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => cancelBookingMutation.mutate(booking.id)}
-                          disabled={cancelBookingMutation.isPending}
-                          data-testid={`button-cancel-booking-${booking.id}`}
-                        >
-                          {cancelBookingMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          ) : (
-                            <X className="h-4 w-4 mr-2" />
-                          )}
-                          Cancel Booking
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                              disabled={cancelBookingMutation.isPending}
+                              data-testid={`button-cancel-booking-${booking.id}`}
+                            >
+                              {cancelBookingMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : (
+                                <X className="h-4 w-4 mr-2" />
+                              )}
+                              Cancel Booking
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to cancel the booking for {booking.customerName}? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Keep Booking</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => cancelBookingMutation.mutate(booking.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Yes, Cancel Booking
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </CardContent>
                   </Card>
