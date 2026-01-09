@@ -10,6 +10,7 @@ export * from "./models/auth";
 export const clinics = pgTable("clinics", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
+  address: varchar("address", { length: 500 }),
   isArchived: boolean("is_archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
