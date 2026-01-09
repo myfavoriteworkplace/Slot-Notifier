@@ -27,12 +27,19 @@ export function Header() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const tabs = [
+  const publicTabs = [
+    { href: "/book", label: "Book a Slot", icon: CalendarPlus },
+    { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
+  ];
+
+  const authTabs = [
     { href: "/admin", label: "Admin", icon: Shield },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/book", label: "Book a Slot", icon: CalendarPlus },
     { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
   ];
+
+  const tabs = isAuthenticated ? authTabs : publicTabs;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-md">
