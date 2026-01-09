@@ -316,6 +316,35 @@ export async function registerRoutes(
     res.json(bookings);
   });
 
+  // Cancel a booking (clinic admin only)
+  app.delete("/api/clinic/bookings/:id", async (req, res) => {
+    const clinicId = (req.session as any).clinicId;
+    const authType = (req.session as any).authType;
+
+    if (authType !== 'clinic' || !clinicId) {
+      return res.status(401).json({ message: "Not authenticated as clinic" });
+    }
+
+    const bookingId = parseInt(req.params.id);
+    if (isNaN(bookingId)) {
+      return res.status(400).json({ message: "Invalid booking ID" });
+    }
+
+    // Verify the booking belongs to this clinic
+    const booking = await storage.getBookingById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    const slot = await storage.getSlot(booking.slotId);
+    if (!slot || (slot.clinicId !== clinicId)) {
+      return res.status(403).json({ message: "Not authorized to cancel this booking" });
+    }
+
+    await storage.cancelBooking(bookingId);
+    res.json({ message: "Booking cancelled successfully" });
+  });
+
   // Update clinic when creating (with credentials)
   app.patch("/api/clinics/:id/credentials", isAuthenticated, async (req, res) => {
     const user = req.user as any;

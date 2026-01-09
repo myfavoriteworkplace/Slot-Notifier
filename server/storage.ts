@@ -39,6 +39,7 @@ export interface IStorage {
   }): Promise<Booking>;
   verifyBooking(id: number): Promise<Booking>;
   deletePendingBooking(id: number): Promise<void>;
+  cancelBooking(id: number): Promise<void>;
   updateBookingVerification(id: number, code: string, expiresAt: Date): Promise<Booking>;
   countBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number>;
   countVerifiedBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number>;
@@ -234,6 +235,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePendingBooking(id: number): Promise<void> {
+    const booking = await this.getBookingById(id);
+    if (booking) {
+      await db.delete(bookings).where(eq(bookings.id, id));
+      // Also delete the associated slot
+      await this.deleteSlot(booking.slotId);
+    }
+  }
+
+  async cancelBooking(id: number): Promise<void> {
     const booking = await this.getBookingById(id);
     if (booking) {
       await db.delete(bookings).where(eq(bookings.id, id));

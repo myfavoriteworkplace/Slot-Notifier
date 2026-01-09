@@ -1,7 +1,9 @@
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X } from "lucide-react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,8 +18,27 @@ type BookingWithSlot = Booking & { slot: Slot };
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut } = useClinicAuth();
   const [_, setLocation] = useLocation();
+  const { toast } = useToast();
   const [filterDate, setFilterDate] = useState<Date | undefined>(new Date());
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
+
+  const cancelBookingMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      const res = await fetch(`/api/clinic/bookings/${bookingId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to cancel booking');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
+      toast({ title: "Booking cancelled successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to cancel booking", variant: "destructive" });
+    },
+  });
 
   const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
     queryKey: ['/api/clinic/bookings'],
@@ -243,6 +264,23 @@ export default function ClinicDashboard() {
                           Booked on {format(new Date(booking.createdAt), "MMM d, yyyy 'at' h:mm a")}
                         </div>
                       )}
+                      <div className="pt-3 mt-3 border-t border-border/50">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => cancelBookingMutation.mutate(booking.id)}
+                          disabled={cancelBookingMutation.isPending}
+                          data-testid={`button-cancel-booking-${booking.id}`}
+                        >
+                          {cancelBookingMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <X className="h-4 w-4 mr-2" />
+                          )}
+                          Cancel Booking
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))
