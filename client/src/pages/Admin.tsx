@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2 } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ export default function Admin() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [_, setLocation] = useLocation();
   const [newClinicName, setNewClinicName] = useState("");
+  const [newClinicAddress, setNewClinicAddress] = useState("");
   const { toast } = useToast();
 
   const { data: clinics, isLoading: clinicsLoading } = useQuery<Clinic[]>({
@@ -28,12 +29,13 @@ export default function Admin() {
   });
 
   const createClinicMutation = useMutation({
-    mutationFn: async (name: string) => {
-      return apiRequest('POST', '/api/clinics', { name });
+    mutationFn: async (data: { name: string; address: string }) => {
+      return apiRequest('POST', '/api/clinics', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
       setNewClinicName("");
+      setNewClinicAddress("");
       toast({ title: "Clinic added successfully" });
     },
     onError: (error: any) => {
@@ -117,7 +119,10 @@ export default function Admin() {
       toast({ title: "Please enter a clinic name", variant: "destructive" });
       return;
     }
-    createClinicMutation.mutate(newClinicName.trim());
+    createClinicMutation.mutate({ 
+      name: newClinicName.trim(), 
+      address: newClinicAddress.trim() 
+    });
   };
 
   return (
@@ -135,26 +140,36 @@ export default function Admin() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-3">
-            <Input
-              placeholder="Enter clinic name"
-              value={newClinicName}
-              onChange={(e) => setNewClinicName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddClinic()}
-              data-testid="input-clinic-name"
-            />
-            <Button 
-              onClick={handleAddClinic}
-              disabled={createClinicMutation.isPending}
-              data-testid="button-add-clinic"
-            >
-              {createClinicMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              Add
-            </Button>
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              <Input
+                placeholder="Clinic name"
+                value={newClinicName}
+                onChange={(e) => setNewClinicName(e.target.value)}
+                data-testid="input-clinic-name"
+              />
+            </div>
+            <div className="flex gap-3">
+              <Input
+                placeholder="Address (optional)"
+                value={newClinicAddress}
+                onChange={(e) => setNewClinicAddress(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddClinic()}
+                data-testid="input-clinic-address"
+              />
+              <Button 
+                onClick={handleAddClinic}
+                disabled={createClinicMutation.isPending}
+                data-testid="button-add-clinic"
+              >
+                {createClinicMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                Add
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -186,7 +201,15 @@ export default function Admin() {
                   className="flex items-center justify-between p-3 border rounded-md"
                   data-testid={`clinic-active-${clinic.id}`}
                 >
-                  <span className="font-medium">{clinic.name}</span>
+                  <div>
+                    <span className="font-medium">{clinic.name}</span>
+                    {clinic.address && (
+                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                        <MapPin className="h-3 w-3" />
+                        {clinic.address}
+                      </p>
+                    )}
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
@@ -223,9 +246,17 @@ export default function Admin() {
                   className="flex items-center justify-between p-3 border rounded-md bg-muted/50"
                   data-testid={`clinic-archived-${clinic.id}`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-muted-foreground">{clinic.name}</span>
-                    <Badge variant="secondary">Archived</Badge>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-muted-foreground">{clinic.name}</span>
+                      <Badge variant="secondary">Archived</Badge>
+                    </div>
+                    {clinic.address && (
+                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                        <MapPin className="h-3 w-3" />
+                        {clinic.address}
+                      </p>
+                    )}
                   </div>
                   <Button
                     variant="outline"
