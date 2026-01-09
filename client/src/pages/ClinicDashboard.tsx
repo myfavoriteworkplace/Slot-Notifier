@@ -113,27 +113,17 @@ export default function ClinicDashboard() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Building2 className="h-6 w-6 text-primary" />
+    <div className="container mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-4 mb-6 sm:mb-8">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+          <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
           </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-left">{clinic?.name}</h1>
-            <p className="text-muted-foreground mt-1 text-left">View and manage your clinic's bookings</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-left truncate">{clinic?.name}</h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1 text-left">Manage your clinic's bookings</p>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          onClick={handleLogout} 
-          disabled={isLoggingOut}
-          className="gap-2"
-          data-testid="button-clinic-logout"
-        >
-          {isLoggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-          Logout
-        </Button>
       </div>
 
       <div className="space-y-8">

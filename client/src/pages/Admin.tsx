@@ -241,9 +241,9 @@ export default function Admin() {
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
-        <p className="text-muted-foreground">Manage clinics and application settings</p>
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Admin Panel</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Manage clinics and application settings</p>
       </div>
 
       <Card className="mb-6">

@@ -131,9 +131,9 @@ export function Header() {
             )}
             
             {isClinicAuthenticated && (
-              <div className="flex items-center gap-3 pl-2 border-l ml-2">
-                <div className="text-right">
-                  <p className="text-sm font-medium leading-none">{clinic?.name}</p>
+              <div className="flex items-center gap-2 sm:gap-3 pl-2 border-l ml-2">
+                <div className="text-right hidden sm:block">
+                  <p className="text-sm font-medium leading-none max-w-[150px] truncate">{clinic?.name}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Clinic Admin</p>
                 </div>
                 <Button 

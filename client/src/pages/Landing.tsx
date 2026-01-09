@@ -45,17 +45,17 @@ export default function Landing() {
           />
         </div>
 
-        <div className="py-24 sm:py-32 lg:pb-40">
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        <div className="py-16 sm:py-24 lg:py-32 lg:pb-40">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl text-left">
-              <h1 className="text-4xl font-display font-bold tracking-tight text-foreground sm:text-6xl animate-fade-in-up">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold tracking-tight text-foreground animate-fade-in-up">
                 Booking made <span className="text-gradient">effortless</span>
               </h1>
               <p className="mt-6 text-lg leading-8 text-muted-foreground animate-fade-in-up delay-100">
                 Streamline your scheduling process. Owners can easily manage availability, 
                 and customers can book slots in seconds. No more back-and-forth emails.
               </p>
-              <div className="mt-10 flex items-center justify-start gap-x-6 animate-fade-in-up delay-200">
+              <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-start sm:items-center justify-start gap-4 sm:gap-x-6 animate-fade-in-up delay-200">
                 <Button 
                   size="lg" 
                   className="rounded-full px-8 text-base shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all"
@@ -78,9 +78,9 @@ export default function Landing() {
         </div>
 
         {/* Feature Grid */}
-        <div className="mx-auto max-w-7xl px-6 lg:px-8 pb-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-16 sm:pb-24">
           <div className="mx-auto max-w-2xl lg:max-w-none">
-            <div className="grid grid-cols-1 gap-x-8 gap-y-16 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 sm:gap-x-8 sm:gap-y-12 lg:gap-y-16 lg:grid-cols-3">
               {[
                 {
                   name: 'Real-time Availability',
@@ -98,7 +98,7 @@ export default function Landing() {
                   icon: Users,
                 },
               ].map((feature) => (
-                <div key={feature.name} className="flex flex-col items-start bg-card p-8 rounded-2xl shadow-sm border hover:shadow-md transition-all">
+                <div key={feature.name} className="flex flex-col items-start bg-card p-6 sm:p-8 rounded-2xl shadow-sm border hover:shadow-md transition-all">
                   <div className="rounded-xl bg-primary/10 p-3 ring-1 ring-primary/20">
                     <feature.icon aria-hidden="true" className="h-6 w-6 text-primary" />
                   </div>

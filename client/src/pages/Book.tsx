@@ -155,14 +155,14 @@ export default function Book() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+    <div className="container mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
       <div className="max-w-5xl">
-        <div className="text-left mb-10">
-          <h1 className="text-3xl font-bold tracking-tight mb-2 text-left">Book a Session</h1>
-          <p className="text-muted-foreground text-left">Select a clinic and date to book your appointment.</p>
+        <div className="text-left mb-6 sm:mb-10">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2 text-left">Book a Session</h1>
+          <p className="text-sm sm:text-base text-muted-foreground text-left">Select a clinic and date to book your appointment.</p>
         </div>
 
-        <div className="max-w-md mb-10 text-left">
+        <div className="max-w-md mb-6 sm:mb-10 text-left">
           <Label className="text-sm font-medium mb-2 block text-left">Select Clinic</Label>
           <Select value={selectedClinic} onValueChange={setSelectedClinic}>
             <SelectTrigger className="w-full rounded-xl h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50" data-testid="select-clinic">
