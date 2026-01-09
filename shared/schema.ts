@@ -30,9 +30,13 @@ export const slots = pgTable("slots", {
 export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
   slotId: integer("slot_id").notNull().references(() => slots.id),
-  customerId: varchar("customer_id").notNull().references(() => users.id),
+  customerId: varchar("customer_id").references(() => users.id),
   customerName: varchar("customer_name", { length: 255 }).notNull(),
   customerPhone: varchar("customer_phone", { length: 50 }).notNull(),
+  customerEmail: varchar("customer_email", { length: 255 }),
+  verificationCode: varchar("verification_code", { length: 10 }),
+  verificationStatus: varchar("verification_status", { length: 20 }).default("pending").notNull(),
+  verificationExpiresAt: timestamp("verification_expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -84,7 +88,25 @@ export const insertSlotSchema = createInsertSchema(slots).omit({
 export const insertBookingSchema = createInsertSchema(bookings).omit({ 
   id: true, 
   customerId: true, 
-  createdAt: true 
+  createdAt: true,
+  verificationCode: true,
+  verificationStatus: true,
+  verificationExpiresAt: true
+});
+
+export const publicBookingSchema = createInsertSchema(bookings).omit({ 
+  id: true, 
+  customerId: true, 
+  createdAt: true,
+  slotId: true,
+  verificationCode: true,
+  verificationStatus: true,
+  verificationExpiresAt: true
+}).extend({
+  clinicId: z.number(),
+  startTime: z.string(),
+  endTime: z.string(),
+  customerEmail: z.string().email()
 });
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ 
@@ -104,6 +126,7 @@ export type Slot = typeof slots.$inferSelect;
 export type InsertSlot = z.infer<typeof insertSlotSchema>;
 export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
+export type PublicBooking = z.infer<typeof publicBookingSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Clinic = typeof clinics.$inferSelect;
