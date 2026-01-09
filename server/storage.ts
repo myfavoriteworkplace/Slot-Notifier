@@ -11,6 +11,10 @@ import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { authStorage } from "./replit_integrations/auth/storage";
 
 export interface IStorage {
+  // Users
+  hasSuperuser(): Promise<boolean>;
+  setUserRole(userId: string, role: string): Promise<void>;
+
   // Slots
   createSlot(slot: InsertSlot): Promise<Slot>;
   getSlots(ownerId?: string, date?: string): Promise<Slot[]>;
@@ -58,6 +62,16 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Users
+  async hasSuperuser(): Promise<boolean> {
+    const result = await db.select().from(users).where(eq(users.role, 'superuser')).limit(1);
+    return result.length > 0;
+  }
+
+  async setUserRole(userId: string, role: string): Promise<void> {
+    await db.update(users).set({ role }).where(eq(users.id, userId));
+  }
+
   // Slots
   async createSlot(insertSlot: any): Promise<Slot> {
     const [slot] = await db.insert(slots).values(insertSlot).returning();

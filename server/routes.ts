@@ -15,6 +15,22 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
 
+  // Claim superuser status if no superusers exist (one-time setup)
+  app.post("/api/claim-superuser", isAuthenticated, async (req, res) => {
+    const user = req.user as any;
+    const userId = user.claims.sub;
+    
+    // Check if any superuser exists
+    const superuserExists = await storage.hasSuperuser();
+    if (superuserExists) {
+      return res.status(403).json({ message: "A superuser already exists" });
+    }
+    
+    // Promote this user to superuser
+    await storage.setUserRole(userId, 'superuser');
+    res.json({ message: "You are now a superuser", role: 'superuser' });
+  });
+
   // Slots API
   app.get(api.slots.list.path, async (req, res) => {
     const ownerId = req.query.ownerId as string;

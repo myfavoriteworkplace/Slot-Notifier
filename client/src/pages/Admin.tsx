@@ -149,6 +149,25 @@ export default function Admin() {
     );
   }
 
+  const claimSuperuserMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/claim-superuser');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      toast({ title: "You are now a superuser!", description: "Please refresh the page." });
+      window.location.reload();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Cannot claim superuser", 
+        description: error.message || "A superuser already exists",
+        variant: "destructive" 
+      });
+    },
+  });
+
   if (user?.role !== 'superuser') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -157,6 +176,26 @@ export default function Admin() {
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>Only super users can access this page.</CardDescription>
           </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              If you are the first user and no superuser exists yet, you can claim superuser access.
+            </p>
+            <Button 
+              onClick={() => claimSuperuserMutation.mutate()}
+              disabled={claimSuperuserMutation.isPending}
+              className="w-full"
+              data-testid="button-claim-superuser"
+            >
+              {claimSuperuserMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Claiming...
+                </>
+              ) : (
+                'Claim Superuser Access'
+              )}
+            </Button>
+          </CardContent>
         </Card>
       </div>
     );

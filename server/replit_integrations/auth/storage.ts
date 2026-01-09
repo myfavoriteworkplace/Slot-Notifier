@@ -1,6 +1,6 @@
 import { users, type User, type UpsertUser } from "@shared/models/auth";
 import { db } from "../../db";
-import { eq } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 
 // Interface for auth storage operations
 // (IMPORTANT) These user operations are mandatory for Replit Auth.
@@ -16,15 +16,34 @@ class AuthStorage implements IAuthStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    // Check if this user already exists
+    const existingUser = await this.getUser(userData.id!);
+    
+    // If user already exists, just update their info (preserve role)
+    if (existingUser) {
+      const [user] = await db
+        .update(users)
+        .set({
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImageUrl: userData.profileImageUrl,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userData.id!))
+        .returning();
+      return user;
+    }
+    
+    // For new users, check if they should be the first superuser
+    const [{ userCount }] = await db.select({ userCount: count() }).from(users);
+    const isFirstUser = userCount === 0;
+    
     const [user] = await db
       .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
+      .values({
+        ...userData,
+        role: isFirstUser ? 'superuser' : 'customer',
       })
       .returning();
     return user;
