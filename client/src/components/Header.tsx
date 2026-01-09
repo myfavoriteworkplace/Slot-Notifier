@@ -46,7 +46,7 @@ export function Header() {
         <div className="flex h-16 items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2 font-display text-xl font-bold tracking-tight text-primary hover:opacity-80 transition-opacity" data-testid="link-home">
             <Calendar className="h-6 w-6" />
-            <span className="hidden sm:inline">SlotBooker</span>
+            <span className="hidden sm:inline">BookMySlot</span>
           </Link>
 
           <nav className="flex items-center gap-1 sm:gap-2">

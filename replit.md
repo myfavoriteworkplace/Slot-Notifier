@@ -1,8 +1,8 @@
-# SlotBooker
+# BookMySlot
 
 ## Overview
 
-SlotBooker is a full-stack appointment booking application that enables service owners to manage availability slots and customers to book appointments. The application features role-based access control (owner vs customer), real-time notifications, and a modern responsive UI.
+BookMySlot is a full-stack appointment booking application that enables service owners to manage availability slots and customers to book appointments. The application features role-based access control (owner vs customer), real-time notifications, and a modern responsive UI.
 
 ## User Preferences
 
