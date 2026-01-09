@@ -341,7 +341,22 @@ export async function registerRoutes(
       return res.status(403).json({ message: "Not authorized to cancel this booking" });
     }
 
+    // Get clinic name for the email
+    const clinic = await storage.getClinic(clinicId);
+    const clinicName = clinic?.name || 'the clinic';
+
+    // Store booking details before cancelling
+    const customerEmail = booking.customerEmail;
+    const customerName = booking.customerName;
+    const appointmentTime = slot.startTime;
+
     await storage.cancelBooking(bookingId);
+
+    // Log cancellation email (email integration pending)
+    if (customerEmail) {
+      console.log(`[EMAIL] To: ${customerEmail}, Subject: Booking Cancelled, Body: Dear ${customerName}, your appointment on ${appointmentTime.toLocaleString()} at ${clinicName} has been cancelled. Please contact the clinic if you have any questions.`);
+    }
+
     res.json({ message: "Booking cancelled successfully" });
   });
 
