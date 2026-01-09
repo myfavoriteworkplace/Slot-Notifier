@@ -6,7 +6,8 @@ import {
   LogOut, 
   Calendar, 
   User as UserIcon,
-  LayoutDashboard 
+  LayoutDashboard,
+  Settings
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -46,6 +47,11 @@ export function Header() {
                 <Link href="/book" className={location === "/book" ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>
                   Book a Slot
                 </Link>
+                {user?.role === 'superuser' && (
+                  <Link href="/admin" className={location === "/admin" ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>
+                    Admin
+                  </Link>
+                )}
               </nav>
             )}
           </div>

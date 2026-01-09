@@ -4,7 +4,9 @@ import { SlotCard } from "@/components/SlotCard";
 import { useAuth } from "@/hooks/use-auth";
 import { useBookings } from "@/hooks/use-bookings";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, Calendar as CalendarIcon, ListFilter, User as UserIcon, Phone, Clock, Search, Settings, Save } from "lucide-react";
+import type { Clinic } from "@shared/schema";
 import { format, isSameDay, startOfToday } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,12 +96,17 @@ export default function Dashboard() {
     return dateMatch && clinicMatch;
   });
 
-  const clinics = [
-    "Dr Gijo's Dental Solutions",
-    "Parappuram's Smile Dental Clinic Muvattupuzha",
-    "Smiletree Multispeciality Dental Clinic Muvattupuzha",
-    "Valiyakulangara dental clinic Muvattupuzha"
-  ];
+  const { data: clinicsData } = useQuery<Clinic[]>({
+    queryKey: ['/api/clinics', { includeArchived: true }],
+    queryFn: async () => {
+      const res = await fetch('/api/clinics?includeArchived=true', {
+        credentials: 'include',
+      });
+      return res.json();
+    },
+  });
+
+  const clinics = clinicsData?.map(c => c.name) || [];
 
   const onDateSelect = (date: Date | undefined) => {
     if (!date || !user) return;

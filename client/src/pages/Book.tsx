@@ -4,7 +4,9 @@ import { useCreateBooking } from "@/hooks/use-bookings";
 import { SlotCard } from "@/components/SlotCard";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, Calendar as CalendarIcon, ChevronDown, CalendarDays } from "lucide-react";
+import type { Clinic } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -64,12 +66,11 @@ export default function Book() {
     }
   }, []);
 
-  const clinics = [
-    "Dr Gijo's Dental Solutions",
-    "Parappuram's Smile Dental Clinic Muvattupuzha",
-    "Smiletree Multispeciality Dental Clinic Muvattupuzha",
-    "Valiyakulangara dental clinic Muvattupuzha"
-  ];
+  const { data: clinicsData, isLoading: clinicsLoading } = useQuery<Clinic[]>({
+    queryKey: ['/api/clinics'],
+  });
+
+  const clinics = clinicsData?.map(c => c.name) || [];
   
   const { data: slots, isLoading: slotsLoading } = useSlots();
 
