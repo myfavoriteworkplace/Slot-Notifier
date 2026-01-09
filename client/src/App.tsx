@@ -9,6 +9,8 @@ import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import Book from "@/pages/Book";
 import Admin from "@/pages/Admin";
+import ClinicLogin from "@/pages/ClinicLogin";
+import ClinicDashboard from "@/pages/ClinicDashboard";
 
 function Router() {
   return (
@@ -17,6 +19,8 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/book" component={Book} />
       <Route path="/admin" component={Admin} />
+      <Route path="/clinic-login" component={ClinicLogin} />
+      <Route path="/clinic-dashboard" component={ClinicDashboard} />
       <Route component={NotFound} />
     </Switch>
   );
