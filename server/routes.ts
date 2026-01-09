@@ -82,6 +82,7 @@ export async function registerRoutes(
           startTime: new Date((req.body as any).startTime),
           endTime: new Date((req.body as any).endTime),
           clinicName: (req.body as any).clinicName,
+          clinicId: (req.body as any).clinicId || null,
           isBooked: false, // Ensure it's not marked booked yet so validation passes
         } as any);
       } else {
@@ -158,7 +159,9 @@ export async function registerRoutes(
   app.get(api.clinics.list.path, async (req, res) => {
     const includeArchived = req.query.includeArchived === 'true';
     const clinics = await storage.getClinics(includeArchived);
-    res.json(clinics);
+    // Remove passwordHash from response for security
+    const safeClinics = clinics.map(({ passwordHash, ...clinic }) => clinic);
+    res.json(safeClinics);
   });
 
   app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {

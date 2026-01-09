@@ -59,6 +59,11 @@ export function Header() {
           <div className="flex items-center gap-4">
             {isAuthenticated ? (
               <>
+                <Link href="/clinic-login">
+                  <Button variant="outline" size="sm" className="hidden md:flex">
+                    Clinic Portal
+                  </Button>
+                </Link>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="relative hover:bg-muted/50 rounded-full">

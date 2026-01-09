@@ -138,15 +138,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBookingsByClinicId(clinicId: number): Promise<(Booking & { slot: Slot })[]> {
+    // First get the clinic to also match by name for legacy data
+    const clinic = await this.getClinic(clinicId);
+    
     const results = await db.select({
       booking: bookings,
       slot: slots
     })
     .from(bookings)
-    .innerJoin(slots, eq(bookings.slotId, slots.id))
-    .where(eq(slots.clinicId, clinicId));
+    .innerJoin(slots, eq(bookings.slotId, slots.id));
     
-    return results.map(r => ({ ...r.booking, slot: r.slot }));
+    // Filter results to include slots with matching clinicId OR clinicName (for legacy data)
+    const filtered = results.filter(r => 
+      r.slot.clinicId === clinicId || 
+      (r.slot.clinicId === null && clinic && r.slot.clinicName === clinic.name)
+    );
+    
+    return filtered.map(r => ({ ...r.booking, slot: r.slot }));
   }
 
   // Notifications

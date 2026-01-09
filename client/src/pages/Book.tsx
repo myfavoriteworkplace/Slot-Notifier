@@ -112,11 +112,15 @@ export default function Book() {
     const endTime = new Date(selectedDate);
     endTime.setHours(slotInfo.endHour, slotInfo.endMinute, 0, 0);
 
+    const selectedClinicData = clinicsData?.find(c => c.name === selectedClinic);
+    const clinicId = selectedClinicData?.id;
+
     createBooking.mutate({
       slotId: -1,
       customerName,
       customerPhone,
       clinicName: selectedClinic,
+      clinicId: clinicId,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString()
     } as any, {
