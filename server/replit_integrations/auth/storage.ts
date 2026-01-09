@@ -19,8 +19,11 @@ class AuthStorage implements IAuthStorage {
     // Check if this user already exists
     const existingUser = await this.getUser(userData.id!);
     
-    // If user already exists, just update their info (preserve role)
+    // If user already exists, update their info
     if (existingUser) {
+      // Check if this email should be superuser (designated admin email)
+      const isSuperuserEmail = userData.email === 'itsmyfavoriteworkplace@gmail.com';
+      
       const [user] = await db
         .update(users)
         .set({
@@ -29,13 +32,18 @@ class AuthStorage implements IAuthStorage {
           lastName: userData.lastName,
           profileImageUrl: userData.profileImageUrl,
           updatedAt: new Date(),
+          // Upgrade to superuser if they have the designated email
+          ...(isSuperuserEmail ? { role: 'superuser' } : {}),
         })
         .where(eq(users.id, userData.id!))
         .returning();
       return user;
     }
     
-    // For new users, check if they should be the first superuser
+    // Check if this email should be superuser
+    const isSuperuserEmail = userData.email === 'itsmyfavoriteworkplace@gmail.com';
+    
+    // For new users, check if they should be the first superuser or have the designated email
     const [{ userCount }] = await db.select({ userCount: count() }).from(users);
     const isFirstUser = userCount === 0;
     
@@ -43,7 +51,7 @@ class AuthStorage implements IAuthStorage {
       .insert(users)
       .values({
         ...userData,
-        role: isFirstUser ? 'superuser' : 'customer',
+        role: (isFirstUser || isSuperuserEmail) ? 'superuser' : 'customer',
       })
       .returning();
     return user;
