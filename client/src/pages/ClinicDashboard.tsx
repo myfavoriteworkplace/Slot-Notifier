@@ -117,6 +117,12 @@ export default function ClinicDashboard() {
     return bookingDate >= todayStart;
   }).length || 0;
 
+  // Count past bookings (before today)
+  const pastBookingsCount = bookings?.filter(b => {
+    const bookingDate = new Date(b.slot.startTime);
+    return bookingDate < todayStart;
+  }).length || 0;
+
   const handleLogout = () => {
     logout();
     setLocation("/clinic-login");
@@ -167,25 +173,31 @@ export default function ClinicDashboard() {
       </div>
 
       <div className="space-y-8">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card className="shadow-sm border-border/50">
-            <CardContent className="p-6 text-left">
-              <p className="text-sm font-medium text-muted-foreground">Total Future Bookings</p>
-              <p className="text-2xl font-bold mt-2">{futureBookingsCount}</p>
+            <CardContent className="p-4 sm:p-6 text-left">
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground">Future Bookings</p>
+              <p className="text-xl sm:text-2xl font-bold mt-2">{futureBookingsCount}</p>
             </CardContent>
           </Card>
           <Card className="shadow-sm border-border/50">
-            <CardContent className="p-6 text-left">
-              <p className="text-sm font-medium text-muted-foreground">Today's Bookings</p>
-              <p className="text-2xl font-bold mt-2 text-primary">
+            <CardContent className="p-4 sm:p-6 text-left">
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground">Past Bookings</p>
+              <p className="text-xl sm:text-2xl font-bold mt-2 text-muted-foreground">{pastBookingsCount}</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm border-border/50">
+            <CardContent className="p-4 sm:p-6 text-left">
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground">Today's Bookings</p>
+              <p className="text-xl sm:text-2xl font-bold mt-2 text-primary">
                 {todaysBookingsCount}
               </p>
             </CardContent>
           </Card>
           <Card className="shadow-sm border-border/50">
-            <CardContent className="p-6 text-left">
-              <p className="text-sm font-medium text-muted-foreground">Filtered Results</p>
-              <p className="text-2xl font-bold mt-2 text-accent">
+            <CardContent className="p-4 sm:p-6 text-left">
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground">Filtered Results</p>
+              <p className="text-xl sm:text-2xl font-bold mt-2 text-accent">
                 {filteredBookings?.length || 0}
               </p>
             </CardContent>
