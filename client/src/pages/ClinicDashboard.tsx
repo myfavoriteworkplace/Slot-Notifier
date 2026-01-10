@@ -3,13 +3,16 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X, Download } from "lucide-react";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X, Download, Plus, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,8 +24,28 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useState, useEffect } from "react";
 import type { Slot, Booking } from "@shared/schema";
+
+interface SlotTiming {
+  id: string;
+  label: string;
+  startHour: number;
+  startMinute: number;
+  endHour: number;
+  endMinute: number;
+}
+
+const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
+  { id: "1", label: "Morning", startHour: 9, startMinute: 0, endHour: 12, endMinute: 0 },
+  { id: "2", label: "Afternoon", startHour: 14, startMinute: 0, endHour: 16, endMinute: 0 },
+  { id: "3", label: "Evening", startHour: 16, startMinute: 0, endHour: 18, endMinute: 0 },
+];
 
 type BookingWithSlot = Booking & { slot: Slot };
 
@@ -33,6 +56,50 @@ export default function ClinicDashboard() {
   const [filterDate, setFilterDate] = useState<Date | undefined>(new Date());
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
+
+  // Booking form state
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [bookingName, setBookingName] = useState("");
+  const [bookingPhone, setBookingPhone] = useState("");
+  const [bookingEmail, setBookingEmail] = useState("");
+  const [bookingDate, setBookingDate] = useState<Date>(startOfToday());
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState("");
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [slotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
+
+  const validateIndianPhone = (phone: string): boolean => {
+    const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    const indiaRegex = /^(\+91|91)?[6-9]\d{9}$/;
+    return indiaRegex.test(cleaned);
+  };
+
+  const handleBookingPhoneChange = (value: string) => {
+    setBookingPhone(value);
+    if (value && !validateIndianPhone(value)) {
+      setPhoneError("Please enter a valid Indian mobile number (10 digits starting with 6-9)");
+    } else {
+      setPhoneError("");
+    }
+  };
+
+  const isPhoneValid = bookingPhone && validateIndianPhone(bookingPhone);
+
+  const formatTime = (hour: number, minute: number) => {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    return `${displayHour}:${minute.toString().padStart(2, '0')}${period}`;
+  };
+
+  const resetBookingForm = () => {
+    setBookingName("");
+    setBookingPhone("");
+    setBookingEmail("");
+    setBookingDate(startOfToday());
+    setSelectedSlot(null);
+    setPhoneError("");
+    setBookingSuccess(false);
+  };
 
   const cancelBookingMutation = useMutation({
     mutationFn: async (bookingId: number) => {
@@ -54,6 +121,51 @@ export default function ClinicDashboard() {
       setCancellingBookingId(null);
     },
   });
+
+  const createBookingMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest('POST', '/api/public/bookings', data);
+      return response.json();
+    },
+    onSuccess: () => {
+      setBookingSuccess(true);
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
+      toast({
+        title: "Booking Created!",
+        description: "The appointment has been successfully booked.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Booking Failed",
+        description: error.message || "Failed to create booking",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateBooking = () => {
+    if (!selectedSlot || !bookingName || !bookingPhone || !bookingEmail || !clinic) return;
+    const slotInfo = slotTimings.find(s => s.id === selectedSlot);
+    if (!slotInfo) return;
+
+    const startTime = new Date(bookingDate);
+    startTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
+    const endTime = new Date(bookingDate);
+    endTime.setHours(slotInfo.endHour, slotInfo.endMinute, 0, 0);
+
+    createBookingMutation.mutate({
+      customerName: bookingName,
+      customerPhone: bookingPhone,
+      customerEmail: bookingEmail,
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString()
+    });
+  };
+
+  const dates = Array.from({ length: 14 }, (_, i) => addDays(startOfToday(), i));
 
   const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
     queryKey: ['/api/clinic/bookings'],
@@ -203,6 +315,207 @@ export default function ClinicDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Book a Slot Section */}
+        <Collapsible open={isBookingOpen} onOpenChange={setIsBookingOpen}>
+          <Card className="shadow-sm border-border/50">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Plus className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <CardTitle className="text-lg">Book a Slot for Patient</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-0.5">Create a new appointment booking</p>
+                    </div>
+                  </div>
+                  {isBookingOpen ? (
+                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 pb-6">
+                {bookingSuccess ? (
+                  <div className="py-8 flex flex-col items-center gap-4">
+                    <CheckCircle2 className="h-16 w-16 text-green-500" />
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold">Booking Confirmed!</h3>
+                      <p className="text-muted-foreground mt-1">
+                        Appointment on {format(bookingDate, "MMMM do, yyyy")} has been booked.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => {
+                        resetBookingForm();
+                      }}
+                      className="mt-2"
+                      data-testid="button-book-another"
+                    >
+                      Book Another
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Patient Details */}
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="booking-name" className="text-left block">Patient Name</Label>
+                        <Input
+                          id="booking-name"
+                          value={bookingName}
+                          onChange={(e) => setBookingName(e.target.value)}
+                          placeholder="John Doe"
+                          data-testid="input-booking-name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="booking-phone" className="text-left block">Phone Number</Label>
+                        <div className="space-y-1">
+                          <Input
+                            id="booking-phone"
+                            value={bookingPhone}
+                            onChange={(e) => handleBookingPhoneChange(e.target.value)}
+                            className={phoneError ? "border-destructive" : ""}
+                            placeholder="+91 9876543210"
+                            data-testid="input-booking-phone"
+                          />
+                          {phoneError && (
+                            <p className="text-xs text-destructive">{phoneError}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="booking-email" className="text-left block">Email</Label>
+                        <Input
+                          id="booking-email"
+                          type="email"
+                          value={bookingEmail}
+                          onChange={(e) => setBookingEmail(e.target.value)}
+                          placeholder="patient@example.com"
+                          data-testid="input-booking-email"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Date Selection */}
+                    <div className="space-y-2">
+                      <Label className="text-left block">Select Date</Label>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        <div className="flex-1 w-full overflow-hidden">
+                          <ScrollArea className="w-full whitespace-nowrap pb-4">
+                            <div className="flex space-x-3 px-1">
+                              {dates.map((date) => {
+                                const isSelected = isSameDay(date, bookingDate);
+                                return (
+                                  <button
+                                    key={date.toISOString()}
+                                    onClick={() => setBookingDate(date)}
+                                    data-testid={`booking-date-${format(date, 'yyyy-MM-dd')}`}
+                                    className={`
+                                      flex flex-col items-center justify-center min-w-[4rem] h-16 rounded-xl border transition-all duration-200
+                                      ${isSelected 
+                                        ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
+                                        : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
+                                    `}
+                                  >
+                                    <span className="text-xs font-medium uppercase mb-0.5 opacity-80">
+                                      {format(date, "EEE")}
+                                    </span>
+                                    <span className="text-lg font-bold">
+                                      {format(date, "d")}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <ScrollBar orientation="horizontal" />
+                          </ScrollArea>
+                        </div>
+
+                        <div className="flex-shrink-0 pb-4">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="icon" 
+                                className="h-16 w-14 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-muted/50 transition-all"
+                                data-testid="button-booking-calendar"
+                              >
+                                <CalendarIcon className="h-5 w-5 text-muted-foreground" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 rounded-xl shadow-2xl border-border/50" align="end">
+                              <Calendar
+                                mode="single"
+                                selected={bookingDate}
+                                onSelect={(date) => {
+                                  if (date) setBookingDate(date);
+                                }}
+                                disabled={(date) => date < startOfToday()}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Time Slot Selection */}
+                    <div className="space-y-2">
+                      <Label className="text-left block">Select Time Slot</Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {slotTimings.map((slot) => {
+                          const slotLabel = `${formatTime(slot.startHour, slot.startMinute)} - ${formatTime(slot.endHour, slot.endMinute)}`;
+                          return (
+                            <button
+                              key={slot.id}
+                              onClick={() => setSelectedSlot(slot.id)}
+                              data-testid={`booking-slot-${slot.id}`}
+                              className={`p-4 rounded-xl border text-center transition-all ${
+                                selectedSlot === slot.id 
+                                  ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                                  : "border-border hover:bg-muted/50 hover:border-primary/50"
+                              }`}
+                            >
+                              <div className="font-medium">{slot.label}</div>
+                              <div className="text-sm text-muted-foreground mt-1">{slotLabel}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Submit Button */}
+                    <Button 
+                      onClick={handleCreateBooking}
+                      disabled={!bookingName || !isPhoneValid || !bookingEmail || !selectedSlot || createBookingMutation.isPending}
+                      className="w-full sm:w-auto"
+                      data-testid="button-create-booking"
+                    >
+                      {createBookingMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Creating Booking...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create Booking
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         <section>
           <div className="flex flex-col space-y-4 mb-6">
