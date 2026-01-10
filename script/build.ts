@@ -30,6 +30,8 @@ const allowlist = [
   "xlsx",
   "zod",
   "zod-validation-error",
+  "bcrypt",
+  "openid-client"
 ];
 
 async function buildAll() {
