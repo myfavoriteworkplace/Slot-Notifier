@@ -1,19 +1,65 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated as replitIsAuthenticated } from "./replit_integrations/auth";
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcrypt";
+
+const USE_ENV_AUTH = !!(process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD);
+
+function envIsAuthenticated(req: Request, res: Response, next: NextFunction) {
+  if ((req.session as any)?.adminLoggedIn) {
+    return next();
+  }
+  return res.status(401).json({ message: "Authentication required" });
+}
+
+const isAuthenticated = USE_ENV_AUTH ? envIsAuthenticated : replitIsAuthenticated;
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   
-  // Setup Auth
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  if (USE_ENV_AUTH) {
+    console.log("[AUTH] Using environment-based admin authentication");
+    
+    app.post("/api/auth/admin/login", async (req, res) => {
+      const { email, password } = req.body;
+      const adminEmail = process.env.ADMIN_EMAIL;
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      
+      if (email === adminEmail && password === adminPassword) {
+        (req.session as any).adminLoggedIn = true;
+        (req.session as any).adminEmail = email;
+        return res.json({ message: "Login successful", user: { email, role: 'superuser' } });
+      }
+      return res.status(401).json({ message: "Invalid credentials" });
+    });
+    
+    app.post("/api/auth/admin/logout", (req, res) => {
+      req.session.destroy((err) => {
+        if (err) return res.status(500).json({ message: "Logout failed" });
+        res.json({ message: "Logged out" });
+      });
+    });
+    
+    app.get("/api/auth/user", (req, res) => {
+      if ((req.session as any)?.adminLoggedIn) {
+        return res.json({ 
+          id: 'admin',
+          email: (req.session as any).adminEmail,
+          role: 'superuser'
+        });
+      }
+      return res.status(401).json({ message: "Not authenticated" });
+    });
+  } else {
+    console.log("[AUTH] Using Replit OIDC authentication");
+    await setupAuth(app);
+    registerAuthRoutes(app);
+  }
 
   // Claim superuser status if no superusers exist (one-time setup)
   app.post("/api/claim-superuser", isAuthenticated, async (req, res) => {
