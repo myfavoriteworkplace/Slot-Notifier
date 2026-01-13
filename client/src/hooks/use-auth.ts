@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/models/auth";
+import { apiRequest } from "@/lib/queryClient";
 
 async function fetchUser(): Promise<User | null> {
   const response = await fetch("/api/auth/user", {
@@ -18,7 +19,22 @@ async function fetchUser(): Promise<User | null> {
 }
 
 async function logout(): Promise<void> {
+  try {
+    await apiRequest('POST', '/api/auth/admin/logout');
+  } catch {
+    // If admin logout fails, try Replit logout
+  }
   window.location.href = "/api/logout";
+}
+
+async function adminLogin(email: string, password: string): Promise<User> {
+  const response = await apiRequest('POST', '/api/auth/admin/login', { email, password });
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.message || 'Login failed');
+  }
+  const data = await response.json();
+  return data.user;
 }
 
 export function useAuth() {
@@ -37,11 +53,23 @@ export function useAuth() {
     },
   });
 
+  const loginMutation = useMutation({
+    mutationFn: ({ email, password }: { email: string; password: string }) => 
+      adminLogin(email, password),
+    onSuccess: (user) => {
+      queryClient.setQueryData(["/api/auth/user"], user);
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+  });
+
   return {
     user,
     isLoading,
     isAuthenticated: !!user,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,
+    login: loginMutation.mutate,
+    loginError: loginMutation.error,
+    isLoggingIn: loginMutation.isPending,
   };
 }
