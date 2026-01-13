@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated as replitIsAuthenticated } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated as replitIsAuthenticated, getSession } from "./replit_integrations/auth";
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -10,6 +10,13 @@ const USE_ENV_AUTH = !!(process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD);
 
 function envIsAuthenticated(req: Request, res: Response, next: NextFunction) {
   if ((req.session as any)?.adminLoggedIn) {
+    // Set req.user to mimic Replit OIDC structure for compatibility with downstream handlers
+    (req as any).user = {
+      claims: {
+        sub: 'admin',
+        email: (req.session as any).adminEmail,
+      }
+    };
     return next();
   }
   return res.status(401).json({ message: "Authentication required" });
@@ -24,6 +31,10 @@ export async function registerRoutes(
   
   if (USE_ENV_AUTH) {
     console.log("[AUTH] Using environment-based admin authentication");
+    
+    // Set up session middleware for env auth
+    app.set("trust proxy", 1);
+    app.use(getSession());
     
     app.post("/api/auth/admin/login", async (req, res) => {
       const { email, password } = req.body;
@@ -230,9 +241,13 @@ export async function registerRoutes(
 
   app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
     const user = req.user as any;
-    const dbUser = await storage.getUser(user.claims.sub);
     
-    if (!dbUser || dbUser.role !== 'superuser') {
+    // For env auth, admin is always superuser
+    const isSuperuser = USE_ENV_AUTH 
+      ? user.claims.sub === 'admin'
+      : (await storage.getUser(user.claims.sub))?.role === 'superuser';
+    
+    if (!isSuperuser) {
       return res.status(403).json({ message: "Only super users can add clinics" });
     }
 
@@ -253,9 +268,12 @@ export async function registerRoutes(
 
   app.patch(api.clinics.archive.path, isAuthenticated, async (req, res) => {
     const user = req.user as any;
-    const dbUser = await storage.getUser(user.claims.sub);
     
-    if (!dbUser || dbUser.role !== 'superuser') {
+    const isSuperuser = USE_ENV_AUTH 
+      ? user.claims.sub === 'admin'
+      : (await storage.getUser(user.claims.sub))?.role === 'superuser';
+    
+    if (!isSuperuser) {
       return res.status(403).json({ message: "Only super users can archive clinics" });
     }
 
@@ -270,9 +288,12 @@ export async function registerRoutes(
 
   app.patch(api.clinics.unarchive.path, isAuthenticated, async (req, res) => {
     const user = req.user as any;
-    const dbUser = await storage.getUser(user.claims.sub);
     
-    if (!dbUser || dbUser.role !== 'superuser') {
+    const isSuperuser = USE_ENV_AUTH 
+      ? user.claims.sub === 'admin'
+      : (await storage.getUser(user.claims.sub))?.role === 'superuser';
+    
+    if (!isSuperuser) {
       return res.status(403).json({ message: "Only super users can unarchive clinics" });
     }
 
@@ -320,6 +341,9 @@ export async function registerRoutes(
     }
 
     // Store clinic session
+    if (!req.session) {
+      return res.status(500).json({ message: "Session not available" });
+    }
     (req.session as any).clinicId = clinic.id;
     (req.session as any).clinicName = clinic.name;
     (req.session as any).authType = 'clinic';
@@ -339,6 +363,9 @@ export async function registerRoutes(
   });
 
   app.get("/api/clinic/me", (req, res) => {
+    if (!req.session) {
+      return res.status(401).json({ message: "Not authenticated as clinic" });
+    }
     const clinicId = (req.session as any).clinicId;
     const clinicName = (req.session as any).clinicName;
     const authType = (req.session as any).authType;
@@ -409,9 +436,12 @@ export async function registerRoutes(
   // Update clinic when creating (with credentials)
   app.patch("/api/clinics/:id/credentials", isAuthenticated, async (req, res) => {
     const user = req.user as any;
-    const dbUser = await storage.getUser(user.claims.sub);
     
-    if (!dbUser || dbUser.role !== 'superuser') {
+    const isSuperuser = USE_ENV_AUTH 
+      ? user.claims.sub === 'admin'
+      : (await storage.getUser(user.claims.sub))?.role === 'superuser';
+    
+    if (!isSuperuser) {
       return res.status(403).json({ message: "Only super users can set clinic credentials" });
     }
 
