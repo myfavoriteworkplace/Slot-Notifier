@@ -32,10 +32,12 @@ Preferred communication style: Simple, everyday language.
 - **Migrations**: Drizzle Kit for schema migrations (`drizzle-kit push`)
 
 ### Authentication
-- **Provider**: Replit OpenID Connect (OIDC) integration
-- **Strategy**: Passport.js with OpenID Client
+- **Dual Mode Support**: 
+  - Replit OIDC (when running on Replit)
+  - Environment-based email/password (when `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set)
+- **Strategy**: Passport.js with OpenID Client (Replit) or session-based auth (external)
 - **Session Storage**: PostgreSQL sessions table
-- **User Roles**: `owner` (can create/manage slots) and `customer` (can book slots)
+- **User Roles**: `superuser` (admin), `owner` (clinic staff), `customer` (can book slots)
 
 ### Key Data Models
 - **Users**: Authentication and role management
@@ -97,3 +99,17 @@ The application supports public booking without login:
 ### Capacity
 - Maximum 3 bookings per time slot per clinic
 - Enforced at booking creation
+
+## Documentation
+
+For detailed setup and deployment instructions, see:
+- **README.md** - Complete setup guide for local development and Render deployment
+- **RENDER_DEPLOYMENT.md** - Detailed Render.com deployment guide
+- **.env.example** - Sample environment variables for local development
+- **.env.render.backend.example** - Sample environment variables for Render backend
+- **.env.render.frontend.example** - Sample environment variables for Render frontend
+
+## Recent Changes
+
+- **2024-01-13**: Added dual authentication support (Replit OIDC + environment-based email/password)
+- **2024-01-13**: Added comprehensive deployment documentation for Render.com
