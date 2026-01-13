@@ -1,12 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+
 interface ClinicSession {
   id: number;
   name: string;
 }
 
 async function fetchClinicSession(): Promise<ClinicSession | null> {
-  const response = await fetch("/api/clinic/me", {
+  const response = await fetch(`${API_BASE_URL}/api/clinic/me`, {
     credentials: "include",
   });
 
@@ -22,7 +24,7 @@ async function fetchClinicSession(): Promise<ClinicSession | null> {
 }
 
 async function clinicLogin(credentials: { username: string; password: string }): Promise<ClinicSession> {
-  const response = await fetch("/api/clinic/login", {
+  const response = await fetch(`${API_BASE_URL}/api/clinic/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -38,7 +40,7 @@ async function clinicLogin(credentials: { username: string; password: string }):
 }
 
 async function clinicLogout(): Promise<void> {
-  await fetch("/api/clinic/logout", {
+  await fetch(`${API_BASE_URL}/api/clinic/logout`, {
     method: "POST",
     credentials: "include",
   });
