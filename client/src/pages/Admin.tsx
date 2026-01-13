@@ -126,6 +126,25 @@ export default function Admin() {
     },
   });
 
+  const claimSuperuserMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/claim-superuser');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      toast({ title: "You are now a superuser!", description: "Please refresh the page." });
+      window.location.reload();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Cannot claim superuser", 
+        description: error.message || "A superuser already exists",
+        variant: "destructive" 
+      });
+    },
+  });
+
   useEffect(() => {
     if (!authLoading && user && user.role !== 'superuser') {
       toast({ 
@@ -208,25 +227,6 @@ export default function Admin() {
       </div>
     );
   }
-
-  const claimSuperuserMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/claim-superuser');
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      toast({ title: "You are now a superuser!", description: "Please refresh the page." });
-      window.location.reload();
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: "Cannot claim superuser", 
-        description: error.message || "A superuser already exists",
-        variant: "destructive" 
-      });
-    },
-  });
 
   if (user?.role !== 'superuser') {
     return (
