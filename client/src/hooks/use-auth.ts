@@ -2,8 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/models/auth";
 import { apiRequest } from "@/lib/queryClient";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+
 async function fetchUser(): Promise<User | null> {
-  const response = await fetch("/api/auth/user", {
+  const url = "/api/auth/user";
+  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+  const response = await fetch(fullUrl, {
     credentials: "include",
   });
 

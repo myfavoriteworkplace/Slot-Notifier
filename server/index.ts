@@ -12,26 +12,10 @@ app.set("trust proxy", 1);
 
 // Configure CORS for cross-domain requests (especially for Render deployment)
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Explicitly allow the Render frontend and Replit domains
-    const allowedOrigins = [
-      'https://book-my-slot-client.onrender.com',
-      'https://book-my-slot-1.onrender.com'
-    ];
-    
-    if (allowedOrigins.includes(origin) || origin.includes('replit.dev') || origin.includes('localhost')) {
-      return callback(null, true);
-    }
-    
-    // For debugging/MVP, we can be more permissive if needed
-    return callback(null, true);
-  },
+  origin: true, // Reflect request origin (must be true with credentials)
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Cookie", "X-Requested-With"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie", "X-Requested-With", "Accept", "Origin"],
   exposedHeaders: ["Set-Cookie"]
 }));
 
