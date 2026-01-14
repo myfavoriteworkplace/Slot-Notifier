@@ -24,6 +24,20 @@ export default function ClinicLogin() {
     e.preventDefault();
     setError("");
 
+    // Hardcoded demo login for demo purposes
+    if (username === "demo_clinic" && password === "demo_password123") {
+      try {
+        await login({ username, password });
+        setLocation("/clinic-dashboard");
+        return;
+      } catch (err: any) {
+        // If backend fails but it's the demo clinic, we could potentially mock the session here
+        // But for now we rely on the backend login since it's already implemented there too
+        setError(err.message || "Login failed");
+        return;
+      }
+    }
+
     try {
       await login({ username, password });
       setLocation("/clinic-dashboard");
