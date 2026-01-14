@@ -103,6 +103,17 @@ export default function ClinicDashboard() {
 
   const cancelBookingMutation = useMutation({
     mutationFn: async (bookingId: number) => {
+      if (localStorage.getItem("demo_clinic_active") === "true") {
+        // Mock cancellation for demo_clinic
+        const stored = localStorage.getItem("demo_bookings_persistent");
+        if (stored) {
+          const persistentBookings = JSON.parse(stored);
+          const filtered = persistentBookings.filter((b: any) => b.id !== bookingId);
+          localStorage.setItem("demo_bookings_persistent", JSON.stringify(filtered));
+        }
+        return { message: "Cancelled" };
+      }
+      
       setCancellingBookingId(bookingId);
       const res = await fetch(`/api/clinic/bookings/${bookingId}`, {
         method: 'DELETE',

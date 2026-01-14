@@ -13,7 +13,7 @@ export function useBookings() {
         const patientNames = ["Jane Doe", "John Smith", "Alice Johnson", "Bob Wilson", "Charlie Brown", "David Miller", "Eva Garcia", "Frank Wright"];
         const phoneNumbers = ["+91 9876543210", "+91 9876543211", "+91 9876543212", "+91 9876543213", "+91 9876543214", "+91 9876543215", "+91 9876543216", "+91 9876543217"];
         
-        // Create 15 bookings spread throughout January 2026
+        // Create 15 base bookings spread throughout January 2026
         for (let i = 1; i <= 15; i++) {
           const day = (i * 2) % 31 + 1; // Spread days
           const startHour = 9 + (i % 8);
@@ -41,6 +41,17 @@ export function useBookings() {
           });
         }
         
+        // Add persisted bookings from local storage
+        const stored = localStorage.getItem("demo_bookings_persistent");
+        if (stored) {
+          try {
+            const persistentBookings = JSON.parse(stored);
+            demoBookings.push(...persistentBookings);
+          } catch (e) {
+            console.error("Failed to parse persistent demo bookings", e);
+          }
+        }
+        
         return demoBookings;
       }
       
@@ -62,6 +73,33 @@ export function useCreateBooking() {
 
   return useMutation({
     mutationFn: async (data: { slotId: number; customerName: string; customerPhone: string; clinicName?: string; startTime?: string; endTime?: string }) => {
+      if (localStorage.getItem("demo_clinic_active") === "true") {
+        // Mock creation for demo_clinic and persist to local storage
+        const newBooking = {
+          id: Math.floor(Math.random() * 10000) + 5000,
+          slotId: data.slotId || Math.floor(Math.random() * 10000) + 6000,
+          customerName: data.customerName,
+          customerPhone: data.customerPhone,
+          customerEmail: "patient@example.com",
+          verificationStatus: "verified",
+          slot: {
+            id: data.slotId || Math.floor(Math.random() * 10000) + 6000,
+            clinicId: 999,
+            clinicName: data.clinicName || "Demo Smile Clinic",
+            startTime: data.startTime || new Date().toISOString(),
+            endTime: data.endTime || new Date(Date.now() + 3600000).toISOString(),
+            isBooked: true
+          }
+        };
+        
+        const stored = localStorage.getItem("demo_bookings_persistent");
+        const persistentBookings = stored ? JSON.parse(stored) : [];
+        persistentBookings.push(newBooking);
+        localStorage.setItem("demo_bookings_persistent", JSON.stringify(persistentBookings));
+        
+        return newBooking;
+      }
+      
       const res = await fetch(api.bookings.create.path, {
         method: api.bookings.create.method,
         headers: { "Content-Type": "application/json" },
