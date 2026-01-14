@@ -143,6 +143,38 @@ export default function Book() {
     const endTime = new Date(selectedDate);
     endTime.setHours(slotInfo.endHour, slotInfo.endMinute, 0, 0);
 
+    if (selectedClinic === "Demo Smile Clinic") {
+      // Mock creation for Demo Smile Clinic and persist to local storage
+      const newBooking = {
+        id: Math.floor(Math.random() * 10000) + 5000,
+        slotId: Math.floor(Math.random() * 10000) + 6000,
+        customerName,
+        customerPhone,
+        customerEmail,
+        verificationStatus: "verified",
+        slot: {
+          id: Math.floor(Math.random() * 10000) + 6000,
+          clinicId: 999,
+          clinicName: "Demo Smile Clinic",
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          isBooked: true
+        }
+      };
+      
+      const stored = localStorage.getItem("demo_bookings_persistent");
+      const persistentBookings = stored ? JSON.parse(stored) : [];
+      persistentBookings.push(newBooking);
+      localStorage.setItem("demo_bookings_persistent", JSON.stringify(persistentBookings));
+      
+      setStep('success');
+      toast({
+        title: "Booking Confirmed!",
+        description: "Your appointment has been successfully booked (Demo).",
+      });
+      return;
+    }
+
     const selectedClinicData = clinicsData?.find(c => c.name === selectedClinic);
     const clinicId = selectedClinicData?.id;
 
