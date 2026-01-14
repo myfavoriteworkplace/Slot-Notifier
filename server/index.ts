@@ -7,19 +7,32 @@ import cors from "cors";
 const app = express();
 const httpServer = createServer(app);
 
+// Trust proxy is essential for deployments behind a load balancer (like Render)
+app.set("trust proxy", 1);
+
 // Configure CORS for cross-domain requests (especially for Render deployment)
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    // Be more permissive for now to ensure connectivity
-    // We can tighten this once we confirm basic connectivity
+    // Explicitly allow the Render frontend and Replit domains
+    const allowedOrigins = [
+      'https://book-my-slot-client.onrender.com',
+      'https://book-my-slot-1.onrender.com'
+    ];
+    
+    if (allowedOrigins.includes(origin) || origin.includes('replit.dev') || origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    // For debugging/MVP, we can be more permissive if needed
     return callback(null, true);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie", "X-Requested-With"],
+  exposedHeaders: ["Set-Cookie"]
 }));
 
 declare module "http" {
