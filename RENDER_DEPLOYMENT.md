@@ -61,7 +61,7 @@ Set these environment variables in Render:
 2. Connect your GitHub repository
 3. Configure:
    - **Build Command**: `npm install && npm run build`
-   - **Publish Directory**: `dist/client`
+   - **Publish Directory**: `dist/public`
 
 ### Environment Variables for Frontend
 

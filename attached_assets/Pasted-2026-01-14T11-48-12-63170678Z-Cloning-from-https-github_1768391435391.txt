@@ -1,0 +1,69 @@
+2026-01-14T11:48:12.63170678Z ==> Cloning from https://github.com/myfavoriteworkplace/Slot-Notifier
+2026-01-14T11:48:12.988957174Z ==> Checking out commit c8445bec60992ca4901115b74aba979f7660b7bf in branch main
+2026-01-14T11:48:14.863378055Z ==> Installing dependencies with npm...
+2026-01-14T11:48:15.004041444Z ==> Using Node.js version 22.16.0 (default)
+2026-01-14T11:48:15.032305582Z ==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+2026-01-14T11:48:24.911002919Z 
+2026-01-14T11:48:24.91103023Z added 500 packages, and audited 501 packages in 8s
+2026-01-14T11:48:24.91103471Z 
+2026-01-14T11:48:24.91103867Z 70 packages are looking for funding
+2026-01-14T11:48:24.91104248Z   run `npm fund` for details
+2026-01-14T11:48:24.920462019Z 
+2026-01-14T11:48:24.92046999Z 3 high severity vulnerabilities
+2026-01-14T11:48:24.92047375Z 
+2026-01-14T11:48:24.92047719Z To address all issues, run:
+2026-01-14T11:48:24.92048065Z   npm audit fix
+2026-01-14T11:48:24.92048391Z 
+2026-01-14T11:48:24.92048729Z Run `npm audit` for details.
+2026-01-14T11:48:26.113461227Z 
+2026-01-14T11:48:26.113480177Z up to date, audited 501 packages in 1s
+2026-01-14T11:48:26.113507548Z 
+2026-01-14T11:48:26.113522788Z 70 packages are looking for funding
+2026-01-14T11:48:26.113527078Z   run `npm fund` for details
+2026-01-14T11:48:26.123816374Z 
+2026-01-14T11:48:26.123830395Z 3 high severity vulnerabilities
+2026-01-14T11:48:26.123835165Z 
+2026-01-14T11:48:26.123839835Z To address all issues, run:
+2026-01-14T11:48:26.123844195Z   npm audit fix
+2026-01-14T11:48:26.123848235Z 
+2026-01-14T11:48:26.123852605Z Run `npm audit` for details.
+2026-01-14T11:48:26.22645246Z ==> Running build command 'npm install && npm run build'...
+2026-01-14T11:48:27.240897316Z 
+2026-01-14T11:48:27.240923017Z up to date, audited 501 packages in 917ms
+2026-01-14T11:48:27.240927337Z 
+2026-01-14T11:48:27.240930937Z 70 packages are looking for funding
+2026-01-14T11:48:27.240935667Z   run `npm fund` for details
+2026-01-14T11:48:27.251314815Z 
+2026-01-14T11:48:27.251327745Z 3 high severity vulnerabilities
+2026-01-14T11:48:27.251332135Z 
+2026-01-14T11:48:27.251335825Z To address all issues, run:
+2026-01-14T11:48:27.251339765Z   npm audit fix
+2026-01-14T11:48:27.251343975Z 
+2026-01-14T11:48:27.251348255Z Run `npm audit` for details.
+2026-01-14T11:48:27.412779771Z 
+2026-01-14T11:48:27.412801481Z > rest-express@1.0.0 build
+2026-01-14T11:48:27.412805781Z > tsx script/build.ts
+2026-01-14T11:48:27.412809401Z 
+2026-01-14T11:48:28.201963976Z building client...
+2026-01-14T11:48:28.270805658Z vite v7.3.0 building client environment for production...
+2026-01-14T11:48:28.810621732Z transforming...
+2026-01-14T11:48:32.97838969Z ✓ 2667 modules transformed.
+2026-01-14T11:48:33.350442489Z rendering chunks...
+2026-01-14T11:48:33.359122145Z computing gzip size...
+2026-01-14T11:48:33.376794361Z ../dist/public/index.html                   2.01 kB │ gzip:   0.77 kB
+2026-01-14T11:48:33.376803211Z ../dist/public/assets/index-DSSnFeEq.css   74.17 kB │ gzip:  12.29 kB
+2026-01-14T11:48:33.376854432Z ../dist/public/assets/index-D99tVri_.js   593.85 kB │ gzip: 175.48 kB
+2026-01-14T11:48:33.377047336Z 
+2026-01-14T11:48:33.377050896Z (!) Some chunks are larger than 500 kB after minification. Consider:
+2026-01-14T11:48:33.377053466Z - Using dynamic import() to code-split the application
+2026-01-14T11:48:33.377055796Z - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+2026-01-14T11:48:33.377057896Z - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+2026-01-14T11:48:33.377356282Z ✓ built in 4.88s
+2026-01-14T11:48:33.377407553Z building server...
+2026-01-14T11:48:33.717013894Z 
+2026-01-14T11:48:33.717039954Z   dist/index.cjs  1.1mb ⚠️
+2026-01-14T11:48:33.717042544Z 
+2026-01-14T11:48:33.717045194Z ⚡ Done in 325ms
+2026-01-14T11:48:33.834418441Z ==> Publish directory dist/client does not exist!
+2026-01-14T11:48:33.834440961Z ==> Build failed 😞
+2026-01-14T11:48:33.834443981Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
