@@ -66,6 +66,11 @@ export async function registerRoutes(
       }
       return res.status(401).json({ message: "Not authenticated" });
     });
+
+    // Add a fallback for the /api/login path used in the UI
+    app.get("/api/login", (req, res) => {
+      res.redirect("/admin");
+    });
   } else {
     console.log("[AUTH] Using Replit OIDC authentication");
     await setupAuth(app);

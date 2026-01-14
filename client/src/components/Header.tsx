@@ -150,7 +150,7 @@ export function Header() {
             
             {!isAuthenticated && !isClinicAuthenticated && location !== "/clinic-login" && (
               <Button 
-                onClick={() => window.location.href = "/api/login"} 
+                onClick={() => window.location.href = "/admin"} 
                 size="sm"
                 className="font-semibold"
                 data-testid="button-login"
