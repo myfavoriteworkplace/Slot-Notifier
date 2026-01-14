@@ -93,7 +93,7 @@ export default function Book() {
     username: "demo_clinic",
     passwordHash: "",
     isArchived: false,
-    createdAt: new Date().toISOString()
+    createdAt: new Date()
   };
 
   const clinics = clinicsData 
