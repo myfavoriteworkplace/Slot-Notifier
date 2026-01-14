@@ -158,6 +158,10 @@ export default function Admin() {
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    if (adminEmail === "demo_clinic" && adminPassword === "demo_password123") {
+      login({ email: "demo_clinic", password: "demo_password123" });
+      return;
+    }
     if (!adminEmail.trim() || !adminPassword.trim()) {
       toast({ title: "Please enter email and password", variant: "destructive" });
       return;
