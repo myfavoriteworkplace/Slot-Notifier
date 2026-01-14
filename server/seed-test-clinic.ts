@@ -1,8 +1,8 @@
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 
-async function seed() {
-  console.log("Seeding test clinic...");
+export async function seed() {
+  console.log("[SEED] Checking for demo clinic...");
   
   const demoUsername = "demo_clinic";
   const demoPassword = "demo_password123";
@@ -11,8 +11,7 @@ async function seed() {
   // Check if clinic already exists
   const existingClinic = await storage.getClinicByUsername(demoUsername);
   if (existingClinic) {
-    console.log("Demo clinic already exists. Updating password...");
-    await storage.updateClinic(existingClinic.id, { passwordHash: hashedPassword });
+    console.log("[SEED] Demo clinic already exists.");
   } else {
     const clinic = await storage.createClinic({
       name: "Demo Smile Clinic",
@@ -20,7 +19,7 @@ async function seed() {
       username: demoUsername,
       passwordHash: hashedPassword,
     });
-    console.log(`Created demo clinic: ${clinic.name}`);
+    console.log(`[SEED] Created demo clinic: ${clinic.name}`);
     
     // Create some test slots
     const today = new Date();
@@ -41,14 +40,15 @@ async function seed() {
         isBooked: false,
       } as any);
     }
-    console.log("Created 5 test slots for today.");
+    console.log("[SEED] Created 5 test slots for today.");
+    console.log(`[SEED] Demo credentials: ${demoUsername} / ${demoPassword}`);
   }
-  
-  console.log("Seeding completed successfully.");
-  console.log(`Login: ${demoUsername} / ${demoPassword}`);
 }
 
-seed().catch(err => {
-  console.error("Seeding failed:", err);
-  process.exit(1);
-});
+// Only run immediately if this file is executed directly
+if (import.meta.url.endsWith(process.argv[1])) {
+  seed().catch(err => {
+    console.error("Seeding failed:", err);
+    process.exit(1);
+  });
+}

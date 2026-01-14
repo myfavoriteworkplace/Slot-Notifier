@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import cors from "cors";
+import { seed } from "./seed-test-clinic";
 
 const app = express();
 const httpServer = createServer(app);
@@ -73,6 +74,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Run seed script on startup to ensure demo data exists (especially for Render)
+  try {
+    await seed();
+  } catch (err) {
+    console.error("[SEED] Failed to run seed script:", err);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
