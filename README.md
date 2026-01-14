@@ -81,7 +81,7 @@ Deployment on Render is split into three parts: Database, Backend, and Frontend.
 
 #### 3. Deploy Frontend (Static Site)
 - **Build Command**: `npm install && npm run build`
-- **Publish Directory**: `dist/client`
+- **Publish Directory**: `dist/public`
 - **Required Env Vars**:
   - `VITE_API_URL`: `https://your-backend-service.onrender.com`.
 
