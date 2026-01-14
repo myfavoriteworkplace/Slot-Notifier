@@ -26,11 +26,11 @@ export default function ClinicLogin() {
 
     // Hardcoded demo login for demo purposes
     if (username === "demo_clinic" && password === "demo_password123") {
-      console.log("Demo clinic login detected, attempting to set session and redirect");
+      console.log("Demo clinic login detected, bypassing backend for demo purposes");
       try {
         await login({ username, password });
       } catch (err) {
-        console.error("Silent login failed, but redirecting anyway for demo:", err);
+        console.error("Demo bypass login:", err);
       }
       setLocation("/clinic-dashboard");
       return;

@@ -7,6 +7,44 @@ export function useBookings() {
   return useQuery({
     queryKey: [api.bookings.list.path],
     queryFn: async () => {
+      if (localStorage.getItem("demo_clinic_active") === "true") {
+        // Return static demo data
+        return [
+          {
+            id: 1,
+            slotId: 101,
+            customerName: "Jane Doe (Demo)",
+            customerPhone: "+91 9876543210",
+            customerEmail: "jane@example.com",
+            verificationStatus: "verified",
+            slot: {
+              id: 101,
+              clinicId: 999,
+              clinicName: "Demo Smile Clinic",
+              startTime: new Date(new Date().setHours(10, 0, 0, 0)).toISOString(),
+              endTime: new Date(new Date().setHours(11, 0, 0, 0)).toISOString(),
+              isBooked: true
+            }
+          },
+          {
+            id: 2,
+            slotId: 102,
+            customerName: "John Smith (Demo)",
+            customerPhone: "+91 9876543211",
+            customerEmail: "john@example.com",
+            verificationStatus: "verified",
+            slot: {
+              id: 102,
+              clinicId: 999,
+              clinicName: "Demo Smile Clinic",
+              startTime: new Date(new Date().setHours(14, 0, 0, 0)).toISOString(),
+              endTime: new Date(new Date().setHours(15, 0, 0, 0)).toISOString(),
+              isBooked: true
+            }
+          }
+        ];
+      }
+      
       const res = await fetch(api.bookings.list.path, { credentials: "include" });
       
       if (!res.ok) {

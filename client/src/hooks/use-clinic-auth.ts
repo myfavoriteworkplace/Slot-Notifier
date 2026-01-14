@@ -51,13 +51,25 @@ export function useClinicAuth() {
   
   const { data: clinic, isLoading } = useQuery<ClinicSession | null>({
     queryKey: ["/api/clinic/me"],
-    queryFn: fetchClinicSession,
+    queryFn: async () => {
+      // Mock for demo_clinic
+      if (localStorage.getItem("demo_clinic_active") === "true") {
+        return { id: 999, name: "Demo Smile Clinic" };
+      }
+      return fetchClinicSession();
+    },
     retry: false,
     staleTime: 1000 * 60 * 5,
   });
 
   const loginMutation = useMutation({
-    mutationFn: clinicLogin,
+    mutationFn: async (credentials: { username: string; password: string }) => {
+      if (credentials.username === "demo_clinic" && credentials.password === "demo_password123") {
+        localStorage.setItem("demo_clinic_active", "true");
+        return { id: 999, name: "Demo Smile Clinic" };
+      }
+      return clinicLogin(credentials);
+    },
     onSuccess: (data) => {
       queryClient.setQueryData(["/api/clinic/me"], data);
       // Invalidate bookings cache so fresh data is fetched after login
@@ -66,7 +78,12 @@ export function useClinicAuth() {
   });
 
   const logoutMutation = useMutation({
-    mutationFn: clinicLogout,
+    mutationFn: async () => {
+      localStorage.removeItem("demo_clinic_active");
+      if (clinic?.id !== 999) {
+        await clinicLogout();
+      }
+    },
     onSuccess: () => {
       queryClient.setQueryData(["/api/clinic/me"], null);
     },
