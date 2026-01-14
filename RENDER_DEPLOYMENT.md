@@ -63,6 +63,16 @@ Set these environment variables in Render:
    - **Build Command**: `npm install && npm run build`
    - **Publish Directory**: `dist/public`
 
+### Step 3.1: Configure Client-Side Routing (CRITICAL)
+Render needs to know how to handle client-side routes (like `/admin`).
+1. In your Static Site dashboard, go to the **Redirects/Rewrites** tab.
+2. Click **Add Rule**.
+3. Set:
+   - **Source**: `/*`
+   - **Destination**: `/index.html`
+   - **Action**: `Rewrite`
+4. Click **Save**.
+
 ### Environment Variables for Frontend
 
 | Variable | Value |
