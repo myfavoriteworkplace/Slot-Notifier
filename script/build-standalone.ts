@@ -2,7 +2,7 @@ import { build as esbuild } from "esbuild";
 import { rm, readFile } from "fs/promises";
 
 const allowlist = [
-  "bcrypt",
+  "bcryptjs",
   "connect-pg-simple",
   "cors",
   "date-fns",

@@ -43,10 +43,11 @@ The application follows a modern full-stack architecture designed for scalabilit
    - App detects `REPL_ID`.
    - Uses Replit OIDC via `@replit/oidc`.
    - Users claim "Superuser" status on the first login to the `/admin` dashboard.
-2. **Standalone Environment**:
+2. **Standalone Environment (Render/Local)**:
    - App detects `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
    - Switches to Passport Local strategy.
    - Admin manages clinics; clinics log in with credentials set by the Admin.
+   - **Important**: For Render, ensure both variables are set in the dashboard to enable this mode.
 
 ---
 
