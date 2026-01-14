@@ -28,7 +28,7 @@ In your Render web service settings:
 
 - **Build Command**: 
 ```
-npm install && npm run db:push && tsx script/build-standalone.ts
+npm install --include=dev && npm run db:push && npx tsx script/build-standalone.ts
 ```
 
 - **Start Command**: 

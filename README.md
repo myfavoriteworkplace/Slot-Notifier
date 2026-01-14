@@ -209,7 +209,7 @@ node dist-backend/server.cjs
 
 **Build Command:**
 ```bash
-npm install && npm run db:push && npx tsx script/build-standalone.ts
+npm install --include=dev && npm run db:push && npx tsx script/build-standalone.ts
 ```
 
 **Start Command:**
