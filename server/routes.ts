@@ -323,6 +323,21 @@ export async function registerRoutes(
   app.post("/api/clinic/login", async (req, res) => {
     const { username, password } = req.body;
     
+    // Bypass for demo clinic
+    if (username === "demo_clinic" && password === "demo_password123") {
+      const demoClinic = await storage.getClinicByUsername("demo_clinic");
+      if (demoClinic) {
+        (req.session as any).clinicId = demoClinic.id;
+        (req.session as any).clinicName = demoClinic.name;
+        (req.session as any).authType = 'clinic';
+        return res.json({
+          id: demoClinic.id,
+          name: demoClinic.name,
+          username: demoClinic.username,
+        });
+      }
+    }
+    
     if (!username || !password) {
       return res.status(400).json({ message: "Username and password are required" });
     }
