@@ -8,41 +8,40 @@ export function useBookings() {
     queryKey: [api.bookings.list.path],
     queryFn: async () => {
       if (localStorage.getItem("demo_clinic_active") === "true") {
-        // Return static demo data
-        return [
-          {
-            id: 1,
-            slotId: 101,
-            customerName: "Jane Doe (Demo)",
-            customerPhone: "+91 9876543210",
-            customerEmail: "jane@example.com",
+        // Return static demo data for January 2026
+        const demoBookings = [];
+        const patientNames = ["Jane Doe", "John Smith", "Alice Johnson", "Bob Wilson", "Charlie Brown", "David Miller", "Eva Garcia", "Frank Wright"];
+        const phoneNumbers = ["+91 9876543210", "+91 9876543211", "+91 9876543212", "+91 9876543213", "+91 9876543214", "+91 9876543215", "+91 9876543216", "+91 9876543217"];
+        
+        // Create 15 bookings spread throughout January 2026
+        for (let i = 1; i <= 15; i++) {
+          const day = (i * 2) % 31 + 1; // Spread days
+          const startHour = 9 + (i % 8);
+          const patientName = patientNames[i % patientNames.length] + " (Demo)";
+          const phone = phoneNumbers[i % phoneNumbers.length];
+          
+          const startTime = new Date(2026, 0, day, startHour, 0, 0);
+          const endTime = new Date(2026, 0, day, startHour + 1, 0, 0);
+          
+          demoBookings.push({
+            id: 1000 + i,
+            slotId: 2000 + i,
+            customerName: patientName,
+            customerPhone: phone,
+            customerEmail: `${patientName.toLowerCase().replace(" ", ".")}@example.com`,
             verificationStatus: "verified",
             slot: {
-              id: 101,
+              id: 2000 + i,
               clinicId: 999,
               clinicName: "Demo Smile Clinic",
-              startTime: new Date(new Date().setHours(10, 0, 0, 0)).toISOString(),
-              endTime: new Date(new Date().setHours(11, 0, 0, 0)).toISOString(),
+              startTime: startTime.toISOString(),
+              endTime: endTime.toISOString(),
               isBooked: true
             }
-          },
-          {
-            id: 2,
-            slotId: 102,
-            customerName: "John Smith (Demo)",
-            customerPhone: "+91 9876543211",
-            customerEmail: "john@example.com",
-            verificationStatus: "verified",
-            slot: {
-              id: 102,
-              clinicId: 999,
-              clinicName: "Demo Smile Clinic",
-              startTime: new Date(new Date().setHours(14, 0, 0, 0)).toISOString(),
-              endTime: new Date(new Date().setHours(15, 0, 0, 0)).toISOString(),
-              isBooked: true
-            }
-          }
-        ];
+          });
+        }
+        
+        return demoBookings;
       }
       
       const res = await fetch(api.bookings.list.path, { credentials: "include" });
