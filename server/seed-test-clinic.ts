@@ -25,22 +25,28 @@ export async function seed() {
     const today = new Date();
     today.setHours(9, 0, 0, 0);
     
-    for (let i = 0; i < 5; i++) {
-      const startTime = new Date(today);
-      startTime.setHours(today.getHours() + i);
-      const endTime = new Date(startTime);
-      endTime.setHours(startTime.getHours() + 1);
+    // Seed for the next 7 days
+    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+      const currentDay = new Date(today);
+      currentDay.setDate(today.getDate() + dayOffset);
       
-      await storage.createSlot({
-        ownerId: null,
-        clinicId: clinic.id,
-        clinicName: clinic.name,
-        startTime,
-        endTime,
-        isBooked: false,
-      } as any);
+      for (let i = 0; i < 5; i++) {
+        const startTime = new Date(currentDay);
+        startTime.setHours(currentDay.getHours() + i);
+        const endTime = new Date(startTime);
+        endTime.setHours(startTime.getHours() + 1);
+        
+        await storage.createSlot({
+          ownerId: null,
+          clinicId: clinic.id,
+          clinicName: clinic.name,
+          startTime,
+          endTime,
+          isBooked: false,
+        } as any);
+      }
     }
-    console.log("[SEED] Created 5 test slots for today.");
+    console.log("[SEED] Created 35 test slots for the next week.");
     console.log(`[SEED] Demo credentials: ${demoUsername} / ${demoPassword}`);
   }
 }
