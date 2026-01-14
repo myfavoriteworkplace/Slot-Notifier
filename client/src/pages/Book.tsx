@@ -86,20 +86,8 @@ export default function Book() {
     queryKey: ['/api/clinics'],
   });
 
-  const hardcodedClinic: Clinic = {
-    id: 999,
-    name: "Demo Smile Clinic",
-    address: "123 Demo St, Dental City",
-    username: "demo_clinic",
-    passwordHash: "",
-    isArchived: false,
-    createdAt: new Date()
-  };
-
-  const clinics = clinicsData 
-    ? [...clinicsData.filter(c => !c.isArchived), hardcodedClinic]
-    : [hardcodedClinic];
-
+  const clinics = clinicsData?.filter(c => !c.isArchived) || [];
+  
   const { data: slots, isLoading: slotsLoading } = useQuery<Slot[]>({
     queryKey: ['/api/slots'],
   });
