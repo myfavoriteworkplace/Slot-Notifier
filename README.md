@@ -34,62 +34,91 @@ A full-stack appointment booking application for dental clinics with role-based 
 
 ### Prerequisites
 
-- Node.js 18+ 
-- PostgreSQL database (local or cloud-hosted)
-- npm or yarn
+- **Node.js**: Version 18 or higher
+- **Database**: PostgreSQL (local instance or cloud-hosted like Neon)
+- **Package Manager**: npm (comes with Node.js)
 
-### Step 1: Clone the Repository
+### Step 1: Clone and Install
 
 ```bash
 git clone <your-repo-url>
 cd bookmyslot
-```
-
-### Step 2: Install Dependencies
-
-```bash
 npm install
 ```
 
-### Step 3: Create Environment File
+### Step 2: Environment Configuration
 
-Create a `.env` file in the project root:
+Create a `.env` file in the root directory:
 
-```bash
-# .env - Local Development
+```env
+# Database Connection
+DATABASE_URL=postgresql://postgres:password@localhost:5432/bookmyslot
 
-# Database (Required)
-DATABASE_URL=postgresql://username:password@localhost:5432/bookmyslot
+# Session Security (32+ random characters)
+SESSION_SECRET=a_very_long_random_string_for_security_purposes
 
-# Session (Required)
-SESSION_SECRET=your-random-32-character-secret-key-here
-
-# Admin Authentication (Required for local dev without Replit)
+# Authentication (For local dev without Replit OIDC)
 ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=your-secure-admin-password
+ADMIN_PASSWORD=your_secure_password
 
-# Optional - defaults to 5000
+# Port Configuration
 PORT=5000
 
-# For local development without Replit OIDC
+# Local Environment Flag
 REPL_ID=local_dev
 ```
 
-### Step 4: Set Up Database
+### Step 3: Database Initialization
 
-Create the database tables:
+Ensure your PostgreSQL server is running, then create the tables:
 
 ```bash
 npm run db:push
 ```
 
-### Step 5: Start the Development Server
+### Step 4: Running the Application
+
+You can run the project in two ways depending on your needs:
+
+#### A. Full Stack (Backend + Frontend)
+This is the recommended way for local development. It starts the Express server and proxies frontend requests through Vite.
 
 ```bash
 npm run dev
 ```
+The app will be available at `http://localhost:5000`.
 
-The application will be available at `http://localhost:5000`
+#### B. Backend Only (API Development)
+If you only need to work on the API:
+
+```bash
+# Start the backend server directly
+npx tsx server/index.ts
+```
+
+#### C. Frontend Only (UI Development)
+If you want to run the Vite dev server independently (note: API calls will fail unless the backend is also running):
+
+```bash
+npx vite
+```
+
+---
+
+## Detailed Component Guide
+
+### Backend (Express + Node.js)
+- **Entry Point**: `server/index.ts`
+- **Routes**: `server/routes.ts`
+- **Storage/DB**: `server/storage.ts` (using Drizzle ORM)
+- **Auth**: `server/auth.ts` (supports Replit OIDC and local Strategy)
+
+### Frontend (React + Vite)
+- **Entry Point**: `client/src/main.tsx`
+- **Routing**: `client/src/App.tsx` (using `wouter`)
+- **State Management**: `@tanstack/react-query`
+- **Components**: `client/src/components/` (using shadcn/ui)
+- **Pages**: `client/src/pages/`
 
 ---
 
