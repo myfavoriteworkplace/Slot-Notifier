@@ -5,7 +5,7 @@ import session from "express-session";
 import { storage } from "./storage";
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { pool } from "./db";
 
 const app = express();

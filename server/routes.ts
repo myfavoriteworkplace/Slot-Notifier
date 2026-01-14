@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated as replitIsAuthenticated, getSession } from "./replit_integrations/auth";
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 const USE_ENV_AUTH = !!(process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD);
 

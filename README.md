@@ -34,7 +34,7 @@ A full-stack appointment booking application for dental clinics with role-based 
 
 ### Prerequisites
 
-- **Node.js**: Version 18 or higher
+- **Node.js**: Version 20 or higher
 - **Database**: PostgreSQL (local instance or cloud-hosted like Neon)
 - **Package Manager**: npm (comes with Node.js)
 
@@ -78,30 +78,15 @@ npm run db:push
 
 ### Step 4: Running the Application
 
-You can run the project in two ways depending on your needs:
-
-#### A. Full Stack (Backend + Frontend)
-This is the recommended way for local development. It starts the Express server and proxies frontend requests through Vite.
+The project uses a unified command to run both the Express backend and the Vite frontend simultaneously.
 
 ```bash
 npm run dev
 ```
-The app will be available at `http://localhost:5000`.
 
-#### B. Backend Only (API Development)
-If you only need to work on the API:
-
-```bash
-# Start the backend server directly
-npx tsx server/index.ts
-```
-
-#### C. Frontend Only (UI Development)
-If you want to run the Vite dev server independently (note: API calls will fail unless the backend is also running):
-
-```bash
-npx vite
-```
+- **Backend API**: Runs on `http://localhost:5000`
+- **Frontend UI**: Automatically served through the same port via the Vite middleware.
+- **Access the app**: Open `http://localhost:5000` in your browser.
 
 ---
 
