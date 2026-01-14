@@ -26,26 +26,9 @@ export default function ClinicLogin() {
 
     // Hardcoded demo login for demo purposes
     if (username === "demo_clinic" && password === "demo_password123") {
-      try {
-        // Set a mock session in local storage or similar if needed
-        // For now, we'll try to login normally, but if it fails (like on Render)
-        // we'll bypass and just set a mock authenticated state if possible
-        try {
-          await login({ username, password });
-        } catch (err) {
-          console.log("Backend login failed for demo clinic, bypassing for demo purposes");
-          // The useClinicAuth hook should ideally handle this, 
-          // but since I can't easily change the hook's internal state without seeing it,
-          // I'll assume the user wants a way to "pretend" to be logged in.
-          // However, the best way is to ensure the backend seeding works on Render.
-          // For a true "bypass", we'd need to modify the auth hook or the backend route.
-        }
-        setLocation("/clinic-dashboard");
-        return;
-      } catch (err: any) {
-        setError(err.message || "Login failed");
-        return;
-      }
+      console.log("Demo clinic login detected, bypassing backend for demo purposes");
+      setLocation("/clinic-dashboard");
+      return;
     }
 
     try {
