@@ -46,9 +46,10 @@ export async function seed() {
 }
 
 // Only run immediately if this file is executed directly
-if (import.meta.url.endsWith(process.argv[1])) {
+if (import.meta.url.endsWith(process.argv[1]) || process.env.NODE_ENV === "production" || process.env.FORCE_SEED === "true") {
   seed().catch(err => {
     console.error("Seeding failed:", err);
-    process.exit(1);
+    // Don't exit in production/startup to prevent boot loops
+    if (import.meta.url.endsWith(process.argv[1])) process.exit(1);
   });
 }
