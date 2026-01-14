@@ -2,7 +2,7 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 // When deploying to Render, we often use a rewrite rule /api/* -> backend/api/*
 // This allows us to use relative paths and avoid CORS issues.
-const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+const API_BASE_URL = "";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
