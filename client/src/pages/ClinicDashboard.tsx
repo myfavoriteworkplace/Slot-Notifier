@@ -135,6 +135,32 @@ export default function ClinicDashboard() {
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
+      if (localStorage.getItem("demo_clinic_active") === "true") {
+        // Mock creation for demo_clinic and persist to local storage
+        const newBooking = {
+          id: Math.floor(Math.random() * 10000) + 5000,
+          slotId: data.slotId || Math.floor(Math.random() * 10000) + 6000,
+          customerName: data.customerName,
+          customerPhone: data.customerPhone,
+          customerEmail: data.customerEmail || "patient@example.com",
+          verificationStatus: "verified",
+          slot: {
+            id: data.slotId || Math.floor(Math.random() * 10000) + 6000,
+            clinicId: 999,
+            clinicName: data.clinicName || "Demo Smile Clinic",
+            startTime: data.startTime || new Date().toISOString(),
+            endTime: data.endTime || new Date(Date.now() + 3600000).toISOString(),
+            isBooked: true
+          }
+        };
+        
+        const stored = localStorage.getItem("demo_bookings_persistent");
+        const persistentBookings = stored ? JSON.parse(stored) : [];
+        persistentBookings.push(newBooking);
+        localStorage.setItem("demo_bookings_persistent", JSON.stringify(persistentBookings));
+        
+        return newBooking;
+      }
       const response = await apiRequest('POST', '/api/public/bookings', data);
       return response.json();
     },
