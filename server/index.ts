@@ -11,14 +11,18 @@ const httpServer = createServer(app);
 // Trust proxy is essential for deployments behind a load balancer (like Render)
 app.set("trust proxy", 1);
 
-// Configure CORS for cross-domain requests (especially for Render deployment)
+// Configure CORS for cross-domain requests
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
 app.use(cors({
-  origin: true, // Reflect request origin (must be true with credentials)
+  origin: FRONTEND_URL.split(",").map(url => url.trim()),
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Cookie", "X-Requested-With", "Accept", "Origin"],
   exposedHeaders: ["Set-Cookie"]
 }));
+
+app.options("*", cors());
 
 declare module "http" {
   interface IncomingMessage {
