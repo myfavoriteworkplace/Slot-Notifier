@@ -5,6 +5,20 @@ import { apiRequest } from "@/lib/queryClient";
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 async function fetchUser(): Promise<User | null> {
+  // Check if demo super admin is active
+  if (localStorage.getItem("demo_super_admin") === "true") {
+    return {
+      id: "999",
+      email: "demo_super_admin@bookmyslot.com",
+      firstName: "Super",
+      lastName: "Admin",
+      profileImageUrl: null,
+      role: "superuser",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
   const url = "/api/auth/user";
   const apiBaseUrl = import.meta.env.VITE_API_URL || "";
   const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
@@ -24,6 +38,7 @@ async function fetchUser(): Promise<User | null> {
 }
 
 async function logout(): Promise<void> {
+  localStorage.removeItem("demo_super_admin");
   const apiBaseUrl = import.meta.env.VITE_API_URL || "";
   try {
     const url = "/api/auth/admin/logout";
@@ -52,7 +67,7 @@ async function adminLogin(email: string, password: string): Promise<User> {
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    // Store in localStorage to persist across refreshes if needed by other parts of the app
+    // Store in localStorage to persist across refreshes
     localStorage.setItem("demo_super_admin", "true");
     return demoUser;
   }
