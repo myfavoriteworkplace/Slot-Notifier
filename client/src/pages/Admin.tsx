@@ -37,6 +37,8 @@ export default function Admin() {
   const [adminPassword, setAdminPassword] = useState("");
   const { toast } = useToast();
 
+  const isDemoSuperAdmin = localStorage.getItem("demo_super_admin") === "true";
+
   const { data: clinics, isLoading: clinicsLoading } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics', { includeArchived: true }],
     queryFn: async () => {
@@ -44,11 +46,9 @@ export default function Admin() {
         credentials: 'include',
       });
       const serverClinics = await res.json();
-      
-      const demoSuperAdmin = localStorage.getItem("demo_super_admin") === "true";
 
       // Merge with localStorage clinics if demo super admin
-      if (demoSuperAdmin) {
+      if (isDemoSuperAdmin) {
         const demoClinicsRaw = localStorage.getItem("demo_clinics");
         if (demoClinicsRaw) {
           const demoClinics = JSON.parse(demoClinicsRaw);
@@ -565,7 +565,7 @@ export default function Admin() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">{clinic.name}</span>
-                      {clinic.id >= 999 && (
+                      {isDemoSuperAdmin && clinic.id >= 1000 && (
                         <Badge variant="secondary" className="text-[10px] h-4 px-1 gap-1">
                           <FlaskConical className="h-2.5 w-2.5" />
                           Demo
