@@ -141,6 +141,7 @@ export class DatabaseStorage implements IStorage {
       customerId: insertBooking.customerId,
       customerName: insertBooking.customerName,
       customerPhone: insertBooking.customerPhone,
+      customerEmail: insertBooking.customerEmail,
     }).returning();
     
     // Mark slot as booked

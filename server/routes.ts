@@ -299,6 +299,7 @@ export async function registerRoutes(
         ...input, 
         slotId: slot.id,
         customerId: user.claims.sub,
+        customerEmail: input.customerEmail || (user.claims.email as string),
       };
       const booking = await storage.createBooking(bookingData);
 
@@ -711,7 +712,7 @@ export async function registerRoutes(
       } as any);
 
       // Create confirmed booking directly (no OTP verification)
-      const booking = await storage.createPublicBooking({
+      const booking = await (storage as any).createPublicBooking({
         slotId: slot.id,
         customerName,
         customerPhone,
@@ -721,8 +722,17 @@ export async function registerRoutes(
         verificationStatus: 'verified',
       });
 
-      // Log confirmation (email can be added later)
-      console.log(`[EMAIL] To: ${customerEmail}, Subject: Booking Confirmed!, Body: Your appointment on ${requestedStart.toLocaleString()} at ${clinic.name} is confirmed.`);
+      // Send confirmation emails
+      await sendBookingEmails(
+        customerEmail,
+        customerName,
+        clinic.email || null,
+        clinic.name,
+        requestedStart
+      );
+
+      // Log confirmation
+      console.log(`[BOOKING] Public booking created for ${customerName} at ${clinic.name}`);
 
       res.status(201).json({ 
         bookingId: booking.id, 
