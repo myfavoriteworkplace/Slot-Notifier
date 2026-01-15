@@ -14,6 +14,7 @@ export default function ClinicLogin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const { toast } = useToast();
   const { login, isLoggingIn, isAuthenticated } = useClinicAuth();
   const [_, setLocation] = useLocation();
 
