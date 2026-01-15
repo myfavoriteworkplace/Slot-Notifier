@@ -5,6 +5,34 @@ import { setupAuth, registerAuthRoutes, isAuthenticated as replitIsAuthenticated
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { Resend } from 'resend';
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+async function sendCancellationEmail(email: string, name: string, date: Date, clinic: string) {
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Resend not configured. To: ${email}, Subject: Booking Cancelled`);
+    return;
+  }
+  
+  try {
+    await resend.emails.send({
+      from: 'BookMySlot <onboarding@resend.dev>',
+      to: email,
+      subject: 'Appointment Cancellation - BookMySlot',
+      html: `
+        <h2>Appointment Cancelled</h2>
+        <p>Dear ${name},</p>
+        <p>Your appointment at <strong>${clinic}</strong> scheduled for <strong>${date.toLocaleString()}</strong> has been cancelled.</p>
+        <p>If you have any questions, please contact the clinic directly.</p>
+        <p>Best regards,<br/>The BookMySlot Team</p>
+      `
+    });
+    console.log(`[EMAIL] Cancellation email sent to ${email}`);
+  } catch (error) {
+    console.error('[EMAIL ERROR] Failed to send cancellation email:', error);
+  }
+}
 
 const USE_ENV_AUTH = !!(process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD);
 
@@ -445,9 +473,9 @@ export async function registerRoutes(
 
     await storage.cancelBooking(bookingId);
 
-    // Log cancellation email (email integration pending)
+    // Send cancellation email
     if (customerEmail) {
-      console.log(`[EMAIL] To: ${customerEmail}, Subject: Booking Cancelled, Body: Dear ${customerName}, your appointment on ${appointmentTime.toLocaleString()} at ${clinicName} has been cancelled. Please contact the clinic if you have any questions.`);
+      await sendCancellationEmail(customerEmail, customerName, appointmentTime, clinicName);
     }
 
     res.json({ message: "Booking cancelled successfully" });
