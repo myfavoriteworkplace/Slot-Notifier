@@ -725,12 +725,11 @@ export default function ClinicDashboard() {
                       <Label className="text-left block">Select Time Slot</Label>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         {slotTimings.filter(slot => {
+                          const startTime = new Date(bookingDate);
+                          startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+                          const isoString = startTime.toISOString();
+                          
                           if (localStorage.getItem("demo_clinic_active") === "true") {
-                            const startTime = new Date(bookingDate);
-                            startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
-                            const isoString = startTime.toISOString();
-                            
-                            // Check cancellation
                             const storedConfigs = localStorage.getItem("demo_slot_configs");
                             const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
                             if (configs[isoString]?.isCancelled) return false;
@@ -741,10 +740,17 @@ export default function ClinicDashboard() {
                               new Date(b.slot.startTime).toISOString() === isoString
                             ).length || 0;
 
-                            // We don't filter out full slots anymore, we'll handle them in the map
+                            return true;
+                          } else {
+                            // Logic for registered clinics
+                            // Filter out slots that are cancelled
+                            const existingBookingWithSlot = bookings?.find(b => 
+                              new Date(b.slot.startTime).toISOString() === isoString
+                            );
+                            if (existingBookingWithSlot?.slot.isCancelled) return false;
+                            
                             return true;
                           }
-                          return true;
                         }).map((slot) => {
                           const startTime = new Date(bookingDate);
                           startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
@@ -763,9 +769,6 @@ export default function ClinicDashboard() {
                             isFull = currentBookings >= maxBookings;
                           } else {
                             // Logic for registered clinics using backend data
-                            // Find if there's an existing slot configuration in the bookings or slots data
-                            // Note: We need the backend to provide slot configurations. 
-                            // For now, we'll use the bookings data to count and assume default max of 3 if not found.
                             const currentBookings = bookings?.filter(b => 
                               new Date(b.slot.startTime).toISOString() === isoString
                             ).length || 0;
