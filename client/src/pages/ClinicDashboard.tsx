@@ -489,10 +489,10 @@ export default function ClinicDashboard() {
                     {/* Date Selection */}
                     <div className="space-y-2">
                       <Label className="text-left block">Select Date</Label>
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
                         <div className="flex-1 w-full overflow-hidden">
-                          <ScrollArea className="w-full whitespace-nowrap pb-4">
-                            <div className="flex space-x-3 px-1">
+                          <ScrollArea className="w-full whitespace-nowrap pb-2">
+                            <div className="flex space-x-3 px-1 py-1">
                               {dates.map((date) => {
                                 const isSelected = isSameDay(date, bookingDate);
                                 return (
@@ -501,13 +501,13 @@ export default function ClinicDashboard() {
                                     onClick={() => setBookingDate(date)}
                                     data-testid={`booking-date-${format(date, 'yyyy-MM-dd')}`}
                                     className={`
-                                      flex flex-col items-center justify-center min-w-[4rem] h-16 rounded-xl border transition-all duration-200
+                                      flex flex-col items-center justify-center min-w-[4.5rem] h-16 rounded-xl border transition-all duration-200
                                       ${isSelected 
                                         ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
                                         : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
                                     `}
                                   >
-                                    <span className="text-xs font-medium uppercase mb-0.5 opacity-80">
+                                    <span className="text-[10px] font-medium uppercase mb-0.5 opacity-80">
                                       {format(date, "EEE")}
                                     </span>
                                     <span className="text-lg font-bold">
@@ -521,16 +521,17 @@ export default function ClinicDashboard() {
                           </ScrollArea>
                         </div>
 
-                        <div className="flex-shrink-0 pb-4">
+                        <div className="flex-shrink-0 pb-2">
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button 
                                 variant="outline" 
                                 size="icon" 
-                                className="h-16 w-14 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-muted/50 transition-all"
+                                className="h-16 w-full sm:w-14 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-muted/50 transition-all"
                                 data-testid="button-booking-calendar"
                               >
-                                <CalendarIcon className="h-5 w-5 text-muted-foreground" />
+                                <CalendarIcon className="h-5 w-5 text-muted-foreground mr-2 sm:mr-0" />
+                                <span className="sm:hidden font-medium">Choose from calendar</span>
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0 rounded-xl shadow-2xl border-border/50" align="end">
@@ -560,13 +561,13 @@ export default function ClinicDashboard() {
                               key={slot.id}
                               onClick={() => setSelectedSlot(slot.id)}
                               data-testid={`booking-slot-${slot.id}`}
-                              className={`p-4 rounded-xl border text-center transition-all ${
+                              className={`p-5 sm:p-4 rounded-xl border text-center transition-all ${
                                 selectedSlot === slot.id 
                                   ? "border-primary bg-primary/5 ring-1 ring-primary" 
                                   : "border-border hover:bg-muted/50 hover:border-primary/50"
                               }`}
                             >
-                              <div className="font-medium">{slot.label}</div>
+                              <div className="font-semibold text-base sm:text-base">{slot.label}</div>
                               <div className="text-sm text-muted-foreground mt-1">{slotLabel}</div>
                             </button>
                           );

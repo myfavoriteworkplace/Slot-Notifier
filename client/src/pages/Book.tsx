@@ -228,12 +228,12 @@ export default function Book() {
         <div className="max-w-md mb-6 sm:mb-10 text-left">
           <Label className="text-sm font-medium mb-2 block text-left">Select Clinic</Label>
           <Select value={selectedClinic} onValueChange={setSelectedClinic}>
-            <SelectTrigger className="w-full rounded-xl h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50" data-testid="select-clinic">
+            <SelectTrigger className="w-full rounded-xl h-14 sm:h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50" data-testid="select-clinic">
               <SelectValue placeholder="Choose a dental clinic" />
             </SelectTrigger>
             <SelectContent className="rounded-xl shadow-lg border-border/50">
               {clinics.map((clinic) => (
-                <SelectItem key={clinic.id} value={clinic.name} className="py-3 rounded-lg cursor-pointer" data-testid={`clinic-option-${clinic.id}`}>
+                <SelectItem key={clinic.id} value={clinic.name} className="py-4 sm:py-3 rounded-lg cursor-pointer" data-testid={`clinic-option-${clinic.id}`}>
                   {clinic.name}
                 </SelectItem>
               ))}

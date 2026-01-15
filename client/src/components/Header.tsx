@@ -60,11 +60,11 @@ export function Header() {
                   <Button
                     variant={isActive ? "default" : "ghost"}
                     size="sm"
-                    className={`gap-2 ${isActive ? "" : "text-muted-foreground hover:text-foreground"}`}
+                    className={`gap-2 h-9 px-3 sm:px-4 ${isActive ? "" : "text-muted-foreground hover:text-foreground"}`}
                     data-testid={`tab-${tab.label.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     <Icon className="h-4 w-4" />
-                    <span className="hidden md:inline">{tab.label}</span>
+                    <span className="hidden sm:inline">{tab.label}</span>
                   </Button>
                 </Link>
               );

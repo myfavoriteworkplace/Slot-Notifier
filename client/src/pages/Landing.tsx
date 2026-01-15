@@ -55,10 +55,10 @@ export default function Landing() {
                 Streamline your scheduling process. Owners can easily manage availability, 
                 and customers can book slots in seconds. No more back-and-forth emails.
               </p>
-              <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-start sm:items-center justify-start gap-4 sm:gap-x-6 animate-fade-in-up delay-200">
+              <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-4 sm:gap-x-6 animate-fade-in-up delay-200">
                 <Button 
                   size="lg" 
-                  className="rounded-full px-8 text-base shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all"
+                  className="rounded-full px-8 h-12 sm:h-11 text-base shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all w-full sm:w-auto"
                   onClick={() => {
                     if (isAuthenticated) {
                       setLocation(user?.role === 'owner' ? "/dashboard" : "/book");
@@ -69,7 +69,7 @@ export default function Landing() {
                 >
                   Get Started <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="lg" className="rounded-full px-8">
+                <Button variant="ghost" size="lg" className="rounded-full px-8 h-12 sm:h-11 w-full sm:w-auto">
                   Learn more
                 </Button>
               </div>
