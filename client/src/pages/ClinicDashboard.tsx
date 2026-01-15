@@ -68,6 +68,41 @@ export default function ClinicDashboard() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [slotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
+  // Slot Configuration state
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [configDate, setConfigDate] = useState<Date>(startOfToday());
+  const [configMaxBookings, setConfigMaxBookings] = useState(3);
+  const [configIsCancelled, setConfigIsCancelled] = useState(false);
+
+  const configureSlotMutation = useMutation({
+    mutationFn: async (data: { startTime: string; maxBookings: number; isCancelled: boolean }) => {
+      const response = await apiRequest('POST', '/api/clinic/slots/configure', data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
+      toast({ title: "Slot configuration updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to update configuration", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleConfigureSlot = () => {
+    if (!selectedSlot || !clinic) return;
+    const slotInfo = slotTimings.find(s => s.id === selectedSlot);
+    if (!slotInfo) return;
+
+    const startTime = new Date(configDate);
+    startTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
+
+    configureSlotMutation.mutate({
+      startTime: startTime.toISOString(),
+      maxBookings: configMaxBookings,
+      isCancelled: configIsCancelled
+    });
+  };
+
   const validateIndianPhone = (phone: string): boolean => {
     const cleaned = phone.replace(/[\s\-\(\)]/g, '');
     const indiaRegex = /^(\+91|91)?[6-9]\d{9}$/;
@@ -398,6 +433,100 @@ export default function ClinicDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Slot Configuration Section */}
+        <Collapsible open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+          <Card className="shadow-sm border-border/50">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <CardTitle className="text-lg">Configure Slots</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-0.5">Set capacity or cancel slots</p>
+                    </div>
+                  </div>
+                  {isConfigOpen ? (
+                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 pb-6">
+                <div className="space-y-6">
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="space-y-2 text-left">
+                      <Label className="block">Max Bookings</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={configMaxBookings}
+                        onChange={(e) => setConfigMaxBookings(parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2 pt-8">
+                      <input
+                        type="checkbox"
+                        id="is-cancelled"
+                        checked={configIsCancelled}
+                        onChange={(e) => setConfigIsCancelled(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <Label htmlFor="is-cancelled">Cancel this slot</Label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-left block">Select Date & Time</Label>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                      <ScrollArea className="w-full whitespace-nowrap pb-2">
+                        <div className="flex space-x-3 px-1 py-1">
+                          {dates.map((date) => (
+                            <button
+                              key={date.toISOString()}
+                              onClick={() => setConfigDate(date)}
+                              className={`flex flex-col items-center justify-center min-w-[4.5rem] h-16 rounded-xl border transition-all ${isSameDay(date, configDate) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card'}`}
+                            >
+                              <span className="text-[10px] uppercase">{format(date, "EEE")}</span>
+                              <span className="text-lg font-bold">{format(date, "d")}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <ScrollBar orientation="horizontal" />
+                      </ScrollArea>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                      {slotTimings.map((slot) => (
+                        <Button
+                          key={slot.id}
+                          variant={selectedSlot === slot.id ? "default" : "outline"}
+                          className="h-12"
+                          onClick={() => setSelectedSlot(slot.id)}
+                        >
+                          {slot.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Button 
+                    className="w-full" 
+                    onClick={handleConfigureSlot}
+                    disabled={!selectedSlot || configureSlotMutation.isPending}
+                  >
+                    {configureSlotMutation.isPending ? <Loader2 className="animate-spin" /> : "Update Configuration"}
+                  </Button>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         {/* Book a Slot Section */}
         <Collapsible open={isBookingOpen} onOpenChange={setIsBookingOpen}>
