@@ -5,7 +5,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X, Download, Plus, ChevronDown, ChevronUp, CheckCircle2, Receipt, FileText, User, Mail, CalendarDays } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X, Download, Plus, ChevronDown, ChevronUp, CheckCircle2, Receipt, FileText, User, Mail, CalendarDays, FlaskConical } from "lucide-react";
 import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -568,7 +568,15 @@ export default function ClinicDashboard() {
             <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-left truncate">{clinic?.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-left truncate">{clinic?.name}</h1>
+              {clinic?.id && clinic.id >= 999 && (
+                <Badge variant="secondary" className="text-xs gap-1">
+                  <FlaskConical className="h-3 w-3" />
+                  Demo
+                </Badge>
+              )}
+            </div>
             <p className="text-sm sm:text-base text-muted-foreground mt-1 text-left">Manage your clinic's bookings</p>
           </div>
         </div>

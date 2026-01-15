@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CalendarDays, CheckCircle2 } from "lucide-react";
+import { Loader2, CalendarDays, CheckCircle2, FlaskConical } from "lucide-react";
 import type { Clinic, Slot } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -107,6 +107,7 @@ export default function Book() {
   const hardcodedClinic: Clinic = {
     id: 999,
     name: "Demo Smile Clinic",
+    email: null,
     address: "123 Demo St, Dental City",
     username: "demo_clinic",
     passwordHash: "",
@@ -252,7 +253,15 @@ export default function Book() {
             <SelectContent className="rounded-xl shadow-lg border-border/50">
               {clinics.map((clinic) => (
                 <SelectItem key={clinic.id} value={clinic.name} className="py-4 sm:py-3 rounded-lg cursor-pointer" data-testid={`clinic-option-${clinic.id}`}>
-                  {clinic.name}
+                  <div className="flex items-center gap-2">
+                    {clinic.name}
+                    {clinic.id >= 999 && (
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1 gap-1">
+                        <FlaskConical className="h-2.5 w-2.5" />
+                        Demo
+                      </Badge>
+                    )}
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>

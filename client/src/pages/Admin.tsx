@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -546,6 +546,12 @@ export default function Admin() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">{clinic.name}</span>
+                      {clinic.id >= 999 && (
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1 gap-1">
+                          <FlaskConical className="h-2.5 w-2.5" />
+                          Demo
+                        </Badge>
+                      )}
                       {clinic.username ? (
                         <Badge variant="outline" className="text-xs gap-1">
                           <Check className="h-3 w-3" />
@@ -619,6 +625,12 @@ export default function Admin() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-muted-foreground">{clinic.name}</span>
+                      {clinic.id >= 999 && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1 gap-1 opacity-70">
+                          <FlaskConical className="h-2.5 w-2.5" />
+                          Demo
+                        </Badge>
+                      )}
                       <Badge variant="secondary">Archived</Badge>
                     </div>
                     {clinic.address && (
