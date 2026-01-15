@@ -50,6 +50,14 @@ export default function Admin() {
         const demoClinicsRaw = localStorage.getItem("demo_clinics");
         if (demoClinicsRaw) {
           const demoClinics = JSON.parse(demoClinicsRaw);
+          // Filter out any server clinics that might overlap if we're in demo mode
+          return [...serverClinics, ...demoClinics];
+        }
+      } else if (adminEmail === "demo_super_admin@bookmyslot.com") {
+        // Fallback for when the flag isn't set yet but we're logging in
+        const demoClinicsRaw = localStorage.getItem("demo_clinics");
+        if (demoClinicsRaw) {
+          const demoClinics = JSON.parse(demoClinicsRaw);
           return [...serverClinics, ...demoClinics];
         }
       }
@@ -87,7 +95,8 @@ export default function Admin() {
           password: newClinicPassword 
         });
       }
-      queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      // Re-fetch clinics immediately
+      await queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
       setNewClinicName("");
       setNewClinicAddress("");
       setNewClinicUsername("");
@@ -235,6 +244,7 @@ export default function Admin() {
     
     if (isDemoSuperAdmin) {
       console.log("Demo super admin login detected, bypassing backend");
+      localStorage.setItem("demo_super_admin", "true");
       try {
         await login({ email: adminEmail, password: "bypass" });
         toast({ title: "Login successful (Demo Bypass)" });
