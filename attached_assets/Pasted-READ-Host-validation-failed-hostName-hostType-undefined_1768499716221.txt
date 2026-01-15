@@ -1,0 +1,76 @@
+READ - Host validation failed: {hostName: '', hostType: undefined}
+content.js:2524 Host is not supported
+content.js:2526 Host is not valid or supported
+admin:1 Access to fetch at 'https://book-my-slot-1.onrender.com/api/auth/user' from origin 'https://book-my-slot-client.onrender.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+index-1_ww29Z9.js:8  GET https://book-my-slot-1.onrender.com/api/auth/user net::ERR_FAILED 401 (Unauthorized)
+dE @ index-1_ww29Z9.js:8
+i @ index-1_ww29Z9.js:8
+k @ index-1_ww29Z9.js:8
+start @ index-1_ww29Z9.js:8
+fetch @ index-1_ww29Z9.js:8
+#d @ index-1_ww29Z9.js:8
+onSubscribe @ index-1_ww29Z9.js:8
+subscribe @ index-1_ww29Z9.js:8
+(anonymous) @ index-1_ww29Z9.js:8
+tp @ index-1_ww29Z9.js:6
+lp @ index-1_ww29Z9.js:8
+pd @ index-1_ww29Z9.js:8
+E2 @ index-1_ww29Z9.js:8
+j @ index-1_ww29Z9.js:6
+hk @ index-1_ww29Z9.js:8
+cu @ index-1_ww29Z9.js:8
+A2 @ index-1_ww29Z9.js:8
+te @ index-1_ww29Z9.js:1
+q @ index-1_ww29Z9.js:1Understand this error
+admin:1 Access to fetch at 'https://book-my-slot-1.onrender.com/api/clinic/me' from origin 'https://book-my-slot-client.onrender.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+index-1_ww29Z9.js:8  GET https://book-my-slot-1.onrender.com/api/clinic/me net::ERR_FAILED 401 (Unauthorized)
+pE @ index-1_ww29Z9.js:8
+queryFn @ index-1_ww29Z9.js:8
+i @ index-1_ww29Z9.js:8
+k @ index-1_ww29Z9.js:8
+start @ index-1_ww29Z9.js:8
+fetch @ index-1_ww29Z9.js:8
+#d @ index-1_ww29Z9.js:8
+onSubscribe @ index-1_ww29Z9.js:8
+subscribe @ index-1_ww29Z9.js:8
+(anonymous) @ index-1_ww29Z9.js:8
+tp @ index-1_ww29Z9.js:6
+lp @ index-1_ww29Z9.js:8
+pd @ index-1_ww29Z9.js:8
+E2 @ index-1_ww29Z9.js:8
+j @ index-1_ww29Z9.js:6
+hk @ index-1_ww29Z9.js:8
+cu @ index-1_ww29Z9.js:8
+A2 @ index-1_ww29Z9.js:8
+te @ index-1_ww29Z9.js:1
+q @ index-1_ww29Z9.js:1Understand this error
+content.js:2526 Host is not in insights whitelist
+index-1_ww29Z9.js:66 Attempting admin login to /api/auth/admin/login
+index-1_ww29Z9.js:8  POST https://book-my-slot-client.onrender.com/api/auth/admin/login 404 (Not Found)
+Is @ index-1_ww29Z9.js:8
+ce @ index-1_ww29Z9.js:66
+es @ index-1_ww29Z9.js:5
+ws @ index-1_ww29Z9.js:5
+qs @ index-1_ww29Z9.js:5
+Kc @ index-1_ww29Z9.js:5
+Qc @ index-1_ww29Z9.js:5
+(anonymous) @ index-1_ww29Z9.js:5
+Zg @ index-1_ww29Z9.js:8
+It @ index-1_ww29Z9.js:5
+Xc @ index-1_ww29Z9.js:5
+Ol @ index-1_ww29Z9.js:5
+Uc @ index-1_ww29Z9.js:5Understand this error
+index-1_ww29Z9.js:66 Admin login error: Error: 404: <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot POST /api/auth/admin/login</pre>
+</body>
+</html>
+
+    at fb (index-1_ww29Z9.js:8:96934)
+    at async Is (index-1_ww29Z9.js:8:97172)
+    at async ce (index-1_ww29Z9.js:66:12438)

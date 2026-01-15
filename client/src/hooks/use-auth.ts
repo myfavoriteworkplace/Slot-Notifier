@@ -49,7 +49,17 @@ async function adminLogin(email: string, password: string): Promise<User> {
     localStorage.setItem("demo_super_admin", "true");
     return demoUser;
   }
-  const response = await apiRequest('POST', '/api/auth/admin/login', { email, password });
+  
+  const url = "/api/auth/admin/login";
+  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+  
+  const response = await fetch(fullUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+    credentials: "include",
+  });
+
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.message || 'Login failed');

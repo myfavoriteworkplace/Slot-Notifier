@@ -24,7 +24,10 @@ async function fetchClinicSession(): Promise<ClinicSession | null> {
 }
 
 async function clinicLogin(credentials: { username: string; password: string }): Promise<ClinicSession> {
-  const response = await fetch(`${API_BASE_URL}/api/clinic/login`, {
+  const url = "/api/clinic/login";
+  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+  
+  const response = await fetch(fullUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
