@@ -299,7 +299,7 @@ export async function registerRoutes(
         ...input, 
         slotId: slot.id,
         customerId: user.claims.sub,
-        customerEmail: input.customerEmail || (user.claims.email as string),
+        customerEmail: (input as any).customerEmail || (user.claims.email as string),
       };
       const booking = await storage.createBooking(bookingData);
 
