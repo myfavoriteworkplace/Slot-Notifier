@@ -6,7 +6,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 async function fetchUser(): Promise<User | null> {
   const url = "/api/auth/user";
-  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+  const apiBaseUrl = import.meta.env.VITE_API_URL || "";
+  const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
   const response = await fetch(fullUrl, {
     credentials: "include",
   });
@@ -23,12 +24,18 @@ async function fetchUser(): Promise<User | null> {
 }
 
 async function logout(): Promise<void> {
+  const apiBaseUrl = import.meta.env.VITE_API_URL || "";
   try {
-    await apiRequest('POST', '/api/auth/admin/logout');
+    const url = "/api/auth/admin/logout";
+    const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
+    await fetch(fullUrl, {
+      method: 'POST',
+      credentials: "include",
+    });
   } catch {
     // If admin logout fails, try Replit logout
   }
-  window.location.href = "/api/logout";
+  window.location.href = `${apiBaseUrl}/api/logout`;
 }
 
 async function adminLogin(email: string, password: string): Promise<User> {
@@ -51,7 +58,8 @@ async function adminLogin(email: string, password: string): Promise<User> {
   }
   
   const url = "/api/auth/admin/login";
-  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+  const apiBaseUrl = import.meta.env.VITE_API_URL || "";
+  const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
   
   const response = await fetch(fullUrl, {
     method: 'POST',
