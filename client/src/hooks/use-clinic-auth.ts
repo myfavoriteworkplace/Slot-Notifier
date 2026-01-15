@@ -52,8 +52,13 @@ export function useClinicAuth() {
   const { data: clinic, isLoading } = useQuery<ClinicSession | null>({
     queryKey: ["/api/clinic/me"],
     queryFn: async () => {
-      // Mock for demo_clinic
+      // Mock for demo clinics
       if (localStorage.getItem("demo_clinic_active") === "true") {
+        const id = localStorage.getItem("demo_clinic_id");
+        const name = localStorage.getItem("demo_clinic_name");
+        if (id && name) {
+          return { id: parseInt(id), name };
+        }
         return { id: 999, name: "Demo Smile Clinic" };
       }
       return fetchClinicSession();
@@ -64,6 +69,24 @@ export function useClinicAuth() {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { username: string; password: string }) => {
+      // Check localStorage for demo clinics first
+      const demoCredentialsRaw = localStorage.getItem("demo_clinic_credentials");
+      if (demoCredentialsRaw) {
+        const demoCredentials = JSON.parse(demoCredentialsRaw);
+        if (demoCredentials[credentials.username] === credentials.password) {
+          console.log("Demo clinic login detected via localStorage");
+          const demoClinicsRaw = localStorage.getItem("demo_clinics");
+          const demoClinics = demoClinicsRaw ? JSON.parse(demoClinicsRaw) : [];
+          const clinic = demoClinics.find((c: any) => c.username === credentials.username);
+          if (clinic) {
+            localStorage.setItem("demo_clinic_active", "true");
+            localStorage.setItem("demo_clinic_id", clinic.id.toString());
+            localStorage.setItem("demo_clinic_name", clinic.name);
+            return { id: clinic.id, name: clinic.name };
+          }
+        }
+      }
+
       if (credentials.username === "demo_clinic" && credentials.password === "demo_password123") {
         localStorage.setItem("demo_clinic_active", "true");
         return { id: 999, name: "Demo Smile Clinic" };
@@ -80,7 +103,9 @@ export function useClinicAuth() {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       localStorage.removeItem("demo_clinic_active");
-      if (clinic?.id !== 999) {
+      localStorage.removeItem("demo_clinic_id");
+      localStorage.removeItem("demo_clinic_name");
+      if (clinic?.id !== 999 && !localStorage.getItem("demo_clinic_id")) {
         await clinicLogout();
       }
     },

@@ -43,12 +43,39 @@ export default function Admin() {
       const res = await fetch('/api/clinics?includeArchived=true', {
         credentials: 'include',
       });
-      return res.json();
+      const serverClinics = await res.json();
+      
+      // Merge with localStorage clinics if demo super admin
+      if (localStorage.getItem("demo_super_admin") === "true") {
+        const demoClinicsRaw = localStorage.getItem("demo_clinics");
+        if (demoClinicsRaw) {
+          const demoClinics = JSON.parse(demoClinicsRaw);
+          return [...serverClinics, ...demoClinics];
+        }
+      }
+      return serverClinics;
     },
   });
 
   const createClinicMutation = useMutation({
     mutationFn: async (data: { name: string; address: string }) => {
+      if (localStorage.getItem("demo_super_admin") === "true") {
+        const newClinic: Clinic = {
+          id: Math.floor(Math.random() * 10000) + 1000,
+          name: data.name,
+          email: null,
+          address: data.address,
+          isArchived: false,
+          username: null,
+          passwordHash: null,
+          createdAt: new Date()
+        };
+        const demoClinicsRaw = localStorage.getItem("demo_clinics");
+        const demoClinics = demoClinicsRaw ? JSON.parse(demoClinicsRaw) : [];
+        demoClinics.push(newClinic);
+        localStorage.setItem("demo_clinics", JSON.stringify(demoClinics));
+        return newClinic;
+      }
       const res = await apiRequest('POST', '/api/clinics', data);
       return res.json();
     },
@@ -65,7 +92,7 @@ export default function Admin() {
       setNewClinicAddress("");
       setNewClinicUsername("");
       setNewClinicPassword("");
-      toast({ title: "Clinic added successfully" });
+      toast({ title: "Clinic added successfully (Demo)" });
     },
     onError: (error: any) => {
       toast({ 
@@ -78,6 +105,27 @@ export default function Admin() {
 
   const setCredentialsMutation = useMutation({
     mutationFn: async (data: { clinicId: number; username: string; password: string }) => {
+      if (localStorage.getItem("demo_super_admin") === "true") {
+        const demoClinicsRaw = localStorage.getItem("demo_clinics");
+        if (demoClinicsRaw) {
+          const demoClinics = JSON.parse(demoClinicsRaw);
+          const clinicIndex = demoClinics.findIndex((c: any) => c.id === data.clinicId);
+          if (clinicIndex !== -1) {
+            demoClinics[clinicIndex].username = data.username;
+            // In a real app we'd hash the password, but for demo we just store the fact it has one
+            demoClinics[clinicIndex].hasDemoPassword = true; 
+            localStorage.setItem("demo_clinics", JSON.stringify(demoClinics));
+            
+            // Also store demo credentials specifically for login bypass
+            const demoCredentialsRaw = localStorage.getItem("demo_clinic_credentials") || "{}";
+            const demoCredentials = JSON.parse(demoCredentialsRaw);
+            demoCredentials[data.username] = data.password;
+            localStorage.setItem("demo_clinic_credentials", JSON.stringify(demoCredentials));
+            
+            return { ok: true };
+          }
+        }
+      }
       return apiRequest('PATCH', `/api/clinics/${data.clinicId}/credentials`, {
         username: data.username,
         password: data.password,
@@ -89,7 +137,7 @@ export default function Admin() {
       setSelectedClinic(null);
       setEditUsername("");
       setEditPassword("");
-      toast({ title: "Credentials updated successfully" });
+      toast({ title: "Credentials updated successfully (Demo)" });
     },
     onError: (error: any) => {
       toast({ 
@@ -102,11 +150,23 @@ export default function Admin() {
 
   const archiveClinicMutation = useMutation({
     mutationFn: async (id: number) => {
+      if (localStorage.getItem("demo_super_admin") === "true") {
+        const demoClinicsRaw = localStorage.getItem("demo_clinics");
+        if (demoClinicsRaw) {
+          const demoClinics = JSON.parse(demoClinicsRaw);
+          const clinicIndex = demoClinics.findIndex((c: any) => c.id === id);
+          if (clinicIndex !== -1) {
+            demoClinics[clinicIndex].isArchived = true;
+            localStorage.setItem("demo_clinics", JSON.stringify(demoClinics));
+            return { ok: true };
+          }
+        }
+      }
       return apiRequest('PATCH', `/api/clinics/${id}/archive`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      toast({ title: "Clinic archived" });
+      toast({ title: "Clinic archived (Demo)" });
     },
     onError: () => {
       toast({ title: "Failed to archive clinic", variant: "destructive" });
@@ -115,11 +175,23 @@ export default function Admin() {
 
   const unarchiveClinicMutation = useMutation({
     mutationFn: async (id: number) => {
+      if (localStorage.getItem("demo_super_admin") === "true") {
+        const demoClinicsRaw = localStorage.getItem("demo_clinics");
+        if (demoClinicsRaw) {
+          const demoClinics = JSON.parse(demoClinicsRaw);
+          const clinicIndex = demoClinics.findIndex((c: any) => c.id === id);
+          if (clinicIndex !== -1) {
+            demoClinics[clinicIndex].isArchived = false;
+            localStorage.setItem("demo_clinics", JSON.stringify(demoClinics));
+            return { ok: true };
+          }
+        }
+      }
       return apiRequest('PATCH', `/api/clinics/${id}/unarchive`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      toast({ title: "Clinic restored" });
+      toast({ title: "Clinic restored (Demo)" });
     },
     onError: () => {
       toast({ title: "Failed to restore clinic", variant: "destructive" });
