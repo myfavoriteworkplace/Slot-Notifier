@@ -212,6 +212,48 @@ export async function registerRoutes(
     app.get("/api/login", (req, res) => {
       res.redirect("/admin");
     });
+
+    // Test email endpoint
+    app.post("/api/test-email", async (req, res) => {
+      const { email } = req.body;
+      const targetEmail = email || "itsmyfavoriteworkplace@gmail.com";
+      
+      console.log(`[EMAIL TEST] Attempting to send test email to ${targetEmail}`);
+      
+      if (!resend) {
+        console.error("[EMAIL TEST ERROR] Resend is not configured (missing RESEND_API_KEY)");
+        return res.status(500).json({ 
+          error: "Resend not configured", 
+          details: "RESEND_API_KEY environment variable is missing" 
+        });
+      }
+
+      try {
+        const result = await resend.emails.send({
+          from: EMAIL_FROM,
+          to: targetEmail,
+          subject: "Backend email test - BookMySlot",
+          html: `
+            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+              <h2 style="color: #0070f3;">Email Test Successful 🎉</h2>
+              <p>This email was sent from the <strong>BookMySlot</strong> backend to verify your Resend configuration.</p>
+              <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+              <p style="font-size: 12px; color: #666;">Time sent: ${new Date().toLocaleString()}</p>
+            </div>
+          `,
+        });
+        
+        console.log("[EMAIL TEST SUCCESS]", result);
+        res.json({ success: true, result });
+      } catch (err: any) {
+        console.error("[EMAIL TEST ERROR]", err);
+        res.status(500).json({ 
+          error: err.message,
+          name: err.name,
+          stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        });
+      }
+    });
   } else {
     console.log("[AUTH] Using Replit OIDC authentication");
     await setupAuth(app);
