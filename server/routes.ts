@@ -525,12 +525,54 @@ export async function registerRoutes(
 
     await storage.cancelBooking(bookingId);
 
+    // If this was the last booking for this slot, we might want to keep the slot configuration
+    // but mark it as available or cancelled. In this implementation, cancelBooking deletes the slot.
+    // If we want to allow re-booking, we'd change storage.cancelBooking to just delete the booking.
+
     // Send cancellation email
     if (customerEmail) {
       await sendCancellationEmail(customerEmail, customerName, appointmentTime, clinicName);
     }
 
     res.json({ message: "Booking cancelled successfully" });
+  });
+
+  // Slot Configuration API (Clinic Admin)
+  app.post("/api/clinic/slots/configure", async (req, res) => {
+    const clinicId = (req.session as any).clinicId;
+    const authType = (req.session as any).authType;
+
+    if (authType !== 'clinic' || !clinicId) {
+      return res.status(401).json({ message: "Not authenticated as clinic" });
+    }
+
+    const { startTime, maxBookings, isCancelled } = req.body;
+    if (!startTime) {
+      return res.status(400).json({ message: "Start time is required" });
+    }
+
+    const start = new Date(startTime);
+    let slot = await (storage as any).getSlotByTime(clinicId, start);
+
+    if (slot) {
+      slot = await storage.updateSlot(slot.id, { 
+        maxBookings: maxBookings ?? slot.maxBookings,
+        isCancelled: isCancelled ?? slot.isCancelled
+      });
+    } else {
+      slot = await storage.createSlot({
+        clinicId,
+        startTime: start,
+        endTime: new Date(start.getTime() + 30 * 60000), // Default 30 min
+        maxBookings: maxBookings ?? 3,
+        isCancelled: isCancelled ?? false,
+        isBooked: false,
+        ownerId: null,
+        clinicName: (req.session as any).clinicName
+      } as any);
+    }
+
+    res.json(slot);
   });
 
   // Update clinic when creating (with credentials)
