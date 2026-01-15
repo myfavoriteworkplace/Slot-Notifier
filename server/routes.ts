@@ -128,38 +128,6 @@ export async function registerRoutes(
       const adminEmail = process.env.ADMIN_EMAIL;
       const adminPassword = process.env.ADMIN_PASSWORD;
       
-      if (email === adminEmail && password === adminPassword) {
-        (req.session as any).adminLoggedIn = true;
-        (req.session as any).adminEmail = email;
-        return res.json({ message: "Login successful", user: { email, role: 'superuser' } });
-      }
-      return res.status(401).json({ message: "Invalid credentials" });
-    });
-    
-    app.post("/api/auth/admin/logout", (req, res) => {
-      req.session.destroy((err) => {
-        if (err) return res.status(500).json({ message: "Logout failed" });
-        res.json({ message: "Logged out" });
-      });
-    });
-    
-    app.get("/api/auth/user", (req, res) => {
-      if ((req.session as any)?.adminLoggedIn) {
-        return res.json({ 
-          id: 'admin',
-          email: (req.session as any).adminEmail,
-          role: 'superuser'
-        });
-      }
-      return res.status(401).json({ message: "Not authenticated" });
-    });
-
-    // Ensure the login endpoint is registered correctly
-    app.post("/api/auth/admin/login", (req, res) => {
-      const { email, password } = req.body;
-      const adminEmail = process.env.ADMIN_EMAIL;
-      const adminPassword = process.env.ADMIN_PASSWORD;
-      
       console.log(`[AUTH] Admin login attempt for: ${email}`);
       
       if (email && adminEmail && email === adminEmail && password === adminPassword) {
@@ -189,6 +157,24 @@ export async function registerRoutes(
       
       console.log(`[AUTH] Admin login failed for: ${email}`);
       return res.status(401).json({ message: "Invalid credentials" });
+    });
+    
+    app.post("/api/auth/admin/logout", (req, res) => {
+      req.session.destroy((err) => {
+        if (err) return res.status(500).json({ message: "Logout failed" });
+        res.json({ message: "Logged out" });
+      });
+    });
+    
+    app.get("/api/auth/user", (req, res) => {
+      if ((req.session as any)?.adminLoggedIn) {
+        return res.json({ 
+          id: 'admin',
+          email: (req.session as any).adminEmail,
+          role: 'superuser'
+        });
+      }
+      return res.status(401).json({ message: "Not authenticated" });
     });
 
     // Add a fallback for the /api/login path used in the UI
