@@ -76,6 +76,17 @@ export default function ClinicDashboard() {
 
   const configureSlotMutation = useMutation({
     mutationFn: async (data: { startTime: string; maxBookings: number; isCancelled: boolean }) => {
+      if (localStorage.getItem("demo_clinic_active") === "true") {
+        // Mock configuration for demo_clinic and persist to local storage
+        const stored = localStorage.getItem("demo_slot_configs");
+        const configs = stored ? JSON.parse(stored) : {};
+        configs[data.startTime] = {
+          maxBookings: data.maxBookings,
+          isCancelled: data.isCancelled
+        };
+        localStorage.setItem("demo_slot_configs", JSON.stringify(configs));
+        return { message: "Configuration updated (Demo)" };
+      }
       const response = await apiRequest('POST', '/api/clinic/slots/configure', data);
       return response.json();
     },
@@ -102,6 +113,30 @@ export default function ClinicDashboard() {
       isCancelled: configIsCancelled
     });
   };
+
+  // Load existing configuration when slot or date changes
+  useEffect(() => {
+    if (localStorage.getItem("demo_clinic_active") === "true" && selectedSlot) {
+      const slotInfo = slotTimings.find(s => s.id === selectedSlot);
+      if (slotInfo) {
+        const startTime = new Date(configDate);
+        startTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
+        const isoString = startTime.toISOString();
+        
+        const stored = localStorage.getItem("demo_slot_configs");
+        const configs = stored ? JSON.parse(stored) : {};
+        const config = configs[isoString];
+        
+        if (config) {
+          setConfigMaxBookings(config.maxBookings);
+          setConfigIsCancelled(config.isCancelled);
+        } else {
+          setConfigMaxBookings(3);
+          setConfigIsCancelled(false);
+        }
+      }
+    }
+  }, [selectedSlot, configDate, slotTimings]);
 
   const validateIndianPhone = (phone: string): boolean => {
     const cleaned = phone.replace(/[\s\-\(\)]/g, '');
