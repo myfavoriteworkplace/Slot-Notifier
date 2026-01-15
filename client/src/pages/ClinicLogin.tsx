@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Building2, ArrowLeft } from "lucide-react";
+import { Loader2, Building2, ArrowLeft, Info, Copy, Check } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 
 export default function ClinicLogin() {
@@ -107,6 +109,72 @@ export default function ClinicLogin() {
               )}
             </Button>
           </form>
+
+          <div className="mt-4">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full gap-2 text-muted-foreground hover:text-primary">
+                  <Info className="h-4 w-4" />
+                  <span>Demo Credentials</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 rounded-xl shadow-xl border-border/50">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium leading-none">Demo Account</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Use these credentials to test the clinic dashboard.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Username</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          readOnly 
+                          value="demo_clinic" 
+                          className="h-8 text-xs bg-muted"
+                        />
+                        <Button 
+                          size="icon" 
+                          variant="outline" 
+                          className="h-8 w-8"
+                          onClick={() => {
+                            navigator.clipboard.writeText("demo_clinic");
+                            toast({ title: "Username copied" });
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Password</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          readOnly 
+                          value="demo_password123" 
+                          className="h-8 text-xs bg-muted"
+                          type="password"
+                        />
+                        <Button 
+                          size="icon" 
+                          variant="outline" 
+                          className="h-8 w-8"
+                          onClick={() => {
+                            navigator.clipboard.writeText("demo_password123");
+                            toast({ title: "Password copied" });
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
 
           <div className="mt-6 text-center">
             <Link href="/">
