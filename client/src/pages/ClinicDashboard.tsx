@@ -234,10 +234,10 @@ export default function ClinicDashboard() {
               id: i,
               clinicId: 999,
               clinicName: "Demo Smile Clinic",
-              startTime: startTime.toISOString(),
-              endTime: endTime.toISOString(),
+              startTime: startTime,
+              endTime: endTime,
               isBooked: true
-            }
+            } as any
           });
         }
 
