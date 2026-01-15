@@ -322,11 +322,11 @@ export async function registerRoutes(
 
       // Send confirmation emails
       const clinic = slot.clinicId ? await storage.getClinic(slot.clinicId) : null;
-      const customerEmail = input.customerEmail || (user.claims.email as string);
+      const customerEmail = (input as any).customerEmail || (user.claims.email as string);
       
       await sendBookingEmails(
         customerEmail,
-        input.customerName,
+        (input as any).customerName,
         clinic?.email || null,
         slot.clinicName || 'the clinic',
         slot.startTime
