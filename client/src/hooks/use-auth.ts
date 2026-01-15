@@ -36,10 +36,14 @@ async function adminLogin(email: string, password: string): Promise<User> {
   if (email === "demo_super_admin@bookmyslot.com") {
     console.log("Demo super admin login detected, bypassing backend");
     const demoUser: User = {
-      id: 999,
+      id: "999",
       email: "demo_super_admin@bookmyslot.com",
-      role: "admin",
-      name: "Super Admin"
+      firstName: "Super",
+      lastName: "Admin",
+      profileImageUrl: null,
+      role: "superuser",
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     // Store in localStorage to persist across refreshes if needed by other parts of the app
     localStorage.setItem("demo_super_admin", "true");
