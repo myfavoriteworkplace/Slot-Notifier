@@ -38,27 +38,28 @@ export default function Admin() {
   const { toast } = useToast();
 
   const { data: clinics, isLoading: clinicsLoading } = useQuery<Clinic[]>({
-    queryKey: ['/api/clinics', { includeArchived: true }],
+    queryKey: ['/api/clinics', { includeArchived: true }, adminEmail],
     queryFn: async () => {
       const res = await fetch('/api/clinics?includeArchived=true', {
         credentials: 'include',
       });
       const serverClinics = await res.json();
       
+      const isDemo = localStorage.getItem("demo_super_admin") === "true" || adminEmail === "demo_super_admin@bookmyslot.com";
+
       // Merge with localStorage clinics if demo super admin
-      if (localStorage.getItem("demo_super_admin") === "true") {
+      if (isDemo) {
         const demoClinicsRaw = localStorage.getItem("demo_clinics");
         if (demoClinicsRaw) {
           const demoClinics = JSON.parse(demoClinicsRaw);
-          // Filter out any server clinics that might overlap if we're in demo mode
-          return [...serverClinics, ...demoClinics];
-        }
-      } else if (adminEmail === "demo_super_admin@bookmyslot.com") {
-        // Fallback for when the flag isn't set yet but we're logging in
-        const demoClinicsRaw = localStorage.getItem("demo_clinics");
-        if (demoClinicsRaw) {
-          const demoClinics = JSON.parse(demoClinicsRaw);
-          return [...serverClinics, ...demoClinics];
+          // Combine server and demo clinics, filtering out duplicates by id if any
+          const combined = [...serverClinics];
+          demoClinics.forEach((demo: Clinic) => {
+            if (!combined.find(c => c.id === demo.id)) {
+              combined.push(demo);
+            }
+          });
+          return combined;
         }
       }
       return serverClinics;
@@ -95,8 +96,8 @@ export default function Admin() {
           password: newClinicPassword 
         });
       }
-      // Re-fetch clinics immediately
-      await queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      // Explicitly trigger a re-fetch and invalidate all clinic queries
+      await queryClient.refetchQueries({ queryKey: ['/api/clinics'] });
       setNewClinicName("");
       setNewClinicAddress("");
       setNewClinicUsername("");
@@ -393,8 +394,8 @@ export default function Admin() {
     );
   }
 
-  const activeClinics = clinics?.filter(c => !c.isArchived) || [];
-  const archivedClinics = clinics?.filter(c => c.isArchived) || [];
+  const activeClinics = (clinics || []).filter(c => !c.isArchived);
+  const archivedClinics = (clinics || []).filter(c => c.isArchived);
 
   const handleAddClinic = () => {
     if (!newClinicName.trim()) {
