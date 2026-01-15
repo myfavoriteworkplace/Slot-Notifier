@@ -12,10 +12,16 @@ export async function seed() {
   const existingClinic = await storage.getClinicByUsername(demoUsername);
   if (existingClinic) {
     console.log("[SEED] Demo clinic already exists.");
+    // Update email if missing
+    if (!existingClinic.email) {
+      await storage.updateClinic(existingClinic.id, { email: "demo@example.com" });
+      console.log("[SEED] Updated demo clinic email.");
+    }
   } else {
     const clinic = await storage.createClinic({
       name: "Demo Smile Clinic",
       address: "123 Demo St, Dental City",
+      email: "demo@example.com",
       username: demoUsername,
       passwordHash: hashedPassword,
     });
