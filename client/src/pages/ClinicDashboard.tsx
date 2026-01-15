@@ -207,6 +207,48 @@ export default function ClinicDashboard() {
   const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
     queryKey: ['/api/clinic/bookings'],
     queryFn: async () => {
+      if (localStorage.getItem("demo_clinic_active") === "true") {
+        const today = new Date();
+        const staticBookings: BookingWithSlot[] = [];
+        const customerNames = ["Rahul Sharma", "Priya Patel", "Amit Singh", "Anjali Gupta", "Vikram Mehta"];
+        
+        // Generate static bookings for Jan 2026
+        for (let i = 1; i <= 15; i++) {
+          const bookingDate = new Date(2026, 0, i);
+          const slotIdx = (i % 3);
+          const slot = DEFAULT_SLOT_TIMINGS[slotIdx];
+          
+          const startTime = new Date(bookingDate);
+          startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+          const endTime = new Date(bookingDate);
+          endTime.setHours(slot.endHour, slot.endMinute, 0, 0);
+
+          staticBookings.push({
+            id: i,
+            slotId: i,
+            customerName: customerNames[i % customerNames.length],
+            customerPhone: "+91 987654321" + (i % 10),
+            customerEmail: `patient${i}@example.com`,
+            verificationStatus: "verified",
+            slot: {
+              id: i,
+              clinicId: 999,
+              clinicName: "Demo Smile Clinic",
+              startTime: startTime.toISOString(),
+              endTime: endTime.toISOString(),
+              isBooked: true
+            }
+          });
+        }
+
+        const stored = localStorage.getItem("demo_bookings_persistent");
+        const persistentBookings = stored ? JSON.parse(stored) : [];
+        
+        return [...staticBookings, ...persistentBookings].sort((a, b) => 
+          new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime()
+        );
+      }
+
       const res = await fetch('/api/clinic/bookings', {
         credentials: 'include',
       });
