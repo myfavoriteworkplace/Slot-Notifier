@@ -147,13 +147,6 @@ export async function registerRoutes(
         (req.session as any).adminEmail = "demo_super_admin@bookmyslot.com";
         req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Failed to save session" });
-          res.cookie('connect.sid', req.sessionID, {
-            path: '/',
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 24 * 60 * 60 * 1000
-          });
           return res.json({ message: "Login successful", user: { email: "demo_super_admin@bookmyslot.com", role: 'superuser' } });
         });
         return;
@@ -177,13 +170,6 @@ export async function registerRoutes(
             return res.status(500).json({ message: "Failed to save session" });
           }
           console.log("[AUTH] Admin login successful, session saved");
-          res.cookie('connect.sid', req.sessionID, {
-            path: '/',
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 24 * 60 * 60 * 1000 // 24 hours
-          });
           return res.json({ message: "Login successful", user: { email, role: 'superuser' } });
         });
         return;

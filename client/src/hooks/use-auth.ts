@@ -56,7 +56,7 @@ async function logout(): Promise<void> {
 async function adminLogin(email: string, password: string): Promise<User> {
   // Hardcoded demo login for super admin
   if (email === "demo_super_admin@bookmyslot.com") {
-    console.log("Demo super admin login detected, bypassing backend");
+    console.log("Demo super admin login detected, using local storage path");
     const demoUser: User = {
       id: "999",
       email: "demo_super_admin@bookmyslot.com",
@@ -69,7 +69,7 @@ async function adminLogin(email: string, password: string): Promise<User> {
     };
     // Store in localStorage to persist across refreshes
     localStorage.setItem("demo_super_admin", "true");
-    return Promise.resolve(demoUser); // Return a promise to match the async signature
+    return demoUser;
   }
   
   const url = "/api/auth/admin/login";
@@ -112,7 +112,10 @@ export function useAuth() {
       adminLogin(email, password),
     onSuccess: (user) => {
       queryClient.setQueryData(["/api/auth/user"], user);
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Skip query invalidation for demo super admin to prevent 404/login loop
+      if (user?.email !== "demo_super_admin@bookmyslot.com") {
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      }
     },
   });
 
