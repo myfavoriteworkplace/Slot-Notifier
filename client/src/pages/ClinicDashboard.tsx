@@ -718,7 +718,17 @@ export default function ClinicDashboard() {
                     <div className="space-y-2">
                       <Label className="text-left block">Select Time Slot</Label>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {slotTimings.map((slot) => {
+                        {slotTimings.filter(slot => {
+                          if (localStorage.getItem("demo_clinic_active") === "true") {
+                            const startTime = new Date(bookingDate);
+                            startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+                            const isoString = startTime.toISOString();
+                            const stored = localStorage.getItem("demo_slot_configs");
+                            const configs = stored ? JSON.parse(stored) : {};
+                            return !configs[isoString]?.isCancelled;
+                          }
+                          return true;
+                        }).map((slot) => {
                           const slotLabel = `${formatTime(slot.startHour, slot.startMinute)} - ${formatTime(slot.endHour, slot.endMinute)}`;
                           return (
                             <button
