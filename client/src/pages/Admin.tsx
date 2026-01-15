@@ -158,14 +158,26 @@ export default function Admin() {
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const isDemoSuperAdmin = adminEmail === "demo_super_admin@bookmyslot.com";
+    
+    if (isDemoSuperAdmin) {
+      console.log("Demo super admin login detected, bypassing backend");
+      try {
+        await login({ email: adminEmail, password: "bypass" });
+        toast({ title: "Login successful (Demo Bypass)" });
+      } catch (err: any) {
+        console.error("Demo bypass login error:", err);
+      }
+      return;
+    }
+
     if (adminEmail === "demo_clinic" && adminPassword === "demo_password123") {
       login({ email: "demo_clinic", password: "demo_password123" });
       return;
     }
-
-    const isDemoSuperAdmin = adminEmail === "demo_super_admin@bookmyslot.com";
     
-    if (!adminEmail.trim() || (!isDemoSuperAdmin && !adminPassword.trim())) {
+    if (!adminEmail.trim() || !adminPassword.trim()) {
       toast({ title: "Please enter email and password", variant: "destructive" });
       return;
     }
@@ -175,7 +187,7 @@ export default function Admin() {
       // Use the explicit admin login endpoint for environment-based auth
       const res = await apiRequest('POST', '/api/auth/admin/login', { 
         email: adminEmail, 
-        password: isDemoSuperAdmin ? "bypass" : adminPassword 
+        password: adminPassword 
       });
       
       if (res.ok) {

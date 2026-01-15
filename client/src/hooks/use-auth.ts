@@ -32,6 +32,19 @@ async function logout(): Promise<void> {
 }
 
 async function adminLogin(email: string, password: string): Promise<User> {
+  // Hardcoded demo login for super admin
+  if (email === "demo_super_admin@bookmyslot.com") {
+    console.log("Demo super admin login detected, bypassing backend");
+    const demoUser: User = {
+      id: 999,
+      email: "demo_super_admin@bookmyslot.com",
+      role: "admin",
+      name: "Super Admin"
+    };
+    // Store in localStorage to persist across refreshes if needed by other parts of the app
+    localStorage.setItem("demo_super_admin", "true");
+    return demoUser;
+  }
   const response = await apiRequest('POST', '/api/auth/admin/login', { email, password });
   if (!response.ok) {
     const data = await response.json();
