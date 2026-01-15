@@ -245,6 +245,12 @@ export default function ClinicDashboard() {
         persistentBookings.push(newBooking);
         localStorage.setItem("demo_bookings_persistent", JSON.stringify(persistentBookings));
         
+        // Send mock email for demo purposes (logged to console)
+        const email = data.customerEmail || "patient@example.com";
+        console.log(`[DEMO EMAIL] To: ${email}`);
+        console.log(`[DEMO EMAIL] Subject: Booking Confirmed - ${data.clinicName || "Demo Smile Clinic"}`);
+        console.log(`[DEMO EMAIL] Body: Dear ${data.customerName}, your appointment for ${new Date(data.startTime).toLocaleString()} has been confirmed.`);
+
         return newBooking;
       }
       const response = await apiRequest('POST', '/api/public/bookings', data);

@@ -186,6 +186,11 @@ export default function Book() {
       persistentBookings.push(newBooking);
       localStorage.setItem("demo_bookings_persistent", JSON.stringify(persistentBookings));
       
+      // Send mock email for demo purposes (logged to console)
+      console.log(`[DEMO EMAIL] To: ${customerEmail}`);
+      console.log(`[DEMO EMAIL] Subject: Booking Confirmed - Demo Smile Clinic`);
+      console.log(`[DEMO EMAIL] Body: Dear ${customerName}, your appointment at Demo Smile Clinic for ${startTime.toLocaleString()} has been confirmed.`);
+
       setStep('success');
       toast({
         title: "Booking Confirmed!",
