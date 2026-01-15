@@ -8,6 +8,7 @@ import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
 
 async function sendBookingEmails(customerEmail: string, customerName: string, clinicEmail: string | null, clinicName: string, startTime: Date) {
   if (!resend) {
@@ -22,7 +23,7 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
   try {
     // Send to Customer
     await resend.emails.send({
-      from: 'BookMySlot <onboarding@resend.dev>',
+      from: EMAIL_FROM,
       to: customerEmail,
       subject: 'Booking Confirmed - BookMySlot',
       html: `
@@ -36,7 +37,7 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
     // Send to Clinic if email exists
     if (clinicEmail) {
       await resend.emails.send({
-        from: 'BookMySlot <onboarding@resend.dev>',
+        from: EMAIL_FROM,
         to: clinicEmail,
         subject: 'New Booking Received - BookMySlot',
         html: `
@@ -61,7 +62,7 @@ async function sendCancellationEmail(email: string, name: string, date: Date, cl
   
   try {
     await resend.emails.send({
-      from: 'BookMySlot <onboarding@resend.dev>',
+      from: EMAIL_FROM,
       to: email,
       subject: 'Appointment Cancellation - BookMySlot',
       html: `

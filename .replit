@@ -51,3 +51,4 @@ expertMode = true
 ADMIN_EMAIL = "itsmyfavoriteworkplace@gmail.com"
 ADMIN_PASSWORD = "Arun@1234"
 RESEND_API_KEY = "re_KAYpcUw4_6rveZtUcbwFGchjM6JEA6P3y"
+EMAIL_FROM = "alerts@book-my-slot.itsmyfavoriteworkplace.workers.dev"
