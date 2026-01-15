@@ -38,17 +38,17 @@ export default function Admin() {
   const { toast } = useToast();
 
   const { data: clinics, isLoading: clinicsLoading } = useQuery<Clinic[]>({
-    queryKey: ['/api/clinics', { includeArchived: true }, adminEmail],
+    queryKey: ['/api/clinics', { includeArchived: true }],
     queryFn: async () => {
       const res = await fetch('/api/clinics?includeArchived=true', {
         credentials: 'include',
       });
       const serverClinics = await res.json();
       
-      const isDemo = localStorage.getItem("demo_super_admin") === "true" || adminEmail === "demo_super_admin@bookmyslot.com";
+      const demoSuperAdmin = localStorage.getItem("demo_super_admin") === "true";
 
       // Merge with localStorage clinics if demo super admin
-      if (isDemo) {
+      if (demoSuperAdmin) {
         const demoClinicsRaw = localStorage.getItem("demo_clinics");
         if (demoClinicsRaw) {
           const demoClinics = JSON.parse(demoClinicsRaw);
@@ -97,7 +97,9 @@ export default function Admin() {
         });
       }
       // Explicitly trigger a re-fetch and invalidate all clinic queries
+      await queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
       await queryClient.refetchQueries({ queryKey: ['/api/clinics'] });
+      
       setNewClinicName("");
       setNewClinicAddress("");
       setNewClinicUsername("");
@@ -246,6 +248,12 @@ export default function Admin() {
     if (isDemoSuperAdmin) {
       console.log("Demo super admin login detected, bypassing backend");
       localStorage.setItem("demo_super_admin", "true");
+      // Set a mock user in query cache immediately
+      queryClient.setQueryData(['/api/auth/user'], {
+        id: 'admin',
+        email: adminEmail,
+        role: 'superuser'
+      });
       try {
         await login({ email: adminEmail, password: "bypass" });
         toast({ title: "Login successful (Demo Bypass)" });
