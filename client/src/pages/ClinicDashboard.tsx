@@ -412,8 +412,7 @@ export default function ClinicDashboard() {
     patientPhone: "",
     patientEmail: "",
     clinicName: "",
-    amount: "500",
-    service: "Dental Consultation",
+    services: [{ description: "Dental Consultation", amount: "500" }],
     date: ""
   });
 
@@ -424,11 +423,32 @@ export default function ClinicDashboard() {
       patientPhone: booking.customerPhone,
       patientEmail: booking.customerEmail || "",
       clinicName: clinic?.name || "",
-      amount: "500",
-      service: "Dental Consultation",
+      services: [{ description: "Dental Consultation", amount: "500" }],
       date: format(new Date(booking.slot.startTime), "PPP")
     });
     setIsBillingOpen(true);
+  };
+
+  const addServiceRow = () => {
+    setBillingDetails(prev => ({
+      ...prev,
+      services: [...prev.services, { description: "", amount: "" }]
+    }));
+  };
+
+  const removeServiceRow = (index: number) => {
+    if (billingDetails.services.length <= 1) return;
+    setBillingDetails(prev => ({
+      ...prev,
+      services: prev.services.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateService = (index: number, field: "description" | "amount", value: string) => {
+    setBillingDetails(prev => ({
+      ...prev,
+      services: prev.services.map((s, i) => i === index ? { ...s, [field]: value } : s)
+    }));
   };
 
   const generatePDF = () => {
@@ -463,10 +483,13 @@ export default function ClinicDashboard() {
     doc.text(`Date: ${billingDetails.date}`, 20, 70);
 
     // Billing Table
+    const tableBody = billingDetails.services.map(s => [s.description, s.amount]);
+    const totalAmount = billingDetails.services.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+
     autoTable(doc, {
       startY: 80,
       head: [["Service Description", "Amount (INR)"]],
-      body: [[billingDetails.service, billingDetails.amount]],
+      body: tableBody,
       theme: "striped",
       headStyles: { fillColor: [79, 70, 229] }, // Indigo color
     });
@@ -476,7 +499,7 @@ export default function ClinicDashboard() {
     // Total
     doc.setFontSize(12);
     doc.setTextColor(40);
-    doc.text(`Total Amount: INR ${billingDetails.amount}`, pageWidth - 20, finalY + 15, { align: "right" });
+    doc.text(`Total Amount: INR ${totalAmount.toFixed(2)}`, pageWidth - 20, finalY + 15, { align: "right" });
 
     // Footer
     doc.setFontSize(10);
@@ -1202,25 +1225,46 @@ export default function ClinicDashboard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Service</Label>
-                  <Input 
-                    value={billingDetails.service} 
-                    onChange={(e) => setBillingDetails(prev => ({ ...prev, service: e.target.value }))}
-                    placeholder="Service"
-                    className="h-9"
-                  />
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Services</Label>
+                  <Button variant="ghost" size="sm" onClick={addServiceRow} className="h-7 px-2 text-primary gap-1">
+                    <Plus className="h-3 w-3" />
+                    <span className="text-[10px]">Add Row</span>
+                  </Button>
                 </div>
-                <div className="grid gap-2">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amount (INR)</Label>
-                  <Input 
-                    type="number"
-                    value={billingDetails.amount} 
-                    onChange={(e) => setBillingDetails(prev => ({ ...prev, amount: e.target.value }))}
-                    placeholder="Amount"
-                    className="h-9"
-                  />
+                <div className="space-y-3">
+                  {billingDetails.services.map((service, index) => (
+                    <div key={index} className="flex gap-2 items-start">
+                      <div className="flex-1">
+                        <Input 
+                          value={service.description} 
+                          onChange={(e) => updateService(index, "description", e.target.value)}
+                          placeholder="Service Description"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div className="w-24">
+                        <Input 
+                          type="number"
+                          value={service.amount} 
+                          onChange={(e) => updateService(index, "amount", e.target.value)}
+                          placeholder="Amount"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      {billingDetails.services.length > 1 && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => removeServiceRow(index)}
+                          className="h-9 w-9 text-destructive hover:bg-destructive/10"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
