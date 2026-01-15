@@ -131,22 +131,31 @@ export async function registerRoutes(
       next();
     });
 
-    // Login route MUST be defined before other general API routes
     app.post("/api/auth/admin/login", async (req, res) => {
       const { email, password } = req.body;
       
       console.log(`[AUTH] Login attempt - Email: ${email}, Path: ${req.path}`);
       
+      if (!email || !password) {
+        console.error(`[AUTH ERROR] Missing credentials for login attempt at ${req.path}`);
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+
       // Special bypass for demo_super_admin
       if (email === "demo_super_admin@bookmyslot.com") {
+        console.log("[AUTH] Demo super admin login detected");
         if (!req.session) {
-          console.log("[AUTH] No session available");
+          console.error("[AUTH ERROR] No session available for demo_super_admin");
           return res.status(500).json({ message: "Session initialization failed" });
         }
         (req.session as any).adminLoggedIn = true;
         (req.session as any).adminEmail = "demo_super_admin@bookmyslot.com";
         req.session.save((err) => {
-          if (err) return res.status(500).json({ message: "Failed to save session" });
+          if (err) {
+            console.error("[AUTH ERROR] Failed to save session for demo_super_admin:", err);
+            return res.status(500).json({ message: "Failed to save session" });
+          }
+          console.log("[AUTH] Demo session saved successfully");
           return res.json({ message: "Login successful", user: { email: "demo_super_admin@bookmyslot.com", role: 'superuser' } });
         });
         return;
@@ -155,18 +164,18 @@ export async function registerRoutes(
       const adminEmail = process.env.ADMIN_EMAIL;
       const adminPassword = process.env.ADMIN_PASSWORD;
       
-      console.log(`[AUTH] Admin login attempt for: ${email}`);
+      console.log(`[AUTH] Admin login attempt for: ${email}. Expected: ${adminEmail}`);
       
       if (email && adminEmail && email === adminEmail && password === adminPassword) {
         if (!req.session) {
-          console.log("[AUTH] No session available");
+          console.error("[AUTH ERROR] No session available for admin login");
           return res.status(500).json({ message: "Session initialization failed" });
         }
         (req.session as any).adminLoggedIn = true;
         (req.session as any).adminEmail = email;
         req.session.save((err) => {
           if (err) {
-            console.error("[AUTH] Session save error:", err);
+            console.error("[AUTH ERROR] Session save error:", err);
             return res.status(500).json({ message: "Failed to save session" });
           }
           console.log("[AUTH] Admin login successful, session saved");
@@ -175,7 +184,7 @@ export async function registerRoutes(
         return;
       }
       
-      console.log(`[AUTH] Admin login failed for: ${email}`);
+      console.error(`[AUTH ERROR] Admin login failed for: ${email}. Invalid credentials or environment mismatch.`);
       return res.status(401).json({ message: "Invalid credentials" });
     });
     
@@ -187,6 +196,7 @@ export async function registerRoutes(
     });
     
     app.get("/api/auth/user", (req, res) => {
+      console.log(`[AUTH-DEBUG] Checking user session: adminLoggedIn=${(req.session as any)?.adminLoggedIn}, adminEmail=${(req.session as any)?.adminEmail}`);
       if ((req.session as any)?.adminLoggedIn) {
         return res.json({ 
           id: 'admin',
@@ -194,6 +204,7 @@ export async function registerRoutes(
           role: 'superuser'
         });
       }
+      console.log("[AUTH-DEBUG] No active session found for /api/auth/user");
       return res.status(401).json({ message: "Not authenticated" });
     });
 

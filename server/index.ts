@@ -113,9 +113,20 @@ app.use((req, res, next) => {
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
+    
+    // Detailed error logging
+    console.error(`[ERROR] ${new Date().toISOString()} - ${status}: ${message}`);
+    console.error(`[ERROR DETAILS] Method: ${_req.method}, Path: ${_req.path}`);
+    if (_req.body && Object.keys(_req.body).length > 0) {
+      const sanitizedBody = { ..._req.body };
+      if (sanitizedBody.password) sanitizedBody.password = "********";
+      console.error(`[ERROR BODY] ${JSON.stringify(sanitizedBody)}`);
+    }
+    if (err.stack) {
+      console.error(`[ERROR STACK] ${err.stack}`);
+    }
 
-    res.status(status).json({ message });
-    throw err;
+    res.status(status).json({ message, details: process.env.NODE_ENV === 'development' ? err.stack : undefined });
   });
 
   // ALWAYS serve the app on the port specified in the environment variable PORT

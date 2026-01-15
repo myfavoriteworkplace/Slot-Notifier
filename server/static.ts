@@ -15,6 +15,7 @@ export function serveStatic(app: Express) {
   // ONLY catch-all for non-API routes to prevent 404 on API calls
   app.use((req, res, next) => {
     if (req.path.startsWith("/api")) {
+      console.log(`[STATIC-DEBUG] Request to API path ${req.path} intercepted by static fallback. This should not happen.`);
       return next();
     }
     if (req.method === "GET") {
