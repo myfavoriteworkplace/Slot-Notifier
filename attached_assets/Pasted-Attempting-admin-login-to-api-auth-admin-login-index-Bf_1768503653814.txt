@@ -1,0 +1,74 @@
+Attempting admin login to /api/auth/admin/login
+index-BfuE1vqi.js:8  POST https://book-my-slot-1.onrender.com/api/auth/admin/login 404 (Not Found)
+Lo @ index-BfuE1vqi.js:8
+ce @ index-BfuE1vqi.js:66
+es @ index-BfuE1vqi.js:5
+ws @ index-BfuE1vqi.js:5
+Us @ index-BfuE1vqi.js:5
+Kc @ index-BfuE1vqi.js:5
+Qc @ index-BfuE1vqi.js:5
+(anonymous) @ index-BfuE1vqi.js:5
+Zg @ index-BfuE1vqi.js:8
+It @ index-BfuE1vqi.js:5
+Xc @ index-BfuE1vqi.js:5
+Ol @ index-BfuE1vqi.js:5
+Uc @ index-BfuE1vqi.js:5Understand this error
+index-BfuE1vqi.js:66 Admin login error: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+ce @ index-BfuE1vqi.js:66
+await in ce
+es @ index-BfuE1vqi.js:5
+ws @ index-BfuE1vqi.js:5
+Us @ index-BfuE1vqi.js:5
+Kc @ index-BfuE1vqi.js:5
+Qc @ index-BfuE1vqi.js:5
+(anonymous) @ index-BfuE1vqi.js:5
+Zg @ index-BfuE1vqi.js:8
+It @ index-BfuE1vqi.js:5
+Xc @ index-BfuE1vqi.js:5
+Ol @ index-BfuE1vqi.js:5
+Uc @ index-BfuE1vqi.js:5Understand this error
+index-BfuE1vqi.js:66 Attempting admin login to /api/auth/admin/login
+index-BfuE1vqi.js:8  POST https://book-my-slot-1.onrender.com/api/auth/admin/login 404 (Not Found)
+Lo @ index-BfuE1vqi.js:8
+ce @ index-BfuE1vqi.js:66
+es @ index-BfuE1vqi.js:5
+ws @ index-BfuE1vqi.js:5
+Us @ index-BfuE1vqi.js:5
+Kc @ index-BfuE1vqi.js:5
+Qc @ index-BfuE1vqi.js:5
+(anonymous) @ index-BfuE1vqi.js:5
+Zg @ index-BfuE1vqi.js:8
+It @ index-BfuE1vqi.js:5
+Xc @ index-BfuE1vqi.js:5
+Ol @ index-BfuE1vqi.js:5
+Uc @ index-BfuE1vqi.js:5Understand this error
+index-BfuE1vqi.js:66 Admin login error: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+ce @ index-BfuE1vqi.js:66
+await in ce
+es @ index-BfuE1vqi.js:5
+ws @ index-BfuE1vqi.js:5
+Us @ index-BfuE1vqi.js:5
+Kc @ index-BfuE1vqi.js:5
+Qc @ index-BfuE1vqi.js:5
+(anonymous) @ index-BfuE1vqi.js:5
+Zg @ index-BfuE1vqi.js:8
+It @ index-BfuE1vqi.js:5
+Xc @ index-BfuE1vqi.js:5
+Ol @ index-BfuE1vqi.js:5
+Uc @ index-BfuE1vqi.js:5Understand this error
+index-BfuE1vqi.js:66 Attempting admin login to /api/auth/admin/login
+index-BfuE1vqi.js:8  POST https://book-my-slot-1.onrender.com/api/auth/admin/login 404 (Not Found)
+Lo @ index-BfuE1vqi.js:8
+ce @ index-BfuE1vqi.js:66
+es @ index-BfuE1vqi.js:5
+ws @ index-BfuE1vqi.js:5
+Us @ index-BfuE1vqi.js:5
+Kc @ index-BfuE1vqi.js:5
+Qc @ index-BfuE1vqi.js:5
+(anonymous) @ index-BfuE1vqi.js:5
+Zg @ index-BfuE1vqi.js:8
+It @ index-BfuE1vqi.js:5
+Xc @ index-BfuE1vqi.js:5
+Ol @ index-BfuE1vqi.js:5
+Uc @ index-BfuE1vqi.js:5Understand this error
+index-BfuE1vqi.js:66 Admin login error: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON

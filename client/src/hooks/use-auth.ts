@@ -67,6 +67,15 @@ async function adminLogin(email: string, password: string): Promise<User> {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+    // Clear any existing session by calling logout first
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_URL || "";
+      const logoutUrl = "/api/auth/admin/logout";
+      const fullLogoutUrl = logoutUrl.startsWith("http") ? logoutUrl : `${apiBaseUrl}${logoutUrl}`;
+      await fetch(fullLogoutUrl, { method: 'POST', credentials: "include" });
+    } catch (e) {
+      console.log("Pre-login logout failed (expected if no session)");
+    }
     // Store in localStorage to persist across refreshes
     localStorage.setItem("demo_super_admin", "true");
     return demoUser;
