@@ -7,6 +7,13 @@ import type { Clinic, Slot } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -395,35 +402,82 @@ export default function Book() {
                     <Label className="text-sm font-semibold text-left block">Select Time Slot</Label>
                     <div className="grid gap-2">
                       {slotTimings.map((slot) => {
-                        const slotBookings = slots?.filter(s => 
-                          s.isBooked && 
-                          s.clinicName === selectedClinic &&
-                          isSameDay(new Date(s.startTime), selectedDate) &&
-                          new Date(s.startTime).getHours() === slot.startHour
-                        ).length || 0;
+                        const startTime = new Date(selectedDate);
+                        startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+                        const isoString = startTime.toISOString();
+                        
+                        let isSlotFull = false;
+                        let isSlotCancelled = false;
+                        let maxBookings = 3;
 
-                        const isSlotFull = slotBookings >= 3;
+                        if (selectedClinic === "Demo Smile Clinic") {
+                          const storedConfigs = localStorage.getItem("demo_slot_configs");
+                          const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
+                          const config = configs[isoString];
+                          maxBookings = config?.maxBookings ?? 3;
+                          isSlotCancelled = config?.isCancelled ?? false;
+
+                          const storedBookings = localStorage.getItem("demo_bookings_persistent");
+                          const persistentBookings = storedBookings ? JSON.parse(storedBookings) : [];
+                          const currentBookings = persistentBookings.filter((b: any) => 
+                            new Date(b.slot.startTime).toISOString() === isoString
+                          ).length;
+                          isSlotFull = currentBookings >= maxBookings;
+                        } else {
+                          const slotData = slots?.find(s => 
+                            new Date(s.startTime).toISOString() === isoString && 
+                            s.clinicName === selectedClinic
+                          );
+                          maxBookings = slotData?.maxBookings ?? 3;
+                          isSlotCancelled = slotData?.isCancelled ?? false;
+
+                          // For registered clinics, we calculate current bookings from existing slots data
+                          const currentBookings = slots?.filter(s => 
+                            new Date(s.startTime).toISOString() === isoString && 
+                            s.clinicName === selectedClinic &&
+                            s.isBooked
+                          ).length || 0;
+                          isSlotFull = currentBookings >= maxBookings;
+                        }
+
+                        if (isSlotCancelled) return null;
+
                         const slotLabel = `${formatTime(slot.startHour, slot.startMinute)} TO ${formatTime(slot.endHour, slot.endMinute)}`;
 
                         return (
-                          <button
-                            key={slot.id}
-                            disabled={isSlotFull}
-                            onClick={() => setSelectedSlot(slot.id)}
-                            data-testid={`slot-button-${slot.id}`}
-                            className={`p-3 rounded-lg border text-left transition-all ${
-                              selectedSlot === slot.id 
-                                ? "border-primary bg-primary/5 ring-1 ring-primary" 
-                                : isSlotFull
-                                  ? "border-destructive/20 bg-destructive/10 text-destructive cursor-not-allowed opacity-60"
-                                  : "border-border hover:bg-muted"
-                            }`}
-                          >
-                            <div className="flex justify-between items-center">
-                              <div className="font-medium text-left">{slotLabel}</div>
-                              {isSlotFull && <span className="text-[10px] font-bold uppercase text-destructive">Full</span>}
-                            </div>
-                          </button>
+                          <TooltipProvider key={slot.id}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  key={slot.id}
+                                  disabled={isSlotFull}
+                                  onClick={() => setSelectedSlot(slot.id)}
+                                  data-testid={`slot-button-${slot.id}`}
+                                  className={`p-3 rounded-lg border text-left transition-all relative ${
+                                    selectedSlot === slot.id 
+                                      ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                                      : isSlotFull
+                                        ? "border-destructive/20 bg-destructive/10 cursor-not-allowed"
+                                        : "border-border hover:bg-muted"
+                                  }`}
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <div className={`font-medium text-left ${isSlotFull ? "text-destructive/70" : ""}`}>{slotLabel}</div>
+                                    {isSlotFull && (
+                                      <Badge variant="destructive" className="px-1.5 py-0 text-[10px] h-4">
+                                        Full
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </button>
+                              </TooltipTrigger>
+                              {isSlotFull && (
+                                <TooltipContent>
+                                  <p>Booking closed for this slot</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
                         );
                       })}
                     </div>
