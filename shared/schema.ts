@@ -25,6 +25,8 @@ export const slots = pgTable("slots", {
   isBooked: boolean("is_booked").default(false).notNull(),
   clinicName: varchar("clinic_name", { length: 255 }),
   clinicId: integer("clinic_id").references(() => clinics.id),
+  maxBookings: integer("max_bookings").default(3).notNull(),
+  isCancelled: boolean("is_cancelled").default(false).notNull(),
 });
 
 export const bookings = pgTable("bookings", {

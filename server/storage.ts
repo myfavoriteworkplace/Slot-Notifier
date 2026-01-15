@@ -311,7 +311,8 @@ export class DatabaseStorage implements IStorage {
     .where(
       and(
         gte(slots.startTime, startWindow),
-        lte(slots.startTime, endWindow)
+        lte(slots.startTime, endWindow),
+        eq(slots.isCancelled, false)
       )
     );
 
@@ -323,6 +324,23 @@ export class DatabaseStorage implements IStorage {
     });
 
     return verifiedBookings.length;
+  }
+
+  async getSlotByTime(clinicId: number, startTime: Date): Promise<Slot | undefined> {
+    const startWindow = new Date(startTime.getTime() - 60000);
+    const endWindow = new Date(startTime.getTime() + 60000);
+
+    const [slot] = await db.select()
+      .from(slots)
+      .where(
+        and(
+          eq(slots.clinicId, clinicId),
+          gte(slots.startTime, startWindow),
+          lte(slots.startTime, endWindow)
+        )
+      )
+      .limit(1);
+    return slot;
   }
 
   // Notifications

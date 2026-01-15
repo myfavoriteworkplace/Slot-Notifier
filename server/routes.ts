@@ -589,8 +589,16 @@ export async function registerRoutes(
       const requestedStart = new Date(startTime);
       const existingBookings = await storage.countVerifiedBookingsForClinicTime(clinicId, clinic.name, requestedStart);
       
-      const MAX_BOOKINGS_PER_SLOT = 3; // Maximum bookings per time slot per clinic
-      if (existingBookings >= MAX_BOOKINGS_PER_SLOT) {
+      // Get the existing slot configuration if it exists
+      const existingSlot = await (storage as any).getSlotByTime(clinicId, requestedStart);
+      const maxBookings = existingSlot?.maxBookings ?? 3;
+      const isCancelled = existingSlot?.isCancelled ?? false;
+
+      if (isCancelled) {
+        return res.status(400).json({ message: "This time slot has been cancelled." });
+      }
+
+      if (existingBookings >= maxBookings) {
         return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
       }
 
@@ -602,6 +610,8 @@ export async function registerRoutes(
         clinicName: clinicName || clinic.name,
         clinicId: clinicId,
         isBooked: true,
+        maxBookings: maxBookings,
+        isCancelled: false,
       } as any);
 
       // Create confirmed booking directly (no OTP verification)
