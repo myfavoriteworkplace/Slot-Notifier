@@ -99,6 +99,20 @@ export async function registerRoutes(
     app.get("/api/login", (req, res) => {
       res.redirect("/admin");
     });
+    
+    // Ensure the login endpoint is registered correctly
+    app.post("/api/auth/admin/login", async (req, res) => {
+      const { email, password } = req.body;
+      const adminEmail = process.env.ADMIN_EMAIL;
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      
+      if (email === adminEmail && password === adminPassword) {
+        (req.session as any).adminLoggedIn = true;
+        (req.session as any).adminEmail = email;
+        return res.json({ message: "Login successful", user: { email, role: 'superuser' } });
+      }
+      return res.status(401).json({ message: "Invalid credentials" });
+    });
   } else {
     console.log("[AUTH] Using Replit OIDC authentication");
     await setupAuth(app);

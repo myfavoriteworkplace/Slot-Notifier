@@ -156,7 +156,7 @@ export default function Admin() {
     }
   }, [authLoading, user, setLocation, toast]);
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (adminEmail === "demo_clinic" && adminPassword === "demo_password123") {
       login({ email: "demo_clinic", password: "demo_password123" });
@@ -166,7 +166,32 @@ export default function Admin() {
       toast({ title: "Please enter email and password", variant: "destructive" });
       return;
     }
-    login({ email: adminEmail, password: adminPassword });
+    
+    try {
+      // Use the explicit admin login endpoint for environment-based auth
+      const res = await apiRequest('POST', '/api/auth/admin/login', { 
+        email: adminEmail, 
+        password: adminPassword 
+      });
+      
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+        toast({ title: "Login successful" });
+      } else {
+        const error = await res.json();
+        toast({ 
+          title: "Login failed", 
+          description: error.message || "Invalid credentials",
+          variant: "destructive" 
+        });
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "Login error", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
   };
 
   if (authLoading) {
