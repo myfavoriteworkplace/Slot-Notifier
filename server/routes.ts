@@ -36,6 +36,10 @@ async function sendCancellationEmail(email: string, name: string, date: Date, cl
 
 const USE_ENV_AUTH = !!(process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD);
 
+console.log(`[AUTH] USE_ENV_AUTH: ${USE_ENV_AUTH}`);
+console.log(`[AUTH] ADMIN_EMAIL present: ${!!process.env.ADMIN_EMAIL}`);
+console.log(`[AUTH] ADMIN_PASSWORD present: ${!!process.env.ADMIN_PASSWORD}`);
+
 function envIsAuthenticated(req: Request, res: Response, next: NextFunction) {
   if ((req.session as any)?.adminLoggedIn) {
     // Set req.user to mimic Replit OIDC structure for compatibility with downstream handlers
@@ -57,6 +61,17 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  // Publicly available login check for debugging
+  app.get("/api/auth/debug", (req, res) => {
+    res.json({
+      useEnvAuth: USE_ENV_AUTH,
+      adminEmailSet: !!process.env.ADMIN_EMAIL,
+      adminPasswordSet: !!process.env.ADMIN_PASSWORD,
+      sessionID: req.sessionID,
+      nodeEnv: process.env.NODE_ENV
+    });
+  });
+
   if (USE_ENV_AUTH) {
     console.log("[AUTH] Using environment-based admin authentication");
     
@@ -95,23 +110,46 @@ export async function registerRoutes(
       return res.status(401).json({ message: "Not authenticated" });
     });
 
-    // Add a fallback for the /api/login path used in the UI
-    app.get("/api/login", (req, res) => {
-      res.redirect("/admin");
-    });
-    
     // Ensure the login endpoint is registered correctly
-    app.post("/api/auth/admin/login", async (req, res) => {
+    app.post("/api/auth/admin/login", (req, res) => {
       const { email, password } = req.body;
       const adminEmail = process.env.ADMIN_EMAIL;
       const adminPassword = process.env.ADMIN_PASSWORD;
       
-      if (email === adminEmail && password === adminPassword) {
+      console.log(`[AUTH] Admin login attempt for: ${email}`);
+      
+      if (email && adminEmail && email === adminEmail && password === adminPassword) {
+        if (!req.session) {
+          console.log("[AUTH] No session available");
+          return res.status(500).json({ message: "Session initialization failed" });
+        }
         (req.session as any).adminLoggedIn = true;
         (req.session as any).adminEmail = email;
-        return res.json({ message: "Login successful", user: { email, role: 'superuser' } });
+        req.session.save((err) => {
+          if (err) {
+            console.error("[AUTH] Session save error:", err);
+            return res.status(500).json({ message: "Failed to save session" });
+          }
+          console.log("[AUTH] Admin login successful, session saved");
+          res.cookie('connect.sid', req.sessionID, {
+            path: '/',
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+          });
+          return res.json({ message: "Login successful", user: { email, role: 'superuser' } });
+        });
+        return;
       }
+      
+      console.log(`[AUTH] Admin login failed for: ${email}`);
       return res.status(401).json({ message: "Invalid credentials" });
+    });
+
+    // Add a fallback for the /api/login path used in the UI
+    app.get("/api/login", (req, res) => {
+      res.redirect("/admin");
     });
   } else {
     console.log("[AUTH] Using Replit OIDC authentication");

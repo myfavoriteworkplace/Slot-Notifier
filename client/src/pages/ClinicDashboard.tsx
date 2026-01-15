@@ -237,7 +237,11 @@ export default function ClinicDashboard() {
               startTime: startTime,
               endTime: endTime,
               isBooked: true
-            } as any
+            } as any,
+            createdAt: new Date(),
+            customerId: null,
+            verificationCode: null,
+            verificationExpiresAt: null
           });
         }
 

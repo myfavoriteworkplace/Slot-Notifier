@@ -168,6 +168,7 @@ export default function Admin() {
     }
     
     try {
+      console.log("Attempting admin login to /api/auth/admin/login");
       // Use the explicit admin login endpoint for environment-based auth
       const res = await apiRequest('POST', '/api/auth/admin/login', { 
         email: adminEmail, 
@@ -175,10 +176,14 @@ export default function Admin() {
       });
       
       if (res.ok) {
+        const data = await res.json();
+        console.log("Admin login success:", data);
+        queryClient.setQueryData(['/api/auth/user'], data.user);
         queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
         toast({ title: "Login successful" });
       } else {
         const error = await res.json();
+        console.error("Admin login failed:", error);
         toast({ 
           title: "Login failed", 
           description: error.message || "Invalid credentials",
@@ -186,6 +191,7 @@ export default function Admin() {
         });
       }
     } catch (error: any) {
+      console.error("Admin login error:", error);
       toast({ 
         title: "Login error", 
         description: error.message,
