@@ -294,45 +294,55 @@ export default function ClinicDashboard() {
     queryKey: ['/api/clinic/bookings'],
     queryFn: async () => {
       if (localStorage.getItem("demo_clinic_active") === "true") {
+        const activeDemoClinicId = localStorage.getItem("demo_clinic_id");
         const today = new Date();
         const staticBookings: BookingWithSlot[] = [];
         const customerNames = ["Rahul Sharma", "Priya Patel", "Amit Singh", "Anjali Gupta", "Vikram Mehta"];
         
-        // Generate static bookings for Jan 2026
-        for (let i = 1; i <= 15; i++) {
-          const bookingDate = new Date(2026, 0, i);
-          const slotIdx = (i % 3);
-          const slot = DEFAULT_SLOT_TIMINGS[slotIdx];
-          
-          const startTime = new Date(bookingDate);
-          startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
-          const endTime = new Date(bookingDate);
-          endTime.setHours(slot.endHour, slot.endMinute, 0, 0);
+        // Only generate static for Demo Smile Clinic (ID 999)
+        if (activeDemoClinicId === "999" || !activeDemoClinicId) {
+          for (let i = 1; i <= 15; i++) {
+            const bookingDate = new Date(2026, 0, i);
+            const slotIdx = (i % 3);
+            const slot = DEFAULT_SLOT_TIMINGS[slotIdx];
+            
+            const startTime = new Date(bookingDate);
+            startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+            const endTime = new Date(bookingDate);
+            endTime.setHours(slot.endHour, slot.endMinute, 0, 0);
 
-          staticBookings.push({
-            id: i,
-            slotId: i,
-            customerName: customerNames[i % customerNames.length],
-            customerPhone: "+91 987654321" + (i % 10),
-            customerEmail: `patient${i}@example.com`,
-            verificationStatus: "verified",
-            slot: {
+            staticBookings.push({
               id: i,
-              clinicId: 999,
-              clinicName: "Demo Smile Clinic",
-              startTime: startTime,
-              endTime: endTime,
-              isBooked: true
-            } as any,
-            createdAt: new Date(),
-            customerId: null,
-            verificationCode: null,
-            verificationExpiresAt: null
-          });
+              slotId: i,
+              customerName: customerNames[i % customerNames.length],
+              customerPhone: "+91 987654321" + (i % 10),
+              customerEmail: `patient${i}@example.com`,
+              verificationStatus: "verified",
+              slot: {
+                id: i,
+                clinicId: 999,
+                clinicName: "Demo Smile Clinic",
+                startTime: startTime,
+                endTime: endTime,
+                isBooked: true
+              } as any,
+              createdAt: new Date(),
+              customerId: null,
+              verificationCode: null,
+              verificationExpiresAt: null
+            });
+          }
         }
 
         const stored = localStorage.getItem("demo_bookings_persistent");
-        const persistentBookings = stored ? JSON.parse(stored) : [];
+        let persistentBookings = stored ? JSON.parse(stored) : [];
+        
+        // Filter persistent bookings by active clinic ID
+        if (activeDemoClinicId) {
+          persistentBookings = persistentBookings.filter((b: any) => 
+            b.slot?.clinicId?.toString() === activeDemoClinicId
+          );
+        }
         
         return [...staticBookings, ...persistentBookings].sort((a, b) => 
           new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime()

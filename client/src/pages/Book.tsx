@@ -91,6 +91,17 @@ export default function Book() {
 
   const { data: clinicsData, isLoading: clinicsLoading } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics'],
+    queryFn: async () => {
+      const res = await fetch("/api/clinics");
+      const serverClinics = await res.json();
+      
+      const demoClinicsRaw = localStorage.getItem("demo_clinics");
+      if (demoClinicsRaw) {
+        const demoClinics = JSON.parse(demoClinicsRaw);
+        return [...serverClinics, ...demoClinics.filter((c: any) => !c.isArchived)];
+      }
+      return serverClinics;
+    }
   });
 
   const hardcodedClinic: Clinic = {

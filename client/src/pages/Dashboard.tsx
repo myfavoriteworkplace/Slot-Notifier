@@ -102,7 +102,14 @@ export default function Dashboard() {
       const res = await fetch('/api/clinics?includeArchived=true', {
         credentials: 'include',
       });
-      return res.json();
+      const serverClinics = await res.json();
+
+      const demoClinicsRaw = localStorage.getItem("demo_clinics");
+      if (demoClinicsRaw) {
+        const demoClinics = JSON.parse(demoClinicsRaw);
+        return [...serverClinics, ...demoClinics];
+      }
+      return serverClinics;
     },
   });
 
