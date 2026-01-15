@@ -79,7 +79,7 @@ async function sendCancellationEmail(email: string, name: string, date: Date, cl
   }
 }
 
-const USE_ENV_AUTH = !!(process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD);
+const USE_ENV_AUTH = true;
 
 console.log(`[AUTH] USE_ENV_AUTH: ${USE_ENV_AUTH}`);
 console.log(`[AUTH] ADMIN_EMAIL present: ${!!process.env.ADMIN_EMAIL}`);
