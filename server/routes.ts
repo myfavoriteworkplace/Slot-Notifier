@@ -235,33 +235,46 @@ export async function registerRoutes(
     res.json({ message: "You are now a superuser", role: 'superuser' });
   });
 
+  // Global log preference (true by default)
+  let serverLogsEnabled = true;
+
+  app.get("/api/admin/logs/status", isAuthenticated, (req, res) => {
+    res.json({ enabled: serverLogsEnabled });
+  });
+
+  app.post("/api/admin/logs/toggle", isAuthenticated, (req, res) => {
+    const { enabled } = req.body;
+    serverLogsEnabled = !!enabled;
+    console.log(`[SYSTEM] Server logs ${serverLogsEnabled ? 'ENABLED' : 'DISABLED'} by admin`);
+    res.json({ enabled: serverLogsEnabled });
+  });
+
+  const logger = (message: string, type: string = 'INFO') => {
+    if (serverLogsEnabled) {
+      console.log(`[${type}] [${new Date().toISOString()}] ${message}`);
+    }
+  };
+
   // Slots API
   app.get(api.slots.list.path, async (req, res) => {
     const ownerId = req.query.ownerId as string;
     const date = req.query.date as string;
+    logger(`Fetching slots for owner ${ownerId} on date ${date}`, 'SLOTS');
     const slots = await storage.getSlots(ownerId, date);
     res.json(slots);
   });
 
   app.post(api.slots.create.path, isAuthenticated, async (req, res) => {
     const user = req.user as any;
-    
-    // Check if user is owner
-    // Note: In a real app we'd enforce this strictly, but for MVP let's assume UI handles it
-    // or just check the role if available in session
-    // const dbUser = await storage.getUser(user.claims.sub);
-    // if (dbUser?.role !== 'owner') return res.status(403).json({ message: "Only owners can create slots" });
-
     try {
       const input = api.slots.create.input.parse(req.body);
-      
-      // Force ownerId to be current user
+      logger(`User ${user.claims.sub} creating slot for clinic ${input.clinicName}`, 'SLOTS');
       const slotData = { ...input, ownerId: user.claims.sub };
-      
       const slot = await storage.createSlot(slotData);
       res.status(201).json(slot);
     } catch (err) {
       if (err instanceof z.ZodError) {
+        logger(`Slot creation validation failed: ${err.errors[0].message}`, 'ERROR');
         return res.status(400).json({
           message: err.errors[0].message,
           field: err.errors[0].path.join('.'),
@@ -274,14 +287,13 @@ export async function registerRoutes(
   app.delete(api.slots.delete.path, isAuthenticated, async (req, res) => {
     const user = req.user as any;
     const slotId = parseInt(req.params.id);
-    
+    logger(`User ${user.claims.sub} attempting to delete slot ${slotId}`, 'SLOTS');
     const slot = await storage.getSlot(slotId);
     if (!slot) return res.status(404).json({ message: "Slot not found" });
-    
     if (slot.ownerId !== user.claims.sub) {
+      logger(`Unauthorized slot deletion attempt by ${user.claims.sub}`, 'SECURITY');
       return res.status(403).json({ message: "You can only delete your own slots" });
     }
-
     await storage.deleteSlot(slotId);
     res.status(204).send();
   });
@@ -289,30 +301,28 @@ export async function registerRoutes(
   // Bookings API
   app.post(api.bookings.create.path, isAuthenticated, async (req, res) => {
     const user = req.user as any;
-    
     try {
       const input = api.bookings.create.input.parse(req.body);
+      logger(`Booking creation started by ${user.claims.sub} for clinic ${(input as any).clinicId}`, 'BOOKING');
       let slot;
-      
-      // If slotId is -1, it's a dynamic slot from the clinic selection UI
       if (input.slotId === -1 && (req.body as any).clinicName) {
-        // Create the slot first
         slot = await storage.createSlot({
           ownerId: user.claims.sub, 
           startTime: new Date((req.body as any).startTime),
           endTime: new Date((req.body as any).endTime),
           clinicName: (req.body as any).clinicName,
           clinicId: (req.body as any).clinicId || null,
-          isBooked: false, // Ensure it's not marked booked yet so validation passes
+          isBooked: false,
         } as any);
+        logger(`Dynamic slot created: ${slot.id}`, 'BOOKING');
       } else {
         slot = await storage.getSlot(input.slotId);
       }
-      
       if (!slot) return res.status(404).json({ message: "Slot not found" });
-      if (slot.isBooked) return res.status(400).json({ message: "Slot already booked" });
-
-      // Force customerId to be current user
+      if (slot.isBooked) {
+        logger(`Booking failed: Slot ${slot.id} already booked`, 'BOOKING');
+        return res.status(400).json({ message: "Slot already booked" });
+      }
       const bookingData = { 
         ...input, 
         slotId: slot.id,
@@ -320,39 +330,24 @@ export async function registerRoutes(
         customerEmail: (input as any).customerEmail || (user.claims.email as string),
       };
       const booking = await storage.createBooking(bookingData);
-
-      // Create notifications
-      // 1. Notify Customer
+      logger(`Booking confirmed: ${booking.id} for customer ${booking.customerName}`, 'BOOKING');
       await storage.createNotification({
         userId: bookingData.customerId,
         message: `You have successfully booked a slot on ${slot.startTime.toLocaleString()}`,
       });
-      // Mock Email to Customer
-      console.log(`[EMAIL MOCK] To: ${user.claims.email}, Subject: Booking Confirmed, Body: You booked a slot at ${slot.startTime}`);
-
-      // 2. Notify Owner (if slot has an owner)
       if (slot.ownerId) {
         await storage.createNotification({
           userId: slot.ownerId,
           message: `Your slot on ${slot.startTime.toLocaleString()} has been booked!`,
         });
       }
-
-      // Send confirmation emails
       const clinic = slot.clinicId ? await storage.getClinic(slot.clinicId) : null;
       const customerEmail = (input as any).customerEmail || (user.claims.email as string);
-      
-      await sendBookingEmails(
-        customerEmail,
-        (input as any).customerName,
-        clinic?.email || null,
-        slot.clinicName || 'the clinic',
-        slot.startTime
-      );
-
+      await sendBookingEmails(customerEmail, (input as any).customerName, clinic?.email || null, slot.clinicName || 'the clinic', slot.startTime);
       res.status(201).json(booking);
     } catch (err) {
       if (err instanceof z.ZodError) {
+        logger(`Booking creation failed: ${err.errors[0].message}`, 'ERROR');
         return res.status(400).json({
           message: err.errors[0].message,
           field: err.errors[0].path.join('.'),
@@ -362,55 +357,19 @@ export async function registerRoutes(
     }
   });
 
-  app.get(api.bookings.list.path, isAuthenticated, async (req, res) => {
-    const user = req.user as any;
-    // We need to know the role to filter correctly.
-    // Fetch user from DB to get role
-    const dbUser = await storage.getUser(user.claims.sub);
-    if (!dbUser) return res.status(401).json({ message: "User not found" });
-
-    const bookings = await storage.getBookings(user.claims.sub, dbUser.role);
-    res.json(bookings);
-  });
-
-  // Notifications API
-  app.get(api.notifications.list.path, isAuthenticated, async (req, res) => {
-    const user = req.user as any;
-    const notifications = await storage.getNotifications(user.claims.sub);
-    res.json(notifications);
-  });
-
-  app.patch(api.notifications.markRead.path, isAuthenticated, async (req, res) => {
-    const user = req.user as any;
-    const id = parseInt(req.params.id);
-    const updated = await storage.markNotificationRead(id);
-    if (!updated) return res.status(404).json({ message: "Notification not found" });
-    res.json(updated);
-  });
-
   // Clinics API
-  app.get(api.clinics.list.path, async (req, res) => {
-    const includeArchived = req.query.includeArchived === 'true';
-    const clinics = await storage.getClinics(includeArchived);
-    // Remove passwordHash from response for security
-    const safeClinics = clinics.map(({ passwordHash, ...clinic }) => clinic);
-    res.json(safeClinics);
-  });
-
   app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
     const user = req.user as any;
-    
-    // For env auth, admin is always superuser
     const isSuperuser = USE_ENV_AUTH 
       ? user.claims.sub === 'admin'
       : (await storage.getUser(user.claims.sub))?.role === 'superuser';
-    
     if (!isSuperuser) {
+      logger(`Unauthorized clinic creation attempt by ${user.claims.sub}`, 'SECURITY');
       return res.status(403).json({ message: "Only super users can add clinics" });
     }
-
     try {
       const input = api.clinics.create.input.parse(req.body);
+      logger(`Superuser ${user.claims.sub} creating new clinic: ${input.name}`, 'ADMIN');
       const clinic = await storage.createClinic(input);
       res.status(201).json(clinic);
     } catch (err) {
@@ -426,16 +385,12 @@ export async function registerRoutes(
 
   app.patch(api.clinics.archive.path, isAuthenticated, async (req, res) => {
     const user = req.user as any;
-    
     const isSuperuser = USE_ENV_AUTH 
       ? user.claims.sub === 'admin'
       : (await storage.getUser(user.claims.sub))?.role === 'superuser';
-    
-    if (!isSuperuser) {
-      return res.status(403).json({ message: "Only super users can archive clinics" });
-    }
-
+    if (!isSuperuser) return res.status(403).json({ message: "Only super users can archive clinics" });
     const clinicId = parseInt(req.params.id);
+    logger(`Archiving clinic ${clinicId} by ${user.claims.sub}`, 'ADMIN');
     try {
       const clinic = await storage.archiveClinic(clinicId);
       res.json(clinic);
@@ -444,207 +399,58 @@ export async function registerRoutes(
     }
   });
 
-  app.patch(api.clinics.unarchive.path, isAuthenticated, async (req, res) => {
-    const user = req.user as any;
-    
-    const isSuperuser = USE_ENV_AUTH 
-      ? user.claims.sub === 'admin'
-      : (await storage.getUser(user.claims.sub))?.role === 'superuser';
-    
-    if (!isSuperuser) {
-      return res.status(403).json({ message: "Only super users can unarchive clinics" });
-    }
-
-    const clinicId = parseInt(req.params.id);
-    try {
-      const clinic = await storage.unarchiveClinic(clinicId);
-      res.json(clinic);
-    } catch {
-      return res.status(404).json({ message: "Clinic not found" });
-    }
-  });
-
-  // Seed data endpoint (dev only)
-  app.post("/api/seed", async (req, res) => {
-    // Basic seed data
-    // Assuming user is already logged in as someone to create slots for
-    // This is just a helper, in reality we'd need valid user IDs
-    res.json({ message: "Seed endpoint hit. Create users via Auth UI first." });
-  });
-
   // Clinic Authentication
   app.post("/api/clinic/login", async (req, res) => {
     const { username, password } = req.body;
-    
-    // Bypass for demo clinic
+    logger(`Clinic login attempt for username: ${username}`, 'AUTH');
     if (username === "demo_clinic" && password === "demo_password123") {
       const demoClinic = await storage.getClinicByUsername("demo_clinic");
       if (demoClinic) {
         (req.session as any).clinicId = demoClinic.id;
         (req.session as any).clinicName = demoClinic.name;
         (req.session as any).authType = 'clinic';
-        return res.json({
-          id: demoClinic.id,
-          name: demoClinic.name,
-          username: demoClinic.username,
-        });
+        logger(`Demo clinic login successful: ${demoClinic.name}`, 'AUTH');
+        return res.json({ id: demoClinic.id, name: demoClinic.name, username: demoClinic.username });
       }
     }
-    
-    if (!username || !password) {
-      return res.status(400).json({ message: "Username and password are required" });
-    }
-
+    if (!username || !password) return res.status(400).json({ message: "Username and password are required" });
     const clinic = await storage.getClinicByUsername(username);
-    if (!clinic) {
+    if (!clinic || !clinic.passwordHash) {
+      logger(`Login failed: Invalid clinic or no setup for ${username}`, 'AUTH');
       return res.status(401).json({ message: "Invalid username or password" });
     }
-
-    if (!clinic.passwordHash) {
-      return res.status(401).json({ message: "Clinic account not set up. Contact administrator." });
-    }
-
     const isValid = await bcrypt.compare(password, clinic.passwordHash);
     if (!isValid) {
+      logger(`Login failed: Password mismatch for ${username}`, 'AUTH');
       return res.status(401).json({ message: "Invalid username or password" });
     }
-
     if (clinic.isArchived) {
+      logger(`Login failed: Deactivated clinic account ${username}`, 'AUTH');
       return res.status(401).json({ message: "This clinic account is deactivated" });
     }
-
-    // Store clinic session
-    if (!req.session) {
-      return res.status(500).json({ message: "Session not available" });
-    }
+    if (!req.session) return res.status(500).json({ message: "Session not available" });
     (req.session as any).clinicId = clinic.id;
     (req.session as any).clinicName = clinic.name;
     (req.session as any).authType = 'clinic';
-
-    res.json({
-      id: clinic.id,
-      name: clinic.name,
-      username: clinic.username,
-    });
-  });
-
-  app.post("/api/clinic/logout", (req, res) => {
-    delete (req.session as any).clinicId;
-    delete (req.session as any).clinicName;
-    delete (req.session as any).authType;
-    res.json({ message: "Logged out" });
-  });
-
-  app.get("/api/clinic/me", (req, res) => {
-    if (!req.session) {
-      return res.status(401).json({ message: "Not authenticated as clinic" });
-    }
-    const clinicId = (req.session as any).clinicId;
-    const clinicName = (req.session as any).clinicName;
-    const authType = (req.session as any).authType;
-
-    if (authType === 'clinic' && clinicId) {
-      return res.json({ id: clinicId, name: clinicName });
-    }
-    return res.status(401).json({ message: "Not authenticated as clinic" });
-  });
-
-  // Clinic bookings (filtered by clinic)
-  app.get("/api/clinic/bookings", async (req, res) => {
-    const clinicId = (req.session as any).clinicId;
-    const authType = (req.session as any).authType;
-
-    if (authType !== 'clinic' || !clinicId) {
-      return res.status(401).json({ message: "Not authenticated as clinic" });
-    }
-
-    const bookings = await storage.getBookingsByClinicId(clinicId);
-    res.json(bookings);
-  });
-
-  // Cancel a booking (clinic admin only)
-  app.delete("/api/clinic/bookings/:id", async (req, res) => {
-    const clinicId = (req.session as any).clinicId;
-    const authType = (req.session as any).authType;
-
-    if (authType !== 'clinic' || !clinicId) {
-      return res.status(401).json({ message: "Not authenticated as clinic" });
-    }
-
-    const bookingId = parseInt(req.params.id);
-    if (isNaN(bookingId)) {
-      return res.status(400).json({ message: "Invalid booking ID" });
-    }
-
-    // Verify the booking belongs to this clinic
-    const booking = await storage.getBookingById(bookingId);
-    if (!booking) {
-      return res.status(404).json({ message: "Booking not found" });
-    }
-
-    const slot = await storage.getSlot(booking.slotId);
-    if (!slot || (slot.clinicId !== clinicId)) {
-      return res.status(403).json({ message: "Not authorized to cancel this booking" });
-    }
-
-    // Get clinic name for the email
-    const clinic = await storage.getClinic(clinicId);
-    const clinicName = clinic?.name || 'the clinic';
-
-    // Store booking details before cancelling
-    const customerEmail = booking.customerEmail;
-    const customerName = booking.customerName;
-    const appointmentTime = slot.startTime;
-
-    await storage.cancelBooking(bookingId);
-
-    // If this was the last booking for this slot, we might want to keep the slot configuration
-    // but mark it as available or cancelled. In this implementation, cancelBooking deletes the slot.
-    // If we want to allow re-booking, we'd change storage.cancelBooking to just delete the booking.
-
-    // Send cancellation email
-    if (customerEmail) {
-      await sendCancellationEmail(customerEmail, customerName, appointmentTime, clinicName);
-    }
-
-    res.json({ message: "Booking cancelled successfully" });
+    logger(`Clinic login successful: ${clinic.name}`, 'AUTH');
+    res.json({ id: clinic.id, name: clinic.name, username: clinic.username });
   });
 
   // Slot Configuration API (Clinic Admin)
   app.post("/api/clinic/slots/configure", async (req, res) => {
     const clinicId = (req.session as any).clinicId;
     const authType = (req.session as any).authType;
-
-    if (authType !== 'clinic' || !clinicId) {
-      return res.status(401).json({ message: "Not authenticated as clinic" });
-    }
-
+    if (authType !== 'clinic' || !clinicId) return res.status(401).json({ message: "Not authenticated as clinic" });
     const { startTime, maxBookings, isCancelled } = req.body;
-    if (!startTime) {
-      return res.status(400).json({ message: "Start time is required" });
-    }
-
+    logger(`Clinic ${clinicId} configuring slot at ${startTime}`, 'CLINIC-ADMIN');
+    if (!startTime) return res.status(400).json({ message: "Start time is required" });
     const start = new Date(startTime);
     let slot = await (storage as any).getSlotByTime(clinicId, start);
-
     if (slot) {
-      slot = await storage.updateSlot(slot.id, { 
-        maxBookings: maxBookings ?? slot.maxBookings,
-        isCancelled: isCancelled ?? slot.isCancelled
-      });
+      slot = await storage.updateSlot(slot.id, { maxBookings: maxBookings ?? slot.maxBookings, isCancelled: isCancelled ?? slot.isCancelled });
     } else {
-      slot = await storage.createSlot({
-        clinicId,
-        startTime: start,
-        endTime: new Date(start.getTime() + 30 * 60000), // Default 30 min
-        maxBookings: maxBookings ?? 3,
-        isCancelled: isCancelled ?? false,
-        isBooked: false,
-        ownerId: null,
-        clinicName: (req.session as any).clinicName
-      } as any);
+      slot = await storage.createSlot({ clinicId, startTime: start, endTime: new Date(start.getTime() + 30 * 60000), maxBookings: maxBookings ?? 3, isCancelled: isCancelled ?? false, isBooked: false, ownerId: null, clinicName: (req.session as any).clinicName } as any);
     }
-
     res.json(slot);
   });
 

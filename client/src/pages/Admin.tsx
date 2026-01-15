@@ -21,6 +21,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+import { Switch } from "@/components/ui/switch";
+
 export default function Admin() {
   const { user, isAuthenticated, isLoading: authLoading, login, loginError, isLoggingIn } = useAuth();
   const [_, setLocation] = useLocation();
@@ -36,6 +38,30 @@ export default function Admin() {
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const { toast } = useToast();
+
+  const [logsEnabled, setLogsEnabled] = useState(true);
+
+  // Fetch log status on mount
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'superuser') {
+      fetch("/api/admin/logs/status")
+        .then(res => res.json())
+        .then(data => setLogsEnabled(data.enabled))
+        .catch(err => console.error("Failed to fetch log status:", err));
+    }
+  }, [isAuthenticated, user]);
+
+  const toggleLogs = async (enabled: boolean) => {
+    try {
+      const res = await apiRequest('POST', '/api/admin/logs/toggle', { enabled });
+      if (res.ok) {
+        setLogsEnabled(enabled);
+        toast({ title: `Server logs ${enabled ? 'enabled' : 'disabled'}` });
+      }
+    } catch (err: any) {
+      toast({ title: "Failed to toggle logs", description: err.message, variant: "destructive" });
+    }
+  };
 
   const isDemoSuperAdmin = localStorage.getItem("demo_super_admin") === "true";
 
@@ -469,10 +495,20 @@ export default function Admin() {
           <h1 className="text-2xl sm:text-3xl font-bold mb-2">Admin Panel</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Manage clinics and application settings</p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleAdminLogout} data-testid="button-admin-logout">
-          <LogOut className="h-4 w-4 mr-2" />
-          Logout
-        </Button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 border rounded-lg bg-card text-sm">
+            <span className="text-muted-foreground font-medium">Server Logs</span>
+            <Switch 
+              checked={logsEnabled} 
+              onCheckedChange={toggleLogs}
+              data-testid="switch-server-logs"
+            />
+          </div>
+          <Button variant="outline" size="sm" onClick={handleAdminLogout} data-testid="button-admin-logout">
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        </div>
       </div>
 
       <Card className="mb-6">
