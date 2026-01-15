@@ -723,27 +723,74 @@ export default function ClinicDashboard() {
                             const startTime = new Date(bookingDate);
                             startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
                             const isoString = startTime.toISOString();
-                            const stored = localStorage.getItem("demo_slot_configs");
-                            const configs = stored ? JSON.parse(stored) : {};
-                            return !configs[isoString]?.isCancelled;
+                            
+                            // Check cancellation
+                            const storedConfigs = localStorage.getItem("demo_slot_configs");
+                            const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
+                            if (configs[isoString]?.isCancelled) return false;
+
+                            // Check capacity
+                            const maxBookings = configs[isoString]?.maxBookings ?? 3;
+                            const currentBookings = bookings?.filter(b => 
+                              new Date(b.slot.startTime).toISOString() === isoString
+                            ).length || 0;
+
+                            // We don't filter out full slots anymore, we'll handle them in the map
+                            return true;
                           }
                           return true;
                         }).map((slot) => {
+                          const startTime = new Date(bookingDate);
+                          startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+                          const isoString = startTime.toISOString();
+                          
+                          let isFull = false;
+                          let maxBookings = 3;
+                          if (localStorage.getItem("demo_clinic_active") === "true") {
+                            const storedConfigs = localStorage.getItem("demo_slot_configs");
+                            const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
+                            maxBookings = configs[isoString]?.maxBookings ?? 3;
+                            const currentBookings = bookings?.filter(b => 
+                              new Date(b.slot.startTime).toISOString() === isoString
+                            ).length || 0;
+                            isFull = currentBookings >= maxBookings;
+                          }
+
                           const slotLabel = `${formatTime(slot.startHour, slot.startMinute)} - ${formatTime(slot.endHour, slot.endMinute)}`;
                           return (
-                            <button
-                              key={slot.id}
-                              onClick={() => setSelectedSlot(slot.id)}
-                              data-testid={`booking-slot-${slot.id}`}
-                              className={`p-5 sm:p-4 rounded-xl border text-center transition-all ${
-                                selectedSlot === slot.id 
-                                  ? "border-primary bg-primary/5 ring-1 ring-primary" 
-                                  : "border-border hover:bg-muted/50 hover:border-primary/50"
-                              }`}
-                            >
-                              <div className="font-semibold text-base sm:text-base">{slot.label}</div>
-                              <div className="text-sm text-muted-foreground mt-1">{slotLabel}</div>
-                            </button>
+                            <TooltipProvider key={slot.id}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => !isFull && setSelectedSlot(slot.id)}
+                                    disabled={isFull}
+                                    data-testid={`booking-slot-${slot.id}`}
+                                    className={`p-5 sm:p-4 rounded-xl border text-center transition-all relative ${
+                                      selectedSlot === slot.id 
+                                        ? "border-primary bg-primary/5 ring-1 ring-primary" 
+                                        : isFull
+                                          ? "border-destructive/30 bg-destructive/5 cursor-not-allowed"
+                                          : "border-border hover:bg-muted/50 hover:border-primary/50"
+                                    }`}
+                                  >
+                                    <div className={`font-semibold text-base sm:text-base ${isFull ? "text-destructive/70" : ""}`}>
+                                      {slot.label}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground mt-1">{slotLabel}</div>
+                                    {isFull && (
+                                      <Badge variant="destructive" className="absolute -top-2 -right-2 px-1.5 py-0 text-[10px] h-4">
+                                        Full
+                                      </Badge>
+                                    )}
+                                  </button>
+                                </TooltipTrigger>
+                                {isFull && (
+                                  <TooltipContent>
+                                    <p>Booking closed for this slot</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
                           );
                         })}
                       </div>
