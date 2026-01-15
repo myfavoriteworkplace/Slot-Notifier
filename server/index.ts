@@ -16,9 +16,13 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 app.use(cors({
   origin: (origin, callback) => {
+    // In development or if no origin (local requests), allow it
+    if (!origin || process.env.NODE_ENV !== "production") {
+      return callback(null, true);
+    }
+
     const allowedOrigins = FRONTEND_URL.split(",").map(url => url.trim());
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes("*")) {
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes("*")) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
