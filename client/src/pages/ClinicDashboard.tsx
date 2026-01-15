@@ -752,6 +752,7 @@ export default function ClinicDashboard() {
                           
                           let isFull = false;
                           let maxBookings = 3;
+                          
                           if (localStorage.getItem("demo_clinic_active") === "true") {
                             const storedConfigs = localStorage.getItem("demo_slot_configs");
                             const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
@@ -759,6 +760,22 @@ export default function ClinicDashboard() {
                             const currentBookings = bookings?.filter(b => 
                               new Date(b.slot.startTime).toISOString() === isoString
                             ).length || 0;
+                            isFull = currentBookings >= maxBookings;
+                          } else {
+                            // Logic for registered clinics using backend data
+                            // Find if there's an existing slot configuration in the bookings or slots data
+                            // Note: We need the backend to provide slot configurations. 
+                            // For now, we'll use the bookings data to count and assume default max of 3 if not found.
+                            const currentBookings = bookings?.filter(b => 
+                              new Date(b.slot.startTime).toISOString() === isoString
+                            ).length || 0;
+                            
+                            // Try to find maxBookings from any existing booking's slot info
+                            const existingBookingWithSlot = bookings?.find(b => 
+                              new Date(b.slot.startTime).toISOString() === isoString
+                            );
+                            
+                            maxBookings = existingBookingWithSlot?.slot.maxBookings ?? 3;
                             isFull = currentBookings >= maxBookings;
                           }
 
