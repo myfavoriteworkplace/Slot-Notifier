@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, FlaskConical } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, FlaskConical, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -306,6 +306,28 @@ export default function Admin() {
     }
   };
 
+  const handleAdminLogout = async () => {
+    if (isDemoSuperAdmin) {
+      localStorage.removeItem("demo_super_admin");
+      // Optional: Clear demo clinics too? Usually better to keep them for the browser session
+      // localStorage.removeItem("demo_clinics");
+      window.location.reload();
+      return;
+    }
+
+    try {
+      const res = await apiRequest('POST', '/api/auth/admin/logout');
+      if (res.ok) {
+        queryClient.setQueryData(['/api/auth/user'], null);
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+        toast({ title: "Logged out successfully" });
+        setLocation("/admin");
+      }
+    } catch (error: any) {
+      toast({ title: "Logout failed", description: error.message, variant: "destructive" });
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -442,9 +464,15 @@ export default function Admin() {
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-4xl">
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Admin Panel</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">Manage clinics and application settings</p>
+      <div className="mb-6 sm:mb-8 flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Admin Panel</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage clinics and application settings</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleAdminLogout} data-testid="button-admin-logout">
+          <LogOut className="h-4 w-4 mr-2" />
+          Logout
+        </Button>
       </div>
 
       <Card className="mb-6">
