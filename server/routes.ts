@@ -127,6 +127,8 @@ export async function registerRoutes(
     app.post("/api/auth/admin/login", async (req, res) => {
       const { email, password } = req.body;
       
+      console.log(`[AUTH] Login attempt - Email: ${email}, Path: ${req.path}`);
+      
       // Special bypass for demo_super_admin
       if (email === "demo_super_admin@bookmyslot.com") {
         if (!req.session) {
