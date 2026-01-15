@@ -364,9 +364,8 @@ export default function ClinicDashboard() {
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
+  // Moved the isAuthenticated check to after all hooks
+  const isUserAuthenticated = isAuthenticated;
 
   const filteredBookings = bookings?.filter(booking => {
     const bookingDate = new Date(booking.slot.startTime);
@@ -546,6 +545,10 @@ export default function ClinicDashboard() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
+
+  if (!isUserAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
