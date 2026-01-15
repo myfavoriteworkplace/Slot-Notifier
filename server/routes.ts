@@ -123,6 +123,12 @@ export async function registerRoutes(
     // Set up session middleware for env auth
     app.set("trust proxy", 1);
     app.use(getSession());
+
+    // Debug middleware to log ALL requests to this specific router
+    app.use((req, res, next) => {
+      console.log(`[AUTH-DEBUG] Request: ${req.method} ${req.path}`);
+      next();
+    });
     
     app.post("/api/auth/admin/login", async (req, res) => {
       const { email, password } = req.body;
