@@ -9,6 +9,50 @@ import { Resend } from 'resend';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+async function sendBookingEmails(customerEmail: string, customerName: string, clinicEmail: string | null, clinicName: string, startTime: Date) {
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Resend not configured.`);
+    console.log(`[EMAIL MOCK] To Customer: ${customerEmail}, Subject: Booking Confirmed`);
+    if (clinicEmail) console.log(`[EMAIL MOCK] To Clinic: ${clinicEmail}, Subject: New Booking`);
+    return;
+  }
+  
+  const formattedTime = startTime.toLocaleString();
+
+  try {
+    // Send to Customer
+    await resend.emails.send({
+      from: 'BookMySlot <onboarding@resend.dev>',
+      to: customerEmail,
+      subject: 'Booking Confirmed - BookMySlot',
+      html: `
+        <h2>Booking Confirmed</h2>
+        <p>Dear ${customerName},</p>
+        <p>Your appointment at <strong>${clinicName}</strong> for <strong>${formattedTime}</strong> has been successfully booked.</p>
+        <p>Thank you for choosing BookMySlot!</p>
+      `
+    });
+
+    // Send to Clinic if email exists
+    if (clinicEmail) {
+      await resend.emails.send({
+        from: 'BookMySlot <onboarding@resend.dev>',
+        to: clinicEmail,
+        subject: 'New Booking Received - BookMySlot',
+        html: `
+          <h2>New Booking Received</h2>
+          <p>A new appointment has been booked for <strong>${formattedTime}</strong>.</p>
+          <p><strong>Customer:</strong> ${customerName}</p>
+          <p>Please check your dashboard for details.</p>
+        `
+      });
+    }
+    console.log(`[EMAIL] Booking confirmation emails sent`);
+  } catch (error) {
+    console.error('[EMAIL ERROR] Failed to send booking emails:', error);
+  }
+}
+
 async function sendCancellationEmail(email: string, name: string, date: Date, clinic: string) {
   if (!resend) {
     console.log(`[EMAIL MOCK] Resend not configured. To: ${email}, Subject: Booking Cancelled`);
@@ -273,9 +317,19 @@ export async function registerRoutes(
           userId: slot.ownerId,
           message: `Your slot on ${slot.startTime.toLocaleString()} has been booked!`,
         });
-        // Mock Email to Owner
-        console.log(`[EMAIL MOCK] To: Owner (ID: ${slot.ownerId}), Subject: New Booking, Body: Slot at ${slot.startTime} booked.`);
       }
+
+      // Send confirmation emails
+      const clinic = slot.clinicId ? await storage.getClinic(slot.clinicId) : null;
+      const customerEmail = input.customerEmail || (user.claims.email as string);
+      
+      await sendBookingEmails(
+        customerEmail,
+        input.customerName,
+        clinic?.email || null,
+        slot.clinicName || 'the clinic',
+        slot.startTime
+      );
 
       res.status(201).json(booking);
     } catch (err) {
