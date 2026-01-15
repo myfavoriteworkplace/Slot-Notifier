@@ -69,7 +69,7 @@ async function adminLogin(email: string, password: string): Promise<User> {
     };
     // Store in localStorage to persist across refreshes
     localStorage.setItem("demo_super_admin", "true");
-    return demoUser;
+    return Promise.resolve(demoUser); // Return a promise to match the async signature
   }
   
   const url = "/api/auth/admin/login";

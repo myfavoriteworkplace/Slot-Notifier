@@ -124,14 +124,14 @@ export async function registerRoutes(
     app.set("trust proxy", 1);
     app.use(getSession());
 
-    // Debug middleware to log ALL requests to this specific router
     app.use((req, res, next) => {
       if (req.path.startsWith('/api')) {
         console.log(`[AUTH-DEBUG] API Request: ${req.method} ${req.path}`);
       }
       next();
     });
-    
+
+    // Login route MUST be defined before other general API routes
     app.post("/api/auth/admin/login", async (req, res) => {
       const { email, password } = req.body;
       
