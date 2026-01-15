@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -463,7 +463,7 @@ export default function ClinicDashboard() {
     doc.text(`Date: ${billingDetails.date}`, 20, 70);
 
     // Billing Table
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 80,
       head: [["Service Description", "Amount (INR)"]],
       body: [[billingDetails.service, billingDetails.amount]],
