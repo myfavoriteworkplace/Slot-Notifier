@@ -11,6 +11,7 @@ import {
   Shield,
   Building2
 } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,7 +72,8 @@ export function Header() {
             })}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <ThemeToggle />
             {isAuthenticated && (
               <>
                 <DropdownMenu>
