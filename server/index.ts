@@ -103,20 +103,11 @@ app.use((req, res, next) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
+    console.log("[SYSTEM] Serving static files from public directory");
     serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
-  }
-
-  // Add explicit logging for all /api requests in production to debug 404s
-  if (process.env.NODE_ENV === "production") {
-    app.use("/api", (req, res, next) => {
-      if (res.statusCode === 404) {
-        log(`404 detected for ${req.method} ${req.path}`, "debug-404");
-      }
-      next();
-    });
   }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

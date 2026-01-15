@@ -13,10 +13,13 @@ export function serveStatic(app: Express) {
   app.use(express.static(distPath));
 
   // ONLY catch-all for non-API routes to prevent 404 on API calls
-  app.get("*", (req, res, next) => {
+  app.use((req, res, next) => {
     if (req.path.startsWith("/api")) {
       return next();
     }
-    res.sendFile(path.resolve(distPath, "index.html"));
+    if (req.method === "GET") {
+      return res.sendFile(path.resolve(distPath, "index.html"));
+    }
+    next();
   });
 }

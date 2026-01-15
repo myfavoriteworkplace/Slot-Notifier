@@ -126,7 +126,9 @@ export async function registerRoutes(
 
     // Debug middleware to log ALL requests to this specific router
     app.use((req, res, next) => {
-      console.log(`[AUTH-DEBUG] Request: ${req.method} ${req.path}`);
+      if (req.path.startsWith('/api')) {
+        console.log(`[AUTH-DEBUG] API Request: ${req.method} ${req.path}`);
+      }
       next();
     });
     

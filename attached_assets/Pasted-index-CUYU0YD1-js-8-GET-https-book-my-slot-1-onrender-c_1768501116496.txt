@@ -1,0 +1,61 @@
+index-CUYU0YD1.js:8  GET https://book-my-slot-1.onrender.com/api/auth/user 401 (Unauthorized)
+uE @ index-CUYU0YD1.js:8
+i @ index-CUYU0YD1.js:8
+k @ index-CUYU0YD1.js:8
+start @ index-CUYU0YD1.js:8
+fetch @ index-CUYU0YD1.js:8
+#d @ index-CUYU0YD1.js:8
+onSubscribe @ index-CUYU0YD1.js:8
+subscribe @ index-CUYU0YD1.js:8
+(anonymous) @ index-CUYU0YD1.js:8
+tp @ index-CUYU0YD1.js:6
+lp @ index-CUYU0YD1.js:8
+pd @ index-CUYU0YD1.js:8
+E2 @ index-CUYU0YD1.js:8
+j @ index-CUYU0YD1.js:6
+fk @ index-CUYU0YD1.js:8
+cu @ index-CUYU0YD1.js:8
+A2 @ index-CUYU0YD1.js:8
+te @ index-CUYU0YD1.js:1
+q @ index-CUYU0YD1.js:1Understand this error
+index-CUYU0YD1.js:8  GET https://book-my-slot-1.onrender.com/api/clinic/me 401 (Unauthorized)
+hE @ index-CUYU0YD1.js:8
+queryFn @ index-CUYU0YD1.js:8
+i @ index-CUYU0YD1.js:8
+k @ index-CUYU0YD1.js:8
+start @ index-CUYU0YD1.js:8
+fetch @ index-CUYU0YD1.js:8
+#d @ index-CUYU0YD1.js:8
+onSubscribe @ index-CUYU0YD1.js:8
+subscribe @ index-CUYU0YD1.js:8
+(anonymous) @ index-CUYU0YD1.js:8
+tp @ index-CUYU0YD1.js:6
+lp @ index-CUYU0YD1.js:8
+pd @ index-CUYU0YD1.js:8
+E2 @ index-CUYU0YD1.js:8
+j @ index-CUYU0YD1.js:6
+fk @ index-CUYU0YD1.js:8
+cu @ index-CUYU0YD1.js:8
+A2 @ index-CUYU0YD1.js:8
+te @ index-CUYU0YD1.js:1
+q @ index-CUYU0YD1.js:1Understand this error
+read.js:2530 READ - Host validation failed: {hostName: '', hostType: undefined}
+content.js:2524 Host is not supported
+content.js:2526 Host is not valid or supported
+content.js:2526 Host is not in insights whitelist
+index-CUYU0YD1.js:66 Attempting admin login to /api/auth/admin/login
+index-CUYU0YD1.js:8  POST https://book-my-slot-1.onrender.com/api/auth/admin/login 404 (Not Found)
+Lo @ index-CUYU0YD1.js:8
+ce @ index-CUYU0YD1.js:66
+es @ index-CUYU0YD1.js:5
+ws @ index-CUYU0YD1.js:5
+Us @ index-CUYU0YD1.js:5
+Kc @ index-CUYU0YD1.js:5
+Qc @ index-CUYU0YD1.js:5
+(anonymous) @ index-CUYU0YD1.js:5
+Zg @ index-CUYU0YD1.js:8
+It @ index-CUYU0YD1.js:5
+Xc @ index-CUYU0YD1.js:5
+Ol @ index-CUYU0YD1.js:5
+Uc @ index-CUYU0YD1.js:5Understand this error
+index-CUYU0YD1.js:66 Admin login error: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
