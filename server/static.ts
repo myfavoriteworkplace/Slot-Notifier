@@ -20,19 +20,30 @@ export function serveStatic(app: Express) {
   
   if (!fs.existsSync(distPath)) {
     console.error(`[ERROR] Build directory not found: ${distPath}`);
-    // One more final attempt with absolute path from root
-    distPath = path.resolve(process.cwd(), "dist", "public");
-    console.log(`[SYSTEM] Final fallback path: ${distPath}`);
+    // Check if we are inside dist already
+    const cwdPublic = path.resolve(process.cwd(), "public");
+    const distDistPublic = path.resolve(process.cwd(), "dist", "public");
     
-    if (!fs.existsSync(distPath)) {
-       // Check if we are inside dist already
-       distPath = path.resolve(process.cwd(), "public");
-       console.log(`[SYSTEM] Checking internal dist path: ${distPath}`);
+    if (fs.existsSync(distDistPublic)) {
+      distPath = distDistPublic;
+    } else if (fs.existsSync(cwdPublic)) {
+      distPath = cwdPublic;
     }
+    console.log(`[SYSTEM] Adjusted fallback path: ${distPath}`);
   }
 
   if (fs.existsSync(distPath)) {
-    app.use(express.static(distPath));
+    // Crucial: Set correct MIME types and headers
+    app.use(express.static(distPath, {
+      setHeaders: (res, path) => {
+        if (path.endsWith('.js')) {
+          res.setHeader('Content-Type', 'application/javascript');
+        } else if (path.endsWith('.css')) {
+          res.setHeader('Content-Type', 'text/css');
+        }
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+      }
+    }));
     setupCatchAll(app, distPath);
   } else {
     console.error(`[CRITICAL ERROR] All static asset paths failed.`);
