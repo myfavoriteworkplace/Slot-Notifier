@@ -22,7 +22,8 @@ app.use(cors({
     }
 
     const allowedOrigins = FRONTEND_URL.split(",").map(url => url.trim());
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes("*")) {
+    // In production, especially on Render, we need to allow both the frontend domain and potentially same-site requests
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes("*") || !origin) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

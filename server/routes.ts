@@ -124,9 +124,12 @@ export async function registerRoutes(
     app.set("trust proxy", 1);
     app.use(getSession());
 
+    // Debug middleware to log session and cookies
     app.use((req, res, next) => {
       if (req.path.startsWith('/api')) {
-        console.log(`[AUTH-DEBUG] API Request: ${req.method} ${req.path}`);
+        console.log(`[AUTH-DEBUG] Request: ${req.method} ${req.path}`);
+        // console.log(`[AUTH-DEBUG] SessionID: ${req.sessionID}`);
+        // console.log(`[AUTH-DEBUG] Cookies: ${JSON.stringify(req.headers.cookie)}`);
       }
       next();
     });
