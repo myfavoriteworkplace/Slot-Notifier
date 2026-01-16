@@ -1,6 +1,8 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 import { setupAuth, registerAuthRoutes, isAuthenticated as replitIsAuthenticated, getSession } from "./replit_integrations/auth";
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
@@ -254,6 +256,28 @@ export async function registerRoutes(
           error: err.message,
           name: err.name,
           stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        });
+      }
+    });
+
+    // Health check endpoint
+    app.get("/api/health", async (req, res) => {
+      try {
+        // Simple query to check DB connection
+        const result = await db.execute(sql`SELECT 1`);
+        res.json({ 
+          status: "ok", 
+          backend: true, 
+          database: !!result,
+          timestamp: new Date().toISOString()
+        });
+      } catch (err: any) {
+        console.error("[HEALTH CHECK ERROR]", err);
+        res.status(500).json({ 
+          status: "error", 
+          backend: true, 
+          database: false,
+          error: err.message
         });
       }
     });
