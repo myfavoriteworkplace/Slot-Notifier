@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Building2, ArrowLeft, Info, Copy, Check } from "lucide-react";
+import { Loader2, Building2, ArrowLeft, Info, Copy, Check, ShieldCheck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
@@ -16,28 +17,18 @@ export default function ClinicLogin() {
   const [error, setError] = useState("");
   const { toast } = useToast();
   const { login, isLoggingIn, isAuthenticated } = useClinicAuth();
+  const { isAuthenticated: isAdminAuthenticated } = useAuth();
   const [_, setLocation] = useLocation();
 
-  if (isAuthenticated) {
-    setLocation("/clinic-dashboard");
-    return null;
-  }
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLocation("/clinic-dashboard");
+    }
+  }, [isAuthenticated, setLocation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
-    // Hardcoded demo login for demo purposes
-    if (username === "demo_clinic" && password === "demo_password123") {
-      console.log("Demo clinic login detected, bypassing backend for demo purposes");
-      try {
-        await login({ username, password });
-      } catch (err) {
-        console.error("Demo bypass login:", err);
-      }
-      setLocation("/clinic-dashboard");
-      return;
-    }
 
     try {
       await login({ username, password });
@@ -106,10 +97,24 @@ export default function ClinicLogin() {
                   Logging in...
                 </>
               ) : (
-                "Login"
+                isAdminAuthenticated ? (
+                  <>
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    Bypass with Admin
+                  </>
+                ) : "Login"
               )}
             </Button>
           </form>
+
+          {isAdminAuthenticated && (
+            <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20 flex items-start gap-3">
+              <Info className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                As an <strong className="text-foreground">Admin</strong>, you can access any clinic dashboard by simply entering its <strong className="text-foreground">Username</strong> or <strong className="text-foreground">Clinic Name</strong> above. No password is required.
+              </p>
+            </div>
+          )}
 
           <div className="mt-4">
             <Popover>

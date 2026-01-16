@@ -447,6 +447,21 @@ export async function registerRoutes(
   app.post("/api/clinic/login", async (req, res) => {
     const { username, password } = req.body;
     logger(`Clinic login attempt for username: ${username}`, 'AUTH');
+
+    // Allow superuser to bypass clinic login
+    if ((req.session as any)?.adminLoggedIn && (req.session as any)?.adminEmail) {
+      const clinic = await storage.getClinics();
+      const targetClinic = clinic.find(c => c.username === username || c.name === username);
+      
+      if (targetClinic) {
+        (req.session as any).clinicId = targetClinic.id;
+        (req.session as any).clinicName = targetClinic.name;
+        (req.session as any).authType = 'clinic';
+        logger(`Superuser bypassed login for clinic: ${targetClinic.name}`, 'AUTH');
+        return res.json({ id: targetClinic.id, name: targetClinic.name, username: targetClinic.username });
+      }
+    }
+
     if (username === "demo_clinic" && password === "demo_password123") {
       const demoClinic = await storage.getClinicByUsername("demo_clinic");
       if (demoClinic) {
