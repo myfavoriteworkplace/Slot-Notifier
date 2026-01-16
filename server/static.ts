@@ -3,23 +3,33 @@ import fs from "fs";
 import path from "path";
 
 export function serveStatic(app: Express) {
+  // In the CJS bundle, __dirname is the dist/ directory
   const distPath = path.resolve(__dirname, "public");
+  
+  console.log(`[SYSTEM] Static assets path: ${distPath}`);
+  
   if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
+    console.error(`[ERROR] Build directory not found: ${distPath}`);
+    // Fallback for different environments
+    const fallbackPath = path.resolve(process.cwd(), "dist", "public");
+    if (fs.existsSync(fallbackPath)) {
+      app.use(express.static(fallbackPath));
+      setupCatchAll(app, fallbackPath);
+      return;
+    }
+    throw new Error(`Static assets directory not found at ${distPath} or ${fallbackPath}`);
   }
 
   app.use(express.static(distPath));
+  setupCatchAll(app, distPath);
+}
 
-  // ONLY catch-all for non-API routes to prevent 404 on API calls
+function setupCatchAll(app: Express, distPath: string) {
   app.use((req, res, next) => {
-    if (req.path.startsWith("/api")) {
-      console.log(`[STATIC-DEBUG] Request to API path ${req.path} intercepted by static fallback. This should not happen.`);
-      return next();
-    }
+    if (req.path.startsWith("/api")) return next();
     if (req.method === "GET") {
-      return res.sendFile(path.resolve(distPath, "index.html"));
+      res.sendFile(path.resolve(distPath, "index.html"));
+      return;
     }
     next();
   });
