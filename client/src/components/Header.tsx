@@ -103,31 +103,6 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-1 sm:gap-2">
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-muted/30 rounded-full border border-border/50 mr-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1 cursor-help">
-                    <Server className={`h-3 w-3 ${healthStatus.backend === true ? 'text-green-500' : healthStatus.backend === false ? 'text-destructive' : 'text-muted-foreground'}`} />
-                    <div className={`h-1.5 w-1.5 rounded-full ${healthStatus.backend === true ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : healthStatus.backend === false ? 'bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'bg-muted-foreground'}`} />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">Backend: {healthStatus.backend === true ? 'Connected' : healthStatus.backend === false ? 'Error' : 'Checking...'}</p>
-                </TooltipContent>
-              </Tooltip>
-              <div className="w-[1px] h-3 bg-border/50 mx-0.5" />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1 cursor-help">
-                    <Database className={`h-3 w-3 ${healthStatus.database === true ? 'text-green-500' : healthStatus.database === false ? 'text-destructive' : 'text-muted-foreground'}`} />
-                    <div className={`h-1.5 w-1.5 rounded-full ${healthStatus.database === true ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : healthStatus.database === false ? 'bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'bg-muted-foreground'}`} />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">Database: {healthStatus.database === true ? 'Connected' : healthStatus.database === false ? 'Error' : 'Checking...'}</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
             <ThemeToggle />
             {isAuthenticated && (
               <>
