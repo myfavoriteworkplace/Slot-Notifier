@@ -84,7 +84,7 @@
 2. Available clinics will be displayed
 3. Demo clinics are marked with a 🧪 badge
 
-![Select Clinic](https://via.placeholder.com/800x400?text=Select+Clinic+Screenshot)
+![Select Clinic](@assets/manual_screenshots/booking_page.png)
 
 ### Step 3: Choose Date and Time
 1. **Select a date:**
@@ -104,7 +104,7 @@
      - Afternoon (2:00 PM - 4:00 PM)
      - Evening (4:00 PM - 6:00 PM)
 
-![Select Time Slot](https://via.placeholder.com/800x400?text=Select+Time+Slot+Screenshot)
+![Select Time Slot](@assets/manual_screenshots/booking_page.png)
 
 ### Step 4: Confirm Booking
 1. Select your preferred time slot
@@ -114,7 +114,7 @@
    - 📧 Email confirmation (to your provided email)
    - 📧 Email notification (to clinic, if configured)
 
-![Booking Confirmation](https://via.placeholder.com/800x400?text=Booking+Confirmed+Screenshot)
+![Booking Confirmation](@assets/manual_screenshots/booking_page.png)
 
 ---
 
@@ -128,7 +128,7 @@
    - **Password:** Your admin password
 3. Click **"Login"**
 
-![Admin Login](https://via.placeholder.com/800x400?text=Admin+Login+Screenshot)
+![Admin Login](@assets/manual_screenshots/admin_login.png)
 
 ### Managing Clinics
 
@@ -144,7 +144,7 @@
 
 3. Click **"Add Clinic"**
 
-![Add Clinic](https://via.placeholder.com/800x400?text=Add+Clinic+Screenshot)
+![Add Clinic](@assets/manual_screenshots/admin_login.png)
 
 #### Editing Clinic Credentials
 
@@ -172,7 +172,7 @@
 - **ON:** Backend logs all API requests (for debugging)
 - **OFF:** Minimal logging for production
 
-![Admin Panel](https://via.placeholder.com/800x400?text=Admin+Panel+Screenshot)
+![Admin Panel](@assets/manual_screenshots/admin_login.png)
 
 ---
 
@@ -188,7 +188,7 @@
 
 💡 **Tip:** Click "Demo Credentials" to see demo account details
 
-![Clinic Login](https://via.placeholder.com/800x400?text=Clinic+Login+Screenshot)
+![Clinic Login](@assets/manual_screenshots/clinic_login.png)
 
 ### Dashboard Overview
 
@@ -198,7 +198,7 @@ Upon login, you'll see:
 - **Today's Bookings:** Appointments for current date
 - **Filtered Bookings:** Based on selected date range
 
-![Clinic Dashboard](https://via.placeholder.com/800x400?text=Clinic+Dashboard+Screenshot)
+![Clinic Dashboard](@assets/manual_screenshots/clinic_dashboard.png)
 
 ### Filtering Bookings
 
@@ -220,7 +220,7 @@ Upon login, you'll see:
 4. Choose available **time slot**
 5. Click **"Confirm Booking"**
 
-![Create Booking](https://via.placeholder.com/800x400?text=Create+Booking+Screenshot)
+![Create Booking](@assets/manual_screenshots/clinic_dashboard.png)
 
 ### Configuring Time Slots
 
@@ -232,7 +232,7 @@ Upon login, you'll see:
    - **Cancelled:** Toggle to disable/enable the slot
 5. Click **"Save Configuration"**
 
-![Configure Slots](https://via.placeholder.com/800x400?text=Configure+Slots+Screenshot)
+![Configure Slots](@assets/manual_screenshots/clinic_dashboard.png)
 
 ### Cancelling Bookings
 
@@ -254,7 +254,7 @@ Upon login, you'll see:
 4. Click **"Generate PDF"**
 5. PDF downloads automatically
 
-![Generate Bill](https://via.placeholder.com/800x400?text=Generate+Bill+Screenshot)
+![Generate Bill](@assets/manual_screenshots/clinic_dashboard.png)
 
 ### Downloading Booking Reports
 
@@ -323,7 +323,7 @@ Upon login, you'll see:
 - **Dark Mode:** Dark background, easier on eyes
 - **System:** Auto-match your device settings
 
-![Theme Switcher](https://via.placeholder.com/800x400?text=Theme+Switcher+Screenshot)
+![Theme Switcher](@assets/manual_screenshots/homepage.png)
 
 ### Email Notifications
 
