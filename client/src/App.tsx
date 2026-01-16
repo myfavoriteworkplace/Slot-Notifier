@@ -27,11 +27,17 @@ function HealthIndicator() {
         const res = await fetch("/api/health");
         if (res.ok) {
           const data = await res.json();
+          // Log for debugging on Render
+          console.log("[HEALTH CHECK] Response:", data);
           setHealthStatus({ backend: true, database: data.database });
         } else {
+          // Log non-ok responses
+          console.error("[HEALTH CHECK] Server error:", res.status);
           setHealthStatus({ backend: false, database: false });
         }
       } catch (err) {
+        // Log network/fetch errors
+        console.error("[HEALTH CHECK] Network error:", err);
         setHealthStatus({ backend: false, database: false });
       }
     };

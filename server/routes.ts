@@ -262,6 +262,10 @@ export async function registerRoutes(
 
     // Health check endpoint
     app.get("/api/health", async (req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       try {
         // Simple query to check DB connection
         const result = await db.execute(sql`SELECT 1`);
