@@ -20,7 +20,7 @@ export function serveStatic(app: Express) {
   
   if (!fs.existsSync(distPath)) {
     console.error(`[ERROR] Build directory not found: ${distPath}`);
-    // Check if we are inside dist already
+    // Check for "public" in current working directory
     const cwdPublic = path.resolve(process.cwd(), "public");
     const distDistPublic = path.resolve(process.cwd(), "dist", "public");
     
@@ -33,17 +33,8 @@ export function serveStatic(app: Express) {
   }
 
   if (fs.existsSync(distPath)) {
-    // Crucial: Set correct MIME types and headers
-    app.use(express.static(distPath, {
-      setHeaders: (res, path) => {
-        if (path.endsWith('.js')) {
-          res.setHeader('Content-Type', 'application/javascript');
-        } else if (path.endsWith('.css')) {
-          res.setHeader('Content-Type', 'text/css');
-        }
-        res.setHeader('Cache-Control', 'public, max-age=31536000');
-      }
-    }));
+    // Use express.static normally but with a fallback for missing files
+    app.use(express.static(distPath));
     setupCatchAll(app, distPath);
   } else {
     console.error(`[CRITICAL ERROR] All static asset paths failed.`);
@@ -52,12 +43,16 @@ export function serveStatic(app: Express) {
 
 function setupCatchAll(app: Express, distPath: string) {
   app.use((req, res, next) => {
+    // Skip API routes
     if (req.path.startsWith("/api")) return next();
+    
+    // For any other GET request, serve index.html
     if (req.method === "GET") {
       const indexPath = path.resolve(distPath, "index.html");
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
       } else {
+        console.error(`[ERROR] index.html not found at: ${indexPath}`);
         next();
       }
       return;

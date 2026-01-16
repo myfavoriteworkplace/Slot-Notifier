@@ -104,7 +104,7 @@ app.use((req, res, next) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
-    console.log("[SYSTEM] Serving static files from public directory");
+    console.log("[SYSTEM] Production mode: Serving static files");
     serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");
