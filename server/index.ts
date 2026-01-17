@@ -24,7 +24,7 @@ app.use(
     store: new PostgresStore({
       pool,
       tableName: "session",
-      createTableIfMissing: true,
+      createTableIfMissing: false, // We will create it manually or ensure it exists
     }),
     secret: sessionSecret,
     resave: false,
