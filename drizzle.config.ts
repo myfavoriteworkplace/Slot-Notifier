@@ -15,8 +15,6 @@ if (fs.existsSync(envPath)) {
 }
 
 if (!process.env.DATABASE_URL) {
-  console.log("Current working directory:", process.cwd());
-  console.log("Environment variables keys:", Object.keys(process.env));
   throw new Error("DATABASE_URL, ensure the database is provisioned");
 }
 
@@ -25,6 +23,8 @@ export default defineConfig({
   schema: "./shared/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: process.env.DATABASE_URL.includes("sslmode=") 
+      ? process.env.DATABASE_URL 
+      : process.env.DATABASE_URL + (process.env.DATABASE_URL.includes("?") ? "&" : "?") + "sslmode=require",
   },
 });
