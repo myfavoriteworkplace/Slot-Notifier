@@ -140,6 +140,8 @@ export async function registerRoutes(
     app.get("/api/health/backend", (req, res) => {
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       
       const response = {
         status: "ok",
@@ -149,13 +151,15 @@ export async function registerRoutes(
       };
       
       console.log(`[API-RESPONSE] /api/health/backend: ${JSON.stringify(response)}`);
-      return res.status(200).send(JSON.stringify(response));
+      return res.status(200).json(response);
     });
 
     // Separate Health check for Database
     app.get("/api/health/database", async (req, res) => {
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       
       try {
         const result = await db.execute(sql`SELECT 1 as val`);
@@ -168,15 +172,15 @@ export async function registerRoutes(
         };
         
         console.log(`[API-RESPONSE] /api/health/database: ${JSON.stringify(response)}`);
-        return res.status(200).send(JSON.stringify(response));
+        return res.status(200).json(response);
       } catch (err: any) {
         console.error("[DATABASE-HEALTH-ERROR]", err);
-        return res.status(500).send(JSON.stringify({
+        return res.status(500).json({
           status: "error",
           database: false,
           error: err.message,
           timestamp: new Date().toISOString()
-        }));
+        });
       }
     });
 
