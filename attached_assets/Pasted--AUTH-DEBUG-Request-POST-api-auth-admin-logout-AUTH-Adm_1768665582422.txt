@@ -1,0 +1,79 @@
+[AUTH-DEBUG] Request: POST /api/auth/admin/logout
+[AUTH] Admin logout request from: undefined
+[AUTH ERROR] Failed to destroy session during logout: error: relation "session" does not exist
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async i._asyncQuery (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:70:30025) {
+  length: 106,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '13',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
+9:28:07 PM [express] POST /api/auth/admin/logout 200 in 239ms :: {"message":"Logout triggered (session destruction failed but cookie cleared)"}
+[ERROR] 2026-01-17T15:58:22.223Z - 500: Not allowed by CORS
+[ERROR DETAILS] Method: OPTIONS, Path: /api/health
+[ERROR STACK] Error: Not allowed by CORS
+    at origin (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:87:18822)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:77:154025
+    at h (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:77:153845)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:77:153872
+    at ta.handle_request (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:3174)
+    at b (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:8362)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:7955
+    at Di.process_params (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:8478)
+    at y (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:7881)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:69:3908
+[ERROR] 2026-01-17T15:58:22.226Z - 500: Not allowed by CORS
+[ERROR DETAILS] Method: OPTIONS, Path: /api/health/backend
+[ERROR STACK] Error: Not allowed by CORS
+    at origin (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:87:18822)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:77:154025
+    at h (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:77:153845)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:77:153872
+    at ta.handle_request (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:3174)
+    at b (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:8362)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:7955
+    at Di.process_params (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:8478)
+    at y (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:7881)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:69:3908
+[ERROR] 2026-01-17T15:58:22.227Z - 500: Not allowed by CORS
+[ERROR DETAILS] Method: GET, Path: /api/health
+[ERROR STACK] Error: Not allowed by CORS
+    at origin (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:87:18822)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:77:154025
+    at h (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:77:153845)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:77:153872
+    at ta.handle_request (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:3174)
+    at b (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:8362)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:7955
+    at Di.process_params (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:8478)
+    at y (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:7881)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:69:3908
+[ERROR] 2026-01-17T15:58:22.228Z - 500: Not allowed by CORS
+[ERROR DETAILS] Method: GET, Path: /api/health/backend
+[ERROR STACK] Error: Not allowed by CORS
+    at origin (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:87:18822)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:77:154025
+    at h (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:77:153845)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:77:153872
+    at ta.handle_request (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:3174)
+    at b (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:8362)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:7955
+    at Di.process_params (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:8478)
+    at y (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:38:7881)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/dist/index.cjs:69:3908
+^C
+aruntharakan@ARUNs-MacBook-Air Slot-Notifier % 
