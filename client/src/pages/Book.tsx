@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CalendarDays, CheckCircle2, FlaskConical } from "lucide-react";
+import { Loader2, CalendarDays, CheckCircle2 } from "lucide-react";
 import type { Clinic, Slot } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -91,23 +91,11 @@ export default function Book() {
 
   const { data: clinicsData, isLoading: clinicsLoading } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics'],
-    queryFn: async () => {
-      const res = await fetch("/api/clinics");
-      const serverClinics = await res.json();
-      
-      const demoClinicsRaw = localStorage.getItem("demo_clinics");
-      if (demoClinicsRaw) {
-        const demoClinics = JSON.parse(demoClinicsRaw);
-        return [...serverClinics, ...demoClinics.filter((c: any) => !c.isArchived)];
-      }
-      return serverClinics;
-    }
   });
 
   const hardcodedClinic: Clinic = {
     id: 999,
     name: "Demo Smile Clinic",
-    email: null,
     address: "123 Demo St, Dental City",
     username: "demo_clinic",
     passwordHash: "",
@@ -186,11 +174,6 @@ export default function Book() {
       persistentBookings.push(newBooking);
       localStorage.setItem("demo_bookings_persistent", JSON.stringify(persistentBookings));
       
-      // Send mock email for demo purposes (logged to console)
-      console.log(`[DEMO EMAIL] To: ${customerEmail}`);
-      console.log(`[DEMO EMAIL] Subject: Booking Confirmed - Demo Smile Clinic`);
-      console.log(`[DEMO EMAIL] Body: Dear ${customerName}, your appointment at Demo Smile Clinic for ${startTime.toLocaleString()} has been confirmed.`);
-
       setStep('success');
       toast({
         title: "Booking Confirmed!",
@@ -258,15 +241,7 @@ export default function Book() {
             <SelectContent className="rounded-xl shadow-lg border-border/50">
               {clinics.map((clinic) => (
                 <SelectItem key={clinic.id} value={clinic.name} className="py-4 sm:py-3 rounded-lg cursor-pointer" data-testid={`clinic-option-${clinic.id}`}>
-                  <div className="flex items-center gap-2">
-                    {clinic.name}
-                    {clinic.id >= 999 && (
-                      <Badge variant="secondary" className="text-[10px] h-4 px-1 gap-1">
-                        <FlaskConical className="h-2.5 w-2.5" />
-                        Demo
-                      </Badge>
-                    )}
-                  </div>
+                  {clinic.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -284,40 +259,102 @@ export default function Book() {
                   <div className="flex space-x-4 px-1">
                     {dates.map((date) => {
                       const isSelected = isSameDay(date, selectedDate);
-                      const daySlots = slots?.filter(s => 
-                        isSameDay(new Date(s.startTime), date) && 
-                        s.clinicName === selectedClinic
-                      );
-                      const bookedCount = daySlots?.filter(s => s.isBooked).length || 0;
-                      const isFull = bookedCount >= 9;
+                      
+                      // Calculate if the day is full
+                      let isDayFull = false;
+
+                      if (selectedClinic === "Demo Smile Clinic") {
+                        // For Demo, check all slots for this day
+                        const storedConfigs = localStorage.getItem("demo_slot_configs");
+                        const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
+                        const storedBookings = localStorage.getItem("demo_bookings_persistent");
+                        const persistentBookings = storedBookings ? JSON.parse(storedBookings) : [];
+
+                        const allSlotsFull = slotTimings.every(slot => {
+                          const slotTime = new Date(date);
+                          slotTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+                          const slotIso = slotTime.toISOString();
+                          
+                          const config = configs[slotIso];
+                          const max = config?.maxBookings ?? 3;
+                          const cancelled = config?.isCancelled ?? false;
+                          
+                          if (cancelled) return true; // Cancelled slots count as "filled" for day-full status
+
+                          const current = persistentBookings.filter((b: any) => 
+                            new Date(b.slot.startTime).toISOString() === slotIso
+                          ).length;
+                          return current >= max;
+                        });
+                        isDayFull = allSlotsFull;
+                      } else {
+                        // For registered clinics
+                        const allSlotsFull = slotTimings.every(slot => {
+                          const slotTime = new Date(date);
+                          slotTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+                          const slotIso = slotTime.toISOString();
+                          
+                          const slotData = slots?.find(s => 
+                            new Date(s.startTime).toISOString() === slotIso && 
+                            s.clinicName === selectedClinic
+                          );
+                          
+                          if (slotData?.isCancelled) return true;
+
+                          const max = slotData?.maxBookings ?? 3;
+                          const current = slots?.filter(s => 
+                            new Date(s.startTime).toISOString() === slotIso && 
+                            s.clinicName === selectedClinic &&
+                            s.isBooked
+                          ).length || 0;
+                          
+                          return current >= max;
+                        });
+                        isDayFull = allSlotsFull;
+                      }
 
                       return (
-                        <button
-                          key={date.toISOString()}
-                          disabled={isFull}
-                          onClick={() => {
-                            setSelectedDate(date);
-                            setShowSlots(false);
-                            setIsDetailsOpen(true);
-                          }}
-                          data-testid={`date-button-${format(date, 'yyyy-MM-dd')}`}
-                          className={`
-                            flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200 relative
-                            ${isSelected 
-                              ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
-                              : isFull
-                                ? 'bg-destructive/10 border-destructive/20 text-destructive cursor-not-allowed opacity-60'
-                                : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
-                          `}
-                        >
-                          <span className="text-xs font-medium uppercase mb-1 opacity-80">
-                            {format(date, "EEE")}
-                          </span>
-                          <span className="text-xl font-bold">
-                            {format(date, "d")}
-                          </span>
-                          {isFull && <span className="absolute top-1 right-1 text-[8px] font-bold uppercase text-destructive">Full</span>}
-                        </button>
+                        <TooltipProvider key={date.toISOString()}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                key={date.toISOString()}
+                                disabled={isDayFull}
+                                onClick={() => {
+                                  setSelectedDate(date);
+                                  setShowSlots(false);
+                                  setIsDetailsOpen(true);
+                                }}
+                                data-testid={`date-button-${format(date, 'yyyy-MM-dd')}`}
+                                className={`
+                                  flex flex-col items-center justify-center min-w-[4.5rem] h-20 rounded-xl border transition-all duration-200 relative
+                                  ${isSelected 
+                                    ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
+                                    : isDayFull
+                                      ? 'bg-destructive/10 border-destructive/20 text-destructive cursor-not-allowed opacity-80'
+                                      : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
+                                `}
+                              >
+                                <span className="text-xs font-medium uppercase mb-1 opacity-80">
+                                  {format(date, "EEE")}
+                                </span>
+                                <span className="text-xl font-bold">
+                                  {format(date, "d")}
+                                </span>
+                                {isDayFull && (
+                                  <Badge variant="destructive" className="absolute -top-2 -right-2 px-1 py-0 text-[8px] h-4">
+                                    FULL
+                                  </Badge>
+                                )}
+                              </button>
+                            </TooltipTrigger>
+                            {isDayFull && (
+                              <TooltipContent>
+                                <p>Booking full</p>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        </TooltipProvider>
                       );
                     })}
                   </div>
