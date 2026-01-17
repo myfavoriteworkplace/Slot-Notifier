@@ -298,22 +298,30 @@ export async function registerRoutes(
 
     // Dedicated connectivity test endpoint for Postman
     app.get("/api/test-connectivity", async (req, res) => {
-      console.log(`[CONNECTIVITY-TEST] Postman test triggered at ${new Date().toISOString()}`);
+      console.log(`[CONNECTIVITY-TEST] Postman test triggered from ${req.ip} at ${new Date().toISOString()}`);
       try {
         const dbResult = await db.execute(sql`SELECT NOW() as db_time`);
         const rows = (dbResult.rows || dbResult) as any[];
         res.json({
           message: "Backend is reachable and database is connected",
           timestamp: new Date().toISOString(),
+          render_url: "https://book-my-slot-client.onrender.com",
+          full_test_url: "https://book-my-slot-client.onrender.com/api/test-connectivity",
           database: {
             connected: true,
             dbTime: rows[0]?.db_time
           },
-          requestHeaders: req.headers,
+          request: {
+            method: req.method,
+            path: req.path,
+            headers: req.headers,
+            ip: req.ip
+          },
           environment: {
             NODE_ENV: process.env.NODE_ENV,
             DEPLOYMENT_TARGET: process.env.DEPLOYMENT_TARGET,
-            REPL_ID: !!process.env.REPL_ID
+            REPL_ID: !!process.env.REPL_ID,
+            PORT: process.env.PORT
           }
         });
       } catch (error: any) {
@@ -321,7 +329,8 @@ export async function registerRoutes(
         res.status(500).json({
           message: "Connectivity test failed",
           error: error.message,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          details: "Check Render logs for full stack trace"
         });
       }
     });
