@@ -301,12 +301,13 @@ export async function registerRoutes(
       console.log(`[CONNECTIVITY-TEST] Postman test triggered at ${new Date().toISOString()}`);
       try {
         const dbResult = await db.execute(sql`SELECT NOW() as db_time`);
+        const rows = (dbResult.rows || dbResult) as any[];
         res.json({
           message: "Backend is reachable and database is connected",
           timestamp: new Date().toISOString(),
           database: {
             connected: true,
-            dbTime: dbResult[0]?.db_time
+            dbTime: rows[0]?.db_time
           },
           requestHeaders: req.headers,
           environment: {
