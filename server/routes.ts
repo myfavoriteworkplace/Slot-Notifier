@@ -88,6 +88,17 @@ console.log(`[AUTH] ADMIN_EMAIL present: ${!!process.env.ADMIN_EMAIL}`);
 console.log(`[AUTH] ADMIN_PASSWORD present: ${!!process.env.ADMIN_PASSWORD}`);
 
 function envIsAuthenticated(req: Request, res: Response, next: NextFunction) {
+  // Global bypass for demo super admin if session is marked
+  if ((req.session as any)?.adminEmail === "demo_super_admin@bookmyslot.com") {
+    (req as any).user = {
+      claims: {
+        sub: 'admin',
+        email: "demo_super_admin@bookmyslot.com",
+      }
+    };
+    return next();
+  }
+
   if ((req.session as any)?.adminLoggedIn) {
     // Set req.user to mimic Replit OIDC structure for compatibility with downstream handlers
     (req as any).user = {
@@ -229,25 +240,26 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Email and password are required" });
       }
 
-      // Special bypass for demo_super_admin
-      if (email === "demo_super_admin@bookmyslot.com") {
-        console.log("[AUTH] Demo super admin login detected");
-        if (!req.session) {
-          console.error("[AUTH ERROR] No session available for demo_super_admin");
-          return res.status(500).json({ message: "Session initialization failed" });
-        }
-        (req.session as any).adminLoggedIn = true;
-        (req.session as any).adminEmail = "demo_super_admin@bookmyslot.com";
-        req.session.save((err) => {
-          if (err) {
-            console.error("[AUTH ERROR] Failed to save session for demo_super_admin:", err);
-            return res.status(500).json({ message: "Failed to save session" });
-          }
-          console.log("[AUTH] Demo session saved successfully");
-          return res.json({ message: "Login successful", user: { email: "demo_super_admin@bookmyslot.com", role: 'superuser' } });
-        });
-        return;
+    // Special bypass for demo_super_admin
+    if (email === "demo_super_admin@bookmyslot.com") {
+      console.log("[AUTH] Demo super admin login detected");
+      if (!req.session) {
+        console.error("[AUTH ERROR] No session available for demo_super_admin");
+        return res.status(500).json({ message: "Session initialization failed" });
       }
+      (req.session as any).adminLoggedIn = true;
+      (req.session as any).adminEmail = "demo_super_admin@bookmyslot.com";
+      (req.session as any).isDemoUser = true; // Mark as demo user for bypassed checks
+      req.session.save((err) => {
+        if (err) {
+          console.error("[AUTH ERROR] Failed to save session for demo_super_admin:", err);
+          return res.status(500).json({ message: "Failed to save session" });
+        }
+        console.log("[AUTH] Demo session saved successfully");
+        return res.json({ message: "Login successful", user: { email: "demo_super_admin@bookmyslot.com", role: 'superuser' } });
+      });
+      return;
+    }
 
       const adminEmail = process.env.ADMIN_EMAIL;
       const adminPassword = process.env.ADMIN_PASSWORD;
