@@ -24,7 +24,7 @@ function HealthIndicator() {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const res = await fetch("/api/health");
+        const res = await fetch("/api/health", { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           setHealthStatus({ backend: true, database: data.database });
