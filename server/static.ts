@@ -5,7 +5,6 @@ import { fileURLToPath } from "url";
 
 export function serveStatic(app: Express) {
   let distPath: string;
-  const isReplit = !!process.env.REPL_ID;
 
   try {
     const __filename = fileURLToPath(import.meta.url);
@@ -17,17 +16,18 @@ export function serveStatic(app: Express) {
   
   console.log(`[SYSTEM] Initial static path check: ${distPath}`);
   
-  // Force check standard locations
   const possiblePaths = [
     distPath,
     path.resolve(process.cwd(), "dist", "public"),
     path.resolve(process.cwd(), "public"),
     path.resolve("/", "home", "runner", "workspace", "dist", "public"),
-    "/home/runner/workspace/dist/public"
+    "/home/runner/workspace/dist/public",
+    path.resolve(process.cwd(), "dist"),
+    path.resolve(process.cwd(), "client", "dist")
   ];
 
   for (const p of possiblePaths) {
-    if (fs.existsSync(p) && fs.existsSync(path.join(p, "index.html"))) {
+    if (fs.existsSync(p) && (fs.existsSync(path.join(p, "index.html")) || fs.existsSync(path.join(p, "assets")))) {
       distPath = p;
       console.log(`[SYSTEM] Found valid static root at: ${distPath}`);
       break;
@@ -35,13 +35,19 @@ export function serveStatic(app: Express) {
   }
 
   if (fs.existsSync(distPath)) {
-    // Standard static serving
+    // Crucial for Replit: Set specific cache and headers to avoid blank screen
     app.use(express.static(distPath, {
-      maxAge: '1d',
-      index: false
+      maxAge: '1h',
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.js')) {
+          res.setHeader('Content-Type', 'application/javascript');
+        } else if (filePath.endsWith('.css')) {
+          res.setHeader('Content-Type', 'text/css');
+        }
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+      }
     }));
 
-    // Explicit fallback for assets directory
     const assetsPath = path.resolve(distPath, "assets");
     if (fs.existsSync(assetsPath)) {
       app.use("/assets", express.static(assetsPath, {
@@ -65,7 +71,6 @@ function setupCatchAll(app: Express, distPath: string) {
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
       } else {
-        // Fallback: search for index.html in common places if the current one is missing
         const fallbackIndex = path.resolve(process.cwd(), "dist", "public", "index.html");
         if (fs.existsSync(fallbackIndex)) {
           res.sendFile(fallbackIndex);
