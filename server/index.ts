@@ -24,9 +24,7 @@ app.use(
     store: new PostgresStore({
       pool,
       tableName: "session",
-      createTableIfMissing: false, // Set to false since we handle it manually
-      // For bundled production builds, we need to provide the schema manually
-      // because the default behavior looks for a file on disk
+      createTableIfMissing: false, 
     }),
     secret: sessionSecret,
     resave: false,
