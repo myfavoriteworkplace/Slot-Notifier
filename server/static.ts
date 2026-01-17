@@ -64,28 +64,24 @@ export function serveStatic(app: Express) {
 }
 
 function setupCatchAll(app: Express, distPath: string) {
+  // Catch-all to serve index.html for SPA routing
   app.get("*", (req, res, next) => {
-    // Strictly ignore API routes in the catch-all
+    // If it's an API request that reached here, it's a 404
     if (req.path.startsWith("/api")) {
-      console.log(`[STATIC] API route requested but not matched in registerRoutes: ${req.method} ${req.path}`);
-      return next(); // Pass to the 404 handler in index.ts
+      console.log(`[STATIC] API route not matched: ${req.method} ${req.path}`);
+      return next(); 
     }
     
-    if (req.method === "GET") {
-      const indexPath = path.resolve(distPath, "index.html");
-      if (fs.existsSync(indexPath)) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.sendFile(indexPath);
-      } else {
-        const fallbackIndex = path.resolve(process.cwd(), "dist", "public", "index.html");
-        if (fs.existsSync(fallbackIndex)) {
-          res.sendFile(fallbackIndex);
-        } else {
-          next();
-        }
-      }
-      return;
+    if (req.method !== "GET") {
+      return next();
     }
-    next();
+
+    const indexPath = path.resolve(distPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).send("Not found");
+    }
   });
 }

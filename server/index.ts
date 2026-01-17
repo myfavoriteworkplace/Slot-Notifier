@@ -98,11 +98,10 @@ app.use((req, res, next) => {
     console.error("[SEED] Failed to run seed script:", err);
   }
 
+  // register routes first
   await registerRoutes(httpServer, app);
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Serve static files AFTER routes
   if (process.env.NODE_ENV === "production") {
     console.log("[SYSTEM] Production mode: Serving static files");
     serveStatic(app);
