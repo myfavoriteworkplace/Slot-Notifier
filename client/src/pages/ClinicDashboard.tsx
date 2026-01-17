@@ -65,7 +65,7 @@ const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
   { id: "3", label: "Evening", startHour: 16, startMinute: 0, endHour: 18, endMinute: 0 },
 ];
 
-type BookingWithSlot = Booking & { slot: Slot; description: string | null };
+type BookingWithSlot = Booking & { slot: Slot; description?: string | null };
 
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut } = useClinicAuth();
@@ -1237,31 +1237,35 @@ export default function ClinicDashboard() {
                                 </div>
                               </div>
                             )}
-                          <div className="flex items-start gap-3">
-                            <FileText className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                              <p className="text-sm font-semibold">CHIEF COMPLAINTS / DESCRIPTION</p>
-                              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                {booking.description ? (
-                                  booking.description.split(", ").filter(Boolean).map((complaint, idx) => (
-                                    <Badge key={idx} variant="secondary" className="text-[10px] px-2 py-0">
-                                      {complaint}
-                                    </Badge>
-                                  ))
-                                ) : (
-                                  <span className="text-sm text-muted-foreground italic">No complaints recorded</span>
+                            <div className="flex items-start gap-3">
+                              <FileText className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                              <div className="flex-1 text-left">
+                                <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Chief Complaints</p>
+                                <div className="mt-2 flex flex-wrap gap-1.5 justify-start">
+                                  {booking.description ? (
+                                    booking.description.split(", ").filter(Boolean).map((complaint, idx) => (
+                                      <Badge key={idx} variant="secondary" className="px-2.5 py-0.5 text-[11px] font-medium bg-secondary/50 border-secondary/30">
+                                        {complaint}
+                                      </Badge>
+                                    ))
+                                  ) : (
+                                    <span className="text-sm text-muted-foreground italic">No complaints recorded</span>
+                                  )}
+                                </div>
+                                {booking.description && (
+                                  <div className="mt-4">
+                                    <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Detailed Description</p>
+                                    <p className="mt-2 text-sm leading-relaxed text-foreground bg-muted/40 p-3 rounded-xl italic border border-border/20">
+                                      "{booking.description}"
+                                    </p>
+                                  </div>
                                 )}
                               </div>
-                              {booking.description && (
-                                <p className="mt-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded-md italic">
-                                  "{booking.description}"
-                                </p>
-                              )}
                             </div>
                           </div>
-                          </div>
-                          
-                          <Separator />
+                        </div>
+                        
+                        <Separator />
                           
                           <div className="text-xs text-muted-foreground">
                             Booked on {booking.createdAt ? format(new Date(booking.createdAt), "MMM d, yyyy 'at' h:mm a") : "N/A"}
