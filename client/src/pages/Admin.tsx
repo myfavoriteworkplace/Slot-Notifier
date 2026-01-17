@@ -453,8 +453,8 @@ export default function Admin() {
     );
   }
 
-  const activeClinics = (clinics || []).filter(c => !c.isArchived);
-  const archivedClinics = (clinics || []).filter(c => c.isArchived);
+  const activeClinics = Array.isArray(clinics) ? clinics.filter(c => !c.isArchived) : [];
+  const archivedClinics = Array.isArray(clinics) ? clinics.filter(c => c.isArchived) : [];
 
   const handleAddClinic = () => {
     if (!newClinicName.trim()) {
