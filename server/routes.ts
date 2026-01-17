@@ -184,18 +184,14 @@ export async function registerRoutes(
       }
     });
 
-    // Main Health check endpoint - Combined
+    // Combined Health check for backward compatibility and Render
     app.get("/api/health", async (req, res) => {
-      // Force response headers to prevent any caching or unexpected content types
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       
-      console.log(`[API-REQUEST] /api/health from IP: ${req.ip}`);
-      
       try {
-        // Simple query to check DB connection
         const result = await db.execute(sql`SELECT 1 as val`);
         const isDbConnected = !!result;
         
@@ -208,20 +204,18 @@ export async function registerRoutes(
           timestamp: new Date().toISOString()
         };
 
-        // Explicitly use global console.log to ensure it's not swallowed
         global.console.log(`[API-RESPONSE] /api/health: ${JSON.stringify(responseData)}`);
-        return res.status(200).send(JSON.stringify(responseData));
+        return res.status(200).json(responseData);
       } catch (err: any) {
         global.console.error(`[API-RESPONSE-ERROR] /api/health: ${err.message}`);
-        const errorResponse = { 
+        return res.status(500).json({ 
           status: "error", 
           backend: true, 
           database: false,
           deployment: "render",
           error: err.message,
           timestamp: new Date().toISOString()
-        };
-        return res.status(500).send(JSON.stringify(errorResponse));
+        });
       }
     });
 
