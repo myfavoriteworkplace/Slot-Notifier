@@ -111,6 +111,15 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
+  // 404 handler for API routes that weren't matched
+  app.use("/api/*", (req, res) => {
+    res.status(404).json({ 
+      message: "API endpoint not found",
+      path: req.originalUrl,
+      method: req.method
+    });
+  });
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

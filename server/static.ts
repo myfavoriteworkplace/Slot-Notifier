@@ -65,10 +65,10 @@ export function serveStatic(app: Express) {
 
 function setupCatchAll(app: Express, distPath: string) {
   app.get("*", (req, res, next) => {
-    // Explicitly ignore API routes in the catch-all
-    if (req.path.startsWith("/api/")) {
-      console.log(`[STATIC] API route not found: ${req.method} ${req.path}`);
-      return res.status(404).json({ message: "API route not found" });
+    // Strictly ignore API routes in the catch-all
+    if (req.path.startsWith("/api")) {
+      console.log(`[STATIC] API route requested but not matched in registerRoutes: ${req.method} ${req.path}`);
+      return next(); // Pass to the 404 handler in index.ts
     }
     
     if (req.method === "GET") {
