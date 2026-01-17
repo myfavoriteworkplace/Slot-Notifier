@@ -294,13 +294,16 @@ export async function registerRoutes(
         req.session.destroy((err) => {
           if (err) {
             console.error("[AUTH ERROR] Failed to destroy session during logout:", err);
-            return res.status(500).json({ message: "Failed to logout" });
+            // If the error is database related (like missing table), we still want to clear the cookie
+            res.clearCookie('connect.sid');
+            return res.status(200).json({ message: "Logout triggered (session destruction failed but cookie cleared)" });
           }
           res.clearCookie('connect.sid');
           console.log("[AUTH] Admin logout successful");
           return res.json({ message: "Logout successful" });
         });
       } else {
+        res.clearCookie('connect.sid');
         return res.json({ message: "No active session to logout" });
       }
     });
