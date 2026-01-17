@@ -266,22 +266,61 @@ export async function registerRoutes(
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       
+      console.log(`[HEALTH-CHECK] Request received at ${new Date().toISOString()}`);
+      
       try {
         // Simple query to check DB connection
-        const result = await db.execute(sql`SELECT 1`);
+        const result = await db.execute(sql`SELECT 1 as val`);
+        const isDbConnected = !!result;
+        console.log(`[HEALTH-CHECK] Database connection: ${isDbConnected ? 'OK' : 'FAILED'}`);
+        
         res.json({ 
           status: "ok", 
           backend: true, 
-          database: !!result,
-          timestamp: new Date().toISOString()
+          database: isDbConnected,
+          timestamp: new Date().toISOString(),
+          env: {
+            NODE_ENV: process.env.NODE_ENV,
+            DEPLOYMENT_TARGET: process.env.DEPLOYMENT_TARGET
+          }
         });
       } catch (err: any) {
-        console.error("[HEALTH CHECK ERROR]", err);
+        console.error("[HEALTH-CHECK ERROR] Diagnostic failed:", err);
         res.status(500).json({ 
           status: "error", 
           backend: true, 
           database: false,
-          error: err.message
+          error: err.message,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    // Dedicated connectivity test endpoint for Postman
+    app.get("/api/test-connectivity", async (req, res) => {
+      console.log(`[CONNECTIVITY-TEST] Postman test triggered at ${new Date().toISOString()}`);
+      try {
+        const dbResult = await db.execute(sql`SELECT NOW() as db_time`);
+        res.json({
+          message: "Backend is reachable and database is connected",
+          timestamp: new Date().toISOString(),
+          database: {
+            connected: true,
+            dbTime: dbResult[0]?.db_time
+          },
+          requestHeaders: req.headers,
+          environment: {
+            NODE_ENV: process.env.NODE_ENV,
+            DEPLOYMENT_TARGET: process.env.DEPLOYMENT_TARGET,
+            REPL_ID: !!process.env.REPL_ID
+          }
+        });
+      } catch (error: any) {
+        console.error("[CONNECTIVITY-TEST ERROR]", error);
+        res.status(500).json({
+          message: "Connectivity test failed",
+          error: error.message,
+          timestamp: new Date().toISOString()
         });
       }
     });
