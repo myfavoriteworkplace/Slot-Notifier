@@ -44,7 +44,7 @@ export default function Admin() {
   // Fetch log status on mount
   useEffect(() => {
     if (isAuthenticated && user?.role === 'superuser') {
-      fetch("/api/admin/logs/status")
+      fetch(`${API_BASE_URL}/api/admin/logs/status`)
         .then(res => res.json())
         .then(data => setLogsEnabled(data.enabled))
         .catch(err => console.error("Failed to fetch log status:", err));
@@ -68,7 +68,8 @@ export default function Admin() {
   const { data: clinics, isLoading: clinicsLoading } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics', { includeArchived: true }],
     queryFn: async () => {
-      const res = await fetch('/api/clinics?includeArchived=true', {
+      const isDemoSuperAdmin = localStorage.getItem("demo_super_admin") === "true";
+      const res = await fetch(`${API_BASE_URL}/api/clinics?includeArchived=true`, {
         credentials: 'include',
       });
       const serverClinics = await res.json();
@@ -354,6 +355,8 @@ export default function Admin() {
     }
   };
 
+  const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -503,6 +506,17 @@ export default function Admin() {
           <p className="text-sm sm:text-base text-muted-foreground">Manage clinics and application settings</p>
         </div>
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 border rounded-lg bg-card text-sm">
+            <span className="text-muted-foreground font-medium">Server Status</span>
+            <a 
+              href={`${API_BASE_URL}/api/health`} 
+              target="_blank" 
+              rel="noreferrer"
+              className="text-xs text-primary hover:underline"
+            >
+              Check Health
+            </a>
+          </div>
           <div className="flex items-center gap-2 px-3 py-1.5 border rounded-lg bg-card text-sm">
             <span className="text-muted-foreground font-medium">Server Logs</span>
             <Switch 
