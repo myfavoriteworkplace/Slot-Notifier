@@ -40,6 +40,7 @@ export const bookings = pgTable("bookings", {
   verificationCode: varchar("verification_code", { length: 10 }),
   verificationStatus: varchar("verification_status", { length: 20 }).default("pending").notNull(),
   verificationExpiresAt: timestamp("verification_expires_at"),
+  description: text("description"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

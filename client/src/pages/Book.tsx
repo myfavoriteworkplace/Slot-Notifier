@@ -58,7 +58,26 @@ export default function Book() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [selectedClinic, setSelectedClinic] = useState<string>("");
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [description, setDescription] = useState("");
   const [showSlots, setShowSlots] = useState(false);
+
+  const CHIEF_COMPLAINTS = [
+    "Toothache", "Cavities", "Sensitivity", "Swelling", 
+    "Bleeding", "Abscess", "Fracture", "Wisdom", 
+    "Infection", "Checkup"
+  ];
+
+  const handleComplaintClick = (complaint: string) => {
+    const currentComplaints = description ? description.split(", ").filter(Boolean) : [];
+    let newDescription = "";
+    
+    if (currentComplaints.includes(complaint)) {
+      newDescription = currentComplaints.filter(c => c !== complaint).join(", ");
+    } else {
+      newDescription = [...currentComplaints, complaint].join(", ");
+    }
+    setDescription(newDescription);
+  };
   
   const [step, setStep] = useState<'details' | 'success'>('details');
   const [phoneError, setPhoneError] = useState("");
@@ -201,7 +220,8 @@ export default function Book() {
       clinicId,
       clinicName: selectedClinic,
       startTime: startTime.toISOString(),
-      endTime: endTime.toISOString()
+      endTime: endTime.toISOString(),
+      description
     });
   };
 
@@ -212,6 +232,7 @@ export default function Book() {
     setCustomerName("");
     setCustomerPhone("");
     setCustomerEmail("");
+    setDescription("");
     setPhoneError("");
     setStep('details');
   };
@@ -447,6 +468,38 @@ export default function Book() {
                     className="col-span-3"
                     placeholder="you@example.com"
                     data-testid="input-email"
+                  />
+                </div>
+
+                <div className="space-y-3 py-2">
+                  <Label className="text-sm font-semibold">CHIEF COMPLAINTS</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {CHIEF_COMPLAINTS.map((complaint) => {
+                      const isSelected = description.split(", ").includes(complaint);
+                      return (
+                        <Badge
+                          key={complaint}
+                          variant={isSelected ? "default" : "outline"}
+                          className="cursor-pointer transition-all hover:scale-105 active:scale-95 px-3 py-1"
+                          onClick={() => handleComplaintClick(complaint)}
+                          data-testid={`chip-complaint-${complaint}`}
+                        >
+                          {complaint}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Describe your issue..."
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    data-testid="textarea-description"
                   />
                 </div>
 
