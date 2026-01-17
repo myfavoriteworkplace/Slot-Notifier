@@ -24,7 +24,8 @@ function HealthIndicator() {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const res = await fetch("/api/health", { 
+        const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+        const res = await fetch(`${API_BASE_URL}/api/health`, { 
           cache: 'no-store',
           headers: { 'Accept': 'application/json' }
         });

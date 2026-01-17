@@ -99,7 +99,8 @@ export default function Dashboard() {
   const { data: clinicsData } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics', { includeArchived: true }],
     queryFn: async () => {
-      const res = await fetch('/api/clinics?includeArchived=true', {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+      const res = await fetch(`${API_BASE_URL}/api/clinics?includeArchived=true`, {
         credentials: 'include',
       });
       const serverClinics = await res.json();

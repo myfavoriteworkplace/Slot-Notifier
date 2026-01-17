@@ -201,7 +201,8 @@ export default function ClinicDashboard() {
       }
       
       setCancellingBookingId(bookingId);
-      const res = await fetch(`/api/clinic/bookings/${bookingId}`, {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+      const res = await fetch(`${API_BASE_URL}/api/clinic/bookings/${bookingId}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -355,7 +356,8 @@ export default function ClinicDashboard() {
         );
       }
 
-      const res = await fetch('/api/clinic/bookings', {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+      const res = await fetch(`${API_BASE_URL}/api/clinic/bookings`, {
         credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to fetch bookings');
