@@ -136,6 +136,37 @@ export async function registerRoutes(
       next();
     });
 
+    // Health check endpoint - MUST be before any catch-all routes
+    app.get("/api/health", async (req, res) => {
+      // Set headers explicitly to ensure JSON response
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      
+      console.log(`[HEALTH-CHECK] Request received at ${new Date().toISOString()}`);
+      
+      try {
+        // Simple query to check DB connection
+        const result = await db.execute(sql`SELECT 1 as val`);
+        const isDbConnected = !!result;
+        console.log(`[HEALTH-CHECK] Database connection: ${isDbConnected ? 'OK' : 'FAILED'}`);
+        
+        return res.status(200).json({ 
+          status: "ok", 
+          backend: true, 
+          database: isDbConnected,
+          timestamp: new Date().toISOString()
+        });
+      } catch (err: any) {
+        console.error("[HEALTH-CHECK ERROR] Diagnostic failed:", err);
+        return res.status(500).json({ 
+          status: "error", 
+          backend: true, 
+          database: false,
+          error: err.message
+        });
+      }
+    });
+
     app.post("/api/auth/admin/login", async (req, res) => {
       const { email, password } = req.body;
       
@@ -191,112 +222,6 @@ export async function registerRoutes(
       
       console.error(`[AUTH ERROR] Admin login failed for: ${email}. Invalid credentials or environment mismatch.`);
       return res.status(401).json({ message: "Invalid credentials" });
-    });
-    
-    app.post("/api/auth/admin/logout", (req, res) => {
-      req.session.destroy((err) => {
-        if (err) return res.status(500).json({ message: "Logout failed" });
-        res.json({ message: "Logged out" });
-      });
-    });
-    
-    app.get("/api/auth/user", (req, res) => {
-      console.log(`[AUTH-DEBUG] Checking user session: adminLoggedIn=${(req.session as any)?.adminLoggedIn}, adminEmail=${(req.session as any)?.adminEmail}`);
-      if ((req.session as any)?.adminLoggedIn) {
-        return res.json({ 
-          id: 'admin',
-          email: (req.session as any).adminEmail,
-          role: 'superuser'
-        });
-      }
-      console.log("[AUTH-DEBUG] No active session found for /api/auth/user");
-      return res.status(401).json({ message: "Not authenticated" });
-    });
-
-    // Add a fallback for the /api/login path used in the UI
-    app.get("/api/login", (req, res) => {
-      res.redirect("/admin");
-    });
-
-    // Test email endpoint
-    app.post("/api/test-email", async (req, res) => {
-      const { email } = req.body;
-      const targetEmail = email || "itsmyfavoriteworkplace@gmail.com";
-      
-      console.log(`[EMAIL TEST] Attempting to send test email to ${targetEmail}`);
-      
-      if (!resend) {
-        console.error("[EMAIL TEST ERROR] Resend is not configured (missing RESEND_API_KEY)");
-        return res.status(500).json({ 
-          error: "Resend not configured", 
-          details: "RESEND_API_KEY environment variable is missing" 
-        });
-      }
-
-      try {
-        const result = await resend.emails.send({
-          from: EMAIL_FROM,
-          to: targetEmail,
-          subject: "Backend email test - BookMySlot",
-          html: `
-            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
-              <h2 style="color: #0070f3;">Email Test Successful 🎉</h2>
-              <p>This email was sent from the <strong>BookMySlot</strong> backend to verify your Resend configuration.</p>
-              <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-              <p style="font-size: 12px; color: #666;">Time sent: ${new Date().toLocaleString()}</p>
-            </div>
-          `,
-        });
-        
-        console.log("[EMAIL TEST SUCCESS]", result);
-        res.json({ success: true, result });
-      } catch (err: any) {
-        console.error("[EMAIL TEST ERROR]", err);
-        res.status(500).json({ 
-          error: err.message,
-          name: err.name,
-          stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-        });
-      }
-    });
-
-    // Health check endpoint - MUST be before any catch-all routes
-    app.get("/api/health", async (req, res) => {
-      // Force JSON content type and clear any previous headers
-      res.removeHeader('Content-Type');
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-      
-      console.log(`[HEALTH-CHECK] Request received at ${new Date().toISOString()}`);
-      
-      try {
-        // Simple query to check DB connection
-        const result = await db.execute(sql`SELECT 1 as val`);
-        const isDbConnected = !!result;
-        console.log(`[HEALTH-CHECK] Database connection: ${isDbConnected ? 'OK' : 'FAILED'}`);
-        
-        return res.status(200).json({ 
-          status: "ok", 
-          backend: true, 
-          database: isDbConnected,
-          timestamp: new Date().toISOString(),
-          env: {
-            NODE_ENV: process.env.NODE_ENV,
-            DEPLOYMENT_TARGET: process.env.DEPLOYMENT_TARGET
-          }
-        });
-      } catch (err: any) {
-        console.error("[HEALTH-CHECK ERROR] Diagnostic failed:", err);
-        return res.status(500).json({ 
-          status: "error", 
-          backend: true, 
-          database: false,
-          error: err.message,
-          timestamp: new Date().toISOString()
-        });
-      }
     });
 
     // Dedicated connectivity test endpoint for Postman
