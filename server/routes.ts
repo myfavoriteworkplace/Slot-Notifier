@@ -299,13 +299,17 @@ export async function registerRoutes(
     // Dedicated connectivity test endpoint for Postman
     app.get("/api/test-connectivity", async (req, res) => {
       console.log(`[CONNECTIVITY-TEST] Postman test triggered from ${req.ip} at ${new Date().toISOString()}`);
+      
+      // Clear any headers that might have been set by middleware
+      res.removeHeader('Content-Type');
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      
       try {
         const dbResult = await db.execute(sql`SELECT NOW() as db_time`);
         const rows = (dbResult.rows || dbResult) as any[];
         
-        // Ensure we send JSON response explicitly
-        res.setHeader('Content-Type', 'application/json');
-        return res.status(200).json({
+        return res.status(200).send(JSON.stringify({
           status: "success",
           message: "Backend is reachable and database is connected",
           timestamp: new Date().toISOString(),
@@ -327,16 +331,16 @@ export async function registerRoutes(
             REPL_ID: !!process.env.REPL_ID,
             PORT: process.env.PORT
           }
-        });
+        }));
       } catch (error: any) {
         console.error("[CONNECTIVITY-TEST ERROR]", error);
-        return res.status(500).json({
+        return res.status(500).send(JSON.stringify({
           status: "error",
           message: "Connectivity test failed",
           error: error.message,
           timestamp: new Date().toISOString(),
           details: "Check Render logs for full stack trace"
-        });
+        }));
       }
     });
   } else {
