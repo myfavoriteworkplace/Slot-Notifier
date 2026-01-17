@@ -21,8 +21,8 @@ const connectionString = process.env.DATABASE_URL.includes("sslmode=")
 
 export const pool = new Pool({ 
   connectionString,
-  ssl: {
-    rejectUnauthorized: false // Required for some hosted Postgres providers
-  }
+  ssl: process.env.NODE_ENV === "production" ? {
+    rejectUnauthorized: false
+  } : false
 });
 export const db = drizzle(pool, { schema });

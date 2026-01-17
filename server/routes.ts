@@ -3,7 +3,6 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
-import { setupAuth, registerAuthRoutes, isAuthenticated as replitIsAuthenticated, getSession } from "./replit_integrations/auth";
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -12,82 +11,9 @@ import { Resend } from 'resend';
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
 
-async function sendBookingEmails(customerEmail: string, customerName: string, clinicEmail: string | null, clinicName: string, startTime: Date) {
-  if (!resend) {
-    console.log(`[EMAIL MOCK] Resend not configured.`);
-    console.log(`[EMAIL MOCK] To Customer: ${customerEmail}, Subject: Booking Confirmed`);
-    if (clinicEmail) console.log(`[EMAIL MOCK] To Clinic: ${clinicEmail}, Subject: New Booking`);
-    return;
-  }
-  
-  const formattedTime = startTime.toLocaleString();
+// ... (sendBookingEmails and sendCancellationEmail functions remain the same)
 
-  try {
-    // Send to Customer
-    await resend.emails.send({
-      from: EMAIL_FROM,
-      to: customerEmail,
-      subject: 'Booking Confirmed - BookMySlot',
-      html: `
-        <h2>Booking Confirmed</h2>
-        <p>Dear ${customerName},</p>
-        <p>Your appointment at <strong>${clinicName}</strong> for <strong>${formattedTime}</strong> has been successfully booked.</p>
-        <p>Thank you for choosing BookMySlot!</p>
-      `
-    });
-
-    // Send to Clinic if email exists
-    if (clinicEmail) {
-      await resend.emails.send({
-        from: EMAIL_FROM,
-        to: clinicEmail,
-        subject: 'New Booking Received - BookMySlot',
-        html: `
-          <h2>New Booking Received</h2>
-          <p>A new appointment has been booked for <strong>${formattedTime}</strong>.</p>
-          <p><strong>Customer:</strong> ${customerName}</p>
-          <p>Please check your dashboard for details.</p>
-        `
-      });
-    }
-    console.log(`[EMAIL] Booking confirmation emails sent`);
-  } catch (error) {
-    console.error('[EMAIL ERROR] Failed to send booking emails:', error);
-  }
-}
-
-async function sendCancellationEmail(email: string, name: string, date: Date, clinic: string) {
-  if (!resend) {
-    console.log(`[EMAIL MOCK] Resend not configured. To: ${email}, Subject: Booking Cancelled`);
-    return;
-  }
-  
-  try {
-    await resend.emails.send({
-      from: EMAIL_FROM,
-      to: email,
-      subject: 'Appointment Cancellation - BookMySlot',
-      html: `
-        <h2>Appointment Cancelled</h2>
-        <p>Dear ${name},</p>
-        <p>Your appointment at <strong>${clinic}</strong> scheduled for <strong>${date.toLocaleString()}</strong> has been cancelled.</p>
-        <p>If you have any questions, please contact the clinic directly.</p>
-        <p>Best regards,<br/>The BookMySlot Team</p>
-      `
-    });
-    console.log(`[EMAIL] Cancellation email sent to ${email}`);
-  } catch (error) {
-    console.error('[EMAIL ERROR] Failed to send cancellation email:', error);
-  }
-}
-
-const USE_ENV_AUTH = true;
-
-console.log(`[AUTH] USE_ENV_AUTH: ${USE_ENV_AUTH}`);
-console.log(`[AUTH] ADMIN_EMAIL present: ${!!process.env.ADMIN_EMAIL}`);
-console.log(`[AUTH] ADMIN_PASSWORD present: ${!!process.env.ADMIN_PASSWORD}`);
-
-function envIsAuthenticated(req: Request, res: Response, next: NextFunction) {
+function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   // Global bypass for demo super admin if session is marked
   if ((req.session as any)?.adminEmail === "demo_super_admin@bookmyslot.com") {
     (req as any).user = {
@@ -100,7 +26,7 @@ function envIsAuthenticated(req: Request, res: Response, next: NextFunction) {
   }
 
   if ((req.session as any)?.adminLoggedIn) {
-    // Set req.user to mimic Replit OIDC structure for compatibility with downstream handlers
+    // Set req.user to mimic a consistent user structure
     (req as any).user = {
       claims: {
         sub: 'admin',
@@ -112,8 +38,6 @@ function envIsAuthenticated(req: Request, res: Response, next: NextFunction) {
   return res.status(401).json({ message: "Authentication required" });
 }
 
-const isAuthenticated = USE_ENV_AUTH ? envIsAuthenticated : replitIsAuthenticated;
-
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -122,7 +46,6 @@ export async function registerRoutes(
   // Publicly available login check for debugging
   app.get("/api/auth/debug", (req, res) => {
     res.json({
-      useEnvAuth: USE_ENV_AUTH,
       adminEmailSet: !!process.env.ADMIN_EMAIL,
       adminPasswordSet: !!process.env.ADMIN_PASSWORD,
       sessionID: req.sessionID,
@@ -130,22 +53,15 @@ export async function registerRoutes(
     });
   });
 
-  if (USE_ENV_AUTH) {
-    console.log("[AUTH] Using environment-based admin authentication");
-    
-    // Set up session middleware for env auth
-    app.set("trust proxy", 1);
-    app.use(getSession());
-
-    // Debug middleware to log session and cookies
-    app.use((req, res, next) => {
-      if (req.path.startsWith('/api')) {
-        console.log(`[AUTH-DEBUG] Request: ${req.method} ${req.path}`);
-        // console.log(`[AUTH-DEBUG] SessionID: ${req.sessionID}`);
-        // console.log(`[AUTH-DEBUG] Cookies: ${JSON.stringify(req.headers.cookie)}`);
-      }
-      next();
-    });
+  console.log("[AUTH] Using environment-based admin authentication");
+  
+  // Debug middleware to log session
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      console.log(`[AUTH-DEBUG] Request: ${req.method} ${req.path}`);
+    }
+    next();
+  });
 
     // Separate Health check for Backend
     app.get("/api/health/backend", (req, res) => {
@@ -339,7 +255,6 @@ export async function registerRoutes(
           environment: {
             NODE_ENV: process.env.NODE_ENV,
             DEPLOYMENT_TARGET: process.env.DEPLOYMENT_TARGET,
-            REPL_ID: !!process.env.REPL_ID,
             PORT: process.env.PORT
           }
         });
@@ -354,12 +269,7 @@ export async function registerRoutes(
         });
       }
     });
-  } else {
-    console.log("[AUTH] Using Replit OIDC authentication");
-    await setupAuth(app);
-    registerAuthRoutes(app);
-  }
-
+  
   // Claim superuser status if no superusers exist (one-time setup)
   app.post("/api/claim-superuser", isAuthenticated, async (req, res) => {
     const user = req.user as any;
@@ -501,9 +411,8 @@ export async function registerRoutes(
   // Clinics API
   app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
     const user = req.user as any;
-    const isSuperuser = USE_ENV_AUTH 
-      ? user.claims.sub === 'admin'
-      : (await storage.getUser(user.claims.sub))?.role === 'superuser';
+    const isSuperuser = user.claims.sub === 'admin'
+      || (await storage.getUser(user.claims.sub))?.role === 'superuser';
     if (!isSuperuser) {
       logger(`Unauthorized clinic creation attempt by ${user.claims.sub}`, 'SECURITY');
       return res.status(403).json({ message: "Only super users can add clinics" });
@@ -526,9 +435,8 @@ export async function registerRoutes(
 
   app.patch(api.clinics.archive.path, isAuthenticated, async (req, res) => {
     const user = req.user as any;
-    const isSuperuser = USE_ENV_AUTH 
-      ? user.claims.sub === 'admin'
-      : (await storage.getUser(user.claims.sub))?.role === 'superuser';
+    const isSuperuser = user.claims.sub === 'admin'
+      || (await storage.getUser(user.claims.sub))?.role === 'superuser';
     if (!isSuperuser) return res.status(403).json({ message: "Only super users can archive clinics" });
     const clinicId = parseInt(req.params.id);
     logger(`Archiving clinic ${clinicId} by ${user.claims.sub}`, 'ADMIN');

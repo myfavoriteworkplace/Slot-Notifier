@@ -8,7 +8,6 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { authStorage } from "./replit_integrations/auth/storage";
 
 export interface IStorage {
   // Users
@@ -366,7 +365,8 @@ export class DatabaseStorage implements IStorage {
 
   // Auth User wrapper
   async getUser(id: string): Promise<User | undefined> {
-    return authStorage.getUser(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   // Clinics
