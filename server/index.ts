@@ -127,10 +127,13 @@ app.use((req, res, next) => {
 (async () => {
   // Run seed script on startup to ensure demo data exists (especially for Render)
   try {
+    const { ensureSessionTable } = await import("./db");
+    await ensureSessionTable();
+    
     const seedModule = await import("./seed-test-clinic");
     await seedModule.seed();
   } catch (err) {
-    console.error("[SEED] Failed to run seed script:", err);
+    console.error("[SYSTEM] Startup initialization failed:", err);
   }
 
   // register routes first
