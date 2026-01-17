@@ -1,6 +1,13 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@shared/schema";
+import * as dotenv from "dotenv";
+import path from "path";
+
+// In production build, the bundle might not load env vars before this file is evaluated
+if (process.env.NODE_ENV === "production") {
+  dotenv.config();
+}
 
 const { Pool } = pg;
 
