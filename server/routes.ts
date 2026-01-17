@@ -144,13 +144,12 @@ export async function registerRoutes(
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       
-      console.log(`[HEALTH-CHECK] Request received at ${new Date().toISOString()} - IP: ${req.ip}`);
+      console.log(`[API-REQUEST] /api/health from IP: ${req.ip}`);
       
       try {
         // Simple query to check DB connection
         const result = await db.execute(sql`SELECT 1 as val`);
         const isDbConnected = !!result;
-        console.log(`[HEALTH-CHECK] Database connection: ${isDbConnected ? 'OK' : 'FAILED'}`);
         
         const responseData = { 
           status: "ok", 
@@ -161,10 +160,11 @@ export async function registerRoutes(
           timestamp: new Date().toISOString()
         };
 
-        console.log(`[API-RESPONSE] /api/health: ${JSON.stringify(responseData)}`);
+        // Explicitly use global console.log to ensure it's not swallowed
+        global.console.log(`[API-RESPONSE] /api/health: ${JSON.stringify(responseData)}`);
         return res.status(200).send(JSON.stringify(responseData));
       } catch (err: any) {
-        console.error("[HEALTH-CHECK ERROR] Diagnostic failed:", err);
+        global.console.error(`[API-RESPONSE-ERROR] /api/health: ${err.message}`);
         const errorResponse = { 
           status: "error", 
           backend: true, 
