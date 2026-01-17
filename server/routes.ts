@@ -478,7 +478,7 @@ export async function registerRoutes(
   // Clinics API
   app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
     const user = (req as any).user;
-    const isSuperuser = user.claims.sub === 'admin'
+    const isSuperuser = user.claims.sub === 'admin' || (req.session as any).isDemoUser
       || (await storage.getUser(user.claims.sub))?.role === 'superuser';
     if (!isSuperuser) {
       logger(`Unauthorized clinic creation attempt by ${user.claims.sub}`, 'SECURITY');

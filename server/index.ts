@@ -48,7 +48,7 @@ app.use(cors({
 
     const allowedOrigins = FRONTEND_URL.split(",").map(url => url.trim());
     // In production, especially on Render, we need to allow both the frontend domain and potentially same-site requests
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes("*") || !origin || origin.includes("replit.dev") || origin.includes("onrender.com")) {
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes("*") || !origin || origin.includes("replit") || origin.includes("onrender")) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
