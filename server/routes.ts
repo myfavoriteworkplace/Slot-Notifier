@@ -288,6 +288,23 @@ export async function registerRoutes(
       return res.status(401).json({ message: "Invalid credentials" });
     });
 
+    app.post("/api/auth/admin/logout", (req, res) => {
+      console.log(`[AUTH] Admin logout request from: ${(req.session as any)?.adminEmail}`);
+      if (req.session) {
+        req.session.destroy((err) => {
+          if (err) {
+            console.error("[AUTH ERROR] Failed to destroy session during logout:", err);
+            return res.status(500).json({ message: "Failed to logout" });
+          }
+          res.clearCookie('connect.sid');
+          console.log("[AUTH] Admin logout successful");
+          return res.json({ message: "Logout successful" });
+        });
+      } else {
+        return res.json({ message: "No active session to logout" });
+      }
+    });
+
     // Dedicated connectivity test endpoint for Postman
     app.get("/api/test-connectivity", async (req, res) => {
       console.log(`[CONNECTIVITY-TEST] Postman test triggered from ${req.ip} at ${new Date().toISOString()}`);
