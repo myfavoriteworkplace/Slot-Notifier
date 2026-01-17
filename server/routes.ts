@@ -138,11 +138,13 @@ export async function registerRoutes(
 
     // Health check endpoint - MUST be before any catch-all routes
     app.get("/api/health", async (req, res) => {
-      // Set headers explicitly to ensure JSON response
+      // Force response headers to prevent any caching or unexpected content types
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       
-      console.log(`[HEALTH-CHECK] Request received at ${new Date().toISOString()}`);
+      console.log(`[HEALTH-CHECK] Request received at ${new Date().toISOString()} - IP: ${req.ip}`);
       
       try {
         // Simple query to check DB connection
@@ -150,22 +152,28 @@ export async function registerRoutes(
         const isDbConnected = !!result;
         console.log(`[HEALTH-CHECK] Database connection: ${isDbConnected ? 'OK' : 'FAILED'}`);
         
-        return res.status(200).json({ 
+        const responseData = { 
           status: "ok", 
           backend: true, 
           database: isDbConnected,
           deployment: "render",
+          env: process.env.NODE_ENV,
           timestamp: new Date().toISOString()
-        });
+        };
+
+        console.log(`[HEALTH-CHECK] Sending response: ${JSON.stringify(responseData)}`);
+        return res.status(200).send(JSON.stringify(responseData));
       } catch (err: any) {
         console.error("[HEALTH-CHECK ERROR] Diagnostic failed:", err);
-        return res.status(500).json({ 
+        const errorResponse = { 
           status: "error", 
           backend: true, 
           database: false,
           deployment: "render",
-          error: err.message
-        });
+          error: err.message,
+          timestamp: new Date().toISOString()
+        };
+        return res.status(500).send(JSON.stringify(errorResponse));
       }
     });
 
