@@ -68,6 +68,15 @@ app.use((req, res, next) => {
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
+  // LOG ALL REQUESTS IN PRODUCTION FOR DEBUGGING
+  if (process.env.NODE_ENV === "production" || true) {
+    log(`[REQUEST] ${req.method} ${path} - IP: ${req.ip} - Headers: ${JSON.stringify({
+      host: req.headers.host,
+      "user-agent": req.headers["user-agent"],
+      "x-forwarded-for": req.headers["x-forwarded-for"]
+    })}`);
+  }
+
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;
