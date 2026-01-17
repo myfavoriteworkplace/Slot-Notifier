@@ -5,7 +5,6 @@ import { fileURLToPath } from "url";
 
 export function serveStatic(app: Express) {
   let distPath: string;
-  const isRender = process.env.DEPLOYMENT_TARGET === "render";
   const isReplit = !!process.env.REPL_ID;
 
   try {
@@ -16,27 +15,24 @@ export function serveStatic(app: Express) {
     distPath = path.resolve(process.cwd(), "dist", "public");
   }
   
-  console.log(`[SYSTEM] Environment Detection: Render=${isRender}, Replit=${isReplit}`);
   console.log(`[SYSTEM] Initial static path check: ${distPath}`);
   
-  if (!fs.existsSync(distPath)) {
-    const cwdPublic = path.resolve(process.cwd(), "public");
-    const distDistPublic = path.resolve(process.cwd(), "dist", "public");
-    const replitPublic = path.resolve("/", "home", "runner", "workspace", "dist", "public");
-    const relativeDistPublic = path.resolve("dist", "public");
-    
-    if (fs.existsSync(distDistPublic)) {
-      distPath = distDistPublic;
-    } else if (fs.existsSync(cwdPublic)) {
-      distPath = cwdPublic;
-    } else if (fs.existsSync(replitPublic)) {
-      distPath = replitPublic;
-    } else if (fs.existsSync(relativeDistPublic)) {
-      distPath = relativeDistPublic;
+  // Force check standard locations
+  const possiblePaths = [
+    distPath,
+    path.resolve(process.cwd(), "dist", "public"),
+    path.resolve(process.cwd(), "public"),
+    path.resolve("/", "home", "runner", "workspace", "dist", "public"),
+    "/home/runner/workspace/dist/public"
+  ];
+
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p) && fs.existsSync(path.join(p, "index.html"))) {
+      distPath = p;
+      console.log(`[SYSTEM] Found valid static root at: ${distPath}`);
+      break;
     }
   }
-
-  console.log(`[SYSTEM] Final resolved static assets path: ${distPath}`);
 
   if (fs.existsSync(distPath)) {
     // Standard static serving
@@ -45,32 +41,19 @@ export function serveStatic(app: Express) {
       index: false
     }));
 
-    // Explicit fallback for assets directory to ensure they are found
+    // Explicit fallback for assets directory
     const assetsPath = path.resolve(distPath, "assets");
     if (fs.existsSync(assetsPath)) {
-      console.log(`[SYSTEM] Found assets directory at: ${assetsPath}`);
       app.use("/assets", express.static(assetsPath, {
         maxAge: '1y',
         immutable: true,
         fallthrough: false
       }));
-    } else {
-      console.warn(`[SYSTEM] Assets directory NOT found at: ${assetsPath}`);
     }
 
     setupCatchAll(app, distPath);
   } else {
-    console.error(`[CRITICAL ERROR] All static asset paths failed. Current Working Directory: ${process.cwd()}`);
-    // Diagnostic listing
-    try {
-      const rootEntries = fs.readdirSync(process.cwd());
-      console.log(`[DEBUG] CWD Root contents: ${JSON.stringify(rootEntries)}`);
-      if (rootEntries.includes('dist')) {
-        console.log(`[DEBUG] dist/ contents: ${JSON.stringify(fs.readdirSync(path.join(process.cwd(), 'dist')))}`);
-      }
-    } catch (e) {
-      console.error(`[DEBUG] Failed to list directories: ${e}`);
-    }
+    console.error(`[CRITICAL ERROR] No valid static root found. Search paths: ${JSON.stringify(possiblePaths)}`);
   }
 }
 
@@ -82,8 +65,13 @@ function setupCatchAll(app: Express, distPath: string) {
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
       } else {
-        console.error(`[ERROR] SPA Fallback failed: index.html not found at ${indexPath}`);
-        next();
+        // Fallback: search for index.html in common places if the current one is missing
+        const fallbackIndex = path.resolve(process.cwd(), "dist", "public", "index.html");
+        if (fs.existsSync(fallbackIndex)) {
+          res.sendFile(fallbackIndex);
+        } else {
+          next();
+        }
       }
       return;
     }
