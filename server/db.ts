@@ -4,10 +4,8 @@ import * as schema from "@shared/schema";
 import * as dotenv from "dotenv";
 import path from "path";
 
-// In production build, the bundle might not load env vars before this file is evaluated
-if (process.env.NODE_ENV === "production") {
-  dotenv.config();
-}
+// Load env vars at the very top level before any export
+dotenv.config();
 
 const { Pool } = pg;
 
@@ -17,5 +15,14 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const connectionString = process.env.DATABASE_URL.includes("sslmode=") 
+  ? process.env.DATABASE_URL 
+  : process.env.DATABASE_URL + (process.env.DATABASE_URL.includes("?") ? "&" : "?") + "sslmode=require";
+
+export const pool = new Pool({ 
+  connectionString,
+  ssl: {
+    rejectUnauthorized: false // Required for some hosted Postgres providers
+  }
+});
 export const db = drizzle(pool, { schema });

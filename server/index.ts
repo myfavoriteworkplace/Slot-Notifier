@@ -2,16 +2,39 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import cors from "cors";
+import { pool } from "./db";
 
+const PostgresStore = connectPg(session);
 const app = express();
 const httpServer = createServer(app);
 
 // Trust proxy is essential for deployments behind a load balancer (like Render)
 app.set("trust proxy", 1);
+
+// Configure sessions with Postgres store
+const sessionSecret = process.env.SESSION_SECRET || "book-my-slot-secret";
+app.use(
+  session({
+    store: new PostgresStore({
+      pool,
+      tableName: "session",
+      createTableIfMissing: true,
+    }),
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    },
+  })
+);
 
 // Configure CORS for cross-domain requests
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";

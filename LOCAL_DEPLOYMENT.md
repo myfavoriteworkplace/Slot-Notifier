@@ -51,6 +51,7 @@ ADMIN_PASSWORD=admin_password123
 PORT=5001
 FRONTEND_URL=http://localhost:5001
 VITE_API_URL=http://localhost:5001
+SESSION_SECRET=your_random_secret_here
 
 # Environment Mode
 NODE_ENV=production
@@ -78,7 +79,9 @@ To test exactly like Render, follow these steps:
 
 ## 🧪 Testing the Flow
 
-1. **Admin Access**: Navigate to `http://localhost:5001/login` and use your `ADMIN_EMAIL` credentials.
+1. **Database Session Store**: The application now uses PostgreSQL for session storage. Ensure your database is accessible.
+2. **SSL Requirement**: For external Render databases, SSL is now enforced with `sslmode=require` and `rejectUnauthorized: false`.
+3. **Admin Access**: Navigate to `http://localhost:5001/login` and use your `ADMIN_EMAIL` credentials.
 2. **Clinic Creation**: Create a new clinic in the admin dashboard.
 3. **Clinic Access**: Navigate to `http://localhost:5001/clinic-login` and use the credentials you just created.
 4. **Public Booking**: Navigate to the home page and book a slot to verify the end-to-end flow.
