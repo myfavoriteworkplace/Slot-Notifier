@@ -161,7 +161,7 @@ export async function registerRoutes(
           timestamp: new Date().toISOString()
         };
 
-        console.log(`[HEALTH-CHECK] Sending response: ${JSON.stringify(responseData)}`);
+        console.log(`[API-RESPONSE] /api/health: ${JSON.stringify(responseData)}`);
         return res.status(200).send(JSON.stringify(responseData));
       } catch (err: any) {
         console.error("[HEALTH-CHECK ERROR] Diagnostic failed:", err);
