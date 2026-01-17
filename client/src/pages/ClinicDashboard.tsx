@@ -5,24 +5,18 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X, Download, Plus, ChevronDown, ChevronUp, CheckCircle2, Receipt, FileText, User, Mail, CalendarDays, FlaskConical } from "lucide-react";
-import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay } from "date-fns";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+import { 
+  Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X, 
+  Download, Plus, ChevronDown, ChevronUp, CheckCircle2, Receipt, FileText, 
+  User, Mail, CalendarDays, FlaskConical 
+} from "lucide-react";
+import { 
+  Dialog, DialogContent, DialogDescription, DialogFooter, 
+  DialogHeader, DialogTitle, DialogTrigger 
 } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay } from "date-fns";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1146,104 +1140,204 @@ export default function ClinicDashboard() {
                 </div>
               ) : (
                 filteredBookings?.map((booking) => (
-                  <Card key={booking.id} className="overflow-hidden border-border/50 hover:shadow-md transition-shadow" data-testid={`card-booking-${booking.id}`}>
-                    <CardHeader className="bg-primary/5 pb-4 text-left">
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="text-left">
-                          <CardTitle className="text-lg text-left">{booking.customerName}</CardTitle>
-                          <div className="flex flex-col gap-1 mt-1">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground text-left">
-                              <Phone className="h-3 w-3" />
-                              {booking.customerPhone}
+                  <Card key={booking.id} className="overflow-hidden border-border/50 hover:shadow-md transition-all cursor-pointer group" data-testid={`card-booking-${booking.id}`}>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <div className="w-full h-full text-left">
+                          <CardHeader className="bg-primary/5 pb-4 text-left group-hover:bg-primary/10 transition-colors">
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="text-left">
+                                <CardTitle className="text-lg text-left">{booking.customerName}</CardTitle>
+                                <div className="flex flex-col gap-1 mt-1">
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground text-left">
+                                    <Phone className="h-3 w-3" />
+                                    {booking.customerPhone}
+                                  </div>
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="bg-background">
+                                Booked
+                              </Badge>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-4 space-y-3 text-left">
+                            <div className="flex items-center gap-3 text-sm text-left">
+                              <CalendarIcon className="h-4 w-4 text-primary" />
+                              <span className="font-medium text-left">
+                                {format(new Date(booking.slot.startTime), "EEEE, MMMM do")}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground text-left">
+                              <Clock className="h-4 w-4" />
+                              <span className="text-left">
+                                {format(new Date(booking.slot.startTime), "h:mm a")} - {format(new Date(booking.slot.endTime), "h:mm a")}
+                              </span>
                             </div>
                             {booking.description && (
-                              <div className="text-xs text-muted-foreground italic line-clamp-2 bg-muted/50 p-2 rounded-md mt-2 border border-border/30">
-                                "{booking.description}"
+                              <div className="text-xs text-muted-foreground italic line-clamp-1 bg-muted/50 p-2 rounded-md mt-2 border border-border/30">
+                                {booking.description}
                               </div>
                             )}
+                          </CardContent>
+                        </div>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[425px] rounded-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Booking Details</DialogTitle>
+                          <DialogDescription>
+                            Full information for this appointment
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-12 w-12 border-2 border-primary/20">
+                              <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                                {booking.customerName.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h3 className="font-bold text-lg">{booking.customerName}</h3>
+                              <p className="text-sm text-muted-foreground">{booking.customerPhone}</p>
+                            </div>
+                          </div>
+                          
+                          <Separator />
+                          
+                          <div className="space-y-3">
+                            <div className="flex items-start gap-3">
+                              <CalendarIcon className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-sm font-semibold">Date</p>
+                                <p className="text-sm text-muted-foreground">{format(new Date(booking.slot.startTime), "EEEE, MMMM do, yyyy")}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <Clock className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-sm font-semibold">Time Slot</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {format(new Date(booking.slot.startTime), "h:mm a")} - {format(new Date(booking.slot.endTime), "h:mm a")}
+                                </p>
+                              </div>
+                            </div>
+                            {booking.customerEmail && (
+                              <div className="flex items-start gap-3">
+                                <Mail className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                                <div>
+                                  <p className="text-sm font-semibold">Email</p>
+                                  <p className="text-sm text-muted-foreground">{booking.customerEmail}</p>
+                                </div>
+                              </div>
+                            )}
+                            <div className="flex items-start gap-3">
+                              <FileText className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold">CHIEF COMPLAINTS / DESCRIPTION</p>
+                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                  {booking.description ? (
+                                    booking.description.split(", ").map((complaint, idx) => (
+                                      <Badge key={idx} variant="secondary" className="text-[10px] px-2 py-0">
+                                        {complaint}
+                                      </Badge>
+                                    ))
+                                  ) : (
+                                    <span className="text-sm text-muted-foreground italic">No complaints recorded</span>
+                                  )}
+                                </div>
+                                {booking.description && (
+                                  <p className="mt-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded-md italic">
+                                    "{booking.description}"
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <Separator />
+                          
+                          <div className="text-xs text-muted-foreground">
+                            Booked on {booking.createdAt ? format(new Date(booking.createdAt), "MMM d, yyyy 'at' h:mm a") : "N/A"}
                           </div>
                         </div>
-                        <Badge variant="outline" className="bg-background">
-                          Booked
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-4 space-y-3 text-left">
-                      <div className="flex items-center gap-3 text-sm text-left">
-                        <CalendarIcon className="h-4 w-4 text-primary" />
-                        <span className="font-medium text-left">
-                          {format(new Date(booking.slot.startTime), "EEEE, MMMM do")}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground text-left">
-                        <Clock className="h-4 w-4" />
-                        <span className="text-left">
-                          {format(new Date(booking.slot.startTime), "h:mm a")} - {format(new Date(booking.slot.endTime), "h:mm a")}
-                        </span>
-                      </div>
-                      {booking.createdAt && (
-                        <div className="pt-2 mt-2 border-t border-border/50 text-xs text-muted-foreground text-left">
-                          Booked on {format(new Date(booking.createdAt), "MMM d, yyyy 'at' h:mm a")}
-                        </div>
-                      )}
-                      <div className="pt-3 mt-3 border-t border-border/50 flex gap-2">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 text-primary hover:text-primary hover:bg-primary/10 gap-2"
-                                onClick={() => handleOpenBilling(booking)}
-                                data-testid={`button-generate-bill-${booking.id}`}
-                              >
-                                <Receipt className="h-4 w-4" />
-                                <span className="text-xs">Bill</span>
+                        <DialogFooter className="flex-row gap-2">
+                          <Button 
+                            variant="outline" 
+                            className="flex-1 text-primary gap-2"
+                            onClick={() => handleOpenBilling(booking)}
+                          >
+                            <Receipt className="h-4 w-4" />
+                            Bill
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" className="flex-1 text-destructive gap-2">
+                                <X className="h-4 w-4" />
+                                Cancel
                               </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Generate Bill</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
-                              disabled={cancellingBookingId === booking.id}
-                              data-testid={`button-cancel-booking-${booking.id}`}
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Permanently remove {booking.customerName}'s appointment.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Back</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => cancelBookingMutation.mutate(booking.id)}
+                                  className="bg-destructive text-destructive-foreground"
+                                >
+                                  Cancel Booking
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                    
+                    <div className="px-4 pb-4 flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-primary hover:bg-primary/5 gap-2"
+                        onClick={() => handleOpenBilling(booking)}
+                      >
+                        <Receipt className="h-4 w-4" />
+                        Bill
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 text-destructive hover:bg-destructive/5 gap-2"
+                            disabled={cancellingBookingId === booking.id}
+                          >
+                            <X className="h-4 w-4" />
+                            Cancel
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to cancel {booking.customerName}'s appointment?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Back</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => cancelBookingMutation.mutate(booking.id)}
+                              className="bg-destructive text-destructive-foreground"
                             >
-                              {cancellingBookingId === booking.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              ) : (
-                                <X className="h-4 w-4 mr-2" />
-                              )}
                               Cancel Booking
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to cancel the booking for {booking.customerName}? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Keep Booking</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => cancelBookingMutation.mutate(booking.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Yes, Cancel Booking
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </CardContent>
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </Card>
                 ))
               )}
