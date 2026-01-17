@@ -26,26 +26,22 @@ function HealthIndicator() {
     const checkHealth = async () => {
       try {
         const API_BASE_URL = import.meta.env.VITE_API_URL || "";
-        const res = await fetch(`${API_BASE_URL}/api/health`, { 
-          cache: 'no-store',
-          headers: { 'Accept': 'application/json' }
+        
+        // Try to fetch backend health
+        const backendRes = await fetch(`${API_BASE_URL}/api/health/backend`, { cache: 'no-store' });
+        const backendData = backendRes.ok ? await backendRes.json() : null;
+        
+        // Try to fetch database health
+        const dbRes = await fetch(`${API_BASE_URL}/api/health/database`, { cache: 'no-store' });
+        const dbData = dbRes.ok ? await dbRes.json() : null;
+        
+        setHealthStatus({ 
+          backend: !!backendData, 
+          database: dbData?.database || false,
+          timestamp: backendData?.timestamp || dbData?.timestamp 
         });
-        if (res.ok) {
-          const contentType = res.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
-            const data = await res.json();
-            setHealthStatus({ 
-              backend: true, 
-              database: data.database,
-              timestamp: data.timestamp 
-            });
-          } else {
-            setHealthStatus({ backend: false, database: false });
-          }
-        } else {
-          setHealthStatus({ backend: false, database: false });
-        }
       } catch (err) {
+        console.error("Health check failed", err);
         setHealthStatus({ backend: false, database: false });
       }
     };

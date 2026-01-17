@@ -136,7 +136,51 @@ export async function registerRoutes(
       next();
     });
 
-    // Health check endpoint - MUST be before any catch-all routes
+    // Separate Health check for Backend
+    app.get("/api/health/backend", (req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      
+      const response = {
+        status: "ok",
+        backend: true,
+        env: process.env.NODE_ENV,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log(`[API-RESPONSE] /api/health/backend: ${JSON.stringify(response)}`);
+      return res.status(200).send(JSON.stringify(response));
+    });
+
+    // Separate Health check for Database
+    app.get("/api/health/database", async (req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      
+      try {
+        const result = await db.execute(sql`SELECT 1 as val`);
+        const isDbConnected = !!result;
+        
+        const response = {
+          status: isDbConnected ? "ok" : "error",
+          database: isDbConnected,
+          timestamp: new Date().toISOString()
+        };
+        
+        console.log(`[API-RESPONSE] /api/health/database: ${JSON.stringify(response)}`);
+        return res.status(200).send(JSON.stringify(response));
+      } catch (err: any) {
+        console.error("[DATABASE-HEALTH-ERROR]", err);
+        return res.status(500).send(JSON.stringify({
+          status: "error",
+          database: false,
+          error: err.message,
+          timestamp: new Date().toISOString()
+        }));
+      }
+    });
+
+    // Main Health check endpoint - Combined
     app.get("/api/health", async (req, res) => {
       // Force response headers to prevent any caching or unexpected content types
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
