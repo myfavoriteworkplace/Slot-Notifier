@@ -87,34 +87,17 @@ Deployment on Render is split into three parts: Database, Backend, and Frontend.
 
 ---
 
-## 💻 Local Development Setup
+## 💻 Local Development & Production Setup
 
-### 1. Prerequisites
-- **Node.js**: v20 or higher.
-- **Database**: A running PostgreSQL instance.
+For a deep dive into running the app locally in a production-like environment (similar to Render), please refer to our dedicated guide:
 
-### 2. Setup
-```bash
-git clone <url>
-npm install
-```
+👉 **[LOCAL_DEPLOYMENT.md](./LOCAL_DEPLOYMENT.md)**
 
-### 3. Environment (.env)
-```env
-DATABASE_URL=postgresql://user:pass@localhost:5432/dbname
-SESSION_SECRET=your_32_char_secret
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=password123
-REPL_ID=local_dev
-PORT=5000
-```
-
-### 4. Initialize & Run
-```bash
-npm run db:push
-npm run dev
-```
-Access the app at `http://localhost:5000`.
+### Quick Start (Dev Mode)
+1. **Prerequisites**: Node.js v20+, PostgreSQL.
+2. **Setup**: `npm install`
+3. **Database**: Run `npm run db:push`
+4. **Run**: `npm run dev` (Access at `http://localhost:5000`)
 
 ---
 
