@@ -11,26 +11,16 @@ This guide provides detailed instructions to replicate a production-like environ
    npm install
    ```
 
-2. **Database Setup**:
-   You have two options for your database:
-
-   ### Option A: Local Database (Docker)
-   We provide a `docker-compose.yml` to spin up a local PostgreSQL instance.
-   ```bash
-   docker-compose up -d
-   ```
-   *This starts a database at `localhost:5432` with user/pass: `postgres/postgres`.*
-
-   ### Option B: Use External Render Database
-   If you already have a database configured in Render, you can connect to it directly from your local machine:
+2. **Database Setup (External Render DB)**:
+   Since you are not using Docker, you will connect directly to your Render database:
    1. Go to your **Render Dashboard**.
    2. Select your PostgreSQL database.
    3. Copy the **External Database URL**.
-   4. Paste it into your local `.env` as the `DATABASE_URL`.
-   *Note: Ensure your local IP address is allowed in the Render database's "Access Control" settings if you have restricted access.*
+   4. Paste it into your local `.env` file as the `DATABASE_URL`.
+   *Note: Render databases usually allow all connections by default, but check "Access Control" if you have issues.*
 
 3. **Database Initialization**:
-   Sync the schema to your local database:
+   Sync the schema to your Render database:
    ```bash
    npm run db:push
    ```
