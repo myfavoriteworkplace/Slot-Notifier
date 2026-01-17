@@ -492,7 +492,14 @@ export default function Admin() {
     <div className="container mx-auto py-6 px-4 max-w-4xl">
       <div className="mb-6 sm:mb-8 flex justify-between items-start">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Admin Panel</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl sm:text-3xl font-bold">Admin Panel</h1>
+            {user && (
+              <Badge variant="outline" className="text-xs font-normal">
+                {user.email}
+              </Badge>
+            )}
+          </div>
           <p className="text-sm sm:text-base text-muted-foreground">Manage clinics and application settings</p>
         </div>
         <div className="flex items-center gap-4">
