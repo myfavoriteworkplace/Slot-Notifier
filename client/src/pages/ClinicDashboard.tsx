@@ -17,6 +17,14 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,7 +65,7 @@ const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
   { id: "3", label: "Evening", startHour: 16, startMinute: 0, endHour: 18, endMinute: 0 },
 ];
 
-type BookingWithSlot = Booking & { slot: Slot };
+type BookingWithSlot = Booking & { slot: Slot; description: string | null };
 
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut } = useClinicAuth();
@@ -307,7 +315,7 @@ export default function ClinicDashboard() {
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
       description: bookingDescription
-    });
+    } as any);
   };
 
   const dates = Array.from({ length: 14 }, (_, i) => addDays(startOfToday(), i));
@@ -1229,28 +1237,28 @@ export default function ClinicDashboard() {
                                 </div>
                               </div>
                             )}
-                            <div className="flex items-start gap-3">
-                              <FileText className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                              <div className="flex-1">
-                                <p className="text-sm font-semibold">CHIEF COMPLAINTS / DESCRIPTION</p>
-                                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                  {booking.description ? (
-                                    booking.description.split(", ").map((complaint, idx) => (
-                                      <Badge key={idx} variant="secondary" className="text-[10px] px-2 py-0">
-                                        {complaint}
-                                      </Badge>
-                                    ))
-                                  ) : (
-                                    <span className="text-sm text-muted-foreground italic">No complaints recorded</span>
-                                  )}
-                                </div>
-                                {booking.description && (
-                                  <p className="mt-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded-md italic">
-                                    "{booking.description}"
-                                  </p>
+                          <div className="flex items-start gap-3">
+                            <FileText className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold">CHIEF COMPLAINTS / DESCRIPTION</p>
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {booking.description ? (
+                                  booking.description.split(", ").filter(Boolean).map((complaint, idx) => (
+                                    <Badge key={idx} variant="secondary" className="text-[10px] px-2 py-0">
+                                      {complaint}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <span className="text-sm text-muted-foreground italic">No complaints recorded</span>
                                 )}
                               </div>
+                              {booking.description && (
+                                <p className="mt-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded-md italic">
+                                  "{booking.description}"
+                                </p>
+                              )}
                             </div>
+                          </div>
                           </div>
                           
                           <Separator />
@@ -1297,47 +1305,51 @@ export default function ClinicDashboard() {
                       </DialogContent>
                     </Dialog>
                     
-                    <div className="px-4 pb-4 flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-primary hover:bg-primary/5 gap-2"
-                        onClick={() => handleOpenBilling(booking)}
-                      >
-                        <Receipt className="h-4 w-4" />
-                        Bill
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 text-destructive hover:bg-destructive/5 gap-2"
-                            disabled={cancellingBookingId === booking.id}
-                          >
-                            <X className="h-4 w-4" />
-                            Cancel
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to cancel {booking.customerName}'s appointment?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Back</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => cancelBookingMutation.mutate(booking.id)}
-                              className="bg-destructive text-destructive-foreground"
+                      <div className="px-4 pb-4 flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-primary hover:bg-primary/5 gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenBilling(booking);
+                          }}
+                        >
+                          <Receipt className="h-4 w-4" />
+                          Bill
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 text-destructive hover:bg-destructive/5 gap-2"
+                              disabled={cancellingBookingId === booking.id}
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              Cancel Booking
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+                              <X className="h-4 w-4" />
+                              Cancel
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to cancel {booking.customerName}'s appointment?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Back</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => cancelBookingMutation.mutate(booking.id)}
+                                className="bg-destructive text-destructive-foreground"
+                              >
+                                Cancel Booking
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                   </Card>
                 ))
               )}
