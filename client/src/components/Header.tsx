@@ -41,10 +41,18 @@ export function Header() {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const res = await fetch("/api/health", { cache: 'no-store' });
+        const res = await fetch("/api/health", { 
+          cache: 'no-store',
+          headers: { 'Accept': 'application/json' }
+        });
         if (res.ok) {
-          const data = await res.json();
-          setHealthStatus({ backend: true, database: data.database });
+          const contentType = res.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const data = await res.json();
+            setHealthStatus({ backend: true, database: data.database });
+          } else {
+            setHealthStatus({ backend: false, database: false });
+          }
         } else {
           setHealthStatus({ backend: false, database: false });
         }
