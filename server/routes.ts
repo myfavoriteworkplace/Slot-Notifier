@@ -154,6 +154,7 @@ export async function registerRoutes(
           status: "ok", 
           backend: true, 
           database: isDbConnected,
+          deployment: "render",
           timestamp: new Date().toISOString()
         });
       } catch (err: any) {
@@ -162,6 +163,7 @@ export async function registerRoutes(
           status: "error", 
           backend: true, 
           database: false,
+          deployment: "render",
           error: err.message
         });
       }
