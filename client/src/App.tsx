@@ -19,6 +19,7 @@ function HealthIndicator() {
   const [healthStatus, setHealthStatus] = useState<{
     backend: boolean | null;
     database: boolean | null;
+    timestamp?: string;
   }>({ backend: null, database: null });
 
   useEffect(() => {
@@ -33,9 +34,12 @@ function HealthIndicator() {
           const contentType = res.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
             const data = await res.json();
-            setHealthStatus({ backend: true, database: data.database });
+            setHealthStatus({ 
+              backend: true, 
+              database: data.database,
+              timestamp: data.timestamp 
+            });
           } else {
-            // If we got HTML (fallback), the backend route isn't being hit
             setHealthStatus({ backend: false, database: false });
           }
         } else {
@@ -52,30 +56,43 @@ function HealthIndicator() {
   }, []);
 
   return (
-    <div className="fixed bottom-4 left-4 z-[100] flex items-center gap-1.5 px-2 py-1 bg-background/50 backdrop-blur-sm rounded-full border border-border/30 shadow-sm opacity-40 hover:opacity-100 transition-opacity">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex items-center gap-1 cursor-help">
-            <Server className={`h-2.5 w-2.5 ${healthStatus.backend === true ? 'text-green-500' : healthStatus.backend === false ? 'text-destructive' : 'text-muted-foreground'}`} />
-            <div className={`h-1 w-1 rounded-full ${healthStatus.backend === true ? 'bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.5)]' : healthStatus.backend === false ? 'bg-destructive shadow-[0_0_4px_rgba(239,68,68,0.5)]' : 'bg-muted-foreground'}`} />
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p className="text-[10px]">Backend: {healthStatus.backend === true ? 'Connected' : healthStatus.backend === false ? 'Error' : 'Checking...'}</p>
-        </TooltipContent>
-      </Tooltip>
-      <div className="w-[1px] h-2 bg-border/30 mx-0.5" />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex items-center gap-1 cursor-help">
-            <Database className={`h-2.5 w-2.5 ${healthStatus.database === true ? 'text-green-500' : healthStatus.database === false ? 'text-destructive' : 'text-muted-foreground'}`} />
-            <div className={`h-1 w-1 rounded-full ${healthStatus.database === true ? 'bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.5)]' : healthStatus.database === false ? 'bg-destructive shadow-[0_0_4px_rgba(239,68,68,0.5)]' : 'bg-muted-foreground'}`} />
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p className="text-[10px]">Database: {healthStatus.database === true ? 'Connected' : healthStatus.database === false ? 'Error' : 'Checking...'}</p>
-        </TooltipContent>
-      </Tooltip>
+    <div className="fixed bottom-4 left-4 z-[100] flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur-md rounded-full border border-border/50 shadow-lg opacity-60 hover:opacity-100 transition-all group">
+      <div className="flex items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1.5 cursor-help">
+              <Server className={`h-3 w-3 ${healthStatus.backend === true ? 'text-green-500' : healthStatus.backend === false ? 'text-destructive' : 'text-muted-foreground'}`} />
+              <div className={`h-1.5 w-1.5 rounded-full ${healthStatus.backend === true ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : healthStatus.backend === false ? 'bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'bg-muted-foreground'}`} />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-[11px]">
+            Backend: {healthStatus.backend === true ? 'Connected' : healthStatus.backend === false ? 'Error' : 'Checking...'}
+          </TooltipContent>
+        </Tooltip>
+        
+        <div className="w-[1px] h-3 bg-border/50" />
+        
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1.5 cursor-help">
+              <Database className={`h-3 w-3 ${healthStatus.database === true ? 'text-green-500' : healthStatus.database === false ? 'text-destructive' : 'text-muted-foreground'}`} />
+              <div className={`h-1.5 w-1.5 rounded-full ${healthStatus.database === true ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : healthStatus.database === false ? 'bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'bg-muted-foreground'}`} />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-[11px]">
+            Database: {healthStatus.database === true ? 'Connected' : healthStatus.database === false ? 'Error' : 'Checking...'}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+
+      {healthStatus.timestamp && (
+        <>
+          <div className="w-[1px] h-3 bg-border/50" />
+          <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap tabular-nums">
+            Build: {new Date(healthStatus.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </span>
+        </>
+      )}
     </div>
   );
 }
