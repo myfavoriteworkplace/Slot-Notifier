@@ -458,6 +458,11 @@ export default function Dashboard() {
                           {format(new Date(booking.slot.startTime), "h:mm a")} - {format(new Date(booking.slot.endTime), "h:mm a")}
                         </span>
                       </div>
+                      {booking.description && (
+                        <div className="text-xs text-muted-foreground italic line-clamp-2 bg-muted/50 p-2 rounded-md mt-2 border border-border/30">
+                          "{booking.description}"
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))

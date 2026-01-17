@@ -78,11 +78,30 @@ export default function ClinicDashboard() {
   const [bookingName, setBookingName] = useState("");
   const [bookingPhone, setBookingPhone] = useState("");
   const [bookingEmail, setBookingEmail] = useState("");
+  const [bookingDescription, setBookingDescription] = useState("");
   const [bookingDate, setBookingDate] = useState<Date>(startOfToday());
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState("");
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [slotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
+
+  const CHIEF_COMPLAINTS = [
+    "Toothache", "Cavities", "Sensitivity", "Swelling", 
+    "Bleeding", "Abscess", "Fracture", "Wisdom", 
+    "Infection", "Checkup"
+  ];
+
+  const handleComplaintClick = (complaint: string) => {
+    const currentComplaints = bookingDescription ? bookingDescription.split(", ").filter(Boolean) : [];
+    let newDescription = "";
+    
+    if (currentComplaints.includes(complaint)) {
+      newDescription = currentComplaints.filter(c => c !== complaint).join(", ");
+    } else {
+      newDescription = [...currentComplaints, complaint].join(", ");
+    }
+    setBookingDescription(newDescription);
+  };
 
   // Slot Configuration state
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -181,6 +200,7 @@ export default function ClinicDashboard() {
     setBookingName("");
     setBookingPhone("");
     setBookingEmail("");
+    setBookingDescription("");
     setBookingDate(startOfToday());
     setSelectedSlot(null);
     setPhoneError("");
@@ -291,7 +311,8 @@ export default function ClinicDashboard() {
       clinicId: clinic.id,
       clinicName: clinic.name,
       startTime: startTime.toISOString(),
-      endTime: endTime.toISOString()
+      endTime: endTime.toISOString(),
+      description: bookingDescription
     });
   };
 
@@ -803,6 +824,37 @@ export default function ClinicDashboard() {
                       </div>
                     </div>
 
+                    {/* Chief Complaints Section */}
+                    <div className="space-y-3 py-2">
+                      <Label className="text-sm font-semibold text-left block">CHIEF COMPLAINTS</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {CHIEF_COMPLAINTS.map((complaint) => {
+                          const isSelected = bookingDescription.split(", ").includes(complaint);
+                          return (
+                            <Badge
+                              key={complaint}
+                              variant={isSelected ? "default" : "outline"}
+                              className="cursor-pointer transition-all hover:scale-105 active:scale-95 px-3 py-1"
+                              onClick={() => handleComplaintClick(complaint)}
+                            >
+                              {complaint}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="booking-description" className="text-left block">Description</Label>
+                      <textarea
+                        id="booking-description"
+                        value={bookingDescription}
+                        onChange={(e) => setBookingDescription(e.target.value)}
+                        placeholder="Describe patient issue..."
+                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </div>
+
                     {/* Date Selection */}
                     <div className="space-y-2">
                       <Label className="text-left block">Select Date</Label>
@@ -1099,9 +1151,16 @@ export default function ClinicDashboard() {
                       <div className="flex justify-between items-start gap-2">
                         <div className="text-left">
                           <CardTitle className="text-lg text-left">{booking.customerName}</CardTitle>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 text-left">
-                            <Phone className="h-3 w-3" />
-                            {booking.customerPhone}
+                          <div className="flex flex-col gap-1 mt-1">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground text-left">
+                              <Phone className="h-3 w-3" />
+                              {booking.customerPhone}
+                            </div>
+                            {booking.description && (
+                              <div className="text-xs text-muted-foreground italic line-clamp-2 bg-muted/50 p-2 rounded-md mt-2 border border-border/30">
+                                "{booking.description}"
+                              </div>
+                            )}
                           </div>
                         </div>
                         <Badge variant="outline" className="bg-background">
