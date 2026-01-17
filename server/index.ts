@@ -1,4 +1,12 @@
 import express, { type Request, Response, NextFunction } from "express";
+import * as dotenv from "dotenv";
+import path from "path";
+
+// Load environment variables early for production build
+if (process.env.NODE_ENV === "production") {
+  dotenv.config();
+}
+
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
