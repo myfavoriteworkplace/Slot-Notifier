@@ -493,39 +493,44 @@ export default function Admin() {
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-4xl">
-      <div className="mb-6 sm:mb-8 flex justify-between items-start">
+      <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl sm:text-3xl font-bold">Admin Panel</h1>
-            {user && (
-              <Badge variant="outline" className="text-xs font-normal">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-1">Admin Panel</h1>
+          {user && (
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant="secondary" className="text-xs font-medium px-2 py-0.5">
                 {user.email}
               </Badge>
-            )}
-          </div>
+            </div>
+          )}
           <p className="text-sm sm:text-base text-muted-foreground">Manage clinics and application settings</p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-3 py-1.5 border rounded-lg bg-card text-sm">
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-card/50 text-sm">
             <span className="text-muted-foreground font-medium">Server Status</span>
             <a 
               href={`${API_BASE_URL}/api/health`} 
               target="_blank" 
               rel="noreferrer"
-              className="text-xs text-primary hover:underline"
+              className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
             >
+              <FlaskConical className="h-3 w-3" />
               Check Health
             </a>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 border rounded-lg bg-card text-sm">
+          
+          <div className="flex items-center gap-3 px-3 py-1.5 border rounded-md bg-card/50 text-sm">
             <span className="text-muted-foreground font-medium">Server Logs</span>
             <Switch 
               checked={logsEnabled} 
               onCheckedChange={toggleLogs}
               data-testid="switch-server-logs"
+              className="scale-75 origin-right"
             />
           </div>
-          <Button variant="outline" size="sm" onClick={handleAdminLogout} data-testid="button-admin-logout">
+          
+          <Button variant="outline" size="sm" onClick={handleAdminLogout} data-testid="button-admin-logout" className="h-9">
             <LogOut className="h-4 w-4 mr-2" />
             Logout
           </Button>
