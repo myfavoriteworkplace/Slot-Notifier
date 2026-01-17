@@ -89,7 +89,13 @@ function HealthIndicator() {
         <>
           <div className="w-[1px] h-3 bg-border/50" />
           <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap tabular-nums">
-            Build: {new Date(healthStatus.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            Build: {new Date(healthStatus.timestamp).toLocaleString([], { 
+              month: 'short', 
+              day: '2-digit',
+              hour: '2-digit', 
+              minute: '2-digit', 
+              second: '2-digit' 
+            })}
           </span>
         </>
       )}
