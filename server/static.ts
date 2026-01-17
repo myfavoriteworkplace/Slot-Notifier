@@ -16,24 +16,27 @@ export function serveStatic(app: Express) {
     distPath = path.resolve(process.cwd(), "dist", "public");
   }
   
-  console.log(`[SYSTEM] Environment: ${isRender ? "Render" : isReplit ? "Replit" : "Development"}`);
+  console.log(`[SYSTEM] Environment Detection: Render=${isRender}, Replit=${isReplit}`);
   console.log(`[SYSTEM] Initial static path check: ${distPath}`);
   
   if (!fs.existsSync(distPath)) {
     const cwdPublic = path.resolve(process.cwd(), "public");
     const distDistPublic = path.resolve(process.cwd(), "dist", "public");
     const replitPublic = path.resolve("/", "home", "runner", "workspace", "dist", "public");
+    const relativeDistPublic = path.resolve("dist", "public");
     
     if (fs.existsSync(distDistPublic)) {
       distPath = distDistPublic;
     } else if (fs.existsSync(cwdPublic)) {
       distPath = cwdPublic;
-    } else if (isReplit && fs.existsSync(replitPublic)) {
+    } else if (fs.existsSync(replitPublic)) {
       distPath = replitPublic;
+    } else if (fs.existsSync(relativeDistPublic)) {
+      distPath = relativeDistPublic;
     }
   }
 
-  console.log(`[SYSTEM] Final static assets path: ${distPath}`);
+  console.log(`[SYSTEM] Final resolved static assets path: ${distPath}`);
 
   if (fs.existsSync(distPath)) {
     // Standard static serving
@@ -42,32 +45,31 @@ export function serveStatic(app: Express) {
       index: false
     }));
 
-    // Explicit fallback for assets directory
+    // Explicit fallback for assets directory to ensure they are found
     const assetsPath = path.resolve(distPath, "assets");
     if (fs.existsSync(assetsPath)) {
-      console.log(`[SYSTEM] Explicitly serving assets from: ${assetsPath}`);
+      console.log(`[SYSTEM] Found assets directory at: ${assetsPath}`);
       app.use("/assets", express.static(assetsPath, {
         maxAge: '1y',
         immutable: true,
         fallthrough: false
       }));
+    } else {
+      console.warn(`[SYSTEM] Assets directory NOT found at: ${assetsPath}`);
     }
 
     setupCatchAll(app, distPath);
   } else {
-    console.error(`[CRITICAL ERROR] All static asset paths failed. CWD: ${process.cwd()}`);
-    if (isReplit) {
-      console.log("[DEBUG] Checking Replit workspace structure...");
-      try {
-        const workspace = "/home/runner/workspace";
-        if (fs.existsSync(workspace)) {
-          console.log(`[DEBUG] Workspace contents: ${fs.readdirSync(workspace)}`);
-          const workspaceDist = path.join(workspace, "dist");
-          if (fs.existsSync(workspaceDist)) {
-            console.log(`[DEBUG] Workspace dist contents: ${fs.readdirSync(workspaceDist)}`);
-          }
-        }
-      } catch (e) {}
+    console.error(`[CRITICAL ERROR] All static asset paths failed. Current Working Directory: ${process.cwd()}`);
+    // Diagnostic listing
+    try {
+      const rootEntries = fs.readdirSync(process.cwd());
+      console.log(`[DEBUG] CWD Root contents: ${JSON.stringify(rootEntries)}`);
+      if (rootEntries.includes('dist')) {
+        console.log(`[DEBUG] dist/ contents: ${JSON.stringify(fs.readdirSync(path.join(process.cwd(), 'dist')))}`);
+      }
+    } catch (e) {
+      console.error(`[DEBUG] Failed to list directories: ${e}`);
     }
   }
 }
@@ -80,7 +82,7 @@ function setupCatchAll(app: Express, distPath: string) {
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
       } else {
-        console.error(`[ERROR] Catch-all could not find index.html at ${indexPath}`);
+        console.error(`[ERROR] SPA Fallback failed: index.html not found at ${indexPath}`);
         next();
       }
       return;
