@@ -89,7 +89,7 @@ Deployment on Render is split into three parts: Database, Backend, and Frontend.
 
 ## 💻 Local Development & Production Setup
 
-For a deep dive into running the app locally in a production-like environment (similar to Render), please refer to our dedicated guide:
+For a deep dive into running the app locally in a production-like environment (similar to Render), including **Docker** setup for the database, please refer to our dedicated guide:
 
 👉 **[LOCAL_DEPLOYMENT.md](./LOCAL_DEPLOYMENT.md)**
 
