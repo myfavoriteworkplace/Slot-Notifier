@@ -260,8 +260,11 @@ export async function registerRoutes(
       }
     });
 
-    // Health check endpoint
+    // Health check endpoint - MUST be before any catch-all routes
     app.get("/api/health", async (req, res) => {
+      // Force JSON content type and clear any previous headers
+      res.removeHeader('Content-Type');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
@@ -274,7 +277,7 @@ export async function registerRoutes(
         const isDbConnected = !!result;
         console.log(`[HEALTH-CHECK] Database connection: ${isDbConnected ? 'OK' : 'FAILED'}`);
         
-        res.json({ 
+        return res.status(200).json({ 
           status: "ok", 
           backend: true, 
           database: isDbConnected,
@@ -286,7 +289,7 @@ export async function registerRoutes(
         });
       } catch (err: any) {
         console.error("[HEALTH-CHECK ERROR] Diagnostic failed:", err);
-        res.status(500).json({ 
+        return res.status(500).json({ 
           status: "error", 
           backend: true, 
           database: false,
@@ -300,7 +303,6 @@ export async function registerRoutes(
     app.get("/api/test-connectivity", async (req, res) => {
       console.log(`[CONNECTIVITY-TEST] Postman test triggered from ${req.ip} at ${new Date().toISOString()}`);
       
-      // Clear any headers that might have been set by middleware
       res.removeHeader('Content-Type');
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -309,7 +311,7 @@ export async function registerRoutes(
         const dbResult = await db.execute(sql`SELECT NOW() as db_time`);
         const rows = (dbResult.rows || dbResult) as any[];
         
-        return res.status(200).send(JSON.stringify({
+        return res.status(200).json({
           status: "success",
           message: "Backend is reachable and database is connected",
           timestamp: new Date().toISOString(),
@@ -331,16 +333,16 @@ export async function registerRoutes(
             REPL_ID: !!process.env.REPL_ID,
             PORT: process.env.PORT
           }
-        }));
+        });
       } catch (error: any) {
         console.error("[CONNECTIVITY-TEST ERROR]", error);
-        return res.status(500).send(JSON.stringify({
+        return res.status(500).json({
           status: "error",
           message: "Connectivity test failed",
           error: error.message,
           timestamp: new Date().toISOString(),
           details: "Check Render logs for full stack trace"
-        }));
+        });
       }
     });
   } else {
