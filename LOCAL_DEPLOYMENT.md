@@ -48,9 +48,9 @@ ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=admin_password123
 
 # URLs & Networking
-PORT=5000
-FRONTEND_URL=http://localhost:5000
-VITE_API_URL=http://localhost:5000
+PORT=5001
+FRONTEND_URL=http://localhost:5001
+VITE_API_URL=http://localhost:5001
 
 # Environment Mode
 NODE_ENV=production
@@ -72,15 +72,15 @@ To test exactly like Render, follow these steps:
    ```bash
    npm run start
    ```
-   *The application will be accessible at `http://localhost:5000`.*
+   *The application will be accessible at `http://localhost:5001`.*
 
 ---
 
 ## 🧪 Testing the Flow
 
-1. **Admin Access**: Navigate to `http://localhost:5000/login` and use your `ADMIN_EMAIL` credentials.
+1. **Admin Access**: Navigate to `http://localhost:5001/login` and use your `ADMIN_EMAIL` credentials.
 2. **Clinic Creation**: Create a new clinic in the admin dashboard.
-3. **Clinic Access**: Navigate to `http://localhost:5000/clinic-login` and use the credentials you just created.
+3. **Clinic Access**: Navigate to `http://localhost:5001/clinic-login` and use the credentials you just created.
 4. **Public Booking**: Navigate to the home page and book a slot to verify the end-to-end flow.
 
 ## 📝 Troubleshooting
