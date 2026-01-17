@@ -11,7 +11,74 @@ import { Resend } from 'resend';
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
 
-// ... (sendBookingEmails and sendCancellationEmail functions remain the same)
+async function sendBookingEmails(customerEmail: string, customerName: string, clinicEmail: string | null, clinicName: string, startTime: Date) {
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Resend not configured.`);
+    console.log(`[EMAIL MOCK] To Customer: ${customerEmail}, Subject: Booking Confirmed`);
+    if (clinicEmail) console.log(`[EMAIL MOCK] To Clinic: ${clinicEmail}, Subject: New Booking`);
+    return;
+  }
+  
+  const formattedTime = startTime.toLocaleString();
+
+  try {
+    // Send to Customer
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: customerEmail,
+      subject: 'Booking Confirmed - BookMySlot',
+      html: `
+        <h2>Booking Confirmed</h2>
+        <p>Dear ${customerName},</p>
+        <p>Your appointment at <strong>${clinicName}</strong> for <strong>${formattedTime}</strong> has been successfully booked.</p>
+        <p>Thank you for choosing BookMySlot!</p>
+      `
+    });
+
+    // Send to Clinic if email exists
+    if (clinicEmail) {
+      await resend.emails.send({
+        from: EMAIL_FROM,
+        to: clinicEmail,
+        subject: 'New Booking Received - BookMySlot',
+        html: `
+          <h2>New Booking Received</h2>
+          <p>A new appointment has been booked for <strong>${formattedTime}</strong>.</p>
+          <p><strong>Customer:</strong> ${customerName}</p>
+          <p>Please check your dashboard for details.</p>
+        `
+      });
+    }
+    console.log(`[EMAIL] Booking confirmation emails sent`);
+  } catch (error) {
+    console.error('[EMAIL ERROR] Failed to send booking emails:', error);
+  }
+}
+
+async function sendCancellationEmail(email: string, name: string, date: Date, clinic: string) {
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Resend not configured. To: ${email}, Subject: Booking Cancelled`);
+    return;
+  }
+  
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: email,
+      subject: 'Appointment Cancellation - BookMySlot',
+      html: `
+        <h2>Appointment Cancelled</h2>
+        <p>Dear ${name},</p>
+        <p>Your appointment at <strong>${clinic}</strong> scheduled for <strong>${date.toLocaleString()}</strong> has been cancelled.</p>
+        <p>If you have any questions, please contact the clinic directly.</p>
+        <p>Best regards,<br/>The BookMySlot Team</p>
+      `
+    });
+    console.log(`[EMAIL] Cancellation email sent to ${email}`);
+  } catch (error) {
+    console.error('[EMAIL ERROR] Failed to send cancellation email:', error);
+  }
+}
 
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   // Global bypass for demo super admin if session is marked
@@ -272,7 +339,7 @@ export async function registerRoutes(
   
   // Claim superuser status if no superusers exist (one-time setup)
   app.post("/api/claim-superuser", isAuthenticated, async (req, res) => {
-    const user = req.user as any;
+    const user = (req as any).user;
     const userId = user.claims.sub;
     
     // Check if any superuser exists
@@ -316,7 +383,7 @@ export async function registerRoutes(
   });
 
   app.post(api.slots.create.path, isAuthenticated, async (req, res) => {
-    const user = req.user as any;
+    const user = (req as any).user;
     try {
       const input = api.slots.create.input.parse(req.body);
       logger(`User ${user.claims.sub} creating slot for clinic ${input.clinicName}`, 'SLOTS');
@@ -336,7 +403,7 @@ export async function registerRoutes(
   });
 
   app.delete(api.slots.delete.path, isAuthenticated, async (req, res) => {
-    const user = req.user as any;
+    const user = (req as any).user;
     const slotId = parseInt(req.params.id);
     logger(`User ${user.claims.sub} attempting to delete slot ${slotId}`, 'SLOTS');
     const slot = await storage.getSlot(slotId);
@@ -351,7 +418,7 @@ export async function registerRoutes(
 
   // Bookings API
   app.post(api.bookings.create.path, isAuthenticated, async (req, res) => {
-    const user = req.user as any;
+    const user = (req as any).user;
     try {
       const input = api.bookings.create.input.parse(req.body);
       logger(`Booking creation started by ${user.claims.sub} for clinic ${(input as any).clinicId}`, 'BOOKING');
@@ -410,7 +477,7 @@ export async function registerRoutes(
 
   // Clinics API
   app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
-    const user = req.user as any;
+    const user = (req as any).user;
     const isSuperuser = user.claims.sub === 'admin'
       || (await storage.getUser(user.claims.sub))?.role === 'superuser';
     if (!isSuperuser) {
@@ -434,7 +501,7 @@ export async function registerRoutes(
   });
 
   app.patch(api.clinics.archive.path, isAuthenticated, async (req, res) => {
-    const user = req.user as any;
+    const user = (req as any).user;
     const isSuperuser = user.claims.sub === 'admin'
       || (await storage.getUser(user.claims.sub))?.role === 'superuser';
     if (!isSuperuser) return res.status(403).json({ message: "Only super users can archive clinics" });
