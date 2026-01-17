@@ -64,11 +64,17 @@ export function serveStatic(app: Express) {
 }
 
 function setupCatchAll(app: Express, distPath: string) {
-  app.use((req, res, next) => {
-    if (req.path.startsWith("/api")) return next();
+  app.get("*", (req, res, next) => {
+    // Explicitly ignore API routes in the catch-all
+    if (req.path.startsWith("/api/")) {
+      console.log(`[STATIC] API route not found: ${req.method} ${req.path}`);
+      return res.status(404).json({ message: "API route not found" });
+    }
+    
     if (req.method === "GET") {
       const indexPath = path.resolve(distPath, "index.html");
       if (fs.existsSync(indexPath)) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.sendFile(indexPath);
       } else {
         const fallbackIndex = path.resolve(process.cwd(), "dist", "public", "index.html");

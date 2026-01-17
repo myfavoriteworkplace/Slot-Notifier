@@ -302,7 +302,11 @@ export async function registerRoutes(
       try {
         const dbResult = await db.execute(sql`SELECT NOW() as db_time`);
         const rows = (dbResult.rows || dbResult) as any[];
-        res.json({
+        
+        // Ensure we send JSON response explicitly
+        res.setHeader('Content-Type', 'application/json');
+        return res.status(200).json({
+          status: "success",
           message: "Backend is reachable and database is connected",
           timestamp: new Date().toISOString(),
           render_url: "https://book-my-slot-client.onrender.com",
@@ -326,7 +330,8 @@ export async function registerRoutes(
         });
       } catch (error: any) {
         console.error("[CONNECTIVITY-TEST ERROR]", error);
-        res.status(500).json({
+        return res.status(500).json({
+          status: "error",
           message: "Connectivity test failed",
           error: error.message,
           timestamp: new Date().toISOString(),
