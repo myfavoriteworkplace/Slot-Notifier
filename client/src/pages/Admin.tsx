@@ -116,6 +116,16 @@ export default function Admin() {
       return res.json();
     },
     onSuccess: async (clinic) => {
+      // For demo mode, we need to ensure the local state is consistent
+      if (localStorage.getItem("demo_super_admin") === "true") {
+        // The clinic is already in localStorage from mutationFn
+        await queryClient.setQueryData(['/api/clinics', { includeArchived: true }], (old: Clinic[] | undefined) => {
+          if (!old) return [clinic];
+          if (old.find(c => c.id === clinic.id)) return old;
+          return [...old, clinic];
+        });
+      }
+
       if (newClinicUsername && newClinicPassword) {
         await setCredentialsMutation.mutateAsync({ 
           clinicId: clinic.id, 
@@ -125,13 +135,12 @@ export default function Admin() {
       }
       // Explicitly trigger a re-fetch and invalidate all clinic queries
       await queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      await queryClient.refetchQueries({ queryKey: ['/api/clinics'] });
       
       setNewClinicName("");
       setNewClinicAddress("");
       setNewClinicUsername("");
       setNewClinicPassword("");
-      toast({ title: "Clinic added successfully (Demo)" });
+      toast({ title: "Clinic added successfully" });
     },
     onError: (error: any) => {
       toast({ 
@@ -455,6 +464,9 @@ export default function Admin() {
 
   const activeClinics = Array.isArray(clinics) ? clinics.filter(c => !c.isArchived) : [];
   const archivedClinics = Array.isArray(clinics) ? clinics.filter(c => c.isArchived) : [];
+
+  console.log("Clinics data:", clinics);
+  console.log("Active clinics:", activeClinics);
 
   const handleAddClinic = () => {
     if (!newClinicName.trim()) {

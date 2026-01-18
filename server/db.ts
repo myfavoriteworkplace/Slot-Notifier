@@ -67,9 +67,11 @@ export async function ensureSessionTable() {
         CREATE INDEX "IDX_session_expire" ON "session" ("expire");
       `);
     }
-    
-    console.log("[DATABASE] Session table verified/created successfully");
-  } catch (err) {
+  } catch (err: any) {
+    if (err.code === '42P07') {
+      console.log("[DATABASE] Session index already exists, skipping");
+      return;
+    }
     console.error("[DATABASE] Error ensuring session table:", err);
   }
 }
