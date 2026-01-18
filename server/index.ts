@@ -27,11 +27,11 @@ app.use(
       createTableIfMissing: false,
     }),
     secret: sessionSecret,
-    resave: true, // Ensure session is saved back to store
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true, // Changed to true to ensure session is initialized
     cookie: {
-      secure: false, // Force false for local testing and standard HTTP
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      secure: false, 
+      maxAge: 30 * 24 * 60 * 60 * 1000, 
       httpOnly: true,
       sameSite: 'lax',
     },
@@ -52,7 +52,7 @@ app.use(cors({
 
     const allowedOrigins = FRONTEND_URL.split(",").map(url => url.trim());
     // In production, especially on Render, we need to allow both the frontend domain and potentially same-site requests
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes("*") || !origin || origin.includes("replit") || origin.includes("onrender")) {
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes("*") || !origin || origin.includes("replit") || origin.includes("onrender") || origin.includes("localhost")) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
