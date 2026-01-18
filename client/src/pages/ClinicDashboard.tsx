@@ -1214,14 +1214,14 @@ export default function ClinicDashboard() {
                           <div className="space-y-3">
                             <div className="flex items-start gap-3">
                               <CalendarIcon className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                              <div>
+                              <div className="text-left">
                                 <p className="text-sm font-semibold">Date</p>
                                 <p className="text-sm text-muted-foreground">{format(new Date(booking.slot.startTime), "EEEE, MMMM do, yyyy")}</p>
                               </div>
                             </div>
                             <div className="flex items-start gap-3">
                               <Clock className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                              <div>
+                              <div className="text-left">
                                 <p className="text-sm font-semibold">Time Slot</p>
                                 <p className="text-sm text-muted-foreground">
                                   {format(new Date(booking.slot.startTime), "h:mm a")} - {format(new Date(booking.slot.endTime), "h:mm a")}
@@ -1231,7 +1231,7 @@ export default function ClinicDashboard() {
                             {booking.customerEmail && (
                               <div className="flex items-start gap-3">
                                 <Mail className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                                <div>
+                                <div className="text-left">
                                   <p className="text-sm font-semibold">Email</p>
                                   <p className="text-sm text-muted-foreground">{booking.customerEmail}</p>
                                 </div>
@@ -1267,7 +1267,7 @@ export default function ClinicDashboard() {
                         
                         <Separator />
                           
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-muted-foreground text-left">
                             Booked on {booking.createdAt ? format(new Date(booking.createdAt), "MMM d, yyyy 'at' h:mm a") : "N/A"}
                           </div>
                         </div>
