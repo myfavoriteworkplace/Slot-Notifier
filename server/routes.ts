@@ -215,7 +215,14 @@ export async function registerRoutes(
 
     // Test email endpoint
     app.get("/api/test-email", async (req, res) => {
-      const targetEmail = (req.query.email as string) || "itsmyfavoriteworkplace@gmail.com";
+      const targetEmail = (req.query.email as string);
+      
+      if (!targetEmail) {
+        return res.status(400).json({ 
+          error: "Missing email parameter", 
+          usage: "GET /api/test-email?email=your@email.com" 
+        });
+      }
       
       console.log(`[EMAIL TEST] Attempting to send test email to ${targetEmail}`);
       
