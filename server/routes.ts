@@ -201,56 +201,8 @@ export async function registerRoutes(
     next();
   });
 
-    // Separate Health check for Backend
-    app.get("/api/health/backend", (req, res) => {
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-      
-      const response = {
-        status: "ok",
-        backend: true,
-        env: process.env.NODE_ENV,
-        timestamp: new Date().toISOString()
-      };
-      
-      console.log(`[API-RESPONSE] /api/health/backend: ${JSON.stringify(response)}`);
-      return res.status(200).json(response);
-    });
-
-    // Separate Health check for Database
-    app.get("/api/health/database", async (req, res) => {
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-      
-      try {
-        const result = await db.execute(sql`SELECT 1 as val`);
-        const isDbConnected = !!result;
-        
-        const response = {
-          status: isDbConnected ? "ok" : "error",
-          database: isDbConnected,
-          timestamp: new Date().toISOString()
-        };
-        
-        console.log(`[API-RESPONSE] /api/health/database: ${JSON.stringify(response)}`);
-        return res.status(200).json(response);
-      } catch (err: any) {
-        console.error("[DATABASE-HEALTH-ERROR]", err);
-        return res.status(500).json({
-          status: "error",
-          database: false,
-          error: err.message,
-          timestamp: new Date().toISOString()
-        });
-      }
-    });
-
     // Health check endpoint
-    app.get("/api/health", async (req, res) => {
+    app.all("/api/health", async (req, res) => {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
@@ -278,6 +230,90 @@ export async function registerRoutes(
           backend: true, 
           database: false,
           deployment: "render",
+          error: err.message,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    app.all("/api/health/backend", (req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      
+      const response = {
+        status: "ok",
+        backend: true,
+        env: process.env.NODE_ENV,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log(`[API-RESPONSE] /api/health/backend: ${JSON.stringify(response)}`);
+      return res.status(200).json(response);
+    });
+
+    app.all("/api/health/database", async (req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      
+      try {
+        const result = await db.execute(sql`SELECT 1 as val`);
+        const isDbConnected = !!result;
+        
+        const response = {
+          status: isDbConnected ? "ok" : "error",
+          database: isDbConnected,
+          timestamp: new Date().toISOString()
+        };
+        
+        console.log(`[API-RESPONSE] /api/health/database: ${JSON.stringify(response)}`);
+        return res.status(200).json(response);
+      } catch (err: any) {
+        console.error("[DATABASE-HEALTH-ERROR]", err);
+        return res.status(500).json({
+          status: "error",
+          database: false,
+          error: err.message,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    app.all("/api/health/backend", (req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      
+      const response = {
+        status: "ok",
+        backend: true,
+        env: process.env.NODE_ENV,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log(`[API-RESPONSE] /api/health/backend: ${JSON.stringify(response)}`);
+      return res.status(200).json(response);
+    });
+
+    app.all("/api/health/database", async (req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      
+      try {
+        const result = await db.execute(sql`SELECT 1 as val`);
+        const isDbConnected = !!result;
+        
+        const response = {
+          status: isDbConnected ? "ok" : "error",
+          database: isDbConnected,
+          timestamp: new Date().toISOString()
+        };
+        
+        console.log(`[API-RESPONSE] /api/health/database: ${JSON.stringify(response)}`);
+        return res.status(200).json(response);
+      } catch (err: any) {
+        console.error("[DATABASE-HEALTH-ERROR]", err);
+        return res.status(500).json({
+          status: "error",
+          database: false,
           error: err.message,
           timestamp: new Date().toISOString()
         });

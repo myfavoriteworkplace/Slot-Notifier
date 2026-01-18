@@ -147,7 +147,7 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || "5000", 10);
   console.log(`[SYSTEM] Starting server on port ${port} with NODE_ENV=${process.env.NODE_ENV}`);
   
-  // Register routes BEFORE static file serving
+  // register routes first
   await registerRoutes(httpServer, app);
 
   // Serve static files AFTER routes
@@ -159,13 +159,32 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // 404 handler for API routes that weren't matched
+  // Final 404 handler for API routes that weren't matched
   app.use("/api/*", (req, res) => {
     res.status(404).json({ 
       message: "API endpoint not found",
       path: req.originalUrl,
       method: req.method
     });
+  });
+
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    
+    // Detailed error logging
+    console.error(`[ERROR] ${new Date().toISOString()} - ${status}: ${message}`);
+    console.error(`[ERROR DETAILS] Method: ${_req.method}, Path: ${_req.path}`);
+    if (_req.body && Object.keys(_req.body).length > 0) {
+      const sanitizedBody = { ..._req.body };
+      if (sanitizedBody.password) sanitizedBody.password = "********";
+      console.error(`[ERROR BODY] ${JSON.stringify(sanitizedBody)}`);
+    }
+    if (err.stack) {
+      console.error(`[ERROR STACK] ${err.stack}`);
+    }
+
+    res.status(status).json({ message, details: process.env.NODE_ENV === 'development' ? err.stack : undefined });
   });
 
   httpServer.listen(
