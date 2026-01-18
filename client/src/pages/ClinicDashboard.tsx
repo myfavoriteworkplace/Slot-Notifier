@@ -348,7 +348,7 @@ export default function ClinicDashboard() {
               customerPhone: "+91 987654321" + (i % 10),
               customerEmail: `patient${i}@example.com`,
               verificationStatus: "verified",
-              description: "Regular dental checkup and cleaning. Toothache and Sensitivity issues noted.",
+              description: "Toothache, Sensitivity. Regular dental checkup and cleaning.",
               slot: {
                 id: i,
                 clinicId: 999,
@@ -362,7 +362,7 @@ export default function ClinicDashboard() {
               createdAt: new Date(),
               customerId: null,
               verificationCode: null,
-              verificationExpiresAt: null
+              verificationExpiresAt: null,
             } as BookingWithSlot);
           }
         }
@@ -1239,22 +1239,32 @@ export default function ClinicDashboard() {
 
                           {booking.description && (
                             <div className="space-y-2">
-                              <div className="text-[10px] uppercase font-bold text-muted-foreground">Chief Complaints</div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {booking.description.split(", ").filter(complaint => 
-                                  CHIEF_COMPLAINTS.includes(complaint)
-                                ).map((complaint, idx) => (
-                                  <Badge key={idx} variant="secondary" className="text-[10px] py-0 px-2 h-5 bg-primary/10 text-primary border-primary/20">
-                                    {complaint}
-                                  </Badge>
-                                ))}
-                                {booking.description.split(", ").filter(complaint => 
-                                  !CHIEF_COMPLAINTS.includes(complaint)
-                                ).length > 0 && (
-                                  <Badge variant="outline" className="text-[10px] py-0 px-2 h-5">
-                                    Other
-                                  </Badge>
-                                )}
+                              <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                                <FlaskConical className="h-3 w-3" /> Chief Complaints
+                              </div>
+                              <div className="flex flex-wrap gap-1.5 p-1">
+                                {(() => {
+                                  const parts = booking.description.split(/[,.]/).map(p => p.trim()).filter(Boolean);
+                                  const matched = parts.filter(p => CHIEF_COMPLAINTS.some(c => c.toLowerCase() === p.toLowerCase()));
+                                  const unmatched = parts.filter(p => !CHIEF_COMPLAINTS.some(c => c.toLowerCase() === p.toLowerCase()));
+                                  
+                                  return (
+                                    <>
+                                      {matched.length > 0 ? matched.map((complaint, idx) => (
+                                        <Badge key={idx} variant="secondary" className="text-[10px] py-0 px-2 h-5 bg-primary/10 text-primary border-primary/20">
+                                          {complaint}
+                                        </Badge>
+                                      )) : (
+                                        <span className="text-xs text-muted-foreground italic">None identified in description</span>
+                                      )}
+                                      {unmatched.length > 0 && (
+                                        <Badge variant="outline" className="text-[10px] py-0 px-2 h-5">
+                                          Other Detail
+                                        </Badge>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
                           )}
