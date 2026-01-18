@@ -95,6 +95,7 @@ export default function Admin() {
 
   const createClinicMutation = useMutation({
     mutationFn: async (data: { name: string; address: string }) => {
+      console.log("[ADMIN-DEBUG] Adding clinic:", data);
       if (localStorage.getItem("demo_super_admin") === "true") {
         const newClinic: Clinic = {
           id: Math.floor(Math.random() * 10000) + 1000,
@@ -116,6 +117,7 @@ export default function Admin() {
       return res.json();
     },
     onSuccess: async (clinic) => {
+      console.log("[ADMIN-DEBUG] Clinic added success:", clinic);
       // For demo mode, we need to ensure the local state is consistent
       if (localStorage.getItem("demo_super_admin") === "true") {
         // The clinic is already in localStorage from mutationFn
@@ -127,6 +129,7 @@ export default function Admin() {
       }
 
       if (newClinicUsername && newClinicPassword) {
+        console.log("[ADMIN-DEBUG] Setting credentials for new clinic");
         await setCredentialsMutation.mutateAsync({ 
           clinicId: clinic.id, 
           username: newClinicUsername, 
@@ -143,6 +146,7 @@ export default function Admin() {
       toast({ title: "Clinic added successfully" });
     },
     onError: (error: any) => {
+      console.error("[ADMIN-ERROR] Failed to add clinic:", error);
       toast({ 
         title: "Failed to add clinic", 
         description: error.message || "Only super users can add clinics",
@@ -153,6 +157,7 @@ export default function Admin() {
 
   const setCredentialsMutation = useMutation({
     mutationFn: async (data: { clinicId: number; username: string; password: string }) => {
+      console.log(`[ADMIN-DEBUG] Updating credentials for clinic ${data.clinicId}:`, { username: data.username });
       if (localStorage.getItem("demo_super_admin") === "true") {
         const demoClinicsRaw = localStorage.getItem("demo_clinics");
         if (demoClinicsRaw) {
@@ -174,20 +179,23 @@ export default function Admin() {
           }
         }
       }
-      return apiRequest('PATCH', `/api/clinics/${data.clinicId}/credentials`, {
+      const res = await apiRequest('PATCH', `/api/clinics/${data.clinicId}/credentials`, {
         username: data.username,
         password: data.password,
       });
+      return res.json();
     },
     onSuccess: () => {
+      console.log("[ADMIN-DEBUG] Credentials updated success");
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
       setCredentialsDialogOpen(false);
       setSelectedClinic(null);
       setEditUsername("");
       setEditPassword("");
-      toast({ title: "Credentials updated successfully (Demo)" });
+      toast({ title: "Credentials updated successfully" });
     },
     onError: (error: any) => {
+      console.error("[ADMIN-ERROR] Failed to set credentials:", error);
       toast({ 
         title: "Failed to set credentials", 
         description: error.message,
