@@ -348,19 +348,21 @@ export default function ClinicDashboard() {
               customerPhone: "+91 987654321" + (i % 10),
               customerEmail: `patient${i}@example.com`,
               verificationStatus: "verified",
-              description: "Regular dental checkup and cleaning.",
+              description: "Regular dental checkup and cleaning. Toothache and Sensitivity issues noted.",
               slot: {
                 id: i,
                 clinicId: 999,
                 clinicName: "Demo Smile Clinic",
                 startTime: startTime,
                 endTime: endTime,
-                isBooked: true
+                isBooked: true,
+                maxBookings: 3,
+                isCancelled: false
               } as any,
               createdAt: new Date(),
               customerId: null,
               verificationCode: null,
-              verificationExpiresAt: null,
+              verificationExpiresAt: null
             } as BookingWithSlot);
           }
         }
