@@ -5,16 +5,27 @@ The application now features a fully integrated email notification system using 
 
 ## Current Implementation Analysis
 
-### 1. Initialization (`server/routes.ts`)
-The Resend client is initialized conditionally based on the presence of the `RESEND_API_KEY` environment variable.
+### 1. Initialization and Environment Configuration (`server/routes.ts`)
+The Resend client and sending mode are initialized based on environment variables.
+
 ```typescript
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
+const RESEND_MODE = (process.env.RESEND || 'DEV').toUpperCase();
+const TEST_EMAIL = 'itsmyfavoriteworkplace@gmail.com';
 ```
 
+#### Environment Variables for Email Control:
+- **`RESEND`**: Controls the email routing mode.
+  - `DEV` (Default): All emails (customer, clinic, cancellation) are redirected to the test address: `itsmyfavoriteworkplace@gmail.com`.
+  - `PRODUCTION`: Emails are sent to the actual recipient addresses entered in the system.
+  - *Note: This variable is case-insensitive (e.g., `Production`, `production`, `Dev`, `dev` are all valid).*
+- **`RESEND_API_KEY`**: Your Resend API key (required for both modes).
+- **`EMAIL_FROM`**: The verified sender address (defaults to Resend onboarding address).
+
 ### 2. Core Notification Functions
-- **`sendBookingEmails`**: Sends dual notifications (to customer and clinic) upon successful booking.
-- **`sendCancellationEmail`**: Notifies customers when an appointment is cancelled by the clinic.
+- **`sendBookingEmails`**: Sends dual notifications (to customer and clinic) upon successful booking. In `DEV` mode, both are sent to the test address.
+- **`sendCancellationEmail`**: Notifies customers when an appointment is cancelled. In `DEV` mode, this is sent to the test address.
 - **Mock Fallback**: If `RESEND_API_KEY` is missing, the system logs the email content to the server console instead of failing, ensuring a smooth developer experience.
 
 ### 3. Integrated API Endpoints
