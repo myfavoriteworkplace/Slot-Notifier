@@ -1228,6 +1228,10 @@ export default function ClinicDashboard() {
                                 <div className="font-semibold text-lg">{booking.customerName}</div>
                               </div>
                               <div className="text-sm text-muted-foreground">{booking.customerPhone}</div>
+                              <div className="text-[10px] text-muted-foreground mt-1 uppercase font-bold flex items-center gap-1">
+                                <Clock className="h-3 w-3" /> 
+                                Booked on: {booking.createdAt ? format(new Date(booking.createdAt), "MMM d, h:mm a") : "N/A"}
+                              </div>
                             </div>
                           </div>
 
@@ -1301,13 +1305,6 @@ export default function ClinicDashboard() {
                         </div>
 
                         <Separator />
-
-                        <div className="text-xs text-muted-foreground">
-                          Booked on{" "}
-                          {booking.createdAt
-                            ? format(new Date(booking.createdAt), "MMM d, yyyy 'at' h:mm a")
-                            : "N/A"}
-                        </div>
 
                         <DialogFooter className="flex-row gap-2">
                           <Button
