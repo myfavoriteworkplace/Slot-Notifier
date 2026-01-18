@@ -27,15 +27,16 @@ app.use(
       createTableIfMissing: false,
     }),
     secret: sessionSecret,
-    resave: false,
+    resave: true, // Ensure session is saved back to store
     saveUninitialized: false,
     cookie: {
-      secure: false, // Explicitly false for local HTTP
+      secure: false, // Force false for local testing and standard HTTP
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       httpOnly: true,
       sameSite: 'lax',
     },
     proxy: true, // Required for trust proxy to work with express-session
+    rolling: true, // Force session cookie to be set on every response
   })
 );
 

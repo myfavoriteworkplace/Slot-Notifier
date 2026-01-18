@@ -150,7 +150,8 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
     return next();
   }
 
-  if ((req.session as any)?.adminLoggedIn) {
+  // Check if session exists and is logged in
+  if (req.session && (req.session as any).adminLoggedIn) {
     // Set req.user to mimic a consistent user structure
     (req as any).user = {
       claims: {
@@ -161,8 +162,16 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
     return next();
   }
   
-  // LOG FAILURE FOR DEBUGGING
-  console.log(`[AUTH-FAILURE] 401 Unauthorized for ${req.method} ${req.path}. SessionID: ${req.sessionID} Session: ${JSON.stringify(req.session)}`);
+  // Detailed log for debugging 401
+  console.log(`[AUTH-FAILURE] 401 Unauthorized:
+    Method: ${req.method}
+    Path: ${req.path}
+    SessionID: ${req.sessionID}
+    adminLoggedIn: ${(req.session as any)?.adminLoggedIn}
+    adminEmail: ${(req.session as any)?.adminEmail}
+    Origin: ${req.headers.origin}
+    Cookie: ${req.headers.cookie ? 'present' : 'missing'}
+  `);
   
   return res.status(401).json({ message: "Authentication required" });
 }
