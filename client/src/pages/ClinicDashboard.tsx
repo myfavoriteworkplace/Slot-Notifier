@@ -1195,7 +1195,78 @@ export default function ClinicDashboard() {
                         </DialogHeader>
 
                         <div className="grid gap-4 py-4">
-                          {/* content unchanged */}
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-12 w-12 border">
+                              <AvatarFallback className="bg-primary/5 text-primary">
+                                {booking.customerName.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-semibold text-lg">{booking.customerName}</div>
+                              <div className="text-sm text-muted-foreground">{booking.customerPhone}</div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                                <CalendarDays className="h-3 w-3" /> Date
+                              </div>
+                              <div className="text-sm font-medium">
+                                {format(new Date(booking.slot.startTime), "MMM d, yyyy")}
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                                <Clock className="h-3 w-3" /> Time
+                              </div>
+                              <div className="text-sm font-medium">
+                                {format(new Date(booking.slot.startTime), "h:mm a")} - {format(new Date(booking.slot.endTime), "h:mm a")}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                              <Mail className="h-3 w-3" /> Email
+                            </div>
+                            <div className="text-sm bg-muted/30 p-2 rounded-lg border border-border/50">
+                              {booking.customerEmail || "No email provided"}
+                            </div>
+                          </div>
+
+                          {booking.description && (
+                            <div className="space-y-2">
+                              <div className="text-[10px] uppercase font-bold text-muted-foreground">Chief Complaints</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {booking.description.split(", ").filter(complaint => 
+                                  CHIEF_COMPLAINTS.includes(complaint)
+                                ).map((complaint, idx) => (
+                                  <Badge key={idx} variant="secondary" className="text-[10px] py-0 px-2 h-5 bg-primary/10 text-primary border-primary/20">
+                                    {complaint}
+                                  </Badge>
+                                ))}
+                                {booking.description.split(", ").filter(complaint => 
+                                  !CHIEF_COMPLAINTS.includes(complaint)
+                                ).length > 0 && (
+                                  <Badge variant="outline" className="text-[10px] py-0 px-2 h-5">
+                                    Other
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {booking.description && (
+                            <div className="space-y-2">
+                              <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                                <FileText className="h-3 w-3" /> Detailed Description
+                              </div>
+                              <div className="text-sm text-muted-foreground bg-muted/20 p-3 rounded-xl border italic leading-relaxed">
+                                "{booking.description}"
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <Separator />
