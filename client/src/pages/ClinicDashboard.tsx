@@ -348,6 +348,7 @@ export default function ClinicDashboard() {
               customerPhone: "+91 987654321" + (i % 10),
               customerEmail: `patient${i}@example.com`,
               verificationStatus: "verified",
+              description: "Regular dental checkup and cleaning.",
               slot: {
                 id: i,
                 clinicId: 999,
