@@ -30,9 +30,12 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: false, // Explicitly false for local HTTP
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      httpOnly: true,
+      sameSite: 'lax',
     },
+    proxy: true, // Required for trust proxy to work with express-session
   })
 );
 

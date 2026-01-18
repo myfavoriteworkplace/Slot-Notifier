@@ -160,6 +160,10 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
     };
     return next();
   }
+  
+  // LOG FAILURE FOR DEBUGGING
+  console.log(`[AUTH-FAILURE] 401 Unauthorized for ${req.method} ${req.path}. SessionID: ${req.sessionID} Session: ${JSON.stringify(req.session)}`);
+  
   return res.status(401).json({ message: "Authentication required" });
 }
 
@@ -588,24 +592,24 @@ export async function registerRoutes(
     // Clinics API
     app.get("/api/clinics", async (req, res) => {
       const includeArchived = req.query.includeArchived === 'true';
-      logger(`Fetching clinics list (includeArchived: ${includeArchived})`, 'ADMIN');
       const clinicsList = await storage.getClinics(includeArchived);
       res.json(clinicsList);
     });
 
-    app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
+    app.post("/api/clinics", isAuthenticated, async (req, res) => {
     const user = (req as any).user;
+    console.log(`[CLINIC-DEBUG] POST /api/clinics attempt. User: ${JSON.stringify(user)} Session: ${JSON.stringify(req.session)}`);
     const useEnvAuth = (req as any).app.get('USE_ENV_AUTH') ?? true;
     const isSuperuser = useEnvAuth 
-      ? user.claims.sub === 'admin'
-      : (await storage.getUser(user.claims.sub))?.role === 'superuser';
+      ? user?.claims?.sub === 'admin'
+      : (await storage.getUser(user?.claims?.sub))?.role === 'superuser';
     if (!isSuperuser) {
-      logger(`Unauthorized clinic creation attempt by ${user.claims.sub}`, 'SECURITY');
+      console.log(`[CLINIC-DEBUG] Unauthorized clinic creation attempt by ${user?.claims?.sub}`);
       return res.status(403).json({ message: "Only super users can add clinics" });
     }
     try {
       const input = api.clinics.create.input.parse(req.body);
-      logger(`Superuser ${user.claims.sub} creating new clinic: ${input.name}`, 'ADMIN');
+      console.log(`[CLINIC-DEBUG] Superuser ${user.claims.sub} creating new clinic: ${input.name}`);
       const clinic = await storage.createClinic(input);
       res.status(201).json(clinic);
     } catch (err) {
@@ -619,103 +623,15 @@ export async function registerRoutes(
     }
   });
 
-  app.patch(api.clinics.archive.path, isAuthenticated, async (req, res) => {
-    const user = (req as any).user;
-    const useEnvAuth = (req as any).app.get('USE_ENV_AUTH') ?? true;
-    const isSuperuser = useEnvAuth 
-      ? user.claims.sub === 'admin'
-      : (await storage.getUser(user.claims.sub))?.role === 'superuser';
-    if (!isSuperuser) return res.status(403).json({ message: "Only super users can archive clinics" });
-    const clinicId = parseInt(req.params.id);
-    logger(`Archiving clinic ${clinicId} by ${user.claims.sub}`, 'ADMIN');
-    try {
-      const clinic = await storage.archiveClinic(clinicId);
-      res.json(clinic);
-    } catch {
-      return res.status(404).json({ message: "Clinic not found" });
-    }
-  });
-
-  // Clinic Authentication
-  app.post("/api/clinic/login", async (req, res) => {
-    const { username, password } = req.body;
-    logger(`Clinic login attempt for username: ${username}`, 'AUTH');
-
-    // Allow superuser to bypass clinic login
-    if ((req.session as any)?.adminLoggedIn && (req.session as any)?.adminEmail) {
-      const clinic = await storage.getClinics();
-      const targetClinic = clinic.find(c => c.username === username || c.name === username);
-      
-      if (targetClinic) {
-        (req.session as any).clinicId = targetClinic.id;
-        (req.session as any).clinicName = targetClinic.name;
-        (req.session as any).authType = 'clinic';
-        logger(`Superuser bypassed login for clinic: ${targetClinic.name}`, 'AUTH');
-        return res.json({ id: targetClinic.id, name: targetClinic.name, username: targetClinic.username });
-      }
-    }
-
-    if (username === "demo_clinic" && password === "demo_password123") {
-      const demoClinic = await storage.getClinicByUsername("demo_clinic");
-      if (demoClinic) {
-        (req.session as any).clinicId = demoClinic.id;
-        (req.session as any).clinicName = demoClinic.name;
-        (req.session as any).authType = 'clinic';
-        logger(`Demo clinic login successful: ${demoClinic.name}`, 'AUTH');
-        return res.json({ id: demoClinic.id, name: demoClinic.name, username: demoClinic.username });
-      }
-    }
-    if (!username || !password) return res.status(400).json({ message: "Username and password are required" });
-    const clinic = await storage.getClinicByUsername(username);
-    if (!clinic || !clinic.passwordHash) {
-      logger(`Login failed: Invalid clinic or no setup for ${username}`, 'AUTH');
-      return res.status(401).json({ message: "Invalid username or password" });
-    }
-    const isValid = await bcrypt.compare(password, clinic.passwordHash);
-    if (!isValid) {
-      logger(`Login failed: Password mismatch for ${username}`, 'AUTH');
-      return res.status(401).json({ message: "Invalid username or password" });
-    }
-    if (clinic.isArchived) {
-      logger(`Login failed: Deactivated clinic account ${username}`, 'AUTH');
-      return res.status(401).json({ message: "This clinic account is deactivated" });
-    }
-    if (!req.session) return res.status(500).json({ message: "Session not available" });
-    (req.session as any).clinicId = clinic.id;
-    (req.session as any).clinicName = clinic.name;
-    (req.session as any).authType = 'clinic';
-    logger(`Clinic login successful: ${clinic.name}`, 'AUTH');
-    res.json({ id: clinic.id, name: clinic.name, username: clinic.username });
-  });
-
-  // Slot Configuration API (Clinic Admin)
-  app.post("/api/clinic/slots/configure", async (req, res) => {
-    const clinicId = (req.session as any).clinicId;
-    const authType = (req.session as any).authType;
-    if (authType !== 'clinic' || !clinicId) return res.status(401).json({ message: "Not authenticated as clinic" });
-    const { startTime, maxBookings, isCancelled } = req.body;
-    logger(`Clinic ${clinicId} configuring slot at ${startTime}`, 'CLINIC-ADMIN');
-    if (!startTime) return res.status(400).json({ message: "Start time is required" });
-    const start = new Date(startTime);
-    let slot = await (storage as any).getSlotByTime(clinicId, start);
-    if (slot) {
-      slot = await storage.updateSlot(slot.id, { maxBookings: maxBookings ?? slot.maxBookings, isCancelled: isCancelled ?? slot.isCancelled });
-    } else {
-      slot = await storage.createSlot({ clinicId, startTime: start, endTime: new Date(start.getTime() + 30 * 60000), maxBookings: maxBookings ?? 3, isCancelled: isCancelled ?? false, isBooked: false, ownerId: null, clinicName: (req.session as any).clinicName } as any);
-    }
-    res.json(slot);
-  });
-
-  // Update clinic when creating (with credentials)
   app.patch("/api/clinics/:id/credentials", isAuthenticated, async (req, res) => {
     const user = (req as any).user;
-    
+    console.log(`[CLINIC-DEBUG] PATCH /api/clinics credentials attempt. User: ${JSON.stringify(user)} Session: ${JSON.stringify(req.session)}`);
     // Use the app setting if available, otherwise fallback to true (current default)
     const useEnvAuth = (req as any).app.get('USE_ENV_AUTH') ?? true;
     
     const isSuperuser = useEnvAuth 
-      ? user.claims.sub === 'admin'
-      : (await storage.getUser(user.claims.sub))?.role === 'superuser';
+      ? user?.claims?.sub === 'admin'
+      : (await storage.getUser(user?.claims?.sub))?.role === 'superuser';
     
     if (!isSuperuser) {
       return res.status(403).json({ message: "Only super users can set clinic credentials" });
