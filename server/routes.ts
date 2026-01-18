@@ -19,19 +19,50 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
     return;
   }
   
-  const formattedTime = startTime.toLocaleString();
+  const formattedTime = startTime.toLocaleString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 
   try {
     // Send to Customer
     await resend.emails.send({
       from: EMAIL_FROM,
       to: customerEmail,
-      subject: 'Booking Confirmed - BookMySlot',
+      subject: `Booking Confirmed at ${clinicName}`,
       html: `
-        <h2>Booking Confirmed</h2>
-        <p>Dear ${customerName},</p>
-        <p>Your appointment at <strong>${clinicName}</strong> for <strong>${formattedTime}</strong> has been successfully booked.</p>
-        <p>Thank you for choosing BookMySlot!</p>
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <h1 style="color: #0f172a; margin: 0; font-size: 24px;">Booking Confirmed</h1>
+            <p style="color: #64748b; margin-top: 8px;">Your appointment has been successfully scheduled.</p>
+          </div>
+          
+          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; width: 40%;">Clinic</td>
+                <td style="padding: 8px 0; color: #0f172a; font-weight: 600;">${clinicName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Date & Time</td>
+                <td style="padding: 8px 0; color: #0f172a; font-weight: 600;">${formattedTime}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Patient Name</td>
+                <td style="padding: 8px 0; color: #0f172a; font-weight: 600;">${customerName}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="text-align: center; color: #64748b; font-size: 14px;">
+            <p>Thank you for choosing BookMySlot!</p>
+            <p style="margin-top: 16px; font-size: 12px; color: #94a3b8;">If you need to reschedule or cancel, please contact the clinic directly.</p>
+          </div>
+        </div>
       `
     });
 
@@ -40,12 +71,31 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
       await resend.emails.send({
         from: EMAIL_FROM,
         to: clinicEmail,
-        subject: 'New Booking Received - BookMySlot',
+        subject: `New Booking: ${customerName}`,
         html: `
-          <h2>New Booking Received</h2>
-          <p>A new appointment has been booked for <strong>${formattedTime}</strong>.</p>
-          <p><strong>Customer:</strong> ${customerName}</p>
-          <p>Please check your dashboard for details.</p>
+          <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <h1 style="color: #0f172a; margin: 0; font-size: 24px;">New Booking Received</h1>
+              <p style="color: #64748b; margin-top: 8px;">A new appointment has been scheduled for your clinic.</p>
+            </div>
+            
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; width: 40%;">Patient</td>
+                  <td style="padding: 8px 0; color: #0f172a; font-weight: 600;">${customerName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b;">Date & Time</td>
+                  <td style="padding: 8px 0; color: #0f172a; font-weight: 600;">${formattedTime}</td>
+                </tr>
+              </table>
+            </div>
+            
+            <div style="text-align: center; color: #64748b; font-size: 14px;">
+              <p>Please check your dashboard for more details.</p>
+            </div>
+          </div>
         `
       });
     }
@@ -509,7 +559,11 @@ export async function registerRoutes(
       }
       const clinic = slot.clinicId ? await storage.getClinic(slot.clinicId) : null;
       const customerEmail = (input as any).customerEmail || (user.claims.email as string);
-      await sendBookingEmails(customerEmail, (input as any).customerName, clinic?.email || null, slot.clinicName || 'the clinic', slot.startTime);
+      
+      // Patient name from booking input
+      const patientName = (input as any).customerName || ((req as any).user?.claims?.name) || 'Valued Patient';
+      
+      await sendBookingEmails(customerEmail, patientName, clinic?.email || null, slot.clinicName || 'the clinic', slot.startTime);
       res.status(201).json(booking);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -526,8 +580,10 @@ export async function registerRoutes(
   // Clinics API
   app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
     const user = (req as any).user;
-    const isSuperuser = user.claims.sub === 'admin' || (req.session as any).isDemoUser
-      || (await storage.getUser(user.claims.sub))?.role === 'superuser';
+    const useEnvAuth = (req as any).app.get('USE_ENV_AUTH') ?? true;
+    const isSuperuser = useEnvAuth 
+      ? user.claims.sub === 'admin'
+      : (await storage.getUser(user.claims.sub))?.role === 'superuser';
     if (!isSuperuser) {
       logger(`Unauthorized clinic creation attempt by ${user.claims.sub}`, 'SECURITY');
       return res.status(403).json({ message: "Only super users can add clinics" });
@@ -550,8 +606,10 @@ export async function registerRoutes(
 
   app.patch(api.clinics.archive.path, isAuthenticated, async (req, res) => {
     const user = (req as any).user;
-    const isSuperuser = user.claims.sub === 'admin'
-      || (await storage.getUser(user.claims.sub))?.role === 'superuser';
+    const useEnvAuth = (req as any).app.get('USE_ENV_AUTH') ?? true;
+    const isSuperuser = useEnvAuth 
+      ? user.claims.sub === 'admin'
+      : (await storage.getUser(user.claims.sub))?.role === 'superuser';
     if (!isSuperuser) return res.status(403).json({ message: "Only super users can archive clinics" });
     const clinicId = parseInt(req.params.id);
     logger(`Archiving clinic ${clinicId} by ${user.claims.sub}`, 'ADMIN');
@@ -635,9 +693,12 @@ export async function registerRoutes(
 
   // Update clinic when creating (with credentials)
   app.patch("/api/clinics/:id/credentials", isAuthenticated, async (req, res) => {
-    const user = req.user as any;
+    const user = (req as any).user;
     
-    const isSuperuser = USE_ENV_AUTH 
+    // Use the app setting if available, otherwise fallback to true (current default)
+    const useEnvAuth = (req as any).app.get('USE_ENV_AUTH') ?? true;
+    
+    const isSuperuser = useEnvAuth 
       ? user.claims.sub === 'admin'
       : (await storage.getUser(user.claims.sub))?.role === 'superuser';
     
