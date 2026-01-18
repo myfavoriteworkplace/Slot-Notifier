@@ -69,7 +69,7 @@ export default function Admin() {
     queryKey: ['/api/clinics', { includeArchived: true }],
     queryFn: async () => {
       const isDemoSuperAdmin = localStorage.getItem("demo_super_admin") === "true";
-      const res = await fetch(`${API_BASE_URL}/api/clinics?includeArchived=true`, {
+      const res = await fetch(`/api/clinics?includeArchived=true`, {
         credentials: 'include',
       });
       const serverClinics = await res.json();
@@ -80,7 +80,7 @@ export default function Admin() {
         if (demoClinicsRaw) {
           const demoClinics = JSON.parse(demoClinicsRaw);
           // Combine server and demo clinics, filtering out duplicates by id if any
-          const combined = [...serverClinics];
+          const combined = Array.isArray(serverClinics) ? [...serverClinics] : [];
           demoClinics.forEach((demo: Clinic) => {
             if (!combined.find(c => c.id === demo.id)) {
               combined.push(demo);
@@ -89,7 +89,7 @@ export default function Admin() {
           return combined;
         }
       }
-      return serverClinics;
+      return Array.isArray(serverClinics) ? serverClinics : [];
     },
   });
 

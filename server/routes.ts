@@ -585,15 +585,15 @@ export async function registerRoutes(
     }
   });
 
-  // Clinics API
-  app.get(api.clinics.list.path, async (req, res) => {
-    const includeArchived = req.query.includeArchived === 'true';
-    logger(`Fetching clinics list (includeArchived: ${includeArchived})`, 'CLINICS');
-    const clinics = await storage.getClinics(includeArchived);
-    res.json(clinics);
-  });
+    // Clinics API
+    app.get("/api/clinics", async (req, res) => {
+      const includeArchived = req.query.includeArchived === 'true';
+      logger(`Fetching clinics list (includeArchived: ${includeArchived})`, 'ADMIN');
+      const clinicsList = await storage.getClinics(includeArchived);
+      res.json(clinicsList);
+    });
 
-  app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
+    app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
     const user = (req as any).user;
     const useEnvAuth = (req as any).app.get('USE_ENV_AUTH') ?? true;
     const isSuperuser = useEnvAuth 
