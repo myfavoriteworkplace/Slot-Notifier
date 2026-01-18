@@ -586,6 +586,12 @@ export async function registerRoutes(
   });
 
   // Clinics API
+  app.get(api.clinics.list.path, isAuthenticated, async (req, res) => {
+    const includeArchived = req.query.includeArchived === 'true';
+    const clinics = await storage.getClinics(includeArchived);
+    res.json(clinics);
+  });
+
   app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
     const user = (req as any).user;
     const useEnvAuth = (req as any).app.get('USE_ENV_AUTH') ?? true;
