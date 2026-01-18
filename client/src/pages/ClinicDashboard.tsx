@@ -1173,8 +1173,13 @@ export default function ClinicDashboard() {
                         <div className="w-full h-full text-left">
                           <CardHeader className="bg-primary/5 pb-4 text-left group-hover:bg-primary/10 transition-colors">
                             <div className="flex justify-between items-start gap-2">
-                              <div>
-                                <CardTitle className="text-lg">{booking.customerName}</CardTitle>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider bg-muted/50 whitespace-nowrap">
+                                    #{getBookingNumber(booking).padStart(2, '0')}
+                                  </Badge>
+                                  <CardTitle className="text-lg truncate">{booking.customerName}</CardTitle>
+                                </div>
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                                   <Phone className="h-3 w-3" />
                                   {booking.customerPhone}
@@ -1194,8 +1199,7 @@ export default function ClinicDashboard() {
 
                             <div className="flex items-center gap-3 text-sm text-muted-foreground">
                               <Clock className="h-4 w-4" />
-                              {format(new Date(booking.slot.startTime), "h:mm a")} –{" "}
-                              {format(new Date(booking.slot.endTime), "h:mm a")}
+                              {format(new Date(booking.slot.startTime), "h:mm a")}
                             </div>
                           </CardContent>
                         </div>
@@ -1217,7 +1221,12 @@ export default function ClinicDashboard() {
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <div className="font-semibold text-lg">{booking.customerName}</div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider bg-muted/50">
+                                  #{getBookingNumber(booking).padStart(2, '0')}
+                                </Badge>
+                                <div className="font-semibold text-lg">{booking.customerName}</div>
+                              </div>
                               <div className="text-sm text-muted-foreground">{booking.customerPhone}</div>
                             </div>
                           </div>
