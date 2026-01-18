@@ -363,7 +363,7 @@ export default function ClinicDashboard() {
               customerId: null,
               verificationCode: null,
               verificationExpiresAt: null,
-            } as BookingWithSlot);
+            } as any);
           }
         }
 
@@ -1244,9 +1244,11 @@ export default function ClinicDashboard() {
                               </div>
                               <div className="flex flex-wrap gap-1.5 p-1">
                                 {(() => {
-                                  const parts = booking.description.split(/[,.]/).map(p => p.trim()).filter(Boolean);
-                                  const matched = parts.filter(p => CHIEF_COMPLAINTS.some(c => c.toLowerCase() === p.toLowerCase()));
-                                  const unmatched = parts.filter(p => !CHIEF_COMPLAINTS.some(c => c.toLowerCase() === p.toLowerCase()));
+                                  // Split by comma, period, or space and filter out common filler words
+                                  const parts = booking.description.split(/[,.\s]+/).map(p => p.trim()).filter(Boolean);
+                                  const matched = CHIEF_COMPLAINTS.filter(c => 
+                                    parts.some(p => p.toLowerCase() === c.toLowerCase())
+                                  );
                                   
                                   return (
                                     <>
@@ -1256,11 +1258,6 @@ export default function ClinicDashboard() {
                                         </Badge>
                                       )) : (
                                         <span className="text-xs text-muted-foreground italic">None identified in description</span>
-                                      )}
-                                      {unmatched.length > 0 && (
-                                        <Badge variant="outline" className="text-[10px] py-0 px-2 h-5">
-                                          Other Detail
-                                        </Badge>
                                       )}
                                     </>
                                   );
