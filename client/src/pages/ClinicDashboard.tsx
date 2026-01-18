@@ -415,6 +415,42 @@ export default function ClinicDashboard() {
     date: ""
   });
 
+  // Count today's bookings using the same timezone-safe comparison
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStart = startOfDay(new Date());
+
+  const todaysBookingsCount = bookings?.filter(b => {
+    const bookingDateStr = format(new Date(b.slot.startTime), 'yyyy-MM-dd');
+    return bookingDateStr === todayStr;
+  }).length || 0;
+
+  // Count future bookings (including today)
+  const futureBookingsCount = bookings?.filter(b => {
+    const bookingDate = new Date(b.slot.startTime);
+    return bookingDate >= todayStart;
+  }).length || 0;
+
+  // Count past bookings (before today)
+  const pastBookingsCount = bookings?.filter(b => {
+    const bookingDate = new Date(b.slot.startTime);
+    return bookingDate < todayStart;
+  }).length || 0;
+
+  const filteredBookings = bookings?.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+
+    if (filterDate && filterEndDate) {
+      return bookingDate >= startOfDay(filterDate) && bookingDate <= endOfDay(filterEndDate);
+    } else if (filterDate) {
+      // Compare using local date strings to avoid timezone issues
+      const bookingDateStr = format(bookingDate, 'yyyy-MM-dd');
+      const filterDateStr = format(filterDate, 'yyyy-MM-dd');
+      return bookingDateStr === filterDateStr;
+    }
+
+    return true;
+  });
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
