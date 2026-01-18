@@ -43,6 +43,14 @@ export interface IStorage {
   countBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number>;
   countVerifiedBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number>;
   
+  // Missing methods for routes.ts
+  configureClinicSlots(clinicId: number, date: string, slots: any[]): Promise<Slot[]>;
+  getClinicSlots(clinicId: number, date?: string): Promise<Slot[]>;
+  getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
+  getBooking(id: number): Promise<Booking | undefined>;
+  updateBookingStatus(id: number, status: string): Promise<Booking>;
+  updateClinicCredentials(id: number, username: string, passwordHash: string): Promise<void>;
+  
   // Notifications
   createNotification(notification: InsertNotification): Promise<Notification>;
   getNotifications(userId: string): Promise<Notification[]>;
@@ -199,6 +207,98 @@ export class DatabaseStorage implements IStorage {
   async getBookingById(id: number): Promise<Booking | undefined> {
     const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
     return booking;
+  }
+
+  // Implementation for missing methods identified by LSP errors
+  async configureClinicSlots(clinicId: number, date: string, slotsData: any[]): Promise<Slot[]> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Delete existing unbooked slots for this clinic on this date
+    await db.delete(slots)
+      .where(
+        and(
+          eq(slots.clinicId, clinicId),
+          eq(slots.isBooked, false),
+          gte(slots.startTime, startOfDay),
+          lte(slots.startTime, endOfDay)
+        )
+      );
+
+    const createdSlots = [];
+    for (const slotData of slotsData) {
+      const [slot] = await db.insert(slots).values({
+        clinicId,
+        clinicName: slotData.clinicName,
+        startTime: new Date(slotData.startTime),
+        endTime: new Date(slotData.endTime),
+        isBooked: false,
+        ownerId: 'admin' // Default for clinic-managed slots
+      }).returning();
+      createdSlots.push(slot);
+    }
+    return createdSlots;
+  }
+
+  async getClinicSlots(clinicId: number, date?: string): Promise<Slot[]> {
+    let query = db.select().from(slots).where(eq(slots.clinicId, clinicId));
+    
+    if (date) {
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      query = db.select().from(slots).where(
+        and(
+          eq(slots.clinicId, clinicId),
+          gte(slots.startTime, startOfDay),
+          lte(slots.startTime, endOfDay)
+        )
+      );
+    }
+    
+    return await (query as any).orderBy(slots.startTime);
+  }
+
+  async getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot })[]> {
+    const results = await db.select({
+      booking: bookings,
+      slot: slots
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(eq(slots.clinicId, clinicId));
+    
+    return results.map(r => ({ ...r.booking, slot: r.slot }));
+  }
+
+  async getBooking(id: number): Promise<Booking | undefined> {
+    return this.getBookingById(id);
+  }
+
+  async updateBookingStatus(id: number, status: string): Promise<Booking> {
+    const [updated] = await db.update(bookings)
+      .set({ verificationStatus: status as any })
+      .where(eq(bookings.id, id))
+      .returning();
+    
+    if (status === 'cancelled') {
+      const booking = await this.getBookingById(id);
+      if (booking) {
+        await this.updateSlot(booking.slotId, { isBooked: false });
+      }
+    }
+    
+    return updated;
+  }
+
+  async updateClinicCredentials(id: number, username: string, passwordHash: string): Promise<void> {
+    await db.update(clinics)
+      .set({ username, passwordHash })
+      .where(eq(clinics.id, id));
   }
 
   async createPublicBooking(data: {

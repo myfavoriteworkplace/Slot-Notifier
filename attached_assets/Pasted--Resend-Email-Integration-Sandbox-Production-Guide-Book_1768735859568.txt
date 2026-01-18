@@ -1,0 +1,139 @@
+📧 Resend Email Integration – Sandbox → Production Guide
+(Book-My-Slot Application)
+🧩 PHASE 1: What We Wanted to Achieve
+Send email notifications for:
+Booking confirmation
+Booking cancellation
+Use a reliable email service
+Avoid spam issues
+Start without owning a domain
+Later migrate to production-grade email
+We chose Resend because:
+Simple API
+Modern DX
+Good deliverability
+Cloudflare friendly
+🧪 PHASE 2: Sandbox Setup (NO DOMAIN REQUIRED)
+Sandbox mode is for development & testing.
+⚠ Sandbox Rules (Very Important)
+Rule	Allowed
+Sender email	onboarding@resend.dev
+Recipient	Only your Resend account email
+Custom domain	❌ Not allowed
+Send to customers	❌ Not allowed
+✅ STEP 1: Create Resend API Key
+Go to https://resend.com
+Dashboard → API Keys
+Click Create API Key
+Fill:
+Name: BookMySlot Sandbox
+Permission: Send emails (test/sandbox)
+Domain: Leave empty
+Copy the key
+Example:
+RESEND_API_KEY=rsk_test_xxxxxxxxx
+✅ STEP 2: Configure Environment Variables
+In Replit / Render / Backend
+RESEND_API_KEY=rsk_test_xxxxxxxxx
+EMAIL_FROM=BookMySlot <onboarding@resend.dev>
+📌 Why this works:
+onboarding@resend.dev is pre-verified by Resend
+No DNS needed
+✅ STEP 3: Install Resend SDK
+npm install resend
+✅ STEP 4: Initialize Resend in Backend
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+✅ STEP 5: Sending Email (Working Example)
+await resend.emails.send({
+  from: process.env.EMAIL_FROM,
+  to: "itsmyfavoriteworkplace@gmail.com", // YOUR email only
+  subject: "Booking Confirmed",
+  html: "<h2>Your booking is confirmed</h2>",
+});
+✅ STEP 6: Add Test Endpoint
+Used to verify integration quickly.
+app.get("/api/test-email", async (req, res) => {
+  try {
+    await resend.emails.send({
+      from: process.env.EMAIL_FROM,
+      to: req.query.email as string,
+      subject: "Backend email test",
+      html: "<p>Email system is working!</p>",
+    });
+
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+✅ STEP 7: Testing
+Call in browser / Postman:
+/api/test-email?email=itsmyfavoriteworkplace@gmail.com
+Successful Response:
+{
+  "success": true,
+  "result": {
+    "data": {
+      "id": "8a5132bf-65ef-4835-920f-a40f49d6f03e"
+    }
+  }
+}
+📬 Email received → Sandbox working perfectly
+❌ Errors We Saw (And Why)
+Error 1: Domain not verified
+alerts@book-my-slot.workers.dev
+❌ .workers.dev / .pages.dev cannot be verified
+Error 2: Can only send to your own email
+✔ Correct sandbox behavior
+🟢 CURRENT STATUS (Sandbox)
+Item	Status
+API Key	✅
+Backend logic	✅
+Email sending	✅
+Booking notifications	✅
+Production ready	❌ (needs domain)
+🚀 PHASE 3: MIGRATING TO PRODUCTION (REAL EMAILS)
+To send emails to customers, clinics, any email → you must own a domain.
+🔑 STEP 1: Buy a Domain (Cheap & Reliable)
+Recommended:
+Provider	Cost
+Namecheap (.me)	₹200–₹300/year
+Porkbun	Low
+Google Domains	Paid
+Example:
+bookmyslot.in
+🔑 STEP 2: Add Domain in Resend
+Resend → Domains
+Add:
+bookmyslot.in
+🔑 STEP 3: Verify DNS Records
+Resend will give:
+SPF
+DKIM
+Return-Path
+Add them in:
+Cloudflare DNS (recommended)
+Wait 5–10 minutes → Verified
+🔑 STEP 4: Update EMAIL_FROM
+EMAIL_FROM=BookMySlot <alerts@bookmyslot.in>
+Restart backend.
+🔑 STEP 5: Remove Sandbox Restriction
+Now you can send emails to:
+Customers
+Clinics
+Admins
+No restrictions.
+🧠 BEST PRACTICES (IMPORTANT)
+Use transactional email only
+Do NOT send marketing from Resend
+Use clean HTML
+Add unsubscribe only if marketing
+🏁 FINAL SUMMARY
+Phase	Status
+Sandbox setup	✅ Complete
+Email delivery test	✅ Passed
+Booking emails	✅ Working
+Production domain	⏳ Optional
+Ready to scale	✅
