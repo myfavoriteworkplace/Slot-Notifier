@@ -360,8 +360,8 @@ export default function ClinicDashboard() {
               createdAt: new Date(),
               customerId: null,
               verificationCode: null,
-              verificationExpiresAt: null
-            });
+              verificationExpiresAt: null,
+            } as BookingWithSlot);
           }
         }
 
