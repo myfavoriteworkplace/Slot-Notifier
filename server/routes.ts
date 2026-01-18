@@ -586,8 +586,9 @@ export async function registerRoutes(
   });
 
   // Clinics API
-  app.get(api.clinics.list.path, isAuthenticated, async (req, res) => {
+  app.get(api.clinics.list.path, async (req, res) => {
     const includeArchived = req.query.includeArchived === 'true';
+    logger(`Fetching clinics list (includeArchived: ${includeArchived})`, 'CLINICS');
     const clinics = await storage.getClinics(includeArchived);
     res.json(clinics);
   });
