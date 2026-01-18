@@ -10,6 +10,8 @@ import { Resend } from 'resend';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
+const RESEND_MODE = process.env.RESEND || 'DEV';
+const TEST_EMAIL = 'itsmyfavoriteworkplace@gmail.com';
 
 async function sendBookingEmails(customerEmail: string, customerName: string, clinicEmail: string | null, clinicName: string, startTime: Date) {
   if (!resend) {
@@ -19,6 +21,10 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
     return;
   }
   
+  // In DEV mode, redirect all emails to the test address
+  const finalCustomerEmail = RESEND_MODE === 'PRODUCTION' ? customerEmail : TEST_EMAIL;
+  const finalClinicEmail = RESEND_MODE === 'PRODUCTION' ? clinicEmail : TEST_EMAIL;
+
   const formattedTime = startTime.toLocaleString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -32,7 +38,7 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
     // Send to Customer
     await resend.emails.send({
       from: EMAIL_FROM,
-      to: customerEmail,
+      to: finalCustomerEmail,
       subject: `Booking Confirmed at ${clinicName}`,
       html: `
         <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
@@ -70,7 +76,7 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
     if (clinicEmail) {
       await resend.emails.send({
         from: EMAIL_FROM,
-        to: clinicEmail,
+        to: finalClinicEmail,
         subject: `New Booking: ${customerName}`,
         html: `
           <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
@@ -99,7 +105,7 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
         `
       });
     }
-    console.log(`[EMAIL] Booking confirmation emails sent`);
+    console.log(`[EMAIL] Booking confirmation emails sent (Mode: ${RESEND_MODE})`);
   } catch (error) {
     console.error('[EMAIL ERROR] Failed to send booking emails:', error);
   }
@@ -111,10 +117,12 @@ async function sendCancellationEmail(email: string, name: string, date: Date, cl
     return;
   }
   
+  const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
+
   try {
     await resend.emails.send({
       from: EMAIL_FROM,
-      to: email,
+      to: finalEmail,
       subject: 'Appointment Cancellation - BookMySlot',
       html: `
         <h2>Appointment Cancelled</h2>
@@ -124,7 +132,7 @@ async function sendCancellationEmail(email: string, name: string, date: Date, cl
         <p>Best regards,<br/>The BookMySlot Team</p>
       `
     });
-    console.log(`[EMAIL] Cancellation email sent to ${email}`);
+    console.log(`[EMAIL] Cancellation email sent (Mode: ${RESEND_MODE})`);
   } catch (error) {
     console.error('[EMAIL ERROR] Failed to send cancellation email:', error);
   }
