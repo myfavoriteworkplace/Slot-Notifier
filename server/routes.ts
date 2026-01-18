@@ -73,7 +73,7 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
     });
 
     // Send to Clinic if email exists
-    if (clinicEmail) {
+    if (finalClinicEmail) {
       await resend.emails.send({
         from: EMAIL_FROM,
         to: finalClinicEmail,
