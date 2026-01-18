@@ -164,7 +164,8 @@ app.use((req, res, next) => {
     res.status(404).json({ 
       message: "API endpoint not found",
       path: req.originalUrl,
-      method: req.method
+      method: req.method,
+      suggestion: "If you are using a cross-site request, ensure CORS is correctly configured and that the path matches exactly."
     });
   });
 

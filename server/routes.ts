@@ -278,48 +278,6 @@ export async function registerRoutes(
       }
     });
 
-    app.all("/api/health/backend", (req, res) => {
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      
-      const response = {
-        status: "ok",
-        backend: true,
-        env: process.env.NODE_ENV,
-        timestamp: new Date().toISOString()
-      };
-      
-      console.log(`[API-RESPONSE] /api/health/backend: ${JSON.stringify(response)}`);
-      return res.status(200).json(response);
-    });
-
-    app.all("/api/health/database", async (req, res) => {
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      
-      try {
-        const result = await db.execute(sql`SELECT 1 as val`);
-        const isDbConnected = !!result;
-        
-        const response = {
-          status: isDbConnected ? "ok" : "error",
-          database: isDbConnected,
-          timestamp: new Date().toISOString()
-        };
-        
-        console.log(`[API-RESPONSE] /api/health/database: ${JSON.stringify(response)}`);
-        return res.status(200).json(response);
-      } catch (err: any) {
-        console.error("[DATABASE-HEALTH-ERROR]", err);
-        return res.status(500).json({
-          status: "error",
-          database: false,
-          error: err.message,
-          timestamp: new Date().toISOString()
-        });
-      }
-    });
-
     // Test email endpoint
     app.get("/api/test-email", async (req, res) => {
       const targetEmail = (req.query.email as string);
