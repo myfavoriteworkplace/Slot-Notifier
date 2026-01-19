@@ -1,0 +1,90 @@
+when I hit this api  app.get("/api/auth/clinic/bookings", (req, res) => {
+      if (req.session && (req.session as any).adminLoggedIn && (req.session as any).clinicId) {
+        return storage.getClinicBookings((req.session as any).clinicId)
+          .then(bookings => res.json(bookings))
+          .catch((err: any) => res.status(500).json({ message: err.message }));
+      }
+      return res.status(401).json({ message: "Not authenticated" });
+    }); I get 401 why
+This one is 100% explainable from your code — no guessing needed.
+You are getting 401 because the condition you wrote is never true in production.
+
+🔴 YOUR CONDITION (VERY IMPORTANT)
+if (
+  req.session &&
+  (req.session as any).adminLoggedIn &&
+  (req.session as any).clinicId
+)
+👉 ALL THREE must be true
+Now let’s check reality.
+
+🧠 WHAT ACTUALLY EXISTS IN YOUR SESSION
+From your earlier logs + login code:
+✅ What you DO set on login
+req.session.adminLoggedIn = true;
+req.session.adminEmail = email;
+❌ What you NEVER set
+req.session.clinicId ❌
+So the condition becomes:
+true && true && undefined ❌
+➡️ Result: 401 every time
+✅ ROOT CAUSE (PRIMARY)
+clinicId is never stored in the session
+So even a perfectly authenticated admin will fail this check.
+✅ FIX OPTION 1 — SET clinicId DURING CLINIC LOGIN (BEST)
+If this endpoint is for clinic users, you must set it when they log in.
+Example: clinic login route
+(req.session as any).adminLoggedIn = true;
+(req.session as any).clinicId = clinic.id; // ✅ REQUIRED
+Then your condition works.
+✅ FIX OPTION 2 — SPLIT ADMIN VS CLINIC AUTH (RECOMMENDED)
+Right now you're mixing admin auth and clinic auth.
+Better logic:
+if (req.session?.clinicId) {
+  return storage.getClinicBookings(req.session.clinicId)
+    .then(bookings => res.json(bookings));
+}
+return res.status(401).json({ message: "Clinic not authenticated" });
+Admins should not be required to have clinicId.
+🚨 SECONDARY ISSUE (VERY COMMON)
+Even if you fix clinicId, you will STILL get 401 if:
+Cookie: missing
+So ensure frontend request includes cookies:
+fetch("/api/auth/clinic/bookings", {
+  credentials: "include"
+});
+or Axios:
+axios.get("/api/auth/clinic/bookings", {
+  withCredentials: true
+});
+🧪 QUICK DEBUG (DO THIS NOW)
+Add this temporarily:
+app.get("/api/debug/session", (req, res) => {
+  res.json(req.session);
+});
+Call it from browser after login.
+If you see:
+
+{
+  "adminLoggedIn": true,
+  "clinicId": undefined
+}
+➡️ that confirms the diagnosis.
+✅ FINAL VERDICT
+Reason	Status
+Session exists	✅
+adminLoggedIn set	✅
+clinicId set	❌
+Condition satisfied	❌
+Result	401
+🏁 TL;DR
+You are checking clinicId
+but you never set clinicId
+so 401 is correct behavior
+Fix that, and this endpoint will immediately work.
+If you want, I can:
+
+Design clean admin vs clinic session models
+Convert clinic auth to JWT
+Add role-based middleware (requireClinic, requireAdmin)
+Just say the word 👍
