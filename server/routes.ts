@@ -470,18 +470,18 @@ export async function registerRoutes(
 
     app.get("/api/auth/clinic/bookings", (req, res) => {
       if (req.session && (req.session as any).adminLoggedIn && (req.session as any).clinicId) {
-        return storage.getBookingsByClinicId((req.session as any).clinicId)
+        return storage.getClinicBookings((req.session as any).clinicId)
           .then(bookings => res.json(bookings))
-          .catch(err => res.status(500).json({ message: err.message }));
+          .catch((err: any) => res.status(500).json({ message: err.message }));
       }
       return res.status(401).json({ message: "Not authenticated" });
     });
 
     app.delete("/api/auth/clinic/bookings/:id", (req, res) => {
       if (req.session && (req.session as any).adminLoggedIn && (req.session as any).clinicId) {
-        return storage.deleteBooking(parseInt(req.params.id))
+        return storage.cancelBooking(parseInt(req.params.id))
           .then(() => res.status(204).send())
-          .catch(err => res.status(500).json({ message: err.message }));
+          .catch((err: any) => res.status(500).json({ message: err.message }));
       }
       return res.status(401).json({ message: "Not authenticated" });
     });
@@ -489,14 +489,17 @@ export async function registerRoutes(
     app.post("/api/auth/clinic/slots/configure", (req, res) => {
       if (req.session && (req.session as any).adminLoggedIn && (req.session as any).clinicId) {
         const { startTime, maxBookings, isCancelled } = req.body;
-        return storage.configureSlot({
-          clinicId: (req.session as any).clinicId,
-          startTime: new Date(startTime),
-          maxBookings,
-          isCancelled
-        })
-          .then(result => res.json(result))
-          .catch(err => res.status(500).json({ message: err.message }));
+        // Map to storage method
+        const date = new Date(startTime).toISOString().split('T')[0];
+        const slotData = [{
+          startTime,
+          endTime: new Date(new Date(startTime).getTime() + 3600000).toISOString(),
+          clinicName: (req.session as any).adminEmail?.split('@')[0] || "Clinic"
+        }];
+        
+        return storage.configureClinicSlots((req.session as any).clinicId, date, slotData)
+          .then((result: any) => res.json(result))
+          .catch((err: any) => res.status(500).json({ message: err.message }));
       }
       return res.status(401).json({ message: "Not authenticated" });
     });
