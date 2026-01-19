@@ -124,7 +124,7 @@ export default function ClinicDashboard() {
         localStorage.setItem("demo_slot_configs", JSON.stringify(configs));
         return { message: "Configuration updated (Demo)" };
       }
-      const response = await apiRequest('POST', '/api/clinic/slots/configure', data);
+      const response = await apiRequest('POST', '/api/auth/clinic/slots/configure', data);
       return response.json();
     },
     onSuccess: () => {
@@ -224,7 +224,7 @@ export default function ClinicDashboard() {
 
       setCancellingBookingId(bookingId);
       const API_BASE_URL = import.meta.env.VITE_API_URL || "";
-      const res = await fetch(`${API_BASE_URL}/api/clinic/bookings/${bookingId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/auth/clinic/bookings/${bookingId}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -321,7 +321,7 @@ export default function ClinicDashboard() {
   const dates = Array.from({ length: 14 }, (_, i) => addDays(startOfToday(), i));
 
   const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
-    queryKey: ['/api/clinic/bookings'],
+    queryKey: ['/api/auth/clinic/bookings'],
     queryFn: async () => {
       if (localStorage.getItem("demo_clinic_active") === "true") {
         const activeDemoClinicId = localStorage.getItem("demo_clinic_id");
@@ -383,7 +383,7 @@ export default function ClinicDashboard() {
       }
 
       const API_BASE_URL = import.meta.env.VITE_API_URL || "";
-      const res = await fetch(`${API_BASE_URL}/api/clinic/bookings`, {
+      const res = await fetch(`${API_BASE_URL}/api/auth/clinic/bookings`, {
         credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to fetch bookings');
