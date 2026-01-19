@@ -41,6 +41,11 @@ export async function ensureSessionTable() {
       )
       WITH (OIDS=FALSE);
     `);
+
+    // Ensure description column exists in bookings
+    await pool.query(`
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "description" text;
+    `);
     
     // Check if primary key exists before adding
     const pkCheck = await pool.query(`
