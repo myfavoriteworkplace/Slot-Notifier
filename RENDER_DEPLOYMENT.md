@@ -27,28 +27,32 @@ This guide explains how to deploy BookMySlot on Render.com with separate fronten
 In your Render web service settings:
 
 - **Build Command**: 
-```
-npm install --include=dev && npm run db:push && npx tsx script/build-standalone.ts
+```bash
+npm install --include=dev && npm run db:push && npm run build && npx tsx script/build.ts
 ```
 
 - **Start Command**: 
-```
-node dist-backend/server.cjs
+```bash
+node dist/index.cjs
 ```
 
 ### Environment Variables
 
 Set these environment variables in Render:
 
-| Variable | Value |
-|----------|-------|
-| `DATABASE_URL` | (paste from Step 1) |
-| `SESSION_SECRET` | (generate a random 32+ character string) |
-| `NODE_ENV` | `production` |
-| `PORT` | `10000` |
-| `FRONTEND_URL` | Your frontend URL (e.g., `https://bookmyslot-frontend.onrender.com`) |
-| `ADMIN_EMAIL` | `itsmyfavoriteworkplace@gmail.com` (or your admin email) |
-| `ADMIN_PASSWORD` | (set a secure password for admin login) |
+| Variable | Recommended Value | Description |
+|----------|-------|-------------|
+| `DATABASE_URL` | `postgresql://...` | Your Render PostgreSQL connection string |
+| `SESSION_SECRET` | (generate random) | Secure string for session encryption |
+| `NODE_ENV` | `production` | Enables production optimizations |
+| `PORT` | `5001` | Port for the backend to listen on |
+| `FRONTEND_URL` | `https://...` | The URL of your deployed frontend |
+| `VITE_API_URL` | `https://...` | Same as backend URL (for API calls) |
+| `ADMIN_EMAIL` | `itsmyfavoriteworkplace@gmail.com` | Superuser email address |
+| `ADMIN_PASSWORD` | (your password) | Superuser password |
+| `RESEND_API_KEY` | (optional) | Your Resend API key for emails |
+| `EMAIL_FROM` | `onboarding@resend.dev` | Verified sender email |
+| `RESEND` | `dev` | Set to `production` to send real emails |
 
 ### Important Notes
 
