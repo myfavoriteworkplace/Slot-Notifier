@@ -68,27 +68,10 @@ export default function Admin() {
   const { data: clinics, isLoading: clinicsLoading } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics', { includeArchived: true }],
     queryFn: async () => {
-      const isDemoSuperAdmin = localStorage.getItem("demo_super_admin") === "true";
       const res = await fetch(`/api/clinics?includeArchived=true`, {
         credentials: 'include',
       });
       const serverClinics = await res.json();
-
-      // Merge with localStorage clinics if demo super admin
-      if (isDemoSuperAdmin) {
-        const demoClinicsRaw = localStorage.getItem("demo_clinics");
-        if (demoClinicsRaw) {
-          const demoClinics = JSON.parse(demoClinicsRaw);
-          // Combine server and demo clinics, filtering out duplicates by id if any
-          const combined = Array.isArray(serverClinics) ? [...serverClinics] : [];
-          demoClinics.forEach((demo: Clinic) => {
-            if (!combined.find(c => c.id === demo.id)) {
-              combined.push(demo);
-            }
-          });
-          return combined;
-        }
-      }
       return Array.isArray(serverClinics) ? serverClinics : [];
     },
   });
@@ -96,37 +79,11 @@ export default function Admin() {
   const createClinicMutation = useMutation({
     mutationFn: async (data: { name: string; address: string }) => {
       console.log("[ADMIN-DEBUG] Adding clinic:", data);
-      if (localStorage.getItem("demo_super_admin") === "true") {
-        const newClinic: Clinic = {
-          id: Math.floor(Math.random() * 10000) + 1000,
-          name: data.name,
-          email: null,
-          address: data.address,
-          isArchived: false,
-          username: null,
-          passwordHash: null,
-          createdAt: new Date()
-        };
-        const demoClinicsRaw = localStorage.getItem("demo_clinics");
-        const demoClinics = demoClinicsRaw ? JSON.parse(demoClinicsRaw) : [];
-        demoClinics.push(newClinic);
-        localStorage.setItem("demo_clinics", JSON.stringify(demoClinics));
-        return newClinic;
-      }
       const res = await apiRequest('POST', '/api/clinics', data);
       return res.json();
     },
     onSuccess: async (clinic) => {
       console.log("[ADMIN-DEBUG] Clinic added success:", clinic);
-      // For demo mode, we need to ensure the local state is consistent
-      if (localStorage.getItem("demo_super_admin") === "true") {
-        // The clinic is already in localStorage from mutationFn
-        await queryClient.setQueryData(['/api/clinics', { includeArchived: true }], (old: Clinic[] | undefined) => {
-          if (!old) return [clinic];
-          if (old.find(c => c.id === clinic.id)) return old;
-          return [...old, clinic];
-        });
-      }
 
       if (newClinicUsername && newClinicPassword) {
         console.log("[ADMIN-DEBUG] Setting credentials for new clinic");
@@ -158,27 +115,6 @@ export default function Admin() {
   const setCredentialsMutation = useMutation({
     mutationFn: async (data: { clinicId: number; username: string; password: string }) => {
       console.log(`[ADMIN-DEBUG] Updating credentials for clinic ${data.clinicId}:`, { username: data.username });
-      if (localStorage.getItem("demo_super_admin") === "true") {
-        const demoClinicsRaw = localStorage.getItem("demo_clinics");
-        if (demoClinicsRaw) {
-          const demoClinics = JSON.parse(demoClinicsRaw);
-          const clinicIndex = demoClinics.findIndex((c: any) => c.id === data.clinicId);
-          if (clinicIndex !== -1) {
-            demoClinics[clinicIndex].username = data.username;
-            // In a real app we'd hash the password, but for demo we just store the fact it has one
-            demoClinics[clinicIndex].hasDemoPassword = true; 
-            localStorage.setItem("demo_clinics", JSON.stringify(demoClinics));
-            
-            // Also store demo credentials specifically for login bypass
-            const demoCredentialsRaw = localStorage.getItem("demo_clinic_credentials") || "{}";
-            const demoCredentials = JSON.parse(demoCredentialsRaw);
-            demoCredentials[data.username] = data.password;
-            localStorage.setItem("demo_clinic_credentials", JSON.stringify(demoCredentials));
-            
-            return { ok: true };
-          }
-        }
-      }
       const res = await apiRequest('PATCH', `/api/clinics/${data.clinicId}/credentials`, {
         username: data.username,
         password: data.password,
@@ -206,23 +142,11 @@ export default function Admin() {
 
   const archiveClinicMutation = useMutation({
     mutationFn: async (id: number) => {
-      if (localStorage.getItem("demo_super_admin") === "true") {
-        const demoClinicsRaw = localStorage.getItem("demo_clinics");
-        if (demoClinicsRaw) {
-          const demoClinics = JSON.parse(demoClinicsRaw);
-          const clinicIndex = demoClinics.findIndex((c: any) => c.id === id);
-          if (clinicIndex !== -1) {
-            demoClinics[clinicIndex].isArchived = true;
-            localStorage.setItem("demo_clinics", JSON.stringify(demoClinics));
-            return { ok: true };
-          }
-        }
-      }
       return apiRequest('PATCH', `/api/clinics/${id}/archive`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      toast({ title: "Clinic archived (Demo)" });
+      toast({ title: "Clinic archived" });
     },
     onError: () => {
       toast({ title: "Failed to archive clinic", variant: "destructive" });
@@ -231,23 +155,11 @@ export default function Admin() {
 
   const unarchiveClinicMutation = useMutation({
     mutationFn: async (id: number) => {
-      if (localStorage.getItem("demo_super_admin") === "true") {
-        const demoClinicsRaw = localStorage.getItem("demo_clinics");
-        if (demoClinicsRaw) {
-          const demoClinics = JSON.parse(demoClinicsRaw);
-          const clinicIndex = demoClinics.findIndex((c: any) => c.id === id);
-          if (clinicIndex !== -1) {
-            demoClinics[clinicIndex].isArchived = false;
-            localStorage.setItem("demo_clinics", JSON.stringify(demoClinics));
-            return { ok: true };
-          }
-        }
-      }
       return apiRequest('PATCH', `/api/clinics/${id}/unarchive`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      toast({ title: "Clinic restored (Demo)" });
+      toast({ title: "Clinic restored" });
     },
     onError: () => {
       toast({ title: "Failed to restore clinic", variant: "destructive" });
@@ -287,22 +199,24 @@ export default function Admin() {
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const isDemoSuperAdmin = adminEmail === "demo_super_admin@bookmyslot.com";
-    
-    if (isDemoSuperAdmin) {
-      console.log("Demo super admin login detected, bypassing backend");
-      localStorage.setItem("demo_super_admin", "true");
-      // Set a mock user in query cache immediately
-      queryClient.setQueryData(['/api/auth/user'], {
-        id: 'admin',
-        email: adminEmail,
-        role: 'superuser'
-      });
+    if (adminEmail === "demo_super_admin@bookmyslot.com") {
+      console.log("Demo super admin login detected");
+      // Use the explicit admin login endpoint which handles session bypass
       try {
-        await login({ email: adminEmail, password: "bypass" });
-        toast({ title: "Login successful (Demo Bypass)" });
+        const res = await apiRequest('POST', '/api/auth/admin/login', { 
+          email: adminEmail, 
+          password: "bypass" 
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          console.log("Demo admin login success:", data);
+          queryClient.setQueryData(['/api/auth/user'], data.user);
+          queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+          toast({ title: "Login successful (Demo)" });
+        }
       } catch (err: any) {
-        console.error("Demo bypass login error:", err);
+        console.error("Demo login error:", err);
       }
       return;
     }
@@ -351,14 +265,6 @@ export default function Admin() {
   };
 
   const handleAdminLogout = async () => {
-    if (isDemoSuperAdmin) {
-      localStorage.removeItem("demo_super_admin");
-      // Optional: Clear demo clinics too? Usually better to keep them for the browser session
-      // localStorage.removeItem("demo_clinics");
-      window.location.reload();
-      return;
-    }
-
     try {
       const res = await apiRequest('POST', '/api/auth/admin/logout');
       if (res.ok) {
