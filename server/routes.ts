@@ -169,6 +169,8 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
     SessionID: ${req.sessionID}
     adminLoggedIn: ${(req.session as any)?.adminLoggedIn}
     adminEmail: ${(req.session as any)?.adminEmail}
+    clinicId: ${(req.session as any)?.clinicId}
+    isDemoUser: ${(req.session as any)?.isDemoUser}
     Origin: ${req.headers.origin}
     Cookie: ${req.headers.cookie ? 'present' : 'missing'}
   `);
@@ -472,6 +474,16 @@ export async function registerRoutes(
 
     app.get("/api/auth/clinic/bookings", (req, res) => {
       const sess = req.session as any;
+      
+      // LOG SESSION DATA FOR DEBUGGING
+      console.log(`[AUTH-DEBUG] /api/auth/clinic/bookings Access attempt:
+        SessionID: ${req.sessionID}
+        adminLoggedIn: ${sess?.adminLoggedIn}
+        clinicId: ${sess?.clinicId}
+        adminEmail: ${sess?.adminEmail}
+        Cookie: ${req.headers.cookie ? 'present' : 'missing'}
+      `);
+
       if (req.session && sess.adminLoggedIn) {
         // If it's the demo super admin, we might not have a clinicId in session but we can get all bookings
         // or bookings for a specific clinic if provided. 

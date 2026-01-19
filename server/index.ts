@@ -30,13 +30,14 @@ app.use(
     resave: false,
     saveUninitialized: false, // Changed to false for better session management with CORS
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: false, // Set to false for local development and http testing
       maxAge: 30 * 24 * 60 * 60 * 1000, 
       httpOnly: true,
       sameSite: "lax",
     },
     proxy: true, // Required for trust proxy to work with express-session
     rolling: true, // Force session cookie to be set on every response
+    unset: 'destroy'
   })
 );
 
