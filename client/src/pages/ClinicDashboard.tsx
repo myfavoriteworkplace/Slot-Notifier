@@ -568,9 +568,16 @@ export default function ClinicDashboard() {
     toast({ title: "Bill Generated", description: "Your PDF download has started." });
   };
 
-  const handleLogout = () => {
-    logout();
-    setLocation("/clinic-login");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setLocation("/clinic-login");
+      toast({ title: "Logged out successfully" });
+    } catch (error: any) {
+      console.error("[CLINIC-DASHBOARD] Logout error:", error);
+      // Even if API fails, clear local state and redirect
+      setLocation("/clinic-login");
+    }
   };
 
   const downloadExcel = () => {
