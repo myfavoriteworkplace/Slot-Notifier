@@ -471,10 +471,26 @@ export async function registerRoutes(
     });
 
     app.get("/api/auth/clinic/bookings", (req, res) => {
-      if (req.session && (req.session as any).adminLoggedIn && (req.session as any).clinicId) {
-        return storage.getClinicBookings((req.session as any).clinicId)
-          .then(bookings => res.json(bookings))
-          .catch((err: any) => res.status(500).json({ message: err.message }));
+      const sess = req.session as any;
+      if (req.session && sess.adminLoggedIn) {
+        // If it's the demo super admin, we might not have a clinicId in session but we can get all bookings
+        // or bookings for a specific clinic if provided. 
+        // For the regular clinic owner, clinicId is mandatory.
+        if (sess.clinicId) {
+          return storage.getClinicBookings(sess.clinicId)
+            .then(bookings => res.json(bookings))
+            .catch((err: any) => res.status(500).json({ message: err.message }));
+        }
+        
+        // Demo super admin support - if no clinicId, they might be viewing the dashboard
+        if (sess.isDemoUser || sess.adminEmail === "demo_super_admin@bookmyslot.com") {
+          return storage.getClinics()
+            .then(async clinics => {
+              const allBookings = await Promise.all(clinics.map(c => storage.getClinicBookings(c.id)));
+              return res.json(allBookings.flat());
+            })
+            .catch((err: any) => res.status(500).json({ message: err.message }));
+        }
       }
       return res.status(401).json({ message: "Not authenticated" });
     });
