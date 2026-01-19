@@ -27,13 +27,13 @@ app.use(
       createTableIfMissing: false,
     }),
     secret: sessionSecret,
-    resave: true,
-    saveUninitialized: true, // Changed to true to ensure session is initialized
+    resave: false,
+    saveUninitialized: false, // Changed to false for better session management with CORS
     cookie: {
       secure: process.env.NODE_ENV === "production",
       maxAge: 30 * 24 * 60 * 60 * 1000, 
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      sameSite: "lax",
     },
     proxy: true, // Required for trust proxy to work with express-session
     rolling: true, // Force session cookie to be set on every response

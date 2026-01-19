@@ -354,17 +354,19 @@ export async function registerRoutes(
           return res.status(500).json({ message: "Session initialization failed" });
         }
 
-        (req.session as any).adminLoggedIn = true;
-        (req.session as any).adminEmail = clinic.email || `${username}@clinic.local`;
-        (req.session as any).clinicId = clinic.id;
-        (req.session as any).role = 'owner';
+        // Explicitly set session data
+        const sess = req.session as any;
+        sess.adminLoggedIn = true;
+        sess.adminEmail = clinic.email || `${username}@clinic.local`;
+        sess.clinicId = clinic.id;
+        sess.role = 'owner';
 
         req.session.save((err) => {
           if (err) {
             console.error("[AUTH ERROR] Session save error for clinic login:", err);
             return res.status(500).json({ message: "Failed to save session" });
           }
-          console.log(`[AUTH] Clinic login successful: ${username}`);
+          console.log(`[AUTH] Clinic login successful: ${username}, SessionID: ${req.sessionID}`);
           return res.json({ 
             message: "Login successful", 
             user: { 
