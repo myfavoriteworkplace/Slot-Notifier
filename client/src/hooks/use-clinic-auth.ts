@@ -8,7 +8,7 @@ interface ClinicSession {
 }
 
 async function fetchClinicSession(): Promise<ClinicSession | null> {
-  const response = await fetch(`${API_BASE_URL}/api/clinic/me`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/clinic/me`, {
     credentials: "include",
   });
 
@@ -24,7 +24,7 @@ async function fetchClinicSession(): Promise<ClinicSession | null> {
 }
 
 async function clinicLogin(credentials: { username: string; password: string }): Promise<ClinicSession> {
-  const url = "/api/clinic/login";
+  const url = "/api/auth/clinic/login";
   const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
   
   const response = await fetch(fullUrl, {
@@ -43,7 +43,7 @@ async function clinicLogin(credentials: { username: string; password: string }):
 }
 
 async function clinicLogout(): Promise<void> {
-  await fetch(`${API_BASE_URL}/api/clinic/logout`, {
+  await fetch(`${API_BASE_URL}/api/auth/clinic/logout`, {
     method: "POST",
     credentials: "include",
   });
@@ -53,7 +53,7 @@ export function useClinicAuth() {
   const queryClient = useQueryClient();
   
   const { data: clinic, isLoading } = useQuery<ClinicSession | null>({
-    queryKey: ["/api/clinic/me"],
+    queryKey: ["/api/auth/clinic/me"],
     queryFn: async () => {
       // Mock for demo clinics
       if (localStorage.getItem("demo_clinic_active") === "true") {
@@ -97,7 +97,7 @@ export function useClinicAuth() {
       return clinicLogin(credentials);
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["/api/clinic/me"], data);
+      queryClient.setQueryData(["/api/auth/clinic/me"], data);
       // Invalidate bookings cache so fresh data is fetched after login
       queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
     },

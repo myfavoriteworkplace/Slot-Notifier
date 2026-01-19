@@ -326,6 +326,60 @@ export async function registerRoutes(
       }
     });
 
+    // Clinic authentication
+    app.post("/api/auth/clinic/login", async (req, res) => {
+      const { username, password } = req.body;
+      
+      console.log(`[AUTH] Clinic login attempt - Username: ${username}`);
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+
+      try {
+        const clinic = await storage.getClinicByUsername(username);
+        if (!clinic || clinic.isArchived) {
+          console.error(`[AUTH ERROR] Clinic not found or archived: ${username}`);
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        const isMatch = await bcrypt.compare(password, clinic.passwordHash || "");
+        if (!isMatch) {
+          console.error(`[AUTH ERROR] Invalid password for clinic: ${username}`);
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        if (!req.session) {
+          console.error("[AUTH ERROR] No session available for clinic login");
+          return res.status(500).json({ message: "Session initialization failed" });
+        }
+
+        (req.session as any).adminLoggedIn = true;
+        (req.session as any).adminEmail = clinic.email || `${username}@clinic.local`;
+        (req.session as any).clinicId = clinic.id;
+        (req.session as any).role = 'owner';
+
+        req.session.save((err) => {
+          if (err) {
+            console.error("[AUTH ERROR] Session save error for clinic login:", err);
+            return res.status(500).json({ message: "Failed to save session" });
+          }
+          console.log(`[AUTH] Clinic login successful: ${username}`);
+          return res.json({ 
+            message: "Login successful", 
+            user: { 
+              id: clinic.id,
+              name: clinic.name,
+              role: 'owner' 
+            } 
+          });
+        });
+      } catch (error: any) {
+        console.error("[AUTH ERROR] Clinic login exception:", error);
+        return res.status(500).json({ message: "Internal server error during login" });
+      }
+    });
+
     app.post("/api/auth/admin/login", async (req, res) => {
       const { email, password } = req.body;
       
@@ -401,6 +455,28 @@ export async function registerRoutes(
       } else {
         res.clearCookie('connect.sid');
         return res.json({ message: "No active session to logout" });
+      }
+    });
+
+    app.get("/api/auth/clinic/me", (req, res) => {
+      if (req.session && (req.session as any).adminLoggedIn && (req.session as any).clinicId) {
+        return res.json({
+          id: (req.session as any).clinicId,
+          name: (req.session as any).adminEmail?.split('@')[0] || "Clinic"
+        });
+      }
+      return res.status(401).json({ message: "Not authenticated" });
+    });
+
+    app.post("/api/auth/clinic/logout", (req, res) => {
+      if (req.session) {
+        req.session.destroy((err) => {
+          res.clearCookie('connect.sid');
+          return res.json({ message: "Logout successful" });
+        });
+      } else {
+        res.clearCookie('connect.sid');
+        return res.json({ message: "No active session" });
       }
     });
 
