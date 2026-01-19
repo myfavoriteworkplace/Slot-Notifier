@@ -596,6 +596,12 @@ export async function registerRoutes(
     app.get("/api/clinics", async (req, res) => {
       const includeArchived = req.query.includeArchived === 'true';
       const clinicsList = await storage.getClinics(includeArchived);
+      
+      // Prevent 304 Not Modified cache issues by adding cache-control headers
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       res.json(clinicsList);
     });
 
