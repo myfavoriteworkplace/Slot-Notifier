@@ -52,6 +52,14 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Session table for express-session (PostgreSQL backend)
+// This definition prevents Drizzle from trying to delete the table created by connect-pg-simple
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey(),
+  sess: text("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+});
+
 // Relations
 export const slotsRelations = relations(slots, ({ one, many }) => ({
   owner: one(users, {
