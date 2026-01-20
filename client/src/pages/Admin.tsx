@@ -35,6 +35,7 @@ export default function Admin() {
   const [newClinicDoctorDegree, setNewClinicDoctorDegree] = useState("");
   const [newClinicUsername, setNewClinicUsername] = useState("");
   const [newClinicPassword, setNewClinicPassword] = useState("");
+  const [newClinicDoctors, setNewClinicDoctors] = useState<{ name: string; specialization: string; degree: string }[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
@@ -87,9 +88,7 @@ export default function Admin() {
       address: string; 
       email?: string;
       website?: string;
-      doctorName?: string;
-      doctorSpecialization?: string;
-      doctorDegree?: string;
+      doctors?: { name: string; specialization: string; degree: string }[];
     }) => {
       console.log("[ADMIN-DEBUG] Adding clinic:", data);
       const res = await apiRequest('POST', '/api/clinics', data);
@@ -113,9 +112,7 @@ export default function Admin() {
       setNewClinicAddress("");
       setNewClinicEmail("");
       setNewClinicWebsite("");
-      setNewClinicDoctorName("");
-      setNewClinicDoctorSpecialization("");
-      setNewClinicDoctorDegree("");
+      setNewClinicDoctors([]);
       setNewClinicUsername("");
       setNewClinicPassword("");
       toast({ title: "Clinic added successfully" });
@@ -414,10 +411,22 @@ export default function Admin() {
       address: newClinicAddress.trim(),
       email: newClinicEmail.trim() || undefined,
       website: newClinicWebsite.trim() || undefined,
-      doctorName: newClinicDoctorName.trim() || undefined,
-      doctorSpecialization: newClinicDoctorSpecialization.trim() || undefined,
-      doctorDegree: newClinicDoctorDegree.trim() || undefined,
+      doctors: newClinicDoctors.filter(d => d.name.trim() !== ""),
     });
+  };
+
+  const addDoctorField = () => {
+    setNewClinicDoctors([...newClinicDoctors, { name: "", specialization: "", degree: "" }]);
+  };
+
+  const removeDoctorField = (index: number) => {
+    setNewClinicDoctors(newClinicDoctors.filter((_, i) => i !== index));
+  };
+
+  const updateDoctorField = (index: number, field: keyof typeof newClinicDoctors[0], value: string) => {
+    const updated = [...newClinicDoctors];
+    updated[index] = { ...updated[index], [field]: value };
+    setNewClinicDoctors(updated);
   };
 
   const handleSetCredentials = () => {
@@ -541,38 +550,55 @@ export default function Admin() {
               </div>
             </div>
             <div className="border-t pt-4">
-              <p className="text-sm font-medium mb-3">Medical Lead Details (Optional)</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="doctor-name">Doctor Name</Label>
-                  <Input
-                    id="doctor-name"
-                    placeholder="e.g., Dr. Jane Smith"
-                    value={newClinicDoctorName}
-                    onChange={(e) => setNewClinicDoctorName(e.target.value)}
-                    data-testid="input-doctor-name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="doctor-specialization">Specialization</Label>
-                  <Input
-                    id="doctor-specialization"
-                    placeholder="e.g., Orthodontist"
-                    value={newClinicDoctorSpecialization}
-                    onChange={(e) => setNewClinicDoctorSpecialization(e.target.value)}
-                    data-testid="input-doctor-specialization"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="doctor-degree">Degree</Label>
-                  <Input
-                    id="doctor-degree"
-                    placeholder="e.g., MDS, BDS"
-                    value={newClinicDoctorDegree}
-                    onChange={(e) => setNewClinicDoctorDegree(e.target.value)}
-                    data-testid="input-doctor-degree"
-                  />
-                </div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-medium">Doctor Details (Optional)</p>
+                <Button variant="outline" size="sm" onClick={addDoctorField} type="button">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Doctor
+                </Button>
+              </div>
+              <div className="space-y-4">
+                {newClinicDoctors.map((doc, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-md relative group">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeDoctorField(index)}
+                    >
+                      <Plus className="h-3 w-3 rotate-45" />
+                    </Button>
+                    <div className="space-y-2">
+                      <Label>Doctor Name</Label>
+                      <Input
+                        placeholder="e.g., Dr. Jane Smith"
+                        value={doc.name}
+                        onChange={(e) => updateDoctorField(index, 'name', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Specialization</Label>
+                      <Input
+                        placeholder="e.g., Orthodontist"
+                        value={doc.specialization}
+                        onChange={(e) => updateDoctorField(index, 'specialization', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Degree</Label>
+                      <Input
+                        placeholder="e.g., MDS, BDS"
+                        value={doc.degree}
+                        onChange={(e) => updateDoctorField(index, 'degree', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {newClinicDoctors.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-md">
+                    No doctors added. Click "Add Doctor" to include medical staff details.
+                  </p>
+                )}
               </div>
             </div>
             <div className="border-t pt-4">

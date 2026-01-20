@@ -1,8 +1,8 @@
-import { pgTable, text, serial, timestamp, boolean, varchar, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, varchar, integer, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./models/auth";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // Export auth models so they are picked up
 export * from "./models/auth";
@@ -18,6 +18,7 @@ export const clinics = pgTable("clinics", {
   doctorName: varchar("doctor_name", { length: 255 }),
   doctorSpecialization: varchar("doctor_specialization", { length: 255 }),
   doctorDegree: varchar("doctor_degree", { length: 255 }),
+  doctors: jsonb("doctors").$type<{ name: string; specialization: string; degree: string }[]>().default([]),
   isArchived: boolean("is_archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });

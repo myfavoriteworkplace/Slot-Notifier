@@ -102,7 +102,25 @@ export default function ClinicAbout() {
           </div>
         </div>
 
-        {clinic.doctorName && (
+        {(clinic.doctors && Array.isArray(clinic.doctors) && clinic.doctors.length > 0) ? (
+          <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm hover:border-primary/20 transition-all md:col-span-2">
+            <div className="flex items-center gap-3 mb-6 text-primary">
+              <Building2 className="h-5 w-5" />
+              <h2 className="text-xl font-semibold text-foreground">Our Medical Team</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              {(clinic.doctors as {name: string, specialization: string, degree: string}[]).map((doc, idx) => (
+                <div key={idx} className="flex flex-col border-l-2 border-primary/20 pl-4">
+                  <h3 className="text-xl font-bold mb-1">{doc.name}</h3>
+                  <p className="text-primary font-medium mb-2">{doc.specialization}</p>
+                  <div className="inline-block self-start px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                    {doc.degree}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : clinic.doctorName ? (
           <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm hover:border-primary/20 transition-all md:col-span-2">
             <div className="flex items-center gap-3 mb-6 text-primary">
               <Building2 className="h-5 w-5" />
@@ -118,7 +136,7 @@ export default function ClinicAbout() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm hover:border-primary/20 transition-all md:col-span-2">
           <div className="flex items-center gap-3 mb-6 text-primary">
