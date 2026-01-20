@@ -776,6 +776,7 @@ export async function registerRoutes(
 
     // Clinics API
     app.get("/api/clinics", async (req, res) => {
+      console.log(` /api/clinics - [API] Fetching clinics. includeArchived=${req.query.includeArchived}`);
       const includeArchived = req.query.includeArchived === 'true';
       const clinicsList = await storage.getClinics(includeArchived);
       
@@ -783,6 +784,8 @@ export async function registerRoutes(
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
+
+      console.log(`[RESPONSE] /api/clinics - [API] Fetching clinics List =`, clinicsList);
       
       res.json(clinicsList);
     });
