@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +52,10 @@ const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
 
 export default function Book() {
   const { toast } = useToast();
+  const [searchParams] = useLocation();
+  const params = new URLSearchParams(window.location.search);
+  const clinicIdFromUrl = params.get("clinicId");
+
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
@@ -60,6 +65,16 @@ export default function Book() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [showSlots, setShowSlots] = useState(false);
+
+  // Set clinic from URL if present
+  useEffect(() => {
+    if (clinicIdFromUrl && clinics.length > 0) {
+      const clinic = clinics.find(c => c.id.toString() === clinicIdFromUrl);
+      if (clinic) {
+        setSelectedClinic(clinic.name);
+      }
+    }
+  }, [clinicIdFromUrl, clinics]);
 
   const CHIEF_COMPLAINTS = [
     "Toothache", "Cavities", "Sensitivity", "Swelling", 
@@ -255,8 +270,12 @@ export default function Book() {
 
         <div className="max-w-md mb-6 sm:mb-10 text-left">
           <Label className="text-sm font-medium mb-2 block text-left">Select Clinic</Label>
-          <Select value={selectedClinic} onValueChange={setSelectedClinic}>
-            <SelectTrigger className="w-full rounded-xl h-14 sm:h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50" data-testid="select-clinic">
+          <Select 
+            value={selectedClinic} 
+            onValueChange={setSelectedClinic}
+            disabled={!!clinicIdFromUrl}
+          >
+            <SelectTrigger className="w-full rounded-xl h-14 sm:h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50 disabled:opacity-100 disabled:bg-muted" data-testid="select-clinic">
               <SelectValue placeholder="Choose a dental clinic" />
             </SelectTrigger>
             <SelectContent className="rounded-xl shadow-lg border-border/50">
@@ -267,6 +286,11 @@ export default function Book() {
               ))}
             </SelectContent>
           </Select>
+          {clinicIdFromUrl && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Booking restricted to the selected clinic via referral link.
+            </p>
+          )}
         </div>
 
         {selectedClinic && (
