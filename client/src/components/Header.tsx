@@ -83,7 +83,6 @@ export function Header() {
     ] : []),
     ...(location === "/about" && new URLSearchParams(window.location.search).get("clinicId") ? [
       { href: `/book?clinicId=${new URLSearchParams(window.location.search).get("clinicId")}`, label: "Book a Slot", icon: CalendarPlus },
-      { href: `/about?clinicId=${new URLSearchParams(window.location.search).get("clinicId")}`, label: "About", icon: Building2 }
     ] : []),
   ];
 
