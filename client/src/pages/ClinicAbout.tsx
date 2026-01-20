@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Building2, MapPin, Mail, Clock, ArrowLeft } from "lucide-react";
+import { Loader2, Building2, MapPin, Mail, Clock, ArrowLeft, Globe, Phone, Award, Activity, ExternalLink } from "lucide-react";
 import type { Clinic } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function ClinicAbout() {
   const params = new URLSearchParams(window.location.search);
@@ -52,123 +53,166 @@ export default function ClinicAbout() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 sm:py-12 max-w-4xl">
-      <div className="mb-8">
-        <Link href={`/book${clinicIdFromUrl ? `?clinicId=${clinicIdFromUrl}` : ""}`}>
-          <Button variant="ghost" size="sm" className="gap-2 mb-6" data-testid="button-back-to-booking">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Booking
-          </Button>
-        </Link>
-        
-        <div className="flex items-center gap-4 mb-2">
-          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-            <Building2 className="h-6 w-6" />
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">{clinic.name}</h1>
-        </div>
-        <p className="text-muted-foreground text-lg ml-16">Clinic Profile & Information</p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm hover:border-primary/20 transition-all">
-          <div className="flex items-center gap-3 mb-6 text-primary">
-            <MapPin className="h-5 w-5" />
-            <h2 className="text-xl font-semibold text-foreground">Location</h2>
-          </div>
-          <p className="text-foreground/80 leading-relaxed text-lg">
-            {clinic.address || "Address not provided"}
-          </p>
-        </div>
-
-        <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm hover:border-primary/20 transition-all">
-          <div className="flex items-center gap-3 mb-6 text-primary">
-            <Mail className="h-5 w-5" />
-            <h2 className="text-xl font-semibold text-foreground">Contact Details</h2>
-          </div>
-          <div className="space-y-4">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="container mx-auto px-4 py-8 sm:py-12 max-w-5xl">
+        <div className="mb-10">
+          <Link href={`/book${clinicIdFromUrl ? `?clinicId=${clinicIdFromUrl}` : ""}`}>
+            <Button variant="ghost" size="sm" className="gap-2 mb-8 hover:bg-background/80" data-testid="button-back-to-booking">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Booking
+            </Button>
+          </Link>
+          
+          <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+              <Building2 className="h-8 w-8" />
+            </div>
             <div>
-              <label className="text-xs text-muted-foreground block mb-1 font-medium uppercase">Email Address</label>
-              <p className="font-medium text-lg">{clinic.email || "Not available"}</p>
-            </div>
-            {clinic.website && (
-              <div className="pt-2">
-                <label className="text-xs text-muted-foreground block mb-1 font-medium uppercase">Website</label>
-                <a href={clinic.website.startsWith('http') ? clinic.website : `https://${clinic.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline cursor-pointer">
-                  {clinic.website}
-                </a>
+              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-2 text-foreground">{clinic.name}</h1>
+              <div className="flex items-center gap-2 text-muted-foreground ml-1">
+                <Activity className="h-4 w-4 text-primary" />
+                <span className="text-lg font-medium">Clinic Profile & Professional Care</span>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
-        {(clinic.doctors && Array.isArray(clinic.doctors) && clinic.doctors.length > 0) ? (
-          <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm hover:border-primary/20 transition-all md:col-span-2">
-            <div className="flex items-center gap-3 mb-6 text-primary">
-              <Building2 className="h-5 w-5" />
-              <h2 className="text-xl font-semibold text-foreground">Our Medical Team</h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-              {(clinic.doctors as {name: string, specialization: string, degree: string}[]).map((doc, idx) => (
-                <div key={idx} className="flex flex-col border-l-2 border-primary/20 pl-4">
-                  <h3 className="text-xl font-bold mb-1">{doc.name}</h3>
-                  <p className="text-primary font-medium mb-2">{doc.specialization}</p>
-                  <div className="inline-block self-start px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                    {doc.degree}
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card className="hover-elevate transition-all border-none bg-background shadow-sm overflow-hidden">
+            <CardContent className="p-8">
+              <div className="flex items-center gap-3 mb-6 text-primary">
+                <MapPin className="h-5 w-5" />
+                <h2 className="text-xl font-bold text-foreground">Location</h2>
+              </div>
+              <p className="text-muted-foreground leading-relaxed text-lg">
+                {clinic.address || "Address not provided"}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="hover-elevate transition-all border-none bg-background shadow-sm overflow-hidden">
+            <CardContent className="p-8">
+              <div className="flex items-center gap-3 mb-6 text-primary">
+                <Mail className="h-5 w-5" />
+                <h2 className="text-xl font-bold text-foreground">Contact Details</h2>
+              </div>
+              <div className="space-y-6">
+                {clinic.phone && (
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1 font-bold uppercase tracking-wider">Phone</label>
+                    <a href={`tel:${clinic.phone}`} className="font-semibold text-lg hover:text-primary transition-colors flex items-center gap-2">
+                      <Phone className="h-4 w-4" />
+                      {clinic.phone}
+                    </a>
+                  </div>
+                )}
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1 font-bold uppercase tracking-wider">Email</label>
+                  <p className="font-semibold text-lg">{clinic.email || "Not available"}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="hover-elevate transition-all border-none bg-background shadow-sm overflow-hidden">
+            <CardContent className="p-8">
+              <div className="flex items-center gap-3 mb-6 text-primary">
+                <Globe className="h-5 w-5" />
+                <h2 className="text-xl font-bold text-foreground">Digital Presence</h2>
+              </div>
+              {clinic.website ? (
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1 font-bold uppercase tracking-wider">Website</label>
+                  <a 
+                    href={clinic.website.startsWith('http') ? clinic.website : `https://${clinic.website}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-primary font-semibold text-lg hover:underline flex items-center gap-2"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Visit Website
+                  </a>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">Website details coming soon</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {(clinic.doctors && Array.isArray(clinic.doctors) && clinic.doctors.length > 0) ? (
+            <Card className="md:col-span-3 border-none bg-background shadow-sm overflow-hidden">
+              <CardContent className="p-8">
+                <div className="flex items-center gap-3 mb-8 text-primary">
+                  <Award className="h-5 w-5" />
+                  <h2 className="text-2xl font-bold text-foreground">Our Medical Experts</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {(clinic.doctors as {name: string, specialization: string, degree: string}[]).map((doc, idx) => (
+                    <div key={idx} className="group p-6 rounded-2xl bg-muted/30 hover:bg-primary/5 transition-all duration-300">
+                      <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{doc.name}</h3>
+                      <p className="text-primary font-semibold mb-4 text-sm uppercase tracking-wide">{doc.specialization}</p>
+                      <div className="inline-flex items-center px-3 py-1 rounded-full bg-background border border-primary/20 text-primary text-xs font-bold">
+                        {doc.degree}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : clinic.doctorName ? (
+            <Card className="md:col-span-3 border-none bg-background shadow-sm overflow-hidden">
+              <CardContent className="p-8">
+                <div className="flex items-center gap-3 mb-8 text-primary">
+                  <Award className="h-5 w-5" />
+                  <h2 className="text-2xl font-bold text-foreground">Medical Lead</h2>
+                </div>
+                <div className="group p-6 rounded-2xl bg-muted/30 hover:bg-primary/5 transition-all duration-300">
+                  <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{clinic.doctorName}</h3>
+                  <p className="text-primary font-semibold mb-4 text-sm uppercase tracking-wide">{clinic.doctorSpecialization}</p>
+                  <div className="inline-flex items-center px-3 py-1 rounded-full bg-background border border-primary/20 text-primary text-xs font-bold">
+                    {clinic.doctorDegree}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        ) : clinic.doctorName ? (
-          <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm hover:border-primary/20 transition-all md:col-span-2">
-            <div className="flex items-center gap-3 mb-6 text-primary">
-              <Building2 className="h-5 w-5" />
-              <h2 className="text-xl font-semibold text-foreground">Medical Lead</h2>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-6">
-              <div className="flex-1">
-                <h3 className="text-2xl font-bold mb-1">{clinic.doctorName}</h3>
-                <p className="text-primary font-medium mb-4">{clinic.doctorSpecialization || "Specialist"}</p>
-                <div className="inline-block px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold">
-                  {clinic.doctorDegree || "Professional Degree"}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <Card className="md:col-span-3 border-none bg-background shadow-sm overflow-hidden">
+            <CardContent className="p-8">
+              <div className="flex items-center gap-3 mb-8 text-primary">
+                <Clock className="h-5 w-5" />
+                <h2 className="text-2xl font-bold text-foreground">Practice Hours</h2>
+              </div>
+              <div className="grid sm:grid-cols-3 gap-6">
+                <div className="p-6 rounded-2xl bg-muted/30">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Weekdays</span>
+                  <span className="text-lg font-bold">9:00 AM - 7:00 PM</span>
+                </div>
+                <div className="p-6 rounded-2xl bg-muted/30">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Saturdays</span>
+                  <span className="text-lg font-bold">9:00 AM - 4:00 PM</span>
+                </div>
+                <div className="p-6 rounded-2xl bg-muted/30 border border-destructive/10">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Sundays</span>
+                  <span className="text-lg font-bold text-destructive">CLOSED</span>
                 </div>
               </div>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm hover:border-primary/20 transition-all md:col-span-2">
-          <div className="flex items-center gap-3 mb-6 text-primary">
-            <Clock className="h-5 w-5" />
-            <h2 className="text-xl font-semibold text-foreground">Operating Hours</h2>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="flex justify-between items-center p-3 rounded-lg bg-muted/30">
-              <span className="font-medium">Monday - Friday</span>
-              <span className="text-muted-foreground">9:00 AM - 7:00 PM</span>
-            </div>
-            <div className="flex justify-between items-center p-3 rounded-lg bg-muted/30">
-              <span className="font-medium">Saturday</span>
-              <span className="text-muted-foreground">9:00 AM - 4:00 PM</span>
-            </div>
-            <div className="flex justify-between items-center p-3 rounded-lg bg-muted/30">
-              <span className="font-medium">Sunday</span>
-              <span className="text-destructive font-medium uppercase text-sm">Closed</span>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
-      </div>
 
-      <div className="mt-12 p-8 rounded-2xl bg-primary/5 border border-dashed border-primary/20">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-          Coming Soon
-        </h3>
-        <p className="text-muted-foreground leading-relaxed">
-          We are currently working on expanding this profile with doctor credentials, patient testimonials, 
-          clinic gallery, and detailed service lists to help you make informed decisions about your dental care.
-        </p>
+        <div className="mt-12 p-10 rounded-3xl bg-primary/5 border border-primary/10 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-700" />
+          <h3 className="text-2xl font-bold mb-4 flex items-center gap-3">
+            <span className="h-3 w-3 rounded-full bg-primary animate-pulse" />
+            Clinic Philosophy
+          </h3>
+          <p className="text-muted-foreground leading-relaxed text-lg max-w-3xl">
+            We are dedicated to providing the highest quality dental care in a comfortable and friendly environment. 
+            Our team of specialists uses the latest technology to ensure your smile stays healthy and beautiful. 
+            Detailed service lists and patient testimonials are being prepared and will be available soon.
+          </p>
+        </div>
       </div>
     </div>
   );

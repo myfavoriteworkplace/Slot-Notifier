@@ -29,6 +29,7 @@ export default function Admin() {
   const [newClinicName, setNewClinicName] = useState("");
   const [newClinicAddress, setNewClinicAddress] = useState("");
   const [newClinicEmail, setNewClinicEmail] = useState("");
+  const [newClinicPhone, setNewClinicPhone] = useState("");
   const [newClinicWebsite, setNewClinicWebsite] = useState("");
   const [newClinicDoctorName, setNewClinicDoctorName] = useState("");
   const [newClinicDoctorSpecialization, setNewClinicDoctorSpecialization] = useState("");
@@ -87,6 +88,7 @@ export default function Admin() {
       name: string; 
       address: string; 
       email?: string;
+      phone?: string;
       website?: string;
       doctors?: { name: string; specialization: string; degree: string }[];
     }) => {
@@ -111,6 +113,7 @@ export default function Admin() {
       setNewClinicName("");
       setNewClinicAddress("");
       setNewClinicEmail("");
+      setNewClinicPhone("");
       setNewClinicWebsite("");
       setNewClinicDoctors([]);
       setNewClinicUsername("");
@@ -410,6 +413,7 @@ export default function Admin() {
       name: newClinicName.trim(), 
       address: newClinicAddress.trim(),
       email: newClinicEmail.trim() || undefined,
+      phone: newClinicPhone.trim() || undefined,
       website: newClinicWebsite.trim() || undefined,
       doctors: newClinicDoctors.filter(d => d.name.trim() !== ""),
     });
@@ -536,6 +540,16 @@ export default function Admin() {
                   value={newClinicEmail}
                   onChange={(e) => setNewClinicEmail(e.target.value)}
                   data-testid="input-clinic-email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clinic-phone">Phone Number</Label>
+                <Input
+                  id="clinic-phone"
+                  placeholder="e.g., +1 234 567 890"
+                  value={newClinicPhone}
+                  onChange={(e) => setNewClinicPhone(e.target.value)}
+                  data-testid="input-clinic-phone"
                 />
               </div>
               <div className="space-y-2">

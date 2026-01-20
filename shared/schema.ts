@@ -12,6 +12,7 @@ export const clinics = pgTable("clinics", {
   name: varchar("name", { length: 255 }).notNull(),
   address: varchar("address", { length: 500 }),
   email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
   username: varchar("username", { length: 100 }).unique(),
   passwordHash: varchar("password_hash", { length: 255 }),
   website: varchar("website", { length: 255 }),
