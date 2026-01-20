@@ -65,6 +65,53 @@ export default function Book() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [showSlots, setShowSlots] = useState(false);
+  
+  const CHIEF_COMPLAINTS = [
+    "Toothache", "Cavities", "Sensitivity", "Swelling", 
+    "Bleeding", "Abscess", "Fracture", "Wisdom", 
+    "Infection", "Checkup"
+  ];
+
+  const handleComplaintClick = (complaint: string) => {
+    const currentComplaints = description ? description.split(", ").filter(Boolean) : [];
+    let newDescription = "";
+    
+    if (currentComplaints.includes(complaint)) {
+      newDescription = currentComplaints.filter(c => c !== complaint).join(", ");
+    } else {
+      newDescription = [...currentComplaints, complaint].join(", ");
+    }
+    setDescription(newDescription);
+  };
+  
+  const [step, setStep] = useState<'details' | 'success'>('details');
+  const [phoneError, setPhoneError] = useState("");
+
+  const [slotTimings, setSlotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
+
+  const validateIndianPhone = (phone: string): boolean => {
+    const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    const indiaRegex = /^(\+91|91)?[6-9]\d{9}$/;
+    return indiaRegex.test(cleaned);
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setCustomerPhone(value);
+    if (value && !validateIndianPhone(value)) {
+      setPhoneError("Please enter a valid Indian mobile number (10 digits starting with 6-9)");
+    } else {
+      setPhoneError("");
+    }
+  };
+
+  const isPhoneValid = customerPhone && validateIndianPhone(customerPhone);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('slotTimings');
+    if (saved) {
+      setSlotTimings(JSON.parse(saved));
+    }
+  }, []);
 
   const { data: clinicsData, isLoading: clinicsLoading } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics'],
