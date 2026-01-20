@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CalendarDays, CheckCircle2 } from "lucide-react";
+import { Loader2, CalendarDays, CheckCircle2, Building2 } from "lucide-react";
 import type { Clinic, Slot } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -266,33 +266,43 @@ export default function Book() {
       <div className="max-w-5xl">
         <div className="text-left mb-6 sm:mb-10">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2 text-left">Book a Session</h1>
-          <p className="text-sm sm:text-base text-muted-foreground text-left">Select a clinic and date to book your appointment.</p>
+          <p className="text-sm sm:text-base text-muted-foreground text-left">
+            {clinicIdFromUrl 
+              ? `Select a date to book your appointment at ${selectedClinic}.`
+              : "Select a clinic and date to book your appointment."}
+          </p>
         </div>
 
-        <div className="max-w-md mb-6 sm:mb-10 text-left">
-          <Label className="text-sm font-medium mb-2 block text-left">Select Clinic</Label>
-          <Select 
-            value={selectedClinic} 
-            onValueChange={setSelectedClinic}
-            disabled={!!clinicIdFromUrl}
-          >
-            <SelectTrigger className="w-full rounded-xl h-14 sm:h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50 disabled:opacity-100 disabled:bg-muted" data-testid="select-clinic">
-              <SelectValue placeholder="Choose a dental clinic" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl shadow-lg border-border/50">
-              {clinics.map((clinic) => (
-                <SelectItem key={clinic.id} value={clinic.name} className="py-4 sm:py-3 rounded-lg cursor-pointer" data-testid={`clinic-option-${clinic.id}`}>
-                  {clinic.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {clinicIdFromUrl && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Booking restricted to the selected clinic via referral link.
-            </p>
-          )}
-        </div>
+        {clinicIdFromUrl ? (
+          <div className="mb-8 p-4 rounded-xl bg-primary/5 border border-primary/10 flex items-center gap-3 animate-in fade-in slide-in-from-left-2 duration-500">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-primary uppercase tracking-wider">Booking At</p>
+              <h2 className="text-lg font-bold">{selectedClinic}</h2>
+            </div>
+          </div>
+        ) : (
+          <div className="max-w-md mb-6 sm:mb-10 text-left">
+            <Label className="text-sm font-medium mb-2 block text-left">Select Clinic</Label>
+            <Select 
+              value={selectedClinic} 
+              onValueChange={setSelectedClinic}
+            >
+              <SelectTrigger className="w-full rounded-xl h-14 sm:h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50" data-testid="select-clinic">
+                <SelectValue placeholder="Choose a dental clinic" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl shadow-lg border-border/50">
+                {clinics.map((clinic) => (
+                  <SelectItem key={clinic.id} value={clinic.name} className="py-4 sm:py-3 rounded-lg cursor-pointer" data-testid={`clinic-option-${clinic.id}`}>
+                    {clinic.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {selectedClinic && (
           <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-500">
