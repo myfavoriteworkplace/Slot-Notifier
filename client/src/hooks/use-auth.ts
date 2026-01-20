@@ -48,9 +48,10 @@ async function logout(): Promise<void> {
       credentials: "include",
     });
   } catch {
-    // If admin logout fails, try Replit logout
+    // If admin logout fails, continue
   }
-  window.location.href = `${apiBaseUrl}/api/logout`;
+  // Redirect to home page instead of /api/logout which is for Replit OIDC
+  window.location.href = "/";
 }
 
 async function adminLogin(email: string, password: string): Promise<User> {

@@ -442,25 +442,25 @@ export async function registerRoutes(
       return res.status(401).json({ message: "Invalid credentials" });
     });
 
-    app.post("/api/auth/admin/logout", (req, res) => {
-      console.log(`[AUTH] Admin logout request from: ${(req.session as any)?.adminEmail}`);
-      if (req.session) {
-        req.session.destroy((err) => {
-          if (err) {
-            console.error("[AUTH ERROR] Failed to destroy session during logout:", err);
-            // If the error is database related (like missing table), we still want to clear the cookie
-            res.clearCookie('connect.sid');
-            return res.status(200).json({ message: "Logout triggered (session destruction failed but cookie cleared)" });
-          }
-          res.clearCookie('connect.sid');
-          console.log("[AUTH] Admin logout successful");
-          return res.json({ message: "Logout successful" });
-        });
-      } else {
-        res.clearCookie('connect.sid');
-        return res.json({ message: "No active session to logout" });
-      }
-    });
+  app.post("/api/auth/admin/logout", (req, res) => {
+    console.log(`[AUTH] Admin logout request from: ${(req.session as any)?.adminEmail}`);
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("[AUTH ERROR] Failed to destroy session during logout:", err);
+          // If the error is database related (like missing table), we still want to clear the cookie
+          res.clearCookie('connect.sid', { path: '/' });
+          return res.status(200).json({ message: "Logout triggered (session destruction failed but cookie cleared)" });
+        }
+        res.clearCookie('connect.sid', { path: '/' });
+        console.log("[AUTH] Admin logout successful");
+        return res.json({ message: "Logout successful" });
+      });
+    } else {
+      res.clearCookie('connect.sid', { path: '/' });
+      return res.json({ message: "No active session to logout" });
+    }
+  });
 
     app.get("/api/auth/clinic/me", (req, res) => {
       if (req.session && (req.session as any).adminLoggedIn && (req.session as any).clinicId) {
