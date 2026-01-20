@@ -14,6 +14,7 @@ import Book from "@/pages/Book";
 import Admin from "@/pages/Admin";
 import ClinicLogin from "@/pages/ClinicLogin";
 import ClinicDashboard from "@/pages/ClinicDashboard";
+import ClinicAbout from "@/pages/ClinicAbout";
 
 function HealthIndicator() {
   const [healthStatus, setHealthStatus] = useState<{
@@ -108,6 +109,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/clinic-login" component={ClinicLogin} />
       <Route path="/clinic-dashboard" component={ClinicDashboard} />
+      <Route path="/about" component={ClinicAbout} />
       <Route component={NotFound} />
     </Switch>
   );

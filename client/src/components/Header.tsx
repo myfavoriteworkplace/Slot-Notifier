@@ -79,7 +79,10 @@ export function Header() {
       { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
     ] : []),
     ...(location.includes("/book") && new URLSearchParams(window.location.search).get("clinicId") ? [
-      { href: "#about", label: "About", icon: Building2 }
+      { href: `/about?clinicId=${new URLSearchParams(window.location.search).get("clinicId")}`, label: "About", icon: Building2 }
+    ] : []),
+    ...(location === "/about" && new URLSearchParams(window.location.search).get("clinicId") ? [
+      { href: `/about?clinicId=${new URLSearchParams(window.location.search).get("clinicId")}`, label: "About", icon: Building2 }
     ] : []),
   ];
 
