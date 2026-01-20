@@ -574,11 +574,14 @@ export async function registerRoutes(
     app.post("/api/auth/clinic/logout", (req, res) => {
       if (req.session) {
         req.session.destroy((err) => {
-          res.clearCookie('connect.sid');
+          if (err) {
+            console.error("[AUTH ERROR] Failed to destroy clinic session:", err);
+          }
+          res.clearCookie('connect.sid', { path: '/' });
           return res.json({ message: "Logout successful" });
         });
       } else {
-        res.clearCookie('connect.sid');
+        res.clearCookie('connect.sid', { path: '/' });
         return res.json({ message: "No active session" });
       }
     });

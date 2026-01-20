@@ -108,12 +108,13 @@ export function useClinicAuth() {
       localStorage.removeItem("demo_clinic_active");
       localStorage.removeItem("demo_clinic_id");
       localStorage.removeItem("demo_clinic_name");
-      if (clinic?.id !== 999 && !localStorage.getItem("demo_clinic_id")) {
-        await clinicLogout();
-      }
+      // Always call backend logout to clear session cookies
+      await clinicLogout();
     },
     onSuccess: () => {
-      queryClient.setQueryData(["/api/clinic/me"], null);
+      queryClient.setQueryData(["/api/auth/clinic/me"], null);
+      // Also clear super admin data to prevent cross-contamination
+      queryClient.setQueryData(["/api/auth/user"], null);
     },
   });
 
