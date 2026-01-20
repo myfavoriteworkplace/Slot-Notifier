@@ -39,7 +39,14 @@ export default function Admin() {
   const [newClinicDoctors, setNewClinicDoctors] = useState<{ name: string; specialization: string; degree: string }[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
+  const [editClinicDialogOpen, setEditClinicDialogOpen] = useState(false);
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editWebsite, setEditWebsite] = useState("");
+  const [editDoctors, setEditDoctors] = useState<{ name: string; specialization: string; degree: string }[]>([]);
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
@@ -181,6 +188,35 @@ export default function Admin() {
     },
     onError: () => {
       toast({ title: "Failed to restore clinic", variant: "destructive" });
+    },
+  });
+
+  const updateClinicMutation = useMutation({
+    mutationFn: async (data: { 
+      id: number;
+      name: string; 
+      address: string; 
+      email?: string;
+      phone?: string;
+      website?: string;
+      doctors?: { name: string; specialization: string; degree: string }[];
+    }) => {
+      const { id, ...updateData } = data;
+      const res = await apiRequest('PATCH', `/api/clinics/${id}`, updateData);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      setEditClinicDialogOpen(false);
+      setSelectedClinic(null);
+      toast({ title: "Clinic updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update clinic", 
+        description: error.message,
+        variant: "destructive" 
+      });
     },
   });
 
@@ -451,6 +487,48 @@ export default function Admin() {
     setEditUsername(clinic.username || "");
     setEditPassword("");
     setCredentialsDialogOpen(true);
+  };
+
+  const openEditClinicDialog = (clinic: Clinic) => {
+    setSelectedClinic(clinic);
+    setEditName(clinic.name);
+    setEditAddress(clinic.address || "");
+    setEditEmail(clinic.email || "");
+    setEditPhone(clinic.phone || "");
+    setEditWebsite(clinic.website || "");
+    setEditDoctors(Array.isArray(clinic.doctors) ? clinic.doctors : []);
+    setEditClinicDialogOpen(true);
+  };
+
+  const handleUpdateClinic = () => {
+    if (!selectedClinic) return;
+    if (!editName.trim()) {
+      toast({ title: "Please enter a clinic name", variant: "destructive" });
+      return;
+    }
+    updateClinicMutation.mutate({
+      id: selectedClinic.id,
+      name: editName.trim(),
+      address: editAddress.trim(),
+      email: editEmail.trim() || undefined,
+      phone: editPhone.trim() || undefined,
+      website: editWebsite.trim() || undefined,
+      doctors: editDoctors.filter(d => d.name.trim() !== ""),
+    });
+  };
+
+  const addEditDoctorField = () => {
+    setEditDoctors([...editDoctors, { name: "", specialization: "", degree: "" }]);
+  };
+
+  const removeEditDoctorField = (index: number) => {
+    setEditDoctors(editDoctors.filter((_, i) => i !== index));
+  };
+
+  const updateEditDoctorField = (index: number, field: keyof typeof editDoctors[0], value: string) => {
+    const updated = [...editDoctors];
+    updated[index] = { ...updated[index], [field]: value };
+    setEditDoctors(updated);
   };
 
   return (
