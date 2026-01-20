@@ -450,6 +450,54 @@ export default function Book() {
             </div>
           </div>
         )}
+
+        <div id="about" className="mt-12 pt-8 border-t animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <h2 className="text-2xl font-bold">About {selectedClinic}</h2>
+          </div>
+          
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="bg-card rounded-xl p-6 border border-border/50 shadow-sm hover:border-primary/30 transition-all">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">Clinic Information</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Clinic Name</label>
+                  <p className="font-medium text-lg">{selectedClinic}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Address</label>
+                  <p className="text-foreground/80 leading-relaxed">
+                    {clinics.find(c => c.name === selectedClinic)?.address || "Address not provided"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card rounded-xl p-6 border border-border/50 shadow-sm hover:border-primary/30 transition-all">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">Contact Details</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Email Address</label>
+                  <p className="font-medium">{clinics.find(c => c.name === selectedClinic)?.email || "Not available"}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Operating Hours</label>
+                  <p className="text-sm text-foreground/70">Monday - Saturday: 9:00 AM - 6:00 PM</p>
+                  <p className="text-sm text-foreground/70">Sunday: Closed</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 p-4 rounded-xl bg-muted/30 border border-dashed border-border/50">
+            <p className="text-xs text-center text-muted-foreground italic">
+              Future enhancements like doctor profiles, specialties, and gallery will be available here soon.
+            </p>
+          </div>
+        </div>
       </div>
 
       <Dialog open={isDetailsOpen} onOpenChange={(open) => {

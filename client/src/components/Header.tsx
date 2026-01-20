@@ -78,6 +78,9 @@ export function Header() {
       { href: "/book", label: "Book a Slot", icon: CalendarPlus },
       { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
     ] : []),
+    ...(location.includes("/book") && new URLSearchParams(window.location.search).get("clinicId") ? [
+      { href: "#about", label: "About", icon: Building2 }
+    ] : []),
   ];
 
   return (
