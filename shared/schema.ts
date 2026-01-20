@@ -14,6 +14,10 @@ export const clinics = pgTable("clinics", {
   email: varchar("email", { length: 255 }),
   username: varchar("username", { length: 100 }).unique(),
   passwordHash: varchar("password_hash", { length: 255 }),
+  website: varchar("website", { length: 255 }),
+  doctorName: varchar("doctor_name", { length: 255 }),
+  doctorSpecialization: varchar("doctor_specialization", { length: 255 }),
+  doctorDegree: varchar("doctor_degree", { length: 255 }),
   isArchived: boolean("is_archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });

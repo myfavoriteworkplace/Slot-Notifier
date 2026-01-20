@@ -91,12 +91,34 @@ export default function ClinicAbout() {
               <label className="text-xs text-muted-foreground block mb-1 font-medium uppercase">Email Address</label>
               <p className="font-medium text-lg">{clinic.email || "Not available"}</p>
             </div>
-            <div className="pt-2">
-              <label className="text-xs text-muted-foreground block mb-1 font-medium uppercase">Website</label>
-              <p className="text-primary hover:underline cursor-pointer">www.{clinic.name.toLowerCase().replace(/\s+/g, '')}.com</p>
-            </div>
+            {clinic.website && (
+              <div className="pt-2">
+                <label className="text-xs text-muted-foreground block mb-1 font-medium uppercase">Website</label>
+                <a href={clinic.website.startsWith('http') ? clinic.website : `https://${clinic.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline cursor-pointer">
+                  {clinic.website}
+                </a>
+              </div>
+            )}
           </div>
         </div>
+
+        {clinic.doctorName && (
+          <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm hover:border-primary/20 transition-all md:col-span-2">
+            <div className="flex items-center gap-3 mb-6 text-primary">
+              <Building2 className="h-5 w-5" />
+              <h2 className="text-xl font-semibold text-foreground">Medical Lead</h2>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-6">
+              <div className="flex-1">
+                <h3 className="text-2xl font-bold mb-1">{clinic.doctorName}</h3>
+                <p className="text-primary font-medium mb-4">{clinic.doctorSpecialization || "Specialist"}</p>
+                <div className="inline-block px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold">
+                  {clinic.doctorDegree || "Professional Degree"}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm hover:border-primary/20 transition-all md:col-span-2">
           <div className="flex items-center gap-3 mb-6 text-primary">

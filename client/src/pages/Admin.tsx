@@ -28,6 +28,11 @@ export default function Admin() {
   const [_, setLocation] = useLocation();
   const [newClinicName, setNewClinicName] = useState("");
   const [newClinicAddress, setNewClinicAddress] = useState("");
+  const [newClinicEmail, setNewClinicEmail] = useState("");
+  const [newClinicWebsite, setNewClinicWebsite] = useState("");
+  const [newClinicDoctorName, setNewClinicDoctorName] = useState("");
+  const [newClinicDoctorSpecialization, setNewClinicDoctorSpecialization] = useState("");
+  const [newClinicDoctorDegree, setNewClinicDoctorDegree] = useState("");
   const [newClinicUsername, setNewClinicUsername] = useState("");
   const [newClinicPassword, setNewClinicPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -77,7 +82,15 @@ export default function Admin() {
   });
 
   const createClinicMutation = useMutation({
-    mutationFn: async (data: { name: string; address: string }) => {
+    mutationFn: async (data: { 
+      name: string; 
+      address: string; 
+      email?: string;
+      website?: string;
+      doctorName?: string;
+      doctorSpecialization?: string;
+      doctorDegree?: string;
+    }) => {
       console.log("[ADMIN-DEBUG] Adding clinic:", data);
       const res = await apiRequest('POST', '/api/clinics', data);
       return res.json();
@@ -98,6 +111,11 @@ export default function Admin() {
       
       setNewClinicName("");
       setNewClinicAddress("");
+      setNewClinicEmail("");
+      setNewClinicWebsite("");
+      setNewClinicDoctorName("");
+      setNewClinicDoctorSpecialization("");
+      setNewClinicDoctorDegree("");
       setNewClinicUsername("");
       setNewClinicPassword("");
       toast({ title: "Clinic added successfully" });
@@ -393,7 +411,12 @@ export default function Admin() {
     }
     createClinicMutation.mutate({ 
       name: newClinicName.trim(), 
-      address: newClinicAddress.trim() 
+      address: newClinicAddress.trim(),
+      email: newClinicEmail.trim() || undefined,
+      website: newClinicWebsite.trim() || undefined,
+      doctorName: newClinicDoctorName.trim() || undefined,
+      doctorSpecialization: newClinicDoctorSpecialization.trim() || undefined,
+      doctorDegree: newClinicDoctorDegree.trim() || undefined,
     });
   };
 
@@ -495,6 +518,61 @@ export default function Admin() {
                   onChange={(e) => setNewClinicAddress(e.target.value)}
                   data-testid="input-clinic-address"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clinic-email">Email Address</Label>
+                <Input
+                  id="clinic-email"
+                  placeholder="e.g., contact@clinic.com"
+                  value={newClinicEmail}
+                  onChange={(e) => setNewClinicEmail(e.target.value)}
+                  data-testid="input-clinic-email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clinic-website">Website</Label>
+                <Input
+                  id="clinic-website"
+                  placeholder="e.g., www.clinic.com"
+                  value={newClinicWebsite}
+                  onChange={(e) => setNewClinicWebsite(e.target.value)}
+                  data-testid="input-clinic-website"
+                />
+              </div>
+            </div>
+            <div className="border-t pt-4">
+              <p className="text-sm font-medium mb-3">Medical Lead Details (Optional)</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="doctor-name">Doctor Name</Label>
+                  <Input
+                    id="doctor-name"
+                    placeholder="e.g., Dr. Jane Smith"
+                    value={newClinicDoctorName}
+                    onChange={(e) => setNewClinicDoctorName(e.target.value)}
+                    data-testid="input-doctor-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="doctor-specialization">Specialization</Label>
+                  <Input
+                    id="doctor-specialization"
+                    placeholder="e.g., Orthodontist"
+                    value={newClinicDoctorSpecialization}
+                    onChange={(e) => setNewClinicDoctorSpecialization(e.target.value)}
+                    data-testid="input-doctor-specialization"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="doctor-degree">Degree</Label>
+                  <Input
+                    id="doctor-degree"
+                    placeholder="e.g., MDS, BDS"
+                    value={newClinicDoctorDegree}
+                    onChange={(e) => setNewClinicDoctorDegree(e.target.value)}
+                    data-testid="input-doctor-degree"
+                  />
+                </div>
               </div>
             </div>
             <div className="border-t pt-4">
