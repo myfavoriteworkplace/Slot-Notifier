@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, FlaskConical, LogOut } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, FlaskConical, LogOut, Copy, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -609,6 +609,35 @@ export default function Admin() {
                         Username: <span className="font-mono">{clinic.username}</span>
                       </p>
                     )}
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="text-[10px] bg-muted/50 border rounded px-1.5 py-0.5 flex items-center gap-2 max-w-[180px] sm:max-w-xs overflow-hidden">
+                        <span className="truncate text-muted-foreground">
+                          {window.location.origin}/book?clinicId={clinic.id}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => {
+                          const url = `${window.location.origin}/book?clinicId=${clinic.id}`;
+                          navigator.clipboard.writeText(url);
+                          toast({ title: "Referral URL copied" });
+                        }}
+                        title="Copy Referral URL"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => window.open(`/book?clinicId=${clinic.id}`, '_blank')}
+                        title="Open Referral Link"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button
