@@ -193,6 +193,47 @@ export async function registerRoutes(
     });
   });
 
+  // Expose API endpoints for fetching major items
+  app.get("/api/public/clinics", async (req, res) => {
+    try {
+      const clinics = await storage.getClinics();
+      // Only return necessary public information
+      const publicClinics = clinics.map(({ id, name, address, username }) => ({
+        id,
+        name,
+        address,
+        username
+      }));
+      res.json(publicClinics);
+    } catch (err: any) {
+      console.error("[API ERROR] Failed to fetch clinics:", err.message);
+      res.status(500).json({ message: "Failed to fetch clinics" });
+    }
+  });
+
+  app.get("/api/public/clinics/:username/bookings", async (req, res) => {
+    const { username } = req.params;
+    try {
+      const clinic = await storage.getClinicByUsername(username);
+      if (!clinic) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+      const bookings = await storage.getClinicBookings(clinic.id);
+      // Only return public/relevant booking info
+      const publicBookings = bookings.map(({ id, customerName, slot, verificationStatus }) => ({
+        id,
+        customerName,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        status: verificationStatus
+      }));
+      res.json(publicBookings);
+    } catch (err: any) {
+      console.error(`[API ERROR] Failed to fetch bookings for ${username}:`, err.message);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
   console.log("[AUTH] Using environment-based admin authentication");
   
   // Debug middleware to log session
