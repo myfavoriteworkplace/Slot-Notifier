@@ -381,6 +381,8 @@ export async function registerRoutes(
 
       try {
         const clinic = await storage.getClinicByUsername(username);
+        console.log(`[AUTH] Retrieved clinic for username ${username}:`, clinic ? `ID ${clinic.id}` : 'Not found');
+        console.log(`[AUTH-DEBUG] ISARCHIVED`,clinic?.isArchived);
         if (!clinic || clinic.isArchived) {
           console.error(`[AUTH ERROR] Clinic not found or archived: ${username}`);
           return res.status(401).json({ message: "Invalid credentials" });
@@ -517,13 +519,7 @@ export async function registerRoutes(
       const sess = req.session as any;
       
       // LOG SESSION DATA FOR DEBUGGING
-      console.log(`[AUTH-DEBUG] /api/auth/clinic/bookings Access attempt:
-        SessionID: ${req.sessionID}
-        adminLoggedIn: ${sess?.adminLoggedIn}
-        clinicId: ${sess?.clinicId}
-        adminEmail: ${sess?.adminEmail}
-        Cookie: ${req.headers.cookie ? 'present' : 'missing'}
-      `);
+      console.log(`[AUTH-DEBUG] /api/auth/clinic/bookings Access attempt: SessionID: ${req.sessionID} Session object: ${JSON.stringify(sess, null, 2)} adminLoggedIn: ${sess?.adminLoggedIn} clinicId: ${sess?.clinicId} adminEmail: ${sess?.adminEmail} isDemoUser: ${sess?.isDemoUser} Cookie header: ${req.headers.cookie || 'missing'} Auth header: ${req.headers.authorization || 'missing'} User-Agent: ${req.headers['user-agent']} Referer: ${req.headers.referer || 'missing'} `);
 
       if (req.session && sess.adminLoggedIn) {
         // If it's the demo super admin, we might not have a clinicId in session but we can get all bookings
