@@ -787,6 +787,60 @@ export async function registerRoutes(
       res.json(clinicsList);
     });
 
+    app.patch("/api/clinics/:id/archive", isAuthenticated, async (req, res) => {
+      const user = (req as any).user;
+      const isSuperuser = user?.claims?.sub === 'admin';
+      
+      if (!isSuperuser) {
+        return res.status(403).json({ message: "Only super users can archive clinics" });
+      }
+
+      const clinicId = parseInt(req.params.id);
+      try {
+        const clinic = await storage.archiveClinic(clinicId);
+        res.json(clinic);
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
+    app.patch("/api/clinics/:id/unarchive", isAuthenticated, async (req, res) => {
+      const user = (req as any).user;
+      const isSuperuser = user?.claims?.sub === 'admin';
+      
+      if (!isSuperuser) {
+        return res.status(403).json({ message: "Only super users can unarchive clinics" });
+      }
+
+      const clinicId = parseInt(req.params.id);
+      try {
+        const clinic = await storage.unarchiveClinic(clinicId);
+        res.json(clinic);
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
+    app.delete("/api/clinics/:id", isAuthenticated, async (req, res) => {
+      const user = (req as any).user;
+      const isSuperuser = user?.claims?.sub === 'admin';
+      
+      if (!isSuperuser) {
+        return res.status(403).json({ message: "Only super users can delete clinics" });
+      }
+
+      const clinicId = parseInt(req.params.id);
+      try {
+        // Implementation for hard delete if needed, or just archive
+        // For now, let's just use archive logic or a hard delete if storage supports it
+        // Checking storage.ts, it doesn't have a deleteClinic but it has archive
+        await storage.archiveClinic(clinicId);
+        res.status(204).send();
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
     app.post("/api/clinics", isAuthenticated, async (req, res) => {
     const user = (req as any).user;
     console.log(`[CLINIC-DEBUG] POST /api/clinics attempt. User: ${JSON.stringify(user)} Session: ${JSON.stringify(req.session)}`);
