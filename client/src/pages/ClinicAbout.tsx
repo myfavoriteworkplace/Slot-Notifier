@@ -54,8 +54,8 @@ export default function ClinicAbout() {
   return (
     <div className="container mx-auto px-4 py-8 sm:py-12 max-w-4xl">
       <div className="mb-8">
-        <Link href={`/book?clinicId=${clinicIdFromUrl}`}>
-          <Button variant="ghost" size="sm" className="gap-2 mb-6">
+        <Link href={`/book${clinicIdFromUrl ? `?clinicId=${clinicIdFromUrl}` : ""}`}>
+          <Button variant="ghost" size="sm" className="gap-2 mb-6" data-testid="button-back-to-booking">
             <ArrowLeft className="h-4 w-4" />
             Back to Booking
           </Button>
