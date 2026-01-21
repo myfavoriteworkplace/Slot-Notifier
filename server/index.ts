@@ -30,10 +30,10 @@ app.use(
     resave: false,
     saveUninitialized: false, // Changed to false for better session management with CORS
     cookie: {
-      secure: false, // Set to false for local development and http testing
+      secure: process.env.NODE_ENV === "production", // Secure in production
       maxAge: 30 * 24 * 60 * 60 * 1000, 
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // none for cross-site in production
     },
     proxy: true, // Required for trust proxy to work with express-session
     rolling: true, // Force session cookie to be set on every response
@@ -53,7 +53,14 @@ app.use(cors({
 
     const allowedOrigins = FRONTEND_URL.split(",").map(url => url.trim());
     // In production, especially on Render, we need to allow both the frontend domain and potentially same-site requests
-    if (allowedOrigins.indexOf(origin!) !== -1 || allowedOrigins.includes("*") || origin!.includes("replit") || origin!.includes("onrender") || origin!.includes("localhost")) {
+    // We also trust book-my-slot domains
+    if (
+      allowedOrigins.indexOf(origin!) !== -1 || 
+      allowedOrigins.includes("*") || 
+      origin!.includes("replit") || 
+      origin!.includes("onrender.com") || 
+      origin!.includes("localhost")
+    ) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

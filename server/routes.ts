@@ -852,28 +852,32 @@ export async function registerRoutes(
 
     app.post("/api/clinics", isAuthenticated, async (req, res) => {
     const user = (req as any).user;
-    console.log(`[CLINIC-DEBUG] POST /api/clinics attempt. User: ${JSON.stringify(user)} Session: ${JSON.stringify(req.session)}`);
+    console.log(`[CLINIC-DEBUG] POST /api/clinics attempt. User: ${JSON.stringify(user)} SessionID: ${req.sessionID}`);
     const useEnvAuth = (req as any).app.get('USE_ENV_AUTH') ?? true;
+    
+    // Check if the user is the super admin based on environment variables or role
     const isSuperuser = useEnvAuth 
-      ? user?.claims?.sub === 'admin'
+      ? (user?.claims?.sub === 'admin' || user?.claims?.email === process.env.ADMIN_EMAIL)
       : (await storage.getUser(user?.claims?.sub))?.role === 'superuser';
+      
     if (!isSuperuser) {
-      console.log(`[CLINIC-DEBUG] Unauthorized clinic creation attempt by ${user?.claims?.sub}`);
+      console.log(`[CLINIC-DEBUG] Unauthorized clinic creation attempt by ${user?.claims?.sub || 'unknown'}`);
       return res.status(403).json({ message: "Only super users can add clinics" });
     }
     try {
       const input = api.clinics.create.input.parse(req.body);
-      console.log(`[CLINIC-DEBUG] Superuser ${user.claims.sub} creating new clinic: ${input.name}`);
+      console.log(`[CLINIC-DEBUG] Superuser ${user?.claims?.sub || 'admin'} creating new clinic: ${input.name}`);
       const clinic = await storage.createClinic(input);
       res.status(201).json(clinic);
     } catch (err) {
+      console.error(`[CLINIC-DEBUG] Error creating clinic:`, err);
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           message: err.errors[0].message,
           field: err.errors[0].path.join('.'),
         });
       }
-      throw err;
+      res.status(500).json({ message: "Internal server error creating clinic" });
     }
   });
 
