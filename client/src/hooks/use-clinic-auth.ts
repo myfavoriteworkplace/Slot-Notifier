@@ -8,7 +8,9 @@ interface ClinicSession {
 }
 
 async function fetchClinicSession(): Promise<ClinicSession | null> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/clinic/me`, {
+  const url = "/api/auth/clinic/me";
+  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+  const response = await fetch(fullUrl, {
     credentials: "include",
   });
 

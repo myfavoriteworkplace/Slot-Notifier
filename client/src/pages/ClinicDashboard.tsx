@@ -206,11 +206,7 @@ export default function ClinicDashboard() {
   const cancelBookingMutation = useMutation({
     mutationFn: async (bookingId: number) => {
       setCancellingBookingId(bookingId);
-      const API_BASE_URL = import.meta.env.VITE_API_URL || "";
-      const res = await fetch(`${API_BASE_URL}/api/auth/clinic/bookings/${bookingId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const res = await apiRequest('DELETE', `/api/auth/clinic/bookings/${bookingId}`);
       if (!res.ok) throw new Error('Failed to cancel booking');
       return res.json();
     },
@@ -274,10 +270,7 @@ export default function ClinicDashboard() {
   const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
     queryKey: ['/api/auth/clinic/bookings'],
     queryFn: async () => {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || "";
-      const res = await fetch(`${API_BASE_URL}/api/auth/clinic/bookings`, {
-        credentials: 'include',
-      });
+      const res = await apiRequest('GET', '/api/auth/clinic/bookings');
       if (!res.ok) throw new Error('Failed to fetch bookings');
       return res.json();
     },

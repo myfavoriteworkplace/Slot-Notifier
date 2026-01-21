@@ -81,17 +81,6 @@ export default function Admin() {
 
   const { data: clinics, isLoading: clinicsLoading } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics', { includeArchived: true }],
-    queryFn: async () => {
-      const res = await fetch(`/api/clinics?includeArchived=true`, {
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        if (res.status === 401) throw new Error("Authentication required. Please log in again.");
-        throw new Error("Failed to fetch clinics");
-      }
-      const serverClinics = await res.json();
-      return Array.isArray(serverClinics) ? serverClinics : [];
-    },
   });
 
   const createClinicMutation = useMutation({
