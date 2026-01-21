@@ -61,6 +61,7 @@ function log(message: string, source = "express") {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
+  console.log(`[SESSION DEBUG] ${req.method} ${req.path}`, req.session);
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
