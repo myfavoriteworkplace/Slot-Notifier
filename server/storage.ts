@@ -480,7 +480,11 @@ export class DatabaseStorage implements IStorage {
 
   // Clinics
   async createClinic(insertClinic: InsertClinic): Promise<Clinic> {
-    const [clinic] = await db.insert(clinics).values([insertClinic]).returning();
+    const doctors = insertClinic.doctors as any[];
+    const [clinic] = await db.insert(clinics).values([{
+      ...insertClinic,
+      doctors: doctors || []
+    }]).returning();
     return clinic;
   }
 
