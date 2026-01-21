@@ -776,18 +776,24 @@ export async function registerRoutes(
 
     // Clinics API
     app.get("/api/clinics", async (req, res) => {
-      console.log(` /api/clinics - [API] Fetching clinics. includeArchived=${req.query.includeArchived}`);
-      const includeArchived = req.query.includeArchived === 'true';
-      const clinicsList = await storage.getClinics(includeArchived);
+      console.log(`[API] /api/clinics - Fetching clinics. includeArchived=${req.query.includeArchived}`);
       
       // Prevent 304 Not Modified cache issues by adding cache-control headers
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
+      res.setHeader('Last-Modified', new Date().toUTCString());
 
-      console.log(`[RESPONSE] /api/clinics - [API] Fetching clinics List =`, clinicsList);
-      
-      res.json(clinicsList);
+      try {
+        const includeArchived = req.query.includeArchived === 'true';
+        const clinicsList = await storage.getClinics(includeArchived);
+        
+        console.log(`[RESPONSE] /api/clinics - Found ${clinicsList.length} clinics`);
+        res.json(clinicsList);
+      } catch (err: any) {
+        console.error(`[API ERROR] /api/clinics:`, err);
+        res.status(500).json({ message: "Internal server error fetching clinics" });
+      }
     });
 
     app.patch("/api/clinics/:id/archive", isAuthenticated, async (req, res) => {
