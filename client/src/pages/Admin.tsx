@@ -85,6 +85,10 @@ export default function Admin() {
       const res = await fetch(`/api/clinics?includeArchived=true`, {
         credentials: 'include',
       });
+      if (!res.ok) {
+        if (res.status === 401) throw new Error("Authentication required. Please log in again.");
+        throw new Error("Failed to fetch clinics");
+      }
       const serverClinics = await res.json();
       return Array.isArray(serverClinics) ? serverClinics : [];
     },
@@ -101,6 +105,11 @@ export default function Admin() {
     }) => {
       console.log("[ADMIN-DEBUG] Adding clinic:", data);
       const res = await apiRequest('POST', '/api/clinics', data);
+      if (!res.ok) {
+        if (res.status === 401) throw new Error("Session expired. Please log in again.");
+        const error = await res.json();
+        throw new Error(error.message || "Failed to add clinic");
+      }
       return res.json();
     },
     onSuccess: async (clinic) => {
@@ -139,11 +148,19 @@ export default function Admin() {
 
   const setCredentialsMutation = useMutation({
     mutationFn: async (data: { clinicId: number; username: string; password: string }) => {
+      if (!data.clinicId) {
+        console.error("[ADMIN-DEBUG] Cannot update credentials: clinicId is undefined", data);
+        throw new Error("Internal Error: Clinic ID is missing. Please try refreshing the page.");
+      }
       console.log(`[ADMIN-DEBUG] Updating credentials for clinic ${data.clinicId}:`, { username: data.username });
       const res = await apiRequest('PATCH', `/api/clinics/${data.clinicId}/credentials`, {
         username: data.username,
         password: data.password,
       });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update credentials");
+      }
       return res.json();
     },
     onSuccess: () => {
