@@ -65,7 +65,12 @@ const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
   { id: "3", label: "Evening", startHour: 16, startMinute: 0, endHour: 18, endMinute: 0 },
 ];
 
-type BookingWithSlot = Booking & { slot: Slot; description?: string | null };
+type BookingWithSlot = Booking & { 
+  slot: Slot; 
+  description?: string | null;
+  assignedDoctor?: string | null;
+  clinicDoctors?: { name: string; specialization: string; degree: string }[];
+};
 
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut } = useClinicAuth();
@@ -371,6 +376,20 @@ export default function ClinicDashboard() {
     });
     setIsBillingOpen(true);
   };
+
+  const assignDoctorMutation = useMutation({
+    mutationFn: async ({ bookingId, doctorName }: { bookingId: number; doctorName: string }) => {
+      const response = await apiRequest('PATCH', `/api/clinic/bookings/${bookingId}/assign-doctor`, { doctorName });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      toast({ title: "Doctor assigned successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to assign doctor", description: error.message, variant: "destructive" });
+    },
+  });
 
   const addServiceRow = () => {
     setBillingDetails(prev => ({
