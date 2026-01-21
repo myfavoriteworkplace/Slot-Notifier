@@ -46,6 +46,22 @@ export async function ensureSessionTable() {
     await pool.query(`
       ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "description" text;
     `);
+
+    // Ensure assigned_doctor column exists in bookings
+    await pool.query(`
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "assigned_doctor" varchar(255);
+    `);
+
+    // Ensure phone, email, website etc columns exist in clinics
+    await pool.query(`
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "phone" varchar(50);
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "email" varchar(255);
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "website" varchar(255);
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "doctor_name" varchar(255);
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "doctor_specialization" varchar(255);
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "doctor_degree" varchar(255);
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "doctors" jsonb DEFAULT '[]'::jsonb;
+    `);
     
     // Check if primary key exists before adding
     const pkCheck = await pool.query(`

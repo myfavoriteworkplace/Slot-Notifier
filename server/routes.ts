@@ -757,7 +757,7 @@ export async function registerRoutes(
         res.json(clinicsList);
       } catch (err: any) {
         console.error(`[API ERROR] /api/clinics:`, err);
-        res.status(500).json({ message: "Internal server error fetching clinics" });
+        res.status(500).json({ message: "Internal server error fetching clinics", error: err.message });
       }
     });
 

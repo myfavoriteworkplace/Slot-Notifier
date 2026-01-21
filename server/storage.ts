@@ -489,12 +489,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClinics(includeArchived: boolean = false): Promise<Clinic[]> {
-    if (includeArchived) {
-      return await db.select().from(clinics).orderBy(clinics.name);
+    try {
+      if (includeArchived) {
+        return await db.select().from(clinics).orderBy(clinics.name);
+      }
+      return await db.select().from(clinics)
+        .where(eq(clinics.isArchived, false))
+        .orderBy(clinics.name);
+    } catch (err: any) {
+      console.error("[STORAGE ERROR] getClinics failed:", err);
+      throw err;
     }
-    return await db.select().from(clinics)
-      .where(eq(clinics.isArchived, false))
-      .orderBy(clinics.name);
   }
 
   async getClinic(id: number): Promise<Clinic | undefined> {
