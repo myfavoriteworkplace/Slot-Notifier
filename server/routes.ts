@@ -139,17 +139,6 @@ async function sendCancellationEmail(email: string, name: string, date: Date, cl
 }
 
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
-  // Global bypass for demo super admin if session is marked
-  if ((req.session as any)?.adminEmail === "demo_super_admin@bookmyslot.com") {
-    (req as any).user = {
-      claims: {
-        sub: 'admin',
-        email: "demo_super_admin@bookmyslot.com",
-      }
-    };
-    return next();
-  }
-
   // Check if session exists and is logged in
   if (req.session && (req.session as any).adminLoggedIn) {
     // Set req.user to mimic a consistent user structure
@@ -437,27 +426,6 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Email and password are required" });
       }
 
-    // Special bypass for demo_super_admin
-    if (email === "demo_super_admin@bookmyslot.com") {
-      console.log("[AUTH] Demo super admin login detected");
-      if (!req.session) {
-        console.error("[AUTH ERROR] No session available for demo_super_admin");
-        return res.status(500).json({ message: "Session initialization failed" });
-      }
-      (req.session as any).adminLoggedIn = true;
-      (req.session as any).adminEmail = "demo_super_admin@bookmyslot.com";
-      (req.session as any).isDemoUser = true; // Mark as demo user for bypassed checks
-      req.session.save((err) => {
-        if (err) {
-          console.error("[AUTH ERROR] Failed to save session for demo_super_admin:", err);
-          return res.status(500).json({ message: "Failed to save session" });
-        }
-        console.log("[AUTH] Demo session saved successfully");
-        return res.json({ message: "Login successful", user: { email: "demo_super_admin@bookmyslot.com", role: 'superuser' } });
-      });
-      return;
-    }
-
       const adminEmail = process.env.ADMIN_EMAIL;
       const adminPassword = process.env.ADMIN_PASSWORD;
       
@@ -519,20 +487,17 @@ export async function registerRoutes(
       const sess = req.session as any;
       
       // LOG SESSION DATA FOR DEBUGGING
-      console.log(`[AUTH-DEBUG] /api/auth/clinic/bookings Access attempt: SessionID: ${req.sessionID} Session object: ${JSON.stringify(sess, null, 2)} adminLoggedIn: ${sess?.adminLoggedIn} clinicId: ${sess?.clinicId} adminEmail: ${sess?.adminEmail} isDemoUser: ${sess?.isDemoUser} Cookie header: ${req.headers.cookie || 'missing'} Auth header: ${req.headers.authorization || 'missing'} User-Agent: ${req.headers['user-agent']} Referer: ${req.headers.referer || 'missing'} `);
+      console.log(`[AUTH-DEBUG] /api/auth/clinic/bookings Access attempt: SessionID: ${req.sessionID} Session object: ${JSON.stringify(sess, null, 2)} adminLoggedIn: ${sess?.adminLoggedIn} clinicId: ${sess?.clinicId} adminEmail: ${sess?.adminEmail} Cookie header: ${req.headers.cookie || 'missing'} Auth header: ${req.headers.authorization || 'missing'} User-Agent: ${req.headers['user-agent']} Referer: ${req.headers.referer || 'missing'} `);
 
       if (req.session && sess.adminLoggedIn) {
-        // If it's the demo super admin, we might not have a clinicId in session but we can get all bookings
-        // or bookings for a specific clinic if provided. 
-        // For the regular clinic owner, clinicId is mandatory.
         if (sess.clinicId) {
           return storage.getClinicBookings(sess.clinicId)
             .then(bookings => res.json(bookings))
             .catch((err: any) => res.status(500).json({ message: err.message }));
         }
         
-        // Demo super admin support - if no clinicId, they might be viewing the dashboard
-        if (sess.isDemoUser || sess.adminEmail === "demo_super_admin@bookmyslot.com") {
+        // Super admin viewing all bookings
+        if (sess.adminEmail === process.env.ADMIN_EMAIL) {
           return storage.getClinics()
             .then(async clinics => {
               const allBookings = await Promise.all(clinics.map(c => storage.getClinicBookings(c.id)));

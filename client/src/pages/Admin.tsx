@@ -270,33 +270,6 @@ export default function Admin() {
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (adminEmail === "demo_super_admin@bookmyslot.com") {
-      console.log("Demo super admin login detected");
-      // Use the explicit admin login endpoint which handles session bypass
-      try {
-        const res = await apiRequest('POST', '/api/auth/admin/login', { 
-          email: adminEmail, 
-          password: "bypass" 
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          console.log("Demo admin login success:", data);
-          queryClient.setQueryData(['/api/auth/user'], data.user);
-          queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-          toast({ title: "Login successful (Demo)" });
-        }
-      } catch (err: any) {
-        console.error("Demo login error:", err);
-      }
-      return;
-    }
-
-    if (adminEmail === "demo_clinic" && adminPassword === "demo_password123") {
-      login({ email: "demo_clinic", password: "demo_password123" });
-      return;
-    }
-    
     if (!adminEmail.trim() || !adminPassword.trim()) {
       toast({ title: "Please enter email and password", variant: "destructive" });
       return;

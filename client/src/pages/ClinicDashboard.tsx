@@ -113,17 +113,6 @@ export default function ClinicDashboard() {
 
   const configureSlotMutation = useMutation({
     mutationFn: async (data: { startTime: string; maxBookings: number; isCancelled: boolean }) => {
-      if (localStorage.getItem("demo_clinic_active") === "true") {
-        // Mock configuration for demo_clinic and persist to local storage
-        const stored = localStorage.getItem("demo_slot_configs");
-        const configs = stored ? JSON.parse(stored) : {};
-        configs[data.startTime] = {
-          maxBookings: data.maxBookings,
-          isCancelled: data.isCancelled
-        };
-        localStorage.setItem("demo_slot_configs", JSON.stringify(configs));
-        return { message: "Configuration updated (Demo)" };
-      }
       const response = await apiRequest('POST', '/api/auth/clinic/slots/configure', data);
       return response.json();
     },
@@ -211,17 +200,6 @@ export default function ClinicDashboard() {
 
   const cancelBookingMutation = useMutation({
     mutationFn: async (bookingId: number) => {
-      if (localStorage.getItem("demo_clinic_active") === "true") {
-        // Mock cancellation for demo_clinic
-        const stored = localStorage.getItem("demo_bookings_persistent");
-        if (stored) {
-          const persistentBookings = JSON.parse(stored);
-          const filtered = persistentBookings.filter((b: any) => b.id !== bookingId);
-          localStorage.setItem("demo_bookings_persistent", JSON.stringify(filtered));
-        }
-        return { message: "Cancelled" };
-      }
-
       setCancellingBookingId(bookingId);
       const API_BASE_URL = import.meta.env.VITE_API_URL || "";
       const res = await fetch(`${API_BASE_URL}/api/auth/clinic/bookings/${bookingId}`, {
@@ -244,38 +222,6 @@ export default function ClinicDashboard() {
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
-      if (localStorage.getItem("demo_clinic_active") === "true") {
-        // Mock creation for demo_clinic and persist to local storage
-        const newBooking = {
-          id: Math.floor(Math.random() * 10000) + 5000,
-          slotId: data.slotId || Math.floor(Math.random() * 10000) + 6000,
-          customerName: data.customerName,
-          customerPhone: data.customerPhone,
-          customerEmail: data.customerEmail || "patient@example.com",
-          verificationStatus: "verified",
-          slot: {
-            id: data.slotId || Math.floor(Math.random() * 10000) + 6000,
-            clinicId: 999,
-            clinicName: data.clinicName || "Demo Smile Clinic",
-            startTime: data.startTime || new Date().toISOString(),
-            endTime: data.endTime || new Date(Date.now() + 3600000).toISOString(),
-            isBooked: true
-          }
-        };
-
-        const stored = localStorage.getItem("demo_bookings_persistent");
-        const persistentBookings = stored ? JSON.parse(stored) : [];
-        persistentBookings.push(newBooking);
-        localStorage.setItem("demo_bookings_persistent", JSON.stringify(persistentBookings));
-
-        // Send mock email for demo purposes (logged to console)
-        const email = data.customerEmail || "patient@example.com";
-        console.log(`[DEMO EMAIL] To: ${email}`);
-        console.log(`[DEMO EMAIL] Subject: Booking Confirmed - ${data.clinicName || "Demo Smile Clinic"}`);
-        console.log(`[DEMO EMAIL] Body: Dear ${data.customerName}, your appointment for ${new Date(data.startTime).toLocaleString()} has been confirmed.`);
-
-        return newBooking;
-      }
       const response = await apiRequest('POST', '/api/public/bookings', data);
       return response.json();
     },
@@ -323,65 +269,6 @@ export default function ClinicDashboard() {
   const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
     queryKey: ['/api/auth/clinic/bookings'],
     queryFn: async () => {
-      if (localStorage.getItem("demo_clinic_active") === "true") {
-        const activeDemoClinicId = localStorage.getItem("demo_clinic_id");
-        const today = new Date();
-        const staticBookings: BookingWithSlot[] = [];
-        const customerNames = ["Rahul Sharma", "Priya Patel", "Amit Singh", "Anjali Gupta", "Vikram Mehta"];
-
-        // Only generate static for Demo Smile Clinic (ID 999)
-        if (activeDemoClinicId === "999" || !activeDemoClinicId) {
-          for (let i = 1; i <= 15; i++) {
-            const bookingDate = new Date(2026, 0, i);
-            const slotIdx = (i % 3);
-            const slot = DEFAULT_SLOT_TIMINGS[slotIdx];
-
-            const startTime = new Date(bookingDate);
-            startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
-            const endTime = new Date(bookingDate);
-            endTime.setHours(slot.endHour, slot.endMinute, 0, 0);
-
-            staticBookings.push({
-              id: i,
-              slotId: i,
-              customerName: customerNames[i % customerNames.length],
-              customerPhone: "+91 987654321" + (i % 10),
-              customerEmail: `patient${i}@example.com`,
-              verificationStatus: "verified",
-              description: "Regular dental checkup and cleaning. Toothache and Sensitivity issues noted.",
-              slot: {
-                id: i,
-                clinicId: 999,
-                clinicName: "Demo Smile Clinic",
-                startTime: startTime,
-                endTime: endTime,
-                isBooked: true,
-                maxBookings: 3,
-                isCancelled: false
-              } as any,
-              createdAt: new Date(),
-              customerId: null,
-              verificationCode: null,
-              verificationExpiresAt: null,
-            } as any);
-          }
-        }
-
-        const stored = localStorage.getItem("demo_bookings_persistent");
-        let persistentBookings = stored ? JSON.parse(stored) : [];
-
-        // Filter persistent bookings by active clinic ID
-        if (activeDemoClinicId) {
-          persistentBookings = persistentBookings.filter((b: any) =>
-            b.slot?.clinicId?.toString() === activeDemoClinicId
-          );
-        }
-
-        return [...staticBookings, ...persistentBookings].sort((a, b) =>
-          new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime()
-        );
-      }
-
       const API_BASE_URL = import.meta.env.VITE_API_URL || "";
       const res = await fetch(`${API_BASE_URL}/api/auth/clinic/bookings`, {
         credentials: 'include',

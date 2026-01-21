@@ -103,14 +103,8 @@ export default function Dashboard() {
       const res = await fetch(`${API_BASE_URL}/api/clinics?includeArchived=true`, {
         credentials: 'include',
       });
-      const serverClinics = await res.json();
-
-      const demoClinicsRaw = localStorage.getItem("demo_clinics");
-      if (demoClinicsRaw) {
-        const demoClinics = JSON.parse(demoClinicsRaw);
-        return [...serverClinics, ...demoClinics];
-      }
-      return serverClinics;
+      if (!res.ok) throw new Error("Failed to fetch clinics");
+      return res.json();
     },
   });
 

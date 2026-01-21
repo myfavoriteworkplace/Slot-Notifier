@@ -5,20 +5,6 @@ import { apiRequest } from "@/lib/queryClient";
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 async function fetchUser(): Promise<User | null> {
-  // Check if demo super admin is active
-  if (localStorage.getItem("demo_super_admin") === "true") {
-    return {
-      id: "999",
-      email: "demo_super_admin@bookmyslot.com",
-      firstName: "Super",
-      lastName: "Admin",
-      profileImageUrl: null,
-      role: "superuser",
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-  }
-
   const url = "/api/auth/user";
   const apiBaseUrl = import.meta.env.VITE_API_URL || "";
   const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
@@ -38,7 +24,6 @@ async function fetchUser(): Promise<User | null> {
 }
 
 async function logout(): Promise<void> {
-  localStorage.removeItem("demo_super_admin");
   const apiBaseUrl = import.meta.env.VITE_API_URL || "";
   try {
     const url = "/api/auth/admin/logout";
@@ -55,33 +40,6 @@ async function logout(): Promise<void> {
 }
 
 async function adminLogin(email: string, password: string): Promise<User> {
-  // Hardcoded demo login for super admin
-  if (email === "demo_super_admin@bookmyslot.com") {
-    console.log("Demo super admin login detected, using local storage path");
-    const demoUser: User = {
-      id: "999",
-      email: "demo_super_admin@bookmyslot.com",
-      firstName: "Super",
-      lastName: "Admin",
-      profileImageUrl: null,
-      role: "superuser",
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    // Clear any existing session by calling logout first
-    try {
-      const apiBaseUrl = import.meta.env.VITE_API_URL || "";
-      const logoutUrl = "/api/auth/admin/logout";
-      const fullLogoutUrl = logoutUrl.startsWith("http") ? logoutUrl : `${apiBaseUrl}${logoutUrl}`;
-      await fetch(fullLogoutUrl, { method: 'POST', credentials: "include" });
-    } catch (e) {
-      console.log("Pre-login logout failed (expected if no session)");
-    }
-    // Store in localStorage to persist across refreshes
-    localStorage.setItem("demo_super_admin", "true");
-    return demoUser;
-  }
-  
   const url = "/api/auth/admin/login";
   const apiBaseUrl = import.meta.env.VITE_API_URL || "";
   const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
