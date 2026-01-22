@@ -1160,34 +1160,52 @@ export default function ClinicDashboard() {
                             </div>
                           </div>
 
-                          {booking.clinicDoctors && booking.clinicDoctors.length > 0 && (
-                            <div className="space-y-3 p-4 rounded-lg bg-muted/50 border border-border/50">
-                              <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-primary" />
-                                <p className="text-sm font-medium">Assign Doctor</p>
-                              </div>
-                              <div className="grid gap-2">
-                                {booking.clinicDoctors.map((doctor, idx) => (
-                                  <Button
-                                    key={idx}
-                                    variant={booking.assignedDoctor === doctor.name ? "default" : "outline"}
-                                    size="sm"
-                                    className="justify-start h-auto py-2 px-3"
-                                    onClick={() => assignDoctorMutation.mutate({ 
-                                      bookingId: booking.id, 
-                                      doctorName: doctor.name 
-                                    })}
-                                    disabled={assignDoctorMutation.isPending}
-                                  >
-                                    <div className="text-left">
-                                      <p className="font-medium text-xs">{doctor.name}</p>
-                                      <p className="text-[10px] opacity-70">{doctor.specialization} • {doctor.degree}</p>
-                                    </div>
-                                  </Button>
-                                ))}
-                              </div>
+                          {/* Doctor Assignment Section */}
+                          <div className="space-y-3 pt-2">
+                            <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1 ml-1">
+                              <User className="h-3 w-3" /> Assign Doctor
                             </div>
-                          )}
+                            <div className="flex flex-wrap gap-2">
+                              {/* Option 1: Lead Doctor */}
+                              {clinic?.doctorName && (
+                                <Button
+                                  variant={booking.assignedDoctor === clinic.doctorName ? "default" : "outline"}
+                                  size="sm"
+                                  className="justify-start h-auto py-2 px-3"
+                                  onClick={() => assignDoctorMutation.mutate({ 
+                                    bookingId: booking.id, 
+                                    doctorName: clinic.doctorName! 
+                                  })}
+                                  disabled={assignDoctorMutation.isPending}
+                                >
+                                  <div className="text-left">
+                                    <p className="font-medium text-xs">{clinic.doctorName}</p>
+                                    <p className="text-[10px] opacity-70">{clinic.doctorSpecialization || 'Lead Doctor'}</p>
+                                  </div>
+                                </Button>
+                              )}
+
+                              {/* Option 2: Other Doctors from list */}
+                              {clinic?.doctors && Array.isArray(clinic.doctors) && (clinic.doctors as any[]).map((doctor, idx) => (
+                                <Button
+                                  key={idx}
+                                  variant={booking.assignedDoctor === doctor.name ? "default" : "outline"}
+                                  size="sm"
+                                  className="justify-start h-auto py-2 px-3"
+                                  onClick={() => assignDoctorMutation.mutate({ 
+                                    bookingId: booking.id, 
+                                    doctorName: doctor.name 
+                                  })}
+                                  disabled={assignDoctorMutation.isPending}
+                                >
+                                  <div className="text-left">
+                                    <p className="font-medium text-xs">{doctor.name}</p>
+                                    <p className="text-[10px] opacity-70">{doctor.specialization} • {doctor.degree}</p>
+                                  </div>
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
 
                           <div className="space-y-2">
                             <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">

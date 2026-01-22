@@ -581,16 +581,15 @@ export async function registerRoutes(
       }
     });
 
-    app.get("/api/auth/clinic/me", (req, res) => {
-      const sess = req.session as any;
-      if (req.session && sess.adminLoggedIn && sess.clinicId) {
-        return res.json({
-          id: sess.clinicId,
-          name: sess.adminEmail?.split('@')[0] || "Clinic",
-          role: sess.role || 'owner'
-        });
+    app.patch("/api/clinic/bookings/:id/assign-doctor", isAuthenticated, async (req, res) => {
+      try {
+        const { doctorName } = req.body;
+        const bookingId = parseInt(req.params.id);
+        const booking = await storage.updateBookingAssignment(bookingId, doctorName);
+        res.json(booking);
+      } catch (err: any) {
+        res.status(500).json({ message: "Failed to assign doctor", error: err.message });
       }
-      return res.status(401).json({ message: "Not authenticated" });
     });
 
     app.get("/api/auth/clinic/bookings", (req, res) => {
