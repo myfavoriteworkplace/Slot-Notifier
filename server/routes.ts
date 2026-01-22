@@ -474,10 +474,12 @@ export async function registerRoutes(
   });
 
     app.get("/api/auth/clinic/me", (req, res) => {
-      if (req.session && (req.session as any).adminLoggedIn && (req.session as any).clinicId) {
+      const sess = req.session as any;
+      if (req.session && sess.adminLoggedIn && sess.clinicId) {
         return res.json({
-          id: (req.session as any).clinicId,
-          name: (req.session as any).adminEmail?.split('@')[0] || "Clinic"
+          id: sess.clinicId,
+          name: sess.adminEmail?.split('@')[0] || "Clinic",
+          role: sess.role || 'owner'
         });
       }
       return res.status(401).json({ message: "Not authenticated" });
@@ -486,9 +488,6 @@ export async function registerRoutes(
     app.get("/api/auth/clinic/bookings", (req, res) => {
       const sess = req.session as any;
       
-      // LOG SESSION DATA FOR DEBUGGING
-      console.log(`[AUTH-DEBUG] /api/auth/clinic/bookings Access attempt: SessionID: ${req.sessionID} Session object: ${JSON.stringify(sess, null, 2)} adminLoggedIn: ${sess?.adminLoggedIn} clinicId: ${sess?.clinicId} adminEmail: ${sess?.adminEmail} Cookie header: ${req.headers.cookie || 'missing'} Auth header: ${req.headers.authorization || 'missing'} User-Agent: ${req.headers['user-agent']} Referer: ${req.headers.referer || 'missing'} `);
-
       if (req.session && sess.adminLoggedIn) {
         if (sess.clinicId) {
           return storage.getClinicBookings(sess.clinicId)
@@ -510,7 +509,8 @@ export async function registerRoutes(
     });
 
     app.delete("/api/auth/clinic/bookings/:id", (req, res) => {
-      if (req.session && (req.session as any).adminLoggedIn && (req.session as any).clinicId) {
+      const sess = req.session as any;
+      if (req.session && sess.adminLoggedIn && sess.clinicId) {
         return storage.cancelBooking(parseInt(req.params.id))
           .then(() => res.status(204).send())
           .catch((err: any) => res.status(500).json({ message: err.message }));
@@ -519,17 +519,18 @@ export async function registerRoutes(
     });
 
     app.post("/api/auth/clinic/slots/configure", (req, res) => {
-      if (req.session && (req.session as any).adminLoggedIn && (req.session as any).clinicId) {
+      const sess = req.session as any;
+      if (req.session && sess.adminLoggedIn && sess.clinicId) {
         const { startTime, maxBookings, isCancelled } = req.body;
         // Map to storage method
         const date = new Date(startTime).toISOString().split('T')[0];
         const slotData = [{
           startTime,
           endTime: new Date(new Date(startTime).getTime() + 3600000).toISOString(),
-          clinicName: (req.session as any).adminEmail?.split('@')[0] || "Clinic"
+          clinicName: sess.adminEmail?.split('@')[0] || "Clinic"
         }];
         
-        return storage.configureClinicSlots((req.session as any).clinicId, date, slotData)
+        return storage.configureClinicSlots(sess.clinicId, date, slotData)
           .then((result: any) => res.json(result))
           .catch((err: any) => res.status(500).json({ message: err.message }));
       }
