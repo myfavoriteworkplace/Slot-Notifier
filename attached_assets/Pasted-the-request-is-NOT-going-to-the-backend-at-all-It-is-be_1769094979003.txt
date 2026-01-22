@@ -1,0 +1,98 @@
+the request is NOT going to the backend at all. It is being handled by Vite’s dev server, which is why you’re getting an HTML page instead of JSON.
+Let’s fix this cleanly and step by step.
+🔥 WHAT THIS RESPONSE MEANS (VERY IMPORTANT)
+You hit:
+GET /api/auth/clinic/bookings
+And the response is:
+<!DOCTYPE html>
+<script type="module" src="/@vite/client"></script>
+👉 This is Vite’s index.html, not your API
+👉 So Vite is NOT proxying /api to your backend
+This is not cache and not CORS.
+❌ ROOT CAUSE (LOCAL ONLY)
+Your Vite dev server has NO proxy for /api, or:
+proxy is missing
+proxy target port is wrong
+backend is not running
+proxy path is incorrect
+So Vite does:
+/api/... → fallback to index.html
+✅ STEP-BY-STEP FIX (LOCAL)
+🟢 STEP 1: Find your backend local port
+Your backend is started with:
+npm run dev
+From:
+"dev": "NODE_ENV=development tsx server/index.ts"
+👉 In server/index.ts, find:
+app.listen(PORT, ...)
+Example:
+const PORT = 3000;
+Assume backend runs on 3000 (adjust if different).
+🟢 STEP 2: Add Vite proxy (MANDATORY)
+Open vite.config.ts
+Add (or fix) this:
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+        secure: false
+      }
+    }
+  }
+});
+📌 Replace 3000 with your backend port.
+🟢 STEP 3: Restart BOTH servers
+Very important:
+# stop everything
+CTRL + C
+
+# backend
+npm run dev
+
+# frontend (new terminal)
+npm run dev
+Vite does not reload proxy config without restart.
+🟢 STEP 4: Test the backend directly (sanity check)
+Open browser:
+http://localhost:3000/api/auth/clinic/bookings
+You should get:
+401 (if not logged in) OR
+JSON response
+If this fails → backend issue
+If this works → proxy issue (now fixed)
+🟢 STEP 5: Test through frontend
+Now open frontend:
+http://localhost:5173
+Network tab → request should show:
+Request URL: http://localhost:5173/api/auth/clinic/bookings
+Response: JSON
+✔️ Remote address still 5173 (expected)
+✔️ Response is NOT HTML
+✔️ Backend logs show request hit
+🧪 OPTIONAL DEBUG (very useful)
+Add temporary log in backend route:
+app.get("/api/auth/clinic/bookings", (req, res) => {
+  console.log("🔥 backend hit");
+  ...
+});
+If you don’t see this log → proxy still broken.
+✅ FINAL SUMMARY (THIS IS THE REAL FIX)
+Symptom	Cause
+HTML returned for API	Vite fallback
+304 cached	Side effect
+Backend not hit	Missing proxy
+Fix	Add Vite proxy
+🟢 THIS IS NORMAL ARCHITECTURE
+Local: Vite proxy
+Prod: Frontend calls backend URL
+Two ports locally = OK
+One domain in prod = OK
+If you want, paste:
+your vite.config.ts
+backend app.listen(...)
