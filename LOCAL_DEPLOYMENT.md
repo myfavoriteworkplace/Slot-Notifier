@@ -11,83 +11,92 @@ This guide provides detailed instructions to replicate a production-like environ
    npm install
    ```
 
-2. **Database Setup (External Render DB)**:
-   Since you are not using Docker, you will connect directly to your Render database:
+2. **Database Setup**:
+   You can connect directly to your external Render database or a local PostgreSQL instance:
    1. Go to your **Render Dashboard**.
    2. Select your PostgreSQL database.
    3. Copy the **External Database URL**.
    4. Paste it into your local `.env` file as the `DATABASE_URL`.
-   *Note: Render databases usually allow all connections by default, but check "Access Control" if you have issues.*
 
 3. **Database Initialization**:
-   Sync the schema to your Render database:
+   Sync the schema to your database:
    ```bash
    npm run db:push
    ```
 
 ---
 
-## 🌍 Environment Configuration
+## 🌎 Running in Single URL Mode (Combined)
+This is the default `npm start` behavior where the Express server serves both the API and the static frontend files.
 
-Create a `.env` file by copying the template:
-```bash
-cp .env.example .env
-```
+1. **Environment Configuration**:
+   Create a `.env` file:
+   ```env
+   DATABASE_URL=postgresql://...
+   SESSION_SECRET=your_random_secret
+   ADMIN_EMAIL=admin@example.com
+   ADMIN_PASSWORD=admin_password123
+   NODE_ENV=production
+   PORT=5001
+   FRONTEND_URL=http://localhost:5001
+   VITE_API_URL=http://localhost:5001
+   ```
 
-Ensure your `.env` contains these values to replicate the production behavior:
-
-```env
-# Database Connection (Matches docker-compose)
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/bookmyslot
-
-# Security
-SESSION_SECRET=a_very_long_random_string_for_local_testing
-
-# Standalone Admin Credentials (Mimics Render Prod Auth)
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=admin_password123
-
-# URLs & Networking
-PORT=5001
-FRONTEND_URL=http://localhost:5001
-VITE_API_URL=http://localhost:5001
-SESSION_SECRET=your_random_secret_here
-
-# Environment Mode
-NODE_ENV=production
-```
+2. **Build and Run**:
+   ```bash
+   npm run build
+   npm run start
+   ```
+   *Accessible at `http://localhost:5001`.*
 
 ---
 
-## 🚀 Building & Running (Production Replication)
+## 🌍 Running in Split URL Mode (Frontend & Backend Separate)
+This replicates a production setup where the Frontend and Backend are deployed to different URLs.
 
-To test exactly like Render, follow these steps:
+### 1. Backend Setup (Terminal 1)
+1. **Environment Configuration**:
+   Create a `.env` file in the root:
+   ```env
+   DATABASE_URL=postgresql://...
+   SESSION_SECRET=your_random_secret
+   ADMIN_EMAIL=admin@example.com
+   ADMIN_PASSWORD=admin_password123
+   NODE_ENV=production
+   PORT=5000
+   FRONTEND_URL=http://localhost:5173
+   ```
 
-1. **Build the Application**:
-   This compiles the React frontend and the backend server.
+2. **Run Backend**:
    ```bash
    npm run build
-   ```
-
-2. **Run the Production Build**:
-   ```bash
    npm run start
    ```
-   *The application will be accessible at `http://localhost:5001`.*
+   *Backend API available at `http://localhost:5000`.*
+
+### 2. Frontend Setup (Terminal 2)
+1. **Environment Configuration**:
+   Create a `client/.env.local` file:
+   ```env
+   VITE_API_URL=http://localhost:5000
+   ```
+
+2. **Run Frontend**:
+   ```bash
+   # Use Vite to serve the frontend on a separate port
+   npx vite client
+   ```
+   *Frontend available at `http://localhost:5173`.*
 
 ---
 
 ## 🧪 Testing the Flow
 
-1. **Database Session Store**: The application now uses PostgreSQL for session storage. Ensure your database is accessible.
-2. **SSL Requirement**: For external Render databases, SSL is now enforced with `sslmode=require` and `rejectUnauthorized: false`.
-3. **Admin Access**: Navigate to `http://localhost:5001/login` and use your `ADMIN_EMAIL` credentials.
-2. **Clinic Creation**: Create a new clinic in the admin dashboard.
-3. **Clinic Access**: Navigate to `http://localhost:5001/clinic-login` and use the credentials you just created.
-4. **Public Booking**: Navigate to the home page and book a slot to verify the end-to-end flow.
+1. **Cross-Origin Requests**: The frontend at `localhost:5173` will now communicate with the backend at `localhost:5000`.
+2. **Admin Access**: Navigate to `http://localhost:5173/login` and use your `ADMIN_EMAIL` credentials.
+3. **Clinic Dashboard**: Verify that creating and managing slots works across the two different URLs.
 
 ## 📝 Troubleshooting
 
-- **CORS**: Ensure `FRONTEND_URL` and `VITE_API_URL` are identical in `.env`.
-- **Database**: If `npm run db:push` fails, verify Docker is running with `docker ps`.
-- **Auth**: If you are redirected to Replit login, ensure `REPL_ID` is NOT set in your `.env`.
+- **CORS Errors**: Ensure the `FRONTEND_URL` in the backend `.env` exactly matches the URL/port where your frontend is running.
+- **VITE_API_URL**: If the frontend can't find the backend, verify this is set correctly in `client/.env.local` before starting the frontend.
