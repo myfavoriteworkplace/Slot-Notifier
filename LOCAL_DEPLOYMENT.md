@@ -1,102 +1,115 @@
-# Local Environment Replication Guide
+# How to Run the App on Your Computer (Layman's Guide)
 
-This guide provides detailed instructions to replicate a production-like environment (similar to Render) on your local machine for testing.
+This guide will help you set up and run the "BookMySlot" application on your own computer. We will follow two different ways to run it: **Simple Mode** (easiest) and **Split Mode** (matching your production setup with two URLs).
 
-## 🏗 Setup & Installation
+---
 
-1. **Clone and Install**:
+## 🛠 Step 1: Getting Ready
+Before starting, make sure you have:
+1. **Node.js** installed (Version 20 or higher).
+2. **PostgreSQL** (a database) running on your computer.
+
+### Installation
+1. Open your terminal (Command Prompt or Terminal app).
+2. Type these commands one by one:
    ```bash
-   git clone <your-repo-url>
+   # 1. Download the code (replace with your repo link)
+   git clone <your-repo-link>
+   
+   # 2. Go into the project folder
    cd book-my-slot
+   
+   # 3. Install all the "parts" the app needs
    npm install
    ```
 
-2. **Database Setup**:
-   You can connect directly to your external Render database or a local PostgreSQL instance:
-   1. Go to your **Render Dashboard**.
-   2. Select your PostgreSQL database.
-   3. Copy the **External Database URL**.
-   4. Paste it into your local `.env` file as the `DATABASE_URL`.
+---
 
-3. **Database Initialization**:
-   Sync the schema to your database:
-   ```bash
-   npm run db:push
-   ```
+## 🌎 Method A: Simple Mode (One URL)
+In this mode, everything runs on a single address (e.g., `http://localhost:5001`).
+
+### 1. Configure the Settings
+Create a new file named `.env` in the main folder (`book-my-slot/`) and paste this inside:
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/my_database
+SESSION_SECRET=a_random_secret_phrase
+ADMIN_EMAIL=your@email.com
+ADMIN_PASSWORD=your_password
+NODE_ENV=production
+PORT=5001
+FRONTEND_URL=http://localhost:5001
+VITE_API_URL=http://localhost:5001
+```
+
+### 2. Prepare the Database
+Run this command in the main folder:
+```bash
+npm run db:push
+```
+
+### 3. Start the App
+Run these commands in the main folder:
+```bash
+# Build the app first
+npm run build
+
+# Start the app
+npm run start
+```
+*Open your browser to: `http://localhost:5001`*
 
 ---
 
-## 🌎 Running in Single URL Mode (Combined)
-This is the default `npm start` behavior where the Express server serves both the API and the static frontend files.
+## 🌍 Method B: Split Mode (Two URLs)
+This matches your production setup where the **Frontend** and **Backend** have different addresses.
 
-1. **Environment Configuration**:
-   Create a `.env` file:
-   ```env
-   DATABASE_URL=postgresql://...
-   SESSION_SECRET=your_random_secret
-   ADMIN_EMAIL=admin@example.com
-   ADMIN_PASSWORD=admin_password123
-   NODE_ENV=production
-   PORT=5001
-   FRONTEND_URL=http://localhost:5001
-   VITE_API_URL=http://localhost:5001
-   ```
+### 1. Start the Backend (API)
+Open a terminal and go to the main folder (`book-my-slot/`).
 
-2. **Build and Run**:
-   ```bash
-   npm run build
-   npm run start
-   ```
-   *Accessible at `http://localhost:5001`.*
+**Configure Settings:**
+Create/Edit the `.env` file in the main folder:
+```env
+DATABASE_URL=postgresql://... (same as above)
+SESSION_SECRET=a_random_secret_phrase
+ADMIN_EMAIL=your@email.com
+ADMIN_PASSWORD=your_password
+NODE_ENV=production
+PORT=5000
+FRONTEND_URL=http://localhost:5173
+```
 
----
+**Commands to Run:**
+```bash
+npm run build
+npm run start
+```
+*The Backend is now running at `http://localhost:5000`.*
 
-## 🌍 Running in Split URL Mode (Frontend & Backend Separate)
-This replicates a production setup where the Frontend and Backend are deployed to different URLs.
+### 2. Start the Frontend (Website)
+Open a **SECOND** terminal window and go to the same folder.
 
-### 1. Backend Setup (Terminal 1)
-1. **Environment Configuration**:
-   Create a `.env` file in the root:
-   ```env
-   DATABASE_URL=postgresql://...
-   SESSION_SECRET=your_random_secret
-   ADMIN_EMAIL=admin@example.com
-   ADMIN_PASSWORD=admin_password123
-   NODE_ENV=production
-   PORT=5000
-   FRONTEND_URL=http://localhost:5173
-   ```
+**Configure Settings:**
+Go into the `client/` folder and create a file named `.env.local`:
+- **Path:** `book-my-slot/client/.env.local`
+- **Content:**
+  ```env
+  VITE_API_URL=http://localhost:5000
+  ```
 
-2. **Run Backend**:
-   ```bash
-   npm run build
-   npm run start
-   ```
-   *Backend API available at `http://localhost:5000`.*
-
-### 2. Frontend Setup (Terminal 2)
-1. **Environment Configuration**:
-   Create a `client/.env.local` file:
-   ```env
-   VITE_API_URL=http://localhost:5000
-   ```
-
-2. **Run Frontend**:
-   ```bash
-   # Use Vite to serve the frontend on a separate port
-   npx vite client
-   ```
-   *Frontend available at `http://localhost:5173`.*
+**Command to Run:**
+```bash
+# This starts the frontend on its own address
+npx vite client
+```
+*The Frontend is now running at `http://localhost:5173`. Open this URL to use the app!*
 
 ---
 
-## 🧪 Testing the Flow
+## 🧪 How to Test
+1. Go to `http://localhost:5173` in your browser.
+2. Log in using the `ADMIN_EMAIL` you set earlier.
+3. If everything works, you are successfully running the app locally with two separate URLs!
 
-1. **Cross-Origin Requests**: The frontend at `localhost:5173` will now communicate with the backend at `localhost:5000`.
-2. **Admin Access**: Navigate to `http://localhost:5173/login` and use your `ADMIN_EMAIL` credentials.
-3. **Clinic Dashboard**: Verify that creating and managing slots works across the two different URLs.
-
-## 📝 Troubleshooting
-
-- **CORS Errors**: Ensure the `FRONTEND_URL` in the backend `.env` exactly matches the URL/port where your frontend is running.
-- **VITE_API_URL**: If the frontend can't find the backend, verify this is set correctly in `client/.env.local` before starting the frontend.
+## 📝 Simple Troubleshooting
+- **CORS Error?** Make sure `FRONTEND_URL` in the main `.env` file matches exactly where your frontend is running (usually `http://localhost:5173`).
+- **Cannot connect?** Check if your PostgreSQL database is turned on.
