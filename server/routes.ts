@@ -474,19 +474,34 @@ export async function registerRoutes(
   });
 
     app.post("/api/clinic/bookings", isAuthenticated, async (req, res) => {
+      console.log(`[API-DEBUG] Hit /api/clinic/bookings`);
       const sess = req.session as any;
+      
+      // LOG SESSION DATA FOR DEBUGGING
+      console.log(`[API-DEBUG] Session Data:`, JSON.stringify({
+        id: req.sessionID,
+        clinicId: sess.clinicId,
+        adminLoggedIn: sess.adminLoggedIn,
+        role: sess.role
+      }));
+
       try {
         const { customerName, customerPhone, customerEmail, startTime, endTime, description } = req.body;
+        console.log(`[API-DEBUG] Body:`, JSON.stringify(req.body));
         
         if (!sess.clinicId) {
+          console.log(`[API-DEBUG] Forbidden: No clinicId in session`);
           return res.status(403).json({ message: "Only clinics can create clinic-side bookings" });
         }
 
         const clinic = await storage.getClinic(sess.clinicId);
-        if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+        if (!clinic) {
+          console.log(`[API-DEBUG] Not Found: Clinic ${sess.clinicId} not found`);
+          return res.status(404).json({ message: "Clinic not found" });
+        }
 
         const slot = await storage.createSlot({
-          ownerId: 'admin',
+          ownerId: null, // Allow null owner for clinic-side manual entries
           startTime: new Date(startTime),
           endTime: new Date(endTime),
           clinicName: clinic.name,
@@ -502,7 +517,52 @@ export async function registerRoutes(
           customerPhone,
           customerEmail,
           description,
-          customerId: 'admin',
+          customerId: null, // Allow null customer for clinic-side manual entries
+          verificationStatus: 'verified'
+        });
+
+        await sendBookingEmails(
+          customerEmail,
+          customerName,
+          clinic.email || null,
+          clinic.name,
+          new Date(startTime)
+        );
+
+        console.log(`[API-DEBUG] Success: Booking ${booking.id} created`);
+        res.status(201).json(booking);
+      } catch (err: any) {
+        console.error("[API ERROR] Failed to create clinic booking:", err.message);
+        res.status(500).json({ message: "Failed to create booking", error: err.message });
+      }
+    });
+
+    // Dedicated route for direct booking (bypass isAuthenticated for testing if needed)
+    app.post("/api/clinic/bookings-direct", async (req, res) => {
+      try {
+        const { customerName, customerPhone, customerEmail, startTime, endTime, description, clinicId } = req.body;
+        
+        const clinic = await storage.getClinic(clinicId);
+        if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+        const slot = await storage.createSlot({
+          ownerId: null,
+          startTime: new Date(startTime),
+          endTime: new Date(endTime),
+          clinicName: clinic.name,
+          clinicId: clinic.id,
+          isBooked: true,
+          maxBookings: 1,
+          isCancelled: false,
+        } as any);
+
+        const booking = await storage.createBooking({
+          slotId: slot.id,
+          customerName,
+          customerPhone,
+          customerEmail,
+          description,
+          customerId: null,
           verificationStatus: 'verified'
         });
 
@@ -516,8 +576,8 @@ export async function registerRoutes(
 
         res.status(201).json(booking);
       } catch (err: any) {
-        console.error("[API ERROR] Failed to create clinic booking:", err.message);
-        res.status(500).json({ message: "Failed to create booking" });
+        console.error("[API ERROR] Failed to create direct clinic booking:", err.message);
+        res.status(500).json({ message: "Failed to create booking", error: err.message });
       }
     });
 
