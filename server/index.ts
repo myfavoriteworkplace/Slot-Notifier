@@ -30,10 +30,10 @@ app.use(
     resave: false,
     saveUninitialized: false, // Changed to false for better session management with CORS
     cookie: {
-      secure: process.env.NODE_ENV === "production", // Secure in production
+      secure: true, // ALWAYS secure for cross-site cookies in prod
       maxAge: 30 * 24 * 60 * 60 * 1000, 
       httpOnly: true,
-      sameSite: "lax", // Use lax for local development to allow cookies
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     },
     proxy: true, // Required for trust proxy to work with express-session
     rolling: true, // Force session cookie to be set on every response
