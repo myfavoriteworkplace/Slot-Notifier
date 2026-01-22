@@ -595,6 +595,7 @@ export async function registerRoutes(
 
     app.get("/api/auth/clinic/bookings", (req, res) => {
       const sess = req.session as any;
+      console.log(`[API-DEBUG-SESSION] Hit /api/auth/clinic/bookings`,sess);
       
       if (req.session && sess.adminLoggedIn) {
         if (sess.clinicId) {
