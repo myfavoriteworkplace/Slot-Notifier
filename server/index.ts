@@ -33,7 +33,7 @@ app.use(
       secure: process.env.NODE_ENV === "production", // Secure in production
       maxAge: 30 * 24 * 60 * 60 * 1000, 
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // none for cross-site in production
+      sameSite: "lax", // Use lax for local development to allow cookies
     },
     proxy: true, // Required for trust proxy to work with express-session
     rolling: true, // Force session cookie to be set on every response
