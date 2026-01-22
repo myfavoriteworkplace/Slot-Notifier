@@ -223,7 +223,7 @@ export default function ClinicDashboard() {
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest('POST', '/api/public/bookings', data);
+      const response = await apiRequest('POST', '/api/clinic/bookings', data);
       return response.json();
     },
     onSuccess: () => {

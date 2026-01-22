@@ -14,11 +14,24 @@ const PostgresStore = connectPg(session);
 const app = express();
 const httpServer = createServer(app);
 
-// Trust proxy is essential for deployments behind a load balancer (like Render)
+// Trust proxy for deployments behind load balancers (Render, etc.)
 app.set("trust proxy", 1);
 
-// Configure sessions with Postgres store
+// Determine frontend URL(s)
+const FRONTEND_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.FRONTEND_URL || "https://book-my-slot-client.onrender.com"
+    : "http://localhost:5173";
+const FRONTEND_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  FRONTEND_URL,
+];
+
+// ------------------ SESSION ------------------
 const sessionSecret = process.env.SESSION_SECRET || "book-my-slot-secret";
+console.log("[Environment]", process.env.NODE_ENV);
+
 app.use(
   session({
     store: new PostgresStore({
@@ -28,32 +41,47 @@ app.use(
     }),
     secret: sessionSecret,
     resave: false,
-    saveUninitialized: false, // Changed to false for better session management with CORS
+    saveUninitialized: false, // do not save empty sessions
+    rolling: true,            // refresh cookie expiry on every response
+    unset: "destroy",
+    proxy: true,              // trust X-Forwarded-* headers (important on Render)
     cookie: {
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 30 * 24 * 60 * 60 * 1000, 
-      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // HTTPS only in prod
+      httpOnly: true,                               // JS cannot access cookie
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,            // 30 days
     },
-    proxy: true,
-    rolling: true,
-    unset: 'destroy'
   })
 );
 
-// Configure CORS for cross-domain requests
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+// ------------------ CORS ------------------
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || FRONTEND_ORIGINS.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Cookie",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
+    exposedHeaders: ["Set-Cookie"],
+  })
+);
 
-app.use(cors({
-  origin: true,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Cookie", "X-Requested-With", "Accept", "Origin"],
-  exposedHeaders: ["Set-Cookie"]
-}));
+// Handle OPTIONS preflight requests
+app.options("*", cors({ origin: FRONTEND_ORIGINS, credentials: true }));
 
-app.options("*", cors());
-
+// ------------------ BODY PARSING ------------------
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
@@ -65,11 +93,11 @@ app.use(
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
-  }),
+  })
 );
-
 app.use(express.urlencoded({ extended: false }));
 
+// ------------------ LOGGER ------------------
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -77,23 +105,13 @@ export function log(message: string, source = "express") {
     second: "2-digit",
     hour12: true,
   });
-
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  // LOG ALL REQUESTS IN PRODUCTION FOR DEBUGGING
-  if (process.env.NODE_ENV === "production" || true) {
-    log(`[REQUEST] ${req.method} ${path} - IP: ${req.ip} - Headers: ${JSON.stringify({
-      host: req.headers.host,
-      "user-agent": req.headers["user-agent"],
-      "x-forwarded-for": req.headers["x-forwarded-for"]
-    })}`);
-  }
+  let capturedJsonResponse: Record<string, any> | undefined;
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -105,10 +123,7 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
+      if (capturedJsonResponse) logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       log(logLine);
     }
   });
@@ -116,29 +131,25 @@ app.use((req, res, next) => {
   next();
 });
 
+// ------------------ STARTUP ------------------
 (async () => {
-  // Run seed script on startup to ensure demo data exists (especially for Render)
   try {
     const { ensureSessionTable } = await import("./db");
     await ensureSessionTable();
-    
+
     const seedModule = await import("./seed-test-clinic");
     await seedModule.seed();
   } catch (err) {
     console.error("[SYSTEM] Startup initialization failed:", err);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
   console.log(`[SYSTEM] Starting server on port ${port} with NODE_ENV=${process.env.NODE_ENV}`);
-  
-  // register routes first
+
+  // Register API routes
   await registerRoutes(httpServer, app);
 
-  // Serve static files AFTER routes
+  // Serve frontend static files in production
   if (process.env.NODE_ENV === "production") {
     console.log("[SYSTEM] Production mode: Serving static files");
     serveStatic(app);
@@ -147,21 +158,30 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // Final 404 handler for API routes that weren't matched
+  // SPA fallback: serve frontend for non-API routes
+  app.get("*", (req, res, next) => {
+    if (!req.path.startsWith("/api")) {
+      return serveStatic(app)(req, res, next);
+    }
+    next();
+  });
+
+  // 404 handler for API routes
   app.use("/api/*", (req, res) => {
-    res.status(404).json({ 
+    res.status(404).json({
       message: "API endpoint not found",
       path: req.originalUrl,
       method: req.method,
-      suggestion: "If you are using a cross-site request, ensure CORS is correctly configured and that the path matches exactly."
+      suggestion:
+        "Ensure the path matches exactly and CORS is configured correctly for cross-origin requests.",
     });
   });
 
+  // Global error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-    
-    // Detailed error logging
+
     console.error(`[ERROR] ${new Date().toISOString()} - ${status}: ${message}`);
     console.error(`[ERROR DETAILS] Method: ${_req.method}, Path: ${_req.path}`);
     if (_req.body && Object.keys(_req.body).length > 0) {
@@ -169,13 +189,15 @@ app.use((req, res, next) => {
       if (sanitizedBody.password) sanitizedBody.password = "********";
       console.error(`[ERROR BODY] ${JSON.stringify(sanitizedBody)}`);
     }
-    if (err.stack) {
-      console.error(`[ERROR STACK] ${err.stack}`);
-    }
+    if (err.stack) console.error(`[ERROR STACK] ${err.stack}`);
 
-    res.status(status).json({ message, details: process.env.NODE_ENV === 'development' ? err.stack : undefined });
+    res.status(status).json({
+      message,
+      details: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    });
   });
 
+  // Start server
   httpServer.listen(
     {
       port,
@@ -183,7 +205,7 @@ app.use((req, res, next) => {
       reusePort: true,
     },
     () => {
-      log(`serving on port ${port}`);
-    },
+      log(`Server listening on port ${port}`);
+    }
   );
 })();

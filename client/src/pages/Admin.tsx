@@ -80,7 +80,7 @@ export default function Admin() {
   const isDemoSuperAdmin = localStorage.getItem("demo_super_admin") === "true";
 
   const { data: clinics, isLoading: clinicsLoading } = useQuery<Clinic[]>({
-    queryKey: ['/api/clinics', { includeArchived: true }],
+    queryKey: ['/api/clinics', 'includeArchived'],
   });
 
   const createClinicMutation = useMutation({
