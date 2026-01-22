@@ -25,6 +25,8 @@ const FRONTEND_URL =
 const FRONTEND_ORIGINS = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "http://localhost:5000",
+  "http://127.0.0.1:5000",
   FRONTEND_URL,
 ];
 
@@ -58,7 +60,7 @@ app.use(
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || FRONTEND_ORIGINS.includes(origin)) {
+      if (!origin || FRONTEND_ORIGINS.includes(origin) || origin.includes("replit.dev")) {
         callback(null, true);
       } else {
         callback(new Error(`CORS blocked for origin: ${origin}`));

@@ -80,7 +80,12 @@ export default function Admin() {
   const isDemoSuperAdmin = localStorage.getItem("demo_super_admin") === "true";
 
   const { data: clinics, isLoading: clinicsLoading } = useQuery<Clinic[]>({
-    queryKey: ['/api/clinics', 'includeArchived'],
+    queryKey: ['/api/clinics', { includeArchived: true }],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/clinics?includeArchived=true');
+      if (!res.ok) throw new Error("Failed to fetch clinics");
+      return res.json();
+    }
   });
 
   const createClinicMutation = useMutation({

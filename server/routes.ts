@@ -851,7 +851,8 @@ export async function registerRoutes(
 
     // Clinics API
     app.get("/api/clinics", async (req, res) => {
-      console.log(`[API] /api/clinics - Fetching clinics. includeArchived=${req.query.includeArchived}`);
+      const includeArchived = req.query.includeArchived === 'true';
+      console.log(`[API] /api/clinics - Fetching clinics. includeArchived=${includeArchived}`);
       
       // Prevent 304 Not Modified cache issues by adding cache-control headers
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -860,9 +861,7 @@ export async function registerRoutes(
       res.setHeader('Last-Modified', new Date().toUTCString());
 
       try {
-        const includeArchived = req.query.includeArchived === 'true';
         const clinicsList = await storage.getClinics(includeArchived);
-        
         console.log(`[RESPONSE] /api/clinics - Found ${clinicsList.length} clinics`);
         res.json(clinicsList);
       } catch (err: any) {
