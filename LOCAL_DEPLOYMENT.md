@@ -74,7 +74,7 @@ SESSION_SECRET=a_random_secret_phrase
 ADMIN_EMAIL=your@email.com
 ADMIN_PASSWORD=your_password
 NODE_ENV=production
-PORT=5000
+PORT=5001
 FRONTEND_URL=http://localhost:5173
 ```
 
@@ -83,7 +83,7 @@ FRONTEND_URL=http://localhost:5173
 npm run build
 npm run start
 ```
-*The Backend is now running at `http://localhost:5000`.*
+*The Backend is now running at `http://localhost:5001`.*
 
 ### 2. Start the Frontend (Website)
 Open a **SECOND** terminal window and go to the same folder.
@@ -93,7 +93,7 @@ Go into the `client/` folder and create a file named `.env.local`:
 - **Path:** `book-my-slot/client/.env.local`
 - **Content:**
   ```env
-  VITE_API_URL=http://localhost:5000
+  VITE_API_URL=http://localhost:5001
   ```
 
 **Command to Run:**
