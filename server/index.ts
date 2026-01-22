@@ -55,11 +55,14 @@ app.use(cors({
     // In production, especially on Render, we need to allow both the frontend domain and potentially same-site requests
     // We also trust book-my-slot domains
     if (
+      !origin ||
+      process.env.NODE_ENV !== "production" ||
       allowedOrigins.indexOf(origin!) !== -1 || 
       allowedOrigins.includes("*") || 
       origin!.includes("replit") || 
       origin!.includes("onrender.com") || 
-      origin!.includes("localhost")
+      origin!.includes("localhost") ||
+      origin!.includes("127.0.0.1")
     ) {
       callback(null, true);
     } else {
