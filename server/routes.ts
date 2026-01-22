@@ -592,6 +592,28 @@ export async function registerRoutes(
       }
     });
 
+    app.get("/api/auth/clinic/me", (req, res) => {
+      const sess = req.session as any;
+      if (req.session && sess.adminLoggedIn && sess.clinicId) {
+        // Find clinic to get full details
+        storage.getClinic(sess.clinicId).then(clinic => {
+          return res.json({
+            id: sess.clinicId,
+            name: clinic?.name || "Clinic",
+            role: sess.role || 'owner',
+            doctorName: clinic?.doctorName,
+            doctorSpecialization: clinic?.doctorSpecialization,
+            doctors: clinic?.doctors || []
+          });
+        }).catch(err => {
+          console.error("[AUTH-ME] Error fetching clinic details:", err);
+          return res.status(500).json({ message: "Failed to fetch clinic details" });
+        });
+        return;
+      }
+      return res.status(401).json({ message: "Not authenticated" });
+    });
+
     app.get("/api/auth/clinic/bookings", (req, res) => {
       const sess = req.session as any;
       console.log(`[API-DEBUG-SESSION] Hit /api/auth/clinic/bookings`,sess);
