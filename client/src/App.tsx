@@ -6,7 +6,9 @@ import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/comp
 import { ThemeProvider } from "next-themes";
 import { Header } from "@/components/Header";
 import { useState, useEffect } from "react";
-import { Server, Database } from "lucide-react";
+import { Server, Database, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
@@ -17,6 +19,10 @@ import ClinicDashboard from "@/pages/ClinicDashboard";
 import ClinicAbout from "@/pages/ClinicAbout";
 
 function HealthIndicator() {
+  const { isAuthenticated: isUserAuth } = useAuth();
+  const { isAuthenticated: isClinicAuth } = useClinicAuth();
+  const isSessionActive = isUserAuth || isClinicAuth;
+
   const [healthStatus, setHealthStatus] = useState<{
     backend: boolean | null;
     database: boolean | null;
@@ -78,6 +84,20 @@ function HealthIndicator() {
           </TooltipTrigger>
           <TooltipContent side="top" className="text-[11px]">
             Database: {healthStatus.database === true ? 'Connected' : healthStatus.database === false ? 'Error' : 'Checking...'}
+          </TooltipContent>
+        </Tooltip>
+
+        <div className="w-[1px] h-3 bg-border/50" />
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1.5 cursor-help">
+              <ShieldCheck className={`h-3 w-3 ${isSessionActive ? 'text-green-500' : 'text-muted-foreground'}`} />
+              <div className={`h-1.5 w-1.5 rounded-full ${isSessionActive ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-muted-foreground'}`} />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-[11px]">
+            Session: {isSessionActive ? 'Active' : 'Not Authenticated'}
           </TooltipContent>
         </Tooltip>
       </div>
