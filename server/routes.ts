@@ -473,6 +473,54 @@ export async function registerRoutes(
     }
   });
 
+    app.post("/api/clinic/bookings", isAuthenticated, async (req, res) => {
+      const sess = req.session as any;
+      try {
+        const { customerName, customerPhone, customerEmail, startTime, endTime, description } = req.body;
+        
+        if (!sess.clinicId) {
+          return res.status(403).json({ message: "Only clinics can create clinic-side bookings" });
+        }
+
+        const clinic = await storage.getClinic(sess.clinicId);
+        if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+        const slot = await storage.createSlot({
+          ownerId: 'admin',
+          startTime: new Date(startTime),
+          endTime: new Date(endTime),
+          clinicName: clinic.name,
+          clinicId: clinic.id,
+          isBooked: true,
+          maxBookings: 1,
+          isCancelled: false,
+        } as any);
+
+        const booking = await storage.createBooking({
+          slotId: slot.id,
+          customerName,
+          customerPhone,
+          customerEmail,
+          description,
+          customerId: 'admin',
+          verificationStatus: 'verified'
+        });
+
+        await sendBookingEmails(
+          customerEmail,
+          customerName,
+          clinic.email || null,
+          clinic.name,
+          new Date(startTime)
+        );
+
+        res.status(201).json(booking);
+      } catch (err: any) {
+        console.error("[API ERROR] Failed to create clinic booking:", err.message);
+        res.status(500).json({ message: "Failed to create booking" });
+      }
+    });
+
     app.get("/api/auth/clinic/me", (req, res) => {
       const sess = req.session as any;
       if (req.session && sess.adminLoggedIn && sess.clinicId) {
