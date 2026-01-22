@@ -99,7 +99,8 @@ Go into the `client/` folder and create a file named `.env.local`:
 **Command to Run:**
 ```bash
 # This starts the frontend on its own address
-npx vite client
+# Make sure you are in the main "book-my-slot" folder
+npx vite
 ```
 *The Frontend is now running at `http://localhost:5173`. Open this URL to use the app!*
 
