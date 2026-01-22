@@ -5,6 +5,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 interface ClinicSession {
   id: number;
   name: string;
+  doctorName?: string | null;
+  doctorSpecialization?: string | null;
+  doctors?: { name: string; specialization: string; degree: string }[];
 }
 
 async function fetchClinicSession(): Promise<ClinicSession | null> {
