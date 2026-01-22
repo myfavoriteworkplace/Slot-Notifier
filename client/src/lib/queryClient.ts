@@ -1,10 +1,9 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 // Use relative paths if API is proxied/rewritten
-const API_BASE_URL = import.meta.env.VITE_API_URL || "";
-if (API_BASE_URL) {
-  console.log(`[QUERY-CLIENT] Using API_BASE_URL: ${API_BASE_URL}`);
-}
+// On Render, we use a Rewrite rule /api/* -> backend/api/*
+const API_BASE_URL = "/api";
+console.log(`[QUERY-CLIENT] Using API_BASE_URL: ${API_BASE_URL}`);
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
