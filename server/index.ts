@@ -30,10 +30,10 @@ app.use(
     resave: false,
     saveUninitialized: false, // Changed to false for better session management with CORS
     cookie: {
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       maxAge: 30 * 24 * 60 * 60 * 1000, 
       httpOnly: true,
-      sameSite: "none",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     },
     proxy: true,
     rolling: true,
@@ -45,30 +45,7 @@ app.use(
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // In development or if no origin (local requests), allow it
-    if (!origin || process.env.NODE_ENV !== "production") {
-      return callback(null, true);
-    }
-
-    const allowedOrigins = FRONTEND_URL.split(",").map(url => url.trim());
-    // In production, especially on Render, we need to allow both the frontend domain and potentially same-site requests
-    // We also trust book-my-slot domains
-    if (
-      !origin ||
-      process.env.NODE_ENV !== "production" ||
-      allowedOrigins.indexOf(origin!) !== -1 || 
-      allowedOrigins.includes("*") || 
-      origin!.includes("replit") || 
-      origin!.includes("onrender.com") || 
-      origin!.includes("localhost") ||
-      origin!.includes("127.0.0.1")
-    ) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: true,
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Cookie", "X-Requested-With", "Accept", "Origin"],
