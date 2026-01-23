@@ -52,7 +52,7 @@ const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
 
 export default function Book(props: { params: { clinicId?: string } }) {
   const { toast } = useToast();
-  const [searchParams] = useLocation();
+  const [location] = useLocation();
   const params = new URLSearchParams(window.location.search);
   const clinicIdFromUrl = props.params.clinicId || params.get("clinicId");
 
@@ -124,6 +124,12 @@ export default function Book(props: { params: { clinicId?: string } }) {
     username: "demo_clinic",
     passwordHash: "",
     email: "demo@example.com",
+    phone: "9876543210",
+    website: "www.demosmile.com",
+    doctorName: "Dr. Demo",
+    doctorSpecialization: "General Dentistry",
+    doctorDegree: "DDS",
+    doctors: [],
     isArchived: false,
     createdAt: new Date()
   };

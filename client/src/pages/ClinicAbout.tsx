@@ -8,8 +8,10 @@ import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function ClinicAbout() {
+  const [location] = useLocation();
   const params = new URLSearchParams(window.location.search);
-  const clinicIdFromUrl = params.get("clinicId");
+  const clinicIdFromUrl = params.get("clinicId") || 
+                         (location.startsWith("/book/") ? location.split("/").pop() : null);
 
   const { data: clinics, isLoading } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics'],
@@ -22,6 +24,12 @@ export default function ClinicAbout() {
     username: "demo_clinic",
     passwordHash: "",
     email: "demo@example.com",
+    phone: "9876543210",
+    website: "www.demosmile.com",
+    doctorName: "Dr. Demo",
+    doctorSpecialization: "General Dentistry",
+    doctorDegree: "DDS",
+    doctors: [],
     isArchived: false,
     createdAt: new Date()
   };

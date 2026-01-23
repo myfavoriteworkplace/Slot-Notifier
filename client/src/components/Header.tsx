@@ -75,11 +75,13 @@ export function Header() {
       { href: "/book", label: "Book a Slot", icon: CalendarPlus },
       { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
     ] : []),
-    ...(location.includes("/book") || location === "/about" ? (
-      new URLSearchParams(window.location.search).get("clinicId") ? [
-        { href: `/about?clinicId=${new URLSearchParams(window.location.search).get("clinicId")}`, label: "About", icon: Building2 }
-      ] : []
-    ) : []),
+    ...(location.includes("/book") || location === "/about" ? (() => {
+      const clinicId = new URLSearchParams(window.location.search).get("clinicId") || 
+                      (location.startsWith("/book/") ? location.split("/").pop() : null);
+      return clinicId ? [
+        { href: `/about?clinicId=${clinicId}`, label: "About", icon: Building2 }
+      ] : [];
+    })() : []),
   ];
 
   return (
