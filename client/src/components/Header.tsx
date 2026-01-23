@@ -11,11 +11,9 @@ import {
   LayoutDashboard,
   Shield,
   Building2,
-  Activity,
-  Database,
-  Server
 } from "lucide-react";
 import { queryClient, apiRequest, API_BASE_URL } from "@/lib/queryClient";
+import { ThemeToggle } from "./ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -52,7 +52,6 @@ app.use(
       httpOnly: true,                               // JS cannot access cookie
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 30 * 24 * 60 * 60 * 1000,            // 30 days
-      domain: process.env.NODE_ENV === "production" ? ".onrender.com" : undefined,
     },
   })
 );
