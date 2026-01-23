@@ -1,5 +1,5 @@
 import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { queryClient, API_BASE_URL } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -32,8 +32,6 @@ function HealthIndicator() {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const API_BASE_URL = import.meta.env.VITE_API_URL || "";
-        
         // Try to fetch backend health
         const backendRes = await fetch(`${API_BASE_URL}/api/health/backend`, { cache: 'no-store' });
         const backendData = backendRes.ok ? await backendRes.json() : null;

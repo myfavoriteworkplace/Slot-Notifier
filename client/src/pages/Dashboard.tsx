@@ -6,6 +6,7 @@ import { useBookings } from "@/hooks/use-bookings";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Calendar as CalendarIcon, ListFilter, User as UserIcon, Phone, Clock, Search, Settings, Save } from "lucide-react";
+import { queryClient, apiRequest, API_BASE_URL } from "@/lib/queryClient";
 import type { Clinic } from "@shared/schema";
 import { format, isSameDay, startOfToday } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -99,7 +100,6 @@ export default function Dashboard() {
   const { data: clinicsData } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics', { includeArchived: true }],
     queryFn: async () => {
-      const API_BASE_URL = import.meta.env.VITE_API_URL || "";
       const res = await fetch(`${API_BASE_URL}/api/clinics?includeArchived=true`, {
         credentials: 'include',
       });

@@ -39,9 +39,14 @@ type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> = ({ on401: unauthorizedBehavior }) => async ({ queryKey }) => {
-  // Fix [object Object] bug: use only the first element if it's the path
-  const url = typeof queryKey[0] === 'string' ? queryKey[0] : queryKey.join("/");
-  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+  // Fix [object Object] bug: always use the first element as the base URL
+  const path = queryKey[0];
+  if (typeof path !== 'string') {
+    console.error("[QUERY-CLIENT] Invalid queryKey[0], expected string path:", queryKey);
+    throw new Error(`Invalid API path in queryKey: ${path}`);
+  }
+  
+  const fullUrl = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
 
   const res = await fetch(fullUrl, { credentials: "include" });
 

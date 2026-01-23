@@ -15,7 +15,7 @@ import {
   Database,
   Server
 } from "lucide-react";
-import { ThemeToggle } from "./ThemeToggle";
+import { queryClient, apiRequest, API_BASE_URL } from "@/lib/queryClient";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +41,6 @@ export function Header() {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const API_BASE_URL = import.meta.env.VITE_API_URL || "";
         const res = await fetch(`${API_BASE_URL}/api/health`, { 
           cache: 'no-store',
           headers: { 'Accept': 'application/json' }
