@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, FlaskConical, LogOut, Copy, ExternalLink, Activity, Database } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, FlaskConical, LogOut, Copy, ExternalLink, Activity, Database, Trash2, UserPlus, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -348,6 +348,81 @@ export default function Admin() {
                   <Input id="website" value={newClinicWebsite} onChange={(e) => setNewClinicWebsite(e.target.value)} className="col-span-3" />
                 </div>
                 <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <Stethoscope className="h-4 w-4" />
+                      Doctors ({newClinicDoctors.length})
+                    </p>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setNewClinicDoctors([...newClinicDoctors, { name: '', specialization: '', degree: '' }])}
+                      data-testid="button-add-doctor"
+                    >
+                      <UserPlus className="h-3 w-3 mr-1" />
+                      Add Doctor
+                    </Button>
+                  </div>
+                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                    {newClinicDoctors.map((doctor, index) => (
+                      <div key={index} className="p-3 border rounded-md space-y-2 bg-muted/30">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium text-muted-foreground">Doctor {index + 1}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => setNewClinicDoctors(newClinicDoctors.filter((_, i) => i !== index))}
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </div>
+                        <Input
+                          placeholder="Doctor name"
+                          value={doctor.name}
+                          onChange={(e) => {
+                            const updated = [...newClinicDoctors];
+                            updated[index].name = e.target.value;
+                            setNewClinicDoctors(updated);
+                          }}
+                          className="h-8"
+                          data-testid={`input-doctor-name-${index}`}
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            placeholder="Specialization"
+                            value={doctor.specialization}
+                            onChange={(e) => {
+                              const updated = [...newClinicDoctors];
+                              updated[index].specialization = e.target.value;
+                              setNewClinicDoctors(updated);
+                            }}
+                            className="h-8"
+                            data-testid={`input-doctor-specialization-${index}`}
+                          />
+                          <Input
+                            placeholder="Degree"
+                            value={doctor.degree}
+                            onChange={(e) => {
+                              const updated = [...newClinicDoctors];
+                              updated[index].degree = e.target.value;
+                              setNewClinicDoctors(updated);
+                            }}
+                            className="h-8"
+                            data-testid={`input-doctor-degree-${index}`}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    {newClinicDoctors.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-2">No doctors added yet. Click "Add Doctor" to add one.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
                   <p className="text-sm font-medium mb-4">Admin Account Credentials</p>
                   <div className="grid gap-4">
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -372,7 +447,8 @@ export default function Admin() {
                   address: newClinicAddress,
                   email: newClinicEmail,
                   phone: newClinicPhone,
-                  website: newClinicWebsite
+                  website: newClinicWebsite,
+                  doctors: newClinicDoctors.filter(d => d.name.trim() !== '')
                 })} disabled={createClinicMutation.isPending || !newClinicName || !newClinicAddress}>
                   {createClinicMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create Clinic

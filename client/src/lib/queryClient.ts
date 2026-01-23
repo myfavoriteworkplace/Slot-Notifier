@@ -1,13 +1,15 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 // api.ts (ONLY FILE)
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+// In development with Vite middleware mode, use same-origin (empty string)
+// In production, use VITE_API_URL if defined, otherwise empty string
+export const API_BASE_URL = import.meta.env.DEV ? "" : (import.meta.env.VITE_API_URL || "");
 
 if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
   console.warn("VITE_API_URL is not defined in production. Session issues may occur.");
 }
 
-console.log(`[QUERY-CLIENT] Using API_BASE_URL: ${API_BASE_URL}`);
+console.log(`[QUERY-CLIENT] Using API_BASE_URL: "${API_BASE_URL}" (DEV=${import.meta.env.DEV})`);
 
 // ------------------ HELPER ------------------
 async function throwIfResNotOk(res: Response) {
