@@ -557,6 +557,130 @@ export default function Admin() {
                             <Copy className="h-3 w-3 mr-1" /> Copy Link
                           </Button>
 
+                          <Dialog open={editClinicDialogOpen && selectedClinic?.id === clinic.id} onOpenChange={(open) => {
+                            setEditClinicDialogOpen(open);
+                            if (open) {
+                              setSelectedClinic(clinic);
+                              setEditName(clinic.name);
+                              setEditAddress(clinic.address || "");
+                              setEditEmail(clinic.email || "");
+                              setEditPhone(clinic.phone || "");
+                              setEditWebsite(clinic.website || "");
+                              setEditDoctors(clinic.doctors || []);
+                            }
+                          }}>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm" className="h-8">
+                                <Plus className="h-3 w-3 mr-1" /> Edit
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[500px]">
+                              <DialogHeader>
+                                <DialogTitle>Edit Clinic</DialogTitle>
+                                <DialogDescription>Update details for {clinic.name}</DialogDescription>
+                              </DialogHeader>
+                              <div className="grid gap-4 py-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                  <Label className="text-right">Name</Label>
+                                  <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="col-span-3" />
+                                </div>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                  <Label className="text-right">Address</Label>
+                                  <Input value={editAddress} onChange={(e) => setEditAddress(e.target.value)} className="col-span-3" />
+                                </div>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                  <Label className="text-right">Email</Label>
+                                  <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="col-span-3" />
+                                </div>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                  <Label className="text-right">Phone</Label>
+                                  <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="col-span-3" />
+                                </div>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                  <Label className="text-right">Website</Label>
+                                  <Input value={editWebsite} onChange={(e) => setEditWebsite(e.target.value)} className="col-span-3" />
+                                </div>
+                                <div className="border-t pt-4">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <p className="text-sm font-medium">Doctors ({editDoctors.length})</p>
+                                    <Button 
+                                      type="button" 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => setEditDoctors([...editDoctors, { name: '', specialization: '', degree: '' }])}
+                                    >
+                                      Add Doctor
+                                    </Button>
+                                  </div>
+                                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                                    {editDoctors.map((doctor, index) => (
+                                      <div key={index} className="p-3 border rounded-md space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-xs font-medium">Doctor {index + 1}</span>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            onClick={() => setEditDoctors(editDoctors.filter((_, i) => i !== index))}
+                                          >
+                                            <Trash2 className="h-3 w-3 text-destructive" />
+                                          </Button>
+                                        </div>
+                                        <Input
+                                          placeholder="Doctor name"
+                                          value={doctor.name}
+                                          onChange={(e) => {
+                                            const updated = [...editDoctors];
+                                            updated[index].name = e.target.value;
+                                            setEditDoctors(updated);
+                                          }}
+                                          className="h-8"
+                                        />
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <Input
+                                            placeholder="Specialization"
+                                            value={doctor.specialization}
+                                            onChange={(e) => {
+                                              const updated = [...editDoctors];
+                                              updated[index].specialization = e.target.value;
+                                              setEditDoctors(updated);
+                                            }}
+                                            className="h-8"
+                                          />
+                                          <Input
+                                            placeholder="Degree"
+                                            value={doctor.degree}
+                                            onChange={(e) => {
+                                              const updated = [...editDoctors];
+                                              updated[index].degree = e.target.value;
+                                              setEditDoctors(updated);
+                                            }}
+                                            className="h-8"
+                                          />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                              <DialogFooter>
+                                <Button onClick={() => updateClinicMutation.mutate({ 
+                                  id: clinic.id,
+                                  name: editName, 
+                                  address: editAddress,
+                                  email: editEmail,
+                                  phone: editPhone,
+                                  website: editWebsite,
+                                  doctors: editDoctors.filter(d => d.name.trim() !== '')
+                                })} disabled={updateClinicMutation.isPending || !editName || !editAddress}>
+                                  {updateClinicMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                  Update Clinic
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+
                           <Dialog open={credentialsDialogOpen && selectedClinic?.id === clinic.id} onOpenChange={(open) => {
                             setCredentialsDialogOpen(open);
                             if (open) setSelectedClinic(clinic);

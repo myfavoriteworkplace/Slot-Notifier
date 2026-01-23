@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
+import { insertClinicSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
@@ -965,7 +966,31 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/clinics/:id/credentials", isAuthenticated, async (req, res) => {
+    app.patch("/api/clinics/:id", isAuthenticated, async (req, res) => {
+      const user = (req as any).user;
+      const isSuperuser = user?.claims?.sub === 'admin';
+      
+      if (!isSuperuser) {
+        return res.status(403).json({ message: "Only super users can update clinics" });
+      }
+
+      const id = parseInt(req.params.id);
+      try {
+        const input = insertClinicSchema.partial().parse(req.body);
+        const clinic = await storage.updateClinic(id, input);
+        res.json(clinic);
+      } catch (err: any) {
+        if (err instanceof z.ZodError) {
+          return res.status(400).json({
+            message: err.errors[0].message,
+            field: err.errors[0].path.join('.'),
+          });
+        }
+        res.status(500).json({ message: "Internal server error updating clinic" });
+      }
+    });
+
+    app.patch("/api/clinics/:id/credentials", isAuthenticated, async (req, res) => {
     const user = (req as any).user;
     console.log(`[CLINIC-DEBUG] PATCH /api/clinics credentials attempt. User: ${JSON.stringify(user)} Session: ${JSON.stringify(req.session)}`);
     // Use the app setting if available, otherwise fallback to true (current default)
