@@ -515,22 +515,25 @@ export default function ClinicDashboard() {
 
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-4 mb-6 sm:mb-8">
+      <div className="flex flex-col gap-4 mb-6 sm:mb-8 border-b pb-6">
         <div className="flex items-start sm:items-center gap-3 sm:gap-4">
-          <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+          <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0 shadow-inner">
+            <Building2 className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-left truncate">{clinic?.name}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-left truncate">{clinic?.name}</h1>
               {clinic?.id && clinic.id >= 999 && (
-                <Badge variant="secondary" className="text-xs gap-1">
-                  <FlaskConical className="h-3 w-3" />
-                  Demo
+                <Badge variant="secondary" className="text-xs gap-1 py-1 px-2">
+                  <FlaskConical className="h-3.5 w-3.5" />
+                  Demo Mode
                 </Badge>
               )}
             </div>
-            <p className="text-sm sm:text-base text-muted-foreground mt-1 text-left">Manage your clinic's bookings</p>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5">Clinic Administration</Badge>
+              <p className="text-sm sm:text-base text-muted-foreground hidden sm:block">Manage your clinic's bookings and availability</p>
+            </div>
           </div>
         </div>
       </div>
