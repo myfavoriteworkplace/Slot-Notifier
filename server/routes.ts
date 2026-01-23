@@ -600,67 +600,48 @@ export async function registerRoutes(
       }
     });
 
-    app.get("/api/auth/clinic/me", (req, res) => {
-      const sess = req.session as any;
-      if (req.session && sess.adminLoggedIn && sess.clinicId) {
-        // Find clinic to get full details
-        storage.getClinic(sess.clinicId).then(clinic => {
-          return res.json({
-            id: sess.clinicId,
-            name: clinic?.name || "Clinic",
-            role: sess.role || 'owner',
-            doctorName: clinic?.doctorName,
-            doctorSpecialization: clinic?.doctorSpecialization,
-            doctors: clinic?.doctors || []
-          });
-        }).catch(err => {
-          console.error("[AUTH-ME] Error fetching clinic details:", err);
-          return res.status(500).json({ message: "Failed to fetch clinic details" });
-        });
-        return;
-      }
-      return res.status(401).json({ message: "Not authenticated" });
+    // Unified current user endpoint
+    app.get("/api/auth/me", isAuthenticated, (req, res) => {
+      res.json((req as any).user);
     });
 
-    app.get("/api/auth/clinic/bookings", (req, res) => {
+    app.get("/api/auth/clinic/bookings", isAuthenticated, (req, res) => {
       const sess = req.session as any;
-      console.log(`[API-DEBUG-SESSION] Hit /api/auth/clinic/bookings`,sess);
+      console.log(`[API-DEBUG-SESSION] Hit /api/auth/clinic/bookings`, sess);
       
-      if (req.session && sess.adminLoggedIn) {
-        if (sess.clinicId) {
-          return storage.getClinicBookings(sess.clinicId)
-            .then(bookings => res.json(bookings))
-            .catch((err: any) => res.status(500).json({ message: err.message }));
-        }
-        
-        // Super admin viewing all bookings
-        if (sess.adminEmail === process.env.ADMIN_EMAIL) {
-          return storage.getClinics()
-            .then(async clinics => {
-              const allBookings = await Promise.all(clinics.map(c => storage.getClinicBookings(c.id)));
-              return res.json(allBookings.flat());
-            })
-            .catch((err: any) => res.status(500).json({ message: err.message }));
-        }
+      if (sess.clinicId) {
+        return storage.getClinicBookings(sess.clinicId)
+          .then(bookings => res.json(bookings))
+          .catch((err: any) => res.status(500).json({ message: err.message }));
       }
-      return res.status(401).json({ message: "Not authenticated" });
+      
+      // Super admin viewing all bookings
+      if (sess.role === 'superuser') {
+        return storage.getClinics()
+          .then(async clinics => {
+            const allBookings = await Promise.all(clinics.map(c => storage.getClinicBookings(c.id)));
+            return res.json(allBookings.flat());
+          })
+          .catch((err: any) => res.status(500).json({ message: err.message }));
+      }
+      
+      return res.status(403).json({ message: "Forbidden" });
     });
 
-    app.delete("/api/auth/clinic/bookings/:id", (req, res) => {
+    app.delete("/api/auth/clinic/bookings/:id", isAuthenticated, (req, res) => {
       const sess = req.session as any;
-      if (req.session && sess.adminLoggedIn && sess.clinicId) {
+      if (sess.role === 'superuser' || sess.clinicId) {
         return storage.cancelBooking(parseInt(req.params.id))
           .then(() => res.status(204).send())
           .catch((err: any) => res.status(500).json({ message: err.message }));
       }
-      return res.status(401).json({ message: "Not authenticated" });
+      return res.status(403).json({ message: "Forbidden" });
     });
 
-    app.post("/api/auth/clinic/slots/configure", (req, res) => {
+    app.post("/api/auth/clinic/slots/configure", isAuthenticated, (req, res) => {
       const sess = req.session as any;
-      if (req.session && sess.adminLoggedIn && sess.clinicId) {
-        const { startTime, maxBookings, isCancelled } = req.body;
-        // Map to storage method
+      if (sess.clinicId) {
+        const { startTime } = req.body;
         const date = new Date(startTime).toISOString().split('T')[0];
         const slotData = [{
           startTime,
@@ -672,7 +653,7 @@ export async function registerRoutes(
           .then((result: any) => res.json(result))
           .catch((err: any) => res.status(500).json({ message: err.message }));
       }
-      return res.status(401).json({ message: "Not authenticated" });
+      return res.status(403).json({ message: "Only clinic admins can configure slots" });
     });
 
     app.post("/api/auth/clinic/logout", (req, res) => {
