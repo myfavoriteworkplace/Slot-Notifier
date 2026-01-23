@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useBookings } from "@/hooks/use-bookings";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Calendar as CalendarIcon, ListFilter, User as UserIcon, Phone, Clock, Search, Settings, Save } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, ListFilter, User as UserIcon, Phone, Clock, Search, Settings, Save, UserPlus, Stethoscope } from "lucide-react";
 import { queryClient, apiRequest, API_BASE_URL } from "@/lib/queryClient";
 import type { Clinic } from "@shared/schema";
 import { format, isSameDay, startOfToday } from "date-fns";
@@ -433,10 +433,62 @@ export default function Dashboard() {
                               {booking.slot.clinicName}
                             </div>
                           )}
+                          {booking.assignedDoctor && (
+                            <Badge variant="secondary" className="mt-2 text-[10px] h-5 bg-primary/10 text-primary border-primary/20">
+                              <Stethoscope className="h-3 w-3 mr-1" />
+                              {booking.assignedDoctor}
+                            </Badge>
+                          )}
                         </div>
-                        <Badge variant="outline" className="bg-background">
-                          Booked
-                        </Badge>
+                        <div className="flex flex-col gap-2 items-end">
+                          <Badge variant="outline" className="bg-background">
+                            Booked
+                          </Badge>
+                          
+                          {user?.role === 'owner' && (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-primary/10">
+                                  <UserPlus className="h-3.5 w-3.5 text-primary" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-[400px]">
+                                <DialogHeader>
+                                  <DialogTitle>Assign Doctor</DialogTitle>
+                                  <DialogDescription>
+                                    Assign a doctor to {booking.customerName}'s appointment.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4">
+                                  <Label htmlFor="doctor-select" className="mb-2 block text-left text-sm font-medium">Select Doctor</Label>
+                                  <Select 
+                                    onValueChange={(value) => {
+                                      apiRequest('PATCH', `/api/clinic/bookings/${booking.id}/assign-doctor`, { doctorName: value })
+                                        .then(() => {
+                                          queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+                                          toast({ title: "Doctor assigned successfully" });
+                                        })
+                                        .catch((err) => toast({ title: "Assignment failed", description: err.message, variant: "destructive" }));
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue placeholder="Choose a doctor..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {clinicsData?.find(c => c.name === booking.slot.clinicName)?.doctors?.map((doc, idx) => (
+                                        <SelectItem key={idx} value={doc.name}>
+                                          {doc.name} - {doc.specialization}
+                                        </SelectItem>
+                                      )) || (
+                                        <div className="p-2 text-sm text-muted-foreground italic">No doctors configured for this clinic</div>
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          )}
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent className="p-4 space-y-3 text-left">

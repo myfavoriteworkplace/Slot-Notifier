@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
@@ -976,7 +976,7 @@ export async function registerRoutes(
 
       const id = parseInt(req.params.id);
       try {
-        const input = insertClinicSchema.partial().parse(req.body);
+        const input = insertClinicSchema.partial().parse(req.body) as any;
         const clinic = await storage.updateClinic(id, input);
         res.json(clinic);
       } catch (err: any) {
