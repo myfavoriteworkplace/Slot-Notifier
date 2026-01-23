@@ -1,19 +1,13 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// ------------------ BASE URL ------------------
-// Use VITE_API_URL from env for production; fallback to localhost for development
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.MODE === "development"
-    ? "http://localhost:5000"
-    : "https://book-my-slot-1.onrender.com");
+// api.ts (ONLY FILE)
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+
+if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+  console.warn("VITE_API_URL is not defined in production. Session issues may occur.");
+}
 
 console.log(`[QUERY-CLIENT] Using API_BASE_URL: ${API_BASE_URL}`);
-console.log("[QUERY-CLIENT] MODE:", import.meta.env.MODE);
-console.log("[QUERY-CLIENT] DEV:", import.meta.env.DEV);
-console.log("[QUERY-CLIENT] PROD:", import.meta.env.PROD);
-console.log("[QUERY-CLIENT] VITE_API_URL:", import.meta.env.VITE_API_URL);
-
 
 // ------------------ HELPER ------------------
 async function throwIfResNotOk(res: Response) {
@@ -29,17 +23,14 @@ export async function apiRequest(
   url: string,
   data?: unknown
 ): Promise<Response> {
-  // Construct full URL automatically
   const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
 
-  const res = await fetch(fullUrl, {
+  return fetch(fullUrl, {
     method,
+    credentials: "include",
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include", // important for session cookies
   });
-
-  return res;
 }
 
 // ------------------ QUERY FUNCTION ------------------
@@ -48,7 +39,8 @@ type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> = ({ on401: unauthorizedBehavior }) => async ({ queryKey }) => {
-  const url = queryKey.join("/") as string;
+  // Fix [object Object] bug: use only the first element if it's the path
+  const url = typeof queryKey[0] === 'string' ? queryKey[0] : queryKey.join("/");
   const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
 
   const res = await fetch(fullUrl, { credentials: "include" });

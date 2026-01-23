@@ -1,13 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/models/auth";
-import { apiRequest } from "@/lib/queryClient";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+import { apiRequest, API_BASE_URL } from "@/lib/queryClient";
 
 async function fetchUser(): Promise<User | null> {
   const url = "/api/auth/user";
-  const apiBaseUrl = import.meta.env.VITE_API_URL || "";
-  const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
+  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
   const response = await fetch(fullUrl, {
     credentials: "include",
   });
@@ -24,10 +21,9 @@ async function fetchUser(): Promise<User | null> {
 }
 
 async function logout(): Promise<void> {
-  const apiBaseUrl = import.meta.env.VITE_API_URL || "";
   try {
     const url = "/api/auth/admin/logout";
-    const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
+    const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
     await fetch(fullUrl, {
       method: 'POST',
       credentials: "include",
@@ -41,8 +37,7 @@ async function logout(): Promise<void> {
 
 async function adminLogin(email: string, password: string): Promise<User> {
   const url = "/api/auth/admin/login";
-  const apiBaseUrl = import.meta.env.VITE_API_URL || "";
-  const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
+  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
   
   const response = await fetch(fullUrl, {
     method: 'POST',
