@@ -2,14 +2,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, FlaskConical, LogOut } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, FlaskConical, LogOut, Copy, ExternalLink, Activity, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, API_BASE_URL } from "@/lib/queryClient";
 import type { Clinic } from "@shared/schema";
 import {
   Dialog,
@@ -24,34 +24,68 @@ import {
 import { Switch } from "@/components/ui/switch";
 
 export default function Admin() {
-  const { user, isAuthenticated, isLoading: authLoading, login, loginError, isLoggingIn } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, loginError, isLoggingIn } = useAuth();
   const [_, setLocation] = useLocation();
   const [newClinicName, setNewClinicName] = useState("");
   const [newClinicAddress, setNewClinicAddress] = useState("");
+  const [newClinicEmail, setNewClinicEmail] = useState("");
+  const [newClinicPhone, setNewClinicPhone] = useState("");
+  const [newClinicWebsite, setNewClinicWebsite] = useState("");
+  const [newClinicDoctorName, setNewClinicDoctorName] = useState("");
+  const [newClinicDoctorSpecialization, setNewClinicDoctorSpecialization] = useState("");
+  const [newClinicDoctorDegree, setNewClinicDoctorDegree] = useState("");
   const [newClinicUsername, setNewClinicUsername] = useState("");
   const [newClinicPassword, setNewClinicPassword] = useState("");
+  const [newClinicDoctors, setNewClinicDoctors] = useState<{ name: string; specialization: string; degree: string }[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
+  const [editClinicDialogOpen, setEditClinicDialogOpen] = useState(false);
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editWebsite, setEditWebsite] = useState("");
+  const [editDoctors, setEditDoctors] = useState<{ name: string; specialization: string; degree: string }[]>([]);
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const { toast } = useToast();
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || "";
-
   const [logsEnabled, setLogsEnabled] = useState(true);
+  const [backendStatus, setBackendStatus] = useState<'online' | 'offline' | 'checking'>('checking');
+  const [dbStatus, setDbStatus] = useState<'online' | 'offline' | 'checking'>('checking');
+  const [logCount, setLogCount] = useState(0);
 
-  // Fetch log status on mount
   useEffect(() => {
-    if (isAuthenticated && user?.role === 'superuser') {
-      fetch(`${API_BASE_URL}/api/admin/logs/status`)
-        .then(res => res.json())
-        .then(data => setLogsEnabled(data.enabled))
-        .catch(err => console.error("Failed to fetch log status:", err));
-    }
-  }, [isAuthenticated, user]);
+    const checkStatus = async () => {
+      try {
+        const [backendRes, dbRes, logsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/health/backend`, { cache: 'no-store' }),
+          fetch(`${API_BASE_URL}/api/health/database`, { cache: 'no-store' }),
+          fetch(`${API_BASE_URL}/api/admin/logs/status`)
+        ]);
+        
+        setBackendStatus(backendRes.ok ? 'online' : 'offline');
+        setDbStatus(dbRes.ok ? 'online' : 'offline');
+        
+        if (logsRes.ok) {
+          const logsData = await logsRes.json();
+          setLogCount(logsData.count || 0);
+          setLogsEnabled(logsData.enabled);
+        }
+      } catch (err) {
+        console.error("Status check failed:", err);
+        setBackendStatus('offline');
+        setDbStatus('offline');
+      }
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const toggleLogs = async (enabled: boolean) => {
     try {
@@ -65,50 +99,54 @@ export default function Admin() {
     }
   };
 
-  const isDemoSuperAdmin = localStorage.getItem("demo_super_admin") === "true";
-
   const { data: clinics, isLoading: clinicsLoading } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics', { includeArchived: true }],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE_URL}/api/clinics?includeArchived=true`, {
-        credentials: 'include',
-      });
-      const serverClinics = await res.json();
-      return Array.isArray(serverClinics) ? serverClinics : [];
-    },
+      const res = await apiRequest('GET', '/api/clinics?includeArchived=true');
+      if (!res.ok) throw new Error("Failed to fetch clinics");
+      return res.json();
+    }
   });
 
   const createClinicMutation = useMutation({
-    mutationFn: async (data: { name: string; address: string }) => {
-      console.log("[ADMIN-DEBUG] Adding clinic:", data);
+    mutationFn: async (data: { 
+      name: string; 
+      address: string; 
+      email?: string;
+      phone?: string;
+      website?: string;
+      doctors?: { name: string; specialization: string; degree: string }[];
+    }) => {
       const res = await apiRequest('POST', '/api/clinics', data);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to add clinic");
+      }
       return res.json();
     },
     onSuccess: async (clinic) => {
-      console.log("[ADMIN-DEBUG] Clinic added success:", clinic);
-
       if (newClinicUsername && newClinicPassword) {
-        console.log("[ADMIN-DEBUG] Setting credentials for new clinic");
         await setCredentialsMutation.mutateAsync({ 
           clinicId: clinic.id, 
           username: newClinicUsername, 
           password: newClinicPassword 
         });
       }
-      // Explicitly trigger a re-fetch and invalidate all clinic queries
       await queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      
       setNewClinicName("");
       setNewClinicAddress("");
+      setNewClinicEmail("");
+      setNewClinicPhone("");
+      setNewClinicWebsite("");
+      setNewClinicDoctors([]);
       setNewClinicUsername("");
       setNewClinicPassword("");
       toast({ title: "Clinic added successfully" });
     },
     onError: (error: any) => {
-      console.error("[ADMIN-ERROR] Failed to add clinic:", error);
       toast({ 
         title: "Failed to add clinic", 
-        description: error.message || "Only super users can add clinics",
+        description: error.message,
         variant: "destructive" 
       });
     },
@@ -116,29 +154,23 @@ export default function Admin() {
 
   const setCredentialsMutation = useMutation({
     mutationFn: async (data: { clinicId: number; username: string; password: string }) => {
-      console.log(`[ADMIN-DEBUG] Updating credentials for clinic ${data.clinicId}:`, { username: data.username });
       const res = await apiRequest('PATCH', `/api/clinics/${data.clinicId}/credentials`, {
         username: data.username,
         password: data.password,
       });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update credentials");
+      }
       return res.json();
     },
     onSuccess: () => {
-      console.log("[ADMIN-DEBUG] Credentials updated success");
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
       setCredentialsDialogOpen(false);
       setSelectedClinic(null);
       setEditUsername("");
       setEditPassword("");
       toast({ title: "Credentials updated successfully" });
-    },
-    onError: (error: any) => {
-      console.error("[ADMIN-ERROR] Failed to set credentials:", error);
-      toast({ 
-        title: "Failed to set credentials", 
-        description: error.message,
-        variant: "destructive" 
-      });
     },
   });
 
@@ -149,10 +181,7 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
       toast({ title: "Clinic archived" });
-    },
-    onError: () => {
-      toast({ title: "Failed to archive clinic", variant: "destructive" });
-    },
+    }
   });
 
   const unarchiveClinicMutation = useMutation({
@@ -162,10 +191,29 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
       toast({ title: "Clinic restored" });
+    }
+  });
+
+  const updateClinicMutation = useMutation({
+    mutationFn: async (data: { 
+      id: number;
+      name: string; 
+      address: string; 
+      email?: string;
+      phone?: string;
+      website?: string;
+      doctors?: { name: string; specialization: string; degree: string }[];
+    }) => {
+      const { id, ...updateData } = data;
+      const res = await apiRequest('PATCH', `/api/clinics/${id}`, updateData);
+      return res.json();
     },
-    onError: () => {
-      toast({ title: "Failed to restore clinic", variant: "destructive" });
-    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      setEditClinicDialogOpen(false);
+      setSelectedClinic(null);
+      toast({ title: "Clinic updated successfully" });
+    }
   });
 
   const claimSuperuserMutation = useMutation({
@@ -174,95 +222,33 @@ export default function Admin() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
       toast({ title: "You are now a superuser!", description: "Please refresh the page." });
       window.location.reload();
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: "Cannot claim superuser", 
-        description: error.message || "A superuser already exists",
-        variant: "destructive" 
-      });
-    },
+    }
   });
 
   useEffect(() => {
     if (!authLoading && user && user.role !== 'superuser') {
-      toast({ 
-        title: "Access Denied", 
-        description: "Only super users can access this page",
-        variant: "destructive" 
-      });
+      toast({ title: "Access Denied", variant: "destructive" });
       setLocation("/dashboard");
     }
-  }, [authLoading, user, setLocation, toast]);
+  }, [authLoading, user, setLocation]);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (adminEmail === "demo_super_admin@bookmyslot.com") {
-      console.log("Demo super admin login detected");
-      // Use the explicit admin login endpoint which handles session bypass
-      try {
-        const res = await apiRequest('POST', '/api/auth/admin/login', { 
-          email: adminEmail, 
-          password: "bypass" 
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          console.log("Demo admin login success:", data);
-          queryClient.setQueryData(['/api/auth/user'], data.user);
-          queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-          toast({ title: "Login successful (Demo)" });
-        }
-      } catch (err: any) {
-        console.error("Demo login error:", err);
-      }
-      return;
-    }
-
-    if (adminEmail === "demo_clinic" && adminPassword === "demo_password123") {
-      login({ email: "demo_clinic", password: "demo_password123" });
-      return;
-    }
-    
-    if (!adminEmail.trim() || !adminPassword.trim()) {
-      toast({ title: "Please enter email and password", variant: "destructive" });
-      return;
-    }
-    
     try {
-      console.log("Attempting admin login to /api/auth/admin/login");
-      // Use the explicit admin login endpoint for environment-based auth
-      const res = await apiRequest('POST', '/api/auth/admin/login', { 
-        email: adminEmail, 
-        password: adminPassword 
-      });
-      
+      const res = await apiRequest('POST', '/api/auth/admin/login', { email: adminEmail, password: adminPassword });
       if (res.ok) {
         const data = await res.json();
-        console.log("Admin login success:", data);
         queryClient.setQueryData(['/api/auth/user'], data.user);
         queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
         toast({ title: "Login successful" });
       } else {
         const error = await res.json();
-        console.error("Admin login failed:", error);
-        toast({ 
-          title: "Login failed", 
-          description: error.message || "Invalid credentials",
-          variant: "destructive" 
-        });
+        toast({ title: "Login failed", description: error.message, variant: "destructive" });
       }
     } catch (error: any) {
-      console.error("Admin login error:", error);
-      toast({ 
-        title: "Login error", 
-        description: error.message,
-        variant: "destructive" 
-      });
+      toast({ title: "Login error", description: error.message, variant: "destructive" });
     }
   };
 
@@ -294,67 +280,23 @@ export default function Admin() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Admin Login</CardTitle>
-            <CardDescription>Enter your admin credentials to manage clinics</CardDescription>
+            <CardDescription>Enter your admin credentials</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleAdminLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="admin-email">Email</Label>
-                <Input
-                  id="admin-email"
-                  type="email"
-                  placeholder="admin@example.com"
-                  value={adminEmail}
-                  onChange={(e) => setAdminEmail(e.target.value)}
-                  data-testid="input-admin-email"
-                />
+                <Input id="admin-email" type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="admin-password">Password</Label>
-                <Input
-                  id="admin-password"
-                  type="password"
-                  placeholder="Enter password"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  data-testid="input-admin-password"
-                />
+                <Input id="admin-password" type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} />
               </div>
-              {loginError && (
-                <p className="text-sm text-destructive">{(loginError as Error).message}</p>
-              )}
-              <Button type="submit" className="w-full" disabled={isLoggingIn} data-testid="button-admin-login">
-                {isLoggingIn ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Logging in...
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Login
-                  </>
-                )}
+              <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                {isLoggingIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
+                Login
               </Button>
             </form>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (user?.role !== 'superuser') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="w-96">
-          <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>Only super users can access this page.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button className="w-full" onClick={() => setLocation("/dashboard")}>
-              Go to Dashboard
-            </Button>
           </CardContent>
         </Card>
       </div>
@@ -393,6 +335,18 @@ export default function Admin() {
                   <Label htmlFor="address" className="text-right">Address</Label>
                   <Input id="address" value={newClinicAddress} onChange={(e) => setNewClinicAddress(e.target.value)} className="col-span-3" />
                 </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="email" className="text-right">Email</Label>
+                  <Input id="email" type="email" value={newClinicEmail} onChange={(e) => setNewClinicEmail(e.target.value)} className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="phone" className="text-right">Phone</Label>
+                  <Input id="phone" value={newClinicPhone} onChange={(e) => setNewClinicPhone(e.target.value)} className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="website" className="text-right">Website</Label>
+                  <Input id="website" value={newClinicWebsite} onChange={(e) => setNewClinicWebsite(e.target.value)} className="col-span-3" />
+                </div>
                 <div className="border-t pt-4">
                   <p className="text-sm font-medium mb-4">Admin Account Credentials</p>
                   <div className="grid gap-4">
@@ -413,7 +367,13 @@ export default function Admin() {
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={() => createClinicMutation.mutate({ name: newClinicName, address: newClinicAddress })} disabled={createClinicMutation.isPending || !newClinicName || !newClinicAddress}>
+                <Button onClick={() => createClinicMutation.mutate({ 
+                  name: newClinicName, 
+                  address: newClinicAddress,
+                  email: newClinicEmail,
+                  phone: newClinicPhone,
+                  website: newClinicWebsite
+                })} disabled={createClinicMutation.isPending || !newClinicName || !newClinicAddress}>
                   {createClinicMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create Clinic
                 </Button>
@@ -427,31 +387,48 @@ export default function Admin() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center">
-              <FlaskConical className="h-4 w-4 mr-2 text-primary" />
-              Server Status
+              <Activity className="h-4 w-4 mr-2 text-primary" />
+              Backend
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold">Online</span>
-              <Badge variant="default">Running</Badge>
+              <span className="text-2xl font-bold capitalize">{backendStatus}</span>
+              <Badge variant={backendStatus === 'online' ? "default" : "destructive"}>{backendStatus}</Badge>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center">
-              <Building2 className="h-4 w-4 mr-2 text-primary" />
-              Total Clinics
+              <Database className="h-4 w-4 mr-2 text-primary" />
+              Database
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold">{clinics?.length || 0}</span>
+              <span className="text-2xl font-bold capitalize">{dbStatus}</span>
+              <Badge variant={dbStatus === 'online' ? "default" : "destructive"}>{dbStatus}</Badge>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center">
+              <FlaskConical className="h-4 w-4 mr-2 text-primary" />
+              Server Logs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold">{logCount}</span>
+                <span className="text-xs text-muted-foreground">Records in DB</span>
+              </div>
               <Switch checked={logsEnabled} onCheckedChange={toggleLogs} />
             </div>
           </CardContent>
@@ -485,8 +462,9 @@ export default function Admin() {
                             <h3 className="font-semibold">{clinic.name}</h3>
                             <Badge variant="outline" className="text-[10px] h-4">ID: {clinic.id}</Badge>
                           </div>
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <MapPin className="h-3 w-3 mr-1" /> {clinic.address}
+                          <div className="flex items-center text-sm text-muted-foreground gap-3">
+                            <span className="flex items-center"><MapPin className="h-3 w-3 mr-1" /> {clinic.address}</span>
+                            {clinic.email && <span className="hidden sm:inline">• {clinic.email}</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -521,8 +499,15 @@ export default function Admin() {
                               </DialogFooter>
                             </DialogContent>
                           </Dialog>
+                          
                           <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive" onClick={() => archiveClinicMutation.mutate(clinic.id)}>
                             <Archive className="h-3 w-3 mr-1" /> Archive
+                          </Button>
+                          
+                          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                            <a href={`/book/${clinic.id}`} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
                           </Button>
                         </div>
                       </div>
@@ -537,24 +522,19 @@ export default function Admin() {
         {archivedClinics.length > 0 && (
           <Card className="border-muted bg-muted/10">
             <CardHeader>
-              <CardTitle className="flex items-center text-muted-foreground">
-                <Archive className="h-5 w-5 mr-2" />
-                Archived ({archivedClinics.length})
+              <CardTitle className="text-sm font-medium flex items-center text-muted-foreground">
+                <Archive className="h-4 w-4 mr-2" />
+                Archived Clinics ({archivedClinics.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="divide-y divide-muted/30">
                 {archivedClinics.map(clinic => (
-                  <div key={clinic.id} className="py-4 first:pt-0 last:pb-0">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-muted-foreground">{clinic.name}</h3>
-                        <p className="text-xs text-muted-foreground/60">{clinic.address}</p>
-                      </div>
-                      <Button variant="ghost" size="sm" className="h-8" onClick={() => unarchiveClinicMutation.mutate(clinic.id)}>
-                        <ArchiveRestore className="h-3 w-3 mr-1" /> Restore
-                      </Button>
-                    </div>
+                  <div key={clinic.id} className="py-3 flex items-center justify-between gap-4">
+                    <span className="text-sm text-muted-foreground">{clinic.name}</span>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => unarchiveClinicMutation.mutate(clinic.id)}>
+                      <ArchiveRestore className="h-3 w-3 mr-1" /> Restore
+                    </Button>
                   </div>
                 ))}
               </div>
