@@ -140,13 +140,16 @@ async function sendCancellationEmail(email: string, name: string, date: Date, cl
 
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   // Check if session exists and is logged in
-  if (req.session && (req.session as any).adminLoggedIn) {
+  const sess = req.session as any;
+  if (req.session && sess.adminLoggedIn) {
     // Set req.user to mimic a consistent user structure
     (req as any).user = {
       claims: {
         sub: 'admin',
-        email: (req.session as any).adminEmail,
-      }
+        email: sess.adminEmail,
+      },
+      id: sess.clinicId || 'superuser',
+      role: sess.role || (sess.clinicId ? 'owner' : 'superuser')
     };
     return next();
   }
@@ -156,10 +159,10 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
     Method: ${req.method}
     Path: ${req.path}
     SessionID: ${req.sessionID}
-    adminLoggedIn: ${(req.session as any)?.adminLoggedIn}
-    adminEmail: ${(req.session as any)?.adminEmail}
-    clinicId: ${(req.session as any)?.clinicId}
-    isDemoUser: ${(req.session as any)?.isDemoUser}
+    adminLoggedIn: ${sess?.adminLoggedIn}
+    adminEmail: ${sess?.adminEmail}
+    clinicId: ${sess?.clinicId}
+    role: ${sess?.role}
     Origin: ${req.headers.origin}
     Cookie: ${req.headers.cookie ? 'present' : 'missing'}
   `);
@@ -436,8 +439,13 @@ export async function registerRoutes(
           console.error("[AUTH ERROR] No session available for admin login");
           return res.status(500).json({ message: "Session initialization failed" });
         }
-        (req.session as any).adminLoggedIn = true;
-        (req.session as any).adminEmail = email;
+        
+        const sess = req.session as any;
+        sess.adminLoggedIn = true;
+        sess.adminEmail = email;
+        sess.role = 'superuser';
+        sess.clinicId = null; // Superuser manages all clinics
+
         req.session.save((err) => {
           if (err) {
             console.error("[AUTH ERROR] Session save error:", err);
