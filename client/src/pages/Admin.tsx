@@ -468,6 +468,19 @@ export default function Admin() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8"
+                            onClick={() => {
+                              const url = `${window.location.origin}/book/${clinic.id}`;
+                              navigator.clipboard.writeText(url);
+                              toast({ title: "Link copied to clipboard", description: url });
+                            }}
+                          >
+                            <Copy className="h-3 w-3 mr-1" /> Copy Link
+                          </Button>
+
                           <Dialog open={credentialsDialogOpen && selectedClinic?.id === clinic.id} onOpenChange={(open) => {
                             setCredentialsDialogOpen(open);
                             if (open) setSelectedClinic(clinic);

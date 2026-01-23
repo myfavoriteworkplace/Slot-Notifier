@@ -123,6 +123,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/book/:clinicId" component={Book} />
       <Route path="/book" component={Book} />
       <Route path="/admin" component={Admin} />
       <Route path="/clinic-login" component={ClinicLogin} />

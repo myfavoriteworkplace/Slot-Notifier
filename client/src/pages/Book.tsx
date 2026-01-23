@@ -50,11 +50,11 @@ const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
   { id: "3", label: "Evening", startHour: 16, startMinute: 0, endHour: 18, endMinute: 0 },
 ];
 
-export default function Book() {
+export default function Book(props: { params: { clinicId?: string } }) {
   const { toast } = useToast();
   const [searchParams] = useLocation();
   const params = new URLSearchParams(window.location.search);
-  const clinicIdFromUrl = params.get("clinicId");
+  const clinicIdFromUrl = props.params.clinicId || params.get("clinicId");
 
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
