@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import type { Slot, Booking } from "@shared/schema";
+import { Stethoscope, Trash2, GraduationCap } from "lucide-react";
 
 interface SlotTiming {
   id: string;
@@ -115,6 +116,68 @@ export default function ClinicDashboard() {
   const [configDate, setConfigDate] = useState<Date>(startOfToday());
   const [configMaxBookings, setConfigMaxBookings] = useState(3);
   const [configIsCancelled, setConfigIsCancelled] = useState(false);
+
+  // Doctor Management state
+  const [isDoctorsOpen, setIsDoctorsOpen] = useState(false);
+  const [newDoctorName, setNewDoctorName] = useState("");
+  const [newDoctorSpecialization, setNewDoctorSpecialization] = useState("");
+  const [newDoctorDegree, setNewDoctorDegree] = useState("");
+
+  // Fetch clinic doctors
+  const { data: clinicData, refetch: refetchClinic } = useQuery<{ doctors: { name: string; specialization: string; degree: string }[] }>({
+    queryKey: ['/api/auth/clinic/me'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/auth/clinic/me');
+      if (!res.ok) throw new Error('Failed to fetch clinic');
+      return res.json();
+    },
+    enabled: isAuthenticated,
+  });
+
+  const addDoctorMutation = useMutation({
+    mutationFn: async (data: { name: string; specialization: string; degree: string }) => {
+      const response = await apiRequest('POST', '/api/auth/clinic/doctors', data);
+      if (!response.ok) throw new Error('Failed to add doctor');
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchClinic();
+      setNewDoctorName("");
+      setNewDoctorSpecialization("");
+      setNewDoctorDegree("");
+      toast({ title: "Doctor added successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to add doctor", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const removeDoctorMutation = useMutation({
+    mutationFn: async (index: number) => {
+      const response = await apiRequest('DELETE', `/api/auth/clinic/doctors/${index}`);
+      if (!response.ok) throw new Error('Failed to remove doctor');
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchClinic();
+      toast({ title: "Doctor removed successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to remove doctor", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleAddDoctor = () => {
+    if (!newDoctorName || !newDoctorSpecialization) {
+      toast({ title: "Please fill in name and specialization", variant: "destructive" });
+      return;
+    }
+    addDoctorMutation.mutate({
+      name: newDoctorName,
+      specialization: newDoctorSpecialization,
+      degree: newDoctorDegree
+    });
+  };
 
   const configureSlotMutation = useMutation({
     mutationFn: async (data: { startTime: string; maxBookings: number; isCancelled: boolean }) => {
@@ -658,6 +721,164 @@ export default function ClinicDashboard() {
                   >
                     {configureSlotMutation.isPending ? <Loader2 className="animate-spin" /> : "Update Configuration"}
                   </Button>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Doctor Management Section */}
+        <Collapsible open={isDoctorsOpen} onOpenChange={setIsDoctorsOpen}>
+          <Card className="shadow-sm border-border/50">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Stethoscope className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <CardTitle className="text-lg">Manage Doctors</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-0.5">Add or remove doctors from your clinic</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {clinicData?.doctors?.length || 0} doctors
+                    </Badge>
+                    {isDoctorsOpen ? (
+                      <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 pb-6">
+                <div className="space-y-6">
+                  {/* Current Doctors List */}
+                  {clinicData?.doctors && clinicData.doctors.length > 0 ? (
+                    <div className="space-y-3">
+                      <Label className="text-left block text-sm font-semibold">Current Doctors</Label>
+                      <div className="grid gap-3">
+                        {clinicData.doctors.map((doctor, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-muted/30 transition-colors"
+                            data-testid={`doctor-card-${index}`}
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <User className="h-5 w-5 text-primary" />
+                              </div>
+                              <div className="text-left">
+                                <p className="font-medium">{doctor.name}</p>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <span>{doctor.specialization}</span>
+                                  {doctor.degree && (
+                                    <>
+                                      <span className="text-muted-foreground/50">|</span>
+                                      <span className="flex items-center gap-1">
+                                        <GraduationCap className="h-3 w-3" />
+                                        {doctor.degree}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  data-testid={`button-remove-doctor-${index}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Remove Doctor?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to remove {doctor.name} from your clinic? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => removeDoctorMutation.mutate(index)}
+                                    className="bg-destructive text-destructive-foreground"
+                                  >
+                                    Remove
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-6 text-center bg-muted/20 rounded-xl border border-dashed">
+                      <Stethoscope className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-muted-foreground">No doctors added yet</p>
+                      <p className="text-sm text-muted-foreground/70">Add your first doctor below</p>
+                    </div>
+                  )}
+
+                  {/* Add New Doctor Form */}
+                  <div className="space-y-4 pt-4 border-t">
+                    <Label className="text-left block text-sm font-semibold">Add New Doctor</Label>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="doctor-name" className="text-left block text-xs text-muted-foreground">Name</Label>
+                        <Input
+                          id="doctor-name"
+                          value={newDoctorName}
+                          onChange={(e) => setNewDoctorName(e.target.value)}
+                          placeholder="Dr. John Smith"
+                          data-testid="input-doctor-name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="doctor-specialization" className="text-left block text-xs text-muted-foreground">Specialization</Label>
+                        <Input
+                          id="doctor-specialization"
+                          value={newDoctorSpecialization}
+                          onChange={(e) => setNewDoctorSpecialization(e.target.value)}
+                          placeholder="e.g., General Dentist"
+                          data-testid="input-doctor-specialization"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="doctor-degree" className="text-left block text-xs text-muted-foreground">Degree (Optional)</Label>
+                        <Input
+                          id="doctor-degree"
+                          value={newDoctorDegree}
+                          onChange={(e) => setNewDoctorDegree(e.target.value)}
+                          placeholder="e.g., BDS, MDS"
+                          data-testid="input-doctor-degree"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleAddDoctor}
+                      disabled={!newDoctorName || !newDoctorSpecialization || addDoctorMutation.isPending}
+                      className="w-full sm:w-auto"
+                      data-testid="button-add-doctor"
+                    >
+                      {addDoctorMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Plus className="h-4 w-4 mr-2" />
+                      )}
+                      Add Doctor
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </CollapsibleContent>
