@@ -81,6 +81,11 @@ export default function ClinicDashboard() {
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
 
+  // Reschedule state
+  const [rescheduleBookingId, setRescheduleBookingId] = useState<number | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState<Date>(startOfToday());
+  const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
+
   // Booking form state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [bookingName, setBookingName] = useState("");
@@ -444,6 +449,23 @@ export default function ClinicDashboard() {
     },
     onError: (error: any) => {
       toast({ title: "Failed to assign doctor", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const rescheduleMutation = useMutation({
+    mutationFn: async ({ bookingId, newSlotId }: { bookingId: number; newSlotId: number }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/reschedule`, { newSlotId });
+      if (!response.ok) throw new Error('Failed to reschedule');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      setRescheduleBookingId(null);
+      setRescheduleSlot(null);
+      toast({ title: "Booking rescheduled successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to reschedule booking", description: error.message, variant: "destructive" });
     },
   });
 
@@ -1423,6 +1445,131 @@ export default function ClinicDashboard() {
                                 {format(new Date(booking.slot.startTime), "h:mm a")} - {format(new Date(booking.slot.endTime), "h:mm a")}
                               </div>
                             </div>
+                          </div>
+
+                          {/* Reschedule Section */}
+                          <div className="space-y-3 pt-2 border-t">
+                            <div className="flex items-center justify-between">
+                              <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                                <CalendarDays className="h-3 w-3" /> Reschedule Appointment
+                              </div>
+                              {rescheduleBookingId === booking.id ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRescheduleBookingId(null);
+                                    setRescheduleSlot(null);
+                                  }}
+                                  data-testid="button-cancel-reschedule"
+                                >
+                                  Cancel
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRescheduleBookingId(booking.id);
+                                    setRescheduleDate(new Date(booking.slot.startTime));
+                                  }}
+                                  data-testid="button-start-reschedule"
+                                >
+                                  Change Date/Slot
+                                </Button>
+                              )}
+                            </div>
+                            
+                            {rescheduleBookingId === booking.id && (
+                              <div className="space-y-4 bg-muted/30 p-3 rounded-lg">
+                                {/* Date Selection */}
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-left block">Select New Date</Label>
+                                  <ScrollArea className="w-full whitespace-nowrap pb-2">
+                                    <div className="flex space-x-2 px-1">
+                                      {dates.map((date) => (
+                                        <button
+                                          key={date.toISOString()}
+                                          onClick={() => {
+                                            setRescheduleDate(date);
+                                            setRescheduleSlot(null);
+                                          }}
+                                          className={`flex flex-col items-center justify-center min-w-[3.5rem] h-14 rounded-lg border transition-all ${isSameDay(date, rescheduleDate) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card'}`}
+                                          data-testid={`reschedule-date-${format(date, 'yyyy-MM-dd')}`}
+                                        >
+                                          <span className="text-[9px] uppercase">{format(date, "EEE")}</span>
+                                          <span className="text-base font-bold">{format(date, "d")}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                    <ScrollBar orientation="horizontal" />
+                                  </ScrollArea>
+                                </div>
+
+                                {/* Slot Selection */}
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-left block">Select New Time Slot</Label>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {slotTimings.map((slot) => (
+                                      <Button
+                                        key={slot.id}
+                                        variant={rescheduleSlot === slot.id ? "default" : "outline"}
+                                        className="h-10 text-xs"
+                                        onClick={() => setRescheduleSlot(slot.id)}
+                                        data-testid={`reschedule-slot-${slot.id}`}
+                                      >
+                                        {slot.label}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Confirm Reschedule Button */}
+                                <Button
+                                  className="w-full"
+                                  disabled={!rescheduleSlot || rescheduleMutation.isPending}
+                                  onClick={async () => {
+                                    if (!rescheduleSlot) return;
+                                    
+                                    // Parse the slot timing to create the new slot startTime
+                                    const [hours, minutes] = rescheduleSlot.split(':').map(Number);
+                                    const newSlotTime = new Date(rescheduleDate);
+                                    newSlotTime.setHours(hours, minutes, 0, 0);
+                                    
+                                    // Find or create the slot for this time
+                                    // For now, we need to create the slot first if it doesn't exist
+                                    try {
+                                      const configResponse = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
+                                        startTime: newSlotTime.toISOString(),
+                                        maxBookings: 3,
+                                        isCancelled: false
+                                      });
+                                      const configResult = await configResponse.json();
+                                      
+                                      // Get the slot ID from the response
+                                      const newSlotId = Array.isArray(configResult) ? configResult[0]?.id : configResult?.id;
+                                      
+                                      if (newSlotId) {
+                                        rescheduleMutation.mutate({
+                                          bookingId: booking.id,
+                                          newSlotId: newSlotId
+                                        });
+                                      } else {
+                                        toast({ title: "Failed to create new slot", variant: "destructive" });
+                                      }
+                                    } catch (error: any) {
+                                      toast({ title: "Failed to reschedule", description: error.message, variant: "destructive" });
+                                    }
+                                  }}
+                                  data-testid="button-confirm-reschedule"
+                                >
+                                  {rescheduleMutation.isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  ) : null}
+                                  Confirm Reschedule
+                                </Button>
+                              </div>
+                            )}
                           </div>
 
                           {/* Doctor Assignment Section */}
