@@ -639,6 +639,34 @@ export async function registerRoutes(
       return res.status(403).json({ message: "Forbidden" });
     });
 
+    // Reschedule booking - change to a different slot
+    app.patch("/api/auth/clinic/bookings/:id/reschedule", isAuthenticated, async (req, res) => {
+      const sess = req.session as any;
+      if (sess.role !== 'superuser' && !sess.clinicId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      try {
+        const bookingId = parseInt(req.params.id);
+        const { newSlotId } = req.body;
+        
+        if (!newSlotId) {
+          return res.status(400).json({ message: "newSlotId is required" });
+        }
+        
+        // Verify the slot exists
+        const slot = await storage.getSlot(newSlotId);
+        if (!slot) {
+          return res.status(404).json({ message: "Slot not found" });
+        }
+        
+        const updated = await storage.rescheduleBooking(bookingId, newSlotId);
+        res.json(updated);
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
     app.post("/api/auth/clinic/slots/configure", isAuthenticated, (req, res) => {
       const sess = req.session as any;
       if (sess.clinicId) {

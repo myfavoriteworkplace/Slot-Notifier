@@ -50,6 +50,7 @@ export interface IStorage {
   getBooking(id: number): Promise<Booking | undefined>;
   updateBookingStatus(id: number, status: string): Promise<Booking>;
   updateBookingAssignment(id: number, doctorName: string): Promise<Booking>;
+  rescheduleBooking(id: number, newSlotId: number): Promise<Booking>;
   updateClinicCredentials(id: number, username: string, passwordHash: string): Promise<void>;
   
   // Notifications
@@ -299,6 +300,14 @@ export class DatabaseStorage implements IStorage {
   async updateBookingAssignment(id: number, doctorName: string): Promise<Booking> {
     const [updated] = await db.update(bookings)
       .set({ assignedDoctor: doctorName })
+      .where(eq(bookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async rescheduleBooking(id: number, newSlotId: number): Promise<Booking> {
+    const [updated] = await db.update(bookings)
+      .set({ slotId: newSlotId })
       .where(eq(bookings.id, id))
       .returning();
     return updated;
