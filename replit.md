@@ -41,6 +41,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Key Data Models
 - **Users**: Authentication and role management
+- **Clinics**: Each clinic has a `doctors` JSONB field storing array of {name, specialization, degree}
 - **Slots**: Time windows created by owners for booking
 - **Bookings**: Customer reservations linked to slots
 - **Notifications**: In-app notification system
@@ -111,5 +112,6 @@ For detailed setup and deployment instructions, see:
 
 ## Recent Changes
 
+- **2026-01-24**: Added doctor management feature to clinic dashboard (view, add, remove doctors)
 - **2024-01-13**: Added dual authentication support (Replit OIDC + environment-based email/password)
 - **2024-01-13**: Added comprehensive deployment documentation for Render.com
