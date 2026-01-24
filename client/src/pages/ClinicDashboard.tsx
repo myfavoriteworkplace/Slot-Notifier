@@ -1216,13 +1216,16 @@ export default function ClinicDashboard() {
                                   variant={booking.assignedDoctor === clinic.doctorName ? "default" : "outline"}
                                   size="sm"
                                   className="justify-start h-auto py-2 px-3"
-                                  onClick={() => assignDoctorMutation.mutate({ 
-                                    bookingId: booking.id, 
-                                    doctorName: clinic.doctorName! 
-                                  })}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    assignDoctorMutation.mutate({ 
+                                      bookingId: booking.id, 
+                                      doctorName: clinic.doctorName! 
+                                    });
+                                  }}
                                   disabled={assignDoctorMutation.isPending}
                                 >
-                                  <div className="text-left">
+                                  <div className="text-left pointer-events-none">
                                     <p className="font-medium text-xs">{clinic.doctorName}</p>
                                     <p className="text-[10px] opacity-70">{clinic.doctorSpecialization || 'Lead Doctor'}</p>
                                   </div>
@@ -1236,13 +1239,16 @@ export default function ClinicDashboard() {
                                   variant={booking.assignedDoctor === doctor.name ? "default" : "outline"}
                                   size="sm"
                                   className="justify-start h-auto py-2 px-3"
-                                  onClick={() => assignDoctorMutation.mutate({ 
-                                    bookingId: booking.id, 
-                                    doctorName: doctor.name 
-                                  })}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    assignDoctorMutation.mutate({ 
+                                      bookingId: booking.id, 
+                                      doctorName: doctor.name 
+                                    });
+                                  }}
                                   disabled={assignDoctorMutation.isPending}
                                 >
-                                  <div className="text-left">
+                                  <div className="text-left pointer-events-none">
                                     <p className="font-medium text-xs">{doctor.name}</p>
                                     <p className="text-[10px] opacity-70">{doctor.specialization} • {doctor.degree}</p>
                                   </div>
