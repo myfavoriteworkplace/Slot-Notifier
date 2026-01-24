@@ -1109,6 +1109,11 @@ export default function ClinicDashboard() {
                             <div className="flex items-center gap-3 text-sm text-muted-foreground">
                               <Clock className="h-4 w-4" />
                               {format(new Date(booking.slot.startTime), "h:mm a")}
+                              {booking.assignedDoctor && (
+                                <Badge variant="secondary" className="ml-2 text-[10px] py-0 h-4 bg-indigo-50 text-indigo-700 border-indigo-100">
+                                  {booking.assignedDoctor}
+                                </Badge>
+                              )}
                             </div>
                           </CardContent>
                         </div>
