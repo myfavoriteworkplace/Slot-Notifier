@@ -1509,32 +1509,51 @@ export default function ClinicDashboard() {
                                 {/* Slot Selection */}
                                 <div className="space-y-2">
                                   <Label className="text-xs text-left block">Select New Time Slot</Label>
-                                  <div className="grid grid-cols-3 gap-2">
-                                    {slotTimings.map((slot) => (
-                                      <Button
-                                        key={slot.id}
-                                        variant={rescheduleSlot === slot.id ? "default" : "outline"}
-                                        className="h-10 text-xs"
-                                        onClick={() => setRescheduleSlot(slot.id)}
-                                        data-testid={`reschedule-slot-${slot.id}`}
-                                      >
-                                        {slot.label}
-                                      </Button>
-                                    ))}
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {slotTimings.map((slot) => {
+                                      const slotTime = new Date(rescheduleDate);
+                                      slotTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+                                      const isoString = slotTime.toISOString();
+                                      
+                                      const currentBookings = bookings?.filter(b => 
+                                        new Date(b.slot.startTime).toISOString() === isoString && 
+                                        b.id !== booking.id
+                                      ).length || 0;
+                                      
+                                      const isFull = currentBookings >= 3;
+
+                                      return (
+                                        <Button
+                                          key={slot.id}
+                                          variant={rescheduleSlot === slot.id ? "default" : "outline"}
+                                          className={`h-12 text-xs flex flex-col items-center justify-center gap-0.5 ${isFull ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                          onClick={() => !isFull && setRescheduleSlot(slot.id)}
+                                          disabled={isFull}
+                                          data-testid={`reschedule-slot-${slot.id}`}
+                                        >
+                                          <span className="font-semibold">{slot.label}</span>
+                                          <span className="text-[10px] opacity-70">
+                                            {formatTime(slot.startHour, slot.startMinute)}
+                                          </span>
+                                          {isFull && <Badge variant="destructive" className="absolute -top-1 -right-1 scale-75 h-4 px-1">FULL</Badge>}
+                                        </Button>
+                                      );
+                                    })}
                                   </div>
                                 </div>
 
                                 {/* Confirm Reschedule Button */}
                                 <Button
-                                  className="w-full"
+                                  className="w-full h-11"
                                   disabled={!rescheduleSlot || rescheduleMutation.isPending}
                                   onClick={async () => {
                                     if (!rescheduleSlot) return;
                                     
-                                    // Parse the slot timing to create the new slot startTime
-                                    const [hours, minutes] = rescheduleSlot.split(':').map(Number);
+                                    const slotInfo = slotTimings.find(s => s.id === rescheduleSlot);
+                                    if (!slotInfo) return;
+
                                     const newSlotTime = new Date(rescheduleDate);
-                                    newSlotTime.setHours(hours, minutes, 0, 0);
+                                    newSlotTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
                                     
                                     // Find or create the slot for this time
                                     // For now, we need to create the slot first if it doesn't exist
