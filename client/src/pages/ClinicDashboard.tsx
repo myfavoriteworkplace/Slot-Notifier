@@ -1481,10 +1481,13 @@ export default function ClinicDashboard() {
                             </div>
                             
                             {rescheduleBookingId === booking.id && (
-                              <div className="space-y-4 bg-muted/30 p-3 rounded-lg">
+                              <div className="space-y-4 bg-muted/30 p-3 rounded-lg border border-border/50">
                                 {/* Date Selection */}
                                 <div className="space-y-2">
-                                  <Label className="text-xs text-left block">Select New Date</Label>
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-xs text-left block">Select New Date</Label>
+                                    <span className="text-[10px] text-muted-foreground">{format(rescheduleDate, "MMMM yyyy")}</span>
+                                  </div>
                                   <ScrollArea className="w-full whitespace-nowrap pb-2">
                                     <div className="flex space-x-2 px-1">
                                       {dates.map((date) => (
@@ -1494,11 +1497,11 @@ export default function ClinicDashboard() {
                                             setRescheduleDate(date);
                                             setRescheduleSlot(null);
                                           }}
-                                          className={`flex flex-col items-center justify-center min-w-[3.5rem] h-14 rounded-lg border transition-all ${isSameDay(date, rescheduleDate) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card'}`}
+                                          className={`flex flex-col items-center justify-center min-w-[3rem] h-12 rounded-lg border transition-all ${isSameDay(date, rescheduleDate) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card'}`}
                                           data-testid={`reschedule-date-${format(date, 'yyyy-MM-dd')}`}
                                         >
-                                          <span className="text-[9px] uppercase">{format(date, "EEE")}</span>
-                                          <span className="text-base font-bold">{format(date, "d")}</span>
+                                          <span className="text-[8px] uppercase">{format(date, "EEE")}</span>
+                                          <span className="text-sm font-bold">{format(date, "d")}</span>
                                         </button>
                                       ))}
                                     </div>
@@ -1526,13 +1529,13 @@ export default function ClinicDashboard() {
                                         <Button
                                           key={slot.id}
                                           variant={rescheduleSlot === slot.id ? "default" : "outline"}
-                                          className={`h-12 text-xs flex flex-col items-center justify-center gap-0.5 ${isFull ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                          className={`h-11 text-[11px] flex flex-col items-center justify-center gap-0.5 relative ${isFull ? 'opacity-50 cursor-not-allowed' : ''}`}
                                           onClick={() => !isFull && setRescheduleSlot(slot.id)}
                                           disabled={isFull}
                                           data-testid={`reschedule-slot-${slot.id}`}
                                         >
                                           <span className="font-semibold">{slot.label}</span>
-                                          <span className="text-[10px] opacity-70">
+                                          <span className="text-[9px] opacity-70">
                                             {formatTime(slot.startHour, slot.startMinute)}
                                           </span>
                                           {isFull && <Badge variant="destructive" className="absolute -top-1 -right-1 scale-75 h-4 px-1">FULL</Badge>}
@@ -1544,7 +1547,7 @@ export default function ClinicDashboard() {
 
                                 {/* Confirm Reschedule Button */}
                                 <Button
-                                  className="w-full h-11"
+                                  className="w-full h-10 text-sm"
                                   disabled={!rescheduleSlot || rescheduleMutation.isPending}
                                   onClick={async () => {
                                     if (!rescheduleSlot) return;
@@ -1555,18 +1558,22 @@ export default function ClinicDashboard() {
                                     const newSlotTime = new Date(rescheduleDate);
                                     newSlotTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
                                     
-                                    // Find or create the slot for this time
-                                    // For now, we need to create the slot first if it doesn't exist
                                     try {
+                                      // First, ensure the slot exists on the backend
                                       const configResponse = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
                                         startTime: newSlotTime.toISOString(),
                                         maxBookings: 3,
                                         isCancelled: false
                                       });
+                                      
+                                      if (!configResponse.ok) {
+                                        throw new Error('Failed to ensure slot exists');
+                                      }
+
                                       const configResult = await configResponse.json();
                                       
-                                      // Get the slot ID from the response
-                                      const newSlotId = Array.isArray(configResult) ? configResult[0]?.id : configResult?.id;
+                                      // The backend should return the slot object or ID
+                                      const newSlotId = configResult.id;
                                       
                                       if (newSlotId) {
                                         rescheduleMutation.mutate({
@@ -1574,7 +1581,7 @@ export default function ClinicDashboard() {
                                           newSlotId: newSlotId
                                         });
                                       } else {
-                                        toast({ title: "Failed to create new slot", variant: "destructive" });
+                                        throw new Error("Invalid slot ID received from server");
                                       }
                                     } catch (error: any) {
                                       toast({ title: "Failed to reschedule", description: error.message, variant: "destructive" });
