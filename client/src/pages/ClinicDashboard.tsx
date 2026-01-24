@@ -1457,6 +1457,7 @@ export default function ClinicDashboard() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  className="h-7 px-2 text-[10px]"
                                   onClick={() => {
                                     setRescheduleBookingId(null);
                                     setRescheduleSlot(null);
@@ -1469,6 +1470,7 @@ export default function ClinicDashboard() {
                                 <Button
                                   variant="outline"
                                   size="sm"
+                                  className="h-7 px-2 text-[10px]"
                                   onClick={() => {
                                     setRescheduleBookingId(booking.id);
                                     setRescheduleDate(new Date(booking.slot.startTime));
@@ -1481,15 +1483,15 @@ export default function ClinicDashboard() {
                             </div>
                             
                             {rescheduleBookingId === booking.id && (
-                              <div className="space-y-4 bg-muted/30 p-3 rounded-lg border border-border/50">
+                              <div className="space-y-3 bg-muted/30 p-2.5 rounded-lg border border-border/50">
                                 {/* Date Selection */}
-                                <div className="space-y-2">
+                                <div className="space-y-1.5">
                                   <div className="flex items-center justify-between">
-                                    <Label className="text-xs text-left block">Select New Date</Label>
-                                    <span className="text-[10px] text-muted-foreground">{format(rescheduleDate, "MMMM yyyy")}</span>
+                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Select New Date</Label>
+                                    <span className="text-[9px] text-muted-foreground font-medium">{format(rescheduleDate, "MMMM yyyy")}</span>
                                   </div>
-                                  <ScrollArea className="w-full whitespace-nowrap pb-2">
-                                    <div className="flex space-x-2 px-1">
+                                  <ScrollArea className="w-full whitespace-nowrap pb-1.5">
+                                    <div className="flex space-x-1.5 px-0.5">
                                       {dates.map((date) => (
                                         <button
                                           key={date.toISOString()}
@@ -1497,11 +1499,11 @@ export default function ClinicDashboard() {
                                             setRescheduleDate(date);
                                             setRescheduleSlot(null);
                                           }}
-                                          className={`flex flex-col items-center justify-center min-w-[3rem] h-12 rounded-lg border transition-all ${isSameDay(date, rescheduleDate) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card'}`}
+                                          className={`flex flex-col items-center justify-center min-w-[2.75rem] h-11 rounded-md border transition-all ${isSameDay(date, rescheduleDate) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card'}`}
                                           data-testid={`reschedule-date-${format(date, 'yyyy-MM-dd')}`}
                                         >
-                                          <span className="text-[8px] uppercase">{format(date, "EEE")}</span>
-                                          <span className="text-sm font-bold">{format(date, "d")}</span>
+                                          <span className="text-[7px] uppercase font-bold">{format(date, "EEE")}</span>
+                                          <span className="text-xs font-black">{format(date, "d")}</span>
                                         </button>
                                       ))}
                                     </div>
@@ -1510,9 +1512,9 @@ export default function ClinicDashboard() {
                                 </div>
 
                                 {/* Slot Selection */}
-                                <div className="space-y-2">
-                                  <Label className="text-xs text-left block">Select New Time Slot</Label>
-                                  <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1.5">
+                                  <Label className="text-[10px] uppercase font-bold text-muted-foreground block">Select New Time Slot</Label>
+                                  <div className="grid grid-cols-2 gap-1.5">
                                     {slotTimings.map((slot) => {
                                       const slotTime = new Date(rescheduleDate);
                                       slotTime.setHours(slot.startHour, slot.startMinute, 0, 0);
@@ -1529,16 +1531,16 @@ export default function ClinicDashboard() {
                                         <Button
                                           key={slot.id}
                                           variant={rescheduleSlot === slot.id ? "default" : "outline"}
-                                          className={`h-11 text-[11px] flex flex-col items-center justify-center gap-0.5 relative ${isFull ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                          className={`h-9 text-[10px] flex flex-col items-center justify-center gap-0 relative ${isFull ? 'opacity-50 cursor-not-allowed' : ''}`}
                                           onClick={() => !isFull && setRescheduleSlot(slot.id)}
                                           disabled={isFull}
                                           data-testid={`reschedule-slot-${slot.id}`}
                                         >
-                                          <span className="font-semibold">{slot.label}</span>
-                                          <span className="text-[9px] opacity-70">
+                                          <span className="font-bold leading-tight">{slot.label}</span>
+                                          <span className="text-[8px] opacity-70 leading-tight">
                                             {formatTime(slot.startHour, slot.startMinute)}
                                           </span>
-                                          {isFull && <Badge variant="destructive" className="absolute -top-1 -right-1 scale-75 h-4 px-1">FULL</Badge>}
+                                          {isFull && <Badge variant="destructive" className="absolute -top-1 -right-1 scale-[0.6] h-3 px-1 origin-top-right">FULL</Badge>}
                                         </Button>
                                       );
                                     })}
@@ -1547,7 +1549,7 @@ export default function ClinicDashboard() {
 
                                 {/* Confirm Reschedule Button */}
                                 <Button
-                                  className="w-full h-10 text-sm"
+                                  className="w-full h-9 text-xs font-bold"
                                   disabled={!rescheduleSlot || rescheduleMutation.isPending}
                                   onClick={async () => {
                                     if (!rescheduleSlot) return;
@@ -1590,7 +1592,7 @@ export default function ClinicDashboard() {
                                   data-testid="button-confirm-reschedule"
                                 >
                                   {rescheduleMutation.isPending ? (
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    <Loader2 className="h-3 w-3 animate-spin mr-2" />
                                   ) : null}
                                   Confirm Reschedule
                                 </Button>
