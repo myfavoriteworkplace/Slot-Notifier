@@ -1114,6 +1114,42 @@ export default function ClinicDashboard() {
                                   {booking.assignedDoctor}
                                 </Badge>
                               )}
+                              {clinic?.doctors && clinic.doctors.length > 0 && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:bg-primary/10" onClick={(e) => e.stopPropagation()}>
+                                      <User className="h-3 w-3" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                      <DialogTitle>Assign Doctor</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="grid gap-2 py-4">
+                                      {clinic.doctors.map((doc, idx) => (
+                                        <Button
+                                          key={idx}
+                                          variant={booking.assignedDoctor === doc.name ? "default" : "outline"}
+                                          className="justify-start h-auto py-2 px-3"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            assignDoctorMutation.mutate({
+                                              bookingId: booking.id,
+                                              doctorName: doc.name
+                                            });
+                                          }}
+                                          disabled={assignDoctorMutation.isPending}
+                                        >
+                                          <div className="text-left">
+                                            <p className="font-medium text-xs">{doc.name}</p>
+                                            <p className="text-[10px] opacity-70">{doc.specialization}</p>
+                                          </div>
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
                             </div>
                           </CardContent>
                         </div>
