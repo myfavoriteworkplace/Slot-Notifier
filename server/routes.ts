@@ -672,6 +672,81 @@ export async function registerRoutes(
       }
     });
 
+    // Get current clinic info
+    app.get("/api/auth/clinic/me", isAuthenticated, async (req, res) => {
+      const sess = req.session as any;
+      if (!sess.clinicId) {
+        return res.status(403).json({ message: "Not a clinic user" });
+      }
+      try {
+        const clinic = await storage.getClinic(sess.clinicId);
+        if (!clinic) {
+          return res.status(404).json({ message: "Clinic not found" });
+        }
+        res.json({
+          id: clinic.id,
+          name: clinic.name,
+          address: clinic.address,
+          email: clinic.email,
+          phone: clinic.phone,
+          doctors: clinic.doctors || []
+        });
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
+    // Add a doctor to the clinic
+    app.post("/api/auth/clinic/doctors", isAuthenticated, async (req, res) => {
+      const sess = req.session as any;
+      if (!sess.clinicId) {
+        return res.status(403).json({ message: "Only clinic admins can manage doctors" });
+      }
+      try {
+        const { name, specialization, degree } = req.body;
+        if (!name || !specialization) {
+          return res.status(400).json({ message: "Name and specialization are required" });
+        }
+        const clinic = await storage.getClinic(sess.clinicId);
+        if (!clinic) {
+          return res.status(404).json({ message: "Clinic not found" });
+        }
+        const doctors = clinic.doctors || [];
+        const newDoctor = { name, specialization, degree: degree || "" };
+        const updatedDoctors = [...doctors, newDoctor];
+        const updatedClinic = await storage.updateClinic(sess.clinicId, { doctors: updatedDoctors });
+        res.json({ doctors: updatedClinic.doctors });
+      } catch (err: any) {
+        console.error("[API ERROR] Failed to add doctor:", err);
+        res.status(500).json({ message: err.message });
+      }
+    });
+
+    // Remove a doctor from the clinic
+    app.delete("/api/auth/clinic/doctors/:index", isAuthenticated, async (req, res) => {
+      const sess = req.session as any;
+      if (!sess.clinicId) {
+        return res.status(403).json({ message: "Only clinic admins can manage doctors" });
+      }
+      try {
+        const index = parseInt(req.params.index);
+        const clinic = await storage.getClinic(sess.clinicId);
+        if (!clinic) {
+          return res.status(404).json({ message: "Clinic not found" });
+        }
+        const doctors = clinic.doctors || [];
+        if (index < 0 || index >= doctors.length) {
+          return res.status(400).json({ message: "Invalid doctor index" });
+        }
+        const updatedDoctors = doctors.filter((_, i) => i !== index);
+        const updatedClinic = await storage.updateClinic(sess.clinicId, { doctors: updatedDoctors });
+        res.json({ doctors: updatedClinic.doctors });
+      } catch (err: any) {
+        console.error("[API ERROR] Failed to remove doctor:", err);
+        res.status(500).json({ message: err.message });
+      }
+    });
+
     // Dedicated connectivity test endpoint for Postman
     app.get("/api/test-connectivity", async (req, res) => {
       console.log(`[CONNECTIVITY-TEST] Postman test triggered from ${req.ip} at ${new Date().toISOString()}`);
