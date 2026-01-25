@@ -69,7 +69,7 @@ export async function generateSignedUploadUrl(
     ? R2_PUBLIC_URL.slice(0, -1)
     : R2_PUBLIC_URL;
 
-  const publicUrl = `${baseUrl}/${key}`;
+  const publicUrl = key; // Return the key instead of the full URL
 
   return {
     uploadUrl,

@@ -725,13 +725,33 @@ export async function registerRoutes(
         if (!clinic) {
           return res.status(404).json({ message: "Clinic not found" });
         }
+
+        let logoUrl = clinic.logoUrl;
+        
+        // If logoUrl is an R2 key (doesn't start with http), generate a signed URL
+        if (logoUrl && !logoUrl.startsWith('http')) {
+          const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+          const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+          const { r2Client, R2_BUCKET_NAME } = await import("./r2Client");
+          
+          try {
+            const command = new GetObjectCommand({
+              Bucket: R2_BUCKET_NAME,
+              Key: logoUrl,
+            });
+            logoUrl = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+          } catch (err) {
+            console.error("[R2 ERROR] Failed to generate signed GET URL:", err);
+          }
+        }
+
         res.json({
           id: clinic.id,
           name: clinic.name,
           address: clinic.address,
           email: clinic.email,
           phone: clinic.phone,
-          logoUrl: clinic.logoUrl,
+          logoUrl: logoUrl,
           doctors: clinic.doctors || []
         });
       } catch (err: any) {
