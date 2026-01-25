@@ -1398,66 +1398,66 @@ export default function ClinicDashboard() {
                         </div>
                       </DialogTrigger>
 
-                      <DialogContent className="sm:max-w-[425px] rounded-2xl">
-                        <DialogHeader>
+                      <DialogContent className="w-[95vw] sm:max-w-[425px] rounded-2xl p-4 sm:p-6 overflow-y-auto max-h-[90vh]">
+                        <DialogHeader className="mb-2">
                           <DialogTitle>Booking Details</DialogTitle>
                           <DialogDescription>
                             Full information for this appointment
                           </DialogDescription>
                         </DialogHeader>
 
-                        <div className="grid gap-4 py-4">
-                          <div className="flex items-center gap-4">
-                            <Avatar className="h-12 w-12 border">
-                              <AvatarFallback className="bg-primary/5 text-primary">
+                        <div className="space-y-4 py-2">
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border">
+                              <AvatarFallback className="bg-primary/5 text-primary text-xs sm:text-base">
                                 {booking.customerName.charAt(0)}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider bg-muted/50">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="font-mono text-[9px] sm:text-[10px] uppercase tracking-wider bg-muted/50">
                                   #{getBookingNumber(booking).padStart(2, '0')}
                                 </Badge>
-                                <div className="font-semibold text-lg">{booking.customerName}</div>
+                                <div className="font-semibold text-base sm:text-lg truncate">{booking.customerName}</div>
                               </div>
-                              <div className="text-sm text-muted-foreground">{booking.customerPhone}</div>
-                              <div className="text-[10px] text-muted-foreground mt-1 uppercase font-bold flex items-center gap-1">
-                                <Clock className="h-3 w-3" /> 
+                              <div className="text-xs sm:text-sm text-muted-foreground truncate">{booking.customerPhone}</div>
+                              <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-1 uppercase font-bold flex items-center gap-1">
+                                <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> 
                                 Booked on: {booking.createdAt ? format(new Date(booking.createdAt), "MMM d, h:mm a") : "N/A"}
                               </div>
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4">
                             <div className="space-y-1">
-                              <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
-                                <CalendarDays className="h-3 w-3" /> Date
+                              <div className="text-[9px] sm:text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                                <CalendarDays className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> Date
                               </div>
-                              <div className="text-sm font-medium">
+                              <div className="text-xs sm:text-sm font-medium">
                                 {format(new Date(booking.slot.startTime), "MMM d, yyyy")}
                               </div>
                             </div>
                             <div className="space-y-1">
-                              <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
-                                <Clock className="h-3 w-3" /> Time
+                              <div className="text-[9px] sm:text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                                <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> Time
                               </div>
-                              <div className="text-sm font-medium">
+                              <div className="text-xs sm:text-sm font-medium">
                                 {format(new Date(booking.slot.startTime), "h:mm a")} - {format(new Date(booking.slot.endTime), "h:mm a")}
                               </div>
                             </div>
                           </div>
 
                           {/* Reschedule Section */}
-                          <div className="space-y-3 pt-2 border-t">
-                            <div className="flex items-center justify-between">
-                              <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
-                                <CalendarDays className="h-3 w-3" /> Reschedule Appointment
+                          <div className="space-y-3 pt-3 border-t">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="text-[9px] sm:text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                                <CalendarDays className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> Reschedule Appointment
                               </div>
                               {rescheduleBookingId === booking.id ? (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 px-2 text-[10px]"
+                                  className="h-6 sm:h-7 px-2 text-[9px] sm:text-[10px]"
                                   onClick={() => {
                                     setRescheduleBookingId(null);
                                     setRescheduleSlot(null);
@@ -1470,7 +1470,7 @@ export default function ClinicDashboard() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="h-7 px-2 text-[10px]"
+                                  className="h-6 sm:h-7 px-2 text-[9px] sm:text-[10px]"
                                   onClick={() => {
                                     setRescheduleBookingId(booking.id);
                                     setRescheduleDate(new Date(booking.slot.startTime));
@@ -1483,12 +1483,12 @@ export default function ClinicDashboard() {
                             </div>
                             
                             {rescheduleBookingId === booking.id && (
-                              <div className="space-y-3 bg-muted/30 p-2.5 rounded-lg border border-border/50">
+                              <div className="space-y-3 bg-muted/30 p-2 sm:p-2.5 rounded-lg border border-border/50">
                                 {/* Date Selection */}
                                 <div className="space-y-1.5">
                                   <div className="flex items-center justify-between">
-                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Select New Date</Label>
-                                    <span className="text-[9px] text-muted-foreground font-medium">{format(rescheduleDate, "MMMM yyyy")}</span>
+                                    <Label className="text-[9px] sm:text-[10px] uppercase font-bold text-muted-foreground">Select New Date</Label>
+                                    <span className="text-[8px] sm:text-[9px] text-muted-foreground font-medium">{format(rescheduleDate, "MMMM yyyy")}</span>
                                   </div>
                                   <ScrollArea className="w-full whitespace-nowrap pb-1.5">
                                     <div className="flex space-x-1.5 px-0.5">
@@ -1499,7 +1499,7 @@ export default function ClinicDashboard() {
                                             setRescheduleDate(date);
                                             setRescheduleSlot(null);
                                           }}
-                                          className={`flex flex-col items-center justify-center min-w-[2.75rem] h-11 rounded-md border transition-all ${isSameDay(date, rescheduleDate) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card'}`}
+                                          className={`flex flex-col items-center justify-center min-w-[2.5rem] sm:min-w-[2.75rem] h-10 sm:h-11 rounded-md border transition-all ${isSameDay(date, rescheduleDate) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card'}`}
                                           data-testid={`reschedule-date-${format(date, 'yyyy-MM-dd')}`}
                                         >
                                           <span className="text-[7px] uppercase font-bold">{format(date, "EEE")}</span>
