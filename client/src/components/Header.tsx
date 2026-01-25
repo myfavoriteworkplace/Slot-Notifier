@@ -72,12 +72,12 @@ export function Header() {
     ...(isClinicAuthenticated ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
     // Only show Book a Slot and Clinic Portal when NOT logged in as clinic admin
     ...(!isClinicAuthenticated ? [
-      { href: location.startsWith("/book/") ? location : "/book", label: "Book a Slot", icon: CalendarPlus },
+      { href: location.startsWith("/book/") ? location : (location === "/about" ? `/book/${new URLSearchParams(window.location.search).get("clinicId")}` : "/book"), label: "Book a Slot", icon: CalendarPlus },
       { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
     ] : []),
     ...(location.startsWith("/book/") || location === "/about" ? (() => {
-      const clinicId = new URLSearchParams(window.location.search).get("clinicId") || 
-                      (location.startsWith("/book/") ? location.split("/").pop() : null);
+      const clinicId = location.startsWith("/book/") ? location.split("/").pop() : 
+                      new URLSearchParams(window.location.search).get("clinicId");
       return clinicId ? [
         { href: `/about?clinicId=${clinicId}`, label: "About", icon: Building2 }
       ] : [];
