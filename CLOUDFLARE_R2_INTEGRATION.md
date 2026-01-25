@@ -1,11 +1,35 @@
 # Cloudflare R2 Integration Guide - BookMySlot
 
-This document outlines the Cloudflare R2 integration implemented in the BookMySlot project for secure clinic logo management.
+This document provides a comprehensive guide for setting up Cloudflare R2 and understanding the integration within the BookMySlot project.
 
-## 🚀 1. Setup in Cloudflare
-- **Bucket Creation**: A private bucket (e.g., `app-images`) was created.
-- **API Token**: A Custom API Token with `R2 Object Read & Write` permissions was generated.
-- **CORS Configuration**: The following CORS policy was applied to allow direct uploads from the browser:
+## 🚀 1. Cloudflare R2 Setup (Step-by-Step)
+
+### Step 1: Sign up & Enable R2
+- **Dashboard**: [dash.cloudflare.com](https://dash.cloudflare.com)
+- Go to **R2** in the sidebar.
+- You must have a valid billing method on file (even if staying within the generous free tier).
+
+### Step 2: Create a Bucket
+- Click **Create Bucket**.
+- **Bucket Name**: `app-images` (or your preferred name).
+- **Location**: Automatic.
+- **Storage Class**: Standard.
+- **Public Access**: Keep **Disabled** (Private).
+- Click **Create Bucket**.
+
+### Step 3: Create R2 API Credentials
+- Go to **R2** (overview page) → **Manage R2 API Tokens**.
+- Click **Create API Token**.
+- **Token Name**: `bookmyslot-backend`.
+- **Permissions**: `Object Read & Write`.
+- **Bucket Scope**: Apply to specific buckets only → `app-images`.
+- Click **Create API Token**.
+- **IMPORTANT**: Copy and save your **Access Key ID** and **Secret Access Key**. You will not be able to see the secret again.
+
+### Step 4: Configure CORS (Critical for Uploads)
+Direct uploads from the browser require a CORS policy.
+- Go to **R2** → Select your bucket (`app-images`) → **Settings** → **CORS Policy**.
+- Click **Add CORS Policy** and paste:
   ```json
   [
     {
@@ -17,32 +41,37 @@ This document outlines the Cloudflare R2 integration implemented in the BookMySl
     }
   ]
   ```
+  *(Note: For production, replace `"*"` in `AllowedOrigins` with your actual domain.)*
 
-## 🛠 2. Project Adaptation
+---
 
-### A. Environment Configuration
-The following variables are configured in the Render environment or `.env` file:
-- `R2_ACCOUNT_ID`: Your Cloudflare Account ID.
-- `R2_ACCESS_KEY_ID`: S3-compatible Access Key ID.
-- `R2_SECRET_ACCESS_KEY`: S3-compatible Secret Access Key.
-- `R2_BUCKET_NAME`: The name of your bucket.
-- `R2_PUBLIC_URL`: The base public URL for your R2 bucket.
+## 🛠 2. Project Integration Details
 
-### B. Secure Signed Uploads
-- **Backend (`server/signedUrl.service.ts`)**: Generates a temporary `PutObjectCommand` signed URL.
-- **Frontend (`client/src/components/ImageUpload.tsx`)**: Uploads the file directly to R2 using the signed URL via a `PUT` request. This reduces backend load and improves security.
+### Environment Variables
+Configure these in your Render environment or `.env` file:
+- `R2_ACCOUNT_ID`: Found in the R2 overview page (Account ID).
+- `R2_ACCESS_KEY_ID`: Your API Access Key.
+- `R2_SECRET_ACCESS_KEY`: Your API Secret Key.
+- `R2_BUCKET_NAME`: `app-images`.
+- `R2_PUBLIC_URL`: Your R2 Custom Domain or the `.r2.dev` subdomain (used as the base for key normalization).
 
-### C. Secure Signed Previews (GET)
-Since the bucket is **private**, direct links will fail with an `InvalidArgument` error. We adapted the system to use **Signed GET URLs**:
-- **Storage**: We only store the **Object Key** (e.g., `clinics/uuid.png`) in the database.
-- **Retrieval (`server/routes.ts`)**: When fetching clinic info via `/api/auth/clinic/me`, the backend generates a temporary (1-hour) signed URL for the logo.
-- **Security**: This ensures your bucket stays 100% private, and images are only accessible via short-lived, authorized links.
+### Implementation Architecture
 
-## 🛡️ Summary of Fixes Applied
-| Issue | project Adaptation |
+#### 📤 Direct Browser Uploads
+- **Backend (`server/signedUrl.service.ts`)**: Generates a temporary S3-compatible signed URL for `PUT` operations.
+- **Frontend (`client/src/components/ImageUpload.tsx`)**: Sends the file directly to Cloudflare. This avoids taxing your server with large file transfers.
+- **Storage**: We store the **Object Key** (e.g., `clinics/filename.png`) in the database, not the full URL.
+
+#### 🔐 Secure Private Previews (Signed GET)
+Since the bucket is private, direct URLs will show an XML error.
+- **Backend (`server/routes.ts`)**: When the clinic profile is requested (`/api/auth/clinic/me`), the backend detects if `logoUrl` is a key and generates a temporary (1-hour) signed URL.
+- **Security**: Images are never public. Access is only granted to authorized users through these short-lived links.
+
+## 🛡️ Summary of Adaptations
+| Feature | Implementation |
 | :--- | :--- |
-| **CORS Errors** | Configured R2 CORS policy to allow `PUT` from your domain. |
-| **Private Access Denied** | Switched from public URLs to **Signed GET URLs** generated on-the-fly. |
-| **URL Double Slashes** | Added logic to normalize `R2_PUBLIC_URL` by removing trailing slashes. |
-| **Database Sync** | Added `logo_url` column to the `clinics` table to store object keys. |
+| **Storage Strategy** | Private Bucket + Object Keys in DB. |
+| **Security** | Short-lived Signed GET URLs for viewing. |
+| **Performance** | Signed PUT URLs for direct browser-to-R2 uploads. |
+| **Reliability** | URL normalization to prevent double-slashes and malformed paths. |
 
