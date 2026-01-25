@@ -59,7 +59,17 @@ export async function generateSignedUploadUrl(
     expiresIn: URL_EXPIRY_SECONDS,
   });
 
-  const publicUrl = `${R2_PUBLIC_URL}/${key}`;
+  // Ensure R2_PUBLIC_URL is present
+  if (!R2_PUBLIC_URL) {
+    throw new Error("R2_PUBLIC_URL is not configured. Please add it to your environment variables.");
+  }
+
+  // Ensure R2_PUBLIC_URL doesn't end with a slash to avoid double slashes
+  const baseUrl = R2_PUBLIC_URL.endsWith("/")
+    ? R2_PUBLIC_URL.slice(0, -1)
+    : R2_PUBLIC_URL;
+
+  const publicUrl = `${baseUrl}/${key}`;
 
   return {
     uploadUrl,
