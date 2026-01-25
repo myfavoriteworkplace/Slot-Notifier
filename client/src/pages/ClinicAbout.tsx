@@ -11,7 +11,11 @@ export default function ClinicAbout() {
   const [location] = useLocation();
   const params = new URLSearchParams(window.location.search);
   const clinicIdFromUrl = params.get("clinicId") || 
-                         (location.startsWith("/book/") ? location.split("/").pop() : null);
+                         (location.startsWith("/book/") ? location.split("/").pop() : null) ||
+                         sessionStorage.getItem("lastClinicId");
+
+  // Clean up "null" string if it exists
+  const finalClinicId = clinicIdFromUrl === "null" ? null : clinicIdFromUrl;
 
   const { data: clinics, isLoading } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics'],
@@ -39,7 +43,7 @@ export default function ClinicAbout() {
     ? [...clinics.filter(c => !c.isArchived && c.name !== "Demo Smile Clinic"), hardcodedClinic]
     : [hardcodedClinic];
 
-  const clinic = allClinics.find(c => c.id.toString() === clinicIdFromUrl);
+  const clinic = allClinics.find(c => c.id.toString() === finalClinicId);
 
   if (isLoading) {
     return (
@@ -65,7 +69,7 @@ export default function ClinicAbout() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       <div className="container mx-auto px-4 py-8 sm:py-12 max-w-5xl">
         <div className="mb-10">
-          <Link href={`/book${clinicIdFromUrl ? `?clinicId=${clinicIdFromUrl}` : ""}`}>
+          <Link href={finalClinicId ? `/book/${finalClinicId}` : "/book"}>
             <Button variant="ghost" size="sm" className="gap-2 mb-8 hover:bg-background/80" data-testid="button-back-to-booking">
               <ArrowLeft className="h-4 w-4" />
               Back to Booking

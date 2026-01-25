@@ -81,13 +81,26 @@ export function Header() {
     ...(isClinicAuthenticated ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
     // Only show Book a Slot and Clinic Portal when NOT logged in as clinic admin
     ...(!isClinicAuthenticated ? [
-      { href: location.startsWith("/book/") ? location : (location === "/about" || location === "/clinic-login" ? `/book/${new URLSearchParams(window.location.search).get("clinicId") || (location === "/clinic-login" ? sessionStorage.getItem("lastClinicId") : null)}` : "/book"), label: "Book a Slot", icon: CalendarPlus },
+      { 
+        href: location.startsWith("/book/") && !location.endsWith("/null") 
+          ? location 
+          : (location === "/about" || location === "/clinic-login" 
+              ? (() => {
+                  const id = new URLSearchParams(window.location.search).get("clinicId") || sessionStorage.getItem("lastClinicId");
+                  return id && id !== "null" ? `/book/${id}` : "/book";
+                })()
+              : "/book"), 
+        label: "Book a Slot", 
+        icon: CalendarPlus 
+      },
       { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
     ] : []),
     ...(location.startsWith("/book/") || location === "/about" || location === "/clinic-login" ? (() => {
-      const clinicId = location.startsWith("/book/") ? location.split("/").pop() : 
-                      (new URLSearchParams(window.location.search).get("clinicId") || (location === "/clinic-login" ? sessionStorage.getItem("lastClinicId") : null));
-      return clinicId ? [
+      const clinicId = (location.startsWith("/book/") && !location.endsWith("/null")) 
+        ? location.split("/").pop() 
+        : (new URLSearchParams(window.location.search).get("clinicId") || sessionStorage.getItem("lastClinicId"));
+      
+      return clinicId && clinicId !== "null" ? [
         { href: `/about?clinicId=${clinicId}`, label: "About", icon: Building2 }
       ] : [];
     })() : []),
