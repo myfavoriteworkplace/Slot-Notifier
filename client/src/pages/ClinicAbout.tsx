@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Building2, MapPin, Mail, Clock, ArrowLeft, Globe, Phone, Award, Activity, ExternalLink } from "lucide-react";
+import { Loader2, Building2, MapPin, Mail, Clock, ArrowLeft, Globe, Phone, Award, Activity, ExternalLink, User } from "lucide-react";
 import type { Clinic } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";

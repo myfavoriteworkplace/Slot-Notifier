@@ -143,7 +143,7 @@ export default function ClinicDashboard() {
   const [newDoctorImageUrl, setNewDoctorImageUrl] = useState<string | null>(null);
 
   // Fetch clinic doctors
-  const { data: clinicData, refetch: refetchClinicData } = useQuery<{ doctors: { name: string; specialization: string; degree: string }[] }>({
+  const { data: clinicData, refetch: refetchClinicData } = useQuery<{ doctors: { name: string; specialization: string; degree: string; imageUrl?: string | null }[] }>({
     queryKey: ['/api/auth/clinic/me'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/auth/clinic/me');
