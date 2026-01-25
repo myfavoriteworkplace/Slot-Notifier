@@ -37,6 +37,15 @@ export function Header() {
   }>({ backend: null, database: null });
 
   useEffect(() => {
+    // Persist clinic context for navigation
+    if (location.startsWith("/book/")) {
+      const id = location.split("/").pop();
+      if (id && id !== "book") sessionStorage.setItem("lastClinicId", id);
+    } else {
+      const clinicId = new URLSearchParams(window.location.search).get("clinicId");
+      if (clinicId) sessionStorage.setItem("lastClinicId", clinicId);
+    }
+    
     const checkHealth = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/health`, { 
@@ -72,12 +81,12 @@ export function Header() {
     ...(isClinicAuthenticated ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
     // Only show Book a Slot and Clinic Portal when NOT logged in as clinic admin
     ...(!isClinicAuthenticated ? [
-      { href: location.startsWith("/book/") ? location : (location === "/about" ? `/book/${new URLSearchParams(window.location.search).get("clinicId")}` : "/book"), label: "Book a Slot", icon: CalendarPlus },
+      { href: location.startsWith("/book/") ? location : (location === "/about" || location === "/clinic-login" ? `/book/${new URLSearchParams(window.location.search).get("clinicId") || (location === "/clinic-login" ? sessionStorage.getItem("lastClinicId") : null)}` : "/book"), label: "Book a Slot", icon: CalendarPlus },
       { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
     ] : []),
-    ...(location.startsWith("/book/") || location === "/about" ? (() => {
+    ...(location.startsWith("/book/") || location === "/about" || location === "/clinic-login" ? (() => {
       const clinicId = location.startsWith("/book/") ? location.split("/").pop() : 
-                      new URLSearchParams(window.location.search).get("clinicId");
+                      (new URLSearchParams(window.location.search).get("clinicId") || (location === "/clinic-login" ? sessionStorage.getItem("lastClinicId") : null));
       return clinicId ? [
         { href: `/about?clinicId=${clinicId}`, label: "About", icon: Building2 }
       ] : [];
