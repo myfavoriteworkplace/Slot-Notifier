@@ -160,8 +160,15 @@ export default function ClinicAbout() {
                   <h2 className="text-2xl font-bold text-foreground">Our Medical Experts</h2>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {(clinic.doctors as {name: string, specialization: string, degree: string}[]).map((doc, idx) => (
+                  {(clinic.doctors as {name: string, specialization: string, degree: string, imageUrl?: string | null}[]).map((doc, idx) => (
                     <div key={idx} className="group p-6 rounded-2xl bg-muted/30 hover:bg-primary/5 transition-all duration-300">
+                      <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-4 overflow-hidden">
+                        {doc.imageUrl ? (
+                          <img src={doc.imageUrl} alt={doc.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <User className="h-10 w-10" />
+                        )}
+                      </div>
                       <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{doc.name}</h3>
                       <p className="text-primary font-semibold mb-4 text-sm uppercase tracking-wide">{doc.specialization}</p>
                       <div className="inline-flex items-center px-3 py-1 rounded-full bg-background border border-primary/20 text-primary text-xs font-bold">

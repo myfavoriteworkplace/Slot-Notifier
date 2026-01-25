@@ -19,7 +19,7 @@ export const clinics = pgTable("clinics", {
   doctorName: varchar("doctor_name", { length: 255 }),
   doctorSpecialization: varchar("doctor_specialization", { length: 255 }),
   doctorDegree: varchar("doctor_degree", { length: 255 }),
-  doctors: jsonb("doctors").$type<{ name: string; specialization: string; degree: string }[]>().default([]),
+  doctors: jsonb("doctors").$type<{ name: string; specialization: string; degree: string; imageUrl?: string | null }[]>().default([]),
   logoUrl: varchar("logo_url", { length: 1000 }),
   isArchived: boolean("is_archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -157,5 +157,5 @@ export interface ClinicSession {
   name: string;
   role: 'owner' | 'superuser';
   logoUrl?: string | null;
-  doctors: { name: string; specialization: string; degree: string }[];
+  doctors: { name: string; specialization: string; degree: string; imageUrl?: string | null }[];
 }

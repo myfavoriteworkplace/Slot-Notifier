@@ -140,6 +140,7 @@ export default function ClinicDashboard() {
   const [newDoctorName, setNewDoctorName] = useState("");
   const [newDoctorSpecialization, setNewDoctorSpecialization] = useState("");
   const [newDoctorDegree, setNewDoctorDegree] = useState("");
+  const [newDoctorImageUrl, setNewDoctorImageUrl] = useState<string | null>(null);
 
   // Fetch clinic doctors
   const { data: clinicData, refetch: refetchClinicData } = useQuery<{ doctors: { name: string; specialization: string; degree: string }[] }>({
@@ -153,7 +154,7 @@ export default function ClinicDashboard() {
   });
 
   const addDoctorMutation = useMutation({
-    mutationFn: async (data: { name: string; specialization: string; degree: string }) => {
+    mutationFn: async (data: { name: string; specialization: string; degree: string; imageUrl?: string | null }) => {
       const response = await apiRequest('POST', '/api/auth/clinic/doctors', data);
       if (!response.ok) throw new Error('Failed to add doctor');
       return response.json();
@@ -164,6 +165,7 @@ export default function ClinicDashboard() {
       setNewDoctorName("");
       setNewDoctorSpecialization("");
       setNewDoctorDegree("");
+      setNewDoctorImageUrl(null);
       toast({ title: "Doctor added successfully" });
     },
     onError: (error: any) => {
@@ -195,7 +197,8 @@ export default function ClinicDashboard() {
     addDoctorMutation.mutate({
       name: newDoctorName,
       specialization: newDoctorSpecialization,
-      degree: newDoctorDegree
+      degree: newDoctorDegree,
+      imageUrl: newDoctorImageUrl
     });
   };
 
@@ -812,8 +815,12 @@ export default function ClinicDashboard() {
                             data-testid={`doctor-card-${index}`}
                           >
                             <div className="flex items-center gap-4">
-                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                <User className="h-5 w-5 text-primary" />
+                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                                {doctor.imageUrl ? (
+                                  <img src={doctor.imageUrl} alt={doctor.name} className="h-full w-full object-cover" />
+                                ) : (
+                                  <User className="h-5 w-5 text-primary" />
+                                )}
                               </div>
                               <div className="text-left">
                                 <p className="font-medium">{doctor.name}</p>
@@ -875,36 +882,47 @@ export default function ClinicDashboard() {
                   {/* Add New Doctor Form */}
                   <div className="space-y-4 pt-4 border-t">
                     <Label className="text-left block text-sm font-semibold">Add New Doctor</Label>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="doctor-name" className="text-left block text-xs text-muted-foreground">Name</Label>
-                        <Input
-                          id="doctor-name"
-                          value={newDoctorName}
-                          onChange={(e) => setNewDoctorName(e.target.value)}
-                          placeholder="Dr. John Smith"
-                          data-testid="input-doctor-name"
+                    <div className="flex flex-col sm:flex-row gap-6">
+                      <div className="flex-shrink-0">
+                        <Label className="text-left block text-xs text-muted-foreground mb-2">Doctor Photo</Label>
+                        <ImageUpload
+                          currentImage={newDoctorImageUrl || undefined}
+                          onImageUploaded={(url) => setNewDoctorImageUrl(url)}
+                          folder="doctors"
+                          fallbackText="Dr"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="doctor-specialization" className="text-left block text-xs text-muted-foreground">Specialization</Label>
-                        <Input
-                          id="doctor-specialization"
-                          value={newDoctorSpecialization}
-                          onChange={(e) => setNewDoctorSpecialization(e.target.value)}
-                          placeholder="e.g., General Dentist"
-                          data-testid="input-doctor-specialization"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="doctor-degree" className="text-left block text-xs text-muted-foreground">Degree (Optional)</Label>
-                        <Input
-                          id="doctor-degree"
-                          value={newDoctorDegree}
-                          onChange={(e) => setNewDoctorDegree(e.target.value)}
-                          placeholder="e.g., BDS, MDS"
-                          data-testid="input-doctor-degree"
-                        />
+                      <div className="flex-1 grid gap-4 sm:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="doctor-name" className="text-left block text-xs text-muted-foreground">Name</Label>
+                          <Input
+                            id="doctor-name"
+                            value={newDoctorName}
+                            onChange={(e) => setNewDoctorName(e.target.value)}
+                            placeholder="Dr. John Smith"
+                            data-testid="input-doctor-name"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="doctor-specialization" className="text-left block text-xs text-muted-foreground">Specialization</Label>
+                          <Input
+                            id="doctor-specialization"
+                            value={newDoctorSpecialization}
+                            onChange={(e) => setNewDoctorSpecialization(e.target.value)}
+                            placeholder="e.g., General Dentist"
+                            data-testid="input-doctor-specialization"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="doctor-degree" className="text-left block text-xs text-muted-foreground">Degree (Optional)</Label>
+                          <Input
+                            id="doctor-degree"
+                            value={newDoctorDegree}
+                            onChange={(e) => setNewDoctorDegree(e.target.value)}
+                            placeholder="e.g., BDS, MDS"
+                            data-testid="input-doctor-degree"
+                          />
+                        </div>
                       </div>
                     </div>
                     <Button
