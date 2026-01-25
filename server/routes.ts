@@ -1315,5 +1315,29 @@ export async function registerRoutes(
     });
   });
 
+  app.post("/api/uploads/signed-url", isAuthenticated, async (req, res) => {
+    try {
+      const { generateSignedUploadUrl } = await import("./signedUrl.service");
+      const { fileName, fileType, fileSize, folder } = req.body;
+
+      if (!fileName || !fileType || !fileSize || !folder) {
+        return res.status(400).json({ 
+          message: "Missing required fields: fileName, fileType, fileSize, folder" 
+        });
+      }
+
+      const result = await generateSignedUploadUrl({
+        fileName,
+        fileType,
+        fileSize,
+        folder,
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
   return httpServer;
 }
