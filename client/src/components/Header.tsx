@@ -72,10 +72,10 @@ export function Header() {
     ...(isClinicAuthenticated ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
     // Only show Book a Slot and Clinic Portal when NOT logged in as clinic admin
     ...(!isClinicAuthenticated ? [
-      { href: "/book", label: "Book a Slot", icon: CalendarPlus },
+      { href: location.startsWith("/book/") ? location : "/book", label: "Book a Slot", icon: CalendarPlus },
       { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
     ] : []),
-    ...(location.includes("/book") || location === "/about" ? (() => {
+    ...(location.startsWith("/book/") || location === "/about" ? (() => {
       const clinicId = new URLSearchParams(window.location.search).get("clinicId") || 
                       (location.startsWith("/book/") ? location.split("/").pop() : null);
       return clinicId ? [
@@ -83,6 +83,109 @@ export function Header() {
       ] : [];
     })() : []),
   ];
+
+  const renderAuthButtons = () => {
+    // Hide login button if we are in clinic context or login pages
+    const hideAuth = location.startsWith("/book/") || 
+                    location === "/about" || 
+                    location === "/clinic-login" || 
+                    location === "/admin";
+
+    if (isAuthenticated) {
+      return (
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative hover:bg-muted/50 rounded-full" data-testid="button-notifications">
+                <Bell className="h-5 w-5 text-muted-foreground" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-accent animate-pulse" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80 p-0">
+              <div className="p-4 border-b bg-muted/30">
+                <h4 className="text-sm font-semibold">Notifications</h4>
+              </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    No notifications yet
+                  </div>
+                ) : (
+                  notifications.map((notification) => (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      className={`flex flex-col items-start gap-1 p-4 cursor-pointer focus:bg-muted/50 ${!notification.read ? 'bg-primary/5' : ''}`}
+                      onClick={() => !notification.read && markRead(notification.id)}
+                    >
+                      <p className={`text-sm ${!notification.read ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                        {notification.message}
+                      </p>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(notification.createdAt!), { addSuffix: true })}
+                      </span>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="hidden sm:flex items-center gap-3 pl-2 border-l ml-2">
+            <div className="text-right">
+              <p className="text-sm font-medium leading-none">{user?.firstName} {user?.lastName}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 capitalize">{user?.role}</p>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => logout()}
+              className="text-muted-foreground hover:text-destructive transition-colors"
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        </>
+      );
+    }
+
+    if (isClinicAuthenticated) {
+      return (
+        <div className="flex items-center gap-2 sm:gap-3 pl-2 border-l ml-2">
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-medium leading-none max-w-[150px] truncate">{clinic?.name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Clinic Admin</p>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => clinicLogout()}
+            className="text-muted-foreground hover:text-destructive transition-colors"
+            data-testid="button-clinic-logout"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      );
+    }
+
+    if (!hideAuth) {
+      return (
+        <Button 
+          onClick={() => window.location.href = "/admin"} 
+          size="sm"
+          className="font-semibold"
+          data-testid="button-login"
+        >
+          Login
+        </Button>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-md">
@@ -96,7 +199,8 @@ export function Header() {
           <nav className="flex items-center gap-1 sm:gap-2">
             {tabs.map((tab) => {
               const isActive = location === tab.href || 
-                (tab.href === "/clinic-login" && location === "/clinic-dashboard");
+                (tab.href === "/clinic-login" && location === "/clinic-dashboard") ||
+                (tab.label === "Book a Slot" && location.startsWith("/book/"));
               const Icon = tab.icon;
               
               return (
@@ -117,92 +221,7 @@ export function Header() {
 
           <div className="flex items-center gap-1 sm:gap-2">
             <ThemeToggle />
-            {isAuthenticated && (
-              <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="relative hover:bg-muted/50 rounded-full" data-testid="button-notifications">
-                      <Bell className="h-5 w-5 text-muted-foreground" />
-                      {unreadCount > 0 && (
-                        <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-accent animate-pulse" />
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-80 p-0">
-                    <div className="p-4 border-b bg-muted/30">
-                      <h4 className="text-sm font-semibold">Notifications</h4>
-                    </div>
-                    <div className="max-h-[300px] overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-8 text-center text-sm text-muted-foreground">
-                          No notifications yet
-                        </div>
-                      ) : (
-                        notifications.map((notification) => (
-                          <DropdownMenuItem
-                            key={notification.id}
-                            className={`flex flex-col items-start gap-1 p-4 cursor-pointer focus:bg-muted/50 ${!notification.read ? 'bg-primary/5' : ''}`}
-                            onClick={() => !notification.read && markRead(notification.id)}
-                          >
-                            <p className={`text-sm ${!notification.read ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
-                              {notification.message}
-                            </p>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(notification.createdAt!), { addSuffix: true })}
-                            </span>
-                          </DropdownMenuItem>
-                        ))
-                      )}
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <div className="hidden sm:flex items-center gap-3 pl-2 border-l ml-2">
-                  <div className="text-right">
-                    <p className="text-sm font-medium leading-none">{user?.firstName} {user?.lastName}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 capitalize">{user?.role}</p>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => logout()}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
-                    data-testid="button-logout"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </div>
-              </>
-            )}
-            
-            {isClinicAuthenticated && (
-              <div className="flex items-center gap-2 sm:gap-3 pl-2 border-l ml-2">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium leading-none max-w-[150px] truncate">{clinic?.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Clinic Admin</p>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={() => clinicLogout()}
-                  className="text-muted-foreground hover:text-destructive transition-colors"
-                  data-testid="button-clinic-logout"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-            
-            {!isAuthenticated && !isClinicAuthenticated && location !== "/clinic-login" && (
-              <Button 
-                onClick={() => window.location.href = "/admin"} 
-                size="sm"
-                className="font-semibold"
-                data-testid="button-login"
-              >
-                Login
-              </Button>
-            )}
+            {renderAuthButtons()}
           </div>
         </div>
       </div>
