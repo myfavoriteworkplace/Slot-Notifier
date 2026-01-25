@@ -19,3 +19,6 @@ export const r2Client = new S3Client({
 
 export const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || "app-images";
 export const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || "";
+if (!R2_PUBLIC_URL) {
+  console.warn("[R2] Missing R2_PUBLIC_URL - image previews may not work");
+}
