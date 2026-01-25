@@ -37,6 +37,11 @@ export function Header() {
   }>({ backend: null, database: null });
 
   useEffect(() => {
+    // If we are on the root landing page, clear the session context
+    if (location === "/") {
+      sessionStorage.removeItem("lastClinicId");
+    }
+
     // Persist clinic context for navigation
     if (location.startsWith("/book/")) {
       const id = location.split("/").pop();
