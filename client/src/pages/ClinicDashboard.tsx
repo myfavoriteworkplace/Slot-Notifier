@@ -1483,15 +1483,15 @@ export default function ClinicDashboard() {
                             </div>
                             
                             {rescheduleBookingId === booking.id && (
-                              <div className="space-y-3 bg-muted/30 p-2 sm:p-2.5 rounded-lg border border-border/50">
+                              <div className="space-y-3 bg-muted/30 p-2 sm:p-2.5 rounded-lg border border-border/50 w-full overflow-hidden">
                                 {/* Date Selection */}
-                                <div className="space-y-1.5">
+                                <div className="space-y-1.5 w-full">
                                   <div className="flex items-center justify-between">
                                     <Label className="text-[9px] sm:text-[10px] uppercase font-bold text-muted-foreground">Select New Date</Label>
                                     <span className="text-[8px] sm:text-[9px] text-muted-foreground font-medium">{format(rescheduleDate, "MMMM yyyy")}</span>
                                   </div>
                                   <ScrollArea className="w-full whitespace-nowrap pb-1.5">
-                                    <div className="flex space-x-1.5 px-0.5">
+                                    <div className="flex space-x-1.5 px-0.5 w-max">
                                       {dates.map((date) => (
                                         <button
                                           key={date.toISOString()}
