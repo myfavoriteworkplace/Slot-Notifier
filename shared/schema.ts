@@ -20,6 +20,7 @@ export const clinics = pgTable("clinics", {
   doctorSpecialization: varchar("doctor_specialization", { length: 255 }),
   doctorDegree: varchar("doctor_degree", { length: 255 }),
   doctors: jsonb("doctors").$type<{ name: string; specialization: string; degree: string }[]>().default([]),
+  logoUrl: varchar("logo_url", { length: 1000 }),
   isArchived: boolean("is_archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });

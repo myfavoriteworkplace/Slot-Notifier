@@ -77,6 +77,18 @@ export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut } = useClinicAuth();
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
+
+  const updateLogoMutation = useMutation({
+    mutationFn: async (logoUrl: string) => {
+      const response = await apiRequest('PATCH', '/api/auth/clinic/me', { logoUrl });
+      if (!response.ok) throw new Error('Failed to update logo');
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchClinic();
+      toast({ title: "Logo updated successfully" });
+    },
+  });
   const [filterDate, setFilterDate] = useState<Date | undefined>(new Date());
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
@@ -602,8 +614,18 @@ export default function ClinicDashboard() {
     <div className="container mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-4 mb-6 sm:mb-8 border-b pb-6">
         <div className="flex items-start sm:items-center gap-3 sm:gap-4">
-          <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0 shadow-inner">
-            <Building2 className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+          <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0 shadow-inner overflow-hidden">
+            {clinic?.logoUrl ? (
+              <img src={clinic.logoUrl} alt={clinic.name} className="h-full w-full object-cover" />
+            ) : (
+              <Building2 className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <ImageUpload 
+              onUploadComplete={(url) => updateLogoMutation.mutate(url)} 
+              folder="clinics"
+            />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">

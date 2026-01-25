@@ -171,11 +171,24 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   return res.status(401).json({ message: "Authentication required" });
 }
 
+import { generateSignedUploadUrl } from "./signedUrl.service";
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   
+  // Cloudflare R2 Uploads
+  app.post("/api/uploads/signed-url", isAuthenticated, async (req, res) => {
+    try {
+      const result = await generateSignedUploadUrl(req.body);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[UPLOAD ERROR]", err);
+      res.status(400).json({ message: err.message });
+    }
+  });
+
   // Publicly available login check for debugging
   app.get("/api/auth/debug", (req, res) => {
     res.json({
