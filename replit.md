@@ -112,6 +112,7 @@ For detailed setup and deployment instructions, see:
 
 ## Recent Changes
 
+- **2026-01-25**: Integrated Cloudflare R2 for clinic logo uploads.
 - **2026-01-24**: Added doctor management feature to clinic dashboard (view, add, remove doctors)
 - **2024-01-13**: Added dual authentication support (Replit OIDC + environment-based email/password)
 - **2024-01-13**: Added comprehensive deployment documentation for Render.com
