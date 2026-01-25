@@ -180,15 +180,16 @@ export function Header() {
       );
     }
 
-    if (!hideAuth) {
+    if (!isAuthenticated && !isClinicAuthenticated) {
       return (
         <Button 
           onClick={() => window.location.href = "/admin"} 
           size="sm"
-          className="font-semibold"
+          className="font-semibold gap-2"
           data-testid="button-login"
         >
-          Login
+          <Shield className="h-4 w-4" />
+          System Admin
         </Button>
       );
     }
