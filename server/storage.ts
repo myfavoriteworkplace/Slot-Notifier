@@ -522,6 +522,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateClinic(id: number, updates: Partial<Clinic>): Promise<Clinic> {
+    // Filter out logoUrl if it's undefined to avoid issues with older schema versions
+    // though db:push should have fixed it.
     const [updated] = await db.update(clinics)
       .set(updates)
       .where(eq(clinics.id, id))

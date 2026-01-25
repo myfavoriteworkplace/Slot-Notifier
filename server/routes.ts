@@ -411,6 +411,7 @@ export async function registerRoutes(
         sess.adminEmail = clinic.email || `${username}@clinic.local`;
         sess.clinicId = clinic.id;
         sess.role = 'owner';
+        sess.logoUrl = clinic.logoUrl;
 
         req.session.save((err) => {
           if (err) {
@@ -730,10 +731,29 @@ export async function registerRoutes(
           address: clinic.address,
           email: clinic.email,
           phone: clinic.phone,
+          logoUrl: clinic.logoUrl,
           doctors: clinic.doctors || []
         });
       } catch (err: any) {
         res.status(500).json({ message: err.message });
+      }
+    });
+
+    app.patch("/api/auth/clinic/me", isAuthenticated, async (req, res) => {
+      try {
+        const sess = req.session as any;
+        if (!sess.clinicId) {
+          return res.status(403).json({ message: "Only clinics can update their profile" });
+        }
+        const updated = await storage.updateClinic(sess.clinicId, req.body);
+        // Update session data
+        if (req.body.logoUrl !== undefined) {
+          sess.logoUrl = req.body.logoUrl;
+        }
+        req.session.save();
+        res.json(updated);
+      } catch (err: any) {
+        res.status(500).json({ message: "Failed to update clinic profile", error: err.message });
       }
     });
 

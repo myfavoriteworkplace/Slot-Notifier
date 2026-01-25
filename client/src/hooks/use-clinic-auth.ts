@@ -4,6 +4,7 @@ import { apiRequest, API_BASE_URL } from "@/lib/queryClient";
 interface ClinicSession {
   id: number;
   name: string;
+  logoUrl?: string | null;
   doctorName?: string | null;
   doctorSpecialization?: string | null;
   doctors?: { name: string; specialization: string; degree: string }[];
@@ -99,5 +100,6 @@ export function useClinicAuth() {
     isLoggingIn: loginMutation.isPending,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,
+    refetch: () => queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/me"] }),
   };
 }

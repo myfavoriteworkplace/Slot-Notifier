@@ -151,3 +151,11 @@ export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Clinic = typeof clinics.$inferSelect;
 export type InsertClinic = z.infer<typeof insertClinicSchema>;
+
+export interface ClinicSession {
+  id: number;
+  name: string;
+  role: 'owner' | 'superuser';
+  logoUrl?: string | null;
+  doctors: { name: string; specialization: string; degree: string }[];
+}

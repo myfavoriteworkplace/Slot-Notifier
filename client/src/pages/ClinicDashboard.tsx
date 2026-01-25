@@ -1,3 +1,4 @@
+import { ImageUpload } from "@/components/ImageUpload";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
@@ -74,7 +75,7 @@ type BookingWithSlot = Booking & {
 };
 
 export default function ClinicDashboard() {
-  const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut } = useClinicAuth();
+  const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut, refetch: refetchClinic } = useClinicAuth();
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -85,7 +86,7 @@ export default function ClinicDashboard() {
       return response.json();
     },
     onSuccess: () => {
-      refetchClinic();
+      if (refetchClinic) refetchClinic();
       toast({ title: "Logo updated successfully" });
     },
   });
@@ -141,7 +142,7 @@ export default function ClinicDashboard() {
   const [newDoctorDegree, setNewDoctorDegree] = useState("");
 
   // Fetch clinic doctors
-  const { data: clinicData, refetch: refetchClinic } = useQuery<{ doctors: { name: string; specialization: string; degree: string }[] }>({
+  const { data: clinicData, refetch: refetchClinicData } = useQuery<{ doctors: { name: string; specialization: string; degree: string }[] }>({
     queryKey: ['/api/auth/clinic/me'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/auth/clinic/me');
@@ -158,7 +159,8 @@ export default function ClinicDashboard() {
       return response.json();
     },
     onSuccess: () => {
-      refetchClinic();
+      if (refetchClinicData) refetchClinicData();
+      if (refetchClinic) refetchClinic();
       setNewDoctorName("");
       setNewDoctorSpecialization("");
       setNewDoctorDegree("");
@@ -176,7 +178,8 @@ export default function ClinicDashboard() {
       return response.json();
     },
     onSuccess: () => {
-      refetchClinic();
+      if (refetchClinicData) refetchClinicData();
+      if (refetchClinic) refetchClinic();
       toast({ title: "Doctor removed successfully" });
     },
     onError: (error: any) => {
@@ -623,8 +626,10 @@ export default function ClinicDashboard() {
           </div>
           <div className="flex flex-col gap-2">
             <ImageUpload 
-              onUploadComplete={(url) => updateLogoMutation.mutate(url)} 
+              currentImage={clinic?.logoUrl || undefined}
+              onImageUploaded={(url: string) => updateLogoMutation.mutate(url)} 
               folder="clinics"
+              fallbackText={clinic?.name || "Clinic"}
             />
           </div>
           <div className="min-w-0 flex-1">
