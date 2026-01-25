@@ -617,14 +617,7 @@ export default function ClinicDashboard() {
     <div className="container mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-4 mb-6 sm:mb-8 border-b pb-6">
         <div className="flex items-start sm:items-center gap-3 sm:gap-4">
-          <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0 shadow-inner overflow-hidden">
-            {clinic?.logoUrl ? (
-              <img src={clinic.logoUrl} alt={clinic.name} className="h-full w-full object-cover" />
-            ) : (
-              <Building2 className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
-            )}
-          </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex-shrink-0">
             <ImageUpload 
               currentImage={clinic?.logoUrl || undefined}
               onImageUploaded={(url: string) => updateLogoMutation.mutate(url)} 
