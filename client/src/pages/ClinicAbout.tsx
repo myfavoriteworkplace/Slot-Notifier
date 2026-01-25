@@ -29,6 +29,7 @@ export default function ClinicAbout() {
     doctorName: "Dr. Demo",
     doctorSpecialization: "General Dentistry",
     doctorDegree: "DDS",
+    logoUrl: null,
     doctors: [],
     isArchived: false,
     createdAt: new Date()
