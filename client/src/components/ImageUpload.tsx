@@ -101,44 +101,38 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
 
   return (
     <div className="flex items-center gap-3">
-      <Avatar className="h-12 w-12 border">
-        {previewUrl ? (
-          <AvatarImage src={previewUrl} alt="Preview" />
-        ) : null}
-        <AvatarFallback className="bg-primary/5 text-primary">
-          {fallbackText.charAt(0).toUpperCase() || <User className="h-5 w-5" />}
-        </AvatarFallback>
-      </Avatar>
-
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-8"
-          disabled={isUploading}
-          onClick={() => fileInputRef.current?.click()}
-          data-testid="button-upload-image"
-        >
+      <div className="relative group cursor-pointer" onClick={() => !isUploading && fileInputRef.current?.click()}>
+        <Avatar className="h-16 w-16 border rounded-2xl transition-all group-hover:opacity-80">
+          {previewUrl ? (
+            <AvatarImage src={previewUrl} alt="Preview" className="object-cover" />
+          ) : null}
+          <AvatarFallback className="bg-primary/5 text-primary rounded-2xl">
+            {fallbackText.charAt(0).toUpperCase() || <User className="h-8 w-8" />}
+          </AvatarFallback>
+        </Avatar>
+        
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-2xl">
           {isUploading ? (
-            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            <Loader2 className="h-6 w-6 animate-spin text-white" />
           ) : (
-            <Upload className="h-3 w-3 mr-1" />
+            <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+              {previewUrl ? "Change" : "Upload"}
+            </span>
           )}
-          {previewUrl ? "Change" : "Upload"}
-        </Button>
+        </div>
 
         {previewUrl && !isUploading && (
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 text-destructive"
-            onClick={handleRemove}
+            className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:scale-110 active:scale-95"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRemove();
+            }}
             data-testid="button-remove-image"
           >
-            <X className="h-3 w-3" />
-          </Button>
+            <X className="h-3.5 w-3.5" />
+          </button>
         )}
       </div>
 
