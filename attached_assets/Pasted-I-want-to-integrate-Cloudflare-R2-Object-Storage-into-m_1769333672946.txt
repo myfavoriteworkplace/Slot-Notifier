@@ -1,0 +1,84 @@
+I want to integrate Cloudflare R2 Object Storage into my full-stack application
+using ONLY the free tier (10GB) with strict backend limits and signed upload URLs.
+
+STACK:
+- Backend: Node.js + Express + TypeScript
+- Frontend: Vite + React
+- Auth: Cookie-based session auth
+- Deployment: Render
+- Environment variables via .env
+
+PRIMARY GOALS:
+1. Stay within Cloudflare R2 FREE TIER (10GB total storage)
+2. Prevent accidental or malicious large uploads
+3. Use SIGNED UPLOAD URLs (best practice)
+4. Frontend uploads directly to R2
+5. Backend NEVER exposes R2 credentials
+6. Backend controls size, type, and expiration
+
+CLOUDFLARE R2 DETAILS (use env vars only):
+- R2_ACCOUNT_ID=<R2_ACCOUNT_ID>
+- R2_ACCESS_KEY_ID=<R2_ACCESS_KEY_ID>
+- R2_SECRET_ACCESS_KEY=<R2_SECRET_ACCESS_KEY>
+- R2_BUCKET_NAME=app-images
+- R2_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+
+FREE TIER SAFETY RULES (MANDATORY):
+- Max file size: 2 MB per upload
+- Allow only image types: image/jpeg, image/png, image/webp
+- One upload per request
+- Signed URL expiry: 60 seconds
+- Folder structure:
+  - clinics/
+  - doctors/
+  - users/
+- Backend must reject uploads if limits are exceeded
+
+BACKEND REQUIREMENTS:
+1. Use AWS SDK v3 (@aws-sdk/client-s3 + @aws-sdk/s3-request-presigner)
+2. Create r2Client.ts for R2 initialization
+3. Create a service to generate SIGNED PUT URLs:
+   - Validates file type
+   - Validates file size
+   - Generates unique filename (UUID)
+   - Restricts content-type
+   - Sets expiry to 60 seconds
+4. API endpoint:
+   POST /api/uploads/signed-url
+   Request body:
+   {
+     "fileName": "image.jpg",
+     "fileType": "image/jpeg",
+     "fileSize": 123456,
+     "folder": "clinics"
+   }
+5. Response:
+   {
+     "uploadUrl": "<signed-url>",
+     "publicUrl": "<final-public-url>"
+   }
+
+FRONTEND REQUIREMENTS:
+1. Request signed URL from backend
+2. Upload file directly to R2 using PUT
+3. Use returned publicUrl for display/storage
+4. Include credentials for session auth
+
+SECURITY & COST CONTROL:
+- No multipart uploads
+- No ACLs (R2 does not support ACLs)
+- No public write access
+- Backend must enforce all limits
+- Never upload via backend (signed URLs only)
+
+OUTPUT EXPECTED:
+- r2Client.ts
+- signedUrl.service.ts
+- upload.routes.ts
+- Example frontend upload code
+- Clear comments explaining each step
+- No secrets in frontend code
+
+IMPORTANT:
+- This is Cloudflare R2 (S3 compatible), NOT AWS S3
+- Optimize for lowest cost and free-tier safety
