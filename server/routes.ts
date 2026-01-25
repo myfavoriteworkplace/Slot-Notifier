@@ -766,12 +766,18 @@ export async function registerRoutes(
           return res.status(403).json({ message: "Only clinics can update their profile" });
         }
         const updated = await storage.updateClinic(sess.clinicId, req.body);
+        
         // Update session data
         if (req.body.logoUrl !== undefined) {
           sess.logoUrl = req.body.logoUrl;
         }
-        req.session.save();
-        res.json(updated);
+        
+        req.session.save((err) => {
+          if (err) {
+            console.error("[AUTH ERROR] Failed to save session after profile update:", err);
+          }
+          res.json(updated);
+        });
       } catch (err: any) {
         res.status(500).json({ message: "Failed to update clinic profile", error: err.message });
       }

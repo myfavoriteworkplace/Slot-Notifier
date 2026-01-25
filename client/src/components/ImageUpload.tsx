@@ -59,7 +59,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
         throw new Error(error.message || "Failed to get upload URL");
       }
 
-      const { uploadUrl, publicUrl } = await signedUrlRes.json();
+      const { uploadUrl, publicUrl, key } = await signedUrlRes.json();
 
       const uploadRes = await fetch(uploadUrl, {
         method: "PUT",
@@ -73,8 +73,8 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
         throw new Error("Failed to upload image");
       }
 
-      setPreviewUrl(publicUrl);
-      onImageUploaded(publicUrl);
+      // Use the key as the identifier in our database
+      onImageUploaded(key);
       toast({ title: "Image uploaded successfully" });
     } catch (err: any) {
       toast({ 
