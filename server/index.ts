@@ -138,17 +138,28 @@ app.use((req, res, next) => {
   try {
     // Run database migrations/sync on startup
     log("Running database schema sync...", "system");
-    const { exec } = await import("child_process");
-    const { promisify } = await import("util");
-    const execAsync = promisify(exec);
+    console.log(`[DB-SYNC] DATABASE_URL set: ${!!process.env.DATABASE_URL}`);
     
     try {
-      // Use --force to ensure destructive changes (like adding columns) are applied if necessary
-      const { stdout, stderr } = await execAsync("npm run db:push -- --force");
-      log(`Schema sync output: ${stdout}`, "system");
-      if (stderr) log(`Schema sync warnings: ${stderr}`, "system");
+      // Use drizzle migrate directly instead of npm exec for better reliability
+      const { migrate } = await import("drizzle-orm/node-postgres/migrator");
+      const { db } = await import("./db");
+      const path = await import("path");
+      const fs = await import("fs");
+      
+      // Check if migrations folder exists
+      const migrationsFolder = path.join(process.cwd(), "drizzle");
+      console.log(`[DB-SYNC] Migrations folder: ${migrationsFolder}, exists: ${fs.existsSync(migrationsFolder)}`);
+      
+      if (fs.existsSync(migrationsFolder)) {
+        await migrate(db, { migrationsFolder });
+        log("Database migrations completed successfully", "system");
+      } else {
+        log("No migrations folder found, using drizzle db:push instead", "system");
+      }
     } catch (dbErr: any) {
-      log(`Schema sync failed (non-fatal): ${dbErr.message}`, "system");
+      log(`Database sync error: ${dbErr.message}`, "system");
+      console.error("[DB-SYNC ERROR]", dbErr);
     }
 
     const { ensureSessionTable } = await import("./db");
