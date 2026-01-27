@@ -1,0 +1,121 @@
+2026-01-27T14:42:57.103459129Z [AUTH-DEBUG] Request: GET /api/health
+2026-01-27T14:42:57.116961945Z [AUTH-DEBUG] Request: GET /api/health/database
+2026-01-27T14:42:57.117932771Z [AUTH-DEBUG] Request: GET /api/health/backend
+2026-01-27T14:42:57.117949892Z [API-RESPONSE] /api/health/backend: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:42:57.117Z"}
+2026-01-27T14:42:57.118683122Z 2:42:57 PM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:42:57.117Z"}
+2026-01-27T14:42:57.119258407Z [AUTH-DEBUG] Request: GET /api/health/backend
+2026-01-27T14:42:57.119264458Z [API-RESPONSE] /api/health/backend: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:42:57.119Z"}
+2026-01-27T14:42:57.119622867Z 2:42:57 PM [express] GET /api/health/backend 200 in 0ms :: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:42:57.119Z"}
+2026-01-27T14:42:57.12229977Z [AUTH-DEBUG] Request: GET /api/admin/logs/status
+2026-01-27T14:42:57.122567057Z [AUTH-FAILURE] 401 Unauthorized:
+2026-01-27T14:42:57.122576268Z     Method: GET
+2026-01-27T14:42:57.122579198Z     Path: /api/admin/logs/status
+2026-01-27T14:42:57.122582178Z     SessionID: R0BkPO-at4WdjOsk8Psu0WAOJ5jzq2zq
+2026-01-27T14:42:57.122584538Z     adminLoggedIn: undefined
+2026-01-27T14:42:57.122587098Z     adminEmail: undefined
+2026-01-27T14:42:57.122590298Z     clinicId: undefined
+2026-01-27T14:42:57.122592558Z     role: undefined
+2026-01-27T14:42:57.122595298Z     Origin: https://book-my-slot-client.onrender.com
+2026-01-27T14:42:57.122597488Z     Cookie: missing
+2026-01-27T14:42:57.122599578Z   
+2026-01-27T14:42:57.122981679Z 2:42:57 PM [express] GET /api/admin/logs/status 401 in 0ms :: {"message":"Authentication required"}
+2026-01-27T14:42:57.359731657Z [API-RESPONSE] /api/health/database: {"status":"ok","database":true,"timestamp":"2026-01-27T14:42:57.359Z"}
+2026-01-27T14:42:57.360420696Z 2:42:57 PM [express] GET /api/health/database 200 in 244ms :: {"status":"ok","database":true,"timestamp":"2026-01-27T14:42:57.359Z"}
+2026-01-27T14:42:57.396770273Z [AUTH-DEBUG] Request: GET /api/health/database
+2026-01-27T14:42:57.424583718Z [API-RESPONSE] /api/health/database: {"status":"ok","database":true,"timestamp":"2026-01-27T14:42:57.424Z"}
+2026-01-27T14:42:57.425360789Z 2:42:57 PM [express] GET /api/health/database 200 in 28ms :: {"status":"ok","database":true,"timestamp":"2026-01-27T14:42:57.424Z"}
+2026-01-27T14:42:57.666438805Z [API-RESPONSE] /api/health: {"status":"ok","backend":true,"database":true,"deployment":"render","env":"production","timestamp":"2026-01-27T14:42:57.662Z"}
+2026-01-27T14:42:57.666474246Z 2:42:57 PM [express] GET /api/health 200 in 560ms :: {"status":"ok","backend":true,"database":true,"deployment":"render","env":"production","timestamp":"2026-01-27T14:42:57.662Z"}
+2026-01-27T14:43:05.341553968Z [AUTH-DEBUG] Request: POST /api/clinics
+2026-01-27T14:43:05.341651661Z [CLINIC-DEBUG] POST /api/clinics attempt. User: {"claims":{"sub":"admin","email":"itsmyfavoriteworkplace@gmail.com"},"id":"superuser","role":"superuser"} SessionID: cLMvqxtovHvK5_G8zBpOFZu_hY40BWMR
+2026-01-27T14:43:05.342307379Z [CLINIC-DEBUG] Superuser admin creating new clinic: Test
+2026-01-27T14:43:05.375720326Z [CLINIC-DEBUG] Error creating clinic: error: column "logo_url" of relation "clinics" does not exist
+2026-01-27T14:43:05.375736907Z     at /opt/render/project/src/dist/index.cjs:70:13330
+2026-01-27T14:43:05.375742207Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-01-27T14:43:05.375746087Z     at async /opt/render/project/src/dist/index.cjs:76:107890
+2026-01-27T14:43:05.375750767Z     at async vb.createClinic (/opt/render/project/src/dist/index.cjs:107:6356)
+2026-01-27T14:43:05.375754647Z     at async /opt/render/project/src/dist/index.cjs:190:22176 {
+2026-01-27T14:43:05.375771917Z   length: 129,
+2026-01-27T14:43:05.375775408Z   severity: 'ERROR',
+2026-01-27T14:43:05.375777688Z   code: '42703',
+2026-01-27T14:43:05.375779948Z   detail: undefined,
+2026-01-27T14:43:05.375782208Z   hint: undefined,
+2026-01-27T14:43:05.375784408Z   position: '175',
+2026-01-27T14:43:05.375787248Z   internalPosition: undefined,
+2026-01-27T14:43:05.375789558Z   internalQuery: undefined,
+2026-01-27T14:43:05.375791758Z   where: undefined,
+2026-01-27T14:43:05.375793968Z   schema: undefined,
+2026-01-27T14:43:05.375796178Z   table: undefined,
+2026-01-27T14:43:05.375798388Z   column: undefined,
+2026-01-27T14:43:05.375800718Z   dataType: undefined,
+2026-01-27T14:43:05.375802908Z   constraint: undefined,
+2026-01-27T14:43:05.375805178Z   file: 'parse_target.c',
+2026-01-27T14:43:05.375807429Z   line: '1068',
+2026-01-27T14:43:05.375809698Z   routine: 'checkInsertTargets'
+2026-01-27T14:43:05.375811959Z }
+2026-01-27T14:43:05.422961709Z 2:43:05 PM [express] POST /api/clinics 500 in 81ms :: {"message":"Internal server error creating clinic"}
+2026-01-27T14:43:20.729043322Z [AUTH-DEBUG] Request: GET /api/health
+2026-01-27T14:43:20.732723032Z [AUTH-DEBUG] Request: GET /api/health/database
+2026-01-27T14:43:20.733954185Z [AUTH-DEBUG] Request: GET /api/health/backend
+2026-01-27T14:43:20.733981636Z [API-RESPONSE] /api/health/backend: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:43:20.733Z"}
+2026-01-27T14:43:20.734657174Z 2:43:20 PM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:43:20.733Z"}
+2026-01-27T14:43:20.739477275Z [AUTH-DEBUG] Request: GET /api/health
+2026-01-27T14:43:20.74004817Z [AUTH-DEBUG] Request: GET /api/admin/logs/status
+2026-01-27T14:43:20.740104072Z [AUTH-FAILURE] 401 Unauthorized:
+2026-01-27T14:43:20.740109632Z     Method: GET
+2026-01-27T14:43:20.740113592Z     Path: /api/admin/logs/status
+2026-01-27T14:43:20.740117363Z     SessionID: lsVMo78_Sc2ssyY0Ki1nSR39rMV-3pLC
+2026-01-27T14:43:20.740120892Z     adminLoggedIn: undefined
+2026-01-27T14:43:20.740124473Z     adminEmail: undefined
+2026-01-27T14:43:20.740128943Z     clinicId: undefined
+2026-01-27T14:43:20.740132593Z     role: undefined
+2026-01-27T14:43:20.740136523Z     Origin: https://book-my-slot-client.onrender.com
+2026-01-27T14:43:20.740140573Z     Cookie: missing
+2026-01-27T14:43:20.740144273Z   
+2026-01-27T14:43:20.740605826Z 2:43:20 PM [express] GET /api/admin/logs/status 401 in 1ms :: {"message":"Authentication required"}
+2026-01-27T14:43:20.743125514Z [AUTH-DEBUG] Request: GET /api/health/backend
+2026-01-27T14:43:20.743198106Z [API-RESPONSE] /api/health/backend: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:43:20.743Z"}
+2026-01-27T14:43:20.743685629Z 2:43:20 PM [express] GET /api/health/backend 200 in 0ms :: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:43:20.743Z"}
+2026-01-27T14:43:20.750054602Z [AUTH-DEBUG] Request: GET /api/health/backend
+2026-01-27T14:43:20.750077943Z [API-RESPONSE] /api/health/backend: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:43:20.750Z"}
+2026-01-27T14:43:20.765110171Z 2:43:20 PM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:43:20.750Z"}
+2026-01-27T14:43:20.983252225Z [API-RESPONSE] /api/health/database: {"status":"ok","database":true,"timestamp":"2026-01-27T14:43:20.983Z"}
+2026-01-27T14:43:20.983968444Z 2:43:20 PM [express] GET /api/health/database 200 in 251ms :: {"status":"ok","database":true,"timestamp":"2026-01-27T14:43:20.983Z"}
+2026-01-27T14:43:20.999504156Z [AUTH-DEBUG] Request: GET /api/health/database
+2026-01-27T14:43:21.011745098Z [AUTH-DEBUG] Request: GET /api/health/database
+2026-01-27T14:43:21.025311316Z [API-RESPONSE] /api/health/database: {"status":"ok","database":true,"timestamp":"2026-01-27T14:43:21.025Z"}
+2026-01-27T14:43:21.025902452Z 2:43:21 PM [express] GET /api/health/database 200 in 26ms :: {"status":"ok","database":true,"timestamp":"2026-01-27T14:43:21.025Z"}
+2026-01-27T14:43:21.060983135Z [API-RESPONSE] /api/health: {"status":"ok","backend":true,"database":true,"deployment":"render","env":"production","timestamp":"2026-01-27T14:43:21.060Z"}
+2026-01-27T14:43:21.061570301Z 2:43:21 PM [express] GET /api/health 200 in 333ms :: {"status":"ok","backend":true,"database":true,"deployment":"render","env":"production","timestamp":"2026-01-27T14:43:21.060Z"}
+2026-01-27T14:43:21.086021565Z [API-RESPONSE] /api/health: {"status":"ok","backend":true,"database":true,"deployment":"render","env":"production","timestamp":"2026-01-27T14:43:21.085Z"}
+2026-01-27T14:43:21.086598901Z 2:43:21 PM [express] GET /api/health 200 in 347ms :: {"status":"ok","backend":true,"database":true,"deployment":"render","env":"production","timestamp":"2026-01-27T14:43:21.085Z"}
+2026-01-27T14:43:21.249066962Z [API-RESPONSE] /api/health/database: {"status":"ok","database":true,"timestamp":"2026-01-27T14:43:21.248Z"}
+2026-01-27T14:43:21.249858424Z 2:43:21 PM [express] GET /api/health/database 200 in 238ms :: {"status":"ok","database":true,"timestamp":"2026-01-27T14:43:21.248Z"}
+2026-01-27T14:43:26.706894423Z [AUTH-DEBUG] Request: GET /api/health
+2026-01-27T14:43:26.708414894Z [AUTH-DEBUG] Request: GET /api/health/backend
+2026-01-27T14:43:26.708444025Z [API-RESPONSE] /api/health/backend: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:43:26.708Z"}
+2026-01-27T14:43:26.709384231Z 2:43:26 PM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:43:26.708Z"}
+2026-01-27T14:43:26.70974475Z [AUTH-DEBUG] Request: GET /api/admin/logs/status
+2026-01-27T14:43:26.709806722Z [AUTH-FAILURE] 401 Unauthorized:
+2026-01-27T14:43:26.709813472Z     Method: GET
+2026-01-27T14:43:26.709818272Z     Path: /api/admin/logs/status
+2026-01-27T14:43:26.709823222Z     SessionID: Lxf4Uc6NdfY5y0m59E1-blDdtaw2siVi
+2026-01-27T14:43:26.709827903Z     adminLoggedIn: undefined
+2026-01-27T14:43:26.709830812Z     adminEmail: undefined
+2026-01-27T14:43:26.709835603Z     clinicId: undefined
+2026-01-27T14:43:26.709840243Z     role: undefined
+2026-01-27T14:43:26.709845143Z     Origin: https://book-my-slot-client.onrender.com
+2026-01-27T14:43:26.709849843Z     Cookie: missing
+2026-01-27T14:43:26.709854423Z   
+2026-01-27T14:43:26.710277015Z 2:43:26 PM [express] GET /api/admin/logs/status 401 in 1ms :: {"message":"Authentication required"}
+2026-01-27T14:43:26.713306327Z [AUTH-DEBUG] Request: GET /api/health/database
+2026-01-27T14:43:26.717006798Z [AUTH-DEBUG] Request: GET /api/health/backend
+2026-01-27T14:43:26.717021628Z [API-RESPONSE] /api/health/backend: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:43:26.716Z"}
+2026-01-27T14:43:26.717502341Z 2:43:26 PM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-27T14:43:26.716Z"}
+2026-01-27T14:43:26.736010263Z [API-RESPONSE] /api/health: {"status":"ok","backend":true,"database":true,"deployment":"render","env":"production","timestamp":"2026-01-27T14:43:26.735Z"}
+2026-01-27T14:43:26.736509197Z 2:43:26 PM [express] GET /api/health 200 in 30ms :: {"status":"ok","backend":true,"database":true,"deployment":"render","env":"production","timestamp":"2026-01-27T14:43:26.735Z"}
+2026-01-27T14:43:26.741931454Z [API-RESPONSE] /api/health/database: {"status":"ok","database":true,"timestamp":"2026-01-27T14:43:26.741Z"}
+2026-01-27T14:43:26.742367376Z 2:43:26 PM [express] GET /api/health/database 200 in 29ms :: {"status":"ok","database":true,"timestamp":"2026-01-27T14:43:26.741Z"}
+2026-01-27T14:43:26.985957361Z [AUTH-DEBUG] Request: GET /api/health/database
+2026-01-27T14:43:27.012973144Z [API-RESPONSE] /api/health/database: {"status":"ok","database":true,"timestamp":"2026-01-27T14:43:27.012Z"}
+2026-01-27T14:43:27.014021883Z 2:43:27 PM [express] GET /api/health/database 200 in 29ms :: {"status":"ok","database":true,"timestamp":"2026-01-27T14:43:27.012Z"}
