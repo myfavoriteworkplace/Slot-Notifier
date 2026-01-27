@@ -112,6 +112,11 @@ For detailed setup and deployment instructions, see:
 
 ## Recent Changes
 
+- **2026-01-27**: Implemented doctor invitation system with email-based account setup
+  - Added `doctorInvites` table for tracking invitation tokens
+  - Created `/setup-password` page for doctors to complete registration
+  - Added email input field to clinic dashboard doctor management
+  - Backend endpoints for invitation verification and password setup
 - **2026-01-25**: Integrated Cloudflare R2 for clinic logo uploads.
 - **2026-01-24**: Added doctor management feature to clinic dashboard (view, add, remove doctors)
 - **2024-01-13**: Added dual authentication support (Replit OIDC + environment-based email/password)
