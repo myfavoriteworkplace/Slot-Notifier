@@ -640,6 +640,99 @@ export async function registerRoutes(
         res.status(500).json({ message: "Failed to add doctor" });
       }
     });
+
+    // Verify doctor invitation token
+    app.get("/api/auth/verify-invite", async (req, res) => {
+      try {
+        const { token } = req.query;
+        if (!token || typeof token !== 'string') {
+          return res.status(400).json({ message: "Token is required" });
+        }
+
+        const [invite] = await db.select().from(doctorInvites).where(sql`${doctorInvites.token} = ${token}`);
+        
+        if (!invite) {
+          return res.status(404).json({ message: "Invitation not found" });
+        }
+
+        if (invite.status !== 'pending') {
+          return res.status(400).json({ message: "This invitation has already been used" });
+        }
+
+        if (new Date(invite.expiresAt) < new Date()) {
+          await db.update(doctorInvites).set({ status: 'expired' }).where(sql`${doctorInvites.id} = ${invite.id}`);
+          return res.status(400).json({ message: "This invitation has expired" });
+        }
+
+        const clinic = await storage.getClinic(invite.clinicId);
+        
+        res.json({
+          email: invite.email,
+          clinicName: clinic?.name || 'Unknown Clinic',
+          clinicId: invite.clinicId
+        });
+      } catch (err: any) {
+        console.error("[API ERROR] Failed to verify invite:", err.message);
+        res.status(500).json({ message: "Failed to verify invitation" });
+      }
+    });
+
+    // Setup password from invitation
+    app.post("/api/auth/setup-password", async (req, res) => {
+      try {
+        const { token, password } = req.body;
+        
+        if (!token || !password) {
+          return res.status(400).json({ message: "Token and password are required" });
+        }
+
+        if (password.length < 8) {
+          return res.status(400).json({ message: "Password must be at least 8 characters" });
+        }
+
+        const [invite] = await db.select().from(doctorInvites).where(sql`${doctorInvites.token} = ${token}`);
+        
+        if (!invite) {
+          return res.status(404).json({ message: "Invitation not found" });
+        }
+
+        if (invite.status !== 'pending') {
+          return res.status(400).json({ message: "This invitation has already been used" });
+        }
+
+        if (new Date(invite.expiresAt) < new Date()) {
+          await db.update(doctorInvites).set({ status: 'expired' }).where(sql`${doctorInvites.id} = ${invite.id}`);
+          return res.status(400).json({ message: "This invitation has expired" });
+        }
+
+        const clinic = await storage.getClinic(invite.clinicId);
+        if (!clinic) {
+          return res.status(404).json({ message: "Clinic not found" });
+        }
+
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Update the doctor in the clinic's doctors array with the password
+        const updatedDoctors = (clinic.doctors || []).map((doc: any) => {
+          if (doc.email === invite.email) {
+            return { ...doc, password: hashedPassword, accountCreated: true };
+          }
+          return doc;
+        });
+
+        await storage.updateClinic(invite.clinicId, { doctors: updatedDoctors });
+
+        // Mark the invitation as accepted
+        await db.update(doctorInvites).set({ status: 'accepted' }).where(sql`${doctorInvites.id} = ${invite.id}`);
+
+        res.json({ message: "Account created successfully" });
+      } catch (err: any) {
+        console.error("[API ERROR] Failed to setup password:", err.message);
+        res.status(500).json({ message: "Failed to set up password" });
+      }
+    });
+
     app.post("/api/clinic/bookings-direct", async (req, res) => {
       try {
         const { customerName, customerPhone, customerEmail, startTime, endTime, description, clinicId } = req.body;

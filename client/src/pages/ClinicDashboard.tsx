@@ -137,6 +137,8 @@ export default function ClinicDashboard() {
 
   // Doctor Management state
   const [isDoctorsOpen, setIsDoctorsOpen] = useState(false);
+  const [newDoctorName, setNewDoctorName] = useState("");
+  const [newDoctorSpecialization, setNewDoctorSpecialization] = useState("");
   const [newDoctorDegree, setNewDoctorDegree] = useState("");
   const [newDoctorEmail, setNewDoctorEmail] = useState("");
   const [newDoctorImageUrl, setNewDoctorImageUrl] = useState<string | null>(null);
@@ -164,6 +166,7 @@ export default function ClinicDashboard() {
       setNewDoctorName("");
       setNewDoctorSpecialization("");
       setNewDoctorDegree("");
+      setNewDoctorEmail("");
       setNewDoctorImageUrl(null);
       toast({ title: "Doctor added successfully" });
     },
@@ -921,6 +924,17 @@ export default function ClinicDashboard() {
                             onChange={(e) => setNewDoctorDegree(e.target.value)}
                             placeholder="e.g., BDS, MDS"
                             data-testid="input-doctor-degree"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="doctor-email" className="text-left block text-xs text-muted-foreground">Email (Optional - for invitation)</Label>
+                          <Input
+                            id="doctor-email"
+                            type="email"
+                            value={newDoctorEmail}
+                            onChange={(e) => setNewDoctorEmail(e.target.value)}
+                            placeholder="doctor@example.com"
+                            data-testid="input-doctor-email"
                           />
                         </div>
                       </div>

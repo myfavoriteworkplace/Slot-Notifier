@@ -17,6 +17,7 @@ import Admin from "@/pages/Admin";
 import ClinicLogin from "@/pages/ClinicLogin";
 import ClinicDashboard from "@/pages/ClinicDashboard";
 import ClinicAbout from "@/pages/ClinicAbout";
+import SetupPassword from "@/pages/SetupPassword";
 
 function HealthIndicator() {
   const { isAuthenticated: isUserAuth } = useAuth();
@@ -129,6 +130,7 @@ function Router() {
       <Route path="/clinic-login" component={ClinicLogin} />
       <Route path="/clinic-dashboard" component={ClinicDashboard} />
       <Route path="/about" component={ClinicAbout} />
+      <Route path="/setup-password" component={SetupPassword} />
       <Route component={NotFound} />
     </Switch>
   );
