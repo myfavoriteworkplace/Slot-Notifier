@@ -171,7 +171,43 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   return res.status(401).json({ message: "Authentication required" });
 }
 
+import { clinics, slots, bookings, notifications, doctorInvites } from "@shared/schema";
 import { generateSignedUploadUrl } from "./signedUrl.service";
+import crypto from "crypto";
+
+async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLink: string) {
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Resend not configured. To: ${email}, Subject: Invitation to join ${clinicName}`);
+    console.log(`[EMAIL MOCK] Invite Link: ${inviteLink}`);
+    return;
+  }
+
+  const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
+
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: finalEmail,
+      subject: `Invitation to join ${clinicName} on BookMySlot`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h1 style="color: #0f172a;">Welcome to BookMySlot</h1>
+          <p>You have been invited to join <strong>${clinicName}</strong> as a doctor.</p>
+          <p>Please click the button below to set up your account and password:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${inviteLink}" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">Set Up Account</a>
+          </div>
+          <p style="color: #64748b; font-size: 14px;">This link will expire in 24 hours.</p>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+          <p style="color: #94a3b8; font-size: 12px;">If you didn't expect this invitation, you can safely ignore this email.</p>
+        </div>
+      `
+    });
+    console.log(`[EMAIL] Doctor invite email sent to ${email} (Mode: ${RESEND_MODE})`);
+  } catch (error) {
+    console.error('[EMAIL ERROR] Failed to send doctor invite email:', error);
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -560,7 +596,56 @@ export async function registerRoutes(
       }
     });
 
-    // Dedicated route for direct booking (bypass isAuthenticated for testing if needed)
+    // Add doctor to clinic
+    app.post("/api/clinic/doctors", isAuthenticated, async (req, res) => {
+      const sess = req.session as any;
+      const { name, specialization, degree, email } = req.body;
+      
+      const clinicId = sess.clinicId || req.body.clinicId;
+      if (!clinicId) {
+        return res.status(400).json({ message: "Clinic ID is required" });
+      }
+
+      try {
+        const clinic = await storage.getClinic(clinicId);
+        if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+        const updatedDoctors = [...(clinic.doctors || []), { name, specialization, degree, email }];
+        await storage.updateClinic(clinicId, { doctors: updatedDoctors });
+
+        // If email is provided, send invitation
+        if (email) {
+          const token = crypto.randomBytes(32).toString('hex');
+          const expiresAt = new Date();
+          expiresAt.setHours(expiresAt.getHours() + 24);
+
+          // We'll need a way to store this token. For now, we'll use a new table or field.
+          // Since I've added the table in schema.ts, I should use it.
+          // Assuming storage has a method for this, otherwise I'll use db directly if needed.
+          // But I'll stick to storage pattern if possible.
+          
+          // Let's add the invite to the database
+          await db.insert(doctorInvites).values({
+            clinicId,
+            email,
+            token,
+            expiresAt,
+            status: 'pending'
+          });
+
+          const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+          const host = req.headers.host;
+          const inviteLink = `${protocol}://${host}/setup-password?token=${token}`;
+          
+          await sendDoctorInviteEmail(email, clinic.name, inviteLink);
+        }
+
+        res.json({ message: "Doctor added successfully", doctors: updatedDoctors });
+      } catch (err: any) {
+        console.error("[API ERROR] Failed to add doctor:", err.message);
+        res.status(500).json({ message: "Failed to add doctor" });
+      }
+    });
     app.post("/api/clinic/bookings-direct", async (req, res) => {
       try {
         const { customerName, customerPhone, customerEmail, startTime, endTime, description, clinicId } = req.body;

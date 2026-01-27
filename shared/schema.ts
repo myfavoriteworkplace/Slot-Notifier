@@ -68,7 +68,24 @@ export const session = pgTable("session", {
   expire: timestamp("expire", { precision: 6 }).notNull(),
 });
 
-// Relations
+export const doctorInvites = pgTable("doctor_invites", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  email: varchar("email", { length: 255 }).notNull(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, accepted, expired
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDoctorInviteSchema = createInsertSchema(doctorInvites).omit({
+  id: true,
+  createdAt: true,
+  status: true
+});
+
+export type DoctorInvite = typeof doctorInvites.$inferSelect;
+export type InsertDoctorInvite = z.infer<typeof insertDoctorInviteSchema>;
 export const slotsRelations = relations(slots, ({ one, many }) => ({
   owner: one(users, {
     fields: [slots.ownerId],

@@ -140,6 +140,7 @@ export default function ClinicDashboard() {
   const [newDoctorName, setNewDoctorName] = useState("");
   const [newDoctorSpecialization, setNewDoctorSpecialization] = useState("");
   const [newDoctorDegree, setNewDoctorDegree] = useState("");
+  const [newDoctorEmail, setNewDoctorEmail] = useState("");
   const [newDoctorImageUrl, setNewDoctorImageUrl] = useState<string | null>(null);
 
   // Fetch clinic doctors
