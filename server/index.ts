@@ -136,30 +136,50 @@ app.use((req, res, next) => {
 // ------------------ STARTUP ------------------
 (async () => {
   try {
-    // Run database migrations/sync on startup
-    log("Running database schema sync...", "system");
-    console.log(`[DB-SYNC] DATABASE_URL set: ${!!process.env.DATABASE_URL}`);
+    // Ensure database schema is synced
+    log("Syncing database schema...", "system");
     
     try {
-      // Use drizzle migrate directly instead of npm exec for better reliability
-      const { migrate } = await import("drizzle-orm/node-postgres/migrator");
       const { db } = await import("./db");
-      const path = await import("path");
-      const fs = await import("fs");
+      const { sql } = await import("drizzle-orm");
       
-      // Check if migrations folder exists
-      const migrationsFolder = path.join(process.cwd(), "drizzle");
-      console.log(`[DB-SYNC] Migrations folder: ${migrationsFolder}, exists: ${fs.existsSync(migrationsFolder)}`);
+      // Check if logo_url column exists in clinics table
+      const checkColumn = await db.execute(
+        sql`SELECT column_name FROM information_schema.columns WHERE table_name='clinics' AND column_name='logo_url'`
+      );
       
-      if (fs.existsSync(migrationsFolder)) {
-        await migrate(db, { migrationsFolder });
-        log("Database migrations completed successfully", "system");
+      if ((checkColumn as any).rowCount === 0) {
+        log("Adding missing logo_url column to clinics table...", "system");
+        await db.execute(sql`ALTER TABLE clinics ADD COLUMN logo_url varchar(1000)`);
+        log("Successfully added logo_url column", "system");
       } else {
-        log("No migrations folder found, using drizzle db:push instead", "system");
+        log("logo_url column already exists", "system");
+      }
+      
+      // Check if doctor_invites table exists
+      const checkTable = await db.execute(
+        sql`SELECT table_name FROM information_schema.tables WHERE table_name='doctor_invites'`
+      );
+      
+      if ((checkTable as any).rowCount === 0) {
+        log("Creating doctor_invites table...", "system");
+        await db.execute(sql`
+          CREATE TABLE doctor_invites (
+            id SERIAL PRIMARY KEY,
+            clinic_id INTEGER NOT NULL REFERENCES clinics(id),
+            email VARCHAR(255) NOT NULL,
+            token VARCHAR(255) NOT NULL UNIQUE,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+          )
+        `);
+        log("Successfully created doctor_invites table", "system");
+      } else {
+        log("doctor_invites table already exists", "system");
       }
     } catch (dbErr: any) {
-      log(`Database sync error: ${dbErr.message}`, "system");
-      console.error("[DB-SYNC ERROR]", dbErr);
+      log(`Schema sync warning: ${dbErr.message}`, "system");
     }
 
     const { ensureSessionTable } = await import("./db");
