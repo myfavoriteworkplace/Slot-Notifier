@@ -143,7 +143,8 @@ app.use((req, res, next) => {
     const execAsync = promisify(exec);
     
     try {
-      const { stdout, stderr } = await execAsync("npm run db:push");
+      // Use --force to ensure destructive changes (like adding columns) are applied if necessary
+      const { stdout, stderr } = await execAsync("npm run db:push -- --force");
       log(`Schema sync output: ${stdout}`, "system");
       if (stderr) log(`Schema sync warnings: ${stderr}`, "system");
     } catch (dbErr: any) {
