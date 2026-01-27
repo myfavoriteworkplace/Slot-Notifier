@@ -1085,7 +1085,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Only clinic admins can manage doctors" });
       }
       try {
-        const { name, specialization, degree } = req.body;
+        const { name, specialization, degree, email, imageUrl } = req.body;
         if (!name || !specialization) {
           return res.status(400).json({ message: "Name and specialization are required" });
         }
@@ -1094,9 +1094,31 @@ export async function registerRoutes(
           return res.status(404).json({ message: "Clinic not found" });
         }
         const doctors = clinic.doctors || [];
-        const newDoctor = { name, specialization, degree: degree || "" };
+        const newDoctor = { name, specialization, degree: degree || "", email, imageUrl, accountCreated: false };
         const updatedDoctors = [...doctors, newDoctor];
         const updatedClinic = await storage.updateClinic(sess.clinicId, { doctors: updatedDoctors });
+
+        // If email is provided, send invitation
+        if (email) {
+          const token = crypto.randomBytes(32).toString('hex');
+          const expiresAt = new Date();
+          expiresAt.setHours(expiresAt.getHours() + 24);
+
+          await db.insert(doctorInvites).values({
+            clinicId: sess.clinicId,
+            email,
+            token,
+            expiresAt,
+            status: 'pending'
+          });
+
+          const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+          const host = req.headers.host;
+          const inviteLink = `${protocol}://${host}/setup-password?token=${token}`;
+          
+          await sendDoctorInviteEmail(email, clinic.name, inviteLink);
+        }
+
         res.json({ doctors: updatedClinic.doctors });
       } catch (err: any) {
         console.error("[API ERROR] Failed to add doctor:", err);
