@@ -137,14 +137,12 @@ export default function ClinicDashboard() {
 
   // Doctor Management state
   const [isDoctorsOpen, setIsDoctorsOpen] = useState(false);
-  const [newDoctorName, setNewDoctorName] = useState("");
-  const [newDoctorSpecialization, setNewDoctorSpecialization] = useState("");
   const [newDoctorDegree, setNewDoctorDegree] = useState("");
   const [newDoctorEmail, setNewDoctorEmail] = useState("");
   const [newDoctorImageUrl, setNewDoctorImageUrl] = useState<string | null>(null);
 
   // Fetch clinic doctors
-  const { data: clinicData, refetch: refetchClinicData } = useQuery<{ doctors: { name: string; specialization: string; degree: string; imageUrl?: string | null }[] }>({
+  const { data: clinicData, refetch: refetchClinicData } = useQuery<{ doctors: { name: string; specialization: string; degree: string; email?: string; imageUrl?: string | null }[] }>({
     queryKey: ['/api/auth/clinic/me'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/auth/clinic/me');
@@ -155,7 +153,7 @@ export default function ClinicDashboard() {
   });
 
   const addDoctorMutation = useMutation({
-    mutationFn: async (data: { name: string; specialization: string; degree: string; imageUrl?: string | null }) => {
+    mutationFn: async (data: { name: string; specialization: string; degree: string; email?: string; imageUrl?: string | null }) => {
       const response = await apiRequest('POST', '/api/auth/clinic/doctors', data);
       if (!response.ok) throw new Error('Failed to add doctor');
       return response.json();
