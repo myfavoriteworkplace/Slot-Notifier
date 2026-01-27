@@ -136,6 +136,20 @@ app.use((req, res, next) => {
 // ------------------ STARTUP ------------------
 (async () => {
   try {
+    // Run database migrations/sync on startup
+    log("Running database schema sync...", "system");
+    const { exec } = await import("child_process");
+    const { promisify } = await import("util");
+    const execAsync = promisify(exec);
+    
+    try {
+      const { stdout, stderr } = await execAsync("npm run db:push");
+      log(`Schema sync output: ${stdout}`, "system");
+      if (stderr) log(`Schema sync warnings: ${stderr}`, "system");
+    } catch (dbErr: any) {
+      log(`Schema sync failed (non-fatal): ${dbErr.message}`, "system");
+    }
+
     const { ensureSessionTable } = await import("./db");
     await ensureSessionTable();
 
