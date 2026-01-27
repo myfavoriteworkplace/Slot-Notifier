@@ -733,6 +733,129 @@ export async function registerRoutes(
       }
     });
 
+    // Doctor login endpoint
+    app.post("/api/auth/doctor/login", async (req, res) => {
+      try {
+        const { email, password } = req.body;
+        
+        console.log(`[AUTH] Doctor login attempt - Email: ${email}`);
+        
+        if (!email || !password) {
+          return res.status(400).json({ message: "Email and password are required" });
+        }
+
+        // Search through all clinics to find the doctor
+        const allClinics = await storage.getClinics();
+        let foundDoctor: any = null;
+        let foundClinic: any = null;
+
+        for (const clinic of allClinics) {
+          if (clinic.isArchived) continue;
+          
+          const doctors = clinic.doctors || [];
+          const doctor = doctors.find((d: any) => d.email === email && d.accountCreated);
+          
+          if (doctor) {
+            foundDoctor = doctor;
+            foundClinic = clinic;
+            break;
+          }
+        }
+
+        if (!foundDoctor || !foundClinic) {
+          console.error(`[AUTH ERROR] Doctor not found or account not set up: ${email}`);
+          return res.status(401).json({ message: "Invalid credentials or account not set up" });
+        }
+
+        const isMatch = await bcrypt.compare(password, foundDoctor.password || "");
+        if (!isMatch) {
+          console.error(`[AUTH ERROR] Invalid password for doctor: ${email}`);
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        if (!req.session) {
+          console.error("[AUTH ERROR] No session available for doctor login");
+          return res.status(500).json({ message: "Session initialization failed" });
+        }
+
+        // Set session data for doctor
+        const sess = req.session as any;
+        sess.doctorLoggedIn = true;
+        sess.doctorEmail = email;
+        sess.doctorName = foundDoctor.name;
+        sess.clinicId = foundClinic.id;
+        sess.role = 'doctor';
+
+        req.session.save((err) => {
+          if (err) {
+            console.error("[AUTH ERROR] Failed to save doctor session:", err);
+            return res.status(500).json({ message: "Session save failed" });
+          }
+          
+          console.log(`[AUTH] Doctor login successful: ${email} at clinic ${foundClinic.name}`);
+          res.json({
+            email: foundDoctor.email,
+            name: foundDoctor.name,
+            specialization: foundDoctor.specialization,
+            clinicId: foundClinic.id,
+            clinicName: foundClinic.name,
+            logoUrl: foundClinic.logoUrl,
+          });
+        });
+      } catch (err: any) {
+        console.error("[API ERROR] Doctor login failed:", err.message);
+        res.status(500).json({ message: "Login failed" });
+      }
+    });
+
+    // Doctor session endpoint
+    app.get("/api/auth/doctor/me", async (req, res) => {
+      const sess = req.session as any;
+      
+      if (!sess.doctorLoggedIn) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      try {
+        const clinic = await storage.getClinic(sess.clinicId);
+        if (!clinic) {
+          return res.status(404).json({ message: "Clinic not found" });
+        }
+
+        const doctor = (clinic.doctors || []).find((d: any) => d.email === sess.doctorEmail) as any;
+        if (!doctor) {
+          return res.status(404).json({ message: "Doctor not found" });
+        }
+
+        res.json({
+          email: doctor.email,
+          name: doctor.name,
+          specialization: doctor.specialization,
+          clinicId: clinic.id,
+          clinicName: clinic.name,
+          logoUrl: clinic.logoUrl,
+        });
+      } catch (err: any) {
+        console.error("[API ERROR] Failed to get doctor session:", err.message);
+        res.status(500).json({ message: "Failed to get session" });
+      }
+    });
+
+    // Doctor logout endpoint
+    app.post("/api/auth/doctor/logout", async (req, res) => {
+      const sess = req.session as any;
+      sess.doctorLoggedIn = false;
+      sess.doctorEmail = null;
+      sess.doctorName = null;
+      
+      req.session.save((err) => {
+        if (err) {
+          console.error("[AUTH ERROR] Failed to save logout session:", err);
+        }
+        res.json({ message: "Logged out successfully" });
+      });
+    });
+
     app.post("/api/clinic/bookings-direct", async (req, res) => {
       try {
         const { customerName, customerPhone, customerEmail, startTime, endTime, description, clinicId } = req.body;
