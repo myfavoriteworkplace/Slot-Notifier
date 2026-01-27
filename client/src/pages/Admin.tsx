@@ -36,7 +36,7 @@ export default function Admin() {
   const [newClinicDoctorDegree, setNewClinicDoctorDegree] = useState("");
   const [newClinicUsername, setNewClinicUsername] = useState("");
   const [newClinicPassword, setNewClinicPassword] = useState("");
-  const [newClinicDoctors, setNewClinicDoctors] = useState<{ name: string; specialization: string; degree: string }[]>([]);
+  const [newClinicDoctors, setNewClinicDoctors] = useState<{ name: string; specialization: string; degree: string; email: string }[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
   const [editClinicDialogOpen, setEditClinicDialogOpen] = useState(false);
@@ -357,7 +357,7 @@ export default function Admin() {
                       type="button" 
                       variant="outline" 
                       size="sm"
-                      onClick={() => setNewClinicDoctors([...newClinicDoctors, { name: '', specialization: '', degree: '' }])}
+                      onClick={() => setNewClinicDoctors([...newClinicDoctors, { name: '', specialization: '', degree: '', email: '' }])}
                       data-testid="button-add-doctor"
                     >
                       <UserPlus className="h-3 w-3 mr-1" />
@@ -389,6 +389,17 @@ export default function Admin() {
                           }}
                           className="h-8"
                           data-testid={`input-doctor-name-${index}`}
+                        />
+                        <Input
+                          placeholder="Doctor email (Optional)"
+                          value={doctor.email || ""}
+                          onChange={(e) => {
+                            const updated = [...newClinicDoctors];
+                            updated[index].email = e.target.value;
+                            setNewClinicDoctors(updated);
+                          }}
+                          className="h-8"
+                          data-testid={`input-doctor-email-${index}`}
                         />
                         <div className="grid grid-cols-2 gap-2">
                           <Input

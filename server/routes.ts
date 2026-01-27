@@ -599,7 +599,7 @@ export async function registerRoutes(
     // Add doctor to clinic
     app.post("/api/clinic/doctors", isAuthenticated, async (req, res) => {
       const sess = req.session as any;
-      const { name, specialization, degree, email } = req.body;
+      const { name, specialization, degree, email, imageUrl } = req.body;
       
       const clinicId = sess.clinicId || req.body.clinicId;
       if (!clinicId) {
@@ -610,7 +610,7 @@ export async function registerRoutes(
         const clinic = await storage.getClinic(clinicId);
         if (!clinic) return res.status(404).json({ message: "Clinic not found" });
 
-        const updatedDoctors = [...(clinic.doctors || []), { name, specialization, degree, email }];
+        const updatedDoctors = [...(clinic.doctors || []), { name, specialization, degree, email, imageUrl }];
         await storage.updateClinic(clinicId, { doctors: updatedDoctors });
 
         // If email is provided, send invitation
@@ -619,12 +619,6 @@ export async function registerRoutes(
           const expiresAt = new Date();
           expiresAt.setHours(expiresAt.getHours() + 24);
 
-          // We'll need a way to store this token. For now, we'll use a new table or field.
-          // Since I've added the table in schema.ts, I should use it.
-          // Assuming storage has a method for this, otherwise I'll use db directly if needed.
-          // But I'll stick to storage pattern if possible.
-          
-          // Let's add the invite to the database
           await db.insert(doctorInvites).values({
             clinicId,
             email,

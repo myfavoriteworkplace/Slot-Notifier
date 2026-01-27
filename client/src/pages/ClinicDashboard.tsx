@@ -199,6 +199,7 @@ export default function ClinicDashboard() {
       name: newDoctorName,
       specialization: newDoctorSpecialization,
       degree: newDoctorDegree,
+      email: newDoctorEmail,
       imageUrl: newDoctorImageUrl
     });
   };
