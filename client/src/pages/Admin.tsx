@@ -202,7 +202,7 @@ export default function Admin() {
       email?: string;
       phone?: string;
       website?: string;
-      doctors?: { name: string; specialization: string; degree: string }[];
+      doctors?: { name: string; specialization: string; degree: string; email?: string }[];
     }) => {
       const { id, ...updateData } = data;
       const res = await apiRequest('PATCH', `/api/clinics/${id}`, updateData);
