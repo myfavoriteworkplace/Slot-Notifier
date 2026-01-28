@@ -18,6 +18,7 @@ import ClinicLogin from "@/pages/ClinicLogin";
 import ClinicDashboard from "@/pages/ClinicDashboard";
 import ClinicAbout from "@/pages/ClinicAbout";
 import SetupPassword from "@/pages/SetupPassword";
+import SmileDeals from "@/pages/SmileDeals";
 import DoctorDashboard from "@/pages/DoctorDashboard";
 
 function HealthIndicator() {
@@ -132,6 +133,7 @@ function Router() {
       <Route path="/clinic-dashboard" component={ClinicDashboard} />
       <Route path="/about" component={ClinicAbout} />
       <Route path="/setup-password" component={SetupPassword} />
+      <Route path="/deals" component={SmileDeals} />
       <Route path="/doctor-dashboard" component={DoctorDashboard} />
       <Route component={NotFound} />
     </Switch>

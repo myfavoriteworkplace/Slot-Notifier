@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Shield,
   Building2,
+  Sparkles,
 } from "lucide-react";
 import { queryClient, apiRequest, API_BASE_URL } from "@/lib/queryClient";
 import { ThemeToggle } from "./ThemeToggle";
@@ -83,6 +84,7 @@ export function Header() {
 
   const tabs = [
     ...(isSuperUser ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
+    { href: "/deals", label: "Smile DEALS", icon: Sparkles },
     ...(isClinicAuthenticated ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
     // Only show Book a Slot and Clinic Portal when NOT logged in as clinic admin
     ...(!isClinicAuthenticated ? [
