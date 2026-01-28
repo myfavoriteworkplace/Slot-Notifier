@@ -103,11 +103,17 @@ export default function SmileDeals() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="aspect-square rounded-md bg-muted flex items-center justify-center text-center p-4 border border-dashed border-border">
-                  <p className="text-xs text-muted-foreground">
-                    Your ad could be here!<br />
-                    Contact us to partner.
-                  </p>
+                <div className="aspect-video rounded-md overflow-hidden border border-border">
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    src="https://www.youtube.com/embed/p_q0G4GhMnI?autoplay=1&mute=1"
+                    title="Smile Deals Sponsored Content"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="w-full h-full"
+                  ></iframe>
                 </div>
                 <div className="space-y-2">
                   <h4 className="font-semibold text-sm">Dental Insurance Partner</h4>
