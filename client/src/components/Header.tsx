@@ -204,12 +204,12 @@ export function Header() {
       return (
         <Button 
           onClick={() => window.location.href = "/admin"} 
+          variant="ghost"
           size="sm"
-          className="font-semibold gap-2"
+          className="text-[10px] h-7 px-2 opacity-40 hover:opacity-100 transition-opacity ml-4"
           data-testid="button-login"
         >
-          <Shield className="h-4 w-4" />
-          System Admin
+          Admin
         </Button>
       );
     }
