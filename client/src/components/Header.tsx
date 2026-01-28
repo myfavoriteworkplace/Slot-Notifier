@@ -201,12 +201,13 @@ export function Header() {
     }
 
     if (!isAuthenticated && !isClinicAuthenticated) {
+      const isAdminActive = location === "/admin";
       return (
         <Button 
           onClick={() => window.location.href = "/admin"} 
-          variant="ghost"
+          variant={isAdminActive ? "default" : "ghost"}
           size="sm"
-          className="gap-2 h-9 px-3 sm:px-4 text-muted-foreground hover:text-foreground ml-2"
+          className={`gap-2 h-9 px-3 sm:px-4 ml-2 ${isAdminActive ? "" : "text-muted-foreground hover:text-foreground"}`}
           data-testid="button-login"
         >
           <Shield className="h-4 w-4" />
