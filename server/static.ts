@@ -35,7 +35,7 @@ export function serveStatic(app: Express) {
   }
 
   if (fs.existsSync(distPath)) {
-    // Crucial for Replit: Set specific cache and headers to avoid blank screen
+    // SPA fallback: ensure we only serve index.html for GET requests that aren't for static assets
     app.use(express.static(distPath, {
       maxAge: '1h',
       setHeaders: (res, filePath) => {
@@ -48,6 +48,7 @@ export function serveStatic(app: Express) {
       }
     }));
 
+    // Explicitly handle assets folder for better reliability on platforms like Render
     const assetsPath = path.resolve(distPath, "assets");
     if (fs.existsSync(assetsPath)) {
       app.use("/assets", express.static(assetsPath, {

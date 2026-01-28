@@ -206,14 +206,6 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // SPA fallback: serve frontend for non-API routes
-  app.get("*", (req, res, next) => {
-    if (!req.path.startsWith("/api")) {
-      return serveStatic(app)(req, res, next);
-    }
-    next();
-  });
-
   // 404 handler for API routes
   app.use("/api/*", (req, res) => {
     res.status(404).json({
