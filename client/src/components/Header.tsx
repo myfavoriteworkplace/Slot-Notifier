@@ -84,7 +84,6 @@ export function Header() {
 
   const tabs = [
     ...(isSuperUser ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
-    { href: "/deals", label: "Smile DEALS", icon: Sparkles },
     ...(isClinicAuthenticated ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
     // Only show Book a Slot and Clinic Portal when NOT logged in as clinic admin
     ...(!isClinicAuthenticated ? [
@@ -102,6 +101,7 @@ export function Header() {
       },
       { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
     ] : []),
+    { href: "/deals", label: "Smile DEALS", icon: Sparkles },
     ...(location.startsWith("/book/") || location === "/about" || location === "/clinic-login" ? (() => {
       const clinicId = (location.startsWith("/book/") && !location.endsWith("/null")) 
         ? location.split("/").pop() 
