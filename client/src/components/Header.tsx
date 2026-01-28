@@ -206,10 +206,11 @@ export function Header() {
           onClick={() => window.location.href = "/admin"} 
           variant="ghost"
           size="sm"
-          className="text-[10px] h-7 px-2 opacity-40 hover:opacity-100 transition-opacity ml-4"
+          className="gap-2 h-9 px-3 sm:px-4 text-muted-foreground hover:text-foreground ml-2"
           data-testid="button-login"
         >
-          Admin
+          <Shield className="h-4 w-4" />
+          <span className="hidden sm:inline">Admin</span>
         </Button>
       );
     }
