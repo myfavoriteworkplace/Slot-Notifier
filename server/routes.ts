@@ -628,7 +628,7 @@ export async function registerRoutes(
           });
 
           const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-          const host = req.headers.host;
+          const host = req.headers['x-forwarded-host'] || req.headers.host;
           const inviteLink = `${protocol}://${host}/setup-password?token=${token}`;
           
           await sendDoctorInviteEmail(email, clinic.name, inviteLink);
@@ -1113,7 +1113,7 @@ export async function registerRoutes(
           });
 
           const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-          const host = req.headers.host;
+          const host = req.headers['x-forwarded-host'] || req.headers.host;
           const inviteLink = `${protocol}://${host}/setup-password?token=${token}`;
           
           await sendDoctorInviteEmail(email, clinic.name, inviteLink);
