@@ -9,8 +9,8 @@ const DEALS = [
     title: "Premium Dental Cleaning",
     description: "Get a comprehensive professional cleaning and check-up for a special price. Includes scaling and polishing.",
     image: "/ads/cleaning.jpg",
-    price: "$79",
-    originalPrice: "$150",
+    price: "₹1,499",
+    originalPrice: "₹3,000",
     tag: "Most Popular",
     link: "#"
   },
@@ -20,7 +20,7 @@ const DEALS = [
     description: "Start your journey to a perfect smile with a free orthodontic consultation. Digital scan included.",
     image: "/ads/braces.jpg",
     price: "FREE",
-    originalPrice: "$99",
+    originalPrice: "₹1,000",
     tag: "Limited Time",
     link: "#"
   },
@@ -29,8 +29,8 @@ const DEALS = [
     title: "Teeth Whitening Special",
     description: "Brighten your smile by up to 8 shades with our professional in-office whitening treatment.",
     image: "/ads/whitening.jpg",
-    price: "$199",
-    originalPrice: "$350",
+    price: "₹4,999",
+    originalPrice: "₹8,500",
     tag: "Best Value",
     link: "#"
   }
