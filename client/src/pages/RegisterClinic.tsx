@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Building2 } from "lucide-react";
-
 import { z } from "zod";
 
 export default function RegisterClinic() {
@@ -162,5 +161,3 @@ export default function RegisterClinic() {
     </div>
   );
 }
-
-import { z } from "zod";
