@@ -21,7 +21,8 @@ export default function RegisterClinic() {
     resolver: zodResolver(insertClinicSchema.extend({
       username: z.string().min(3, "Username must be at least 3 characters"),
       passwordHash: z.string().min(6, "Password must be at least 6 characters"),
-      email: z.string().email().optional().or(z.literal("")),
+      email: z.string().email("Valid email is required"),
+      phone: z.string().min(10, "Valid phone number is required"),
       address: z.string().optional().or(z.literal("")),
     })),
     defaultValues: {
@@ -92,7 +93,7 @@ export default function RegisterClinic() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Email *</FormLabel>
                       <FormControl>
                         <Input type="email" placeholder="contact@clinic.com" {...field} value={field.value || ""} />
                       </FormControl>
@@ -102,19 +103,34 @@ export default function RegisterClinic() {
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address</FormLabel>
-                    <FormControl>
-                      <Input placeholder="123 Medical Square, City" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+1 234 567 890" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <Input placeholder="123 Medical Square, City" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
@@ -150,6 +166,9 @@ export default function RegisterClinic() {
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Submit Registration
                 </Button>
+                <p className="text-sm text-muted-foreground text-center">
+                  Registration will be completed after review by the administrator.
+                </p>
                 <Button variant="ghost" type="button" className="w-full" onClick={() => setLocation("/getting-started")}>
                   Cancel
                 </Button>
