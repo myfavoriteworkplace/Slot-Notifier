@@ -60,11 +60,7 @@ export default function Landing() {
                   size="lg" 
                   className="rounded-full px-8 h-12 sm:h-11 text-base shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all w-full sm:w-auto"
                   onClick={() => {
-                    if (isAuthenticated) {
-                      setLocation(user?.role === 'owner' ? "/dashboard" : "/book");
-                    } else {
-                      window.location.href = "/api/login";
-                    }
+                    setLocation("/getting-started");
                   }}
                 >
                   Get Started <ArrowRight className="ml-2 h-4 w-4" />
