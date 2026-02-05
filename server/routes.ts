@@ -214,6 +214,42 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  // Clinic Registration
+  app.post("/api/clinics/register", async (req, res) => {
+    try {
+      const clinicData = insertClinicSchema.parse({
+        ...req.body,
+        status: "pending",
+        isArchived: false
+      });
+      
+      // Hash password
+      const passwordHash = await bcrypt.hash(req.body.passwordHash, 10);
+      
+      const clinic = await storage.createClinic({
+        ...clinicData,
+        passwordHash,
+      } as any);
+
+      res.status(201).json(clinic);
+    } catch (error: any) {
+      console.error("[REGISTRATION ERROR]", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/clinics/:id/approve", isAuthenticated, async (req, res) => {
+    if ((req as any).user.role !== 'superuser') {
+      return res.status(403).json({ message: "Only superusers can approve clinics" });
+    }
+    try {
+      const clinic = await storage.updateClinic(parseInt(req.params.id), { status: "approved" });
+      res.json(clinic);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // Cloudflare R2 Uploads
   app.post("/api/uploads/signed-url", isAuthenticated, async (req, res) => {
     try {

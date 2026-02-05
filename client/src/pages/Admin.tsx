@@ -303,8 +303,21 @@ export default function Admin() {
     );
   }
 
-  const activeClinics = Array.isArray(clinics) ? clinics.filter(c => !c.isArchived) : [];
+  const activeClinics = Array.isArray(clinics) ? clinics.filter(c => !c.isArchived && c.status === 'approved') : [];
   const archivedClinics = Array.isArray(clinics) ? clinics.filter(c => c.isArchived) : [];
+  const pendingClinics = Array.isArray(clinics) ? clinics.filter(c => c.status === 'pending') : [];
+
+  const approveClinicMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('PATCH', `/api/clinics/${id}/approve`);
+      if (!res.ok) throw new Error("Failed to approve clinic");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      toast({ title: "Clinic approved" });
+    }
+  });
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-4xl">
@@ -523,6 +536,52 @@ export default function Admin() {
       </div>
 
       <div className="space-y-6">
+        {pendingClinics.length > 0 && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center text-primary">
+                <Check className="h-5 w-5 mr-2" />
+                Pending Approvals ({pendingClinics.length})
+              </CardTitle>
+              <CardDescription>Review and approve new clinic registrations</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {pendingClinics.map((clinic) => (
+                  <div key={clinic.id} className="flex items-center justify-between p-4 bg-background border rounded-lg shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Building2 className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold">{clinic.name}</p>
+                        <p className="text-xs text-muted-foreground">{clinic.email || 'No email'}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        onClick={() => approveClinicMutation.mutate(clinic.id)}
+                        disabled={approveClinicMutation.isPending}
+                      >
+                        Approve
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => archiveClinicMutation.mutate(clinic.id)}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">

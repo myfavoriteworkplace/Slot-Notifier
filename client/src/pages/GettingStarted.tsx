@@ -54,7 +54,7 @@ export default function GettingStarted() {
               variant="outline" 
               className="w-full gap-2 group" 
               size="lg"
-              onClick={() => setLocation("/clinic-login")}
+              onClick={() => setLocation("/register-clinic")}
               data-testid="button-get-started-register"
             >
               Start Registration

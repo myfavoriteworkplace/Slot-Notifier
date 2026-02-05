@@ -21,6 +21,7 @@ import SetupPassword from "@/pages/SetupPassword";
 import SmileDeals from "@/pages/SmileDeals";
 import DoctorDashboard from "@/pages/DoctorDashboard";
 import GettingStarted from "@/pages/GettingStarted";
+import RegisterClinic from "@/pages/RegisterClinic";
 
 function HealthIndicator() {
   const { isAuthenticated: isUserAuth } = useAuth();
@@ -127,6 +128,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/getting-started" component={GettingStarted} />
+      <Route path="/register-clinic" component={RegisterClinic} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/book/:clinicId" component={Book} />
       <Route path="/book" component={Book} />
