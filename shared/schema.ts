@@ -21,6 +21,8 @@ export const clinics = pgTable("clinics", {
   doctorDegree: varchar("doctor_degree", { length: 255 }),
   doctors: jsonb("doctors").$type<{ name: string; specialization: string; degree: string; imageUrl?: string | null }[]>().default([]),
   logoUrl: varchar("logo_url", { length: 1000 }),
+  status: varchar("status", { length: 20 }).default("approved").notNull(), // pending, approved, rejected
+  registeredBy: varchar("registered_by", { length: 255 }), // user id if registered by user
   isArchived: boolean("is_archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });

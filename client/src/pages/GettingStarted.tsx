@@ -64,10 +64,10 @@ export default function GettingStarted() {
         </Card>
       </div>
 
-      <div className="mt-16 text-center">
+          <div className="mt-16 text-center">
         <p className="text-sm text-muted-foreground">
           Already have a clinic account?{" "}
-          <Button variant="link" className="p-0 h-auto" onClick={() => setLocation("/clinic-login")}>
+          <Button variant="ghost" className="p-0 h-9 px-2 underline hover:bg-transparent" onClick={() => setLocation("/clinic-login")}>
             Sign in here
           </Button>
         </p>
