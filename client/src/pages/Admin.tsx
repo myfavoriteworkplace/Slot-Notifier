@@ -216,6 +216,18 @@ export default function Admin() {
     }
   });
 
+  const approveClinicMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('PATCH', `/api/clinics/${id}/approve`);
+      if (!res.ok) throw new Error("Failed to approve clinic");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      toast({ title: "Clinic approved" });
+    }
+  });
+
   const claimSuperuserMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest('POST', '/api/claim-superuser');
@@ -306,18 +318,6 @@ export default function Admin() {
   const activeClinics = Array.isArray(clinics) ? clinics.filter(c => !c.isArchived && c.status === 'approved') : [];
   const archivedClinics = Array.isArray(clinics) ? clinics.filter(c => c.isArchived) : [];
   const pendingClinics = Array.isArray(clinics) ? clinics.filter(c => c.status === 'pending') : [];
-
-  const approveClinicMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest('PATCH', `/api/clinics/${id}/approve`);
-      if (!res.ok) throw new Error("Failed to approve clinic");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      toast({ title: "Clinic approved" });
-    }
-  });
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-4xl">
