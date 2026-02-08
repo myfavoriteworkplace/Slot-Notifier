@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Admin() {
   const { user, isAuthenticated, isLoading: authLoading, loginError, isLoggingIn } = useAuth();
@@ -535,296 +535,190 @@ export default function Admin() {
         </Card>
       </div>
 
-      <div className="space-y-6">
-        {pendingClinics.length > 0 && (
-          <Card className="border-primary/20 bg-primary/5">
+      <Tabs defaultValue="active" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="active" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Active ({activeClinics.length})
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Pending ({pendingClinics.length})
+          </TabsTrigger>
+          <TabsTrigger value="archived" className="flex items-center gap-2">
+            <Archive className="h-4 w-4" />
+            Archived ({archivedClinics.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="active">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center text-primary">
-                <Check className="h-5 w-5 mr-2" />
-                Pending Approvals ({pendingClinics.length})
-              </CardTitle>
-              <CardDescription>Review and approve new clinic registrations</CardDescription>
+              <CardTitle>Active Clinics</CardTitle>
+              <CardDescription>Manage your active medical facilities</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4">
-                {pendingClinics.map((clinic) => (
-                  <div key={clinic.id} className="flex items-center justify-between p-4 bg-background border rounded-lg shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Building2 className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-semibold">{clinic.name}</p>
-                        <p className="text-xs text-muted-foreground">{clinic.email || 'No email'}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
-                        onClick={() => approveClinicMutation.mutate(clinic.id)}
-                        disabled={approveClinicMutation.isPending}
-                      >
-                        Approve
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => archiveClinicMutation.mutate(clinic.id)}
-                      >
-                        Reject
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Building2 className="h-5 w-5 mr-2" />
-              Clinics ({activeClinics.length})
-            </CardTitle>
-            <CardDescription>Manage active clinic partners</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {clinicsLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <div className="divide-y">
-                {activeClinics.length === 0 ? (
-                  <p className="py-8 text-center text-muted-foreground">No active clinics found.</p>
-                ) : (
-                  activeClinics.map(clinic => (
-                    <div key={clinic.id} className="py-4 first:pt-0 last:pb-0">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold">{clinic.name}</h3>
-                            <Badge variant="outline" className="text-[10px] h-4">ID: {clinic.id}</Badge>
+              {clinicsLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {activeClinics.map((clinic) => (
+                    <Card key={clinic.id} className="overflow-hidden border-muted-foreground/20 hover:border-primary/50 transition-colors">
+                      <CardHeader className="p-4 pb-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <CardTitle className="text-lg truncate">{clinic.name}</CardTitle>
+                            <div className="flex items-center text-xs text-muted-foreground mt-1">
+                              <MapPin className="h-3 w-3 mr-1 shrink-0" />
+                              <span className="truncate">{clinic.address}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center text-sm text-muted-foreground gap-3">
-                            <span className="flex items-center"><MapPin className="h-3 w-3 mr-1" /> {clinic.address}</span>
-                            {clinic.email && <span className="hidden sm:inline">• {clinic.email}</span>}
-                          </div>
+                          {clinic.logoUrl && (
+                            <img src={clinic.logoUrl} alt={clinic.name} className="h-10 w-10 rounded-md object-cover border shrink-0" />
+                          )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="h-8"
-                            onClick={() => {
-                              const url = `${window.location.origin}/book/${clinic.id}`;
-                              navigator.clipboard.writeText(url);
-                              toast({ title: "Link copied to clipboard", description: url });
-                            }}
-                          >
-                            <Copy className="h-3 w-3 mr-1" /> Copy Link
-                          </Button>
-
-                          <Dialog open={editClinicDialogOpen && selectedClinic?.id === clinic.id} onOpenChange={(open) => {
-                            setEditClinicDialogOpen(open);
-                            if (open) {
+                      </CardHeader>
+                      <CardContent className="p-4 pt-2">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider">
+                              {Array.isArray(clinic.doctors) ? clinic.doctors.length : 0} Doctors
+                            </Badge>
+                            {clinic.website && (
+                              <a href={clinic.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2 pt-2 border-t mt-3">
+                            <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={() => {
                               setSelectedClinic(clinic);
                               setEditName(clinic.name);
                               setEditAddress(clinic.address || "");
                               setEditEmail(clinic.email || "");
                               setEditPhone(clinic.phone || "");
                               setEditWebsite(clinic.website || "");
-                              setEditDoctors(clinic.doctors || []);
-                            }
-                          }}>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm" className="h-8">
-                                <Plus className="h-3 w-3 mr-1" /> Edit
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-[500px]">
-                              <DialogHeader>
-                                <DialogTitle>Edit Clinic</DialogTitle>
-                                <DialogDescription>Update details for {clinic.name}</DialogDescription>
-                              </DialogHeader>
-                              <div className="grid gap-4 py-4">
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label className="text-right">Name</Label>
-                                  <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="col-span-3" />
-                                </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label className="text-right">Address</Label>
-                                  <Input value={editAddress} onChange={(e) => setEditAddress(e.target.value)} className="col-span-3" />
-                                </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label className="text-right">Email</Label>
-                                  <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="col-span-3" />
-                                </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label className="text-right">Phone</Label>
-                                  <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="col-span-3" />
-                                </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label className="text-right">Website</Label>
-                                  <Input value={editWebsite} onChange={(e) => setEditWebsite(e.target.value)} className="col-span-3" />
-                                </div>
-                                <div className="border-t pt-4">
-                                  <div className="flex items-center justify-between mb-4">
-                                    <p className="text-sm font-medium">Doctors ({editDoctors.length})</p>
-                                    <Button 
-                                      type="button" 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={() => setEditDoctors([...editDoctors, { name: '', specialization: '', degree: '' }])}
-                                    >
-                                      Add Doctor
-                                    </Button>
-                                  </div>
-                                  <div className="space-y-3 max-h-48 overflow-y-auto">
-                                    {editDoctors.map((doctor, index) => (
-                                      <div key={index} className="p-3 border rounded-md space-y-2">
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-xs font-medium">Doctor {index + 1}</span>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6"
-                                            onClick={() => setEditDoctors(editDoctors.filter((_, i) => i !== index))}
-                                          >
-                                            <Trash2 className="h-3 w-3 text-destructive" />
-                                          </Button>
-                                        </div>
-                                        <Input
-                                          placeholder="Doctor name"
-                                          value={doctor.name}
-                                          onChange={(e) => {
-                                            const updated = [...editDoctors];
-                                            updated[index].name = e.target.value;
-                                            setEditDoctors(updated);
-                                          }}
-                                          className="h-8"
-                                        />
-                                        <div className="grid grid-cols-2 gap-2">
-                                          <Input
-                                            placeholder="Specialization"
-                                            value={doctor.specialization}
-                                            onChange={(e) => {
-                                              const updated = [...editDoctors];
-                                              updated[index].specialization = e.target.value;
-                                              setEditDoctors(updated);
-                                            }}
-                                            className="h-8"
-                                          />
-                                          <Input
-                                            placeholder="Degree"
-                                            value={doctor.degree}
-                                            onChange={(e) => {
-                                              const updated = [...editDoctors];
-                                              updated[index].degree = e.target.value;
-                                              setEditDoctors(updated);
-                                            }}
-                                            className="h-8"
-                                          />
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                              <DialogFooter>
-                                <Button onClick={() => updateClinicMutation.mutate({ 
-                                  id: clinic.id,
-                                  name: editName, 
-                                  address: editAddress,
-                                  email: editEmail,
-                                  phone: editPhone,
-                                  website: editWebsite,
-                                  doctors: editDoctors.filter(d => d.name.trim() !== '')
-                                })} disabled={updateClinicMutation.isPending || !editName || !editAddress}>
-                                  {updateClinicMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                  Update Clinic
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
+                              setEditDoctors(Array.isArray(clinic.doctors) ? clinic.doctors as any : []);
+                              setEditClinicDialogOpen(true);
+                            }}>
+                              Edit
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={() => {
+                              setSelectedClinic(clinic);
+                              setEditUsername(clinic.username || "");
+                              setCredentialsDialogOpen(true);
+                            }}>
+                              <Key className="h-3 w-3 mr-1" />
+                              Creds
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" onClick={() => archiveClinicMutation.mutate(clinic.id)}>
+                              <Archive className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {activeClinics.length === 0 && (
+                    <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg bg-muted/30">
+                      <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-3 opacity-20" />
+                      <p className="text-muted-foreground font-medium">No active clinics found</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">Add a new clinic to get started</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                          <Dialog open={credentialsDialogOpen && selectedClinic?.id === clinic.id} onOpenChange={(open) => {
-                            setCredentialsDialogOpen(open);
-                            if (open) setSelectedClinic(clinic);
-                          }}>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm" className="h-8">
-                                <Key className="h-3 w-3 mr-1" /> Credentials
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Update Credentials</DialogTitle>
-                                <DialogDescription>Update login for {clinic.name}</DialogDescription>
-                              </DialogHeader>
-                              <div className="grid gap-4 py-4">
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label className="text-right">Username</Label>
-                                  <Input value={editUsername} onChange={(e) => setEditUsername(e.target.value)} className="col-span-3" placeholder="New username" />
-                                </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                  <Label className="text-right">Password</Label>
-                                  <Input type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} className="col-span-3" placeholder="New password" />
-                                </div>
-                              </div>
-                              <DialogFooter>
-                                <Button onClick={() => setCredentialsMutation.mutate({ clinicId: clinic.id, username: editUsername, password: editPassword })} disabled={!editUsername || !editPassword || setCredentialsMutation.isPending}>
-                                  Update
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                          
-                          <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive" onClick={() => archiveClinicMutation.mutate(clinic.id)}>
-                            <Archive className="h-3 w-3 mr-1" /> Archive
+        <TabsContent value="pending">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Registration</CardTitle>
+              <CardDescription>Review and approve new clinic requests</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {pendingClinics.map((clinic) => (
+                  <Card key={clinic.id} className="border-yellow-500/20 bg-yellow-500/5">
+                    <CardHeader className="p-4 pb-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg">{clinic.name}</CardTitle>
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                            <MapPin className="h-3 w-3 mr-1" />
+                            {clinic.address}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-200">Pending</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-2">
+                      <div className="flex flex-col gap-3">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="text-muted-foreground">Email: {clinic.email || 'N/A'}</div>
+                          <div className="text-muted-foreground">Phone: {clinic.phone || 'N/A'}</div>
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700 h-9" onClick={() => approveClinicMutation.mutate(clinic.id)} disabled={approveClinicMutation.isPending}>
+                            {approveClinicMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+                            Approve
                           </Button>
-                          
-                          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                            <a href={`/book/${clinic.id}`} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
+                          <Button size="sm" variant="outline" className="flex-1 h-9 text-destructive hover:bg-destructive/5" onClick={() => archiveClinicMutation.mutate(clinic.id)}>
+                            Reject
                           </Button>
                         </div>
                       </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {archivedClinics.length > 0 && (
-          <Card className="border-muted bg-muted/10">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium flex items-center text-muted-foreground">
-                <Archive className="h-4 w-4 mr-2" />
-                Archived Clinics ({archivedClinics.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="divide-y divide-muted/30">
-                {archivedClinics.map(clinic => (
-                  <div key={clinic.id} className="py-3 flex items-center justify-between gap-4">
-                    <span className="text-sm text-muted-foreground">{clinic.name}</span>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => unarchiveClinicMutation.mutate(clinic.id)}>
-                      <ArchiveRestore className="h-3 w-3 mr-1" /> Restore
-                    </Button>
-                  </div>
+                    </CardContent>
+                  </Card>
                 ))}
+                {pendingClinics.length === 0 && (
+                  <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg bg-muted/30">
+                    <Check className="h-12 w-12 mx-auto text-muted-foreground mb-3 opacity-20" />
+                    <p className="text-muted-foreground font-medium">No pending registrations</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">New clinic requests will appear here</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
-        )}
-      </div>
+        </TabsContent>
+
+        <TabsContent value="archived">
+          <Card>
+            <CardHeader>
+              <CardTitle>Archived Clinics</CardTitle>
+              <CardDescription>View and restore previously active clinics</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {archivedClinics.map((clinic) => (
+                  <Card key={clinic.id} className="opacity-70 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 transition-all border-muted">
+                    <CardHeader className="p-4 pb-2">
+                      <CardTitle className="text-lg text-muted-foreground">{clinic.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-2">
+                      <Button size="sm" variant="outline" className="w-full h-8 text-xs" onClick={() => unarchiveClinicMutation.mutate(clinic.id)}>
+                        <ArchiveRestore className="h-3 w-3 mr-1" />
+                        Restore Clinic
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+                {archivedClinics.length === 0 && (
+                  <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg bg-muted/30">
+                    <Archive className="h-12 w-12 mx-auto text-muted-foreground mb-3 opacity-20" />
+                    <p className="text-muted-foreground font-medium">No archived clinics</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

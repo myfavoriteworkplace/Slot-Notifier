@@ -162,12 +162,13 @@ export default function RegisterClinic() {
               </div>
 
               <div className="pt-4 flex flex-col gap-3">
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                <Button type="submit" className="w-full h-11 text-lg font-semibold" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Submit Registration
                 </Button>
-                <p className="text-sm text-muted-foreground text-center">
-                  Registration will be completed after review by the administrator.
+                <p className="text-xs text-center text-muted-foreground bg-muted/50 p-3 rounded-md border border-dashed">
+                  <span className="font-semibold block mb-1">Note to Clinic Owner:</span>
+                  Your registration will be reviewed by our administration team. Once approved, you will receive an email with instructions to set up your clinic dashboard and credentials.
                 </p>
                 <Button variant="ghost" type="button" className="w-full" onClick={() => setLocation("/getting-started")}>
                   Cancel
