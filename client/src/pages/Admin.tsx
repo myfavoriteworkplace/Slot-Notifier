@@ -720,6 +720,154 @@ export default function Admin() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Clinic Dialog */}
+      <Dialog open={editClinicDialogOpen} onOpenChange={setEditClinicDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Clinic</DialogTitle>
+            <DialogDescription>Update the clinic details and doctor information.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-name" className="text-right">Name</Label>
+              <Input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-address" className="text-right">Address</Label>
+              <Input id="edit-address" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-email" className="text-right">Email</Label>
+              <Input id="edit-email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-phone" className="text-right">Phone</Label>
+              <Input id="edit-phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-website" className="text-right">Website</Label>
+              <Input id="edit-website" value={editWebsite} onChange={(e) => setEditWebsite(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Stethoscope className="h-4 w-4" />
+                  Doctors ({editDoctors.length})
+                </p>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setEditDoctors([...editDoctors, { name: '', specialization: '', degree: '' }])}
+                >
+                  <UserPlus className="h-3 w-3 mr-1" />
+                  Add Doctor
+                </Button>
+              </div>
+              <div className="space-y-3 max-h-48 overflow-y-auto">
+                {editDoctors.map((doctor, index) => (
+                  <div key={index} className="p-3 border rounded-md space-y-2 bg-muted/30">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">Doctor {index + 1}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => setEditDoctors(editDoctors.filter((_, i) => i !== index))}
+                      >
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+                    <Input
+                      placeholder="Doctor name"
+                      value={doctor.name}
+                      onChange={(e) => {
+                        const updated = [...editDoctors];
+                        updated[index].name = e.target.value;
+                        setEditDoctors(updated);
+                      }}
+                      className="h-8"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Specialization"
+                        value={doctor.specialization}
+                        onChange={(e) => {
+                          const updated = [...editDoctors];
+                          updated[index].specialization = e.target.value;
+                          setEditDoctors(updated);
+                        }}
+                        className="h-8"
+                      />
+                      <Input
+                        placeholder="Degree"
+                        value={doctor.degree}
+                        onChange={(e) => {
+                          const updated = [...editDoctors];
+                          updated[index].degree = e.target.value;
+                          setEditDoctors(updated);
+                        }}
+                        className="h-8"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => updateClinicMutation.mutate({ 
+              id: selectedClinic!.id,
+              name: editName, 
+              address: editAddress,
+              email: editEmail,
+              phone: editPhone,
+              website: editWebsite,
+              doctors: editDoctors.filter(d => d.name.trim() !== '')
+            })} disabled={updateClinicMutation.isPending || !editName || !editAddress}>
+              {updateClinicMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Credentials Dialog */}
+      <Dialog open={credentialsDialogOpen} onOpenChange={setCredentialsDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Update Credentials</DialogTitle>
+            <DialogDescription>Set a new username and password for {selectedClinic?.name}.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-username" className="text-right">Username</Label>
+              <Input id="edit-username" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-pass" className="text-right">Password</Label>
+              <div className="col-span-3 relative">
+                <Input id="edit-pass" type={showPassword ? "text" : "password"} value={editPassword} onChange={(e) => setEditPassword(e.target.value)} />
+                <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setCredentialsMutation.mutate({ 
+              clinicId: selectedClinic!.id, 
+              username: editUsername, 
+              password: editPassword 
+            })} disabled={setCredentialsMutation.isPending || !editUsername || !editPassword}>
+              {setCredentialsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update Credentials
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
