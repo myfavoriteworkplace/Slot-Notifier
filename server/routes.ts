@@ -217,19 +217,17 @@ export async function registerRoutes(
   // Clinic Registration
   app.post("/api/clinics/register", async (req, res) => {
     try {
-      const clinicData = insertClinicSchema.parse({
-        ...req.body,
-        status: "pending",
-        isArchived: false
-      });
-      
       // Hash password
       const passwordHash = await bcrypt.hash(req.body.passwordHash, 10);
       
-      const clinic = await storage.createClinic({
-        ...clinicData,
-        passwordHash,
-      } as any);
+      const clinicData = {
+        ...req.body,
+        status: "pending",
+        isArchived: false,
+        passwordHash
+      };
+      
+      const clinic = await storage.createClinic(clinicData as any);
 
       res.status(201).json(clinic);
     } catch (error: any) {
