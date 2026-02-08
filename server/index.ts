@@ -178,6 +178,67 @@ app.use((req, res, next) => {
       } else {
         log("doctor_invites table already exists", "system");
       }
+
+      // Check if doctors table exists
+      const checkDoctorsTable = await db.execute(
+        sql`SELECT table_name FROM information_schema.tables WHERE table_name='doctors'`
+      );
+
+      if ((checkDoctorsTable as any).rowCount === 0) {
+        log("Creating doctors table...", "system");
+        await db.execute(sql`
+          CREATE TABLE doctors (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            email VARCHAR(255) NOT NULL UNIQUE,
+            password_hash VARCHAR(255) NOT NULL,
+            specialization VARCHAR(255),
+            degree VARCHAR(255),
+            image_url VARCHAR(1000),
+            created_at TIMESTAMP DEFAULT NOW()
+          )
+        `);
+        log("Successfully created doctors table", "system");
+      }
+
+      // Check if clinic_doctors table exists
+      const checkClinicDoctorsTable = await db.execute(
+        sql`SELECT table_name FROM information_schema.tables WHERE table_name='clinic_doctors'`
+      );
+
+      if ((checkClinicDoctorsTable as any).rowCount === 0) {
+        log("Creating clinic_doctors table...", "system");
+        await db.execute(sql`
+          CREATE TABLE clinic_doctors (
+            id SERIAL PRIMARY KEY,
+            clinic_id INTEGER NOT NULL REFERENCES clinics(id),
+            doctor_id INTEGER NOT NULL REFERENCES doctors(id),
+            created_at TIMESTAMP DEFAULT NOW()
+          )
+        `);
+        log("Successfully created clinic_doctors table", "system");
+      }
+
+      // Check if patients table exists
+      const checkPatientsTable = await db.execute(
+        sql`SELECT table_name FROM information_schema.tables WHERE table_name='patients'`
+      );
+
+      if ((checkPatientsTable as any).rowCount === 0) {
+        log("Creating patients table...", "system");
+        await db.execute(sql`
+          CREATE TABLE patients (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            email VARCHAR(255),
+            phone VARCHAR(50),
+            doctor_id INTEGER REFERENCES doctors(id),
+            clinic_id INTEGER REFERENCES clinics(id),
+            created_at TIMESTAMP DEFAULT NOW()
+          )
+        `);
+        log("Successfully created patients table", "system");
+      }
     } catch (dbErr: any) {
       log(`Schema sync warning: ${dbErr.message}`, "system");
     }
