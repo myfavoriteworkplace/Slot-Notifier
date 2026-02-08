@@ -8,6 +8,7 @@ interface DoctorSession {
   clinicId: number;
   clinicName: string;
   logoUrl?: string | null;
+  isDefaultPassword?: boolean;
 }
 
 async function fetchDoctorSession(): Promise<DoctorSession | null> {

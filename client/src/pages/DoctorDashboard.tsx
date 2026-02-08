@@ -42,6 +42,11 @@ export default function DoctorDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+      {doctor.isDefaultPassword && (
+        <div className="bg-yellow-500 text-white px-4 py-2 text-center text-sm font-medium animate-in fade-in slide-in-from-top duration-500">
+          You are using the default password. For security, please reset via email.
+        </div>
+      )}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">

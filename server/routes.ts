@@ -172,6 +172,7 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
 }
 
 import { clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import { generateSignedUploadUrl } from "./signedUrl.service";
 import crypto from "crypto";
 
@@ -484,6 +485,93 @@ export async function registerRoutes(
     });
 
     // Clinic authentication
+    // Doctor authentication
+    app.post("/api/auth/doctor/login", async (req, res) => {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      try {
+        const doctor = await storage.getDoctorByEmail(email);
+        if (!doctor) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        const isMatch = await bcrypt.compare(password, doctor.passwordHash);
+        if (!isMatch) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        const sess = req.session as any;
+        sess.adminLoggedIn = true;
+        sess.doctorEmail = doctor.email;
+        sess.doctorId = doctor.id;
+        sess.role = 'doctor';
+
+        // Check if using default password
+        const isDefaultPassword = password === "demo123";
+
+        req.session.save((err) => {
+          if (err) {
+            return res.status(500).json({ message: "Failed to save session" });
+          }
+          return res.json({ 
+            message: "Login successful", 
+            user: { 
+              id: doctor.id,
+              name: doctor.name,
+              role: 'doctor',
+              isDefaultPassword
+            } 
+          });
+        });
+      } catch (error: any) {
+        return res.status(500).json({ message: "Internal server error during login" });
+      }
+    });
+
+    app.get("/api/auth/doctor/me", async (req, res) => {
+      const sess = req.session as any;
+      if (!sess.doctorEmail || sess.role !== 'doctor') {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      try {
+        const doctor = await storage.getDoctorByEmail(sess.doctorEmail);
+        if (!doctor) return res.status(401).json({ message: "Doctor not found" });
+
+        // Get clinic link
+        const [clinicLink] = await db.select()
+          .from(clinicDoctors)
+          .where(eq(clinicDoctors.doctorId, doctor.id))
+          .limit(1);
+
+        let clinicName = "N/A";
+        let clinicId = null;
+        if (clinicLink) {
+          const clinic = await storage.getClinic(clinicLink.clinicId);
+          clinicName = clinic?.name || "N/A";
+          clinicId = clinic?.id || null;
+        }
+
+        res.json({
+          id: doctor.id,
+          name: doctor.name,
+          email: doctor.email,
+          specialization: doctor.specialization,
+          degree: doctor.degree,
+          role: 'doctor',
+          clinicId,
+          clinicName,
+          isDefaultPassword: sess.isDefaultPassword // We should have set this in session or just rely on the frontend check if we want, but let's be safe
+        });
+      } catch (error: any) {
+        res.status(500).json({ message: "Failed to fetch doctor info" });
+      }
+    });
+
     app.post("/api/auth/clinic/login", async (req, res) => {
       const { username, password } = req.body;
       
@@ -583,6 +671,14 @@ export async function registerRoutes(
       console.error(`[AUTH ERROR] Admin login failed for: ${email}. Invalid credentials or environment mismatch.`);
       return res.status(401).json({ message: "Invalid credentials" });
     });
+
+  app.post("/api/auth/doctor/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) return res.status(500).json({ message: "Logout failed" });
+      res.clearCookie('connect.sid', { path: '/' });
+      res.json({ message: "Logout successful" });
+    });
+  });
 
   app.post("/api/auth/admin/logout", (req, res) => {
     console.log(`[AUTH] Admin logout request from: ${(req.session as any)?.adminEmail}`);
