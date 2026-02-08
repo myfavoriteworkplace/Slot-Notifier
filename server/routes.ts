@@ -572,6 +572,69 @@ export async function registerRoutes(
       }
     });
 
+    app.get("/api/doctor/patients", async (req, res) => {
+      const sess = req.session as any;
+      if (!sess.doctorId || sess.role !== 'doctor') {
+        return res.status(401).json({ message: "Not authenticated as doctor" });
+      }
+
+      try {
+        const patients = await storage.getPatientsByDoctor(sess.doctorId);
+        res.json(patients);
+      } catch (error: any) {
+        res.status(500).json({ message: "Failed to fetch patients" });
+      }
+    });
+
+    app.get("/api/doctor/clinics", async (req, res) => {
+      const sess = req.session as any;
+      if (!sess.doctorId || sess.role !== 'doctor') {
+        return res.status(401).json({ message: "Not authenticated as doctor" });
+      }
+
+      try {
+        const results = await db.select({
+          clinic: clinics
+        })
+        .from(clinics)
+        .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
+        .where(eq(clinicDoctors.doctorId, sess.doctorId));
+        
+        res.json(results.map(r => r.clinic));
+      } catch (error: any) {
+        res.status(500).json({ message: "Failed to fetch clinics" });
+      }
+    });
+
+    // Helper to seed some patients for testing if needed
+    app.post("/api/doctor/seed-patients", async (req, res) => {
+      const sess = req.session as any;
+      if (!sess.doctorId || sess.role !== 'doctor') {
+        return res.status(401).json({ message: "Not authenticated as doctor" });
+      }
+
+      try {
+        const clinicResults = await db.select({ clinicId: clinicDoctors.clinicId })
+          .from(clinicDoctors)
+          .where(eq(clinicDoctors.doctorId, sess.doctorId));
+        
+        if (clinicResults.length === 0) return res.status(400).json({ message: "No clinics found for doctor" });
+
+        const testPatients = [
+          { name: "John Doe", email: "john@example.com", phone: "1234567890", doctorId: sess.doctorId, clinicId: clinicResults[0].clinicId },
+          { name: "Jane Smith", email: "jane@example.com", phone: "0987654321", doctorId: sess.doctorId, clinicId: clinicResults[0].clinicId }
+        ];
+
+        for (const p of testPatients) {
+          await storage.createPatient(p);
+        }
+
+        res.json({ message: "Seeded test patients" });
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    });
+
     app.post("/api/auth/clinic/login", async (req, res) => {
       const { username, password } = req.body;
       

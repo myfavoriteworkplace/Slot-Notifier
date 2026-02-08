@@ -98,6 +98,16 @@ export const clinicDoctors = pgTable("clinic_doctors", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const patients = pgTable("patients", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  doctorId: integer("doctor_id").references(() => doctors.id),
+  clinicId: integer("clinic_id").references(() => clinics.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertDoctorSchema = createInsertSchema(doctors).omit({
   id: true,
   createdAt: true,
@@ -108,10 +118,17 @@ export const insertClinicDoctorSchema = createInsertSchema(clinicDoctors).omit({
   createdAt: true,
 });
 
+export const insertPatientSchema = createInsertSchema(patients).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type Doctor = typeof doctors.$inferSelect;
 export type InsertDoctor = z.infer<typeof insertDoctorSchema>;
 export type ClinicDoctor = typeof clinicDoctors.$inferSelect;
 export type InsertClinicDoctor = z.infer<typeof insertClinicDoctorSchema>;
+export type Patient = typeof patients.$inferSelect;
+export type InsertPatient = z.infer<typeof insertPatientSchema>;
 
 export const insertDoctorInviteSchema = createInsertSchema(doctorInvites).omit({
   id: true,

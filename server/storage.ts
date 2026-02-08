@@ -1,12 +1,13 @@
 import { 
-  users, slots, bookings, notifications, clinics, doctors, clinicDoctors,
+  users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
   type Notification, type InsertNotification,
   type Clinic, type InsertClinic,
   type Doctor, type InsertDoctor,
-  type ClinicDoctor, type InsertClinicDoctor
+  type ClinicDoctor, type InsertClinicDoctor,
+  type Patient, type InsertPatient
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
@@ -77,6 +78,10 @@ export interface IStorage {
   createDoctor(doctor: InsertDoctor): Promise<Doctor>;
   linkDoctorToClinic(clinicId: number, doctorId: number): Promise<ClinicDoctor>;
   getClinicDoctors(clinicId: number): Promise<Doctor[]>;
+
+  // Patients
+  getPatientsByDoctor(doctorId: number): Promise<(Patient & { clinic: Clinic })[]>;
+  createPatient(patient: InsertPatient): Promise<Patient>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -580,6 +585,23 @@ export class DatabaseStorage implements IStorage {
     .where(eq(clinicDoctors.clinicId, clinicId));
     
     return results.map(r => r.doctor);
+  }
+
+  async getPatientsByDoctor(doctorId: number): Promise<(Patient & { clinic: Clinic })[]> {
+    const results = await db.select({
+      patient: patients,
+      clinic: clinics
+    })
+    .from(patients)
+    .innerJoin(clinics, eq(patients.clinicId, clinics.id))
+    .where(eq(patients.doctorId, doctorId));
+    
+    return results.map(r => ({ ...r.patient, clinic: r.clinic }));
+  }
+
+  async createPatient(insertPatient: InsertPatient): Promise<Patient> {
+    const [patient] = await db.insert(patients).values(insertPatient).returning();
+    return patient;
   }
 }
 
