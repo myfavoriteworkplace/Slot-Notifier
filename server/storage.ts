@@ -1,10 +1,12 @@
 import { 
-  users, slots, bookings, notifications, clinics,
+  users, slots, bookings, notifications, clinics, doctors, clinicDoctors,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
   type Notification, type InsertNotification,
-  type Clinic, type InsertClinic
+  type Clinic, type InsertClinic,
+  type Doctor, type InsertDoctor,
+  type ClinicDoctor, type InsertClinicDoctor
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
