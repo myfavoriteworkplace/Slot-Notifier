@@ -171,7 +171,7 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   return res.status(401).json({ message: "Authentication required" });
 }
 
-import { clinics, slots, bookings, notifications, doctorInvites } from "@shared/schema";
+import { clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors } from "@shared/schema";
 import { generateSignedUploadUrl } from "./signedUrl.service";
 import crypto from "crypto";
 
@@ -260,6 +260,44 @@ export async function registerRoutes(
   });
 
   // Publicly available login check for debugging
+  // Doctor Management API
+  app.post("/api/clinics/:id/doctors", isAuthenticated, async (req, res) => {
+    const clinicId = parseInt(req.params.id);
+    const { name, email, specialization, degree } = req.body;
+
+    if (!email || !name) {
+      return res.status(400).json({ message: "Name and email are required" });
+    }
+
+    try {
+      let doctor = await storage.getDoctorByEmail(email);
+      
+      if (!doctor) {
+        const passwordHash = await bcrypt.hash("demo123", 10);
+        doctor = await storage.createDoctor({
+          name,
+          email,
+          passwordHash,
+          specialization: specialization || null,
+          degree: degree || null,
+          imageUrl: null,
+        });
+      }
+
+      // Check if already linked to this clinic
+      const existingDoctors = await storage.getClinicDoctors(clinicId);
+      if (existingDoctors.some(d => d.id === doctor!.id)) {
+        return res.status(400).json({ message: "Doctor is already assigned to this clinic" });
+      }
+
+      await storage.linkDoctorToClinic(clinicId, doctor.id);
+      res.status(201).json(doctor);
+    } catch (error: any) {
+      console.error("[DOCTOR CREATION ERROR]", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/auth/debug", (req, res) => {
     res.json({
       adminEmailSet: !!process.env.ADMIN_EMAIL,

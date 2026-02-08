@@ -69,6 +69,12 @@ export interface IStorage {
   updateClinic(id: number, updates: Partial<Clinic>): Promise<Clinic>;
   archiveClinic(id: number): Promise<Clinic>;
   unarchiveClinic(id: number): Promise<Clinic>;
+
+  // Doctors
+  getDoctorByEmail(email: string): Promise<Doctor | undefined>;
+  createDoctor(doctor: InsertDoctor): Promise<Doctor>;
+  linkDoctorToClinic(clinicId: number, doctorId: number): Promise<ClinicDoctor>;
+  getClinicDoctors(clinicId: number): Promise<Doctor[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -545,6 +551,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(clinics.id, id))
       .returning();
     return updated;
+  }
+
+  // Doctors
+  async getDoctorByEmail(email: string): Promise<Doctor | undefined> {
+    const [doctor] = await db.select().from(doctors).where(eq(doctors.email, email));
+    return doctor;
+  }
+
+  async createDoctor(insertDoctor: InsertDoctor): Promise<Doctor> {
+    const [doctor] = await db.insert(doctors).values(insertDoctor).returning();
+    return doctor;
+  }
+
+  async linkDoctorToClinic(clinicId: number, doctorId: number): Promise<ClinicDoctor> {
+    const [link] = await db.insert(clinicDoctors).values({ clinicId, doctorId }).returning();
+    return link;
+  }
+
+  async getClinicDoctors(clinicId: number): Promise<Doctor[]> {
+    const results = await db.select({
+      doctor: doctors
+    })
+    .from(doctors)
+    .innerJoin(clinicDoctors, eq(doctors.id, clinicDoctors.doctorId))
+    .where(eq(clinicDoctors.clinicId, clinicId));
+    
+    return results.map(r => r.doctor);
   }
 }
 

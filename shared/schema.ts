@@ -80,6 +80,39 @@ export const doctorInvites = pgTable("doctor_invites", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const doctors = pgTable("doctors", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  specialization: varchar("specialization", { length: 255 }),
+  degree: varchar("degree", { length: 255 }),
+  imageUrl: varchar("image_url", { length: 1000 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const clinicDoctors = pgTable("clinic_doctors", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  doctorId: integer("doctor_id").notNull().references(() => doctors.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDoctorSchema = createInsertSchema(doctors).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertClinicDoctorSchema = createInsertSchema(clinicDoctors).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Doctor = typeof doctors.$inferSelect;
+export type InsertDoctor = z.infer<typeof insertDoctorSchema>;
+export type ClinicDoctor = typeof clinicDoctors.$inferSelect;
+export type InsertClinicDoctor = z.infer<typeof insertClinicDoctorSchema>;
+
 export const insertDoctorInviteSchema = createInsertSchema(doctorInvites).omit({
   id: true,
   createdAt: true,
