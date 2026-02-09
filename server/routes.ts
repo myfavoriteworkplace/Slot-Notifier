@@ -846,8 +846,8 @@ export async function registerRoutes(
           const doctor = doctors.find((d: any) => {
             const dEmail = (d.email || "").toLowerCase().trim();
             const targetEmail = email.toLowerCase().trim();
-            const hasAccess = d.accountCreated || d.password;
-            return dEmail === targetEmail && hasAccess;
+            // Allow login for all doctors in the clinic list
+            return dEmail === targetEmail;
           });
           
           if (doctor) {
@@ -859,11 +859,14 @@ export async function registerRoutes(
         }
 
         if (!foundDoctor || !foundClinic) {
-          console.error(`[AUTH ERROR] Doctor not found or account not set up: ${email}`);
+          console.error(`[AUTH ERROR] Doctor not found in any clinic: ${email}`);
           return res.status(401).json({ message: "Invalid credentials or account not set up" });
         }
 
-        const isMatch = await bcrypt.compare(password, foundDoctor.password || "");
+        // If doctor has a password in clinic JSONB, use it, otherwise use default
+        const doctorPasswordHash = foundDoctor.password || await bcrypt.hash("demo123", 10);
+
+        const isMatch = await bcrypt.compare(password, doctorPasswordHash);
         if (!isMatch) {
           console.error(`[AUTH ERROR] Invalid password for doctor: ${email}`);
           return res.status(401).json({ message: "Invalid credentials" });
