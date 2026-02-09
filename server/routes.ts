@@ -484,155 +484,9 @@ export async function registerRoutes(
       }
     });
 
-    // Clinic authentication
-    // Doctor authentication
-    app.post("/api/auth/doctor/login", async (req, res) => {
-      const { email, password } = req.body;
-      
-      if (!email || !password) {
-        return res.status(400).json({ message: "Email and password are required" });
-      }
-
-      try {
-        const doctor = await storage.getDoctorByEmail(email);
-        if (!doctor) {
-          return res.status(401).json({ message: "Invalid credentials" });
-        }
-
-        const isMatch = await bcrypt.compare(password, doctor.passwordHash);
-        if (!isMatch) {
-          return res.status(401).json({ message: "Invalid credentials" });
-        }
-
-        const sess = req.session as any;
-        sess.adminLoggedIn = true;
-        sess.doctorEmail = doctor.email;
-        sess.doctorId = doctor.id;
-        sess.role = 'doctor';
-
-        // Check if using default password
-        const isDefaultPassword = password === "demo123";
-
-        req.session.save((err) => {
-          if (err) {
-            return res.status(500).json({ message: "Failed to save session" });
-          }
-          return res.json({ 
-            message: "Login successful", 
-            user: { 
-              id: doctor.id,
-              name: doctor.name,
-              role: 'doctor',
-              isDefaultPassword
-            } 
-          });
-        });
-      } catch (error: any) {
-        return res.status(500).json({ message: "Internal server error during login" });
-      }
-    });
-
-    app.get("/api/auth/doctor/me", async (req, res) => {
-      const sess = req.session as any;
-      if (!sess.doctorEmail || sess.role !== 'doctor') {
-        return res.status(401).json({ message: "Not authenticated" });
-      }
-
-      try {
-        const doctor = await storage.getDoctorByEmail(sess.doctorEmail);
-        if (!doctor) return res.status(401).json({ message: "Doctor not found" });
-
-        // Get clinic link
-        const [clinicLink] = await db.select()
-          .from(clinicDoctors)
-          .where(eq(clinicDoctors.doctorId, doctor.id))
-          .limit(1);
-
-        let clinicName = "N/A";
-        let clinicId = null;
-        if (clinicLink) {
-          const clinic = await storage.getClinic(clinicLink.clinicId);
-          clinicName = clinic?.name || "N/A";
-          clinicId = clinic?.id || null;
-        }
-
-        res.json({
-          id: doctor.id,
-          name: doctor.name,
-          email: doctor.email,
-          specialization: doctor.specialization,
-          degree: doctor.degree,
-          role: 'doctor',
-          clinicId,
-          clinicName,
-          isDefaultPassword: sess.isDefaultPassword // We should have set this in session or just rely on the frontend check if we want, but let's be safe
-        });
-      } catch (error: any) {
-        res.status(500).json({ message: "Failed to fetch doctor info" });
-      }
-    });
-
-    app.get("/api/doctor/patients", async (req, res) => {
-      const sess = req.session as any;
-      if (!sess.doctorId || sess.role !== 'doctor') {
-        return res.status(401).json({ message: "Not authenticated as doctor" });
-      }
-
-      try {
-        const patients = await storage.getPatientsByDoctor(sess.doctorId);
-        res.json(patients);
-      } catch (error: any) {
-        res.status(500).json({ message: "Failed to fetch patients" });
-      }
-    });
-
-    app.get("/api/doctor/clinics", async (req, res) => {
-      const sess = req.session as any;
-      if (!sess.doctorId || sess.role !== 'doctor') {
-        return res.status(401).json({ message: "Not authenticated as doctor" });
-      }
-
-      try {
-        const results = await db.select({
-          clinic: clinics
-        })
-        .from(clinics)
-        .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
-        .where(eq(clinicDoctors.doctorId, sess.doctorId));
-        
-        res.json(results.map(r => r.clinic));
-      } catch (error: any) {
-        res.status(500).json({ message: "Failed to fetch clinics" });
-      }
-    });
-
-    // Helper to seed some patients for testing if needed
-    app.post("/api/doctor/seed-patients", async (req, res) => {
-      const sess = req.session as any;
-      if (!sess.doctorId || sess.role !== 'doctor') {
-        return res.status(401).json({ message: "Not authenticated as doctor" });
-      }
-
-      try {
-        const clinicResults = await db.select({ clinicId: clinicDoctors.clinicId })
-          .from(clinicDoctors)
-          .where(eq(clinicDoctors.doctorId, sess.doctorId));
-        
-        if (clinicResults.length === 0) return res.status(400).json({ message: "No clinics found for doctor" });
-
-        const testPatients = [
-          { name: "John Doe", email: "john@example.com", phone: "1234567890", doctorId: sess.doctorId, clinicId: clinicResults[0].clinicId },
-          { name: "Jane Smith", email: "jane@example.com", phone: "0987654321", doctorId: sess.doctorId, clinicId: clinicResults[0].clinicId }
-        ];
-
-        for (const p of testPatients) {
-          await storage.createPatient(p);
-        }
-
-        res.json({ message: "Seeded test patients" });
-      } catch (error: any) {
-        res.status(500).json({ message: error.message });
-      }
+    // Unified current user endpoint
+    app.get("/api/auth/me", isAuthenticated, (req, res) => {
+      res.json((req as any).user);
     });
 
     app.post("/api/auth/clinic/login", async (req, res) => {
@@ -984,7 +838,8 @@ export async function registerRoutes(
           if (clinic.isArchived) continue;
           
           const doctors = clinic.doctors || [];
-          const doctor = doctors.find((d: any) => d.email === email && d.accountCreated);
+          // Also check for the case where accountCreated might be missing/undefined (initial seed)
+          const doctor = doctors.find((d: any) => d.email === email && (d.accountCreated || d.password));
           
           if (doctor) {
             foundDoctor = doctor;
