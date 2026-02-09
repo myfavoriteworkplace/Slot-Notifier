@@ -142,12 +142,12 @@ async function sendCancellationEmail(email: string, name: string, date: Date, cl
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   // Check if session exists and is logged in
   const sess = req.session as any;
-  if (req.session && sess.adminLoggedIn) {
+  if (req.session && (sess.adminLoggedIn || sess.doctorLoggedIn)) {
     // Set req.user to mimic a consistent user structure
     (req as any).user = {
       claims: {
-        sub: 'admin',
-        email: sess.adminEmail,
+        sub: sess.role === 'doctor' ? (sess.doctorId || sess.doctorEmail) : 'admin',
+        email: sess.role === 'doctor' ? sess.doctorEmail : sess.adminEmail,
       },
       id: sess.clinicId || 'superuser',
       role: sess.role || (sess.clinicId ? 'owner' : 'superuser')
@@ -859,33 +859,38 @@ export async function registerRoutes(
           return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        if (!req.session) {
-          console.error("[AUTH ERROR] No session available for doctor login");
-          return res.status(500).json({ message: "Session initialization failed" });
-        }
-
-        // Set session data for doctor
-        const sess = req.session as any;
-        sess.doctorLoggedIn = true;
-        sess.doctorEmail = email;
-        sess.doctorName = foundDoctor.name;
-        sess.clinicId = foundClinic.id;
-        sess.role = 'doctor';
-
-        req.session.save((err) => {
+        // Generate a new session to avoid session fixation and ensure a clean state
+        req.session.regenerate((err) => {
           if (err) {
-            console.error("[AUTH ERROR] Failed to save doctor session:", err);
-            return res.status(500).json({ message: "Session save failed" });
+            console.error("[AUTH ERROR] Failed to regenerate session for doctor login:", err);
+            return res.status(500).json({ message: "Session initialization failed" });
           }
-          
-          console.log(`[AUTH] Doctor login successful: ${email} at clinic ${foundClinic.name}`);
-          res.json({
-            email: foundDoctor.email,
-            name: foundDoctor.name,
-            specialization: foundDoctor.specialization,
-            clinicId: foundClinic.id,
-            clinicName: foundClinic.name,
-            logoUrl: foundClinic.logoUrl,
+
+          // Set session data for doctor
+          const sess = req.session as any;
+          sess.adminLoggedIn = true; // Use this for shared isAuthenticated middleware if needed
+          sess.doctorLoggedIn = true;
+          sess.doctorEmail = email;
+          sess.doctorName = foundDoctor.name;
+          sess.clinicId = foundClinic.id;
+          sess.role = 'doctor';
+
+          req.session.save((err) => {
+            if (err) {
+              console.error("[AUTH ERROR] Failed to save doctor session:", err);
+              return res.status(500).json({ message: "Session save failed" });
+            }
+            
+            console.log(`[AUTH] Doctor login successful: ${email} at clinic ${foundClinic.name}, SessionID: ${req.sessionID}`);
+            res.json({
+              email: foundDoctor.email,
+              name: foundDoctor.name,
+              specialization: foundDoctor.specialization,
+              clinicId: foundClinic.id,
+              clinicName: foundClinic.name,
+              logoUrl: foundClinic.logoUrl,
+              role: 'doctor'
+            });
           });
         });
       } catch (err: any) {
