@@ -838,10 +838,18 @@ export async function registerRoutes(
           if (clinic.isArchived) continue;
           
           const doctors = clinic.doctors || [];
-          // Also check for the case where accountCreated might be missing/undefined (initial seed)
-          const doctor = doctors.find((d: any) => d.email === email && (d.accountCreated || d.password));
+          console.log(`[AUTH-DEBUG] Checking clinic ${clinic.name} (${clinic.id}) - Doctors count: ${doctors.length}`);
+          
+          // Case-insensitive email match and more robust check
+          const doctor = doctors.find((d: any) => {
+            const dEmail = (d.email || "").toLowerCase().trim();
+            const targetEmail = email.toLowerCase().trim();
+            const hasAccess = d.accountCreated || d.password;
+            return dEmail === targetEmail && hasAccess;
+          });
           
           if (doctor) {
+            console.log(`[AUTH-DEBUG] Found matching doctor: ${doctor.name} in clinic ${clinic.name}`);
             foundDoctor = doctor;
             foundClinic = clinic;
             break;
