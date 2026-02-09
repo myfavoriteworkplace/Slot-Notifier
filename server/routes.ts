@@ -271,14 +271,16 @@ export async function registerRoutes(
     }
 
     try {
+      // Default password hash for "demo123"
+      const defaultPasswordHash = await bcrypt.hash("demo123", 10);
+      
       let doctor = await storage.getDoctorByEmail(email);
       
       if (!doctor) {
-        const passwordHash = await bcrypt.hash("demo123", 10);
         doctor = await storage.createDoctor({
           name,
           email,
-          passwordHash,
+          passwordHash: defaultPasswordHash,
           specialization: specialization || null,
           degree: degree || null,
           imageUrl: null,
