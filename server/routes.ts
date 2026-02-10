@@ -881,7 +881,7 @@ export async function registerRoutes(
 
           // Set session data for doctor
           const sess = req.session as any;
-          sess.adminLoggedIn = true; // Use this for shared isAuthenticated middleware if needed
+          sess.adminLoggedIn = true; 
           sess.doctorLoggedIn = true;
           sess.doctorEmail = email;
           sess.doctorName = foundDoctor.name;
