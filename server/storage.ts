@@ -312,9 +312,12 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateBookingAssignment(id: number, doctorName: string): Promise<Booking> {
+  async updateBookingAssignment(id: number, doctorName: string, doctorEmail?: string): Promise<Booking> {
     const [updated] = await db.update(bookings)
-      .set({ assignedDoctor: doctorName })
+      .set({ 
+        assignedDoctor: doctorName,
+        assignedDoctorEmail: doctorEmail || null
+      })
       .where(eq(bookings.id, id))
       .returning();
     return updated;

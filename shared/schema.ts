@@ -51,6 +51,7 @@ export const bookings = pgTable("bookings", {
   verificationExpiresAt: timestamp("verification_expires_at"),
   description: text("description"),
   assignedDoctor: varchar("assigned_doctor", { length: 255 }),
+  assignedDoctorEmail: varchar("assigned_doctor_email", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

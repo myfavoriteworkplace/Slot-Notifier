@@ -69,6 +69,10 @@ export default function DoctorDashboard() {
   }, {} as Record<string, typeof filteredPatients>);
 
   const filteredBookings = Array.isArray(bookings) ? bookings.filter((booking: any) => {
+    // Only show bookings assigned to this doctor by email
+    const isAssignedToMe = booking.assignedDoctorEmail === doctor.email;
+    if (!isAssignedToMe) return false;
+
     const matchesClinic = appointmentClinicFilter === "all" || booking.clinicId === parseInt(appointmentClinicFilter);
     const bookingDate = booking.slot?.startTime ? new Date(booking.slot.startTime).toISOString().split('T')[0] : "";
     const matchesDate = !appointmentDateFilter || bookingDate === appointmentDateFilter;

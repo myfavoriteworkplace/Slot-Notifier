@@ -460,8 +460,8 @@ export default function ClinicDashboard() {
   };
 
   const assignDoctorMutation = useMutation({
-    mutationFn: async ({ bookingId, doctorName }: { bookingId: number; doctorName: string }) => {
-      const response = await apiRequest('PATCH', `/api/clinic/bookings/${bookingId}/assign-doctor`, { doctorName });
+    mutationFn: async ({ bookingId, doctorName, doctorEmail }: { bookingId: number; doctorName: string; doctorEmail?: string }) => {
+      const response = await apiRequest('PATCH', `/api/clinic/bookings/${bookingId}/assign-doctor`, { doctorName, doctorEmail });
       return response.json();
     },
     onSuccess: () => {
@@ -1671,7 +1671,8 @@ export default function ClinicDashboard() {
                                     e.stopPropagation();
                                     assignDoctorMutation.mutate({ 
                                       bookingId: booking.id, 
-                                      doctorName: clinic.doctorName! 
+                                      doctorName: clinic.doctorName!,
+                                      doctorEmail: clinic.email // Assuming lead doctor email is clinic email or we need to find it
                                     });
                                   }}
                                   disabled={assignDoctorMutation.isPending}
@@ -1694,7 +1695,8 @@ export default function ClinicDashboard() {
                                     e.stopPropagation();
                                     assignDoctorMutation.mutate({ 
                                       bookingId: booking.id, 
-                                      doctorName: doctor.name 
+                                      doctorName: doctor.name,
+                                      doctorEmail: doctor.email
                                     });
                                   }}
                                   disabled={assignDoctorMutation.isPending}

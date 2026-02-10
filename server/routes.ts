@@ -1112,9 +1112,9 @@ export async function registerRoutes(
 
     app.patch("/api/clinic/bookings/:id/assign-doctor", isAuthenticated, async (req, res) => {
       try {
-        const { doctorName } = req.body;
+        const { doctorName, doctorEmail } = req.body;
         const bookingId = parseInt(req.params.id);
-        const booking = await storage.updateBookingAssignment(bookingId, doctorName);
+        const booking = await storage.updateBookingAssignment(bookingId, doctorName, doctorEmail);
         res.json(booking);
       } catch (err: any) {
         res.status(500).json({ message: "Failed to assign doctor", error: err.message });
