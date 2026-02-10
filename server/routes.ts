@@ -518,9 +518,34 @@ export async function registerRoutes(
       }
       try {
         const doctorId = sess.doctorId;
-        const patientsList = await storage.getPatientsByDoctor(doctorId);
-        res.json(patientsList);
+        const doctorEmail = sess.doctorEmail;
+
+        // If doctorId is an email string (due to fallback) or missing, 
+        // we should try to find the real numeric ID first if possible,
+        // or handle the search by email.
+        let numericDoctorId: number | null = null;
+        
+        if (typeof doctorId === 'number') {
+          numericDoctorId = doctorId;
+        } else if (typeof doctorId === 'string' && !isNaN(Number(doctorId))) {
+          numericDoctorId = Number(doctorId);
+        }
+
+        if (numericDoctorId) {
+          const patientsList = await storage.getPatientsByDoctor(numericDoctorId);
+          return res.json(patientsList);
+        } else if (doctorEmail) {
+          // If we only have email, we need to find the doctor ID from the doctors table
+          const doctor = await storage.getDoctorByEmail(doctorEmail);
+          if (doctor) {
+            const patientsList = await storage.getPatientsByDoctor(doctor.id);
+            return res.json(patientsList);
+          }
+        }
+        
+        res.json([]); // Return empty list if no doctor found
       } catch (err: any) {
+        console.error("[API ERROR] Failed to fetch doctor patients:", err);
         res.status(500).json({ message: "Failed to fetch doctor patients", error: err.message });
       }
     });
