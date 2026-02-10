@@ -498,15 +498,36 @@ export async function registerRoutes(
       }
       try {
         const doctorId = sess.doctorId;
+        const doctorEmail = sess.doctorEmail;
+
+        let numericDoctorId: number | null = null;
+        if (typeof doctorId === 'number') {
+          numericDoctorId = doctorId;
+        } else if (typeof doctorId === 'string' && !isNaN(Number(doctorId))) {
+          numericDoctorId = Number(doctorId);
+        }
+
+        if (!numericDoctorId && doctorEmail) {
+          const doctor = await storage.getDoctorByEmail(doctorEmail);
+          if (doctor) {
+            numericDoctorId = doctor.id;
+          }
+        }
+
+        if (!numericDoctorId) {
+          return res.json([]);
+        }
+
         const doctorClinics = await db.select({
           clinic: clinics
         })
         .from(clinics)
         .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
-        .where(eq(clinicDoctors.doctorId, doctorId));
+        .where(eq(clinicDoctors.doctorId, numericDoctorId));
         
         res.json(doctorClinics.map(r => r.clinic));
       } catch (err: any) {
+        console.error("[API ERROR] Failed to fetch doctor clinics:", err);
         res.status(500).json({ message: "Failed to fetch doctor clinics", error: err.message });
       }
     });
