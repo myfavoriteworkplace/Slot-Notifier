@@ -35,8 +35,8 @@ export default function DoctorDashboard() {
   });
 
   const { data: bookings = [], isLoading: isBookingsLoading } = useQuery({
-    queryKey: ["/api/clinic/bookings", doctor?.clinicId],
-    enabled: !!doctor?.clinicId,
+    queryKey: ["/api/auth/clinic/bookings"],
+    enabled: isAuthenticated,
   });
 
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");

@@ -491,6 +491,40 @@ export async function registerRoutes(
       res.json((req as any).user);
     });
 
+    app.get("/api/doctor/clinics", isAuthenticated, async (req, res) => {
+      const sess = req.session as any;
+      if (sess.role !== 'doctor') {
+        return res.status(403).json({ message: "Only doctors can access their clinics" });
+      }
+      try {
+        const doctorId = sess.doctorId;
+        const doctorClinics = await db.select({
+          clinic: clinics
+        })
+        .from(clinics)
+        .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
+        .where(eq(clinicDoctors.doctorId, doctorId));
+        
+        res.json(doctorClinics.map(r => r.clinic));
+      } catch (err: any) {
+        res.status(500).json({ message: "Failed to fetch doctor clinics", error: err.message });
+      }
+    });
+
+    app.get("/api/doctor/patients", isAuthenticated, async (req, res) => {
+      const sess = req.session as any;
+      if (sess.role !== 'doctor') {
+        return res.status(403).json({ message: "Only doctors can access their patients" });
+      }
+      try {
+        const doctorId = sess.doctorId;
+        const patientsList = await storage.getPatientsByDoctor(doctorId);
+        res.json(patientsList);
+      } catch (err: any) {
+        res.status(500).json({ message: "Failed to fetch doctor patients", error: err.message });
+      }
+    });
+
     app.post("/api/auth/clinic/login", async (req, res) => {
       const { username, password } = req.body;
       
