@@ -619,6 +619,32 @@ export async function registerRoutes(
     }
   });
 
+    app.get("/api/clinic/bookings", isAuthenticated, async (req, res) => {
+      const sess = req.session as any;
+      console.log(`[API-DEBUG] Hit GET /api/clinic/bookings`, sess);
+      
+      try {
+        if (!sess.clinicId) {
+          return res.status(403).json({ message: "Not authorized to view bookings" });
+        }
+
+        const bookings = await storage.getClinicBookings(sess.clinicId);
+        
+        // If it's a doctor, filter by their name
+        if (sess.role === 'doctor' && sess.doctorName) {
+          const filtered = bookings.filter((b: any) => 
+            b.assignedDoctor && b.assignedDoctor.toLowerCase() === sess.doctorName.toLowerCase()
+          );
+          return res.json(filtered);
+        }
+
+        res.json(bookings);
+      } catch (err: any) {
+        console.error("[API ERROR] Failed to fetch clinic bookings:", err.message);
+        res.status(500).json({ message: "Failed to fetch bookings" });
+      }
+    });
+
     app.post("/api/clinic/bookings", isAuthenticated, async (req, res) => {
       console.log(`[API-DEBUG] Hit /api/clinic/bookings`);
       const sess = req.session as any;
