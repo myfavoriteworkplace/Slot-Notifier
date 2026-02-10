@@ -192,8 +192,8 @@ export default function ClinicDashboard() {
   });
 
   const handleAddDoctor = () => {
-    if (!newDoctorName || !newDoctorSpecialization) {
-      toast({ title: "Please fill in name and specialization", variant: "destructive" });
+    if (!newDoctorName || !newDoctorSpecialization || !newDoctorEmail) {
+      toast({ title: "Please fill in name, specialization and email", variant: "destructive" });
       return;
     }
     addDoctorMutation.mutate({
@@ -904,6 +904,19 @@ export default function ClinicDashboard() {
                             onChange={(e) => setNewDoctorName(e.target.value)}
                             placeholder="Dr. John Smith"
                             data-testid="input-doctor-name"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="doctor-email" className="text-left block text-xs text-muted-foreground">Email</Label>
+                          <Input
+                            id="doctor-email"
+                            type="email"
+                            value={newDoctorEmail}
+                            onChange={(e) => setNewDoctorEmail(e.target.value)}
+                            placeholder="doctor@example.com"
+                            data-testid="input-doctor-email"
+                            required
                           />
                         </div>
                         <div className="space-y-2">
@@ -914,6 +927,7 @@ export default function ClinicDashboard() {
                             onChange={(e) => setNewDoctorSpecialization(e.target.value)}
                             placeholder="e.g., General Dentist"
                             data-testid="input-doctor-specialization"
+                            required
                           />
                         </div>
                         <div className="space-y-2">
@@ -926,22 +940,11 @@ export default function ClinicDashboard() {
                             data-testid="input-doctor-degree"
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="doctor-email" className="text-left block text-xs text-muted-foreground">Email (Optional - for invitation)</Label>
-                          <Input
-                            id="doctor-email"
-                            type="email"
-                            value={newDoctorEmail}
-                            onChange={(e) => setNewDoctorEmail(e.target.value)}
-                            placeholder="doctor@example.com"
-                            data-testid="input-doctor-email"
-                          />
-                        </div>
                       </div>
                     </div>
                     <Button
                       onClick={handleAddDoctor}
-                      disabled={!newDoctorName || !newDoctorSpecialization || addDoctorMutation.isPending}
+                      disabled={!newDoctorName || !newDoctorSpecialization || !newDoctorEmail || addDoctorMutation.isPending}
                       className="w-full sm:w-auto"
                       data-testid="button-add-doctor"
                     >

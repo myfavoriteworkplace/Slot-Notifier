@@ -403,9 +403,11 @@ export default function Admin() {
                           }}
                           className="h-8"
                           data-testid={`input-doctor-name-${index}`}
+                          required
                         />
                         <Input
-                          placeholder="Doctor email (Optional)"
+                          placeholder="Doctor email"
+                          type="email"
                           value={doctor.email || ""}
                           onChange={(e) => {
                             const updated = [...newClinicDoctors];
@@ -414,6 +416,7 @@ export default function Admin() {
                           }}
                           className="h-8"
                           data-testid={`input-doctor-email-${index}`}
+                          required
                         />
                         <div className="grid grid-cols-2 gap-2">
                           <Input
@@ -426,6 +429,7 @@ export default function Admin() {
                             }}
                             className="h-8"
                             data-testid={`input-doctor-specialization-${index}`}
+                            required
                           />
                           <Input
                             placeholder="Degree"
@@ -467,14 +471,21 @@ export default function Admin() {
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={() => createClinicMutation.mutate({ 
-                  name: newClinicName, 
-                  address: newClinicAddress,
-                  email: newClinicEmail,
-                  phone: newClinicPhone,
-                  website: newClinicWebsite,
-                  doctors: newClinicDoctors.filter(d => d.name.trim() !== '')
-                })} disabled={createClinicMutation.isPending || !newClinicName || !newClinicAddress}>
+                <Button onClick={() => {
+                  const invalidDoctor = newClinicDoctors.find(d => !d.name.trim() || !d.email.trim() || !d.specialization.trim());
+                  if (invalidDoctor) {
+                    toast({ title: "Please fill in all doctor details including email", variant: "destructive" });
+                    return;
+                  }
+                  createClinicMutation.mutate({ 
+                    name: newClinicName, 
+                    address: newClinicAddress,
+                    email: newClinicEmail,
+                    phone: newClinicPhone,
+                    website: newClinicWebsite,
+                    doctors: newClinicDoctors.filter(d => d.name.trim() !== '')
+                  })
+                }} disabled={createClinicMutation.isPending || !newClinicName || !newClinicAddress}>
                   {createClinicMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create Clinic
                 </Button>
