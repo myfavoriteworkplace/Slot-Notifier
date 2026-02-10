@@ -39,6 +39,9 @@ export default function DoctorDashboard() {
     enabled: !!doctor?.clinicId,
   });
 
+  const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
+  const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -64,6 +67,13 @@ export default function DoctorDashboard() {
     acc[clinicName].push(p);
     return acc;
   }, {} as Record<string, typeof filteredPatients>);
+
+  const filteredBookings = Array.isArray(bookings) ? bookings.filter((booking: any) => {
+    const matchesClinic = appointmentClinicFilter === "all" || booking.clinicId === parseInt(appointmentClinicFilter);
+    const bookingDate = booking.slot?.startTime ? new Date(booking.slot.startTime).toISOString().split('T')[0] : "";
+    const matchesDate = !appointmentDateFilter || bookingDate === appointmentDateFilter;
+    return matchesClinic && matchesDate;
+  }) : [];
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -205,6 +215,40 @@ export default function DoctorDashboard() {
           </TabsContent>
 
           <TabsContent value="appointments" className="animate-in fade-in duration-500">
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+              <div className="relative flex-1">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  type="date"
+                  className="pl-9 h-9"
+                  value={appointmentDateFilter}
+                  onChange={(e) => setAppointmentDateFilter(e.target.value)}
+                />
+              </div>
+              <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
+                <SelectTrigger className="w-full sm:w-[200px] h-9">
+                  <SelectValue placeholder="All Clinics" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Clinics</SelectItem>
+                  {doctorClinics.map(c => (
+                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-9"
+                onClick={() => {
+                  setAppointmentDateFilter("");
+                  setAppointmentClinicFilter("all");
+                }}
+              >
+                Clear
+              </Button>
+            </div>
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -212,11 +256,7 @@ export default function DoctorDashboard() {
                   Appointment Schedule
                 </CardTitle>
                 <Badge variant="outline" className="font-normal">
-                  Today: {Array.isArray(bookings) ? bookings.filter((b: any) => {
-                    const bookingDate = new Date(b.slot?.startTime);
-                    const today = new Date();
-                    return bookingDate.toDateString() === today.toDateString();
-                  }).length : 0}
+                  Showing: {filteredBookings.length}
                 </Badge>
               </CardHeader>
               <CardContent>
@@ -224,9 +264,9 @@ export default function DoctorDashboard() {
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/50" />
                   </div>
-                ) : Array.isArray(bookings) && bookings.length > 0 ? (
+                ) : filteredBookings.length > 0 ? (
                   <div className="divide-y">
-                    {bookings.slice(0, 20).map((booking: any) => (
+                    {filteredBookings.slice(0, 50).map((booking: any) => (
                       <div 
                         key={booking.id} 
                         className="flex items-center justify-between py-4 group hover:bg-muted/50 transition-colors px-2 rounded-lg"
@@ -237,7 +277,12 @@ export default function DoctorDashboard() {
                             {booking.customerName[0]}
                           </div>
                           <div>
-                            <p className="font-medium text-sm">{booking.customerName}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm">{booking.customerName}</p>
+                              <Badge variant="secondary" className="text-[9px] h-4 px-1.5 py-0 font-normal">
+                                {booking.clinicName || doctorClinics.find(c => c.id === booking.clinicId)?.name || "Clinic"}
+                              </Badge>
+                            </div>
                             <p className="text-[11px] text-muted-foreground">{booking.customerPhone}</p>
                           </div>
                         </div>
@@ -255,7 +300,7 @@ export default function DoctorDashboard() {
                 ) : (
                   <div className="text-center py-12 text-muted-foreground border-dashed border-2 rounded-lg">
                     <Calendar className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                    <p className="text-sm">No scheduled appointments</p>
+                    <p className="text-sm">No scheduled appointments found matching filters</p>
                   </div>
                 )}
               </CardContent>
