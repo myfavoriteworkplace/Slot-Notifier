@@ -1086,33 +1086,48 @@ export async function registerRoutes(
       
       if (sess.role === 'doctor') {
         // For doctors, we want to fetch bookings from all their clinics
-        // However, the current dashboard query uses doctor.clinicId
-        // Let's support both: specific clinicId or all clinics for the doctor
-        const doctorId = sess.doctorId;
-        const doctorEmail = sess.doctorEmail;
+        // Support doctorId/email from session or fallback to query param
+        const doctorId = sess.doctorId || req.query.doctorId;
+        const doctorEmail = sess.doctorEmail || req.query.doctorEmail;
         
-        console.log('[API-DEBUG] sess.doctorId =', doctorId);
-        console.log('[API-DEBUG] sess.doctorEmail =', doctorEmail);
+        console.log('[API-DEBUG] Attempting fetch with doctorId =', doctorId, 'doctorEmail =', doctorEmail);
         
-        return db.select({
+        if (!doctorEmail && !doctorId) {
+          return res.status(400).json({ message: "Doctor identification required (session or query param)" });
+        }
+
+        const query = db.select({
           booking: bookings,
           slot: slots,
           clinic: clinics
         })
         .from(bookings)
         .innerJoin(slots, eq(bookings.slotId, slots.id))
-        .innerJoin(clinics, eq(slots.clinicId, clinics.id))
-        .where(
-          sql`EXISTS (
-            SELECT 1 FROM jsonb_array_elements(${clinics.doctors}) AS doc
-            WHERE (doc->>'email')::text = ${doctorEmail}
-          )`
-        )
-        .then(results => res.json(results.map(r => ({ ...r.booking, slot: r.slot, clinic: r.clinic }))))
-        .catch((err: any) => {
-          console.error('[API-ERROR] Doctor bookings fetch failed:', err);
-          res.status(500).json({ message: err.message });
-        });
+        .innerJoin(clinics, eq(slots.clinicId, clinics.id));
+
+        // Use email-based join as primary reliable method for JSONB doctor lists
+        if (doctorEmail) {
+          return query.where(
+            sql`EXISTS (
+              SELECT 1 FROM jsonb_array_elements(${clinics.doctors}) AS doc
+              WHERE (doc->>'email')::text = ${doctorEmail}
+            )`
+          )
+          .then(results => res.json(results.map(r => ({ ...r.booking, slot: r.slot, clinic: r.clinic }))))
+          .catch((err: any) => {
+            console.error('[API-ERROR] Doctor bookings fetch by email failed:', err);
+            res.status(500).json({ message: err.message });
+          });
+        }
+
+        // Fallback to ID-based join if only ID is provided
+        return query.innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
+          .where(eq(clinicDoctors.doctorId, Number(doctorId)))
+          .then(results => res.json(results.map(r => ({ ...r.booking, slot: r.slot, clinic: r.clinic }))))
+          .catch((err: any) => {
+            console.error('[API-ERROR] Doctor bookings fetch by ID failed:', err);
+            res.status(500).json({ message: err.message });
+          });
       }
       
       if (sess.clinicId) {
