@@ -939,14 +939,15 @@ export async function registerRoutes(
             return res.status(500).json({ message: "Session initialization failed" });
           }
 
-          // Set session data for doctor
-          const sess = req.session as any;
-          sess.adminLoggedIn = true; 
-          sess.doctorLoggedIn = true;
-          sess.doctorEmail = email;
-          sess.doctorName = foundDoctor.name;
-          sess.clinicId = foundClinic.id;
-          sess.role = 'doctor';
+        // Set session data for doctor
+        const sess = req.session as any;
+        sess.adminLoggedIn = true; 
+        sess.doctorLoggedIn = true;
+        sess.doctorEmail = email;
+        sess.doctorName = foundDoctor.name;
+        sess.doctorId = foundDoctor.id || foundDoctor.email; // Use ID if available, fallback to email
+        sess.clinicId = foundClinic.id;
+        sess.role = 'doctor';
 
           req.session.save((err) => {
             if (err) {
@@ -1088,6 +1089,10 @@ export async function registerRoutes(
         // However, the current dashboard query uses doctor.clinicId
         // Let's support both: specific clinicId or all clinics for the doctor
         const doctorId = sess.doctorId;
+        const doctorEmail = sess.doctorEmail;
+        
+        console.log('[API-DEBUG] sess.doctorId =', doctorId);
+        console.log('[API-DEBUG] sess.doctorEmail =', doctorEmail);
         
         return db.select({
           booking: bookings,
@@ -1097,10 +1102,17 @@ export async function registerRoutes(
         .from(bookings)
         .innerJoin(slots, eq(bookings.slotId, slots.id))
         .innerJoin(clinics, eq(slots.clinicId, clinics.id))
-        .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
-        .where(eq(clinicDoctors.doctorId, doctorId))
+        .where(
+          sql`EXISTS (
+            SELECT 1 FROM jsonb_array_elements(${clinics.doctors}) AS doc
+            WHERE (doc->>'email')::text = ${doctorEmail}
+          )`
+        )
         .then(results => res.json(results.map(r => ({ ...r.booking, slot: r.slot, clinic: r.clinic }))))
-        .catch((err: any) => res.status(500).json({ message: err.message }));
+        .catch((err: any) => {
+          console.error('[API-ERROR] Doctor bookings fetch failed:', err);
+          res.status(500).json({ message: err.message });
+        });
       }
       
       if (sess.clinicId) {
