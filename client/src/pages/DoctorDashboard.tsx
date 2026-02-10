@@ -280,7 +280,7 @@ export default function DoctorDashboard() {
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-sm">{booking.customerName}</p>
                               <Badge variant="secondary" className="text-[9px] h-4 px-1.5 py-0 font-normal">
-                                {booking.clinicName || doctorClinics.find(c => c.id === booking.clinicId)?.name || "Clinic"}
+                                {booking.clinic?.name || booking.clinicName || doctorClinics.find(c => c.id === booking.clinicId)?.name || "Clinic"}
                               </Badge>
                             </div>
                             <p className="text-[11px] text-muted-foreground">{booking.customerPhone}</p>

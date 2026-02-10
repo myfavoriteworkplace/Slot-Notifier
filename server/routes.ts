@@ -1083,6 +1083,26 @@ export async function registerRoutes(
       const sess = req.session as any;
       console.log(`[API-DEBUG-SESSION] Hit /api/auth/clinic/bookings`, sess);
       
+      if (sess.role === 'doctor') {
+        // For doctors, we want to fetch bookings from all their clinics
+        // However, the current dashboard query uses doctor.clinicId
+        // Let's support both: specific clinicId or all clinics for the doctor
+        const doctorId = sess.doctorId;
+        
+        return db.select({
+          booking: bookings,
+          slot: slots,
+          clinic: clinics
+        })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .innerJoin(clinics, eq(slots.clinicId, clinics.id))
+        .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
+        .where(eq(clinicDoctors.doctorId, doctorId))
+        .then(results => res.json(results.map(r => ({ ...r.booking, slot: r.slot, clinic: r.clinic }))))
+        .catch((err: any) => res.status(500).json({ message: err.message }));
+      }
+      
       if (sess.clinicId) {
         return storage.getClinicBookings(sess.clinicId)
           .then(bookings => res.json(bookings))
