@@ -114,3 +114,22 @@ npx vite
 ## 📝 Simple Troubleshooting
 - **CORS Error?** Make sure `FRONTEND_URL` in the main `.env` file matches exactly where your frontend is running (usually `http://localhost:5173`).
 - **Cannot connect?** Check if your PostgreSQL database is turned on.
+
+
+
+CREATING TABLE AND PUSHING TABLE TO DB
+
+2. **Generate migrations from schema**
+npx drizzle-kit generate
+
+- Reads schema from `./shared/schema.ts`
+- Outputs SQL migration files into `./migrations/`
+
+3. **Apply migrations to the database**
+npx drizzle-kit push
+
+- Executes the SQL in `./migrations` against the Postgres DB defined in `.env` (`DATABASE_URL`)
+- Creates all required tables (`clinics`, `slots`, `bookings`, etc.)
+
+4. **Verify tables exist**
+\dt
