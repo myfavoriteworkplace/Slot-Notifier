@@ -220,12 +220,23 @@ export type PublicBooking = z.infer<typeof publicBookingSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Clinic = typeof clinics.$inferSelect;
+export const siteSettings = pgTable("site_settings", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 255 }).notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSiteSettingsSchema = createInsertSchema(siteSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type SiteSetting = typeof siteSettings.$inferSelect;
+export type InsertSiteSetting = z.infer<typeof insertSiteSettingsSchema>;
+
+export type Clinic = typeof clinics.$inferSelect;
 export type InsertClinic = z.infer<typeof insertClinicSchema>;
 
 export interface ClinicSession {
-  id: number;
-  name: string;
-  role: 'owner' | 'superuser';
-  logoUrl?: string | null;
-  doctors: { name: string; specialization: string; degree: string; imageUrl?: string | null }[];
 }

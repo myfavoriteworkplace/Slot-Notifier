@@ -361,6 +361,42 @@ export async function registerRoutes(
     next();
   });
 
+    // Site Settings API
+    app.get("/api/site-settings/:key", async (req, res) => {
+      try {
+        const [setting] = await db.select().from(siteSettings).where(eq(siteSettings.key, req.params.key));
+        res.json(setting || { key: req.params.key, value: "" });
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
+    app.post("/api/site-settings", isAuthenticated, async (req, res) => {
+      const sess = req.session as any;
+      if (sess.role !== 'superuser') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      try {
+        const { key, value } = req.body;
+        const [existing] = await db.select().from(siteSettings).where(eq(siteSettings.key, key));
+        
+        let result;
+        if (existing) {
+          [result] = await db.update(siteSettings)
+            .set({ value, updatedAt: new Date() })
+            .where(eq(siteSettings.key, key))
+            .returning();
+        } else {
+          [result] = await db.insert(siteSettings)
+            .values({ key, value })
+            .returning();
+        }
+        res.json(result);
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
     // Health check endpoint
     app.all("/api/health", async (req, res) => {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');

@@ -2,6 +2,8 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Tag, Sparkles, Calendar } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 const DEALS = [
   {
@@ -37,6 +39,16 @@ const DEALS = [
 ];
 
 export default function SmileDeals() {
+  const { data: videoSetting } = useQuery({
+    queryKey: ['/api/site-settings/smile_deals_video_url'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/site-settings/smile_deals_video_url');
+      return res.json();
+    }
+  });
+
+  const videoUrl = videoSetting?.value || "https://www.youtube.com/embed/p_q0G4GhMnI?autoplay=1&mute=1";
+
   return (
     <div className="container mx-auto px-4 py-8">
       <header className="mb-8 flex flex-col gap-2">
@@ -107,7 +119,7 @@ export default function SmileDeals() {
                   <iframe
                     width="100%"
                     height="100%"
-                    src="https://www.youtube.com/embed/p_q0G4GhMnI?autoplay=1&mute=1"
+                    src={videoUrl}
                     title="Smile Deals Sponsored Content"
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

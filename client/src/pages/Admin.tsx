@@ -279,6 +279,37 @@ export default function Admin() {
     }
   };
 
+  const [smileDealsVideoUrl, setSmileDealsVideoUrl] = useState("");
+
+  const { data: videoSetting } = useQuery({
+    queryKey: ['/api/site-settings/smile_deals_video_url'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/site-settings/smile_deals_video_url');
+      return res.json();
+    }
+  });
+
+  useEffect(() => {
+    if (videoSetting?.value) {
+      setSmileDealsVideoUrl(videoSetting.value);
+    }
+  }, [videoSetting]);
+
+  const updateVideoUrlMutation = useMutation({
+    mutationFn: async (value: string) => {
+      const res = await apiRequest('POST', '/api/site-settings', { key: 'smile_deals_video_url', value });
+      if (!res.ok) throw new Error("Failed to update video URL");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/site-settings/smile_deals_video_url'] });
+      toast({ title: "Video URL updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to update video URL", description: error.message, variant: "destructive" });
+    }
+  });
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -529,6 +560,31 @@ export default function Admin() {
           </CardContent>
         </Card>
         <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center">
+              <Sparkles className="h-4 w-4 mr-2 text-primary" />
+              Smile Deals Video
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Input 
+                placeholder="YouTube Embed URL" 
+                value={smileDealsVideoUrl} 
+                onChange={(e) => setSmileDealsVideoUrl(e.target.value)}
+              />
+              <Button 
+                size="sm" 
+                className="w-full" 
+                onClick={() => updateVideoUrlMutation.mutate(smileDealsVideoUrl)}
+                disabled={updateVideoUrlMutation.isPending}
+              >
+                {updateVideoUrlMutation.isPending ? "Updating..." : "Update URL"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center">
               <FlaskConical className="h-4 w-4 mr-2 text-primary" />
