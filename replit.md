@@ -112,14 +112,13 @@ For detailed setup and deployment instructions, see:
 
 ## Recent Changes
 
-- **2026-01-27**: Implemented complete doctor onboarding and authentication system
-  - Added `doctorInvites` table for tracking invitation tokens
-  - Created `/setup-password` page for doctors to complete registration
-  - Added email input field to clinic dashboard doctor management
-  - Backend endpoints for invitation verification and password setup
-  - Added doctor login functionality with email/password authentication
-  - Created `/doctor-dashboard` page for logged-in doctors
-  - Tabbed login page supporting both clinic and doctor logins
+- **2026-03-03**: Enhanced doctor dashboard and clinic booking visibility.
+  - Updated `getClinicBookings` in `storage.ts` to use `leftJoin` for clinics, preventing data loss if `clinicId` is null.
+  - Modified `/api/auth/clinic/bookings` in `routes.ts` to support multi-clinic booking retrieval for doctors.
+  - Added clinic name badges to appointment cards in `DoctorDashboard.tsx`.
+  - Fixed clinic filtering in `DoctorDashboard.tsx` to use the new `/api/doctor/clinics` endpoint.
+  - Fixed cross-origin session issues by adding `credentials: "include"` to all frontend fetch calls and ensuring `API_BASE_URL` is correctly applied.
+  - Improved database query reliability with explicit `Number()` casting for IDs.
 - **2026-01-25**: Integrated Cloudflare R2 for clinic logo uploads.
 - **2026-01-24**: Added doctor management feature to clinic dashboard (view, add, remove doctors)
 - **2024-01-13**: Added dual authentication support (Replit OIDC + environment-based email/password)

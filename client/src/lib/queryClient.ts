@@ -48,7 +48,12 @@ export const getQueryFn: <T>(options: {
   
   const fullUrl = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
 
-  const res = await fetch(fullUrl, { credentials: "include" });
+  const res = await fetch(fullUrl, { 
+    credentials: "include",
+    headers: {
+      "Accept": "application/json",
+    }
+  });
 
   if (unauthorizedBehavior === "returnNull" && res.status === 401) {
     return null;

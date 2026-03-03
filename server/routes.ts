@@ -1149,7 +1149,7 @@ export async function registerRoutes(
         })
         .from(bookings)
         .innerJoin(slots, eq(bookings.slotId, slots.id))
-        .innerJoin(clinics, eq(slots.clinicId, clinics.id));
+        .leftJoin(clinics, eq(slots.clinicId, clinics.id));
 
         // Use email-based join as primary reliable method for JSONB doctor lists
         if (doctorEmail) {
@@ -1177,9 +1177,17 @@ export async function registerRoutes(
       }
       
       if (sess.clinicId) {
-        return storage.getClinicBookings(sess.clinicId)
-          .then(bookings => res.json(bookings))
-          .catch((err: any) => res.status(500).json({ message: err.message }));
+        const cid = Number(sess.clinicId);
+        console.log(`[API-DEBUG] Fetching bookings for clinicId: ${cid}`);
+        return storage.getClinicBookings(cid)
+          .then(bookings => {
+            console.log(`[API-DEBUG] Found ${bookings.length} bookings for clinic ${cid}`);
+            res.json(bookings);
+          })
+          .catch((err: any) => {
+            console.error(`[API-ERROR] Clinic bookings fetch failed:`, err);
+            res.status(500).json({ message: err.message });
+          });
       }
       
       // Super admin viewing all bookings
