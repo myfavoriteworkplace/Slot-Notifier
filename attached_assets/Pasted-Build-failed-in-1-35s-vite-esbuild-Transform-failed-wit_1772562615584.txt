@@ -1,0 +1,64 @@
+Build failed in 1.35s
+[vite:esbuild] Transform failed with 2 errors:
+/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/client/src/pages/Admin.tsx:603:10: ERROR: Unexpected closing "Card" tag does not match opening "div" tag
+/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/client/src/pages/Admin.tsx:604:12: ERROR: Unterminated regular expression
+file: /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/client/src/pages/Admin.tsx:603:10
+
+Unexpected closing "Card" tag does not match opening "div" tag
+601 |              </div>
+602 |            </CardContent>
+603 |          </Card>
+    |            ^
+604 |        </div>
+605 |  
+
+Unterminated regular expression
+602 |            </CardContent>
+603 |          </Card>
+604 |        </div>
+    |              ^
+605 |  
+606 |        <Tabs defaultValue="active" className="space-y-6">
+
+    at failureErrorWithLog (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+    at /Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/node_modules/vite/node_modules/esbuild/lib/main.js:736:50
+    at responseCallbacks.<computed> (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/node_modules/vite/node_modules/esbuild/lib/main.js:603:9)
+    at handleIncomingPacket (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/node_modules/vite/node_modules/esbuild/lib/main.js:658:12)
+    at Socket.readFromStdout (/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:191:23) {
+  errors: [Getter/Setter],
+  warnings: [Getter/Setter],
+  frame: '\n' +
+    '\x1B[33mUnexpected closing "Card" tag does not match opening "div" tag\x1B[39m\n' +
+    '601 |              </div>\n' +
+    '602 |            </CardContent>\n' +
+    '603 |          </Card>\n' +
+    '    |            ^\n' +
+    '604 |        </div>\n' +
+    '605 |  \n' +
+    '\n' +
+    '\x1B[33mUnterminated regular expression\x1B[39m\n' +
+    '602 |            </CardContent>\n' +
+    '603 |          </Card>\n' +
+    '604 |        </div>\n' +
+    '    |              ^\n' +
+    '605 |  \n' +
+    '606 |        <Tabs defaultValue="active" className="space-y-6">\n',
+  loc: {
+    column: 10,
+    file: '/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/client/src/pages/Admin.tsx',
+    length: 4,
+    line: 603,
+    lineText: '        </Card>',
+    namespace: '',
+    suggestion: 'div'
+  },
+  code: 'PLUGIN_ERROR',
+  plugin: 'vite:esbuild',
+  hook: 'transform',
+  id: '/Users/aruntharakan/Documents/Coding Practices/BOOK MY SLOT/BOOK-MY-SLOT/17-JAN-2025/Slot-Notifier/client/src/pages/Admin.tsx',
+  watchFiles: [

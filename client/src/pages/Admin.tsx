@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, FlaskConical, LogOut, Copy, ExternalLink, Activity, Database, Trash2, UserPlus, Stethoscope } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, FlaskConical, LogOut, Copy, ExternalLink, Activity, Database, Trash2, UserPlus, Stethoscope, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -530,7 +530,7 @@ export default function Admin() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center">
@@ -584,7 +584,7 @@ export default function Admin() {
             </div>
           </CardContent>
         </Card>
-      </div>
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center">
               <FlaskConical className="h-4 w-4 mr-2 text-primary" />
