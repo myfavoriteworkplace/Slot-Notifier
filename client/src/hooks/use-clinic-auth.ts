@@ -74,6 +74,10 @@ export function useClinicAuth() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["/api/auth/clinic/me"], data);
+
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/me"] });
+      
+      
       // Invalidate bookings cache so fresh data is fetched after login
       queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
     },

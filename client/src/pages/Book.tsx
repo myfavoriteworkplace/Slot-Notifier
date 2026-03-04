@@ -154,7 +154,11 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest('POST', '/api/clinic/bookings', data);
+      const response = await apiRequest('POST', '/api/public/bookings', data);
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.message || `Failed to create booking (${response.status})`);
+      }
       return response.json();
     },
     onSuccess: () => {

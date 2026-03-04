@@ -208,6 +208,10 @@ export default function ClinicDashboard() {
   const configureSlotMutation = useMutation({
     mutationFn: async (data: { startTime: string; maxBookings: number; isCancelled: boolean }) => {
       const response = await apiRequest('POST', '/api/auth/clinic/slots/configure', data);
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.message || `Failed to update slot configuration (${response.status})`);
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -313,6 +317,10 @@ export default function ClinicDashboard() {
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest('POST', '/api/clinic/bookings', data);
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.message || `Failed to create booking (${response.status})`);
+      }
       return response.json();
     },
     onSuccess: () => {
