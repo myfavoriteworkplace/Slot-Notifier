@@ -171,7 +171,7 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   return res.status(401).json({ message: "Authentication required" });
 }
 
-import { clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors } from "@shared/schema";
+import { clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { generateSignedUploadUrl } from "./signedUrl.service";
 import crypto from "crypto";
