@@ -280,12 +280,39 @@ export default function Admin() {
   };
 
   const [smileDealsVideoUrl, setSmileDealsVideoUrl] = useState("");
+  const [smileDealsConfig, setSmileDealsConfig] = useState("");
 
   const { data: videoSetting } = useQuery({
     queryKey: ['/api/site-settings/smile_deals_video_url'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/site-settings/smile_deals_video_url');
+      if (!res.ok) return { key: 'smile_deals_video_url', value: "" };
       return res.json();
+    }
+  });
+
+  const { data: dealsSetting } = useQuery({
+    queryKey: ['/api/site-settings/smile_deals_config'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/site-settings/smile_deals_config');
+      if (!res.ok) return { key: 'smile_deals_config', value: "" };
+      return res.json();
+    }
+  });
+
+  const updateDealsConfigMutation = useMutation({
+    mutationFn: async (value: string) => {
+      JSON.parse(value);
+      const res = await apiRequest('POST', '/api/site-settings', { key: 'smile_deals_config', value });
+      if (!res.ok) throw new Error("Failed to update deals config");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/site-settings/smile_deals_config'] });
+      toast({ title: "Deals configuration updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to update deals config", description: "Invalid JSON or server error", variant: "destructive" });
     }
   });
 
@@ -294,6 +321,18 @@ export default function Admin() {
       setSmileDealsVideoUrl(videoSetting.value);
     }
   }, [videoSetting]);
+
+  useEffect(() => {
+    if (dealsSetting?.value) {
+      setSmileDealsConfig(dealsSetting.value);
+    } else {
+      setSmileDealsConfig(JSON.stringify([
+        { id: 1, clinicUsername: "demo-clinic" },
+        { id: 2, clinicUsername: "demo-clinic" },
+        { id: 3, clinicUsername: "demo-clinic" }
+      ], null, 2));
+    }
+  }, [dealsSetting]);
 
   const updateVideoUrlMutation = useMutation({
     mutationFn: async (value: string) => {
@@ -559,32 +598,57 @@ export default function Admin() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center">
               <Sparkles className="h-4 w-4 mr-2 text-primary" />
-              Smile Deals Video
+              Smile Deals Configuration
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <Input 
-                placeholder="YouTube Embed URL" 
-                value={smileDealsVideoUrl} 
-                onChange={(e) => setSmileDealsVideoUrl(e.target.value)}
-              />
-              <Button 
-                size="sm" 
-                className="w-full" 
-                onClick={() => updateVideoUrlMutation.mutate(smileDealsVideoUrl)}
-                disabled={updateVideoUrlMutation.isPending}
-              >
-                {updateVideoUrlMutation.isPending ? "Updating..." : "Update URL"}
-              </Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs">YouTube Video URL</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="YouTube Embed URL" 
+                    value={smileDealsVideoUrl} 
+                    onChange={(e) => setSmileDealsVideoUrl(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                  <Button 
+                    size="sm" 
+                    className="h-8 px-2" 
+                    onClick={() => updateVideoUrlMutation.mutate(smileDealsVideoUrl)}
+                    disabled={updateVideoUrlMutation.isPending}
+                  >
+                    {updateVideoUrlMutation.isPending ? "..." : "Save"}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Clinic Mapping (JSON)</Label>
+                <div className="flex gap-2">
+                  <textarea 
+                    className="flex-1 h-8 p-1 text-[10px] font-mono border rounded-md"
+                    value={smileDealsConfig} 
+                    onChange={(e) => setSmileDealsConfig(e.target.value)}
+                  />
+                  <Button 
+                    size="sm" 
+                    variant="secondary"
+                    className="h-8 px-2" 
+                    onClick={() => updateDealsConfigMutation.mutate(smileDealsConfig)}
+                    disabled={updateDealsConfigMutation.isPending}
+                  >
+                    {updateDealsConfigMutation.isPending ? "..." : "Save"}
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="lg:col-span-4">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center">
               <FlaskConical className="h-4 w-4 mr-2 text-primary" />

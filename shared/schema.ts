@@ -220,6 +220,8 @@ export type PublicBooking = z.infer<typeof publicBookingSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Clinic = typeof clinics.$inferSelect;
+export type InsertClinic = z.infer<typeof insertClinicSchema>;
+
 export const siteSettings = pgTable("site_settings", {
   id: serial("id").primaryKey(),
   key: varchar("key", { length: 255 }).notNull().unique(),
@@ -235,8 +237,12 @@ export const insertSiteSettingsSchema = createInsertSchema(siteSettings).omit({
 export type SiteSetting = typeof siteSettings.$inferSelect;
 export type InsertSiteSetting = z.infer<typeof insertSiteSettingsSchema>;
 
-export type Clinic = typeof clinics.$inferSelect;
-export type InsertClinic = z.infer<typeof insertClinicSchema>;
-
 export interface ClinicSession {
+  adminLoggedIn?: boolean;
+  adminEmail?: string;
+  doctorLoggedIn?: boolean;
+  doctorEmail?: string;
+  doctorId?: number;
+  clinicId?: number;
+  role?: 'superuser' | 'owner' | 'doctor' | 'customer';
 }

@@ -47,7 +47,30 @@ export default function SmileDeals() {
     }
   });
 
+  const { data: dealsConfig } = useQuery({
+    queryKey: ['/api/site-settings/smile_deals_config'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/site-settings/smile_deals_config');
+      return res.json();
+    }
+  });
+
   const videoUrl = videoSetting?.value || "https://www.youtube.com/embed/p_q0G4GhMnI?autoplay=1&mute=1";
+  
+  const displayDeals = DEALS.map(deal => {
+    if (dealsConfig?.value) {
+      try {
+        const config = JSON.parse(dealsConfig.value);
+        const mapping = config.find((c: any) => c.id === deal.id);
+        if (mapping?.clinicUsername) {
+          return { ...deal, link: `/book/${mapping.clinicUsername}` };
+        }
+      } catch (e) {
+        console.error("Failed to parse deals config", e);
+      }
+    }
+    return deal;
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -65,7 +88,7 @@ export default function SmileDeals() {
         {/* Main Deals Grid */}
         <div className="lg:col-span-3">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {DEALS.map((deal) => (
+            {displayDeals.map((deal) => (
               <Card key={deal.id} className="flex flex-col overflow-hidden hover-elevate transition-all duration-300">
                 <div className="relative h-48 w-full overflow-hidden">
                   <img 
