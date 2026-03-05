@@ -112,13 +112,10 @@ For detailed setup and deployment instructions, see:
 
 ## Recent Changes
 
-- **2026-03-03**: Enhanced doctor dashboard and clinic booking visibility.
-  - Updated `getClinicBookings` in `storage.ts` to use `leftJoin` for clinics, preventing data loss if `clinicId` is null.
-  - Modified `/api/auth/clinic/bookings` in `routes.ts` to support multi-clinic booking retrieval for doctors.
-  - Added clinic name badges to appointment cards in `DoctorDashboard.tsx`.
-  - Fixed clinic filtering in `DoctorDashboard.tsx` to use the new `/api/doctor/clinics` endpoint.
-  - Fixed cross-origin session issues by adding `credentials: "include"` to all frontend fetch calls and ensuring `API_BASE_URL` is correctly applied.
-  - Improved database query reliability with explicit `Number()` casting for IDs.
+- **2026-03-05**: Cleaned up Super Admin dashboard.
+  - Removed backend, database, and server logs status cards from `Admin.tsx` as requested.
+  - Reorganized clinic lists into Tabs (Active, Pending, Archived) for better usability and cleaner UI.
+  - Simplified `Admin.tsx` logic by removing unused status polling and toggle functionality.
 - **2026-01-25**: Integrated Cloudflare R2 for clinic logo uploads.
 - **2026-01-24**: Added doctor management feature to clinic dashboard (view, add, remove doctors)
 - **2024-01-13**: Added dual authentication support (Replit OIDC + environment-based email/password)
