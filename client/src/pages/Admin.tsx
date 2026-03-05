@@ -630,7 +630,7 @@ export default function Admin() {
                 <Label className="text-xs">Clinic Mapping (JSON)</Label>
                 <div className="flex gap-2">
                   <textarea 
-                    className="flex-1 h-8 p-1 text-[10px] font-mono border rounded-md"
+                    className="flex-1 h-16 p-1 text-[10px] font-mono border rounded-md"
                     value={smileDealsConfig} 
                     onChange={(e) => setSmileDealsConfig(e.target.value)}
                   />
