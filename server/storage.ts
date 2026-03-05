@@ -1,5 +1,5 @@
 import { 
-  users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients,
+  users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -7,7 +7,8 @@ import {
   type Clinic, type InsertClinic,
   type Doctor, type InsertDoctor,
   type ClinicDoctor, type InsertClinicDoctor,
-  type Patient, type InsertPatient
+  type Patient, type InsertPatient,
+  type SmileDeal, type InsertSmileDeal
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
@@ -82,6 +83,12 @@ export interface IStorage {
   // Patients
   getPatientsByDoctor(doctorId: number): Promise<(Patient & { clinic: Clinic })[]>;
   createPatient(patient: InsertPatient): Promise<Patient>;
+
+  // Smile Deals
+  getSmileDeals(onlyActive?: boolean): Promise<SmileDeal[]>;
+  createSmileDeal(deal: InsertSmileDeal): Promise<SmileDeal>;
+  updateSmileDeal(id: number, updates: Partial<SmileDeal>): Promise<SmileDeal>;
+  deleteSmileDeal(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -607,6 +614,31 @@ export class DatabaseStorage implements IStorage {
   async createPatient(insertPatient: InsertPatient): Promise<Patient> {
     const [patient] = await db.insert(patients).values(insertPatient).returning();
     return patient;
+  }
+
+  // Smile Deals
+  async getSmileDeals(onlyActive: boolean = false): Promise<SmileDeal[]> {
+    if (onlyActive) {
+      return await db.select().from(smileDeals).where(eq(smileDeals.isActive, true)).orderBy(desc(smileDeals.createdAt));
+    }
+    return await db.select().from(smileDeals).orderBy(desc(smileDeals.createdAt));
+  }
+
+  async createSmileDeal(insertDeal: InsertSmileDeal): Promise<SmileDeal> {
+    const [deal] = await db.insert(smileDeals).values(insertDeal).returning();
+    return deal;
+  }
+
+  async updateSmileDeal(id: number, updates: Partial<SmileDeal>): Promise<SmileDeal> {
+    const [updated] = await db.update(smileDeals)
+      .set(updates)
+      .where(eq(smileDeals.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSmileDeal(id: number): Promise<void> {
+    await db.delete(smileDeals).where(eq(smileDeals.id, id));
   }
 }
 

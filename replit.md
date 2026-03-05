@@ -6,7 +6,9 @@ BookMySlot is a full-stack appointment booking application that enables service 
 
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+- Preferred communication style: Simple, everyday language.
+- All prices displayed in Indian Rupees (₹).
+- Email notifications via Resend API.
 
 ## System Architecture
 
@@ -29,94 +31,46 @@ Preferred communication style: Simple, everyday language.
 - **Database**: PostgreSQL
 - **ORM**: Drizzle ORM with type-safe schema definitions
 - **Schema Location**: `shared/schema.ts` for all database models
-- **Migrations**: Drizzle Kit for schema migrations (`drizzle-kit push`)
+- **Manual Sync**: Schema is also manually synced via SQL commands in `server/index.ts` to handle environment constraints.
 
 ### Authentication
 - **Dual Mode Support**: 
   - Replit OIDC (when running on Replit)
   - Environment-based email/password (when `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set)
 - **Strategy**: Passport.js with OpenID Client (Replit) or session-based auth (external)
-- **Session Storage**: PostgreSQL sessions table
-- **User Roles**: `superuser` (admin), `owner` (clinic staff), `customer` (can book slots)
+- **User Roles**: `superuser` (admin), `owner` (clinic staff), `customer` (can book slots), `doctor` (view schedule)
 
 ### Key Data Models
 - **Users**: Authentication and role management
-- **Clinics**: Each clinic has a `doctors` JSONB field storing array of {name, specialization, degree}
-- **Slots**: Time windows created by owners for booking
-- **Bookings**: Customer reservations linked to slots
-- **Notifications**: In-app notification system
+- **Clinics**: Clinic details including a `doctors` JSONB field for legacy/quick reference.
+- **Doctors**: Separate table for doctor profiles and login.
+- **ClinicDoctors**: Join table linking clinics and doctors.
+- **Slots**: Time windows created by owners for booking.
+- **Bookings**: Customer reservations linked to slots.
+- **SmileDeals**: Promotional dental offers managed by super admins.
+- **Notifications**: In-app notification system.
 
-### Project Structure
-```
-├── client/           # React frontend
-│   └── src/
-│       ├── components/   # UI components
-│       ├── hooks/        # React Query hooks
-│       ├── pages/        # Route pages
-│       └── lib/          # Utilities
-├── server/           # Express backend
-│   ├── replit_integrations/  # Auth integration
-│   └── routes.ts     # API endpoints
-├── shared/           # Shared types and contracts
-│   ├── schema.ts     # Drizzle database schema
-│   ├── routes.ts     # API route definitions
-│   └── models/       # Model definitions
-└── migrations/       # Database migrations
-```
+## External Integrations
 
-## External Dependencies
+### Email (Resend)
+- **Configuration**: Requires `RESEND_API_KEY`.
+- **Modes**: `RESEND=PRODUCTION` sends to actual emails; `DEV` redirects all mail to a test address.
+- **Features**: Booking confirmations, cancellations, and doctor invitations.
 
-### Database
-- PostgreSQL (required, connection via `DATABASE_URL` environment variable)
-- Session storage uses the same PostgreSQL instance
+### Storage (Cloudflare R2)
+- **Configuration**: Requires R2 credentials (`R2_ACCESS_KEY_ID`, etc.).
+- **Usage**: Clinic logos and Smile Deal images.
+- **Flow**: Frontend requests signed URL from `/api/uploads/signed-url`, then uploads directly to R2.
 
-### Authentication
-- Replit OIDC provider (`ISSUER_URL` defaults to `https://replit.com/oidc`)
-- Requires `REPL_ID` and `SESSION_SECRET` environment variables
-
-### Key NPM Packages
-- **drizzle-orm** / **drizzle-kit**: Database ORM and migration tooling
-- **@tanstack/react-query**: Server state management
-- **passport** / **openid-client**: Authentication
-- **zod**: Runtime validation
-- **date-fns**: Date manipulation
-- **lucide-react**: Icon library
-
-## Public Booking System
-
-The application supports public booking without login:
-
-### Flow
-1. Customer selects clinic, date/time, enters name, phone, and email
-2. Booking is confirmed immediately (no OTP verification)
-3. Confirmation logged to console (email integration not yet configured)
-
-### Email Integration
-**Status**: Not configured - Confirmations are logged to server console
-**TODO**: Set up Resend or SendGrid integration when ready to send real emails
-- Look for `[EMAIL]` in server logs to see what would be sent
-- Update `server/routes.ts` to use actual email service
-
-### Capacity
-- Maximum 3 bookings per time slot per clinic
-- Enforced at booking creation
-
-## Documentation
-
-For detailed setup and deployment instructions, see:
-- **README.md** - Complete setup guide for local development and Render deployment
-- **RENDER_DEPLOYMENT.md** - Detailed Render.com deployment guide
-- **.env.example** - Sample environment variables for local development
-- **.env.render.backend.example** - Sample environment variables for Render backend
-- **.env.render.frontend.example** - Sample environment variables for Render frontend
+## Admin Features
+- **Clinic Management**: Approve self-registered clinics, archive/restore clinics, manage credentials.
+- **Smile DEALS**: Create and manage promotional offers with images, descriptions, and pricing in ₹.
+- **Dashboard**: Tabbed interface for Active, Pending, Archived clinics, and Smile Deals.
 
 ## Recent Changes
-
-- **2026-03-05**: Cleaned up Super Admin dashboard.
-  - Removed backend, database, and server logs status cards from `Admin.tsx` as requested.
-  - Reorganized clinic lists into Tabs (Active, Pending, Archived) for better usability and cleaner UI.
-  - Simplified `Admin.tsx` logic by removing unused status polling and toggle functionality.
-- **2026-01-25**: Integrated Cloudflare R2 for clinic logo uploads.
-- **2026-01-24**: Added doctor management feature to clinic dashboard (view, add, remove doctors)
-- **2024-01-13**: Added dual authentication support (Replit OIDC + environment-based email/password)
-- **2024-01-13**: Added comprehensive deployment documentation for Render.com
+- **2026-03-05**: Added Smile DEALS system with admin CRUD and public gallery.
+- **2026-03-05**: Integrated Resend API for booking and invitation emails.
+- **2026-03-05**: Fixed doctor patient/clinic lookup to handle session email strings.
+- **2026-03-05**: Updated Admin Panel with tabbed navigation and deal configuration.
+- **2026-03-05**: Ensured all pricing uses Indian Rupee (₹) symbol.
+- **2026-03-05**: Improved Header with discrete Admin access for superusers.

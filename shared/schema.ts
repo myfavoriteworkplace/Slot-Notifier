@@ -229,6 +229,25 @@ export const siteSettings = pgTable("site_settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const smileDeals = pgTable("smile_deals", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  imageUrl: varchar("image_url", { length: 1000 }).notNull(),
+  bookingLink: varchar("booking_link", { length: 1000 }).notNull(),
+  price: varchar("price", { length: 50 }),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSmileDealSchema = createInsertSchema(smileDeals).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type SmileDeal = typeof smileDeals.$inferSelect;
+export type InsertSmileDeal = z.infer<typeof insertSmileDealSchema>;
+
 export const insertSiteSettingsSchema = createInsertSchema(siteSettings).omit({
   id: true,
   updatedAt: true,

@@ -239,6 +239,28 @@ app.use((req, res, next) => {
         `);
         log("Successfully created patients table", "system");
       }
+
+      // Check if smile_deals table exists
+      const checkSmileDealsTable = await db.execute(
+        sql`SELECT table_name FROM information_schema.tables WHERE table_name='smile_deals'`
+      );
+
+      if ((checkSmileDealsTable as any).rowCount === 0) {
+        log("Creating smile_deals table...", "system");
+        await db.execute(sql`
+          CREATE TABLE smile_deals (
+            id SERIAL PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            description TEXT NOT NULL,
+            image_url VARCHAR(1000) NOT NULL,
+            booking_link VARCHAR(1000) NOT NULL,
+            price VARCHAR(50),
+            is_active BOOLEAN DEFAULT true NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+          )
+        `);
+        log("Successfully created smile_deals table", "system");
+      }
     } catch (dbErr: any) {
       log(`Schema sync warning: ${dbErr.message}`, "system");
     }

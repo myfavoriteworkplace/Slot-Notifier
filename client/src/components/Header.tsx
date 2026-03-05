@@ -77,13 +77,12 @@ export function Header() {
     checkHealth();
     const interval = setInterval(checkHealth, 30000); // Check every 30s
     return () => clearInterval(interval);
-  }, []);
+  }, [location]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const isSuperUser = isAuthenticated && user?.role === 'superuser';
 
   const tabs = [
-    ...(isSuperUser ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
     ...(isClinicAuthenticated ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
     // Only show Book a Slot and Clinic Portal when NOT logged in as clinic admin
     ...(!isClinicAuthenticated ? [
@@ -114,12 +113,6 @@ export function Header() {
   ];
 
   const renderAuthButtons = () => {
-    // Hide login button if we are in clinic context or login pages
-    const hideAuth = location.startsWith("/book/") || 
-                    location === "/about" || 
-                    location === "/clinic-login" || 
-                    location === "/admin";
-
     if (isAuthenticated) {
       return (
         <>
@@ -252,6 +245,14 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-1 sm:gap-2">
+            {isSuperUser && location !== "/admin" && (
+              <Link href="/admin">
+                <Button variant="outline" size="sm" className="gap-2 hidden sm:flex">
+                  <Shield className="h-4 w-4" />
+                  Admin
+                </Button>
+              </Link>
+            )}
             {renderAuthButtons()}
             <ThemeToggle />
           </div>

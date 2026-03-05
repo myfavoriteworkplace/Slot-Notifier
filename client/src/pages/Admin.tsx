@@ -1,8 +1,8 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Clinic } from "@shared/schema";
+import { Clinic, SmileDeal } from "@shared/schema";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -47,6 +48,93 @@ export default function Admin() {
   const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
+
+  // Smile Deals state
+  const [dealTitle, setDealTitle] = useState("");
+  const [dealDescription, setDealDescription] = useState("");
+  const [dealImageUrl, setDealImageUrl] = useState("");
+  const [dealBookingLink, setDealBookingLink] = useState("");
+  const [dealPrice, setDealPrice] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: smileDeals = [], isLoading: dealsLoading } = useQuery<SmileDeal[]>({
+    queryKey: ['/api/smile-deals'],
+  });
+
+  const createDealMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest('POST', '/api/admin/smile-deals', data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/smile-deals'] });
+      setDealTitle("");
+      setDealDescription("");
+      setDealImageUrl("");
+      setDealBookingLink("");
+      setDealPrice("");
+      toast({ title: "Smile Deal added successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to add deal", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const updateDealMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: number; updates: Partial<SmileDeal> }) => {
+      const res = await apiRequest('PATCH', `/api/admin/smile-deals/${id}`, updates);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/smile-deals'] });
+      toast({ title: "Smile Deal updated" });
+    }
+  });
+
+  const deleteDealMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest('DELETE', `/api/admin/smile-deals/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/smile-deals'] });
+      toast({ title: "Smile Deal deleted" });
+    }
+  });
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      // Get signed URL
+      const signedRes = await apiRequest('POST', '/api/uploads/signed-url', {
+        contentType: file.type,
+        folder: 'smile-deals'
+      });
+      if (!signedRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadUrl, publicUrl } = await signedRes.json();
+
+      // Upload to R2
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type }
+      });
+      if (!uploadRes.ok) throw new Error("R2 Upload failed");
+
+      setDealImageUrl(publicUrl);
+      toast({ title: "Image uploaded successfully" });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const { data: clinics = [], isLoading: clinicsLoading } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics'],
@@ -358,7 +446,7 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue="active" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="active" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             Active ({activeClinics.length})
@@ -370,6 +458,10 @@ export default function Admin() {
           <TabsTrigger value="archived" className="flex items-center gap-2">
             <Archive className="h-4 w-4" />
             Archived ({archivedClinics.length})
+          </TabsTrigger>
+          <TabsTrigger value="smile-deals" className="flex items-center gap-2">
+            <Megaphone className="h-4 w-4" />
+            Smile Deals
           </TabsTrigger>
         </TabsList>
 
@@ -489,6 +581,94 @@ export default function Admin() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="smile-deals">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Megaphone className="h-5 w-5 mr-2" />
+                Smile Deals Configuration
+              </CardTitle>
+              <CardDescription>Manage promotional deals shown on the home page.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 p-4 border rounded-lg bg-muted/30">
+                <h3 className="font-medium">Add New Deal</h3>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="deal-title">Title</Label>
+                    <Input id="deal-title" value={dealTitle} onChange={(e) => setDealTitle(e.target.value)} placeholder="50% Off Scaling" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="deal-price">Price (₹)</Label>
+                    <Input id="deal-price" value={dealPrice} onChange={(e) => setDealPrice(e.target.value)} placeholder="e.g. 499" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="deal-link">Booking Link</Label>
+                    <div className="relative">
+                      <Input id="deal-link" value={dealBookingLink} onChange={(e) => setDealBookingLink(e.target.value)} placeholder="/book/123" />
+                      <LinkIcon className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="deal-desc">Description</Label>
+                  <Textarea id="deal-desc" value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} placeholder="Enter deal details..." />
+                </div>
+                <div className="space-y-2">
+                  <Label>Image</Label>
+                  <div className="flex items-center gap-4">
+                    {dealImageUrl && (
+                      <div className="relative w-20 h-20 border rounded overflow-hidden">
+                        <img src={dealImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+                      <Button type="button" variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageIcon className="mr-2 h-4 w-4" />}
+                        {dealImageUrl ? "Change Image" : "Upload Image"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <Button className="w-full" onClick={() => createDealMutation.mutate({ title: dealTitle, description: dealDescription, imageUrl: dealImageUrl, bookingLink: dealBookingLink, price: dealPrice })} disabled={createDealMutation.isPending || !dealTitle || !dealImageUrl}>
+                  Add Smile Deal
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="font-medium">Running Deals</h3>
+                <div className="grid gap-4">
+                  {smileDeals.map((deal) => (
+                    <div key={deal.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <img src={deal.imageUrl} alt="" className="w-12 h-12 rounded object-cover border" onError={(e) => (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800"} />
+                        <div>
+                          <h4 className="font-medium">{deal.title}</h4>
+                          <p className="text-xs text-muted-foreground line-clamp-1">{deal.description}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mr-4">
+                        <span className="text-xs font-bold text-primary">₹{deal.price || "Deal"}</span>
+                        <span className="text-xs text-muted-foreground ml-2">{deal.isActive ? "Active" : "Stopped"}</span>
+                        <Switch checked={deal.isActive} onCheckedChange={(checked) => updateDealMutation.mutate({ id: deal.id, updates: { isActive: checked } })} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => deleteDealMutation.mutate(deal.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {smileDeals.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">No deals configured yet.</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Edit Clinic Dialog */}
@@ -507,107 +687,9 @@ export default function Admin() {
               <Label htmlFor="edit-address" className="text-right">Address</Label>
               <Input id="edit-address" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} className="col-span-3" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-email" className="text-right">Email</Label>
-              <Input id="edit-email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-phone" className="text-right">Phone</Label>
-              <Input id="edit-phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-website" className="text-right">Website</Label>
-              <Input id="edit-website" value={editWebsite} onChange={(e) => setEditWebsite(e.target.value)} className="col-span-3" />
-            </div>
-            <div className="border-t pt-4">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-medium">Doctors ({editDoctors.length})</p>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setEditDoctors([...editDoctors, { name: '', specialization: '', degree: '', email: '' }])}
-                >
-                  <UserPlus className="h-3 w-3 mr-1" />
-                  Add Doctor
-                </Button>
-              </div>
-              <div className="space-y-3 max-h-48 overflow-y-auto">
-                {editDoctors.map((doctor, index) => (
-                  <div key={index} className="p-3 border rounded-md space-y-2 bg-muted/30">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-muted-foreground">Doctor {index + 1}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => setEditDoctors(editDoctors.filter((_, i) => i !== index))}
-                      >
-                        <Trash2 className="h-3 w-3 text-destructive" />
-                      </Button>
-                    </div>
-                    <Input
-                      placeholder="Doctor name"
-                      value={doctor.name}
-                      onChange={(e) => {
-                        const updated = [...editDoctors];
-                        updated[index].name = e.target.value;
-                        setEditDoctors(updated);
-                      }}
-                      className="h-8"
-                      required
-                    />
-                    <Input
-                      placeholder="Doctor email"
-                      type="email"
-                      value={doctor.email || ""}
-                      onChange={(e) => {
-                        const updated = [...editDoctors];
-                        updated[index].email = e.target.value;
-                        setEditDoctors(updated);
-                      }}
-                      className="h-8"
-                      required
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        placeholder="Specialization"
-                        value={doctor.specialization}
-                        onChange={(e) => {
-                          const updated = [...editDoctors];
-                          updated[index].specialization = e.target.value;
-                          setEditDoctors(updated);
-                        }}
-                        className="h-8"
-                        required
-                      />
-                      <Input
-                        placeholder="Degree"
-                        value={doctor.degree}
-                        onChange={(e) => {
-                          const updated = [...editDoctors];
-                          updated[index].degree = e.target.value;
-                          setEditDoctors(updated);
-                        }}
-                        className="h-8"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => updateClinicMutation.mutate({ 
-              id: selectedClinic!.id, 
-              name: editName, 
-              address: editAddress,
-              email: editEmail,
-              phone: editPhone,
-              website: editWebsite,
-              doctors: editDoctors.filter(d => d.name.trim() !== '')
-            })} disabled={updateClinicMutation.isPending || !editName || !editAddress}>
+            <Button onClick={() => updateClinicMutation.mutate({ id: selectedClinic!.id, name: editName, address: editAddress })} disabled={updateClinicMutation.isPending}>
               {updateClinicMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>
@@ -617,34 +699,24 @@ export default function Admin() {
 
       {/* Credentials Dialog */}
       <Dialog open={credentialsDialogOpen} onOpenChange={setCredentialsDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Credentials</DialogTitle>
-            <DialogDescription>Set a new username and password for {selectedClinic?.name}.</DialogDescription>
+            <DialogDescription>Set username and password for {selectedClinic?.name}.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-username" className="text-right">Username</Label>
-              <Input id="edit-username" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} className="col-span-3" />
+              <Label htmlFor="cred-user" className="text-right">Username</Label>
+              <Input id="cred-user" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-pass" className="text-right">Password</Label>
-              <div className="col-span-3 relative">
-                <Input id="edit-pass" type={showPassword ? "text" : "password"} value={editPassword} onChange={(e) => setEditPassword(e.target.value)} />
-                <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
+              <Label htmlFor="cred-pass" className="text-right">Password</Label>
+              <Input id="cred-pass" type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} className="col-span-3" />
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setCredentialsMutation.mutate({ 
-              clinicId: selectedClinic!.id, 
-              username: editUsername, 
-              password: editPassword 
-            })} disabled={setCredentialsMutation.isPending || !editUsername || !editPassword}>
-              {setCredentialsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Update Credentials
+            <Button onClick={() => setCredentialsMutation.mutate({ clinicId: selectedClinic!.id, username: editUsername, password: editPassword })} disabled={setCredentialsMutation.isPending}>
+              Update
             </Button>
           </DialogFooter>
         </DialogContent>

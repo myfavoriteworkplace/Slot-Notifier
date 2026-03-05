@@ -1,176 +1,89 @@
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Tag, Sparkles, Calendar } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-
-const DEALS = [
-  {
-    id: 1,
-    title: "Premium Dental Cleaning",
-    description: "Get a comprehensive professional cleaning and check-up for a special price. Includes scaling and polishing.",
-    image: "/ads/cleaning.jpg",
-    price: "₹1,499",
-    originalPrice: "₹3,000",
-    tag: "Most Popular",
-    link: "#"
-  },
-  {
-    id: 2,
-    title: "Braces Consultation",
-    description: "Start your journey to a perfect smile with a free orthodontic consultation. Digital scan included.",
-    image: "/ads/braces.jpg",
-    price: "FREE",
-    originalPrice: "₹1,000",
-    tag: "Limited Time",
-    link: "#"
-  },
-  {
-    id: 3,
-    title: "Teeth Whitening Special",
-    description: "Brighten your smile by up to 8 shades with our professional in-office whitening treatment.",
-    image: "/ads/whitening.jpg",
-    price: "₹4,999",
-    originalPrice: "₹8,500",
-    tag: "Best Value",
-    link: "#"
-  }
-];
+import { SmileDeal } from "@shared/schema";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Loader2, ExternalLink, Sparkles } from "lucide-react";
+import { Link } from "wouter";
 
 export default function SmileDeals() {
-  const { data: videoSetting } = useQuery({
-    queryKey: ['/api/site-settings/smile_deals_video_url'],
+  const { data: deals = [], isLoading } = useQuery<SmileDeal[]>({
+    queryKey: ['/api/smile-deals', { active: true }],
     queryFn: async () => {
-      const res = await apiRequest('GET', '/api/site-settings/smile_deals_video_url');
+      const res = await fetch('/api/smile-deals?active=true');
+      if (!res.ok) throw new Error("Failed to fetch deals");
       return res.json();
     }
   });
 
-  const { data: dealsConfig } = useQuery({
-    queryKey: ['/api/site-settings/smile_deals_config'],
-    queryFn: async () => {
-      const res = await apiRequest('GET', '/api/site-settings/smile_deals_config');
-      return res.json();
-    }
-  });
-
-  const videoUrl = videoSetting?.value || "https://www.youtube.com/embed/p_q0G4GhMnI?autoplay=1&mute=1";
-  
-  const displayDeals = DEALS.map(deal => {
-    if (dealsConfig?.value) {
-      try {
-        const config = JSON.parse(dealsConfig.value);
-        const mapping = config.find((c: any) => c.id === deal.id);
-        if (mapping?.clinicUsername) {
-          return { ...deal, link: `/book/${mapping.clinicUsername}` };
-        }
-      } catch (e) {
-        console.error("Failed to parse deals config", e);
-      }
-    }
-    return deal;
-  });
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <header className="mb-8 flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">Smile DEALS</h1>
-        </div>
-        <p className="text-muted-foreground text-lg">
-          Exclusive dental care offers and discounts from our top-rated clinics.
+    <div className="container mx-auto py-12 px-4">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold tracking-tight mb-4">Smile DEALS</h1>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          Exclusive dental offers and packages from our partner clinics. Book your appointment today and save!
         </p>
-      </header>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Main Deals Grid */}
-        <div className="lg:col-span-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {displayDeals.map((deal) => (
-              <Card key={deal.id} className="flex flex-col overflow-hidden hover-elevate transition-all duration-300">
-                <div className="relative h-48 w-full overflow-hidden">
-                  <img 
-                    src={deal.image} 
-                    alt={deal.title}
-                    className="object-cover w-full h-full"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800";
-                    }}
-                  />
-                  <Badge className="absolute top-2 right-2 bg-primary text-primary-foreground">
-                    {deal.tag}
-                  </Badge>
-                </div>
-                <CardHeader className="flex-1">
-                  <CardTitle className="text-xl">{deal.title}</CardTitle>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {deal.description}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold text-primary">{deal.price}</span>
-                    <span className="text-sm text-muted-foreground line-through">{deal.originalPrice}</span>
-                  </div>
-                </CardContent>
-                <CardFooter className="pt-0">
-                  <Button className="w-full gap-2" asChild>
-                    <a href={deal.link}>
-                      Book Now <Calendar className="h-4 w-4" />
-                    </a>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Sidebar for Sponsored Content */}
-        <aside className="lg:col-span-1 space-y-6">
-          <div className="p-1 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 border border-border">
-            <Card className="border-0 bg-background/50 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-primary" />
-                  Sponsored
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="aspect-video rounded-md overflow-hidden border border-border">
-                  <iframe
-                    width="100%"
-                    height="100%"
-                    src={videoUrl}
-                    title="Smile Deals Sponsored Content"
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                    className="w-full h-full"
-                  ></iframe>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Dental Insurance Partner</h4>
-                  <p className="text-xs text-muted-foreground">
-                    Save up to 40% on out-of-pocket costs with our partner plans.
-                  </p>
-                  <Button variant="ghost" className="p-0 h-auto text-xs gap-1">
-                    Learn more <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="bg-muted/50 border-none">
-            <CardContent className="p-4">
-              <p className="text-xs text-center text-muted-foreground">
-                All offers are subject to clinical evaluation and availability. Terms and conditions apply.
-              </p>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {deals.map((deal) => (
+          <Card key={deal.id} className="overflow-hidden flex flex-col hover:shadow-lg transition-shadow">
+            <div className="aspect-video w-full relative">
+              <img 
+                src={deal.imageUrl} 
+                alt={deal.title}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800";
+                }}
+              />
+            </div>
+            <CardHeader>
+              <div className="flex justify-between items-start mb-2">
+                <CardTitle className="text-xl">{deal.title}</CardTitle>
+                <span className="font-bold text-primary text-lg">₹{deal.price || "Deal"}</span>
+              </div>
+              <CardDescription className="line-clamp-2">{deal.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="mt-auto pt-0">
+              <Link href={deal.bookingLink}>
+                <Button className="w-full group">
+                  Book Now
+                  <ExternalLink className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </Button>
+              </Link>
             </CardContent>
           </Card>
-        </aside>
+        ))}
+        {deals.length === 0 && (
+          <div className="col-span-full text-center py-20 bg-muted/30 rounded-xl border-2 border-dashed">
+            <p className="text-muted-foreground">No active deals at the moment. Check back soon!</p>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-16 bg-primary/5 rounded-2xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8">
+        <div>
+          <h2 className="text-2xl font-bold mb-4 flex items-center">
+            <Sparkles className="h-6 w-6 mr-2 text-primary" />
+            Partner with us?
+          </h2>
+          <p className="text-muted-foreground max-w-md">
+            Are you a clinic owner? Register your clinic and list your special offers on Smile DEALS to reach more patients.
+          </p>
+        </div>
+        <Link href="/register-clinic">
+          <Button size="lg" className="whitespace-nowrap">
+            Register Your Clinic
+          </Button>
+        </Link>
       </div>
     </div>
   );
