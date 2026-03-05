@@ -681,6 +681,19 @@ export default function Admin() {
                               <Key className="h-3 w-3 mr-1" />
                               Creds
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                const url = `${window.location.origin}/book/${clinic.username}`;
+                                navigator.clipboard.writeText(url);
+                                toast({ title: "Booking link copied to clipboard" });
+                              }}
+                              title="Copy booking link"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
                             <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" onClick={() => archiveClinicMutation.mutate(clinic.id)}>
                               <Archive className="h-4 w-4" />
                             </Button>
