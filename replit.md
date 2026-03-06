@@ -74,3 +74,4 @@ BookMySlot is a full-stack appointment booking application that enables service 
 - **2026-03-05**: Updated Admin Panel with tabbed navigation and deal configuration.
 - **2026-03-05**: Ensured all pricing uses Indian Rupee (₹) symbol.
 - **2026-03-05**: Improved Header with discrete Admin access for superusers.
+- **2026-03-06**: Fixed Smile Deals image upload by allowing "smile-deals" folder and passing required file metadata to the signed URL service.

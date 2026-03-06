@@ -121,7 +121,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/uploads/signed-url", isAuthenticated, async (req, res) => {
     try {
-      const result = await generateSignedUploadUrl(req.body);
+      const { fileName, contentType, fileType, fileSize, folder } = req.body;
+      const result = await generateSignedUploadUrl({
+        fileName: fileName || `upload-${Date.now()}`,
+        fileType: fileType || contentType,
+        fileSize: fileSize || 1024 * 1024, // Default 1MB if not provided
+        folder
+      });
       res.json(result);
     } catch (err: any) {
       res.status(400).json({ message: err.message });

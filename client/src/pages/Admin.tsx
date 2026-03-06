@@ -113,7 +113,9 @@ export default function Admin() {
     try {
       // Get signed URL
       const signedRes = await apiRequest('POST', '/api/uploads/signed-url', {
+        fileName: file.name,
         contentType: file.type,
+        fileSize: file.size,
         folder: 'smile-deals'
       });
       if (!signedRes.ok) throw new Error("Failed to get upload URL");

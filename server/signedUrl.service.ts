@@ -4,9 +4,9 @@ import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "./r2Client";
 import { v4 as uuidv4 } from "uuid";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const URL_EXPIRY_SECONDS = 60;
-const ALLOWED_FOLDERS = ["clinics", "doctors", "users"];
+const ALLOWED_FOLDERS = ["clinics", "doctors", "users", "smile-deals"];
 
 interface SignedUrlRequest {
   fileName: string;
@@ -25,10 +25,11 @@ export async function generateSignedUploadUrl(
   request: SignedUrlRequest
 ): Promise<SignedUrlResponse> {
   const { fileName, fileType, fileSize, folder } = request;
+  const normalizedType = fileType?.toLowerCase();
 
-  if (!ALLOWED_TYPES.includes(fileType)) {
+  if (!normalizedType || !ALLOWED_TYPES.includes(normalizedType)) {
     throw new Error(
-      `Invalid file type. Allowed: ${ALLOWED_TYPES.join(", ")}`
+      `Invalid file type: ${fileType}. Allowed: ${ALLOWED_TYPES.join(", ")}`
     );
   }
 
