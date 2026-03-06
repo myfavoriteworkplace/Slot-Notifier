@@ -209,6 +209,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/health/backend", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  app.get("/api/health/database", async (req, res) => {
+    try {
+      await db.execute(sql`SELECT 1`);
+      res.json({ status: "ok", message: "Database connection is healthy" });
+    } catch (error: any) {
+      res.status(500).json({ status: "error", message: error.message });
+    }
+  });
+
   app.post("/api/auth/clinic/login", async (req, res) => {
     const { username, password } = req.body;
     try {
