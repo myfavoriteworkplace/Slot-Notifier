@@ -37,21 +37,19 @@ function HealthIndicator() {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        // Try to fetch backend health
-        const backendRes = await fetch(`${API_BASE_URL}/api/health/backend`, { cache: 'no-store' });
+        // Use relative paths to ensure it works in both dev (5001 -> 5000 proxy) and prod
+        const backendRes = await fetch('/api/health/backend', { cache: 'no-store' });
         const backendData = backendRes.ok ? await backendRes.json() : null;
         
-        // Try to fetch database health
-        const dbRes = await fetch(`${API_BASE_URL}/api/health/database`, { cache: 'no-store' });
+        const dbRes = await fetch('/api/health/database', { cache: 'no-store' });
         const dbData = dbRes.ok ? await dbRes.json() : null;
         
         setHealthStatus({ 
           backend: !!backendData, 
-          database: dbData?.database || false,
+          database: dbData?.status === "ok",
           timestamp: backendData?.timestamp || dbData?.timestamp 
         });
       } catch (err) {
-        console.error("Health check failed", err);
         setHealthStatus({ backend: false, database: false });
       }
     };

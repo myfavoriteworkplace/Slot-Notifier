@@ -216,9 +216,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/health/database", async (req, res) => {
     try {
       await db.execute(sql`SELECT 1`);
-      res.json({ status: "ok", message: "Database connection is healthy" });
+      res.json({ status: "ok", message: "Database connection is healthy", database: true });
     } catch (error: any) {
-      res.status(500).json({ status: "error", message: error.message });
+      res.status(500).json({ status: "error", message: error.message, database: false });
     }
   });
 
