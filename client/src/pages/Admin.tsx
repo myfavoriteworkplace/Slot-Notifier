@@ -628,6 +628,19 @@ export default function Admin() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
+                            const url = `${window.location.origin}/book/${clinic.id}`;
+                            navigator.clipboard.writeText(url);
+                            toast({ title: "Booking URL copied" });
+                          }}
+                          className="h-8 gap-1.5"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Copy Link
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
                             setSelectedClinic(clinic);
                             setEditName(clinic.name);
                             setEditAddress(clinic.address);
