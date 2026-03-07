@@ -478,36 +478,108 @@ export default function Admin() {
             <CardContent>
               <div className="space-y-4">
                 {activeClinics.map((clinic) => (
-                  <div key={clinic.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h3 className="font-medium">{clinic.name}</h3>
-                      <p className="text-sm text-muted-foreground">{clinic.address}</p>
+                  <div key={clinic.id} className="border rounded-lg overflow-hidden bg-card">
+                    <div className="flex items-center justify-between p-4 bg-muted/30">
+                      <div>
+                        <h3 className="font-medium flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-primary" />
+                          {clinic.name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {clinic.address}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const url = `${window.location.origin}/book/${clinic.id}`;
+                            navigator.clipboard.writeText(url);
+                            toast({ title: "Booking URL copied" });
+                          }}
+                          className="h-8 gap-1.5"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Copy Link
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8" onClick={() => {
+                          setSelectedClinic(clinic);
+                          setEditName(clinic.name);
+                          setEditAddress(clinic.address);
+                          setEditEmail(clinic.email || "");
+                          setEditPhone(clinic.phone || "");
+                          setEditWebsite(clinic.website || "");
+                          setEditDoctors(clinic.doctors || []);
+                          setEditClinicDialogOpen(true);
+                        }}>
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8" onClick={() => {
+                          setSelectedClinic(clinic);
+                          setEditUsername("");
+                          setEditPassword("");
+                          setCredentialsDialogOpen(true);
+                        }}>
+                          <Key className="h-3.5 w-3.5 mr-1" />
+                          Creds
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => archiveClinicMutation.mutate(clinic.id)}>
+                          <Archive className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => {
-                        setSelectedClinic(clinic);
-                        setEditName(clinic.name);
-                        setEditAddress(clinic.address);
-                        setEditEmail(clinic.email || "");
-                        setEditPhone(clinic.phone || "");
-                        setEditWebsite(clinic.website || "");
-                        setEditDoctors(clinic.doctors || []);
-                        setEditClinicDialogOpen(true);
-                      }}>
-                        Edit
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => {
-                        setSelectedClinic(clinic);
-                        setEditUsername("");
-                        setEditPassword("");
-                        setCredentialsDialogOpen(true);
-                      }}>
-                        <Key className="h-4 w-4 mr-1" />
-                        Creds
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => archiveClinicMutation.mutate(clinic.id)}>
-                        <Archive className="h-4 w-4 text-muted-foreground" />
-                      </Button>
+                    
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm border-t">
+                      <div className="space-y-2">
+                        <p className="font-medium text-muted-foreground flex items-center gap-2 mb-1">
+                          <Stethoscope className="h-4 w-4" />
+                          Doctors
+                        </p>
+                        <div className="space-y-1.5">
+                          {clinic.doctors && clinic.doctors.length > 0 ? (
+                            clinic.doctors.map((doc, idx) => (
+                              <div key={idx} className="flex flex-col border-l-2 border-primary/20 pl-2 py-0.5">
+                                <span className="font-medium">{doc.name}</span>
+                                <span className="text-xs text-muted-foreground">{doc.specialization} • {doc.degree}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground italic">No doctors listed</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <p className="font-medium text-muted-foreground flex items-center gap-2 mb-1">
+                          <Plus className="h-4 w-4" />
+                          Clinic Details
+                        </p>
+                        <div className="grid grid-cols-1 gap-1 text-xs">
+                          <div className="flex justify-between border-b border-border/50 py-1">
+                            <span className="text-muted-foreground">Email:</span>
+                            <span>{clinic.email}</span>
+                          </div>
+                          <div className="flex justify-between border-b border-border/50 py-1">
+                            <span className="text-muted-foreground">Phone:</span>
+                            <span>{clinic.phone}</span>
+                          </div>
+                          {clinic.website && (
+                            <div className="flex justify-between border-b border-border/50 py-1">
+                              <span className="text-muted-foreground">Website:</span>
+                              <a href={clinic.website} target="_blank" rel="noreferrer" className="text-primary hover:underline flex items-center gap-0.5">
+                                {clinic.website.replace(/^https?:\/\//, '')}
+                                <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            </div>
+                          )}
+                          <div className="flex justify-between py-1">
+                            <span className="text-muted-foreground">Added:</span>
+                            <span>{clinic.createdAt ? new Date(clinic.createdAt).toLocaleDateString() : 'N/A'}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -530,19 +602,91 @@ export default function Admin() {
             <CardContent>
               <div className="space-y-4">
                 {pendingClinics.map((clinic) => (
-                  <div key={clinic.id} className="flex items-center justify-between p-4 border bg-background rounded-lg shadow-sm">
-                    <div>
-                      <h3 className="font-medium">{clinic.name}</h3>
-                      <p className="text-sm text-muted-foreground">{clinic.address}</p>
-                      {clinic.email && <p className="text-xs text-muted-foreground mt-1">{clinic.email}</p>}
+                  <div key={clinic.id} className="border rounded-lg overflow-hidden bg-background shadow-sm border-primary/20">
+                    <div className="flex items-center justify-between p-4 bg-primary/5">
+                      <div>
+                        <h3 className="font-medium flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          {clinic.name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {clinic.address}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => approveClinicMutation.mutate(clinic.id)}
+                          disabled={approveClinicMutation.isPending}
+                          className="h-8 gap-1.5"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedClinic(clinic);
+                            setEditName(clinic.name);
+                            setEditAddress(clinic.address);
+                            setEditEmail(clinic.email || "");
+                            setEditPhone(clinic.phone || "");
+                            setEditWebsite(clinic.website || "");
+                            setEditDoctors(clinic.doctors || []);
+                            setEditClinicDialogOpen(true);
+                          }}
+                          className="h-8"
+                        >
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8" onClick={() => archiveClinicMutation.mutate(clinic.id)}>
+                          Reject
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => approveClinicMutation.mutate(clinic.id)} disabled={approveClinicMutation.isPending}>
-                        Approve
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => archiveClinicMutation.mutate(clinic.id)}>
-                        Reject
-                      </Button>
+
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm border-t">
+                      <div className="space-y-2">
+                        <p className="font-medium text-muted-foreground flex items-center gap-2 mb-1">
+                          <Stethoscope className="h-4 w-4" />
+                          Doctors
+                        </p>
+                        <div className="space-y-1.5">
+                          {clinic.doctors && clinic.doctors.length > 0 ? (
+                            clinic.doctors.map((doc, idx) => (
+                              <div key={idx} className="flex flex-col border-l-2 border-primary/20 pl-2 py-0.5">
+                                <span className="font-medium">{doc.name}</span>
+                                <span className="text-xs text-muted-foreground">{doc.specialization} • {doc.degree}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground italic">No doctors listed</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="font-medium text-muted-foreground flex items-center gap-2 mb-1">
+                          <Plus className="h-4 w-4" />
+                          Clinic Details
+                        </p>
+                        <div className="grid grid-cols-1 gap-1 text-xs">
+                          <div className="flex justify-between border-b border-border/50 py-1">
+                            <span className="text-muted-foreground">Email:</span>
+                            <span>{clinic.email}</span>
+                          </div>
+                          <div className="flex justify-between border-b border-border/50 py-1">
+                            <span className="text-muted-foreground">Phone:</span>
+                            <span>{clinic.phone}</span>
+                          </div>
+                          <div className="flex justify-between py-1">
+                            <span className="text-muted-foreground">Registered:</span>
+                            <span>{clinic.createdAt ? new Date(clinic.createdAt).toLocaleDateString() : 'N/A'}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
