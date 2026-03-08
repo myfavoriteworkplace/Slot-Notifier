@@ -75,3 +75,5 @@ BookMySlot is a full-stack appointment booking application that enables service 
 - **2026-03-05**: Ensured all pricing uses Indian Rupee (₹) symbol.
 - **2026-03-05**: Improved Header with discrete Admin access for superusers.
 - **2026-03-06**: Fixed Smile Deals image upload by allowing "smile-deals" folder and passing required file metadata to the signed URL service.
+- **2026-03-08**: Added `/api/auth/user` endpoint for frontend authentication checks. Fixed superadmin logout by properly implementing session validation and destruction flow.
+- **2026-03-08**: Expanded pending clinics tab with full card layout matching active clinics design (doctor list, clinic details, copy link button).

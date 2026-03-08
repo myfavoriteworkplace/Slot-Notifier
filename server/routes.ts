@@ -245,7 +245,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const sess = req.session as any;
       sess.adminLoggedIn = true;
       sess.role = 'superuser';
-      req.session.save(() => res.json({ message: "Login successful", user: { email, role: 'superuser' } }));
+      sess.adminEmail = email;
+      req.session.save(() => res.json({ message: "Login successful", user: { email, role: 'superuser', firstName: 'Super', lastName: 'Admin' } }));
       return;
     }
     res.status(401).json({ message: "Invalid credentials" });
@@ -256,6 +257,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.clearCookie('connect.sid', { path: '/' });
       res.json({ message: "Logout successful" });
     });
+  });
+
+  app.get("/api/auth/user", (req, res) => {
+    const sess = req.session as any;
+    if (sess.adminLoggedIn && sess.role === 'superuser') {
+      res.json({ email: sess.adminEmail || process.env.ADMIN_EMAIL, role: 'superuser', firstName: 'Super', lastName: 'Admin' });
+    } else if (sess.adminLoggedIn && sess.clinicId && sess.role === 'owner') {
+      // Clinic owner login
+      res.status(401).json({ message: "Not authenticated as superuser" });
+    } else {
+      res.status(401).json({ message: "Not authenticated" });
+    }
   });
 
   app.get("/api/auth/me", isAuthenticated, (req, res) => res.json((req as any).user));
