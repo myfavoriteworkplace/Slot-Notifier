@@ -19,10 +19,13 @@ import { Textarea } from "@/components/ui/textarea";
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export default function Admin() {
-  const { user, loading: authLoading, logoutMutation } = useAuth();
+  const { user, loading: authLoading, logoutMutation, login, isLoggingIn, loginError } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   
   // Create clinic state
   const [newClinicName, setNewClinicName] = useState("");
@@ -256,14 +259,98 @@ export default function Admin() {
     setLocation("/auth");
   };
 
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginEmail || !loginPassword) {
+      toast({ title: "Please fill in all fields", variant: "destructive" });
+      return;
+    }
+    login({ email: loginEmail, password: loginPassword });
+  };
+
   useEffect(() => {
     if (!authLoading && user && user.role !== 'superuser') {
       toast({ title: "Access Denied", variant: "destructive" });
       setLocation("/dashboard");
     }
-  }, [authLoading, user, setLocation]);
+  }, [authLoading, user, setLocation, toast]);
 
-  if (clinicsLoading || authLoading) {
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user || user.role !== 'superuser') {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-primary/5 to-transparent px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl mb-2">Admin Login</CardTitle>
+            <CardDescription>Enter your credentials to access the admin panel</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleAdminLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" data-testid="label-email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="admin@example.com"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  disabled={isLoggingIn}
+                  data-testid="input-admin-email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" data-testid="label-password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showLoginPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    disabled={isLoggingIn}
+                    data-testid="input-admin-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    disabled={isLoggingIn}
+                  >
+                    {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              {loginError && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive">
+                  {(loginError as any)?.message || "Login failed. Please try again."}
+                </div>
+              )}
+              <Button type="submit" className="w-full" disabled={isLoggingIn} data-testid="button-admin-login">
+                {isLoggingIn && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Sign In
+              </Button>
+            </form>
+          </CardContent>
+          <CardFooter className="justify-center">
+            <Button variant="ghost" size="sm" onClick={() => setLocation("/")} data-testid="button-back-home">
+              Back to Home
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
+  if (clinicsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
