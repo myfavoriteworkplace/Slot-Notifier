@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export default function Admin() {
-  const { user, loading: authLoading, logoutMutation, login, isLoggingIn, loginError } = useAuth();
+  const { user, loading: authLoading, logout, login, isLoggingIn, loginError } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
@@ -254,9 +254,8 @@ export default function Admin() {
     }
   });
 
-  const handleAdminLogout = async () => {
-    await logoutMutation.mutateAsync();
-    setLocation("/auth");
+  const handleAdminLogout = () => {
+    logout();
   };
 
   const handleAdminLogin = (e: React.FormEvent) => {
