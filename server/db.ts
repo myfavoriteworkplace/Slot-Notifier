@@ -61,6 +61,8 @@ export async function ensureSessionTable() {
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "doctor_specialization" varchar(255);
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "doctor_degree" varchar(255);
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "doctors" jsonb DEFAULT '[]'::jsonb;
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "city" varchar(255);
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "pincode" varchar(20);
     `);
     
     // Check if primary key exists before adding
