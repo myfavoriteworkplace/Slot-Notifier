@@ -24,10 +24,14 @@ export default function RegisterClinic() {
       email: z.string().email("Valid email is required"),
       phone: z.string().min(10, "Valid phone number is required"),
       address: z.string().optional().or(z.literal("")),
+      city: z.string().optional().or(z.literal("")),
+      pincode: z.string().optional().or(z.literal("")),
     })),
     defaultValues: {
       name: "",
       address: "",
+      city: "",
+      pincode: "",
       email: "",
       phone: "",
       username: "",
@@ -111,7 +115,7 @@ export default function RegisterClinic() {
                     <FormItem>
                       <FormLabel>Phone Number *</FormLabel>
                       <FormControl>
-                        <Input placeholder="+1 234 567 890" {...field} value={field.value || ""} />
+                        <Input placeholder="+91 9876543210" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -124,7 +128,36 @@ export default function RegisterClinic() {
                     <FormItem>
                       <FormLabel>Address</FormLabel>
                       <FormControl>
-                        <Input placeholder="123 Medical Square, City" {...field} value={field.value || ""} />
+                        <Input placeholder="Street / Building" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Kochi" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="pincode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Pincode</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. 682001" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

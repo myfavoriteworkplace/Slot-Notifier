@@ -30,6 +30,8 @@ export default function Admin() {
   // Create clinic state
   const [newClinicName, setNewClinicName] = useState("");
   const [newClinicAddress, setNewClinicAddress] = useState("");
+  const [newClinicCity, setNewClinicCity] = useState("");
+  const [newClinicPincode, setNewClinicPincode] = useState("");
   const [newClinicEmail, setNewClinicEmail] = useState("");
   const [newClinicPhone, setNewClinicPhone] = useState("");
   const [newClinicWebsite, setNewClinicWebsite] = useState("");
@@ -42,6 +44,8 @@ export default function Admin() {
   const [editClinicDialogOpen, setEditClinicDialogOpen] = useState(false);
   const [editName, setEditName] = useState("");
   const [editAddress, setEditAddress] = useState("");
+  const [editCity, setEditCity] = useState("");
+  const [editPincode, setEditPincode] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editWebsite, setEditWebsite] = useState("");
@@ -161,6 +165,8 @@ export default function Admin() {
       await queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
       setNewClinicName("");
       setNewClinicAddress("");
+      setNewClinicCity("");
+      setNewClinicPincode("");
       setNewClinicEmail("");
       setNewClinicPhone("");
       setNewClinicWebsite("");
@@ -224,7 +230,9 @@ export default function Admin() {
     mutationFn: async (data: { 
       id: number;
       name: string; 
-      address: string; 
+      address: string;
+      city?: string;
+      pincode?: string;
       email?: string;
       phone?: string;
       website?: string;
@@ -388,7 +396,15 @@ export default function Admin() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="address" className="text-right">Address</Label>
-                  <Input id="address" value={newClinicAddress} onChange={(e) => setNewClinicAddress(e.target.value)} className="col-span-3" />
+                  <Input id="address" value={newClinicAddress} onChange={(e) => setNewClinicAddress(e.target.value)} className="col-span-3" placeholder="Street / Building" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="city" className="text-right">City</Label>
+                  <Input id="city" value={newClinicCity} onChange={(e) => setNewClinicCity(e.target.value)} className="col-span-3" placeholder="e.g. Kochi" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="pincode" className="text-right">Pincode</Label>
+                  <Input id="pincode" value={newClinicPincode} onChange={(e) => setNewClinicPincode(e.target.value)} className="col-span-3" placeholder="e.g. 682001" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="email" className="text-right">Email</Label>
@@ -515,6 +531,8 @@ export default function Admin() {
                 <Button onClick={() => createClinicMutation.mutate({ 
                   name: newClinicName, 
                   address: newClinicAddress,
+                  city: newClinicCity,
+                  pincode: newClinicPincode,
                   email: newClinicEmail,
                   phone: newClinicPhone,
                   website: newClinicWebsite,
@@ -593,7 +611,9 @@ export default function Admin() {
                         <Button variant="outline" size="sm" className="h-8" onClick={() => {
                           setSelectedClinic(clinic);
                           setEditName(clinic.name);
-                          setEditAddress(clinic.address);
+                          setEditAddress(clinic.address || "");
+                          setEditCity((clinic as any).city || "");
+                          setEditPincode((clinic as any).pincode || "");
                           setEditEmail(clinic.email || "");
                           setEditPhone(clinic.phone || "");
                           setEditWebsite(clinic.website || "");
@@ -729,7 +749,9 @@ export default function Admin() {
                           onClick={() => {
                             setSelectedClinic(clinic);
                             setEditName(clinic.name);
-                            setEditAddress(clinic.address);
+                            setEditAddress(clinic.address || "");
+                            setEditCity((clinic as any).city || "");
+                            setEditPincode((clinic as any).pincode || "");
                             setEditEmail(clinic.email || "");
                             setEditPhone(clinic.phone || "");
                             setEditWebsite(clinic.website || "");
@@ -930,11 +952,19 @@ export default function Admin() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-address" className="text-right">Address</Label>
-              <Input id="edit-address" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} className="col-span-3" />
+              <Input id="edit-address" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} className="col-span-3" placeholder="Street / Building" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-city" className="text-right">City</Label>
+              <Input id="edit-city" value={editCity} onChange={(e) => setEditCity(e.target.value)} className="col-span-3" placeholder="e.g. Kochi" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-pincode" className="text-right">Pincode</Label>
+              <Input id="edit-pincode" value={editPincode} onChange={(e) => setEditPincode(e.target.value)} className="col-span-3" placeholder="e.g. 682001" />
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => updateClinicMutation.mutate({ id: selectedClinic!.id, name: editName, address: editAddress })} disabled={updateClinicMutation.isPending}>
+            <Button onClick={() => updateClinicMutation.mutate({ id: selectedClinic!.id, name: editName, address: editAddress, city: editCity, pincode: editPincode })} disabled={updateClinicMutation.isPending}>
               {updateClinicMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>

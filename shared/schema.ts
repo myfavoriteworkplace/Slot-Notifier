@@ -11,6 +11,8 @@ export const clinics = pgTable("clinics", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   address: varchar("address", { length: 500 }),
+  city: varchar("city", { length: 255 }),
+  pincode: varchar("pincode", { length: 20 }),
   email: varchar("email", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 50 }).notNull(),
   username: varchar("username", { length: 100 }).unique(),

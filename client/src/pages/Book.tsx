@@ -86,6 +86,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
   
   const [step, setStep] = useState<'details' | 'success'>('details');
   const [phoneError, setPhoneError] = useState("");
+  const [clinicMode, setClinicMode] = useState<'select' | 'search'>('select');
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [slotTimings, setSlotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
@@ -295,22 +297,110 @@ export default function Book(props: { params: { clinicId?: string } }) {
           </div>
         ) : (
           <div className="max-w-md mb-6 sm:mb-10 text-left">
-            <Label className="text-sm font-medium mb-2 block text-left">Select Clinic</Label>
-            <Select 
-              value={selectedClinic} 
-              onValueChange={setSelectedClinic}
-            >
-              <SelectTrigger className="w-full rounded-xl h-14 sm:h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50" data-testid="select-clinic">
-                <SelectValue placeholder="Choose a dental clinic" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl shadow-lg border-border/50">
-                {clinics.map((clinic) => (
-                  <SelectItem key={clinic.id} value={clinic.name} className="py-4 sm:py-3 rounded-lg cursor-pointer" data-testid={`clinic-option-${clinic.id}`}>
-                    {clinic.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={() => { setClinicMode('select'); setSearchQuery(""); }}
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium border transition-all duration-200 ${
+                  clinicMode === 'select'
+                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                    : 'bg-card text-muted-foreground border-border/50 hover:border-primary/40'
+                }`}
+              >
+                Select Clinic
+              </button>
+              <button
+                onClick={() => { setClinicMode('search'); setSelectedClinic(""); }}
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium border transition-all duration-200 ${
+                  clinicMode === 'search'
+                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                    : 'bg-card text-muted-foreground border-border/50 hover:border-primary/40'
+                }`}
+              >
+                Search by Location
+              </button>
+            </div>
+
+            {clinicMode === 'select' ? (
+              <>
+                <Label className="text-sm font-medium mb-2 block text-left">Select Clinic</Label>
+                <Select
+                  value={selectedClinic}
+                  onValueChange={setSelectedClinic}
+                >
+                  <SelectTrigger className="w-full rounded-xl h-14 sm:h-12 border-border/50 bg-card shadow-sm transition-all hover:border-primary/50" data-testid="select-clinic">
+                    <SelectValue placeholder="Choose a dental clinic" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl shadow-lg border-border/50">
+                    {clinics.map((clinic) => (
+                      <SelectItem key={clinic.id} value={clinic.name} className="py-4 sm:py-3 rounded-lg cursor-pointer" data-testid={`clinic-option-${clinic.id}`}>
+                        {clinic.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            ) : (
+              <>
+                <Label className="text-sm font-medium mb-2 block text-left">Search by city or area</Label>
+                <Input
+                  placeholder="e.g. Kochi, Ernakulam, 682001..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-xl h-12 border-border/50 bg-card shadow-sm mb-3"
+                />
+                {searchQuery.trim().length > 0 && (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {clinics
+                      .filter((clinic) => {
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          clinic.name.toLowerCase().includes(q) ||
+                          ((clinic as any).city || "").toLowerCase().includes(q) ||
+                          ((clinic as any).pincode || "").includes(q) ||
+                          (clinic.address || "").toLowerCase().includes(q)
+                        );
+                      })
+                      .map((clinic) => (
+                        <button
+                          key={clinic.id}
+                          onClick={() => setSelectedClinic(clinic.name)}
+                          className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
+                            selectedClinic === clinic.name
+                              ? 'border-primary bg-primary/5 shadow-sm'
+                              : 'border-border/50 bg-card hover:border-primary/40 hover:bg-muted/40'
+                          }`}
+                        >
+                          <p className="font-medium text-sm">{clinic.name}</p>
+                          {((clinic as any).city || clinic.address) && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {[(clinic as any).city, (clinic as any).pincode, clinic.address]
+                                .filter(Boolean)
+                                .join(", ")}
+                            </p>
+                          )}
+                        </button>
+                      ))}
+                    {clinics.filter((clinic) => {
+                      const q = searchQuery.toLowerCase();
+                      return (
+                        clinic.name.toLowerCase().includes(q) ||
+                        ((clinic as any).city || "").toLowerCase().includes(q) ||
+                        ((clinic as any).pincode || "").includes(q) ||
+                        (clinic.address || "").toLowerCase().includes(q)
+                      );
+                    }).length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">No clinics found for "{searchQuery}"</p>
+                    )}
+                  </div>
+                )}
+                {selectedClinic && (
+                  <div className="mt-2 p-2 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-between">
+                    <span className="text-sm font-medium text-primary">{selectedClinic} selected</span>
+                    <button onClick={() => setSelectedClinic("")} className="text-xs text-muted-foreground hover:text-destructive transition-colors">Clear</button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
