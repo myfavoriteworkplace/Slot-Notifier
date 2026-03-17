@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -898,91 +898,177 @@ export default function Admin() {
         </TabsContent>
 
         <TabsContent value="smile-deals">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Megaphone className="h-5 w-5 mr-2" />
-                Smile Deals Configuration
-              </CardTitle>
-              <CardDescription>Manage promotional deals shown on the home page.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 p-4 border rounded-lg bg-muted/30">
-                <h3 className="font-medium">Add New Deal</h3>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="deal-title">Title</Label>
-                    <Input id="deal-title" value={dealTitle} onChange={(e) => setDealTitle(e.target.value)} placeholder="50% Off Scaling" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="deal-price">Price (₹)</Label>
-                    <Input id="deal-price" value={dealPrice} onChange={(e) => setDealPrice(e.target.value)} placeholder="e.g. 499" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="deal-link">Booking Link</Label>
-                    <div className="relative">
-                      <Input id="deal-link" value={dealBookingLink} onChange={(e) => setDealBookingLink(e.target.value)} placeholder="/book/123" />
-                      <LinkIcon className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </div>
+          <div className="space-y-6">
+
+            {/* Deal Creator Panel */}
+            <Card className="overflow-hidden shadow-md border-0">
+              <div className="bg-gradient-to-r from-violet-600 to-primary px-6 py-4 flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <Sparkles className="h-5 w-5 text-white" />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="deal-desc">Description</Label>
-                  <Textarea id="deal-desc" value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} placeholder="Enter deal details..." />
+                <div>
+                  <h2 className="text-white font-semibold text-lg leading-tight">Create a New Deal</h2>
+                  <p className="text-white/70 text-sm">Add a promotional offer to the Smile Deals page</p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Image</Label>
-                  <div className="flex items-center gap-4">
-                    {dealImageUrl && (
-                      <div className="relative w-20 h-20 border rounded overflow-hidden">
+              </div>
+              <CardContent className="p-6">
+                <div className="grid gap-6 lg:grid-cols-2">
+
+                  {/* Left: Image Upload Zone */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Deal Image</Label>
+                    <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+                    {dealImageUrl ? (
+                      <div className="relative group rounded-xl overflow-hidden border-2 border-primary/30 aspect-video bg-muted">
                         <img src={dealImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                            Change Image
+                          </Button>
+                        </div>
                       </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="w-full aspect-video border-2 border-dashed border-primary/30 rounded-xl bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-3 group cursor-pointer"
+                      >
+                        {isUploading ? (
+                          <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                        ) : (
+                          <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
+                            <Upload className="h-6 w-6 text-primary" />
+                          </div>
+                        )}
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-primary">Click to upload image</p>
+                          <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WEBP supported</p>
+                        </div>
+                      </button>
                     )}
-                    <div className="flex-1">
-                      <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
-                      <Button type="button" variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageIcon className="mr-2 h-4 w-4" />}
-                        {dealImageUrl ? "Change Image" : "Upload Image"}
+                  </div>
+
+                  {/* Right: Form Fields */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="deal-title">Deal Title</Label>
+                      <Input id="deal-title" value={dealTitle} onChange={(e) => setDealTitle(e.target.value)} placeholder="50% Off Scaling" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="deal-price">Price (₹)</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">₹</span>
+                          <Input id="deal-price" value={dealPrice} onChange={(e) => setDealPrice(e.target.value)} placeholder="499" className="pl-7" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="deal-link">Booking Link</Label>
+                        <div className="relative">
+                          <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input id="deal-link" value={dealBookingLink} onChange={(e) => setDealBookingLink(e.target.value)} placeholder="/book/123" className="pl-9" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="deal-desc">Description</Label>
+                      <Textarea id="deal-desc" value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} placeholder="Enter deal details..." className="resize-none h-[88px]" />
+                    </div>
+                    <Button
+                      className="w-full bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 text-white font-medium shadow-md shadow-primary/20"
+                      onClick={() => createDealMutation.mutate({ title: dealTitle, description: dealDescription, imageUrl: dealImageUrl, bookingLink: dealBookingLink, price: dealPrice })}
+                      disabled={createDealMutation.isPending || !dealTitle || !dealImageUrl}
+                    >
+                      {createDealMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                      Publish Deal
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Running Deals */}
+            <Card className="shadow-md border-0">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Megaphone className="h-5 w-5 text-primary" />
+                    Running Deals
+                  </CardTitle>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                    {smileDeals.filter(d => d.isActive).length} Active
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {smileDeals.map((deal) => (
+                  <div
+                    key={deal.id}
+                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all hover:shadow-md ${
+                      deal.isActive
+                        ? "border-l-4 border-l-green-500 border-t border-r border-b"
+                        : "border-l-4 border-l-muted-foreground/30 border-t border-r border-b opacity-60"
+                    }`}
+                  >
+                    <img
+                      src={deal.imageUrl}
+                      alt={deal.title}
+                      className="w-20 h-20 rounded-xl object-cover flex-shrink-0 shadow-sm"
+                      onError={(e) => (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800"}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h4 className="font-semibold text-sm">{deal.title}</h4>
+                        {deal.price && (
+                          <span className="inline-flex items-center text-xs font-bold bg-green-50 text-green-700 border border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800 px-2 py-0.5 rounded-full">
+                            ₹{deal.price}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{deal.description}</p>
+                      {deal.bookingLink && (
+                        <a href={deal.bookingLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                          <LinkIcon className="h-3 w-3" />
+                          {deal.bookingLink}
+                        </a>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${deal.isActive ? "bg-green-500" : "bg-muted-foreground/40"}`} />
+                        <span className="text-xs text-muted-foreground">{deal.isActive ? "Active" : "Stopped"}</span>
+                      </div>
+                      <Switch
+                        checked={deal.isActive}
+                        onCheckedChange={(checked) => updateDealMutation.mutate({ id: deal.id, updates: { isActive: checked } })}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
+                        onClick={() => deleteDealMutation.mutate(deal.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
-                </div>
-                <Button className="w-full" onClick={() => createDealMutation.mutate({ title: dealTitle, description: dealDescription, imageUrl: dealImageUrl, bookingLink: dealBookingLink, price: dealPrice })} disabled={createDealMutation.isPending || !dealTitle || !dealImageUrl}>
-                  Add Smile Deal
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="font-medium">Running Deals</h3>
-                <div className="grid gap-4">
-                  {smileDeals.map((deal) => (
-                    <div key={deal.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <img src={deal.imageUrl} alt="" className="w-12 h-12 rounded object-cover border" onError={(e) => (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800"} />
-                        <div>
-                          <h4 className="font-medium">{deal.title}</h4>
-                          <p className="text-xs text-muted-foreground line-clamp-1">{deal.description}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 mr-4">
-                        <span className="text-xs font-bold text-primary">₹{deal.price || "Deal"}</span>
-                        <span className="text-xs text-muted-foreground ml-2">{deal.isActive ? "Active" : "Stopped"}</span>
-                        <Switch checked={deal.isActive} onCheckedChange={(checked) => updateDealMutation.mutate({ id: deal.id, updates: { isActive: checked } })} />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => deleteDealMutation.mutate(deal.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                ))}
+                {smileDeals.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                    <div className="p-4 bg-muted/50 rounded-full">
+                      <Megaphone className="h-8 w-8 text-muted-foreground/50" />
                     </div>
-                  ))}
-                  {smileDeals.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">No deals configured yet.</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                    <p className="font-medium text-muted-foreground">No deals configured yet</p>
+                    <p className="text-xs text-muted-foreground/70">Create your first deal using the form above</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+          </div>
         </TabsContent>
       </Tabs>
 
