@@ -22,6 +22,7 @@ export async function seed() {
       name: "Demo Smile Clinic",
       address: "123 Demo St, Dental City",
       email: "demo@example.com",
+      phone: "0000000000",
       username: demoUsername,
       passwordHash: hashedPassword,
     });

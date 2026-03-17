@@ -25,6 +25,8 @@ export default function ClinicAbout() {
     id: 999,
     name: "Demo Smile Clinic",
     address: "123 Demo St, Dental City",
+    city: null,
+    pincode: null,
     username: "demo_clinic",
     passwordHash: "",
     email: "demo@example.com",
@@ -34,6 +36,8 @@ export default function ClinicAbout() {
     doctorSpecialization: "General Dentistry",
     doctorDegree: "DDS",
     logoUrl: null,
+    status: "approved",
+    registeredBy: null,
     doctors: [],
     isArchived: false,
     createdAt: new Date()

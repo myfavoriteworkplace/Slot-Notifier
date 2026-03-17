@@ -123,6 +123,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
     id: 999,
     name: "Demo Smile Clinic",
     address: "123 Demo St, Dental City",
+    city: null,
+    pincode: null,
     username: "demo_clinic",
     passwordHash: "",
     email: "demo@example.com",
@@ -132,6 +134,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
     doctorSpecialization: "General Dentistry",
     doctorDegree: "DDS",
     doctors: [],
+    logoUrl: null,
+    status: "approved",
+    registeredBy: null,
     isArchived: false,
     createdAt: new Date()
   };
