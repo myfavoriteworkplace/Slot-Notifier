@@ -106,8 +106,13 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
           {previewUrl ? (
             <AvatarImage src={previewUrl} alt="Preview" className="object-cover" />
           ) : null}
-          <AvatarFallback className="bg-primary/5 text-primary rounded-2xl">
-            {fallbackText.charAt(0).toUpperCase() || <User className="h-8 w-8" />}
+          <AvatarFallback className="bg-gradient-to-br from-violet-500/20 to-primary/20 text-white font-bold rounded-2xl text-sm tracking-widest">
+            {(() => {
+              const words = fallbackText.trim().split(/\s+/).filter(Boolean);
+              if (words.length === 0) return <User className="h-8 w-8" />;
+              if (words.length === 1) return words[0].charAt(0).toUpperCase();
+              return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
+            })()}
           </AvatarFallback>
         </Avatar>
         

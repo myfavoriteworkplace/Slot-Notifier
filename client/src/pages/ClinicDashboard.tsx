@@ -627,45 +627,81 @@ export default function ClinicDashboard() {
     <div className="container mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
 
       {/* Page Header */}
-      <div className="rounded-2xl overflow-hidden shadow-md mb-6 sm:mb-8">
-        <div className="bg-gradient-to-r from-violet-600 to-primary px-5 py-4 sm:px-6 sm:py-5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="shrink-0 ring-2 ring-white/30 rounded-2xl">
-              <ImageUpload
-                currentImage={clinic?.logoUrl || undefined}
-                onImageUploaded={(url: string) => updateLogoMutation.mutate(url)}
-                folder="clinics"
-                fallbackText={clinic?.name || "Clinic"}
-              />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight truncate">{clinic?.name}</h1>
-                {clinic?.id && clinic.id >= 999 && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white bg-white/20 border border-white/30 px-2 py-0.5 rounded-full">
-                    <FlaskConical className="h-2.5 w-2.5" />
-                    Demo Mode
+      <div className="rounded-2xl overflow-hidden shadow-xl mb-6 sm:mb-8 border border-white/10">
+        {/* Neon accent bar */}
+        <div className="h-[3px] bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500" />
+
+        <div className="relative bg-gradient-to-r from-violet-700 via-violet-600 to-primary px-5 py-4 sm:px-6 sm:py-5">
+          {/* Subtle radial glow overlay */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_60%)] pointer-events-none" />
+
+          <div className="relative flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+
+              {/* Logo upload with double-ring glow */}
+              <div className="shrink-0 relative">
+                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-cyan-400/30 to-violet-500/30 blur-sm" />
+                <div className="relative ring-2 ring-white/25 rounded-2xl">
+                  <ImageUpload
+                    currentImage={clinic?.logoUrl || undefined}
+                    onImageUploaded={(url: string) => updateLogoMutation.mutate(url)}
+                    folder="clinics"
+                    fallbackText={clinic?.name || "Clinic"}
+                  />
+                </div>
+              </div>
+
+              {/* Text block */}
+              <div className="min-w-0">
+                {/* Clinic name — prominent */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide truncate drop-shadow-sm">
+                    {clinic?.name}
+                  </h1>
+                  {clinic?.id && clinic.id >= 999 && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-amber-300 bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 rounded-full">
+                      <FlaskConical className="h-2.5 w-2.5" />
+                      Demo
+                    </span>
+                  )}
+                </div>
+
+                {/* Sub-row: badges + live indicator */}
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/90 bg-white/10 border border-white/20 px-2 py-0.5 rounded-full">
+                    <Building2 className="h-2.5 w-2.5" />
+                    Clinic Administration
                   </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/90 bg-white/15 border border-white/25 px-2 py-0.5 rounded-full">
-                  <Building2 className="h-2.5 w-2.5" />
-                  Clinic Administration
-                </span>
-                <p className="text-white/70 text-xs hidden sm:block">Manage your clinic's bookings and availability</p>
+
+                  {/* Live indicator */}
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-2 py-0.5 rounded-full">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                    </span>
+                    Live
+                  </span>
+
+                  {/* Current date */}
+                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-white/60 bg-white/8 border border-white/15 px-2 py-0.5 rounded-full">
+                    <CalendarIcon className="h-2.5 w-2.5" />
+                    {format(new Date(), "MMM d, yyyy")}
+                  </span>
+                </div>
               </div>
             </div>
+
+            {/* Sign out */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="shrink-0 text-white/70 hover:text-white hover:bg-white/15 border border-white/15 gap-1.5 text-xs backdrop-blur-sm"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="shrink-0 text-white/80 hover:text-white hover:bg-white/15 border border-white/20 gap-1.5 text-xs"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </Button>
         </div>
       </div>
 
