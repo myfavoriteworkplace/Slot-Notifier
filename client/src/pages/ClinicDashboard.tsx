@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import type { Slot, Booking } from "@shared/schema";
-import { Stethoscope, Trash2, GraduationCap } from "lucide-react";
+import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload } from "lucide-react";
 
 interface SlotTiming {
   id: string;
@@ -814,156 +814,194 @@ export default function ClinicDashboard() {
             <CollapsibleContent>
               <CardContent className="pt-0 pb-6">
                 <div className="space-y-6">
+
                   {/* Current Doctors List */}
                   {clinicData?.doctors && clinicData.doctors.length > 0 ? (
                     <div className="space-y-3">
-                      <Label className="text-left block text-sm font-semibold">Current Doctors</Label>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Current Doctors</p>
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full">
+                          <Stethoscope className="h-3 w-3" />
+                          {clinicData.doctors.length} {clinicData.doctors.length === 1 ? "doctor" : "doctors"}
+                        </span>
+                      </div>
                       <div className="grid gap-3">
                         {clinicData.doctors.map((doctor, index) => (
                           <div
                             key={index}
-                            className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-muted/30 transition-colors"
+                            className="relative rounded-xl border border-border/60 overflow-hidden bg-card shadow-sm hover:shadow-md transition-shadow duration-300"
                             data-testid={`doctor-card-${index}`}
                           >
-                            <div className="flex items-center gap-4">
-                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                                {doctor.imageUrl ? (
-                                  <img src={doctor.imageUrl} alt={doctor.name} className="h-full w-full object-cover" />
-                                ) : (
-                                  <User className="h-5 w-5 text-primary" />
-                                )}
-                              </div>
-                              <div className="text-left">
-                                <p className="font-medium">{doctor.name}</p>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <span>{doctor.specialization}</span>
-                                  {doctor.degree && (
-                                    <>
-                                      <span className="text-muted-foreground/50">|</span>
-                                      <span className="flex items-center gap-1">
-                                        <GraduationCap className="h-3 w-3" />
-                                        {doctor.degree}
-                                      </span>
-                                    </>
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-xl" />
+                            <div className="flex items-center justify-between px-5 py-3 pl-6">
+                              <div className="flex items-center gap-4">
+                                <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+                                  {doctor.imageUrl ? (
+                                    <img src={doctor.imageUrl} alt={doctor.name} className="h-full w-full object-cover" />
+                                  ) : (
+                                    <span className="text-xs font-bold text-primary">
+                                      {doctor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                    </span>
                                   )}
                                 </div>
+                                <div className="text-left min-w-0">
+                                  <p className="font-semibold text-sm">{doctor.name}</p>
+                                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                    <span className="inline-flex items-center text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full">
+                                      {doctor.specialization}
+                                    </span>
+                                    {doctor.degree && (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-muted border border-border/60 px-1.5 py-0.5 rounded-full">
+                                        <GraduationCap className="h-2.5 w-2.5" />
+                                        {doctor.degree}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  data-testid={`button-remove-doctor-${index}`}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Remove Doctor?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to remove {doctor.name} from your clinic? This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => removeDoctorMutation.mutate(index)}
-                                    className="bg-destructive text-destructive-foreground"
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                                    data-testid={`button-remove-doctor-${index}`}
                                   >
-                                    Remove
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Remove Doctor?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to remove {doctor.name} from your clinic? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => removeDoctorMutation.mutate(index)}
+                                      className="bg-destructive text-destructive-foreground"
+                                    >
+                                      Remove
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <div className="py-6 text-center bg-muted/20 rounded-xl border border-dashed">
-                      <Stethoscope className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-muted-foreground">No doctors added yet</p>
-                      <p className="text-sm text-muted-foreground/70">Add your first doctor below</p>
+                    <div className="py-8 text-center bg-muted/20 rounded-xl border border-dashed">
+                      <div className="p-3 bg-muted/50 rounded-full w-fit mx-auto mb-3">
+                        <Stethoscope className="h-7 w-7 text-muted-foreground/60" />
+                      </div>
+                      <p className="font-medium text-muted-foreground">No doctors added yet</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Add your first doctor using the form below</p>
                     </div>
                   )}
 
-                  {/* Add New Doctor Form */}
-                  <div className="space-y-4 pt-4 border-t">
-                    <Label className="text-left block text-sm font-semibold">Add New Doctor</Label>
-                    <div className="flex flex-col sm:flex-row gap-6">
-                      <div className="flex-shrink-0">
-                        <Label className="text-left block text-xs text-muted-foreground mb-2">Doctor Photo</Label>
-                        <ImageUpload
-                          currentImage={newDoctorImageUrl || undefined}
-                          onImageUploaded={(url) => setNewDoctorImageUrl(url)}
-                          folder="doctors"
-                          fallbackText="Dr"
-                        />
+                  {/* Add New Doctor Panel */}
+                  <div className="rounded-xl overflow-hidden border border-border/60 shadow-sm">
+
+                    {/* Panel header */}
+                    <div className="bg-gradient-to-r from-violet-600 to-primary px-5 py-3.5 flex items-center gap-3">
+                      <div className="p-1.5 bg-white/20 rounded-lg">
+                        <UserPlus className="h-4 w-4 text-white" />
                       </div>
-                      <div className="flex-1 grid gap-4 sm:grid-cols-3">
-                        <div className="space-y-2">
-                          <Label htmlFor="doctor-name" className="text-left block text-xs text-muted-foreground">Name</Label>
-                          <Input
-                            id="doctor-name"
-                            value={newDoctorName}
-                            onChange={(e) => setNewDoctorName(e.target.value)}
-                            placeholder="Dr. John Smith"
-                            data-testid="input-doctor-name"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="doctor-email" className="text-left block text-xs text-muted-foreground">Email</Label>
-                          <Input
-                            id="doctor-email"
-                            type="email"
-                            value={newDoctorEmail}
-                            onChange={(e) => setNewDoctorEmail(e.target.value)}
-                            placeholder="doctor@example.com"
-                            data-testid="input-doctor-email"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="doctor-specialization" className="text-left block text-xs text-muted-foreground">Specialization</Label>
-                          <Input
-                            id="doctor-specialization"
-                            value={newDoctorSpecialization}
-                            onChange={(e) => setNewDoctorSpecialization(e.target.value)}
-                            placeholder="e.g., General Dentist"
-                            data-testid="input-doctor-specialization"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="doctor-degree" className="text-left block text-xs text-muted-foreground">Degree (Optional)</Label>
-                          <Input
-                            id="doctor-degree"
-                            value={newDoctorDegree}
-                            onChange={(e) => setNewDoctorDegree(e.target.value)}
-                            placeholder="e.g., BDS, MDS"
-                            data-testid="input-doctor-degree"
-                          />
-                        </div>
+                      <div>
+                        <h3 className="text-white font-semibold text-sm leading-tight">Add a New Doctor</h3>
+                        <p className="text-white/70 text-xs">Register a new practitioner to your clinic profile</p>
                       </div>
                     </div>
-                    <Button
-                      onClick={handleAddDoctor}
-                      disabled={!newDoctorName || !newDoctorSpecialization || !newDoctorEmail || addDoctorMutation.isPending}
-                      className="w-full sm:w-auto"
-                      data-testid="button-add-doctor"
-                    >
-                      {addDoctorMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <Plus className="h-4 w-4 mr-2" />
-                      )}
-                      Add Doctor
-                    </Button>
+
+                    {/* Panel body */}
+                    <div className="p-5 bg-card">
+                      <div className="grid gap-5 lg:grid-cols-2">
+
+                        {/* Left: Photo upload */}
+                        <div className="space-y-2 flex flex-col items-center lg:items-start">
+                          <Label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Doctor Photo</Label>
+                          <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5 w-fit">
+                            <ImageUpload
+                              currentImage={newDoctorImageUrl || undefined}
+                              onImageUploaded={(url) => setNewDoctorImageUrl(url)}
+                              folder="doctors"
+                              fallbackText={newDoctorName ? newDoctorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : "Dr"}
+                            />
+                            <p className="text-[10px] text-muted-foreground text-center">Click photo to upload</p>
+                          </div>
+                        </div>
+
+                        {/* Right: Form fields */}
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="doctor-name" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Name</Label>
+                            <Input
+                              id="doctor-name"
+                              value={newDoctorName}
+                              onChange={(e) => setNewDoctorName(e.target.value)}
+                              placeholder="Dr. John Smith"
+                              data-testid="input-doctor-name"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="doctor-email" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Email</Label>
+                            <Input
+                              id="doctor-email"
+                              type="email"
+                              value={newDoctorEmail}
+                              onChange={(e) => setNewDoctorEmail(e.target.value)}
+                              placeholder="doctor@example.com"
+                              data-testid="input-doctor-email"
+                              required
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="doctor-specialization" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Specialization</Label>
+                              <Input
+                                id="doctor-specialization"
+                                value={newDoctorSpecialization}
+                                onChange={(e) => setNewDoctorSpecialization(e.target.value)}
+                                placeholder="General Dentist"
+                                data-testid="input-doctor-specialization"
+                                required
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="doctor-degree" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Degree (Optional)</Label>
+                              <Input
+                                id="doctor-degree"
+                                value={newDoctorDegree}
+                                onChange={(e) => setNewDoctorDegree(e.target.value)}
+                                placeholder="BDS, MDS"
+                                data-testid="input-doctor-degree"
+                              />
+                            </div>
+                          </div>
+                          <Button
+                            onClick={handleAddDoctor}
+                            disabled={!newDoctorName || !newDoctorSpecialization || !newDoctorEmail || addDoctorMutation.isPending}
+                            className="w-full bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 text-white font-medium shadow-md shadow-primary/20 mt-1"
+                            data-testid="button-add-doctor"
+                          >
+                            {addDoctorMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : (
+                              <UserPlus className="h-4 w-4 mr-2" />
+                            )}
+                            Add Doctor
+                          </Button>
+                        </div>
+
+                      </div>
+                    </div>
                   </div>
+
                 </div>
               </CardContent>
             </CollapsibleContent>
