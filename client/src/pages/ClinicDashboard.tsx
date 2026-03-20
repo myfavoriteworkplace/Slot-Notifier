@@ -38,11 +38,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -101,6 +96,7 @@ export default function ClinicDashboard() {
 
   // Booking form state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'book-a-slot'>('bookings');
   const [bookingName, setBookingName] = useState("");
   const [bookingPhone, setBookingPhone] = useState("");
   const [bookingEmail, setBookingEmail] = useState("");
@@ -676,643 +672,82 @@ export default function ClinicDashboard() {
       {/* Two-column layout: left sidebar + main content */}
       <div className="flex flex-col lg:flex-row gap-6 items-start">
 
-        {/* ===== LEFT SIDEBAR ===== */}
-        <div className="w-full lg:w-72 xl:w-80 shrink-0">
-          <div className="space-y-3">
-            <div className="flex items-center gap-1.5 px-1 mb-1">
-              <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Clinic Tools</p>
+        {/* ===== LEFT SIDEBAR NAV ===== */}
+        <div className="w-full lg:w-56 shrink-0">
+          <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+            <div className="p-2 space-y-0.5">
+
+              <button
+                onClick={() => setActivePanel('bookings')}
+                data-testid="nav-bookings"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'bookings' ? 'bg-violet-500/10 border border-violet-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'bookings' ? 'bg-violet-500/10 border-violet-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <CalendarIcon className={`h-4 w-4 ${activePanel === 'bookings' ? 'text-violet-500' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'bookings' ? 'text-violet-600' : 'text-foreground'}`}>Bookings</p>
+                  <p className="text-[10px] text-muted-foreground">All appointments</p>
+                </div>
+                {activePanel === 'bookings' && <div className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />}
+              </button>
+
+              <button
+                onClick={() => setActivePanel('configure-slots')}
+                data-testid="nav-configure-slots"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'configure-slots' ? 'bg-blue-500/10 border border-blue-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'configure-slots' ? 'bg-blue-500/10 border-blue-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Clock className={`h-4 w-4 ${activePanel === 'configure-slots' ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'configure-slots' ? 'text-blue-600' : 'text-foreground'}`}>Configure Slots</p>
+                  <p className="text-[10px] text-muted-foreground">Capacity &amp; cancellation</p>
+                </div>
+                {activePanel === 'configure-slots' && <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />}
+              </button>
+
+              <button
+                onClick={() => setActivePanel('manage-doctors')}
+                data-testid="nav-manage-doctors"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'manage-doctors' ? 'bg-emerald-500/10 border border-emerald-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'manage-doctors' ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Stethoscope className={`h-4 w-4 ${activePanel === 'manage-doctors' ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'manage-doctors' ? 'text-emerald-600' : 'text-foreground'}`}>Manage Doctors</p>
+                  <p className="text-[10px] text-muted-foreground">Add or remove doctors</p>
+                </div>
+                {activePanel === 'manage-doctors' && <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />}
+              </button>
+
+              <button
+                onClick={() => setActivePanel('book-a-slot')}
+                data-testid="nav-book-a-slot"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'book-a-slot' ? 'bg-violet-500/10 border border-violet-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'book-a-slot' ? 'bg-violet-500/10 border-violet-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Plus className={`h-4 w-4 ${activePanel === 'book-a-slot' ? 'text-violet-500' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'book-a-slot' ? 'text-violet-600' : 'text-foreground'}`}>Book a Slot</p>
+                  <p className="text-[10px] text-muted-foreground">New patient appointment</p>
+                </div>
+                {activePanel === 'book-a-slot' && <div className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />}
+              </button>
+
             </div>
-
-        {/* Slot Configuration Section */}
-        <Collapsible open={isConfigOpen} onOpenChange={setIsConfigOpen}>
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
-            <CollapsibleTrigger asChild>
-              <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors group">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                    <Clock className="h-3.5 w-3.5 text-blue-500" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-semibold leading-tight">Configure Slots</p>
-                    <p className="text-[10px] text-muted-foreground">Capacity &amp; cancellation</p>
-                  </div>
-                </div>
-                {isConfigOpen ? (
-                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                )}
-              </div>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="border-t border-border/30 px-4 pb-4 pt-3">
-                <div className="space-y-5">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2 text-left">
-                      <Label className="block">Max Bookings</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={configMaxBookings}
-                        onChange={(e) => setConfigMaxBookings(parseInt(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div className="flex items-center space-x-2 pt-8">
-                      <input
-                        type="checkbox"
-                        id="is-cancelled"
-                        checked={configIsCancelled}
-                        onChange={(e) => setConfigIsCancelled(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                      />
-                      <Label htmlFor="is-cancelled">Cancel this slot</Label>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-left block">Select Date & Time</Label>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                      <ScrollArea className="w-full whitespace-nowrap pb-2">
-                        <div className="flex space-x-3 px-1 py-1">
-                          {dates.map((date) => (
-                            <button
-                              key={date.toISOString()}
-                              onClick={() => setConfigDate(date)}
-                              className={`flex flex-col items-center justify-center min-w-[4.5rem] h-16 rounded-xl border transition-all ${isSameDay(date, configDate) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card'}`}
-                            >
-                              <span className="text-[10px] uppercase">{format(date, "EEE")}</span>
-                              <span className="text-lg font-bold">{format(date, "d")}</span>
-                            </button>
-                          ))}
-                        </div>
-                        <ScrollBar orientation="horizontal" />
-                      </ScrollArea>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 mt-4">
-                      {slotTimings.map((slot) => (
-                        <Button
-                          key={slot.id}
-                          variant={selectedSlot === slot.id ? "default" : "outline"}
-                          className="h-12"
-                          onClick={() => setSelectedSlot(slot.id)}
-                        >
-                          {slot.label}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Button
-                    className="w-full"
-                    onClick={handleConfigureSlot}
-                    disabled={!selectedSlot || configureSlotMutation.isPending}
-                  >
-                    {configureSlotMutation.isPending ? <Loader2 className="animate-spin" /> : "Update Configuration"}
-                  </Button>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-
-        {/* Doctor Management Section */}
-        <Collapsible open={isDoctorsOpen} onOpenChange={setIsDoctorsOpen}>
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
-            <CollapsibleTrigger asChild>
-              <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors group">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                    <Stethoscope className="h-3.5 w-3.5 text-emerald-500" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-semibold leading-tight">Manage Doctors</p>
-                    <p className="text-[10px] text-muted-foreground">Add or remove doctors</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
-                    {clinicData?.doctors?.length || 0}
-                  </Badge>
-                  {isDoctorsOpen ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </div>
-              </div>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="border-t border-border/30 px-4 pb-4 pt-3">
-                <div className="space-y-4">
-
-                  {/* Current Doctors List */}
-                  {clinicData?.doctors && clinicData.doctors.length > 0 ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Current Doctors</p>
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full">
-                          <Stethoscope className="h-3 w-3" />
-                          {clinicData.doctors.length} {clinicData.doctors.length === 1 ? "doctor" : "doctors"}
-                        </span>
-                      </div>
-                      <div className="grid gap-3">
-                        {clinicData.doctors.map((doctor, index) => (
-                          <div
-                            key={index}
-                            className="relative rounded-xl border border-border/60 overflow-hidden bg-card shadow-sm hover:shadow-md transition-shadow duration-300"
-                            data-testid={`doctor-card-${index}`}
-                          >
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-xl" />
-                            <div className="flex items-center justify-between px-5 py-3 pl-6">
-                              <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
-                                  {doctor.imageUrl ? (
-                                    <img src={doctor.imageUrl} alt={doctor.name} className="h-full w-full object-cover" />
-                                  ) : (
-                                    <span className="text-xs font-bold text-primary">
-                                      {doctor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-left min-w-0">
-                                  <p className="font-semibold text-sm">{doctor.name}</p>
-                                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                                    <span className="inline-flex items-center text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full">
-                                      {doctor.specialization}
-                                    </span>
-                                    {doctor.degree && (
-                                      <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-muted border border-border/60 px-1.5 py-0.5 rounded-full">
-                                        <GraduationCap className="h-2.5 w-2.5" />
-                                        {doctor.degree}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
-                                    data-testid={`button-remove-doctor-${index}`}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Remove Doctor?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to remove {doctor.name} from your clinic? This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => removeDoctorMutation.mutate(index)}
-                                      className="bg-destructive text-destructive-foreground"
-                                    >
-                                      Remove
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="py-8 text-center bg-muted/20 rounded-xl border border-dashed">
-                      <div className="p-3 bg-muted/50 rounded-full w-fit mx-auto mb-3">
-                        <Stethoscope className="h-7 w-7 text-muted-foreground/60" />
-                      </div>
-                      <p className="font-medium text-muted-foreground">No doctors added yet</p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">Add your first doctor using the form below</p>
-                    </div>
-                  )}
-
-                  {/* Add New Doctor Panel */}
-                  <div className="rounded-xl overflow-hidden border border-border/60 shadow-sm">
-
-                    {/* Panel header */}
-                    <div className="bg-gradient-to-r from-violet-600 to-primary px-5 py-3.5 flex items-center gap-3">
-                      <div className="p-1.5 bg-white/20 rounded-lg">
-                        <UserPlus className="h-4 w-4 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-white font-semibold text-sm leading-tight">Add a New Doctor</h3>
-                        <p className="text-white/70 text-xs">Register a new practitioner to your clinic profile</p>
-                      </div>
-                    </div>
-
-                    {/* Panel body */}
-                    <div className="p-5 bg-card">
-                      <div className="grid gap-5 lg:grid-cols-2">
-
-                        {/* Left: Photo upload */}
-                        <div className="space-y-2 flex flex-col items-center lg:items-start">
-                          <Label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Doctor Photo</Label>
-                          <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5 w-fit">
-                            <ImageUpload
-                              currentImage={newDoctorImageUrl || undefined}
-                              onImageUploaded={(url) => setNewDoctorImageUrl(url)}
-                              folder="doctors"
-                              fallbackText={newDoctorName ? newDoctorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : "Dr"}
-                            />
-                            <p className="text-[10px] text-muted-foreground text-center">Click photo to upload</p>
-                          </div>
-                        </div>
-
-                        {/* Right: Form fields */}
-                        <div className="space-y-3">
-                          <div className="space-y-1.5">
-                            <Label htmlFor="doctor-name" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Name</Label>
-                            <Input
-                              id="doctor-name"
-                              value={newDoctorName}
-                              onChange={(e) => setNewDoctorName(e.target.value)}
-                              placeholder="Dr. John Smith"
-                              data-testid="input-doctor-name"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label htmlFor="doctor-email" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Email</Label>
-                            <Input
-                              id="doctor-email"
-                              type="email"
-                              value={newDoctorEmail}
-                              onChange={(e) => setNewDoctorEmail(e.target.value)}
-                              placeholder="doctor@example.com"
-                              data-testid="input-doctor-email"
-                              required
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                              <Label htmlFor="doctor-specialization" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Specialization</Label>
-                              <Input
-                                id="doctor-specialization"
-                                value={newDoctorSpecialization}
-                                onChange={(e) => setNewDoctorSpecialization(e.target.value)}
-                                placeholder="General Dentist"
-                                data-testid="input-doctor-specialization"
-                                required
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label htmlFor="doctor-degree" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Degree (Optional)</Label>
-                              <Input
-                                id="doctor-degree"
-                                value={newDoctorDegree}
-                                onChange={(e) => setNewDoctorDegree(e.target.value)}
-                                placeholder="BDS, MDS"
-                                data-testid="input-doctor-degree"
-                              />
-                            </div>
-                          </div>
-                          <Button
-                            onClick={handleAddDoctor}
-                            disabled={!newDoctorName || !newDoctorSpecialization || !newDoctorEmail || addDoctorMutation.isPending}
-                            className="w-full bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 text-white font-medium shadow-md shadow-primary/20 mt-1"
-                            data-testid="button-add-doctor"
-                          >
-                            {addDoctorMutation.isPending ? (
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            ) : (
-                              <UserPlus className="h-4 w-4 mr-2" />
-                            )}
-                            Add Doctor
-                          </Button>
-                        </div>
-
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-
-        {/* Book a Slot Section */}
-        <Collapsible open={isBookingOpen} onOpenChange={setIsBookingOpen}>
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
-            <CollapsibleTrigger asChild>
-              <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors group">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                    <Plus className="h-3.5 w-3.5 text-violet-500" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-semibold leading-tight">Book a Slot</p>
-                    <p className="text-[10px] text-muted-foreground">New patient appointment</p>
-                  </div>
-                </div>
-                {isBookingOpen ? (
-                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                )}
-              </div>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="border-t border-border/30 px-4 pb-4 pt-3">
-                {bookingSuccess ? (
-                  <div className="py-8 flex flex-col items-center gap-4">
-                    <CheckCircle2 className="h-16 w-16 text-green-500" />
-                    <div className="text-center">
-                      <h3 className="text-lg font-semibold">Booking Confirmed!</h3>
-                      <p className="text-muted-foreground mt-1">
-                        Appointment on {format(bookingDate, "MMMM do, yyyy")} has been booked.
-                      </p>
-                    </div>
-                    <Button
-                      onClick={() => {
-                        resetBookingForm();
-                      }}
-                      className="mt-2"
-                      data-testid="button-book-another"
-                    >
-                      Book Another
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Patient Details */}
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="booking-name" className="text-left block">Patient Name</Label>
-                        <Input
-                          id="booking-name"
-                          value={bookingName}
-                          onChange={(e) => setBookingName(e.target.value)}
-                          placeholder="John Doe"
-                          data-testid="input-booking-name"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="booking-phone" className="text-left block">Phone Number</Label>
-                        <div className="space-y-1">
-                          <Input
-                            id="booking-phone"
-                            value={bookingPhone}
-                            onChange={(e) => handleBookingPhoneChange(e.target.value)}
-                            className={phoneError ? "border-destructive" : ""}
-                            placeholder="+91 9876543210"
-                            data-testid="input-booking-phone"
-                          />
-                          {phoneError && (
-                            <p className="text-xs text-destructive">{phoneError}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="booking-email" className="text-left block">Email</Label>
-                        <Input
-                          id="booking-email"
-                          type="email"
-                          value={bookingEmail}
-                          onChange={(e) => setBookingEmail(e.target.value)}
-                          placeholder="patient@example.com"
-                          data-testid="input-booking-email"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Chief Complaints Section */}
-                    <div className="space-y-3 py-2">
-                      <Label className="text-sm font-semibold text-left block">CHIEF COMPLAINTS</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {CHIEF_COMPLAINTS.map((complaint) => {
-                          const isSelected = bookingDescription.split(", ").includes(complaint);
-                          return (
-                            <Badge
-                              key={complaint}
-                              variant={isSelected ? "default" : "outline"}
-                              className="cursor-pointer transition-all hover:scale-105 active:scale-95 px-3 py-1"
-                              onClick={() => handleComplaintClick(complaint)}
-                            >
-                              {complaint}
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="booking-description" className="text-left block">Description</Label>
-                      <textarea
-                        id="booking-description"
-                        value={bookingDescription}
-                        onChange={(e) => setBookingDescription(e.target.value)}
-                        placeholder="Describe patient issue..."
-                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                    </div>
-
-                    {/* Date Selection */}
-                    <div className="space-y-2">
-                      <Label className="text-left block">Select Date</Label>
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                        <div className="flex-1 w-full overflow-hidden">
-                          <ScrollArea className="w-full whitespace-nowrap pb-2">
-                            <div className="flex space-x-3 px-1 py-1">
-                              {dates.map((date) => {
-                                const isSelected = isSameDay(date, bookingDate);
-                                return (
-                                  <button
-                                    key={date.toISOString()}
-                                    onClick={() => setBookingDate(date)}
-                                    data-testid={`booking-date-${format(date, 'yyyy-MM-dd')}`}
-                                    className={`
-                                      flex flex-col items-center justify-center min-w-[4.5rem] h-16 rounded-xl border transition-all duration-200
-                                      ${isSelected
-                                        ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105'
-                                        : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
-                                    `}
-                                  >
-                                    <span className="text-[10px] font-medium uppercase mb-0.5 opacity-80">
-                                      {format(date, "EEE")}
-                                    </span>
-                                    <span className="text-lg font-bold">
-                                      {format(date, "d")}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <ScrollBar orientation="horizontal" />
-                          </ScrollArea>
-                        </div>
-
-                        <div className="flex-shrink-0 pb-2">
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-16 w-full sm:w-14 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-muted/50 transition-all"
-                                data-testid="button-booking-calendar"
-                              >
-                                <CalendarIcon className="h-5 w-5 text-muted-foreground mr-2 sm:mr-0" />
-                                <span className="sm:hidden font-medium">Choose from calendar</span>
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 rounded-xl shadow-2xl border-border/50" align="end">
-                              <Calendar
-                                mode="single"
-                                selected={bookingDate}
-                                onSelect={(date) => {
-                                  if (date) setBookingDate(date);
-                                }}
-                                disabled={(date) => date < startOfToday()}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Time Slot Selection */}
-                    <div className="space-y-2">
-                      <Label className="text-left block">Select Time Slot</Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {slotTimings.filter(slot => {
-                          const startTime = new Date(bookingDate);
-                          startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
-                          const isoString = startTime.toISOString();
-
-                          if (localStorage.getItem("demo_clinic_active") === "true") {
-                            const storedConfigs = localStorage.getItem("demo_slot_configs");
-                            const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
-                            if (configs[isoString]?.isCancelled) return false;
-
-                            // Check capacity
-                            const maxBookings = configs[isoString]?.maxBookings ?? 3;
-                            const currentBookings = bookings?.filter(b =>
-                              new Date(b.slot.startTime).toISOString() === isoString
-                            ).length || 0;
-
-                            return true;
-                          } else {
-                            // Logic for registered clinics
-                            // Filter out slots that are cancelled
-                            const existingBookingWithSlot = bookings?.find(b =>
-                              new Date(b.slot.startTime).toISOString() === isoString
-                            );
-                            if (existingBookingWithSlot?.slot.isCancelled) return false;
-
-                            return true;
-                          }
-                        }).map((slot) => {
-                          const startTime = new Date(bookingDate);
-                          startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
-                          const isoString = startTime.toISOString();
-
-                          let isFull = false;
-                          let maxBookings = 3;
-
-                          if (localStorage.getItem("demo_clinic_active") === "true") {
-                            const storedConfigs = localStorage.getItem("demo_slot_configs");
-                            const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
-                            maxBookings = configs[isoString]?.maxBookings ?? 3;
-                            const currentBookings = bookings?.filter(b =>
-                              new Date(b.slot.startTime).toISOString() === isoString
-                            ).length || 0;
-                            isFull = currentBookings >= maxBookings;
-                          } else {
-                            // Logic for registered clinics using backend data
-                            const currentBookings = bookings?.filter(b =>
-                              new Date(b.slot.startTime).toISOString() === isoString
-                            ).length || 0;
-
-                            // Try to find maxBookings from any existing booking's slot info
-                            const existingBookingWithSlot = bookings?.find(b =>
-                              new Date(b.slot.startTime).toISOString() === isoString
-                            );
-
-                            maxBookings = existingBookingWithSlot?.slot.maxBookings ?? 3;
-                            isFull = currentBookings >= maxBookings;
-                          }
-
-                          const slotLabel = `${formatTime(slot.startHour, slot.startMinute)} - ${formatTime(slot.endHour, slot.endMinute)}`;
-                          return (
-                            <TooltipProvider key={slot.id}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={() => !isFull && setSelectedSlot(slot.id)}
-                                    disabled={isFull}
-                                    data-testid={`booking-slot-${slot.id}`}
-                                    className={`p-5 sm:p-4 rounded-xl border text-center transition-all relative ${selectedSlot === slot.id
-                                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                      : isFull
-                                        ? "border-destructive/30 bg-destructive/5 cursor-not-allowed"
-                                        : "border-border hover:bg-muted/50 hover:border-primary/50"
-                                      }`}
-                                  >
-                                    <div className={`font-semibold text-base sm:text-base ${isFull ? "text-destructive/70" : ""}`}>
-                                      {slot.label}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground mt-1">{slotLabel}</div>
-                                    {isFull && (
-                                      <Badge variant="destructive" className="absolute -top-2 -right-2 px-1.5 py-0 text-[10px] h-4">
-                                        Full
-                                      </Badge>
-                                    )}
-                                  </button>
-                                </TooltipTrigger>
-                                {isFull && (
-                                  <TooltipContent>
-                                    <p>Booking closed for this slot</p>
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            </TooltipProvider>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Submit Button */}
-                    <Button
-                      onClick={handleCreateBooking}
-                      disabled={!bookingName || !isPhoneValid || !bookingEmail || !selectedSlot || createBookingMutation.isPending}
-                      className="w-full sm:w-auto"
-                      data-testid="button-create-booking"
-                    >
-                      {createBookingMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Creating Booking...
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create Booking
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-
           </div>
         </div>
-        {/* ===== END LEFT SIDEBAR ===== */}
+        {/* ===== END LEFT SIDEBAR NAV ===== */}
 
         {/* ===== MAIN CONTENT ===== */}
-        <div className="flex-1 min-w-0 space-y-5">
+        <div className="flex-1 min-w-0">
 
+          {/* BOOKINGS PANEL */}
+          {activePanel === 'bookings' && (
+            <div className="space-y-5">
           {/* Enhanced Stats Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Card className="shadow-sm border-border/50 overflow-hidden">
@@ -1363,7 +798,7 @@ export default function ClinicDashboard() {
                 </div>
               </CardContent>
             </Card>
-          </div>
+
 
           {/* Bookings Section */}
           <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
@@ -1910,11 +1345,593 @@ export default function ClinicDashboard() {
             </div>
           )}
           </div>
-          </div>
-          {/* ===== END BOOKINGS SECTION ===== */}
+            </div>
+          )}
+
+          {/* CONFIGURE SLOTS PANEL */}
+          {activePanel === 'configure-slots' && (
+            <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-4 flex items-center gap-3">
+                <Clock className="h-5 w-5 text-white" />
+                <div>
+                  <h2 className="text-lg font-bold text-white tracking-tight">Configure Slots</h2>
+                  <p className="text-white/70 text-[11px] mt-0.5">Set capacity and manage cancellations</p>
+                </div>
+              </div>
+              <div className="p-5">
+                <div className="space-y-5">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2 text-left">
+                      <Label className="block">Max Bookings</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={configMaxBookings}
+                        onChange={(e) => setConfigMaxBookings(parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2 pt-8">
+                      <input
+                        type="checkbox"
+                        id="is-cancelled"
+                        checked={configIsCancelled}
+                        onChange={(e) => setConfigIsCancelled(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <Label htmlFor="is-cancelled">Cancel this slot</Label>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-left block">Select Date &amp; Time</Label>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                      <ScrollArea className="w-full whitespace-nowrap pb-2">
+                        <div className="flex space-x-3 px-1 py-1">
+                          {dates.map((date) => (
+                            <button
+                              key={date.toISOString()}
+                              onClick={() => setConfigDate(date)}
+                              className={`flex flex-col items-center justify-center min-w-[4.5rem] h-16 rounded-xl border transition-all ${isSameDay(date, configDate) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card'}`}
+                            >
+                              <span className="text-[10px] uppercase">{format(date, "EEE")}</span>
+                              <span className="text-lg font-bold">{format(date, "d")}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <ScrollBar orientation="horizontal" />
+                      </ScrollArea>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                      {slotTimings.map((slot) => (
+                        <Button
+                          key={slot.id}
+                          variant={selectedSlot === slot.id ? "default" : "outline"}
+                          className="h-12"
+                          onClick={() => setSelectedSlot(slot.id)}
+                        >
+                          {slot.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <Button
+                    className="w-full"
+                    onClick={handleConfigureSlot}
+                    disabled={!selectedSlot || configureSlotMutation.isPending}
+                  >
+                    {configureSlotMutation.isPending ? <Loader2 className="animate-spin" /> : "Update Configuration"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MANAGE DOCTORS PANEL */}
+          {activePanel === 'manage-doctors' && (
+            <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+              <div className="bg-gradient-to-r from-emerald-600 to-teal-500 px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Stethoscope className="h-5 w-5 text-white" />
+                  <div>
+                    <h2 className="text-lg font-bold text-white tracking-tight">Manage Doctors</h2>
+                    <p className="text-white/70 text-[11px] mt-0.5">Add and manage practitioners</p>
+                  </div>
+                </div>
+                <Badge className="bg-white/20 text-white border-white/30 text-xs hover:bg-white/20">
+                  {clinicData?.doctors?.length || 0} {(clinicData?.doctors?.length || 0) === 1 ? 'doctor' : 'doctors'}
+                </Badge>
+              </div>
+              <div className="p-5 space-y-4">
+              <div className="border-t border-border/30 px-4 pb-4 pt-3">
+                <div className="space-y-4">
+
+                  {/* Current Doctors List */}
+                  {clinicData?.doctors && clinicData.doctors.length > 0 ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Current Doctors</p>
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full">
+                          <Stethoscope className="h-3 w-3" />
+                          {clinicData.doctors.length} {clinicData.doctors.length === 1 ? "doctor" : "doctors"}
+                        </span>
+                      </div>
+                      <div className="grid gap-3">
+                        {clinicData.doctors.map((doctor, index) => (
+                          <div
+                            key={index}
+                            className="relative rounded-xl border border-border/60 overflow-hidden bg-card shadow-sm hover:shadow-md transition-shadow duration-300"
+                            data-testid={`doctor-card-${index}`}
+                          >
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-xl" />
+                            <div className="flex items-center justify-between px-5 py-3 pl-6">
+                              <div className="flex items-center gap-4">
+                                <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+                                  {doctor.imageUrl ? (
+                                    <img src={doctor.imageUrl} alt={doctor.name} className="h-full w-full object-cover" />
+                                  ) : (
+                                    <span className="text-xs font-bold text-primary">
+                                      {doctor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-left min-w-0">
+                                  <p className="font-semibold text-sm">{doctor.name}</p>
+                                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                    <span className="inline-flex items-center text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full">
+                                      {doctor.specialization}
+                                    </span>
+                                    {doctor.degree && (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-muted border border-border/60 px-1.5 py-0.5 rounded-full">
+                                        <GraduationCap className="h-2.5 w-2.5" />
+                                        {doctor.degree}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                                    data-testid={`button-remove-doctor-${index}`}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Remove Doctor?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to remove {doctor.name} from your clinic? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => removeDoctorMutation.mutate(index)}
+                                      className="bg-destructive text-destructive-foreground"
+                                    >
+                                      Remove
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center bg-muted/20 rounded-xl border border-dashed">
+                      <div className="p-3 bg-muted/50 rounded-full w-fit mx-auto mb-3">
+                        <Stethoscope className="h-7 w-7 text-muted-foreground/60" />
+                      </div>
+                      <p className="font-medium text-muted-foreground">No doctors added yet</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Add your first doctor using the form below</p>
+                    </div>
+                  )}
+
+                  {/* Add New Doctor Panel */}
+                  <div className="rounded-xl overflow-hidden border border-border/60 shadow-sm">
+
+                    {/* Panel header */}
+                    <div className="bg-gradient-to-r from-violet-600 to-primary px-5 py-3.5 flex items-center gap-3">
+                      <div className="p-1.5 bg-white/20 rounded-lg">
+                        <UserPlus className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-white font-semibold text-sm leading-tight">Add a New Doctor</h3>
+                        <p className="text-white/70 text-xs">Register a new practitioner to your clinic profile</p>
+                      </div>
+                    </div>
+
+                    {/* Panel body */}
+                    <div className="p-5 bg-card">
+                      <div className="grid gap-5 lg:grid-cols-2">
+
+                        {/* Left: Photo upload */}
+                        <div className="space-y-2 flex flex-col items-center lg:items-start">
+                          <Label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Doctor Photo</Label>
+                          <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5 w-fit">
+                            <ImageUpload
+                              currentImage={newDoctorImageUrl || undefined}
+                              onImageUploaded={(url) => setNewDoctorImageUrl(url)}
+                              folder="doctors"
+                              fallbackText={newDoctorName ? newDoctorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : "Dr"}
+                            />
+                            <p className="text-[10px] text-muted-foreground text-center">Click photo to upload</p>
+                          </div>
+                        </div>
+
+                        {/* Right: Form fields */}
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="doctor-name" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Name</Label>
+                            <Input
+                              id="doctor-name"
+                              value={newDoctorName}
+                              onChange={(e) => setNewDoctorName(e.target.value)}
+                              placeholder="Dr. John Smith"
+                              data-testid="input-doctor-name"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="doctor-email" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Email</Label>
+                            <Input
+                              id="doctor-email"
+                              type="email"
+                              value={newDoctorEmail}
+                              onChange={(e) => setNewDoctorEmail(e.target.value)}
+                              placeholder="doctor@example.com"
+                              data-testid="input-doctor-email"
+                              required
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="doctor-specialization" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Specialization</Label>
+                              <Input
+                                id="doctor-specialization"
+                                value={newDoctorSpecialization}
+                                onChange={(e) => setNewDoctorSpecialization(e.target.value)}
+                                placeholder="General Dentist"
+                                data-testid="input-doctor-specialization"
+                                required
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="doctor-degree" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Degree (Optional)</Label>
+                              <Input
+                                id="doctor-degree"
+                                value={newDoctorDegree}
+                                onChange={(e) => setNewDoctorDegree(e.target.value)}
+                                placeholder="BDS, MDS"
+                                data-testid="input-doctor-degree"
+                              />
+                            </div>
+                          </div>
+                          <Button
+                            onClick={handleAddDoctor}
+                            disabled={!newDoctorName || !newDoctorSpecialization || !newDoctorEmail || addDoctorMutation.isPending}
+                            className="w-full bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 text-white font-medium shadow-md shadow-primary/20 mt-1"
+                            data-testid="button-add-doctor"
+                          >
+                            {addDoctorMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : (
+                              <UserPlus className="h-4 w-4 mr-2" />
+                            )}
+                            Add Doctor
+                          </Button>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* BOOK A SLOT PANEL */}
+          {activePanel === 'book-a-slot' && (
+            <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+              <div className="bg-gradient-to-r from-violet-600 to-primary px-5 py-4 flex items-center gap-3">
+                <Plus className="h-5 w-5 text-white" />
+                <div>
+                  <h2 className="text-lg font-bold text-white tracking-tight">Book a Slot</h2>
+                  <p className="text-white/70 text-[11px] mt-0.5">Create a new patient appointment</p>
+                </div>
+              </div>
+              <div className="p-5">
+              <div className="border-t border-border/30 px-4 pb-4 pt-3">
+                {bookingSuccess ? (
+                  <div className="py-8 flex flex-col items-center gap-4">
+                    <CheckCircle2 className="h-16 w-16 text-green-500" />
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold">Booking Confirmed!</h3>
+                      <p className="text-muted-foreground mt-1">
+                        Appointment on {format(bookingDate, "MMMM do, yyyy")} has been booked.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        resetBookingForm();
+                      }}
+                      className="mt-2"
+                      data-testid="button-book-another"
+                    >
+                      Book Another
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Patient Details */}
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="booking-name" className="text-left block">Patient Name</Label>
+                        <Input
+                          id="booking-name"
+                          value={bookingName}
+                          onChange={(e) => setBookingName(e.target.value)}
+                          placeholder="John Doe"
+                          data-testid="input-booking-name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="booking-phone" className="text-left block">Phone Number</Label>
+                        <div className="space-y-1">
+                          <Input
+                            id="booking-phone"
+                            value={bookingPhone}
+                            onChange={(e) => handleBookingPhoneChange(e.target.value)}
+                            className={phoneError ? "border-destructive" : ""}
+                            placeholder="+91 9876543210"
+                            data-testid="input-booking-phone"
+                          />
+                          {phoneError && (
+                            <p className="text-xs text-destructive">{phoneError}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="booking-email" className="text-left block">Email</Label>
+                        <Input
+                          id="booking-email"
+                          type="email"
+                          value={bookingEmail}
+                          onChange={(e) => setBookingEmail(e.target.value)}
+                          placeholder="patient@example.com"
+                          data-testid="input-booking-email"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Chief Complaints Section */}
+                    <div className="space-y-3 py-2">
+                      <Label className="text-sm font-semibold text-left block">CHIEF COMPLAINTS</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {CHIEF_COMPLAINTS.map((complaint) => {
+                          const isSelected = bookingDescription.split(", ").includes(complaint);
+                          return (
+                            <Badge
+                              key={complaint}
+                              variant={isSelected ? "default" : "outline"}
+                              className="cursor-pointer transition-all hover:scale-105 active:scale-95 px-3 py-1"
+                              onClick={() => handleComplaintClick(complaint)}
+                            >
+                              {complaint}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="booking-description" className="text-left block">Description</Label>
+                      <textarea
+                        id="booking-description"
+                        value={bookingDescription}
+                        onChange={(e) => setBookingDescription(e.target.value)}
+                        placeholder="Describe patient issue..."
+                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </div>
+
+                    {/* Date Selection */}
+                    <div className="space-y-2">
+                      <Label className="text-left block">Select Date</Label>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                        <div className="flex-1 w-full overflow-hidden">
+                          <ScrollArea className="w-full whitespace-nowrap pb-2">
+                            <div className="flex space-x-3 px-1 py-1">
+                              {dates.map((date) => {
+                                const isSelected = isSameDay(date, bookingDate);
+                                return (
+                                  <button
+                                    key={date.toISOString()}
+                                    onClick={() => setBookingDate(date)}
+                                    data-testid={`booking-date-${format(date, 'yyyy-MM-dd')}`}
+                                    className={`
+                                      flex flex-col items-center justify-center min-w-[4.5rem] h-16 rounded-xl border transition-all duration-200
+                                      ${isSelected
+                                        ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105'
+                                        : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
+                                    `}
+                                  >
+                                    <span className="text-[10px] font-medium uppercase mb-0.5 opacity-80">
+                                      {format(date, "EEE")}
+                                    </span>
+                                    <span className="text-lg font-bold">
+                                      {format(date, "d")}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <ScrollBar orientation="horizontal" />
+                          </ScrollArea>
+                        </div>
+
+                        <div className="flex-shrink-0 pb-2">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-16 w-full sm:w-14 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-muted/50 transition-all"
+                                data-testid="button-booking-calendar"
+                              >
+                                <CalendarIcon className="h-5 w-5 text-muted-foreground mr-2 sm:mr-0" />
+                                <span className="sm:hidden font-medium">Choose from calendar</span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 rounded-xl shadow-2xl border-border/50" align="end">
+                              <Calendar
+                                mode="single"
+                                selected={bookingDate}
+                                onSelect={(date) => {
+                                  if (date) setBookingDate(date);
+                                }}
+                                disabled={(date) => date < startOfToday()}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Time Slot Selection */}
+                    <div className="space-y-2">
+                      <Label className="text-left block">Select Time Slot</Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {slotTimings.filter(slot => {
+                          const startTime = new Date(bookingDate);
+                          startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+                          const isoString = startTime.toISOString();
+
+                          if (localStorage.getItem("demo_clinic_active") === "true") {
+                            const storedConfigs = localStorage.getItem("demo_slot_configs");
+                            const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
+                            if (configs[isoString]?.isCancelled) return false;
+
+                            // Check capacity
+                            const maxBookings = configs[isoString]?.maxBookings ?? 3;
+                            const currentBookings = bookings?.filter(b =>
+                              new Date(b.slot.startTime).toISOString() === isoString
+                            ).length || 0;
+
+                            return true;
+                          } else {
+                            // Logic for registered clinics
+                            // Filter out slots that are cancelled
+                            const existingBookingWithSlot = bookings?.find(b =>
+                              new Date(b.slot.startTime).toISOString() === isoString
+                            );
+                            if (existingBookingWithSlot?.slot.isCancelled) return false;
+
+                            return true;
+                          }
+                        }).map((slot) => {
+                          const startTime = new Date(bookingDate);
+                          startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+                          const isoString = startTime.toISOString();
+
+                          let isFull = false;
+                          let maxBookings = 3;
+
+                          if (localStorage.getItem("demo_clinic_active") === "true") {
+                            const storedConfigs = localStorage.getItem("demo_slot_configs");
+                            const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
+                            maxBookings = configs[isoString]?.maxBookings ?? 3;
+                            const currentBookings = bookings?.filter(b =>
+                              new Date(b.slot.startTime).toISOString() === isoString
+                            ).length || 0;
+                            isFull = currentBookings >= maxBookings;
+                          } else {
+                            // Logic for registered clinics using backend data
+                            const currentBookings = bookings?.filter(b =>
+                              new Date(b.slot.startTime).toISOString() === isoString
+                            ).length || 0;
+
+                            // Try to find maxBookings from any existing booking's slot info
+                            const existingBookingWithSlot = bookings?.find(b =>
+                              new Date(b.slot.startTime).toISOString() === isoString
+                            );
+
+                            maxBookings = existingBookingWithSlot?.slot.maxBookings ?? 3;
+                            isFull = currentBookings >= maxBookings;
+                          }
+
+                          const slotLabel = `${formatTime(slot.startHour, slot.startMinute)} - ${formatTime(slot.endHour, slot.endMinute)}`;
+                          return (
+                            <TooltipProvider key={slot.id}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => !isFull && setSelectedSlot(slot.id)}
+                                    disabled={isFull}
+                                    data-testid={`booking-slot-${slot.id}`}
+                                    className={`p-5 sm:p-4 rounded-xl border text-center transition-all relative ${selectedSlot === slot.id
+                                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                      : isFull
+                                        ? "border-destructive/30 bg-destructive/5 cursor-not-allowed"
+                                        : "border-border hover:bg-muted/50 hover:border-primary/50"
+                                      }`}
+                                  >
+                                    <div className={`font-semibold text-base sm:text-base ${isFull ? "text-destructive/70" : ""}`}>
+                                      {slot.label}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground mt-1">{slotLabel}</div>
+                                    {isFull && (
+                                      <Badge variant="destructive" className="absolute -top-2 -right-2 px-1.5 py-0 text-[10px] h-4">
+                                        Full
+                                      </Badge>
+                                    )}
+                                  </button>
+                                </TooltipTrigger>
+                                {isFull && (
+                                  <TooltipContent>
+                                    <p>Booking closed for this slot</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Submit Button */}
+                    <Button
+                      onClick={handleCreateBooking}
+                      disabled={!bookingName || !isPhoneValid || !bookingEmail || !selectedSlot || createBookingMutation.isPending}
+                      className="w-full sm:w-auto"
+                      data-testid="button-create-booking"
+                    >
+                      {createBookingMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Creating Booking...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create Booking
+                        </>
+                      )}
+                    </Button>
+                  </div>
+              </div>
+            </div>
+          )}
 
         </div>
         {/* ===== END MAIN CONTENT ===== */}
+        {/* ===== END BOOKINGS SECTION ===== */}
 
       </div>
       {/* ===== END TWO-COLUMN LAYOUT ===== */}
