@@ -19,9 +19,6 @@ export default defineConfig({
         ]
       : []),
   ],
-  define: {
-    "import.meta.env.VITE_API_URL": JSON.stringify(process.env.VITE_API_URL || ""),
-  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -41,5 +38,11 @@ export default defineConfig({
       deny: ["**/.*"],
     },
     sourcemapIgnoreList: false,
+    proxy: {
+      "/api": {
+        target: "http://localhost:5001",
+        changeOrigin: true,
+      },
+    },
   },
 });
