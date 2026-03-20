@@ -155,6 +155,36 @@ app.use((req, res, next) => {
       } else {
         log("logo_url column already exists", "system");
       }
+
+      // Check if status column exists in clinics table
+      const checkStatusColumn = await db.execute(
+        sql`SELECT column_name FROM information_schema.columns WHERE table_name='clinics' AND column_name='status'`
+      );
+      if ((checkStatusColumn as any).rowCount === 0) {
+        log("Adding missing status column to clinics table...", "system");
+        await db.execute(sql`ALTER TABLE clinics ADD COLUMN status varchar(20) NOT NULL DEFAULT 'approved'`);
+        log("Successfully added status column", "system");
+      } else {
+        log("status column already exists", "system");
+      }
+
+      // Check if registered_by column exists in clinics table
+      const checkRegisteredByColumn = await db.execute(
+        sql`SELECT column_name FROM information_schema.columns WHERE table_name='clinics' AND column_name='registered_by'`
+      );
+      if ((checkRegisteredByColumn as any).rowCount === 0) {
+        await db.execute(sql`ALTER TABLE clinics ADD COLUMN registered_by varchar(255)`);
+        log("Added registered_by column to clinics", "system");
+      }
+
+      // Check if is_archived column exists in clinics table
+      const checkIsArchivedColumn = await db.execute(
+        sql`SELECT column_name FROM information_schema.columns WHERE table_name='clinics' AND column_name='is_archived'`
+      );
+      if ((checkIsArchivedColumn as any).rowCount === 0) {
+        await db.execute(sql`ALTER TABLE clinics ADD COLUMN is_archived boolean NOT NULL DEFAULT false`);
+        log("Added is_archived column to clinics", "system");
+      }
       
       // Check if doctor_invites table exists
       const checkTable = await db.execute(

@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X,
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, Receipt, FileText,
-  User, Mail, CalendarDays, FlaskConical
+  User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -673,65 +673,42 @@ export default function ClinicDashboard() {
         </div>
       </div>
 
-      <div className="space-y-8">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="shadow-sm border-border/50">
-            <CardContent className="p-4 sm:p-6 text-left">
-              <p className="text-xs sm:text-sm font-medium text-muted-foreground">Future Bookings</p>
-              <p className="text-xl sm:text-2xl font-bold mt-2">{futureBookingsCount}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm border-border/50">
-            <CardContent className="p-4 sm:p-6 text-left">
-              <p className="text-xs sm:text-sm font-medium text-muted-foreground">Past Bookings</p>
-              <p className="text-xl sm:text-2xl font-bold mt-2 text-muted-foreground">{pastBookingsCount}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm border-border/50">
-            <CardContent className="p-4 sm:p-6 text-left">
-              <p className="text-xs sm:text-sm font-medium text-muted-foreground">Today's Bookings</p>
-              <p className="text-xl sm:text-2xl font-bold mt-2 text-primary">
-                {todaysBookingsCount}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm border-border/50">
-            <CardContent className="p-4 sm:p-6 text-left">
-              <p className="text-xs sm:text-sm font-medium text-muted-foreground">Filtered Results</p>
-              <p className="text-xl sm:text-2xl font-bold mt-2 text-accent">
-                {filteredBookings?.length || 0}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+      {/* Two-column layout: left sidebar + main content */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+
+        {/* ===== LEFT SIDEBAR ===== */}
+        <div className="w-full lg:w-72 xl:w-80 shrink-0">
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5 px-1 mb-1">
+              <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Clinic Tools</p>
+            </div>
 
         {/* Slot Configuration Section */}
         <Collapsible open={isConfigOpen} onOpenChange={setIsConfigOpen}>
-          <Card className="shadow-sm border-border/50">
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
             <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Clock className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="text-left">
-                      <CardTitle className="text-lg">Configure Slots</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-0.5">Set capacity or cancel slots</p>
-                    </div>
+              <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors group">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                    <Clock className="h-3.5 w-3.5 text-blue-500" />
                   </div>
-                  {isConfigOpen ? (
-                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                  )}
+                  <div className="text-left">
+                    <p className="text-sm font-semibold leading-tight">Configure Slots</p>
+                    <p className="text-[10px] text-muted-foreground">Capacity &amp; cancellation</p>
+                  </div>
                 </div>
-              </CardHeader>
+                {isConfigOpen ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <CardContent className="pt-0 pb-6">
-                <div className="space-y-6">
-                  <div className="grid gap-4 sm:grid-cols-3">
+              <div className="border-t border-border/30 px-4 pb-4 pt-3">
+                <div className="space-y-5">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-2 text-left">
                       <Label className="block">Max Bookings</Label>
                       <Input
@@ -794,42 +771,40 @@ export default function ClinicDashboard() {
                     {configureSlotMutation.isPending ? <Loader2 className="animate-spin" /> : "Update Configuration"}
                   </Button>
                 </div>
-              </CardContent>
+              </div>
             </CollapsibleContent>
-          </Card>
+          </div>
         </Collapsible>
 
         {/* Doctor Management Section */}
         <Collapsible open={isDoctorsOpen} onOpenChange={setIsDoctorsOpen}>
-          <Card className="shadow-sm border-border/50">
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
             <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Stethoscope className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="text-left">
-                      <CardTitle className="text-lg">Manage Doctors</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-0.5">Add or remove doctors from your clinic</p>
-                    </div>
+              <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors group">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                    <Stethoscope className="h-3.5 w-3.5 text-emerald-500" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {clinicData?.doctors?.length || 0} doctors
-                    </Badge>
-                    {isDoctorsOpen ? (
-                      <ChevronUp className="h-5 w-5 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                    )}
+                  <div className="text-left">
+                    <p className="text-sm font-semibold leading-tight">Manage Doctors</p>
+                    <p className="text-[10px] text-muted-foreground">Add or remove doctors</p>
                   </div>
                 </div>
-              </CardHeader>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                    {clinicData?.doctors?.length || 0}
+                  </Badge>
+                  {isDoctorsOpen ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+              </div>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <CardContent className="pt-0 pb-6">
-                <div className="space-y-6">
+              <div className="border-t border-border/30 px-4 pb-4 pt-3">
+                <div className="space-y-4">
 
                   {/* Current Doctors List */}
                   {clinicData?.doctors && clinicData.doctors.length > 0 ? (
@@ -1019,36 +994,34 @@ export default function ClinicDashboard() {
                   </div>
 
                 </div>
-              </CardContent>
+              </div>
             </CollapsibleContent>
-          </Card>
+          </div>
         </Collapsible>
 
         {/* Book a Slot Section */}
         <Collapsible open={isBookingOpen} onOpenChange={setIsBookingOpen}>
-          <Card className="shadow-sm border-border/50">
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
             <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Plus className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="text-left">
-                      <CardTitle className="text-lg">Book a Slot for Patient</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-0.5">Create a new appointment booking</p>
-                    </div>
+              <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors group">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                    <Plus className="h-3.5 w-3.5 text-violet-500" />
                   </div>
-                  {isBookingOpen ? (
-                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                  )}
+                  <div className="text-left">
+                    <p className="text-sm font-semibold leading-tight">Book a Slot</p>
+                    <p className="text-[10px] text-muted-foreground">New patient appointment</p>
+                  </div>
                 </div>
-              </CardHeader>
+                {isBookingOpen ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <CardContent className="pt-0 pb-6">
+              <div className="border-t border-border/30 px-4 pb-4 pt-3">
                 {bookingSuccess ? (
                   <div className="py-8 flex flex-col items-center gap-4">
                     <CheckCircle2 className="h-16 w-16 text-green-500" />
@@ -1328,28 +1301,93 @@ export default function ClinicDashboard() {
                     </Button>
                   </div>
                 )}
-              </CardContent>
+              </div>
             </CollapsibleContent>
-          </Card>
+          </div>
         </Collapsible>
 
-        <section>
-          <div className="flex flex-col space-y-4 mb-6">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-2xl font-bold tracking-tight text-left">Bookings</h2>
+          </div>
+        </div>
+        {/* ===== END LEFT SIDEBAR ===== */}
+
+        {/* ===== MAIN CONTENT ===== */}
+        <div className="flex-1 min-w-0 space-y-5">
+
+          {/* Enhanced Stats Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Card className="shadow-sm border-border/50 overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
+              <CardContent className="p-4 text-left flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                  <TrendingUp className="h-4 w-4 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground">Upcoming</p>
+                  <p className="text-xl font-bold text-blue-600">{futureBookingsCount}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="shadow-sm border-border/50 overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
+              <CardContent className="p-4 text-left flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                  <History className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground">Past</p>
+                  <p className="text-xl font-bold text-muted-foreground">{pastBookingsCount}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="shadow-sm border-border/50 overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-violet-500 to-primary" />
+              <CardContent className="p-4 text-left flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <CalendarIcon className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground">Today</p>
+                  <p className="text-xl font-bold text-primary">{todaysBookingsCount}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="shadow-sm border-border/50 overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
+              <CardContent className="p-4 text-left flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                  <Filter className="h-4 w-4 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground">Filtered</p>
+                  <p className="text-xl font-bold text-amber-600">{filteredBookings?.length || 0}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Bookings Section */}
+          <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+
+            {/* Bookings header */}
+            <div className="bg-gradient-to-r from-violet-600 to-primary px-5 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-white tracking-tight">Bookings</h2>
+                <p className="text-white/70 text-[11px] mt-0.5">All patient appointments</p>
+              </div>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={downloadExcel}
-                className="gap-2"
+                className="gap-2 text-white/80 hover:text-white hover:bg-white/15 border border-white/20 text-xs"
                 disabled={!filteredBookings || filteredBookings.length === 0}
                 data-testid="button-download-excel"
               >
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Download</span>
+                <Download className="h-3.5 w-3.5" />
+                <span>Download</span>
               </Button>
             </div>
 
+          <div className="p-5 space-y-5">
             <div className="bg-muted/30 p-4 rounded-xl border border-border/50 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -1418,7 +1456,6 @@ export default function ClinicDashboard() {
                 </Button>
               </div>
             </div>
-          </div>
 
           {bookingsLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -1872,8 +1909,15 @@ export default function ClinicDashboard() {
               )}
             </div>
           )}
-        </section>
+          </div>
+          </div>
+          {/* ===== END BOOKINGS SECTION ===== */}
+
+        </div>
+        {/* ===== END MAIN CONTENT ===== */}
+
       </div>
+      {/* ===== END TWO-COLUMN LAYOUT ===== */}
 
       {/* Billing Modal */}
       <Dialog open={isBillingOpen} onOpenChange={setIsBillingOpen}>
