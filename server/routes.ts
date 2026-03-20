@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
 import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals } from "@shared/schema";
 import { z } from "zod";
@@ -318,6 +318,76 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
+  });
+
+  app.post("/api/auth/doctor/login", async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
+    try {
+      const doctor = await storage.getDoctorByEmail(email);
+      if (!doctor) return res.status(401).json({ message: "Invalid credentials" });
+      const isMatch = await bcrypt.compare(password, doctor.passwordHash || "");
+      if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+      const clinicResults = await db.select({ clinic: clinics })
+        .from(clinics)
+        .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
+        .where(eq(clinicDoctors.doctorId, doctor.id));
+      if (!clinicResults.length) return res.status(403).json({ message: "Doctor is not linked to any clinic" });
+      const clinic = clinicResults[0].clinic;
+      const isDefaultPassword = await bcrypt.compare("demo123", doctor.passwordHash || "");
+      const sess = req.session as any;
+      sess.doctorLoggedIn = true;
+      sess.role = 'doctor';
+      sess.doctorEmail = doctor.email;
+      sess.doctorId = doctor.id;
+      req.session.save(() => res.json({
+        email: doctor.email,
+        name: doctor.name,
+        specialization: doctor.specialization,
+        clinicId: clinic.id,
+        clinicName: clinic.name,
+        logoUrl: clinic.logoUrl ?? null,
+        isDefaultPassword,
+      }));
+    } catch (error: any) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/auth/doctor/me", async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== 'doctor' || !sess.doctorEmail) {
+      return res.status(401).json({ message: "Not authenticated as doctor" });
+    }
+    try {
+      const doctor = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!doctor) return res.status(401).json({ message: "Doctor not found" });
+      const clinicResults = await db.select({ clinic: clinics })
+        .from(clinics)
+        .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
+        .where(eq(clinicDoctors.doctorId, doctor.id));
+      if (!clinicResults.length) return res.status(403).json({ message: "Doctor is not linked to any clinic" });
+      const clinic = clinicResults[0].clinic;
+      const isDefaultPassword = await bcrypt.compare("demo123", doctor.passwordHash || "");
+      res.json({
+        email: doctor.email,
+        name: doctor.name,
+        specialization: doctor.specialization,
+        clinicId: clinic.id,
+        clinicName: clinic.name,
+        logoUrl: clinic.logoUrl ?? null,
+        isDefaultPassword,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/auth/doctor/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.clearCookie('connect.sid', { path: '/' });
+      res.json({ message: "Logout successful" });
+    });
   });
 
   app.get("/api/auth/clinic/bookings", isAuthenticated, async (req, res) => {
