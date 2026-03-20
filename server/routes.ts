@@ -294,8 +294,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const clinic = await storage.getClinic(sess.clinicId);
       if (!clinic) return res.status(404).json({ message: "Clinic not found" });
       const existingDoctors: any[] = Array.isArray(clinic.doctors) ? clinic.doctors : [];
-      const newDoctor = { name, specialization, degree, email: email || null, imageUrl: imageUrl || null };
-      const updatedClinic = await storage.updateClinic(sess.clinicId, { doctors: [...existingDoctors, newDoctor] });
+      const newDoctorEntry = { name, specialization, degree, email: email || null, imageUrl: imageUrl || null };
+      const updatedClinic = await storage.updateClinic(sess.clinicId, { doctors: [...existingDoctors, newDoctorEntry] });
+      if (email) {
+        const defaultPasswordHash = await bcrypt.hash("demo123", 10);
+        let doctorRecord = await storage.getDoctorByEmail(email);
+        if (!doctorRecord) {
+          doctorRecord = await storage.createDoctor({ name, email, passwordHash: defaultPasswordHash, specialization: specialization || null, degree: degree || null, imageUrl: imageUrl || null });
+        }
+        const existingLinks = await storage.getClinicDoctors(sess.clinicId);
+        const alreadyLinked = existingLinks.some(d => d.id === doctorRecord!.id);
+        if (!alreadyLinked) {
+          await storage.linkDoctorToClinic(sess.clinicId, doctorRecord.id);
+        }
+      }
       res.status(201).json(updatedClinic);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
