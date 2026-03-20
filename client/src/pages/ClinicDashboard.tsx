@@ -636,6 +636,7 @@ export default function ClinicDashboard() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_60%)] pointer-events-none" />
 
           <div className="relative flex items-center justify-between gap-4">
+
             <div className="flex items-center gap-4 min-w-0">
 
               {/* Logo upload with double-ring glow */}
@@ -703,6 +704,24 @@ export default function ClinicDashboard() {
             </Button>
           </div>
         </div>
+
+        {/* ===== NAMEPLATE STRIP ===== */}
+        <div className="relative bg-black/25 backdrop-blur-sm px-5 sm:px-6 py-2.5 flex items-center justify-center overflow-hidden">
+          {/* Left decorative line */}
+          <div className="absolute left-5 sm:left-6 top-1/2 -translate-y-1/2 h-px w-16 bg-gradient-to-r from-cyan-400/50 to-transparent" />
+          {/* Right decorative line */}
+          <div className="absolute right-5 sm:right-6 top-1/2 -translate-y-1/2 h-px w-16 bg-gradient-to-l from-fuchsia-400/50 to-transparent" />
+          {/* Corner brackets */}
+          <span className="absolute left-5 sm:left-6 text-cyan-400/40 text-xs font-mono select-none">[</span>
+          <span className="absolute right-5 sm:right-6 text-fuchsia-400/40 text-xs font-mono select-none">]</span>
+          {/* Clinic name */}
+          <p className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.35em] text-white/65 truncate px-8">
+            {clinic?.name}
+          </p>
+        </div>
+        {/* Bottom accent bar */}
+        <div className="h-[2px] bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500 opacity-50" />
+
       </div>
 
       {/* Two-column layout: left sidebar + main content */}
