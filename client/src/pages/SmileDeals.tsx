@@ -7,12 +7,7 @@ import { Link } from "wouter";
 
 export default function SmileDeals() {
   const { data: deals = [], isLoading } = useQuery<SmileDeal[]>({
-    queryKey: ['/api/smile-deals', { active: true }],
-    queryFn: async () => {
-      const res = await fetch('/api/smile-deals?active=true');
-      if (!res.ok) throw new Error("Failed to fetch deals");
-      return res.json();
-    }
+    queryKey: ['/api/smile-deals?active=true'],
   });
 
   if (isLoading) {
