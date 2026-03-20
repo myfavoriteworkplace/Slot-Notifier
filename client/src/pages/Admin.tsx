@@ -746,9 +746,9 @@ export default function Admin() {
         </TabsContent>
 
         <TabsContent value="pending">
-          <Card className="border-primary/20 bg-primary/5">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center text-primary">
+              <CardTitle className="flex items-center">
                 <Sparkles className="h-5 w-5 mr-2" />
                 Pending Registrations
               </CardTitle>
@@ -756,104 +756,166 @@ export default function Admin() {
             <CardContent>
               <div className="space-y-4">
                 {pendingClinics.map((clinic) => (
-                  <div key={clinic.id} className="border rounded-lg overflow-hidden bg-background shadow-sm border-primary/20">
-                    <div className="flex items-center justify-between p-4 bg-primary/5">
-                      <div>
-                        <h3 className="font-medium flex items-center gap-2">
-                          <Sparkles className="h-4 w-4 text-primary" />
-                          {clinic.name}
-                        </h3>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {clinic.address}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => approveClinicMutation.mutate(clinic.id)}
-                          disabled={approveClinicMutation.isPending}
-                          className="h-8 gap-1.5"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          Approve
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const url = `${window.location.origin}/book/${clinic.id}`;
-                            navigator.clipboard.writeText(url);
-                            toast({ title: "Booking URL copied" });
-                          }}
-                          className="h-8 gap-1.5"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          Copy Link
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedClinic(clinic);
-                            setEditName(clinic.name);
-                            setEditAddress(clinic.address || "");
-                            setEditCity((clinic as any).city || "");
-                            setEditPincode((clinic as any).pincode || "");
-                            setEditEmail(clinic.email || "");
-                            setEditPhone(clinic.phone || "");
-                            setEditWebsite(clinic.website || "");
-                            setEditDoctors(clinic.doctors || []);
-                            setEditClinicDialogOpen(true);
-                          }}
-                          className="h-8"
-                        >
-                          Edit
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8" onClick={() => archiveClinicMutation.mutate(clinic.id)}>
-                          Reject
-                        </Button>
+                  <div key={clinic.id} className="rounded-xl border border-border/60 overflow-hidden bg-card shadow-sm hover:shadow-md transition-shadow duration-300">
+
+                    {/* Header */}
+                    <div className="relative px-5 py-4 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-border/40">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 rounded-l-xl" />
+                      <div className="flex items-start justify-between gap-4 pl-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-base font-semibold tracking-tight">{clinic.name}</h3>
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                              <Sparkles className="h-2.5 w-2.5" />
+                              Pending Review
+                            </span>
+                          </div>
+
+                          {/* Location row */}
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                            <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                            {clinic.address && (
+                              <span className="text-xs text-muted-foreground">{clinic.address}</span>
+                            )}
+                            {(clinic as any).city && (
+                              <span className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full font-medium">
+                                <Navigation className="h-2.5 w-2.5" />
+                                {(clinic as any).city}
+                              </span>
+                            )}
+                            {(clinic as any).pincode && (
+                              <span className="inline-flex items-center gap-1 text-xs bg-muted text-muted-foreground border border-border/60 px-2 py-0.5 rounded-full font-mono">
+                                <Hash className="h-2.5 w-2.5" />
+                                {(clinic as any).pincode}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                          <Button
+                            size="sm"
+                            onClick={() => approveClinicMutation.mutate(clinic.id)}
+                            disabled={approveClinicMutation.isPending}
+                            className="h-8 gap-1.5 text-xs"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            Approve
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const url = `${window.location.origin}/book/${clinic.id}`;
+                              navigator.clipboard.writeText(url);
+                              toast({ title: "Booking URL copied" });
+                            }}
+                            className="h-8 gap-1.5 text-xs"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            Copy Link
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => {
+                              setSelectedClinic(clinic);
+                              setEditName(clinic.name);
+                              setEditAddress(clinic.address || "");
+                              setEditCity((clinic as any).city || "");
+                              setEditPincode((clinic as any).pincode || "");
+                              setEditEmail(clinic.email || "");
+                              setEditPhone(clinic.phone || "");
+                              setEditWebsite(clinic.website || "");
+                              setEditDoctors(clinic.doctors || []);
+                              setEditClinicDialogOpen(true);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            onClick={() => archiveClinicMutation.mutate(clinic.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm border-t">
-                      <div className="space-y-2">
-                        <p className="font-medium text-muted-foreground flex items-center gap-2 mb-1">
-                          <Stethoscope className="h-4 w-4" />
-                          Doctors
-                        </p>
-                        <div className="space-y-1.5">
-                          {clinic.doctors && clinic.doctors.length > 0 ? (
-                            clinic.doctors.map((doc, idx) => (
-                              <div key={idx} className="flex flex-col border-l-2 border-primary/20 pl-2 py-0.5">
-                                <span className="font-medium">{doc.name}</span>
-                                <span className="text-xs text-muted-foreground">{doc.specialization} • {doc.degree}</span>
+                    {/* Body */}
+                    <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                      {/* Contact Details */}
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Contact Details</p>
+                        <div className="space-y-2">
+                          {clinic.email && (
+                            <div className="flex items-center gap-3">
+                              <div className="h-7 w-7 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 flex items-center justify-center shrink-0">
+                                <Mail className="h-3.5 w-3.5 text-blue-500" />
                               </div>
-                            ))
-                          ) : (
-                            <span className="text-muted-foreground italic">No doctors listed</span>
+                              <a href={`mailto:${clinic.email}`} className="text-xs text-foreground hover:text-primary transition-colors truncate">
+                                {clinic.email}
+                              </a>
+                            </div>
                           )}
+                          {clinic.phone && (
+                            <div className="flex items-center gap-3">
+                              <div className="h-7 w-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900 flex items-center justify-center shrink-0">
+                                <Phone className="h-3.5 w-3.5 text-emerald-500" />
+                              </div>
+                              <span className="text-xs text-foreground font-mono">{clinic.phone}</span>
+                            </div>
+                          )}
+                          {clinic.website && (
+                            <div className="flex items-center gap-3">
+                              <div className="h-7 w-7 rounded-lg bg-violet-50 dark:bg-violet-950/40 border border-violet-100 dark:border-violet-900 flex items-center justify-center shrink-0">
+                                <Globe className="h-3.5 w-3.5 text-violet-500" />
+                              </div>
+                              <a href={clinic.website} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 truncate">
+                                {clinic.website.replace(/^https?:\/\//, '')}
+                                <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                              </a>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-3">
+                            <div className="h-7 w-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900 flex items-center justify-center shrink-0">
+                              <CalendarDays className="h-3.5 w-3.5 text-amber-500" />
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              Registered {clinic.createdAt ? new Date(clinic.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <p className="font-medium text-muted-foreground flex items-center gap-2 mb-1">
-                          <Plus className="h-4 w-4" />
-                          Clinic Details
+                      {/* Doctors */}
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+                          <Stethoscope className="h-3 w-3" />
+                          Doctors
                         </p>
-                        <div className="grid grid-cols-1 gap-1 text-xs">
-                          <div className="flex justify-between border-b border-border/50 py-1">
-                            <span className="text-muted-foreground">Email:</span>
-                            <span>{clinic.email}</span>
-                          </div>
-                          <div className="flex justify-between border-b border-border/50 py-1">
-                            <span className="text-muted-foreground">Phone:</span>
-                            <span>{clinic.phone}</span>
-                          </div>
-                          <div className="flex justify-between py-1">
-                            <span className="text-muted-foreground">Registered:</span>
-                            <span>{clinic.createdAt ? new Date(clinic.createdAt).toLocaleDateString() : 'N/A'}</span>
-                          </div>
+                        <div className="space-y-2">
+                          {clinic.doctors && clinic.doctors.length > 0 ? (
+                            clinic.doctors.map((doc, idx) => (
+                              <div key={idx} className="flex items-center gap-3">
+                                <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                                  {doc.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium leading-tight truncate">{doc.name}</p>
+                                  <p className="text-[10px] text-muted-foreground truncate">{doc.specialization}{doc.degree ? ` · ${doc.degree}` : ''}</p>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">No doctors listed</p>
+                          )}
                         </div>
                       </div>
                     </div>
