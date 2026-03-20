@@ -629,31 +629,47 @@ export default function ClinicDashboard() {
 
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-4 mb-6 sm:mb-8 border-b pb-6">
-        <div className="flex items-start sm:items-center gap-3 sm:gap-4">
-          <div className="flex-shrink-0">
-            <ImageUpload 
-              currentImage={clinic?.logoUrl || undefined}
-              onImageUploaded={(url: string) => updateLogoMutation.mutate(url)} 
-              folder="clinics"
-              fallbackText={clinic?.name || "Clinic"}
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-left truncate">{clinic?.name}</h1>
-              {clinic?.id && clinic.id >= 999 && (
-                <Badge variant="secondary" className="text-xs gap-1 py-1 px-2">
-                  <FlaskConical className="h-3.5 w-3.5" />
-                  Demo Mode
-                </Badge>
-              )}
+
+      {/* Page Header */}
+      <div className="rounded-2xl overflow-hidden shadow-md mb-6 sm:mb-8">
+        <div className="bg-gradient-to-r from-violet-600 to-primary px-5 py-4 sm:px-6 sm:py-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="shrink-0 ring-2 ring-white/30 rounded-2xl">
+              <ImageUpload
+                currentImage={clinic?.logoUrl || undefined}
+                onImageUploaded={(url: string) => updateLogoMutation.mutate(url)}
+                folder="clinics"
+                fallbackText={clinic?.name || "Clinic"}
+              />
             </div>
-            <div className="flex items-center gap-2 mt-2">
-              <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5">Clinic Administration</Badge>
-              <p className="text-sm sm:text-base text-muted-foreground hidden sm:block">Manage your clinic's bookings and availability</p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight truncate">{clinic?.name}</h1>
+                {clinic?.id && clinic.id >= 999 && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white bg-white/20 border border-white/30 px-2 py-0.5 rounded-full">
+                    <FlaskConical className="h-2.5 w-2.5" />
+                    Demo Mode
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/90 bg-white/15 border border-white/25 px-2 py-0.5 rounded-full">
+                  <Building2 className="h-2.5 w-2.5" />
+                  Clinic Administration
+                </span>
+                <p className="text-white/70 text-xs hidden sm:block">Manage your clinic's bookings and availability</p>
+              </div>
             </div>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="shrink-0 text-white/80 hover:text-white hover:bg-white/15 border border-white/20 gap-1.5 text-xs"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Sign Out</span>
+          </Button>
         </div>
       </div>
 
