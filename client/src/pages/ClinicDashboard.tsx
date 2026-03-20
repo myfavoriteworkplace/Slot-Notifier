@@ -1442,8 +1442,8 @@ export default function ClinicDashboard() {
                 </Badge>
               </div>
               <div className="p-5 space-y-4">
-              <div className="border-t border-border/30 px-4 pb-4 pt-3">
-                <div className="space-y-4">
+                <div className="border-t border-border/30 px-4 pb-4 pt-3">
+                  <div className="space-y-4">
 
                   {/* Current Doctors List */}
                   {clinicData?.doctors && clinicData.doctors.length > 0 ? (
@@ -1634,6 +1634,8 @@ export default function ClinicDashboard() {
 
               </div>
             </div>
+          </div>
+        </div>
           )}
 
           {/* BOOK A SLOT PANEL */}
