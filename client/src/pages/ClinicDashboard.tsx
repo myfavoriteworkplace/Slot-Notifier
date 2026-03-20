@@ -958,87 +958,143 @@ export default function ClinicDashboard() {
                   <p className="text-muted-foreground">No bookings found for the selected date range.</p>
                 </div>
               ) : (
-                filteredBookings?.map((booking) => (
+                filteredBookings?.map((booking) => {
+                  const bookingDateTime = new Date(booking.slot.startTime);
+                  const bookingDateStr = format(bookingDateTime, 'yyyy-MM-dd');
+                  const isBookingToday = bookingDateStr === todayStr;
+                  const isBookingPast = bookingDateTime < startOfDay(new Date()) && !isBookingToday;
+
+                  const accentBar = isBookingToday
+                    ? "bg-gradient-to-r from-emerald-400 to-teal-400"
+                    : isBookingPast
+                    ? "bg-gradient-to-r from-slate-400 to-slate-300"
+                    : "bg-gradient-to-r from-violet-500 via-cyan-400 to-fuchsia-500";
+
+                  const headerBg = isBookingToday
+                    ? "bg-gradient-to-r from-emerald-500/8 to-teal-500/5"
+                    : isBookingPast
+                    ? "bg-muted/30"
+                    : "bg-gradient-to-r from-violet-500/8 to-primary/5";
+
+                  const statusLabel = isBookingToday ? "Today" : isBookingPast ? "Past" : "Upcoming";
+                  const statusClass = isBookingToday
+                    ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25"
+                    : isBookingPast
+                    ? "text-muted-foreground bg-muted/50 border-border/50"
+                    : "text-violet-600 bg-violet-500/10 border-violet-500/25";
+
+                  const cardOpacity = isBookingPast ? "opacity-75" : "";
+
+                  const complaints = booking.description
+                    ? CHIEF_COMPLAINTS.filter(c =>
+                        booking.description!.split(/[,.\s]+/).map(p => p.trim().toLowerCase()).includes(c.toLowerCase())
+                      )
+                    : [];
+
+                  return (
                   <Card
                     key={booking.id}
-                    className="overflow-hidden border-border/50 hover:shadow-md transition-all cursor-pointer group"
+                    className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-violet-200/60 dark:hover:border-violet-800/40 transition-all group ${cardOpacity}`}
                     data-testid={`card-booking-${booking.id}`}
                   >
+                    {/* Status accent bar */}
+                    <div className={`h-[3px] ${accentBar}`} />
+
                     <Dialog>
                       <DialogTrigger asChild>
-                        <div className="w-full h-full text-left">
-                          <CardHeader className="bg-primary/5 pb-4 text-left group-hover:bg-primary/10 transition-colors">
-                            <div className="flex justify-between items-start gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider bg-muted/50 whitespace-nowrap">
-                                    #{getBookingNumber(booking).padStart(2, '0')}
-                                  </Badge>
-                                  <CardTitle className="text-lg truncate">{booking.customerName}</CardTitle>
+                        <div className="w-full text-left cursor-pointer">
+
+                          {/* Card Header */}
+                          <div className={`px-4 pt-3.5 pb-3 ${headerBg} transition-colors group-hover:brightness-[0.97]`}>
+                            <div className="flex items-start justify-between gap-2">
+
+                              {/* Avatar + name block */}
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div className="shrink-0 h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500/20 to-primary/20 border border-violet-300/30 dark:border-violet-700/30 flex items-center justify-center">
+                                  <span className="text-sm font-bold text-violet-700 dark:text-violet-300 leading-none">
+                                    {booking.customerName.charAt(0).toUpperCase()}
+                                  </span>
                                 </div>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                                  <Phone className="h-3 w-3" />
-                                  {booking.customerPhone}
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
+                                    <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
+                                      #{getBookingNumber(booking).padStart(2, '0')}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
+                                    <Phone className="h-2.5 w-2.5 shrink-0" />
+                                    <span className="truncate">{booking.customerPhone}</span>
+                                  </div>
                                 </div>
                               </div>
-                              <Badge variant="outline">Booked</Badge>
-                            </div>
-                          </CardHeader>
 
-                          <CardContent className="p-4 space-y-3">
-                            <div className="flex items-center gap-3 text-sm">
-                              <CalendarIcon className="h-4 w-4 text-primary" />
-                              <span className="font-medium">
-                                {format(new Date(booking.slot.startTime), "EEEE, MMMM do")}
+                              {/* Status pill */}
+                              <span className={`shrink-0 inline-flex items-center text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${statusClass}`}>
+                                {statusLabel}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Info rows */}
+                          <div className="px-4 py-3 space-y-2">
+
+                            {/* Date */}
+                            <div className="flex items-center gap-2.5 text-[12px]">
+                              <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                <CalendarIcon className="h-3 w-3 text-primary" />
+                              </div>
+                              <span className="font-semibold text-foreground">
+                                {format(bookingDateTime, "EEEE, MMMM do")}
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                              <Clock className="h-4 w-4" />
-                              {format(new Date(booking.slot.startTime), "h:mm a")}
-                              {booking.assignedDoctor && (
-                                <Badge variant="secondary" className="ml-2 text-[10px] py-0 h-4 bg-indigo-50 text-indigo-700 border-indigo-100">
-                                  {booking.assignedDoctor}
-                                </Badge>
-                              )}
-                              {clinic?.doctors && clinic.doctors.length > 0 && (
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:bg-primary/10" onClick={(e) => e.stopPropagation()}>
-                                      <User className="h-3 w-3" />
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent className="sm:max-w-[425px]">
-                                    <DialogHeader>
-                                      <DialogTitle>Assign Doctor</DialogTitle>
-                                    </DialogHeader>
-                                    <div className="grid gap-2 py-4">
-                                      {clinic.doctors.map((doc, idx) => (
-                                        <Button
-                                          key={idx}
-                                          variant={booking.assignedDoctor === doc.name ? "default" : "outline"}
-                                          className="justify-start h-auto py-2 px-3"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            assignDoctorMutation.mutate({
-                                              bookingId: booking.id,
-                                              doctorName: doc.name
-                                            });
-                                          }}
-                                          disabled={assignDoctorMutation.isPending}
-                                        >
-                                          <div className="text-left">
-                                            <p className="font-medium text-xs">{doc.name}</p>
-                                            <p className="text-[10px] opacity-70">{doc.specialization}</p>
-                                          </div>
-                                        </Button>
-                                      ))}
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              )}
+                            {/* Time range */}
+                            <div className="flex items-center gap-2.5 text-[12px]">
+                              <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                <Clock className="h-3 w-3 text-muted-foreground" />
+                              </div>
+                              <span className="text-muted-foreground font-medium">
+                                {format(bookingDateTime, "h:mm a")}
+                                <span className="mx-1 opacity-40">→</span>
+                                {format(new Date(booking.slot.endTime), "h:mm a")}
+                              </span>
                             </div>
-                          </CardContent>
+
+                            {/* Email */}
+                            {booking.customerEmail && (
+                              <div className="flex items-center gap-2.5 text-[12px]">
+                                <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                  <Mail className="h-3 w-3 text-muted-foreground" />
+                                </div>
+                                <span className="text-muted-foreground truncate">{booking.customerEmail}</span>
+                              </div>
+                            )}
+
+                            {/* Assigned doctor */}
+                            {booking.assignedDoctor && (
+                              <div className="flex items-center gap-2.5 text-[12px]">
+                                <div className="h-5 w-5 rounded-md bg-indigo-500/10 flex items-center justify-center shrink-0">
+                                  <Stethoscope className="h-3 w-3 text-indigo-500" />
+                                </div>
+                                <span className="font-medium text-indigo-600 dark:text-indigo-400">{booking.assignedDoctor}</span>
+                              </div>
+                            )}
+
+                            {/* Chief complaint chips */}
+                            {complaints.length > 0 && (
+                              <div className="flex flex-wrap gap-1 pt-0.5">
+                                {complaints.slice(0, 4).map((c, i) => (
+                                  <span key={i} className="inline-flex items-center text-[9px] font-semibold uppercase tracking-wide text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                                    {c}
+                                  </span>
+                                ))}
+                                {complaints.length > 4 && (
+                                  <span className="text-[9px] text-muted-foreground font-medium px-1">+{complaints.length - 4}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </DialogTrigger>
 
@@ -1261,7 +1317,7 @@ export default function ClinicDashboard() {
                                     assignDoctorMutation.mutate({ 
                                       bookingId: booking.id, 
                                       doctorName: clinic.doctorName!,
-                                      doctorEmail: clinic.email // Assuming lead doctor email is clinic email or we need to find it
+                                      doctorEmail: undefined
                                     });
                                   }}
                                   disabled={assignDoctorMutation.isPending}
@@ -1393,9 +1449,55 @@ export default function ClinicDashboard() {
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
-                  </Card>
 
-                ))
+                    {/* Quick-action footer */}
+                    <div className="px-4 py-2.5 flex items-center gap-2 border-t border-border/50 bg-muted/20">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1 h-7 gap-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-background/80"
+                        onClick={(e) => { e.stopPropagation(); handleOpenBilling(booking); }}
+                        data-testid={`button-bill-${booking.id}`}
+                      >
+                        <Receipt className="h-3 w-3" />
+                        Bill
+                      </Button>
+                      <div className="h-4 w-px bg-border/60 shrink-0" />
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="flex-1 h-7 gap-1.5 text-[11px] font-semibold text-destructive/70 hover:text-destructive hover:bg-destructive/5"
+                            onClick={(e) => e.stopPropagation()}
+                            data-testid={`button-cancel-booking-${booking.id}`}
+                          >
+                            <X className="h-3 w-3" />
+                            Cancel
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Permanently remove {booking.customerName}'s appointment.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Back</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => cancelBookingMutation.mutate(booking.id)}
+                              className="bg-destructive text-destructive-foreground"
+                            >
+                              Cancel Booking
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </Card>
+                  );
+                })
               )}
             </div>
           )}
