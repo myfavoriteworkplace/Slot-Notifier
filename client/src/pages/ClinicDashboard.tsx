@@ -1514,36 +1514,66 @@ export default function ClinicDashboard() {
                         {clinicData.doctors.map((doctor, index) => (
                           <div
                             key={index}
-                            className="relative rounded-xl border border-border/60 overflow-hidden bg-card shadow-sm hover:shadow-md transition-shadow duration-300"
+                            className="relative rounded-xl border border-border/60 overflow-hidden bg-card shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300 group"
                             data-testid={`doctor-card-${index}`}
                           >
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-xl" />
-                            <div className="flex items-center justify-between px-5 py-3 pl-6">
-                              <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+                            {/* Gradient left accent bar */}
+                            <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-cyan-400 via-violet-500 to-fuchsia-500" />
+
+                            {/* Subtle tinted background */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.03] to-transparent pointer-events-none" />
+
+                            <div className="relative flex items-center gap-4 px-5 py-4 pl-5">
+                              {/* Avatar with index badge */}
+                              <div className="relative shrink-0">
+                                <div className="h-14 w-14 rounded-full bg-gradient-to-br from-primary/20 to-violet-500/10 border border-primary/25 ring-2 ring-primary/10 group-hover:ring-primary/25 transition-all duration-300 flex items-center justify-center overflow-hidden shadow-sm">
                                   {doctor.imageUrl ? (
                                     <img src={doctor.imageUrl} alt={doctor.name} className="h-full w-full object-cover" />
                                   ) : (
-                                    <span className="text-xs font-bold text-primary">
+                                    <span className="text-sm font-bold bg-gradient-to-br from-cyan-400 to-violet-500 bg-clip-text text-transparent">
                                       {doctor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-left min-w-0">
-                                  <p className="font-semibold text-sm">{doctor.name}</p>
-                                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                                    <span className="inline-flex items-center text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full">
-                                      {doctor.specialization}
-                                    </span>
-                                    {doctor.degree && (
-                                      <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-muted border border-border/60 px-1.5 py-0.5 rounded-full">
-                                        <GraduationCap className="h-2.5 w-2.5" />
-                                        {doctor.degree}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
+                                <span className="absolute -bottom-1 -right-1 font-mono text-[9px] font-bold bg-muted border border-border/60 text-muted-foreground px-1 py-px rounded-full leading-none">
+                                  {String(index + 1).padStart(2, '0')}
+                                </span>
                               </div>
+
+                              {/* Doctor info */}
+                              <div className="flex-1 text-left min-w-0">
+                                {/* Name + active pill */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-bold text-sm tracking-tight">{doctor.name}</p>
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-px rounded-full">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    Active
+                                  </span>
+                                </div>
+
+                                {/* Specialization + degree badges */}
+                                <div className="flex items-center gap-2 flex-wrap mt-1">
+                                  <span className="inline-flex items-center text-[10px] font-medium bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 px-2 py-0.5 rounded-full">
+                                    {doctor.specialization}
+                                  </span>
+                                  {doctor.degree && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-muted border border-border/60 px-2 py-0.5 rounded-full">
+                                      <GraduationCap className="h-2.5 w-2.5" />
+                                      {doctor.degree}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Email */}
+                                {doctor.email && (
+                                  <div className="flex items-center gap-1.5 mt-1.5">
+                                    <Mail className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                                    <span className="text-[11px] font-mono text-muted-foreground truncate">{doctor.email}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Remove button */}
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button
