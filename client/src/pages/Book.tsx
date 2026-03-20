@@ -116,7 +116,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   }, []);
 
   const { data: clinicsData, isLoading: clinicsLoading } = useQuery<Clinic[]>({
-    queryKey: ['/api/clinics'],
+    queryKey: ['/api/public/clinics'],
   });
 
   const hardcodedClinic: Clinic = {

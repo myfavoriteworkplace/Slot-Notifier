@@ -153,7 +153,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/public/clinics", async (req, res) => {
     try {
       const clinicsList = await storage.getClinics();
-      res.json(clinicsList.map(({ id, name, address, username }) => ({ id, name, address, username })));
+      res.json(clinicsList.filter(c => !c.isArchived).map(({ id, name, address, username, city, pincode }) => ({ id, name, address, username, city, pincode })));
     } catch (err: any) {
       res.status(500).json({ message: "Failed to fetch clinics" });
     }
