@@ -159,6 +159,60 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.post("/api/public/bookings", async (req, res) => {
+    try {
+      const { customerName, customerPhone, customerEmail, clinicId, clinicName, startTime, endTime, description } = req.body;
+
+      if (!customerName || !customerPhone || !customerEmail || !clinicId || !startTime || !endTime) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(customerEmail)) {
+        return res.status(400).json({ message: "Invalid email format" });
+      }
+
+      const clinic = await storage.getClinic(parseInt(clinicId));
+      if (!clinic) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+
+      const requestedStart = new Date(startTime);
+      const existingBookings = await storage.countVerifiedBookingsForClinicTime(clinic.id, clinic.name, requestedStart);
+      const MAX_BOOKINGS_PER_SLOT = 3;
+      if (existingBookings >= MAX_BOOKINGS_PER_SLOT) {
+        return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
+      }
+
+      const slot = await storage.createSlot({
+        ownerId: null,
+        startTime: requestedStart,
+        endTime: new Date(endTime),
+        clinicName: clinicName || clinic.name,
+        clinicId: clinic.id,
+        isBooked: true,
+      } as any);
+
+      const booking = await storage.createPublicBooking({
+        slotId: slot.id,
+        customerName,
+        customerPhone,
+        customerEmail,
+        description: description || null,
+        verificationCode: null,
+        verificationExpiresAt: null,
+        verificationStatus: 'verified',
+      });
+
+      await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart);
+
+      res.status(201).json({ message: "Booking confirmed!", booking: { ...booking, slot } });
+    } catch (err: any) {
+      console.error('[PUBLIC BOOKING ERROR]', err.message);
+      res.status(500).json({ message: "Failed to create booking" });
+    }
+  });
+
   app.get("/api/site-settings/:key", async (req, res) => {
     try {
       const [setting] = await db.select().from(siteSettings).where(eq(siteSettings.key, req.params.key));

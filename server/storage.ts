@@ -36,6 +36,7 @@ export interface IStorage {
     customerName: string;
     customerPhone: string;
     customerEmail: string;
+    description?: string | null;
     verificationCode?: string | null;
     verificationExpiresAt?: Date | null;
     verificationStatus?: 'pending' | 'verified';
@@ -349,6 +350,7 @@ export class DatabaseStorage implements IStorage {
     customerName: string;
     customerPhone: string;
     customerEmail: string;
+    description?: string | null;
     verificationCode?: string | null;
     verificationExpiresAt?: Date | null;
     verificationStatus?: 'pending' | 'verified';
@@ -358,6 +360,7 @@ export class DatabaseStorage implements IStorage {
       customerName: data.customerName,
       customerPhone: data.customerPhone,
       customerEmail: data.customerEmail,
+      description: data.description || null,
       verificationCode: data.verificationCode || null,
       verificationStatus: data.verificationStatus || 'verified',
       verificationExpiresAt: data.verificationExpiresAt || null,

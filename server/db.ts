@@ -47,9 +47,10 @@ export async function ensureSessionTable() {
       ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "description" text;
     `);
 
-    // Ensure assigned_doctor column exists in bookings
+    // Ensure assigned_doctor and assigned_doctor_email columns exist in bookings
     await pool.query(`
       ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "assigned_doctor" varchar(255);
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "assigned_doctor_email" varchar(255);
     `);
 
     // Ensure phone, email, website etc columns exist in clinics
