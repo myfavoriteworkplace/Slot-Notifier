@@ -273,6 +273,53 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/auth/me", isAuthenticated, (req, res) => res.json((req as any).user));
 
+  app.get("/api/auth/clinic/me", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      const clinic = await storage.getClinic(sess.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+      res.json(clinic);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/auth/clinic/doctors", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    const { name, specialization, degree, email, imageUrl } = req.body;
+    if (!name || !specialization || !degree) return res.status(400).json({ message: "name, specialization and degree are required" });
+    try {
+      const clinic = await storage.getClinic(sess.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+      const existingDoctors: any[] = Array.isArray(clinic.doctors) ? clinic.doctors : [];
+      const newDoctor = { name, specialization, degree, email: email || null, imageUrl: imageUrl || null };
+      const updatedClinic = await storage.updateClinic(sess.clinicId, { doctors: [...existingDoctors, newDoctor] });
+      res.status(201).json(updatedClinic);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/auth/clinic/doctors/:index", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    const index = parseInt(req.params.index);
+    if (isNaN(index)) return res.status(400).json({ message: "Invalid doctor index" });
+    try {
+      const clinic = await storage.getClinic(sess.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+      const existingDoctors: any[] = Array.isArray(clinic.doctors) ? clinic.doctors : [];
+      if (index < 0 || index >= existingDoctors.length) return res.status(404).json({ message: "Doctor not found at that index" });
+      const updatedDoctors = existingDoctors.filter((_, i) => i !== index);
+      const updatedClinic = await storage.updateClinic(sess.clinicId, { doctors: updatedDoctors });
+      res.json(updatedClinic);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/auth/clinic/bookings", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (sess.role === 'doctor') {
