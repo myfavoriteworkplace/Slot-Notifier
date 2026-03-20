@@ -798,7 +798,7 @@ export default function ClinicDashboard() {
                 </div>
               </CardContent>
             </Card>
-
+          </div>
 
           {/* Bookings Section */}
           <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
@@ -1345,6 +1345,7 @@ export default function ClinicDashboard() {
             </div>
           )}
           </div>
+            </div>
             </div>
           )}
 
@@ -1925,8 +1926,10 @@ export default function ClinicDashboard() {
                       )}
                     </Button>
                   </div>
+                )}
               </div>
             </div>
+          </div>
           )}
 
         </div>
