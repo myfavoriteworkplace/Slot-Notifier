@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, LogOut, Stethoscope, Building2, User, Search, Calendar, Users } from "lucide-react";
+import { Loader2, LogOut, Stethoscope, Building2, Search, Calendar, Users, ShieldAlert } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -82,36 +82,61 @@ export default function DoctorDashboard() {
   return (
     <div className="min-h-screen bg-muted/30">
       {doctor.isDefaultPassword && (
-        <div className="bg-yellow-500 text-white px-4 py-2 text-center text-sm font-medium animate-in fade-in slide-in-from-top duration-500">
+        <div className="relative overflow-hidden bg-gradient-to-r from-amber-500/90 via-yellow-500/90 to-amber-500/90 backdrop-blur-sm text-white px-4 py-2 text-center text-sm font-medium animate-in fade-in slide-in-from-top duration-500 flex items-center justify-center gap-2">
+          <ShieldAlert className="h-4 w-4 shrink-0" />
           You are using the default password. For security, please reset via email.
         </div>
       )}
-      
-      <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-12 w-12 border-2 border-primary/20">
-              <AvatarImage src={(doctor as any).imageUrl || undefined} />
-              <AvatarFallback className="bg-primary/10 text-primary">
-                {doctor.name.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
+
+      <header className="sticky top-0 z-10 bg-gradient-to-r from-background via-background to-primary/5 backdrop-blur-md border-b border-border/50 shadow-sm">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+
+          {/* Left — doctor identity */}
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <Avatar className="h-11 w-11 ring-2 ring-primary/40 shadow-[0_0_14px_hsl(var(--primary)/0.2)]">
+                <AvatarImage src={(doctor as any).imageUrl || undefined} />
+                <AvatarFallback className="bg-primary/10 text-primary font-semibold font-display">
+                  {doctor.name.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary flex items-center justify-center shadow-md">
+                <Stethoscope className="h-2.5 w-2.5 text-white" />
+              </span>
+            </div>
             <div>
-              <h1 className="text-lg font-semibold">Dr. {doctor.name}</h1>
-              <div className="flex gap-2">
-                <Badge variant="outline" className="text-[10px] py-0">{doctor.specialization}</Badge>
-                <Badge variant="secondary" className="text-[10px] py-0">{doctor.clinicName}</Badge>
+              <h1 className="text-base font-semibold font-display leading-tight">Dr. {doctor.name}</h1>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <Badge className="text-[10px] py-0 px-2 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/10">
+                  {doctor.specialization}
+                </Badge>
+                <span className="text-border">·</span>
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <Building2 className="h-3 w-3" />
+                  {doctor.clinicName}
+                </span>
               </div>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
+
+          {/* Centre — portal label */}
+          <div className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+            <Stethoscope className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-medium text-primary font-display tracking-wide">Doctor Portal</span>
+          </div>
+
+          {/* Right — logout */}
+          <Button
+            variant="outline"
             size="sm"
-            onClick={() => logout()} 
+            onClick={() => logout()}
             disabled={isLoggingOut}
-            className="text-muted-foreground hover:text-destructive"
+            className="border-border/50 text-muted-foreground hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive transition-colors duration-200 shrink-0"
+            data-testid="button-logout"
           >
-            {isLoggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4 mr-2" />}
+            {isLoggingOut
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <LogOut className="h-4 w-4 mr-1.5" />}
             Logout
           </Button>
         </div>
