@@ -5,7 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CalendarDays, CheckCircle2, Building2, User, Phone, Mail,
-  MapPin, Sun, Moon, Clock, Shield, Sparkles, Search, Stethoscope, X,
+  MapPin, Sun, Moon, Clock, Shield, Sparkles, Search, Stethoscope, X, ChevronDown,
 } from "lucide-react";
 import type { Clinic, Slot } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
@@ -67,6 +67,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [step, setStep]                     = useState<"details" | "success">("details");
   const [phoneError, setPhoneError]         = useState("");
   const [searchQuery, setSearchQuery]       = useState("");
+  const [clinicMode, setClinicMode]         = useState<"select" | "search">("select");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [slotTimings, setSlotTimings]       = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
   const validateIndianPhone = (phone: string): boolean => {
@@ -282,10 +284,11 @@ export default function Book(props: { params: { clinicId?: string } }) {
         {/* ── CLINIC SELECTION ────────────────────────────── */}
         {!clinicIdFromUrl && (
           <div>
+            {/* Section heading */}
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-base font-bold tracking-tight">Choose a Clinic</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Search by name or location below</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Select from the list or search by location</p>
               </div>
               {selectedClinic && (
                 <button
@@ -297,79 +300,204 @@ export default function Book(props: { params: { clinicId?: string } }) {
               )}
             </div>
 
-            {/* Search input */}
-            <div className="flex items-center rounded-xl border border-border/60 bg-card focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden mb-4">
-              <div className="flex items-center justify-center h-11 w-11 shrink-0 border-r border-border/40 bg-muted/30">
-                <Search className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <Input
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search by clinic name, city, or area…"
-                className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-11 rounded-none pl-3 text-sm"
-                data-testid="input-clinic-search"
-              />
+            {/* ── Mode toggle pill switcher ── */}
+            <div className="flex gap-1.5 p-1 bg-muted/40 border border-border/50 rounded-xl mb-4 w-fit">
+              {([
+                { id: "select", Icon: Building2, label: "Select Clinic"       },
+                { id: "search", Icon: MapPin,    label: "Search by Location"  },
+              ] as const).map(({ id, Icon, label }) => (
+                <button
+                  key={id}
+                  onClick={() => {
+                    setClinicMode(id);
+                    setSearchQuery("");
+                    setIsDropdownOpen(false);
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                    clinicMode === id
+                      ? "bg-gradient-to-r from-violet-600 to-primary text-white shadow-md shadow-primary/20"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`mode-tab-${id}`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
             </div>
 
-            {/* Clinic cards grid */}
-            {filteredClinics.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground text-sm">
-                No clinics found for "{searchQuery}"
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {filteredClinics.map(clinic => {
-                  const isSelected = selectedClinic === clinic.name;
-                  const initial    = clinic.name.charAt(0).toUpperCase();
-                  return (
-                    <button
-                      key={clinic.id}
-                      onClick={() => setSelectedClinic(clinic.name)}
-                      className={`text-left p-4 rounded-2xl border transition-all duration-200 relative overflow-hidden ${
-                        isSelected
-                          ? "border-primary/50 bg-primary/5 ring-2 ring-primary/20 shadow-lg shadow-primary/10"
-                          : "border-border/50 bg-card hover:border-primary/30 hover:bg-primary/3 hover:shadow-md"
-                      }`}
-                      data-testid={`clinic-card-${clinic.id}`}
-                    >
-                      {isSelected && (
-                        <div className="absolute top-2.5 right-2.5 h-4 w-4 rounded-full bg-primary flex items-center justify-center">
-                          <CheckCircle2 className="h-3 w-3 text-white" />
-                        </div>
-                      )}
-                      <div className="flex items-start gap-3">
-                        {/* Avatar */}
-                        <div className="shrink-0 relative">
-                          <div className={`absolute -inset-0.5 rounded-xl blur-sm transition-opacity ${isSelected ? "opacity-100 bg-gradient-to-br from-cyan-400/40 to-violet-500/30" : "opacity-0"}`} />
-                          <div className={`relative h-11 w-11 rounded-xl flex items-center justify-center text-lg font-black text-white ${
-                            isSelected
-                              ? "bg-gradient-to-br from-violet-600 to-primary"
-                              : "bg-gradient-to-br from-violet-500/70 to-primary/70"
-                          }`}>
-                            {initial}
-                          </div>
-                        </div>
-                        {/* Info */}
-                        <div className="flex-1 min-w-0 mt-0.5">
-                          <p className="font-bold text-sm leading-tight truncate">{clinic.name}</p>
-                          {clinic.doctorName && (
-                            <p className="text-[11px] text-primary/80 font-medium flex items-center gap-1 mt-0.5">
-                              <Stethoscope className="h-2.5 w-2.5" />
-                              {clinic.doctorName}
-                              {clinic.doctorSpecialization ? ` · ${clinic.doctorSpecialization}` : ""}
-                            </p>
-                          )}
-                          {clinic.address && (
-                            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1 truncate">
-                              <MapPin className="h-2.5 w-2.5 shrink-0" />
-                              {[(clinic as any).city, clinic.address].filter(Boolean).join(", ")}
-                            </p>
-                          )}
-                        </div>
+            {/* ── SELECT CLINIC MODE — custom dropdown ── */}
+            {clinicMode === "select" && (
+              <div className="relative max-w-md">
+                {/* Trigger */}
+                <button
+                  onClick={() => setIsDropdownOpen(o => !o)}
+                  className={`w-full flex items-center gap-0 rounded-xl border transition-all duration-200 overflow-hidden ${
+                    isDropdownOpen
+                      ? "border-primary/50 ring-2 ring-primary/10"
+                      : "border-border/60 hover:border-primary/40"
+                  } bg-card`}
+                  data-testid="select-clinic"
+                >
+                  {/* Icon tile */}
+                  <div className={`flex items-center justify-center h-12 w-12 shrink-0 border-r border-border/40 transition-colors ${
+                    isDropdownOpen ? "bg-primary/10 border-primary/20" : "bg-muted/30"
+                  }`}>
+                    {selectedClinic ? (
+                      <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-violet-600 to-primary flex items-center justify-center text-[11px] font-black text-white">
+                        {selectedClinic.charAt(0)}
                       </div>
+                    ) : (
+                      <Building2 className={`h-4 w-4 ${isDropdownOpen ? "text-primary" : "text-muted-foreground"}`} />
+                    )}
+                  </div>
+                  {/* Label */}
+                  <span className={`flex-1 text-left px-3 text-sm ${selectedClinic ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                    {selectedClinic || "Choose a dental clinic"}
+                  </span>
+                  {/* Chevron */}
+                  <div className="px-3">
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
+                  </div>
+                </button>
+
+                {/* Dropdown panel */}
+                {isDropdownOpen && (
+                  <>
+                    {/* Click-outside backdrop */}
+                    <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)} />
+                    {/* Panel */}
+                    <div className="absolute top-full left-0 right-0 z-20 mt-2 rounded-xl border border-border/60 bg-card shadow-xl shadow-black/10 overflow-hidden">
+                      <div className="px-3 py-2 border-b border-border/40 bg-muted/30">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          {clinics.length} clinic{clinics.length !== 1 ? "s" : ""} available
+                        </p>
+                      </div>
+                      <div className="max-h-72 overflow-y-auto">
+                        {clinics.map(clinic => {
+                          const isSelected = selectedClinic === clinic.name;
+                          return (
+                            <button
+                              key={clinic.id}
+                              onClick={() => { setSelectedClinic(clinic.name); setIsDropdownOpen(false); }}
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all hover:bg-primary/5 border-b border-border/30 last:border-0 ${
+                                isSelected ? "bg-primary/8 border-l-2 border-l-primary pl-[10px]" : ""
+                              }`}
+                              data-testid={`clinic-option-${clinic.id}`}
+                            >
+                              {/* Small avatar */}
+                              <div className={`h-8 w-8 rounded-lg shrink-0 flex items-center justify-center text-xs font-black text-white ${
+                                isSelected
+                                  ? "bg-gradient-to-br from-violet-600 to-primary"
+                                  : "bg-gradient-to-br from-violet-500/60 to-primary/60"
+                              }`}>
+                                {clinic.name.charAt(0)}
+                              </div>
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-semibold truncate ${isSelected ? "text-primary" : ""}`}>{clinic.name}</p>
+                                <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+                                  {clinic.doctorName && <><Stethoscope className="h-2.5 w-2.5 shrink-0" />{clinic.doctorName}</>}
+                                  {clinic.address && <><MapPin className="h-2.5 w-2.5 shrink-0 ml-1" />{[(clinic as any).city, clinic.address].filter(Boolean).join(", ")}</>}
+                                </p>
+                              </div>
+                              {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── SEARCH BY LOCATION MODE ── */}
+            {clinicMode === "search" && (
+              <div className="max-w-md">
+                {/* Search input */}
+                <div className="flex items-center rounded-xl border border-border/60 bg-card focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden mb-3">
+                  <div className="flex items-center justify-center h-12 w-12 shrink-0 border-r border-border/40 bg-muted/30">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <input
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Type clinic name, city, or area…"
+                    className="flex-1 h-12 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
+                    data-testid="input-clinic-search"
+                  />
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery("")} className="px-3 text-muted-foreground hover:text-foreground transition-colors">
+                      <X className="h-4 w-4" />
                     </button>
-                  );
-                })}
+                  )}
+                </div>
+
+                {/* Empty state hint */}
+                {!searchQuery.trim() && (
+                  <div className="flex items-center gap-3 p-4 rounded-xl border border-dashed border-border/60 bg-muted/20">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                      <Search className="h-5 w-5 text-primary/60" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground/80">Search for a clinic</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Type a clinic name, city, pincode, or area to find nearby clinics</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Search results */}
+                {searchQuery.trim() && (
+                  <>
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-[11px] text-muted-foreground">
+                        {filteredClinics.length === 0
+                          ? `No results for "${searchQuery}"`
+                          : `${filteredClinics.length} result${filteredClinics.length !== 1 ? "s" : ""} found`}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-card shadow-md overflow-hidden">
+                      {filteredClinics.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2 py-8 px-4 text-center">
+                          <MapPin className="h-8 w-8 text-muted-foreground/40" />
+                          <p className="text-sm text-muted-foreground">No clinics found matching "{searchQuery}"</p>
+                          <p className="text-xs text-muted-foreground/70">Try a different name or area</p>
+                        </div>
+                      ) : (
+                        filteredClinics.map(clinic => {
+                          const isSelected = selectedClinic === clinic.name;
+                          return (
+                            <button
+                              key={clinic.id}
+                              onClick={() => setSelectedClinic(clinic.name)}
+                              className={`w-full flex items-center gap-3 px-3 py-3 text-left transition-all hover:bg-primary/5 border-b border-border/30 last:border-0 ${
+                                isSelected ? "bg-primary/8 border-l-2 border-l-primary pl-[10px]" : ""
+                              }`}
+                              data-testid={`clinic-search-result-${clinic.id}`}
+                            >
+                              <div className={`h-9 w-9 rounded-xl shrink-0 flex items-center justify-center text-sm font-black text-white ${
+                                isSelected
+                                  ? "bg-gradient-to-br from-violet-600 to-primary"
+                                  : "bg-gradient-to-br from-violet-500/60 to-primary/60"
+                              }`}>
+                                {clinic.name.charAt(0)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-semibold truncate ${isSelected ? "text-primary" : ""}`}>{clinic.name}</p>
+                                <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                  {clinic.doctorName && <><Stethoscope className="h-2.5 w-2.5 shrink-0" />{clinic.doctorName} · </>}
+                                  {[(clinic as any).city, clinic.address].filter(Boolean).join(", ")}
+                                </p>
+                              </div>
+                              {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
