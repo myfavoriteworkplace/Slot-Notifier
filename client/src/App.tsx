@@ -147,9 +147,18 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <TooltipProvider>
-          <div className="min-h-screen bg-background font-sans antialiased relative">
+          <div className="min-h-screen bg-background font-sans antialiased relative overflow-x-hidden">
+            {/* Global ambient glow blobs — Option A+D */}
+            <div
+              aria-hidden="true"
+              className="fixed -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-primary/10 blur-3xl pointer-events-none z-0"
+            />
+            <div
+              aria-hidden="true"
+              className="fixed -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-accent/10 blur-3xl pointer-events-none z-0"
+            />
             <Header />
-            <main>
+            <main className="relative z-10">
               <Router />
             </main>
             <HealthIndicator />

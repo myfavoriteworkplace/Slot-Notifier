@@ -6,7 +6,7 @@
 
 :root {
   /* Premium Indigo/Violet Palette */
-  --background: 210 20% 98%;
+  --background: 247 30% 97%;
   --foreground: 224 71% 4%;
   
   --card: 0 0% 100%;
@@ -45,10 +45,10 @@
 }
 
 .dark {
-  --background: 224 71% 4%;
+  --background: 248 50% 4%;
   --foreground: 210 20% 98%;
   
-  --card: 224 71% 8%;
+  --card: 248 50% 8%;
   --card-foreground: 210 20% 98%;
   
   --popover: 224 71% 8%;
