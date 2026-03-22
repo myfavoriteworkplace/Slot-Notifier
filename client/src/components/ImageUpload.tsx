@@ -106,7 +106,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
           {previewUrl ? (
             <AvatarImage src={previewUrl} alt="Preview" className="object-cover" />
           ) : null}
-          <AvatarFallback className="bg-gradient-to-br from-violet-500/20 to-primary/20 text-white font-bold rounded-2xl text-sm tracking-widest">
+          <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20 text-white font-bold rounded-2xl text-sm tracking-widest">
             {(() => {
               const words = fallbackText.trim().split(/\s+/).filter(Boolean);
               if (words.length === 0) return <User className="h-8 w-8" />;

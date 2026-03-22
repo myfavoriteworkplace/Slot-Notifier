@@ -46,7 +46,7 @@ const CHIEF_COMPLAINTS = [
 const getSlotMeta = (startHour: number) => {
   if (startHour < 12) return { Icon: Sun,   color: "text-amber-500",  bg: "bg-amber-500/10",  border: "border-amber-400/30"  };
   if (startHour < 16) return { Icon: Clock, color: "text-sky-500",    bg: "bg-sky-500/10",    border: "border-sky-400/30"    };
-  return              { Icon: Moon,  color: "text-violet-500", bg: "bg-violet-500/10", border: "border-violet-400/30" };
+  return              { Icon: Moon,  color: "text-primary",    bg: "bg-primary/10",    border: "border-primary/30"   };
 };
 
 export default function Book(props: { params: { clinicId?: string } }) {
@@ -227,8 +227,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3">
         <div className="relative">
-          <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-cyan-400/20 to-violet-500/20 blur-md animate-pulse" />
-          <div className="relative h-14 w-14 rounded-2xl bg-gradient-to-br from-violet-600 to-primary flex items-center justify-center">
+          <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-accent/20 to-primary/20 blur-md animate-pulse" />
+          <div className="relative h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
             <CalendarDays className="h-7 w-7 text-white" />
           </div>
         </div>
@@ -241,12 +241,12 @@ export default function Book(props: { params: { clinicId?: string } }) {
     <div className="min-h-screen relative bg-background overflow-x-hidden">
 
       {/* ── BACKGROUND GLOW BLOBS ─────────────────────── */}
-      <div className="fixed top-0 right-0 w-[520px] h-[520px] bg-violet-500/5 rounded-full blur-3xl pointer-events-none -translate-y-1/4 translate-x-1/4" />
-      <div className="fixed bottom-0 left-0  w-[420px] h-[420px] bg-cyan-500/5   rounded-full blur-3xl pointer-events-none  translate-y-1/4 -translate-x-1/4" />
+      <div className="fixed top-0 right-0 w-[520px] h-[520px] bg-primary/5 rounded-full blur-3xl pointer-events-none -translate-y-1/4 translate-x-1/4" />
+      <div className="fixed bottom-0 left-0  w-[420px] h-[420px] bg-accent/5  rounded-full blur-3xl pointer-events-none  translate-y-1/4 -translate-x-1/4" />
 
       {/* ── HERO BANNER ──────────────────────────────────── */}
-      <div className="relative bg-gradient-to-r from-violet-700 via-violet-600 to-primary overflow-hidden">
-        <div className="h-[3px] bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500" />
+      <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 overflow-hidden">
+        <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
         {/* decorative large icon */}
         <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-[0.07] pointer-events-none select-none">
@@ -257,7 +257,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
             <CalendarDays className="h-3 w-3" /> BookMySlot
           </p>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight mb-2">
-            Book Your <span className="text-cyan-300">Appointment</span>
+            Book Your <span className="text-white/85">Appointment</span>
           </h1>
           <p className="text-white/55 text-sm sm:text-base mb-7 max-w-md">
             Choose a clinic, pick a date, and confirm instantly — no account required.
@@ -275,7 +275,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
             ))}
           </div>
         </div>
-        <div className="h-[2px] bg-gradient-to-r from-cyan-400/40 via-violet-400/60 to-fuchsia-400/40" />
+        <div className="h-[2px] bg-gradient-to-r from-accent/40 via-primary/60 to-accent/40" />
       </div>
 
       {/* ── MAIN CONTENT ──────────────────────────────────── */}
@@ -315,7 +315,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                   }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
                     clinicMode === id
-                      ? "bg-gradient-to-r from-violet-600 to-primary text-white shadow-md shadow-primary/20"
+                      ? "bg-gradient-to-r from-primary to-accent text-white shadow-md shadow-primary/20"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                   data-testid={`mode-tab-${id}`}
@@ -344,7 +344,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     isDropdownOpen ? "bg-primary/10 border-primary/20" : "bg-muted/30"
                   }`}>
                     {selectedClinic ? (
-                      <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-violet-600 to-primary flex items-center justify-center text-[11px] font-black text-white">
+                      <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[11px] font-black text-white">
                         {selectedClinic.charAt(0)}
                       </div>
                     ) : (
@@ -388,8 +388,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                               {/* Small avatar */}
                               <div className={`h-8 w-8 rounded-lg shrink-0 flex items-center justify-center text-xs font-black text-white ${
                                 isSelected
-                                  ? "bg-gradient-to-br from-violet-600 to-primary"
-                                  : "bg-gradient-to-br from-violet-500/60 to-primary/60"
+                                  ? "bg-gradient-to-br from-primary to-accent"
+                                  : "bg-gradient-to-br from-primary/60 to-accent/60"
                               }`}>
                                 {clinic.name.charAt(0)}
                               </div>
@@ -478,8 +478,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             >
                               <div className={`h-9 w-9 rounded-xl shrink-0 flex items-center justify-center text-sm font-black text-white ${
                                 isSelected
-                                  ? "bg-gradient-to-br from-violet-600 to-primary"
-                                  : "bg-gradient-to-br from-violet-500/60 to-primary/60"
+                                  ? "bg-gradient-to-br from-primary to-accent"
+                                  : "bg-gradient-to-br from-primary/60 to-accent/60"
                               }`}>
                                 {clinic.name.charAt(0)}
                               </div>
@@ -507,13 +507,13 @@ export default function Book(props: { params: { clinicId?: string } }) {
         {selectedClinic && (
           <div className="rounded-2xl overflow-hidden border border-primary/25 shadow-lg shadow-primary/8 animate-in fade-in slide-in-from-top-2 duration-400">
             {/* Neon top bar */}
-            <div className="h-[3px] bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500" />
-            <div className="relative bg-gradient-to-r from-violet-700 via-violet-600 to-primary px-5 py-4 overflow-hidden">
+            <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
+            <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 py-4 overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
               <div className="relative flex items-center gap-4">
                 {/* Avatar */}
                 <div className="relative shrink-0">
-                  <div className="absolute -inset-1 rounded-xl bg-gradient-to-br from-cyan-400/40 to-fuchsia-500/30 blur-sm" />
+                  <div className="absolute -inset-1 rounded-xl bg-gradient-to-br from-accent/40 to-primary/30 blur-sm" />
                   <div className="relative h-12 w-12 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center ring-1 ring-white/10">
                     <span className="text-xl font-black text-white">{selectedClinic.charAt(0)}</span>
                   </div>
@@ -539,7 +539,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                   </button>
                 )}
               </div>
-              <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-cyan-400/30 via-violet-400/50 to-fuchsia-400/30" />
+              <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
             </div>
           </div>
         )}
@@ -610,7 +610,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                 data-testid={`date-button-${format(date, "yyyy-MM-dd")}`}
                                 className={`flex flex-col items-center justify-center min-w-[4rem] h-[4.5rem] rounded-2xl border transition-all duration-200 relative ${
                                   isSelected
-                                    ? "bg-gradient-to-b from-violet-600 to-primary text-white border-primary shadow-lg shadow-primary/25 scale-105"
+                                    ? "bg-gradient-to-b from-primary to-accent text-white border-primary shadow-lg shadow-primary/25 scale-105"
                                     : isDayFull
                                     ? "bg-destructive/8 border-destructive/20 text-destructive/60 cursor-not-allowed opacity-70"
                                     : "bg-card border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md"
@@ -684,14 +684,14 @@ export default function Book(props: { params: { clinicId?: string } }) {
         <DialogContent className="w-[95vw] sm:max-w-[460px] rounded-2xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
 
           {/* Neon accent bar */}
-          <div className="h-[3px] bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500 shrink-0" />
+          <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent shrink-0" />
 
           {step === "success" ? (
             /* ── SUCCESS STATE ─────────────────────────── */
             <div className="flex flex-col items-center px-6 py-10 gap-5 text-center">
               {/* Animated check */}
               <div className="relative">
-                <div className="absolute -inset-4 rounded-full bg-gradient-to-br from-emerald-400/20 to-cyan-400/20 blur-xl animate-pulse" />
+                <div className="absolute -inset-4 rounded-full bg-gradient-to-br from-emerald-400/20 to-accent/20 blur-xl animate-pulse" />
                 <div className="relative h-20 w-20 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
                   <CheckCircle2 className="h-10 w-10 text-white" />
                 </div>
@@ -712,8 +712,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                 </div>
                 <div className="divide-y divide-border/40">
                   <div className="flex items-center gap-3 px-4 py-2.5">
-                    <div className="h-6 w-6 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
-                      <User className="h-3 w-3 text-violet-500" />
+                    <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <User className="h-3 w-3 text-primary" />
                     </div>
                     <span className="text-sm font-medium">{customerName}</span>
                   </div>
@@ -744,7 +744,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
               <Button
                 onClick={resetForm}
-                className="w-full h-11 font-bold bg-gradient-to-r from-violet-600 to-primary hover:from-violet-500 hover:to-primary/90 border-0 shadow-md shadow-primary/20 rounded-xl"
+                className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
                 data-testid="button-done"
               >
                 Done
@@ -754,7 +754,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
           ) : (
             <>
               {/* ── DIALOG HERO HEADER ─────────────────────── */}
-              <div className="relative bg-gradient-to-r from-violet-700 via-violet-600 to-primary px-5 pt-5 pb-4 shrink-0 overflow-hidden">
+              <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-4 shrink-0 overflow-hidden">
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
                 <div className="relative">
                   {/* Step pills */}
@@ -785,7 +785,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     <Building2 className="h-2.5 w-2.5" /> {selectedClinic}
                   </p>
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-cyan-400/30 via-violet-400/50 to-fuchsia-400/30" />
+                <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
               </div>
 
               {/* ── DIALOG BODY ─────────────────────────────── */}
@@ -897,7 +897,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     <Button
                       onClick={() => setShowSlots(true)}
                       disabled={!customerName || !isPhoneValid || !customerEmail || !selectedClinic}
-                      className="w-full h-11 font-bold bg-gradient-to-r from-violet-600 to-primary hover:from-violet-500 hover:to-primary/90 border-0 shadow-md shadow-primary/20 rounded-xl"
+                      className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
                       data-testid="button-check-slots"
                     >
                       View Available Slots →
@@ -968,7 +968,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           }`}
                         >
                           {isSelected && (
-                            <div className="absolute inset-0 bg-gradient-to-r from-violet-500/5 to-primary/5 pointer-events-none" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-accent/5 pointer-events-none" />
                           )}
                           {/* Slot icon */}
                           <div className={`relative h-11 w-11 rounded-xl ${bg} border ${border} flex items-center justify-center shrink-0`}>
@@ -1003,7 +1003,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     <Button
                       onClick={handleBook}
                       disabled={!selectedSlot || createBookingMutation.isPending}
-                      className="w-full h-11 font-bold bg-gradient-to-r from-violet-600 to-primary hover:from-violet-500 hover:to-primary/90 border-0 shadow-md shadow-primary/20 rounded-xl mt-2"
+                      className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl mt-2"
                       data-testid="button-confirm-booking"
                     >
                       {createBookingMutation.isPending ? (

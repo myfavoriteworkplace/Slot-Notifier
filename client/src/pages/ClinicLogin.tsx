@@ -62,18 +62,18 @@ export default function ClinicLogin() {
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden bg-background">
 
       {/* Background glow blobs */}
-      <div className="absolute top-0 right-0 w-[480px] h-[480px] bg-violet-500/8 rounded-full blur-3xl pointer-events-none -translate-y-1/3 translate-x-1/3" />
-      <div className="absolute bottom-0 left-0 w-[360px] h-[360px] bg-cyan-500/6 rounded-full blur-3xl pointer-events-none translate-y-1/3 -translate-x-1/3" />
+      <div className="absolute top-0 right-0 w-[480px] h-[480px] bg-primary/5 rounded-full blur-3xl pointer-events-none -translate-y-1/3 translate-x-1/3" />
+      <div className="absolute bottom-0 left-0 w-[360px] h-[360px] bg-accent/5 rounded-full blur-3xl pointer-events-none translate-y-1/3 -translate-x-1/3" />
       <div className="absolute top-1/2 left-1/2 w-[600px] h-[300px] bg-primary/4 rounded-full blur-3xl pointer-events-none -translate-x-1/2 -translate-y-1/2" />
 
       {/* Card */}
-      <div className="relative w-full max-w-md rounded-3xl border border-border/60 bg-background/90 backdrop-blur-xl shadow-2xl shadow-violet-500/10 overflow-hidden">
+      <div className="relative w-full max-w-md rounded-3xl border border-border/60 bg-background/90 backdrop-blur-xl shadow-2xl shadow-primary/10 overflow-hidden">
 
         {/* 3px neon accent bar */}
-        <div className="h-[3px] bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500" />
+        <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
 
         {/* Gradient hero header */}
-        <div className="relative bg-gradient-to-r from-violet-700 via-violet-600 to-primary px-6 pt-5 pb-5 overflow-hidden">
+        <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-6 pt-5 pb-5 overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
 
           {/* Back link */}
@@ -93,7 +93,7 @@ export default function ClinicLogin() {
 
             {/* Icon avatar with glow */}
             <div className="relative mb-3">
-              <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-cyan-400/35 to-fuchsia-500/25 blur-md" />
+              <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-accent/35 to-primary/25 blur-md" />
               <div className="relative h-16 w-16 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center ring-2 ring-white/10">
                 {activeTab === "clinic"
                   ? <Building2 className="h-8 w-8 text-white drop-shadow" />
@@ -113,7 +113,7 @@ export default function ClinicLogin() {
           </div>
 
           {/* Bottom neon line */}
-          <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-cyan-400/40 via-violet-400/60 to-fuchsia-400/40" />
+          <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/40 via-primary/60 to-accent/40" />
         </div>
 
         {/* Body */}
@@ -125,7 +125,7 @@ export default function ClinicLogin() {
               onClick={() => { setActiveTab("clinic"); setError(""); }}
               className={`flex-1 flex items-center justify-center gap-2 h-9 rounded-lg text-sm font-semibold transition-all ${
                 activeTab === "clinic"
-                  ? "bg-gradient-to-r from-violet-600 to-primary text-white shadow-md shadow-primary/20"
+                  ? "bg-gradient-to-r from-primary to-accent text-white shadow-md shadow-primary/20"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               data-testid="tab-clinic-login"
@@ -137,7 +137,7 @@ export default function ClinicLogin() {
               onClick={() => { setActiveTab("doctor"); setError(""); }}
               className={`flex-1 flex items-center justify-center gap-2 h-9 rounded-lg text-sm font-semibold transition-all ${
                 activeTab === "doctor"
-                  ? "bg-gradient-to-r from-violet-600 to-primary text-white shadow-md shadow-primary/20"
+                  ? "bg-gradient-to-r from-primary to-accent text-white shadow-md shadow-primary/20"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               data-testid="tab-doctor-login"
@@ -220,7 +220,7 @@ export default function ClinicLogin() {
               {/* Submit */}
               <Button
                 type="submit"
-                className="w-full h-11 font-bold text-sm bg-gradient-to-r from-violet-600 to-primary hover:from-violet-500 hover:to-primary/90 border-0 shadow-md shadow-primary/20 rounded-xl"
+                className="w-full h-11 font-bold text-sm bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
                 disabled={isClinicLoggingIn}
                 data-testid="button-clinic-login"
               >
@@ -310,7 +310,7 @@ export default function ClinicLogin() {
               {/* Submit */}
               <Button
                 type="submit"
-                className="w-full h-11 font-bold text-sm bg-gradient-to-r from-violet-600 to-primary hover:from-violet-500 hover:to-primary/90 border-0 shadow-md shadow-primary/20 rounded-xl"
+                className="w-full h-11 font-bold text-sm bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
                 disabled={isDoctorLoggingIn}
                 data-testid="button-doctor-login"
               >
@@ -322,8 +322,8 @@ export default function ClinicLogin() {
               {/* Info panel */}
               <div className="rounded-xl border border-border/50 bg-muted/20 overflow-hidden">
                 <div className="px-4 py-3 flex items-start gap-3">
-                  <div className="h-6 w-6 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Info className="h-3.5 w-3.5 text-violet-500" />
+                  <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Info className="h-3.5 w-3.5 text-primary" />
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     Don't have an account? Ask your <strong className="text-foreground">clinic administrator</strong> to send you an invitation email.

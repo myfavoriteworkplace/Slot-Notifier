@@ -690,8 +690,8 @@ export default function Admin() {
                           )}
                           {clinic.website && (
                             <div className="flex items-center gap-3">
-                              <div className="h-7 w-7 rounded-lg bg-violet-50 dark:bg-violet-950/40 border border-violet-100 dark:border-violet-900 flex items-center justify-center shrink-0">
-                                <Globe className="h-3.5 w-3.5 text-violet-500" />
+                              <div className="h-7 w-7 rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/10 dark:border-primary/20 flex items-center justify-center shrink-0">
+                                <Globe className="h-3.5 w-3.5 text-primary" />
                               </div>
                               <a href={clinic.website} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 truncate">
                                 {clinic.website.replace(/^https?:\/\//, '')}
@@ -874,8 +874,8 @@ export default function Admin() {
                           )}
                           {clinic.website && (
                             <div className="flex items-center gap-3">
-                              <div className="h-7 w-7 rounded-lg bg-violet-50 dark:bg-violet-950/40 border border-violet-100 dark:border-violet-900 flex items-center justify-center shrink-0">
-                                <Globe className="h-3.5 w-3.5 text-violet-500" />
+                              <div className="h-7 w-7 rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/10 dark:border-primary/20 flex items-center justify-center shrink-0">
+                                <Globe className="h-3.5 w-3.5 text-primary" />
                               </div>
                               <a href={clinic.website} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 truncate">
                                 {clinic.website.replace(/^https?:\/\//, '')}
@@ -964,7 +964,7 @@ export default function Admin() {
 
             {/* Deal Creator Panel */}
             <Card className="overflow-hidden shadow-md border-0">
-              <div className="bg-gradient-to-r from-violet-600 to-primary px-6 py-4 flex items-center gap-3">
+              <div className="bg-gradient-to-r from-primary to-accent px-6 py-4 flex items-center gap-3">
                 <div className="p-2 bg-white/20 rounded-lg">
                   <Sparkles className="h-5 w-5 text-white" />
                 </div>
@@ -1039,7 +1039,7 @@ export default function Admin() {
                       <Textarea id="deal-desc" value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} placeholder="Enter deal details..." className="resize-none h-[88px]" />
                     </div>
                     <Button
-                      className="w-full bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 text-white font-medium shadow-md shadow-primary/20"
+                      className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-md shadow-primary/20"
                       onClick={() => createDealMutation.mutate({ title: dealTitle, description: dealDescription, imageUrl: dealImageUrl, bookingLink: dealBookingLink, price: dealPrice })}
                       disabled={createDealMutation.isPending || !dealTitle || !dealImageUrl}
                     >

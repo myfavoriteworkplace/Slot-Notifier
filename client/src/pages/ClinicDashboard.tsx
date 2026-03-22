@@ -629,9 +629,9 @@ export default function ClinicDashboard() {
       {/* Page Header */}
       <div className="rounded-2xl overflow-hidden shadow-xl mb-6 sm:mb-8 border border-white/10">
         {/* Neon accent bar */}
-        <div className="h-[3px] bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500" />
+        <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
 
-        <div className="relative bg-gradient-to-r from-violet-700 via-violet-600 to-primary px-5 py-4 sm:px-6 sm:py-5">
+        <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 py-4 sm:px-6 sm:py-5">
           {/* Subtle radial glow overlay */}
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_60%)] pointer-events-none" />
 
@@ -641,7 +641,7 @@ export default function ClinicDashboard() {
 
               {/* Logo upload with double-ring glow */}
               <div className="shrink-0 relative">
-                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-cyan-400/30 to-violet-500/30 blur-sm" />
+                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-accent/30 to-primary/30 blur-sm" />
                 <div className="relative ring-2 ring-white/25 rounded-2xl">
                   <ImageUpload
                     currentImage={clinic?.logoUrl || undefined}
@@ -708,19 +708,19 @@ export default function ClinicDashboard() {
         {/* ===== NAMEPLATE STRIP ===== */}
         <div className="relative bg-black/25 backdrop-blur-sm px-5 sm:px-6 py-2.5 flex items-center justify-center overflow-hidden">
           {/* Left decorative line */}
-          <div className="absolute left-5 sm:left-6 top-1/2 -translate-y-1/2 h-px w-16 bg-gradient-to-r from-cyan-400/50 to-transparent" />
+          <div className="absolute left-5 sm:left-6 top-1/2 -translate-y-1/2 h-px w-16 bg-gradient-to-r from-accent/50 to-transparent" />
           {/* Right decorative line */}
-          <div className="absolute right-5 sm:right-6 top-1/2 -translate-y-1/2 h-px w-16 bg-gradient-to-l from-fuchsia-400/50 to-transparent" />
+          <div className="absolute right-5 sm:right-6 top-1/2 -translate-y-1/2 h-px w-16 bg-gradient-to-l from-accent/50 to-transparent" />
           {/* Corner brackets */}
-          <span className="absolute left-5 sm:left-6 text-cyan-400/40 text-xs font-mono select-none">[</span>
-          <span className="absolute right-5 sm:right-6 text-fuchsia-400/40 text-xs font-mono select-none">]</span>
+          <span className="absolute left-5 sm:left-6 text-accent/40 text-xs font-mono select-none">[</span>
+          <span className="absolute right-5 sm:right-6 text-accent/40 text-xs font-mono select-none">]</span>
           {/* Clinic name */}
           <p className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.35em] text-white/65 truncate px-8">
             {clinic?.name}
           </p>
         </div>
         {/* Bottom accent bar */}
-        <div className="h-[2px] bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500 opacity-50" />
+        <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-50" />
 
       </div>
 
@@ -735,16 +735,16 @@ export default function ClinicDashboard() {
               <button
                 onClick={() => setActivePanel('bookings')}
                 data-testid="nav-bookings"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'bookings' ? 'bg-violet-500/10 border border-violet-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'bookings' ? 'bg-primary/10 border border-primary/20' : 'border border-transparent hover:bg-muted/50'}`}
               >
-                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'bookings' ? 'bg-violet-500/10 border-violet-500/20' : 'bg-muted/50 border-border/50'}`}>
-                  <CalendarIcon className={`h-4 w-4 ${activePanel === 'bookings' ? 'text-violet-500' : 'text-muted-foreground'}`} />
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'bookings' ? 'bg-primary/10 border-primary/20' : 'bg-muted/50 border-border/50'}`}>
+                  <CalendarIcon className={`h-4 w-4 ${activePanel === 'bookings' ? 'text-primary' : 'text-muted-foreground'}`} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'bookings' ? 'text-violet-600' : 'text-foreground'}`}>Bookings</p>
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'bookings' ? 'text-primary' : 'text-foreground'}`}>Bookings</p>
                   <p className="text-[10px] text-muted-foreground">All appointments</p>
                 </div>
-                {activePanel === 'bookings' && <div className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />}
+                {activePanel === 'bookings' && <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
               </button>
 
               <button
@@ -780,16 +780,16 @@ export default function ClinicDashboard() {
               <button
                 onClick={() => setActivePanel('book-a-slot')}
                 data-testid="nav-book-a-slot"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'book-a-slot' ? 'bg-violet-500/10 border border-violet-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'book-a-slot' ? 'bg-primary/10 border border-primary/20' : 'border border-transparent hover:bg-muted/50'}`}
               >
-                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'book-a-slot' ? 'bg-violet-500/10 border-violet-500/20' : 'bg-muted/50 border-border/50'}`}>
-                  <Plus className={`h-4 w-4 ${activePanel === 'book-a-slot' ? 'text-violet-500' : 'text-muted-foreground'}`} />
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'book-a-slot' ? 'bg-primary/10 border-primary/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Plus className={`h-4 w-4 ${activePanel === 'book-a-slot' ? 'text-primary' : 'text-muted-foreground'}`} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'book-a-slot' ? 'text-violet-600' : 'text-foreground'}`}>Book a Slot</p>
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'book-a-slot' ? 'text-primary' : 'text-foreground'}`}>Book a Slot</p>
                   <p className="text-[10px] text-muted-foreground">New patient appointment</p>
                 </div>
-                {activePanel === 'book-a-slot' && <div className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />}
+                {activePanel === 'book-a-slot' && <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
               </button>
 
             </div>
@@ -830,7 +830,7 @@ export default function ClinicDashboard() {
               </CardContent>
             </Card>
             <Card className="shadow-sm border-border/50 overflow-hidden">
-              <div className="h-1 bg-gradient-to-r from-violet-500 to-primary" />
+              <div className="h-1 bg-gradient-to-r from-primary to-accent" />
               <CardContent className="p-4 text-left flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                   <CalendarIcon className="h-4 w-4 text-primary" />
@@ -859,7 +859,7 @@ export default function ClinicDashboard() {
           <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
 
             {/* Bookings header */}
-            <div className="bg-gradient-to-r from-violet-600 to-primary px-5 py-4 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-white tracking-tight">Bookings</h2>
                 <p className="text-white/70 text-[11px] mt-0.5">All patient appointments</p>
@@ -968,20 +968,20 @@ export default function ClinicDashboard() {
                     ? "bg-gradient-to-r from-emerald-400 to-teal-400"
                     : isBookingPast
                     ? "bg-gradient-to-r from-slate-400 to-slate-300"
-                    : "bg-gradient-to-r from-violet-500 via-cyan-400 to-fuchsia-500";
+                    : "bg-gradient-to-r from-primary via-accent to-accent";
 
                   const headerBg = isBookingToday
                     ? "bg-gradient-to-r from-emerald-500/8 to-teal-500/5"
                     : isBookingPast
                     ? "bg-muted/30"
-                    : "bg-gradient-to-r from-violet-500/8 to-primary/5";
+                    : "bg-gradient-to-r from-primary/5 to-accent/5";
 
                   const statusLabel = isBookingToday ? "Today" : isBookingPast ? "Past" : "Upcoming";
                   const statusClass = isBookingToday
                     ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25"
                     : isBookingPast
                     ? "text-muted-foreground bg-muted/50 border-border/50"
-                    : "text-violet-600 bg-violet-500/10 border-violet-500/25";
+                    : "text-primary bg-primary/10 border-primary/25";
 
                   const cardOpacity = isBookingPast ? "opacity-75" : "";
 
@@ -994,7 +994,7 @@ export default function ClinicDashboard() {
                   return (
                   <Card
                     key={booking.id}
-                    className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-violet-200/60 dark:hover:border-violet-800/40 transition-all group ${cardOpacity}`}
+                    className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group ${cardOpacity}`}
                     data-testid={`card-booking-${booking.id}`}
                   >
                     {/* Status accent bar */}
@@ -1010,8 +1010,8 @@ export default function ClinicDashboard() {
 
                               {/* Avatar + name block */}
                               <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <div className="shrink-0 h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500/20 to-primary/20 border border-violet-300/30 dark:border-violet-700/30 flex items-center justify-center">
-                                  <span className="text-sm font-bold text-violet-700 dark:text-violet-300 leading-none">
+                                <div className="shrink-0 h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 dark:border-primary/30 flex items-center justify-center">
+                                  <span className="text-sm font-bold text-primary dark:text-primary/70 leading-none">
                                     {booking.customerName.charAt(0).toUpperCase()}
                                   </span>
                                 </div>
@@ -1105,13 +1105,13 @@ export default function ClinicDashboard() {
                           {/* Neon accent bar */}
                           <div className={`h-[3px] ${accentBar}`} />
                           {/* Gradient background */}
-                          <div className="relative bg-gradient-to-r from-violet-700 via-violet-600 to-primary px-5 pt-4 pb-4">
+                          <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 pt-4 pb-4">
                             {/* Radial glow overlay */}
                             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
                             <div className="relative flex items-start gap-4">
                               {/* Large avatar */}
                               <div className="shrink-0 relative">
-                                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-cyan-400/40 to-fuchsia-500/30 blur-sm" />
+                                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-accent/40 to-primary/30 blur-sm" />
                                 <div className="relative h-14 w-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center ring-2 ring-white/10">
                                   <span className="text-2xl font-black text-white leading-none drop-shadow">
                                     {booking.customerName.charAt(0).toUpperCase()}
@@ -1132,7 +1132,7 @@ export default function ClinicDashboard() {
                                   <span className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${
                                     isBookingToday ? 'text-emerald-300 bg-emerald-400/15 border-emerald-400/30'
                                     : isBookingPast ? 'text-white/50 bg-white/10 border-white/20'
-                                    : 'text-cyan-300 bg-cyan-400/15 border-cyan-400/30'
+                                    : 'text-primary bg-primary/10 border-primary/20'
                                   }`}>
                                     {statusLabel}
                                   </span>
@@ -1151,7 +1151,7 @@ export default function ClinicDashboard() {
                             </div>
                           </div>
                           {/* Bottom accent */}
-                          <div className="h-[2px] bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500 opacity-50" />
+                          <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-50" />
                         </div>
 
                         {/* ── SCROLLABLE BODY ──────────────────────────── */}
@@ -1185,8 +1185,8 @@ export default function ClinicDashboard() {
                             </div>
                             <div className="divide-y divide-border/40">
                               <div className="px-3 py-2.5 flex items-center gap-3">
-                                <div className="h-6 w-6 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
-                                  <Phone className="h-3 w-3 text-violet-500" />
+                                <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                  <Phone className="h-3 w-3 text-primary" />
                                 </div>
                                 <span className="text-sm font-medium text-foreground">{booking.customerPhone}</span>
                               </div>
@@ -1323,7 +1323,7 @@ export default function ClinicDashboard() {
 
                                 {/* Confirm button */}
                                 <Button
-                                  className="w-full h-9 text-xs font-bold bg-gradient-to-r from-violet-600 to-primary hover:from-violet-500 hover:to-primary/90 border-0"
+                                  className="w-full h-9 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0"
                                   disabled={!rescheduleSlot || rescheduleMutation.isPending}
                                   onClick={async () => {
                                     if (!rescheduleSlot) return;
@@ -1377,8 +1377,8 @@ export default function ClinicDashboard() {
                                       onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: clinic.doctorName!, doctorEmail: undefined }); }}
                                       disabled={assignDoctorMutation.isPending}
                                     >
-                                      <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-violet-500/20 to-primary/20 border border-violet-300/30 flex items-center justify-center shrink-0">
-                                        <span className="text-xs font-bold text-violet-600">{clinic.doctorName.charAt(0)}</span>
+                                      <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 flex items-center justify-center shrink-0">
+                                        <span className="text-xs font-bold text-primary">{clinic.doctorName.charAt(0)}</span>
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <p className="text-xs font-semibold text-foreground leading-tight truncate">{clinic.doctorName}</p>
@@ -1422,7 +1422,7 @@ export default function ClinicDashboard() {
                         {/* ── FOOTER ACTIONS ───────────────────────────── */}
                         <div className="shrink-0 px-4 py-3 border-t border-border/50 bg-muted/10 flex gap-2.5">
                           <Button
-                            className="flex-1 gap-2 h-9 text-xs font-bold bg-gradient-to-r from-violet-600 to-primary hover:from-violet-500 hover:to-primary/90 border-0 shadow-md shadow-primary/20"
+                            className="flex-1 gap-2 h-9 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20"
                             onClick={() => handleOpenBilling(booking)}
                             data-testid={`button-dialog-bill-${booking.id}`}
                           >
@@ -1633,7 +1633,7 @@ export default function ClinicDashboard() {
                             data-testid={`doctor-card-${index}`}
                           >
                             {/* Gradient left accent bar */}
-                            <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-cyan-400 via-violet-500 to-fuchsia-500" />
+                            <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-accent via-primary to-accent" />
 
                             {/* Subtle tinted background */}
                             <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.03] to-transparent pointer-events-none" />
@@ -1641,11 +1641,11 @@ export default function ClinicDashboard() {
                             <div className="relative flex items-center gap-4 px-5 py-4 pl-5">
                               {/* Avatar with index badge */}
                               <div className="relative shrink-0">
-                                <div className="h-14 w-14 rounded-full bg-gradient-to-br from-primary/20 to-violet-500/10 border border-primary/25 ring-2 ring-primary/10 group-hover:ring-primary/25 transition-all duration-300 flex items-center justify-center overflow-hidden shadow-sm">
+                                <div className="h-14 w-14 rounded-full bg-gradient-to-br from-primary/20 to-accent/10 border border-primary/25 ring-2 ring-primary/10 group-hover:ring-primary/25 transition-all duration-300 flex items-center justify-center overflow-hidden shadow-sm">
                                   {doctor.imageUrl ? (
                                     <img src={doctor.imageUrl} alt={doctor.name} className="h-full w-full object-cover" />
                                   ) : (
-                                    <span className="text-sm font-bold bg-gradient-to-br from-cyan-400 to-violet-500 bg-clip-text text-transparent">
+                                    <span className="text-sm font-bold bg-gradient-to-br from-accent to-primary bg-clip-text text-transparent">
                                       {doctor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                                     </span>
                                   )}
@@ -1668,7 +1668,7 @@ export default function ClinicDashboard() {
 
                                 {/* Specialization + degree badges */}
                                 <div className="flex items-center gap-2 flex-wrap mt-1">
-                                  <span className="inline-flex items-center text-[10px] font-medium bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 px-2 py-0.5 rounded-full">
+                                  <span className="inline-flex items-center text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">
                                     {doctor.specialization}
                                   </span>
                                   {doctor.degree && (
@@ -1737,7 +1737,7 @@ export default function ClinicDashboard() {
                   <div className="rounded-xl overflow-hidden border border-border/60 shadow-sm">
 
                     {/* Panel header */}
-                    <div className="bg-gradient-to-r from-violet-600 to-primary px-5 py-3.5 flex items-center gap-3">
+                    <div className="bg-gradient-to-r from-primary to-accent px-5 py-3.5 flex items-center gap-3">
                       <div className="p-1.5 bg-white/20 rounded-lg">
                         <UserPlus className="h-4 w-4 text-white" />
                       </div>
@@ -1816,7 +1816,7 @@ export default function ClinicDashboard() {
                           <Button
                             onClick={handleAddDoctor}
                             disabled={!newDoctorName || !newDoctorSpecialization || !newDoctorEmail || addDoctorMutation.isPending}
-                            className="w-full bg-gradient-to-r from-violet-600 to-primary hover:from-violet-700 hover:to-primary/90 text-white font-medium shadow-md shadow-primary/20 mt-1"
+                            className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-md shadow-primary/20 mt-1"
                             data-testid="button-add-doctor"
                           >
                             {addDoctorMutation.isPending ? (
@@ -1841,7 +1841,7 @@ export default function ClinicDashboard() {
           {/* BOOK A SLOT PANEL */}
           {activePanel === 'book-a-slot' && (
             <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-violet-600 to-primary px-5 py-4 flex items-center gap-3">
+              <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center gap-3">
                 <Plus className="h-5 w-5 text-white" />
                 <div>
                   <h2 className="text-lg font-bold text-white tracking-tight">Book a Slot</h2>
