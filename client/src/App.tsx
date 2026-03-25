@@ -38,10 +38,10 @@ function HealthIndicator() {
     const checkHealth = async () => {
       try {
         // Use relative paths to ensure it works in both dev (5001 -> 5000 proxy) and prod
-        const backendRes = await fetch('/api/health/backend', { cache: 'no-store' });
+        const backendRes = await fetch(`${API_BASE_URL}/api/health/backend`, { cache: 'no-store' });
         const backendData = backendRes.ok ? await backendRes.json() : null;
         
-        const dbRes = await fetch('/api/health/database', { cache: 'no-store' });
+        const dbRes = await fetch(`${API_BASE_URL}/api/health/database`, { cache: 'no-store' });
         const dbData = dbRes.ok ? await dbRes.json() : null;
         
         setHealthStatus({ 
