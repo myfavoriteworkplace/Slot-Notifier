@@ -2,9 +2,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@shared/schema";
 import * as dotenv from "dotenv";
-import path from "path";
 
-// Load env vars at the very top level before any export
 dotenv.config();
 
 const { Pool } = pg;
@@ -15,45 +13,58 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-const connectionString = process.env.DATABASE_URL.includes("sslmode=") 
-  ? process.env.DATABASE_URL 
+const connectionString = process.env.DATABASE_URL.includes("sslmode=")
+  ? process.env.DATABASE_URL
   : process.env.DATABASE_URL + (process.env.DATABASE_URL.includes("?") ? "&" : "?") + "sslmode=require";
 
-export const pool = new Pool({ 
+export const pool = new Pool({
   connectionString,
-  ssl: process.env.NODE_ENV === "production" ? {
-    rejectUnauthorized: false
-  } : false
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 });
+
+pool.on("error", (err) => {
+  console.error("[DATABASE] Unexpected pool error:", err.message);
+});
+
 export const db = drizzle(pool, { schema });
 
-/**
- * Ensures the session table exists in the database.
- * This is useful for local development and initial deployment.
- */
 export async function ensureSessionTable() {
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS "session" (
         "sid" varchar NOT NULL COLLATE "default",
         "sess" json NOT NULL,
-        "expire" timestamp(6) NOT NULL
-      )
-      WITH (OIDS=FALSE);
+        "expire" timestamp(6) NOT NULL,
+        CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
+      );
     `);
 
-    // Ensure description column exists in bookings
+    const indexCheck = await pool.query(`
+      SELECT indexname FROM pg_indexes
+      WHERE tablename = 'session' AND indexname = 'IDX_session_expire';
+    `);
+
+    if (indexCheck.rowCount === 0) {
+      await pool.query(`CREATE INDEX "IDX_session_expire" ON "session" ("expire");`);
+    }
+
     await pool.query(`
       ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "description" text;
     `);
 
-    // Ensure assigned_doctor and assigned_doctor_email columns exist in bookings
     await pool.query(`
       ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "assigned_doctor" varchar(255);
+    `);
+
+    await pool.query(`
       ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "assigned_doctor_email" varchar(255);
     `);
 
-    // Ensure phone, email, website etc columns exist in clinics
     await pool.query(`
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "phone" varchar(50);
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "email" varchar(255);
@@ -65,37 +76,13 @@ export async function ensureSessionTable() {
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "city" varchar(255);
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "pincode" varchar(20);
     `);
-    
-    // Check if primary key exists before adding
-    const pkCheck = await pool.query(`
-      SELECT constraint_name 
-      FROM information_schema.table_constraints 
-      WHERE table_name = 'session' AND constraint_type = 'PRIMARY KEY';
-    `);
-    
-    if (pkCheck.rowCount === 0) {
-      await pool.query(`
-        ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;
-      `);
-    }
 
-    // Check if index exists before creating
-    const indexCheck = await pool.query(`
-      SELECT indexname 
-      FROM pg_indexes 
-      WHERE tablename = 'session' AND indexname = 'IDX_session_expire';
-    `);
-
-    if (indexCheck.rowCount === 0) {
-      await pool.query(`
-        CREATE INDEX "IDX_session_expire" ON "session" ("expire");
-      `);
-    }
+    console.log("[DATABASE] Session table and schema checks complete.");
   } catch (err: any) {
-    if (err.code === '42P07') {
+    if (err.code === "42P07") {
       console.log("[DATABASE] Session index already exists, skipping");
       return;
     }
-    console.error("[DATABASE] Error ensuring session table:", err);
+    console.error("[DATABASE] Error ensuring session table:", err.message);
   }
 }
