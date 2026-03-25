@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, and } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
 import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals } from "@shared/schema";
 import { z } from "zod";
@@ -460,9 +460,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const sess = req.session as any;
     if (sess.role === 'doctor') {
       const email = sess.doctorEmail;
+      const doctorId = sess.doctorId;
+      // Get the clinic IDs this doctor is linked to via the authoritative join table
+      const clinicLinks = await db.select({ clinicId: clinicDoctors.clinicId })
+        .from(clinicDoctors)
+        .where(eq(clinicDoctors.doctorId, doctorId));
+      if (!clinicLinks.length) return res.json([]);
+      // Return all bookings assigned to this doctor by email
       const results = await db.select({ booking: bookings, slot: slots, clinic: clinics })
-        .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id)).leftJoin(clinics, eq(slots.clinicId, clinics.id))
-        .where(sql`EXISTS (SELECT 1 FROM jsonb_array_elements(${clinics.doctors}) AS doc WHERE (doc->>'email')::text = ${email})`);
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .leftJoin(clinics, eq(slots.clinicId, clinics.id))
+        .where(eq(bookings.assignedDoctorEmail, email));
       return res.json(results.map(r => ({ ...r.booking, slot: r.slot, clinic: r.clinic })));
     }
     if (sess.clinicId) {
@@ -526,7 +535,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const booking = await storage.getBookingById(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
-      const updated = await storage.updateBookingAssignment(bookingId, doctorName, doctorEmail || null);
+      // If no email provided, look it up from the doctors table by name within this clinic
+      let resolvedEmail: string | null = doctorEmail || null;
+      if (!resolvedEmail && sess.clinicId) {
+        const [doctorRecord] = await db.select({ email: doctors.email })
+          .from(doctors)
+          .innerJoin(clinicDoctors, eq(doctors.id, clinicDoctors.doctorId))
+          .where(and(eq(clinicDoctors.clinicId, sess.clinicId), eq(doctors.name, doctorName)));
+        if (doctorRecord?.email) resolvedEmail = doctorRecord.email;
+      }
+      const updated = await storage.updateBookingAssignment(bookingId, doctorName, resolvedEmail);
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
