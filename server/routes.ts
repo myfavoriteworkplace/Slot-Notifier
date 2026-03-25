@@ -477,6 +477,46 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.status(403).json({ message: "Forbidden" });
   });
 
+  app.post("/api/auth/clinic/slots/configure", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    const { startTime, maxBookings, isCancelled } = req.body;
+    if (!startTime) return res.status(400).json({ message: "startTime is required" });
+    try {
+      const clinic = await storage.getClinic(sess.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+      const start = new Date(startTime);
+      const end = new Date(start.getTime() + 30 * 60 * 1000);
+      const slot = await storage.createSlot({
+        ownerId: null,
+        startTime: start,
+        endTime: end,
+        clinicName: clinic.name,
+        clinicId: clinic.id,
+        isBooked: false,
+        maxBookings: maxBookings ?? 3,
+        isCancelled: isCancelled ?? false,
+      } as any);
+      res.status(201).json(slot);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/auth/clinic/bookings/:id/reschedule", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    const { newSlotId } = req.body;
+    if (!newSlotId) return res.status(400).json({ message: "newSlotId is required" });
+    try {
+      const updated = await storage.rescheduleBooking(bookingId, newSlotId);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/clinics", isAuthenticated, async (req, res) => {
     if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Forbidden" });
     try {
