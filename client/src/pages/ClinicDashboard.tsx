@@ -511,6 +511,24 @@ export default function ClinicDashboard() {
     },
   });
 
+  const confirmBookingMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/confirm`, {});
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to confirm booking');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      toast({ title: "Booking Confirmed", description: "A confirmation email has been sent to the patient." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to confirm booking", description: error.message, variant: "destructive" });
+    },
+  });
+
   const addServiceRow = () => {
     setBillingDetails(prev => ({
       ...prev,
@@ -1185,10 +1203,22 @@ export default function ClinicDashboard() {
                                 </div>
                               </div>
 
-                              {/* Status pill */}
-                              <span className={`shrink-0 inline-flex items-center text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${statusClass}`}>
-                                {statusLabel}
-                              </span>
+                              {/* Status pills */}
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <span className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${statusClass}`}>
+                                  {statusLabel}
+                                </span>
+                                {booking.verificationStatus === 'confirmed' ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30">
+                                    <CheckCircle2 className="h-2.5 w-2.5" />
+                                    Confirmed
+                                  </span>
+                                ) : !isPast && (
+                                  <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full text-amber-600 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30">
+                                    Pending
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
 
@@ -1577,6 +1607,25 @@ export default function ClinicDashboard() {
 
                         {/* ── FOOTER ACTIONS ───────────────────────────── */}
                         <div className="shrink-0 px-4 py-3 border-t border-border/50 bg-muted/10 flex gap-2.5">
+                          {!isPast && booking.verificationStatus !== 'confirmed' && (
+                            <Button
+                              className="flex-1 gap-2 h-9 text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 border-0 shadow-md shadow-emerald-500/20 text-white"
+                              onClick={() => confirmBookingMutation.mutate(booking.id)}
+                              disabled={confirmBookingMutation.isPending}
+                              data-testid={`button-dialog-confirm-${booking.id}`}
+                            >
+                              {confirmBookingMutation.isPending
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <CheckCircle2 className="h-3.5 w-3.5" />}
+                              Confirm Booking
+                            </Button>
+                          )}
+                          {booking.verificationStatus === 'confirmed' && (
+                            <div className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 dark:border-emerald-500/30 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Confirmed
+                            </div>
+                          )}
                           <Button
                             className="flex-1 gap-2 h-9 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20"
                             onClick={() => handleOpenBilling(booking)}
@@ -1621,6 +1670,24 @@ export default function ClinicDashboard() {
 
                     {/* Quick-action footer */}
                     <div className="px-4 py-2.5 flex items-center gap-2 border-t border-border/50 bg-muted/20">
+                      {!isPast && booking.verificationStatus !== 'confirmed' && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="flex-1 h-7 gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-400/10"
+                            onClick={(e) => { e.stopPropagation(); confirmBookingMutation.mutate(booking.id); }}
+                            disabled={confirmBookingMutation.isPending}
+                            data-testid={`button-confirm-${booking.id}`}
+                          >
+                            {confirmBookingMutation.isPending
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : <CheckCircle2 className="h-3 w-3" />}
+                            Confirm
+                          </Button>
+                          <div className="h-4 w-px bg-border/60 shrink-0" />
+                        </>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"

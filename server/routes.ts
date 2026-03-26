@@ -46,6 +46,133 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
   }
 }
 
+async function sendConfirmationEmail(
+  customerEmail: string,
+  customerName: string,
+  clinicName: string,
+  startTime: Date,
+  doctorName?: string | null,
+  clinicPhone?: string | null,
+  clinicAddress?: string | null,
+  clinicEmail?: string | null,
+  bookingId?: number | null,
+) {
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Resend not configured — confirmation email skipped.`);
+    return;
+  }
+  const finalEmail = RESEND_MODE === 'PRODUCTION' ? customerEmail : TEST_EMAIL;
+  const formattedTime = startTime.toLocaleString('en-IN', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+  const receiptRef = bookingId ? `BMS-${bookingId}` : '—';
+
+  const doctorRow = doctorName
+    ? `<tr><td style="padding:8px 12px;color:#6b6f8c;font-size:13px;width:140px">Assigned Doctor</td><td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e1c3c">${doctorName}</td></tr>`
+    : '';
+  const phoneRow = clinicPhone
+    ? `<tr><td style="padding:8px 12px;color:#6b6f8c;font-size:13px">Phone</td><td style="padding:8px 12px;font-size:13px;color:#1e1c3c">${clinicPhone}</td></tr>`
+    : '';
+  const addressRow = clinicAddress
+    ? `<tr><td style="padding:8px 12px;color:#6b6f8c;font-size:13px">Address</td><td style="padding:8px 12px;font-size:13px;color:#1e1c3c">${clinicAddress}</td></tr>`
+    : '';
+  const emailRow = clinicEmail
+    ? `<tr><td style="padding:8px 12px;color:#6b6f8c;font-size:13px">Email</td><td style="padding:8px 12px;font-size:13px;color:#1e1c3c">${clinicEmail}</td></tr>`
+    : '';
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f4ff;font-family:'Helvetica Neue',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;padding:32px 16px">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(62,52,180,0.10)">
+
+        <!-- Header bar -->
+        <tr>
+          <td style="background:linear-gradient(90deg,#3e34b4 0%,#a83cd2 100%);padding:28px 32px 24px">
+            <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.65)">BookMySlot</p>
+            <h1 style="margin:0;font-size:22px;font-weight:800;color:#ffffff;line-height:1.2">Appointment Confirmed ✓</h1>
+            <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.80)">Your booking at <strong>${clinicName}</strong> has been confirmed.</p>
+          </td>
+        </tr>
+
+        <!-- Greeting -->
+        <tr>
+          <td style="padding:24px 32px 0">
+            <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${customerName}</strong>,</p>
+            <p style="margin:10px 0 0;font-size:14px;color:#6b6f8c;line-height:1.6">
+              Great news — the clinic has confirmed your appointment. Please find the details below and arrive a few minutes early.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Appointment details -->
+        <tr>
+          <td style="padding:20px 32px">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;border-radius:10px;overflow:hidden;border:1px solid #e5e3fa">
+              <tr style="background:#3e34b4">
+                <td colspan="2" style="padding:10px 12px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.85)">Appointment Details</td>
+              </tr>
+              <tr style="border-bottom:1px solid #e5e3fa">
+                <td style="padding:8px 12px;color:#6b6f8c;font-size:13px;width:140px">Date &amp; Time</td>
+                <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e1c3c">${formattedTime}</td>
+              </tr>
+              <tr style="border-bottom:1px solid #e5e3fa">
+                <td style="padding:8px 12px;color:#6b6f8c;font-size:13px">Clinic</td>
+                <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e1c3c">${clinicName}</td>
+              </tr>
+              ${doctorRow}
+              <tr style="border-bottom:1px solid #e5e3fa">
+                <td style="padding:8px 12px;color:#6b6f8c;font-size:13px">Reference</td>
+                <td style="padding:8px 12px;font-size:13px;font-family:monospace;color:#3e34b4;font-weight:700">${receiptRef}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Clinic contact -->
+        <tr>
+          <td style="padding:0 32px 20px">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;border-radius:10px;overflow:hidden;border:1px solid #e5e3fa">
+              <tr style="background:#6357dc">
+                <td colspan="2" style="padding:10px 12px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.85)">Clinic Contact</td>
+              </tr>
+              ${phoneRow}
+              ${addressRow}
+              ${emailRow}
+              ${(!clinicPhone && !clinicAddress && !clinicEmail) ? `<tr><td colspan="2" style="padding:10px 12px;font-size:13px;color:#6b6f8c">Contact details not available — please reach out to the clinic directly.</td></tr>` : ''}
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:linear-gradient(90deg,#3e34b4 0%,#a83cd2 100%);padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.65)">Powered by <strong style="color:#fff">BookMySlot</strong> · Please do not reply to this email</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: finalEmail,
+      subject: `Appointment Confirmed at ${clinicName} — ${formattedTime}`,
+      html,
+    });
+  } catch (error) {
+    console.error('[EMAIL ERROR] Failed to send confirmation email:', error);
+  }
+}
+
 async function sendCancellationEmail(email: string, name: string, date: Date, clinic: string) {
   if (!resend) return;
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
@@ -520,6 +647,42 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!newSlotId) return res.status(400).json({ message: "newSlotId is required" });
     try {
       const updated = await storage.rescheduleBooking(bookingId, newSlotId);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/auth/clinic/bookings/:id/confirm", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.verificationStatus === 'confirmed') return res.status(400).json({ message: "Booking already confirmed" });
+
+      const updated = await storage.updateBookingStatus(bookingId, 'confirmed');
+
+      // Fetch clinic details for the email
+      const [clinic] = await db.select().from(clinics).where(eq(clinics.id, sess.clinicId || 0));
+
+      // Send confirmation email to patient (fire-and-forget)
+      if (booking.customerEmail) {
+        const slot = await storage.getSlot(booking.slotId);
+        sendConfirmationEmail(
+          booking.customerEmail,
+          booking.customerName,
+          clinic?.name || 'the clinic',
+          slot ? new Date(slot.startTime) : new Date(),
+          booking.assignedDoctor || null,
+          (clinic as any)?.phone || null,
+          (clinic as any)?.address || null,
+          clinic?.email || null,
+          bookingId,
+        ).catch((err) => console.error('[EMAIL ERROR] Confirm email failed:', err));
+      }
+
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
