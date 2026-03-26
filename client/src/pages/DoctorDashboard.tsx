@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, LogOut, Stethoscope, Building2, Search, Calendar, Users, ShieldAlert } from "lucide-react";
+import { Loader2, LogOut, Stethoscope, Building2, Search, Calendar, Users, ShieldAlert, Clock, Phone, Mail, ClipboardList, CheckCircle2, AlertCircle, Hash } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -294,37 +294,121 @@ export default function DoctorDashboard() {
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/50" />
                   </div>
                 ) : filteredBookings.length > 0 ? (
-                  <div className="divide-y">
-                    {filteredBookings.slice(0, 50).map((booking: any) => (
-                      <div 
-                        key={booking.id} 
-                        className="flex items-center justify-between py-4 group hover:bg-muted/50 transition-colors px-2 rounded-lg"
-                        data-testid={`booking-item-${booking.id}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-primary/5 flex items-center justify-center text-primary text-xs font-medium">
-                            {booking.customerName[0]}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-sm">{booking.customerName}</p>
-                              <Badge variant="secondary" className="text-[9px] h-4 px-1.5 py-0 font-normal">
-                                {booking.clinic?.name || booking.clinicName || doctorClinics.find(c => c.id === booking.clinicId)?.name || "Clinic"}
-                              </Badge>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {filteredBookings.slice(0, 50).map((booking: any) => {
+                      const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
+                      const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;
+                      const durationMin = startTime && endTime
+                        ? Math.round((endTime.getTime() - startTime.getTime()) / 60000)
+                        : null;
+                      const clinicName = booking.clinic?.name || booking.clinicName || doctorClinics.find((c: any) => c.id === booking.clinicId)?.name || "Clinic";
+                      const clinicAddress = booking.clinic?.address || doctorClinics.find((c: any) => c.id === booking.clinicId)?.address;
+                      const isVerified = booking.verificationStatus === "verified";
+
+                      return (
+                        <div
+                          key={booking.id}
+                          data-testid={`booking-card-${booking.id}`}
+                          className="rounded-2xl border border-border/50 bg-background shadow-sm shadow-primary/5 overflow-hidden flex flex-col hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300"
+                        >
+                          {/* Gradient top strip */}
+                          <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-3 overflow-hidden">
+                            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
+                            <div className="relative flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-3">
+                                <div className="relative shrink-0">
+                                  <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-accent/40 to-primary/30 blur-sm" />
+                                  <div className="relative h-9 w-9 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-white font-bold text-sm ring-1 ring-white/10">
+                                    {booking.customerName?.[0]?.toUpperCase() ?? "?"}
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="font-bold text-white text-sm leading-tight">{booking.customerName}</p>
+                                  <div className="flex items-center gap-1 mt-0.5 text-white/55 text-[10px]">
+                                    <Hash className="h-2.5 w-2.5" />
+                                    <span>REF-{String(booking.id).padStart(4, "0")}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              {booking.verificationStatus && (
+                                <div className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${isVerified ? "bg-green-500/25 text-green-100" : "bg-amber-400/25 text-amber-100"}`}>
+                                  {isVerified
+                                    ? <CheckCircle2 className="h-3 w-3" />
+                                    : <AlertCircle className="h-3 w-3" />}
+                                  {isVerified ? "Verified" : "Pending"}
+                                </div>
+                              )}
                             </div>
-                            <p className="text-[11px] text-muted-foreground">{booking.customerPhone}</p>
+                            <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
+                          </div>
+
+                          {/* Card body */}
+                          <div className="px-4 py-3 flex flex-col gap-2.5 flex-1">
+                            {/* Date & time */}
+                            <div className="flex items-start gap-2">
+                              <Calendar className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                              <div>
+                                <p className="text-sm font-semibold leading-tight">
+                                  {startTime ? startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "—"}
+                                </p>
+                                <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  <span>
+                                    {startTime ? startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                                    {endTime ? ` – ${endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+                                  </span>
+                                  {durationMin && (
+                                    <span className="text-[10px] bg-primary/8 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                                      {durationMin} min
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Clinic */}
+                            <div className="flex items-start gap-2">
+                              <Building2 className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                              <div className="text-xs">
+                                <p className="font-medium text-foreground leading-tight">{clinicName}</p>
+                                {clinicAddress && <p className="text-muted-foreground mt-0.5 leading-tight">{clinicAddress}</p>}
+                              </div>
+                            </div>
+
+                            {/* Reason / description */}
+                            {booking.description && (
+                              <div className="flex items-start gap-2">
+                                <ClipboardList className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{booking.description}</p>
+                              </div>
+                            )}
+
+                            {/* Contact */}
+                            <div className="pt-1 border-t border-border/40 flex flex-wrap gap-x-4 gap-y-1 mt-auto">
+                              {booking.customerPhone && (
+                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                  <Phone className="h-3 w-3 shrink-0" />
+                                  <span>{booking.customerPhone}</span>
+                                </div>
+                              )}
+                              {booking.customerEmail && (
+                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground min-w-0">
+                                  <Mail className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{booking.customerEmail}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Booked on */}
+                            {booking.createdAt && (
+                              <p className="text-[10px] text-muted-foreground/60">
+                                Booked {new Date(booking.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                              </p>
+                            )}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs font-semibold">
-                            {booking.slot?.startTime ? new Date(booking.slot.startTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'N/A'}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {booking.slot?.startTime ? new Date(booking.slot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-12 text-muted-foreground border-dashed border-2 rounded-lg">
