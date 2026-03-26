@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, LogOut, Stethoscope, Building2, Calendar, ShieldAlert, Clock, Phone, Mail, ClipboardList, CheckCircle2, AlertCircle, Hash, CalendarDays, TrendingUp, ArrowRight } from "lucide-react";
+import { Loader2, LogOut, Stethoscope, Building2, Calendar, ShieldAlert, Clock, Phone, Mail, ClipboardList, CheckCircle2, AlertCircle, Hash, CalendarDays, TrendingUp, ArrowRight, Info, X, Filter, BadgeCheck, RotateCcw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,12 +12,58 @@ import { Clinic } from "@shared/schema";
 
 type QuickFilter = "all" | "today" | "upcoming";
 
+const HELP_ITEMS = [
+  {
+    icon: TrendingUp,
+    color: "bg-primary/10 text-primary",
+    title: "Stat cards — click to filter",
+    desc: "The Total, Today, and Upcoming cards at the top are clickable. Tap any one to instantly show only those appointments — no typing needed.",
+  },
+  {
+    icon: Filter,
+    color: "bg-accent/10 text-accent-foreground",
+    title: "Quick chips",
+    desc: "The All / Today / Upcoming chips in the filter bar do exactly the same thing. Use whichever is closer to where you are on the page.",
+  },
+  {
+    icon: Calendar,
+    color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    title: "Specific date lookup",
+    desc: "When 'All' is selected, a date picker appears. Use it to pull up every appointment booked on any exact date.",
+  },
+  {
+    icon: Building2,
+    color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    title: "Filter by clinic",
+    desc: "If you're linked to more than one clinic, the clinic dropdown lets you view appointments from a single location only.",
+  },
+  {
+    icon: Hash,
+    color: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+    title: "Appointment cards",
+    desc: "Each card shows the patient's name, a unique booking reference (REF-XXXX), the date, time, duration, reason for visit, and contact details — everything you need at a glance.",
+  },
+  {
+    icon: BadgeCheck,
+    color: "bg-green-500/10 text-green-600 dark:text-green-400",
+    title: "Verified / Pending badge",
+    desc: "Green 'Verified' means the booking is confirmed. Amber 'Pending' means it's still awaiting confirmation from the clinic.",
+  },
+  {
+    icon: RotateCcw,
+    color: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+    title: "Clear all filters",
+    desc: "'Clear all' resets every active filter at once and takes you back to the full appointment list. It only appears when something is filtered.",
+  },
+];
+
 export default function DoctorDashboard() {
   const { doctor, isLoading, isAuthenticated, logout, isLoggingOut } = useDoctorAuth();
   const [_, setLocation] = useLocation();
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -49,14 +95,6 @@ export default function DoctorDashboard() {
   const myBookings = allBookings.filter((booking: any) => booking.assignedDoctorEmail === doctor.email);
 
   const todayStr = new Date().toISOString().split("T")[0];
-
-  const tomorrowDate = new Date();
-  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-  const tomorrowStr = tomorrowDate.toISOString().split("T")[0];
-
-  const weekEnd = new Date();
-  weekEnd.setDate(weekEnd.getDate() + 7);
-
   const todayBookings = myBookings.filter((b: any) => {
     const d = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
     return d === todayStr;
@@ -73,7 +111,6 @@ export default function DoctorDashboard() {
 
   const filteredBookings = myBookings.filter((booking: any) => {
     const matchesClinic = appointmentClinicFilter === "all" || booking.clinicId === parseInt(appointmentClinicFilter);
-
     const bookingDate = booking.slot?.startTime ? new Date(booking.slot.startTime).toISOString().split("T")[0] : "";
     const bookingDateTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
 
@@ -89,7 +126,7 @@ export default function DoctorDashboard() {
     return matchesClinic && matchesDate;
   });
 
-  const quickChips: { key: QuickFilter | "tomorrow"; label: string; count?: number }[] = [
+  const quickChips: { key: QuickFilter; label: string; count: number }[] = [
     { key: "all", label: "All", count: myBookings.length },
     { key: "today", label: "Today", count: todayBookings.length },
     { key: "upcoming", label: "Upcoming", count: upcomingBookings.length },
@@ -97,6 +134,71 @@ export default function DoctorDashboard() {
 
   return (
     <div className="min-h-screen bg-muted/30">
+
+      {/* ── Help modal ── */}
+      {showHelp && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowHelp(false); }}
+        >
+          <div className="relative w-full max-w-lg rounded-3xl border border-border/60 bg-background shadow-2xl shadow-primary/15 overflow-hidden animate-in zoom-in-95 duration-200">
+
+            {/* Neon top bar */}
+            <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
+
+            {/* Modal hero header */}
+            <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-6 pt-6 pb-5 overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
+              <Info className="absolute right-5 top-1/2 -translate-y-1/2 h-24 w-24 text-white opacity-[0.06] pointer-events-none select-none" />
+
+              <button
+                onClick={() => setShowHelp(false)}
+                className="absolute top-4 right-4 h-7 w-7 rounded-full bg-white/15 border border-white/20 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-colors"
+                data-testid="button-close-help"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+
+              <div className="relative">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/55 mb-1">Doctor Portal Guide</p>
+                <h2 className="text-xl font-extrabold text-white tracking-tight">How this page works</h2>
+                <p className="text-xs text-white/55 mt-1 max-w-xs">
+                  Everything you need to manage your appointments, explained in plain terms.
+                </p>
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
+            </div>
+
+            {/* Feature list */}
+            <div className="px-6 py-5 space-y-4 max-h-[55vh] overflow-y-auto">
+              {HELP_ITEMS.map((item, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${item.color}`}>
+                    <item.icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold leading-tight">{item.title}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 pb-5 pt-1 border-t border-border/40">
+              <Button
+                className="w-full h-10 font-semibold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 rounded-xl shadow-sm shadow-primary/20"
+                onClick={() => setShowHelp(false)}
+                data-testid="button-got-it"
+              >
+                Got it
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 3px neon top bar */}
       <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
 
@@ -111,6 +213,8 @@ export default function DoctorDashboard() {
       {/* Sticky header */}
       <header className="sticky top-0 z-10 bg-gradient-to-r from-background via-background to-primary/5 backdrop-blur-md border-b border-border/50 shadow-sm">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+
+          {/* Left — doctor identity */}
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
               <Avatar className="h-11 w-11 ring-2 ring-primary/40 shadow-[0_0_14px_hsl(var(--primary)/0.2)]">
@@ -138,28 +242,41 @@ export default function DoctorDashboard() {
             </div>
           </div>
 
+          {/* Centre — portal label */}
           <div className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
             <Stethoscope className="h-3.5 w-3.5 text-primary" />
             <span className="text-xs font-medium text-primary font-display tracking-wide">Doctor Portal</span>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => logout()}
-            disabled={isLoggingOut}
-            className="border-border/50 text-muted-foreground hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive transition-colors duration-200 shrink-0"
-            data-testid="button-logout"
-          >
-            {isLoggingOut
-              ? <Loader2 className="h-4 w-4 animate-spin" />
-              : <LogOut className="h-4 w-4 mr-1.5" />}
-            Logout
-          </Button>
+          {/* Right — info + logout */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowHelp(true)}
+              data-testid="button-help"
+              title="How this page works"
+              className="h-9 w-9 rounded-full border border-border/60 bg-background flex items-center justify-center text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all duration-200 shadow-sm"
+            >
+              <Info className="h-4 w-4" />
+            </button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => logout()}
+              disabled={isLoggingOut}
+              className="border-border/50 text-muted-foreground hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive transition-colors duration-200"
+              data-testid="button-logout"
+            >
+              {isLoggingOut
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <LogOut className="h-4 w-4 mr-1.5" />}
+              Logout
+            </Button>
+          </div>
         </div>
       </header>
 
-      {/* Hero stats banner — pills are clickable filters */}
+      {/* Hero stats banner */}
       <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_60%)] pointer-events-none" />
         <CalendarDays className="absolute right-8 top-1/2 -translate-y-1/2 h-40 w-40 text-white opacity-[0.05] pointer-events-none select-none" />
@@ -238,13 +355,11 @@ export default function DoctorDashboard() {
 
         {/* Filter bar */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-
-          {/* Quick-chip row */}
           <div className="flex items-center gap-2 flex-wrap">
             {quickChips.map(chip => (
               <button
                 key={chip.key}
-                onClick={() => handleQuickFilter(chip.key as QuickFilter)}
+                onClick={() => handleQuickFilter(chip.key)}
                 data-testid={`chip-${chip.key}`}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200
                   ${quickFilter === chip.key
@@ -252,18 +367,15 @@ export default function DoctorDashboard() {
                     : "bg-background text-muted-foreground border-border/60 hover:border-primary/40 hover:text-primary"}`}
               >
                 {chip.label}
-                {chip.count !== undefined && (
-                  <span className={`text-[10px] rounded-full px-1.5 py-0.5 font-bold leading-none
-                    ${quickFilter === chip.key ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
-                    {chip.count}
-                  </span>
-                )}
+                <span className={`text-[10px] rounded-full px-1.5 py-0.5 font-bold leading-none
+                  ${quickFilter === chip.key ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
+                  {chip.count}
+                </span>
               </button>
             ))}
           </div>
 
           <div className="flex gap-2 flex-1 sm:justify-end flex-wrap">
-            {/* Specific date — only shown when quickFilter is "all" */}
             {quickFilter === "all" && (
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -277,7 +389,6 @@ export default function DoctorDashboard() {
               </div>
             )}
 
-            {/* Clinic dropdown */}
             <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
               <SelectTrigger className="w-[170px] h-9" data-testid="select-clinic-filter">
                 <SelectValue placeholder="All Clinics" />
@@ -290,7 +401,6 @@ export default function DoctorDashboard() {
               </SelectContent>
             </Select>
 
-            {/* Clear — only shown when something is actually filtered */}
             {(appointmentDateFilter || appointmentClinicFilter !== "all" || quickFilter !== "all") && (
               <Button
                 variant="ghost"
@@ -347,7 +457,6 @@ export default function DoctorDashboard() {
                   data-testid={`booking-card-${booking.id}`}
                   className="rounded-2xl border border-border/50 bg-background shadow-sm shadow-primary/5 overflow-hidden flex flex-col hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300"
                 >
-                  {/* Gradient top strip */}
                   <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-3 overflow-hidden">
                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
                     <div className="relative flex items-start justify-between gap-2">
@@ -368,9 +477,7 @@ export default function DoctorDashboard() {
                       </div>
                       {booking.verificationStatus && (
                         <div className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${isVerified ? "bg-green-500/25 text-green-100" : "bg-amber-400/25 text-amber-100"}`}>
-                          {isVerified
-                            ? <CheckCircle2 className="h-3 w-3" />
-                            : <AlertCircle className="h-3 w-3" />}
+                          {isVerified ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
                           {isVerified ? "Verified" : "Pending"}
                         </div>
                       )}
@@ -378,7 +485,6 @@ export default function DoctorDashboard() {
                     <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
                   </div>
 
-                  {/* Card body */}
                   <div className="px-4 py-3 flex flex-col gap-2.5 flex-1">
                     <div className="flex items-start gap-2">
                       <Calendar className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
