@@ -5,8 +5,8 @@
 @tailwind utilities;
 
 :root {
-  /* Premium Indigo/Violet Palette */
-  --background: 247 30% 97%;
+  /* Aurora Theme — Light */
+  --background: 248 35% 97.5%;
   --foreground: 224 71% 4%;
   
   --card: 0 0% 100%;
@@ -15,28 +15,26 @@
   --popover: 0 0% 100%;
   --popover-foreground: 224 71% 4%;
   
-  /* Vibrant Primary - Deep Indigo */
-  --primary: 252 83% 58%;
+  /* Electric Indigo */
+  --primary: 248 86% 55%;
   --primary-foreground: 210 20% 98%;
   
-  /* Soft Secondary - Ice Blue */
-  --secondary: 210 40% 96%;
+  --secondary: 248 30% 94%;
   --secondary-foreground: 222 47% 11%;
   
-  /* Muted tones for depth */
-  --muted: 210 40% 96%;
+  --muted: 248 30% 94%;
   --muted-foreground: 215 16% 47%;
   
-  /* Functional Colors */
-  --accent: 262 83% 58%;
+  /* Magenta-Violet Accent */
+  --accent: 290 78% 60%;
   --accent-foreground: 210 40% 98%;
   
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
   
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 262 83% 58%;
+  --border: 248 30% 89%;
+  --input: 248 30% 89%;
+  --ring: 290 78% 60%;
   
   --radius: 0.75rem;
 
@@ -45,33 +43,36 @@
 }
 
 .dark {
-  --background: 248 50% 4%;
+  /* Aurora Theme — Dark (lightened for card depth) */
+  --background: 238 40% 9%;
   --foreground: 210 20% 98%;
   
-  --card: 248 50% 8%;
+  --card: 240 38% 13%;
   --card-foreground: 210 20% 98%;
   
-  --popover: 224 71% 8%;
+  --popover: 240 38% 13%;
   --popover-foreground: 210 20% 98%;
   
-  --primary: 263 70% 50%;
+  /* Vivid Purple */
+  --primary: 255 72% 60%;
   --primary-foreground: 210 20% 98%;
   
-  --secondary: 215 27.9% 16.9%;
+  --secondary: 242 35% 18%;
   --secondary-foreground: 210 20% 98%;
   
-  --muted: 215 27.9% 16.9%;
-  --muted-foreground: 217.9 10.6% 64.9%;
+  --muted: 242 35% 18%;
+  --muted-foreground: 220 15% 65%;
   
-  --accent: 215 27.9% 16.9%;
+  /* Bright Magenta */
+  --accent: 298 72% 62%;
   --accent-foreground: 210 20% 98%;
   
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 210 20% 98%;
   
-  --border: 215 27.9% 16.9%;
-  --input: 215 27.9% 16.9%;
-  --ring: 263 70% 50%;
+  --border: 242 35% 18%;
+  --input: 242 35% 18%;
+  --ring: 298 72% 62%;
 }
 
 @layer base {
