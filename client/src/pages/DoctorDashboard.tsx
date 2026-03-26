@@ -4,15 +4,18 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, LogOut, Stethoscope, Building2, Calendar, ShieldAlert, Clock, Phone, Mail, ClipboardList, CheckCircle2, AlertCircle, Hash, CalendarDays, TrendingUp } from "lucide-react";
+import { Loader2, LogOut, Stethoscope, Building2, Calendar, ShieldAlert, Clock, Phone, Mail, ClipboardList, CheckCircle2, AlertCircle, Hash, CalendarDays, TrendingUp, ArrowRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Clinic } from "@shared/schema";
 
+type QuickFilter = "all" | "today" | "upcoming";
+
 export default function DoctorDashboard() {
   const { doctor, isLoading, isAuthenticated, logout, isLoggingOut } = useDoctorAuth();
   const [_, setLocation] = useLocation();
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
 
@@ -46,6 +49,14 @@ export default function DoctorDashboard() {
   const myBookings = allBookings.filter((booking: any) => booking.assignedDoctorEmail === doctor.email);
 
   const todayStr = new Date().toISOString().split("T")[0];
+
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrowStr = tomorrowDate.toISOString().split("T")[0];
+
+  const weekEnd = new Date();
+  weekEnd.setDate(weekEnd.getDate() + 7);
+
   const todayBookings = myBookings.filter((b: any) => {
     const d = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
     return d === todayStr;
@@ -55,12 +66,34 @@ export default function DoctorDashboard() {
     return d && d >= new Date();
   });
 
+  const handleQuickFilter = (filter: QuickFilter) => {
+    setQuickFilter(filter);
+    setAppointmentDateFilter("");
+  };
+
   const filteredBookings = myBookings.filter((booking: any) => {
     const matchesClinic = appointmentClinicFilter === "all" || booking.clinicId === parseInt(appointmentClinicFilter);
+
     const bookingDate = booking.slot?.startTime ? new Date(booking.slot.startTime).toISOString().split("T")[0] : "";
-    const matchesDate = !appointmentDateFilter || bookingDate === appointmentDateFilter;
+    const bookingDateTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
+
+    let matchesDate = true;
+    if (quickFilter === "today") {
+      matchesDate = bookingDate === todayStr;
+    } else if (quickFilter === "upcoming") {
+      matchesDate = bookingDateTime ? bookingDateTime >= new Date() : false;
+    } else {
+      matchesDate = !appointmentDateFilter || bookingDate === appointmentDateFilter;
+    }
+
     return matchesClinic && matchesDate;
   });
+
+  const quickChips: { key: QuickFilter | "tomorrow"; label: string; count?: number }[] = [
+    { key: "all", label: "All", count: myBookings.length },
+    { key: "today", label: "Today", count: todayBookings.length },
+    { key: "upcoming", label: "Upcoming", count: upcomingBookings.length },
+  ];
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -78,8 +111,6 @@ export default function DoctorDashboard() {
       {/* Sticky header */}
       <header className="sticky top-0 z-10 bg-gradient-to-r from-background via-background to-primary/5 backdrop-blur-md border-b border-border/50 shadow-sm">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
-
-          {/* Left — doctor identity */}
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
               <Avatar className="h-11 w-11 ring-2 ring-primary/40 shadow-[0_0_14px_hsl(var(--primary)/0.2)]">
@@ -107,13 +138,11 @@ export default function DoctorDashboard() {
             </div>
           </div>
 
-          {/* Centre — portal label */}
           <div className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
             <Stethoscope className="h-3.5 w-3.5 text-primary" />
             <span className="text-xs font-medium text-primary font-display tracking-wide">Doctor Portal</span>
           </div>
 
-          {/* Right — logout */}
           <Button
             variant="outline"
             size="sm"
@@ -130,94 +159,169 @@ export default function DoctorDashboard() {
         </div>
       </header>
 
-      {/* Hero stats banner */}
+      {/* Hero stats banner — pills are clickable filters */}
       <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_60%)] pointer-events-none" />
         <CalendarDays className="absolute right-8 top-1/2 -translate-y-1/2 h-40 w-40 text-white opacity-[0.05] pointer-events-none select-none" />
 
         <div className="relative container mx-auto px-4 py-6">
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/55 mb-1">Your Schedule</p>
-          <h2 className="text-xl font-extrabold text-white tracking-tight mb-5">
+          <h2 className="text-xl font-extrabold text-white tracking-tight mb-1">
             Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"}, Dr. {doctor.name.split(" ")[0]}
           </h2>
+          <p className="text-[11px] text-white/45 mb-5">Click a card below to instantly filter your appointments</p>
 
           <div className="flex flex-wrap gap-3">
-            <div className="flex items-center gap-2.5 bg-white/10 border border-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5">
-              <div className="h-8 w-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
+            {/* Total pill */}
+            <button
+              onClick={() => handleQuickFilter("all")}
+              data-testid="pill-filter-all"
+              className={`group flex items-center gap-2.5 rounded-xl px-4 py-2.5 border backdrop-blur-sm transition-all duration-200 cursor-pointer
+                ${quickFilter === "all"
+                  ? "bg-white/20 border-white/50 ring-2 ring-white/40 shadow-lg shadow-black/10"
+                  : "bg-white/10 border-white/15 hover:bg-white/15 hover:border-white/30"}`}
+            >
+              <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-200 ${quickFilter === "all" ? "bg-white/25" : "bg-white/15"}`}>
                 <Calendar className="h-4 w-4 text-white" />
               </div>
-              <div>
+              <div className="text-left">
                 <p className="text-[10px] text-white/55 font-medium uppercase tracking-wide leading-none mb-0.5">Total</p>
                 <p className="text-lg font-extrabold text-white leading-none">{myBookings.length}</p>
               </div>
-            </div>
+              {quickFilter === "all" && <ArrowRight className="h-3.5 w-3.5 text-white/60 ml-1" />}
+            </button>
 
-            <div className="flex items-center gap-2.5 bg-white/10 border border-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5">
-              <div className="h-8 w-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
+            {/* Today pill */}
+            <button
+              onClick={() => handleQuickFilter("today")}
+              data-testid="pill-filter-today"
+              className={`group flex items-center gap-2.5 rounded-xl px-4 py-2.5 border backdrop-blur-sm transition-all duration-200 cursor-pointer
+                ${quickFilter === "today"
+                  ? "bg-white/20 border-white/50 ring-2 ring-white/40 shadow-lg shadow-black/10"
+                  : "bg-white/10 border-white/15 hover:bg-white/15 hover:border-white/30"}`}
+            >
+              <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-200 ${quickFilter === "today" ? "bg-white/25" : "bg-white/15"}`}>
                 <Clock className="h-4 w-4 text-white" />
               </div>
-              <div>
+              <div className="text-left">
                 <p className="text-[10px] text-white/55 font-medium uppercase tracking-wide leading-none mb-0.5">Today</p>
                 <p className="text-lg font-extrabold text-white leading-none">{todayBookings.length}</p>
               </div>
-            </div>
+              {quickFilter === "today" && <ArrowRight className="h-3.5 w-3.5 text-white/60 ml-1" />}
+            </button>
 
-            <div className="flex items-center gap-2.5 bg-white/10 border border-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5">
-              <div className="h-8 w-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
+            {/* Upcoming pill */}
+            <button
+              onClick={() => handleQuickFilter("upcoming")}
+              data-testid="pill-filter-upcoming"
+              className={`group flex items-center gap-2.5 rounded-xl px-4 py-2.5 border backdrop-blur-sm transition-all duration-200 cursor-pointer
+                ${quickFilter === "upcoming"
+                  ? "bg-white/20 border-white/50 ring-2 ring-white/40 shadow-lg shadow-black/10"
+                  : "bg-white/10 border-white/15 hover:bg-white/15 hover:border-white/30"}`}
+            >
+              <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-200 ${quickFilter === "upcoming" ? "bg-white/25" : "bg-white/15"}`}>
                 <TrendingUp className="h-4 w-4 text-white" />
               </div>
-              <div>
+              <div className="text-left">
                 <p className="text-[10px] text-white/55 font-medium uppercase tracking-wide leading-none mb-0.5">Upcoming</p>
                 <p className="text-lg font-extrabold text-white leading-none">{upcomingBookings.length}</p>
               </div>
-            </div>
+              {quickFilter === "upcoming" && <ArrowRight className="h-3.5 w-3.5 text-white/60 ml-1" />}
+            </button>
           </div>
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/40 via-primary/60 to-accent/40" />
       </div>
 
-      <main className="container mx-auto px-4 py-8 space-y-6">
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="date"
-              className="pl-9 h-9"
-              value={appointmentDateFilter}
-              onChange={(e) => setAppointmentDateFilter(e.target.value)}
-              data-testid="input-date-filter"
-            />
+      <main className="container mx-auto px-4 py-8 space-y-5">
+
+        {/* Filter bar */}
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+
+          {/* Quick-chip row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {quickChips.map(chip => (
+              <button
+                key={chip.key}
+                onClick={() => handleQuickFilter(chip.key as QuickFilter)}
+                data-testid={`chip-${chip.key}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200
+                  ${quickFilter === chip.key
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20"
+                    : "bg-background text-muted-foreground border-border/60 hover:border-primary/40 hover:text-primary"}`}
+              >
+                {chip.label}
+                {chip.count !== undefined && (
+                  <span className={`text-[10px] rounded-full px-1.5 py-0.5 font-bold leading-none
+                    ${quickFilter === chip.key ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
+                    {chip.count}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
-          <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
-            <SelectTrigger className="w-full sm:w-[200px] h-9" data-testid="select-clinic-filter">
-              <SelectValue placeholder="All Clinics" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Clinics</SelectItem>
-              {doctorClinics.map(c => (
-                <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-9"
-            onClick={() => {
-              setAppointmentDateFilter("");
-              setAppointmentClinicFilter("all");
-            }}
-            data-testid="button-clear-filters"
-          >
-            Clear
-          </Button>
+
+          <div className="flex gap-2 flex-1 sm:justify-end flex-wrap">
+            {/* Specific date — only shown when quickFilter is "all" */}
+            {quickFilter === "all" && (
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  className="pl-9 h-9 w-44"
+                  value={appointmentDateFilter}
+                  onChange={(e) => setAppointmentDateFilter(e.target.value)}
+                  data-testid="input-date-filter"
+                />
+              </div>
+            )}
+
+            {/* Clinic dropdown */}
+            <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
+              <SelectTrigger className="w-[170px] h-9" data-testid="select-clinic-filter">
+                <SelectValue placeholder="All Clinics" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Clinics</SelectItem>
+                {doctorClinics.map(c => (
+                  <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Clear — only shown when something is actually filtered */}
+            {(appointmentDateFilter || appointmentClinicFilter !== "all" || quickFilter !== "all") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setQuickFilter("all");
+                  setAppointmentDateFilter("");
+                  setAppointmentClinicFilter("all");
+                }}
+                data-testid="button-clear-filters"
+              >
+                Clear all
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Result count */}
         <p className="text-xs text-muted-foreground px-1">
           Showing <span className="font-semibold text-foreground">{filteredBookings.length}</span> appointment{filteredBookings.length !== 1 ? "s" : ""}
+          {quickFilter !== "all" && (
+            <span className="ml-1 text-primary font-medium">
+              · {quickFilter === "today" ? "Today" : "Upcoming"}
+            </span>
+          )}
+          {appointmentDateFilter && quickFilter === "all" && (
+            <span className="ml-1 text-primary font-medium">
+              · {new Date(appointmentDateFilter + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+            </span>
+          )}
         </p>
 
         {/* Appointment cards */}
@@ -276,7 +380,6 @@ export default function DoctorDashboard() {
 
                   {/* Card body */}
                   <div className="px-4 py-3 flex flex-col gap-2.5 flex-1">
-                    {/* Date & time */}
                     <div className="flex items-start gap-2">
                       <Calendar className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
                       <div>
@@ -298,7 +401,6 @@ export default function DoctorDashboard() {
                       </div>
                     </div>
 
-                    {/* Clinic */}
                     <div className="flex items-start gap-2">
                       <Building2 className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
                       <div className="text-xs">
@@ -307,7 +409,6 @@ export default function DoctorDashboard() {
                       </div>
                     </div>
 
-                    {/* Reason */}
                     {booking.description && (
                       <div className="flex items-start gap-2">
                         <ClipboardList className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
@@ -315,7 +416,6 @@ export default function DoctorDashboard() {
                       </div>
                     )}
 
-                    {/* Contact */}
                     <div className="pt-1 border-t border-border/40 flex flex-wrap gap-x-4 gap-y-1 mt-auto">
                       {booking.customerPhone && (
                         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -331,7 +431,6 @@ export default function DoctorDashboard() {
                       )}
                     </div>
 
-                    {/* Booked on */}
                     {booking.createdAt && (
                       <p className="text-[10px] text-muted-foreground/60">
                         Booked {new Date(booking.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
@@ -347,7 +446,7 @@ export default function DoctorDashboard() {
             <CalendarDays className="h-10 w-10 mx-auto mb-3 opacity-20" />
             <p className="font-semibold text-base">No appointments found</p>
             <p className="text-sm mt-1">
-              {appointmentDateFilter || appointmentClinicFilter !== "all"
+              {quickFilter !== "all" || appointmentDateFilter || appointmentClinicFilter !== "all"
                 ? "Try adjusting your filters"
                 : "Appointments assigned to you will appear here"}
             </p>
