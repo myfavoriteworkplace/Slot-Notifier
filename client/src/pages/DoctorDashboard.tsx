@@ -2,21 +2,17 @@ import { useEffect, useState } from "react";
 import { useDoctorAuth } from "@/hooks/use-doctor-auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, LogOut, Stethoscope, Building2, Search, Calendar, Users, ShieldAlert, Clock, Phone, Mail, ClipboardList, CheckCircle2, AlertCircle, Hash, CalendarDays, TrendingUp } from "lucide-react";
+import { Loader2, LogOut, Stethoscope, Building2, Calendar, ShieldAlert, Clock, Phone, Mail, ClipboardList, CheckCircle2, AlertCircle, Hash, CalendarDays, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Patient, Clinic } from "@shared/schema";
+import { Clinic } from "@shared/schema";
 
 export default function DoctorDashboard() {
   const { doctor, isLoading, isAuthenticated, logout, isLoggingOut } = useDoctorAuth();
   const [_, setLocation] = useLocation();
-  const [selectedClinic, setSelectedClinic] = useState<string>("all");
-  const [searchTerm, setSearchTerm] = useState("");
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
 
@@ -25,11 +21,6 @@ export default function DoctorDashboard() {
       setLocation("/clinic-login");
     }
   }, [isLoading, isAuthenticated, setLocation]);
-
-  const { data: patients = [], isLoading: loadingPatients } = useQuery<(Patient & { clinic: Clinic })[]>({
-    queryKey: ["/api/doctor/patients"],
-    enabled: isAuthenticated
-  });
 
   const { data: doctorClinics = [] } = useQuery<Clinic[]>({
     queryKey: ["/api/doctor/clinics"],
@@ -51,23 +42,7 @@ export default function DoctorDashboard() {
 
   if (!doctor) return null;
 
-  const filteredPatients = patients.filter(p => {
-    const matchesClinic = selectedClinic === "all" || p.clinicId === parseInt(selectedClinic);
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (p.email && p.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                         (p.phone && p.phone.includes(searchTerm));
-    return matchesClinic && matchesSearch;
-  });
-
-  const groupedPatients = filteredPatients.reduce((acc, p) => {
-    const clinicName = p.clinic?.name || "Unknown Clinic";
-    if (!acc[clinicName]) acc[clinicName] = [];
-    acc[clinicName].push(p);
-    return acc;
-  }, {} as Record<string, typeof filteredPatients>);
-
   const allBookings = Array.isArray(bookings) ? bookings : [];
-
   const myBookings = allBookings.filter((booking: any) => booking.assignedDoctorEmail === doctor.email);
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -161,27 +136,25 @@ export default function DoctorDashboard() {
         <CalendarDays className="absolute right-8 top-1/2 -translate-y-1/2 h-40 w-40 text-white opacity-[0.05] pointer-events-none select-none" />
 
         <div className="relative container mx-auto px-4 py-6">
-          {/* Eyebrow */}
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/55 mb-1">Your Schedule</p>
           <h2 className="text-xl font-extrabold text-white tracking-tight mb-5">
             Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"}, Dr. {doctor.name.split(" ")[0]}
           </h2>
 
-          {/* Stat pills */}
           <div className="flex flex-wrap gap-3">
             <div className="flex items-center gap-2.5 bg-white/10 border border-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5">
               <div className="h-8 w-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
-                <Users className="h-4 w-4 text-white" />
+                <Calendar className="h-4 w-4 text-white" />
               </div>
               <div>
-                <p className="text-[10px] text-white/55 font-medium uppercase tracking-wide leading-none mb-0.5">Total Patients</p>
-                <p className="text-lg font-extrabold text-white leading-none">{patients.length}</p>
+                <p className="text-[10px] text-white/55 font-medium uppercase tracking-wide leading-none mb-0.5">Total</p>
+                <p className="text-lg font-extrabold text-white leading-none">{myBookings.length}</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2.5 bg-white/10 border border-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5">
               <div className="h-8 w-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
-                <Calendar className="h-4 w-4 text-white" />
+                <Clock className="h-4 w-4 text-white" />
               </div>
               <div>
                 <p className="text-[10px] text-white/55 font-medium uppercase tracking-wide leading-none mb-0.5">Today</p>
@@ -201,320 +174,185 @@ export default function DoctorDashboard() {
           </div>
         </div>
 
-        {/* Bottom gradient divider */}
         <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/40 via-primary/60 to-accent/40" />
       </div>
 
-      <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="patients" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="patients" className="flex items-center gap-2" data-testid="tab-patients">
-              <Users className="h-4 w-4" />
-              Patients
-              {patients.length > 0 && (
-                <span className="ml-1 text-[10px] bg-primary/15 text-primary px-1.5 py-0.5 rounded-full font-semibold">
-                  {patients.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="appointments" className="flex items-center gap-2" data-testid="tab-appointments">
-              <Calendar className="h-4 w-4" />
-              Appointments
-              {myBookings.length > 0 && (
-                <span className="ml-1 text-[10px] bg-primary/15 text-primary px-1.5 py-0.5 rounded-full font-semibold">
-                  {myBookings.length}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
+      <main className="container mx-auto px-4 py-8 space-y-6">
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="date"
+              className="pl-9 h-9"
+              value={appointmentDateFilter}
+              onChange={(e) => setAppointmentDateFilter(e.target.value)}
+              data-testid="input-date-filter"
+            />
+          </div>
+          <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
+            <SelectTrigger className="w-full sm:w-[200px] h-9" data-testid="select-clinic-filter">
+              <SelectValue placeholder="All Clinics" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clinics</SelectItem>
+              {doctorClinics.map(c => (
+                <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9"
+            onClick={() => {
+              setAppointmentDateFilter("");
+              setAppointmentClinicFilter("all");
+            }}
+            data-testid="button-clear-filters"
+          >
+            Clear
+          </Button>
+        </div>
 
-          {/* ── Patients tab ── */}
-          <TabsContent value="patients" className="space-y-6 animate-in fade-in duration-500">
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search patients..."
-                  className="pl-9 h-9"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  data-testid="input-search-patients"
-                />
-              </div>
-              <Select value={selectedClinic} onValueChange={setSelectedClinic}>
-                <SelectTrigger className="w-full sm:w-[200px] h-9" data-testid="select-clinic-filter">
-                  <SelectValue placeholder="All Clinics" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Clinics</SelectItem>
-                  {doctorClinics.map(c => (
-                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        {/* Result count */}
+        <p className="text-xs text-muted-foreground px-1">
+          Showing <span className="font-semibold text-foreground">{filteredBookings.length}</span> appointment{filteredBookings.length !== 1 ? "s" : ""}
+        </p>
 
-            {/* Patient grid */}
-            {loadingPatients ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
-              </div>
-            ) : Object.keys(groupedPatients).length > 0 ? (
-              Object.entries(groupedPatients).map(([clinicName, clinicPatients]) => (
-                <div key={clinicName} className="space-y-4">
-                  <div className="flex items-center gap-2 px-1">
-                    <Building2 className="h-4 w-4 text-primary" />
-                    <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{clinicName}</h2>
-                    <Badge variant="secondary" className="h-5 rounded-full px-2 text-[10px]">{clinicPatients.length}</Badge>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {clinicPatients.map((patient) => (
-                      <div
-                        key={patient.id}
-                        data-testid={`patient-card-${patient.id}`}
-                        className="rounded-2xl border border-border/50 bg-background shadow-sm shadow-primary/5 overflow-hidden flex flex-col hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300"
-                      >
-                        {/* Gradient header strip */}
-                        <div className="relative bg-gradient-to-r from-primary/80 via-primary/90 to-accent/70 px-4 pt-4 pb-3 overflow-hidden">
-                          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
-                          <div className="relative flex items-center gap-3">
-                            <div className="relative shrink-0">
-                              <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-accent/40 to-primary/30 blur-sm" />
-                              <div className="relative h-9 w-9 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-white font-bold text-sm ring-1 ring-white/10">
-                                {patient.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
-                              </div>
-                            </div>
-                            <div className="overflow-hidden">
-                              <p className="font-bold text-white text-sm leading-tight truncate">{patient.name}</p>
-                              <p className="text-[10px] text-white/55 truncate mt-0.5">{patient.email || "No email"}</p>
-                            </div>
+        {/* Appointment cards */}
+        {isBookingsLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/50" />
+          </div>
+        ) : filteredBookings.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredBookings.slice(0, 50).map((booking: any) => {
+              const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
+              const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;
+              const durationMin = startTime && endTime
+                ? Math.round((endTime.getTime() - startTime.getTime()) / 60000)
+                : null;
+              const clinicName = booking.clinic?.name || booking.clinicName || doctorClinics.find((c: any) => c.id === booking.clinicId)?.name || "Clinic";
+              const clinicAddress = booking.clinic?.address || (doctorClinics.find((c: any) => c.id === booking.clinicId) as any)?.address;
+              const isVerified = booking.verificationStatus === "verified";
+
+              return (
+                <div
+                  key={booking.id}
+                  data-testid={`booking-card-${booking.id}`}
+                  className="rounded-2xl border border-border/50 bg-background shadow-sm shadow-primary/5 overflow-hidden flex flex-col hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300"
+                >
+                  {/* Gradient top strip */}
+                  <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-3 overflow-hidden">
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
+                    <div className="relative flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="relative shrink-0">
+                          <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-accent/40 to-primary/30 blur-sm" />
+                          <div className="relative h-9 w-9 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-white font-bold text-sm ring-1 ring-white/10">
+                            {booking.customerName?.[0]?.toUpperCase() ?? "?"}
                           </div>
-                          <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
                         </div>
-
-                        {/* Card body */}
-                        <div className="px-4 py-3 flex flex-col gap-2 flex-1">
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="space-y-0.5">
-                              <p className="text-muted-foreground flex items-center gap-1">
-                                <Phone className="h-3 w-3" /> Phone
-                              </p>
-                              <p className="font-medium">{patient.phone || "—"}</p>
-                            </div>
-                            <div className="space-y-0.5 text-right">
-                              <p className="text-muted-foreground">Joined</p>
-                              <p className="font-medium">
-                                {new Date(patient.createdAt || "").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                              </p>
-                            </div>
+                        <div>
+                          <p className="font-bold text-white text-sm leading-tight">{booking.customerName}</p>
+                          <div className="flex items-center gap-1 mt-0.5 text-white/55 text-[10px]">
+                            <Hash className="h-2.5 w-2.5" />
+                            <span>REF-{String(booking.id).padStart(4, "0")}</span>
                           </div>
-                          <div className="pt-1 border-t border-border/40">
-                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <Building2 className="h-3 w-3 shrink-0" />
-                              {clinicName}
+                        </div>
+                      </div>
+                      {booking.verificationStatus && (
+                        <div className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${isVerified ? "bg-green-500/25 text-green-100" : "bg-amber-400/25 text-amber-100"}`}>
+                          {isVerified
+                            ? <CheckCircle2 className="h-3 w-3" />
+                            : <AlertCircle className="h-3 w-3" />}
+                          {isVerified ? "Verified" : "Pending"}
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
+                  </div>
+
+                  {/* Card body */}
+                  <div className="px-4 py-3 flex flex-col gap-2.5 flex-1">
+                    {/* Date & time */}
+                    <div className="flex items-start gap-2">
+                      <Calendar className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold leading-tight">
+                          {startTime ? startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "—"}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          <span>
+                            {startTime ? startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                            {endTime ? ` – ${endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+                          </span>
+                          {durationMin && (
+                            <span className="text-[10px] bg-primary/8 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                              {durationMin} min
                             </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-16 text-muted-foreground border-dashed border-2 rounded-2xl bg-transparent">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-10" />
-                <p className="font-semibold text-base">No patients found</p>
-                <p className="text-sm mt-1 max-w-xs mx-auto">
-                  {searchTerm || selectedClinic !== "all"
-                    ? "Adjust your filters to see more results"
-                    : "Assigned patients will appear here grouped by clinic"}
-                </p>
-              </div>
-            )}
-          </TabsContent>
-
-          {/* ── Appointments tab ── */}
-          <TabsContent value="appointments" className="space-y-6 animate-in fade-in duration-500">
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="date"
-                  className="pl-9 h-9"
-                  value={appointmentDateFilter}
-                  onChange={(e) => setAppointmentDateFilter(e.target.value)}
-                  data-testid="input-date-filter"
-                />
-              </div>
-              <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
-                <SelectTrigger className="w-full sm:w-[200px] h-9" data-testid="select-appointment-clinic-filter">
-                  <SelectValue placeholder="All Clinics" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Clinics</SelectItem>
-                  {doctorClinics.map(c => (
-                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-9"
-                onClick={() => {
-                  setAppointmentDateFilter("");
-                  setAppointmentClinicFilter("all");
-                }}
-                data-testid="button-clear-filters"
-              >
-                Clear
-              </Button>
-            </div>
-
-            {/* Result count */}
-            <div className="flex items-center justify-between px-1">
-              <p className="text-xs text-muted-foreground">
-                Showing <span className="font-semibold text-foreground">{filteredBookings.length}</span> appointment{filteredBookings.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-
-            {/* Appointment cards grid */}
-            {isBookingsLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/50" />
-              </div>
-            ) : filteredBookings.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {filteredBookings.slice(0, 50).map((booking: any) => {
-                  const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
-                  const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;
-                  const durationMin = startTime && endTime
-                    ? Math.round((endTime.getTime() - startTime.getTime()) / 60000)
-                    : null;
-                  const clinicName = booking.clinic?.name || booking.clinicName || doctorClinics.find((c: any) => c.id === booking.clinicId)?.name || "Clinic";
-                  const clinicAddress = booking.clinic?.address || (doctorClinics.find((c: any) => c.id === booking.clinicId) as any)?.address;
-                  const isVerified = booking.verificationStatus === "verified";
-
-                  return (
-                    <div
-                      key={booking.id}
-                      data-testid={`booking-card-${booking.id}`}
-                      className="rounded-2xl border border-border/50 bg-background shadow-sm shadow-primary/5 overflow-hidden flex flex-col hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300"
-                    >
-                      {/* Gradient top strip */}
-                      <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-3 overflow-hidden">
-                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
-                        <div className="relative flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-3">
-                            <div className="relative shrink-0">
-                              <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-accent/40 to-primary/30 blur-sm" />
-                              <div className="relative h-9 w-9 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-white font-bold text-sm ring-1 ring-white/10">
-                                {booking.customerName?.[0]?.toUpperCase() ?? "?"}
-                              </div>
-                            </div>
-                            <div>
-                              <p className="font-bold text-white text-sm leading-tight">{booking.customerName}</p>
-                              <div className="flex items-center gap-1 mt-0.5 text-white/55 text-[10px]">
-                                <Hash className="h-2.5 w-2.5" />
-                                <span>REF-{String(booking.id).padStart(4, "0")}</span>
-                              </div>
-                            </div>
-                          </div>
-                          {booking.verificationStatus && (
-                            <div className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${isVerified ? "bg-green-500/25 text-green-100" : "bg-amber-400/25 text-amber-100"}`}>
-                              {isVerified
-                                ? <CheckCircle2 className="h-3 w-3" />
-                                : <AlertCircle className="h-3 w-3" />}
-                              {isVerified ? "Verified" : "Pending"}
-                            </div>
                           )}
                         </div>
-                        <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
-                      </div>
-
-                      {/* Card body */}
-                      <div className="px-4 py-3 flex flex-col gap-2.5 flex-1">
-                        {/* Date & time */}
-                        <div className="flex items-start gap-2">
-                          <Calendar className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
-                          <div>
-                            <p className="text-sm font-semibold leading-tight">
-                              {startTime ? startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "—"}
-                            </p>
-                            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
-                              <Clock className="h-3 w-3" />
-                              <span>
-                                {startTime ? startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
-                                {endTime ? ` – ${endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
-                              </span>
-                              {durationMin && (
-                                <span className="text-[10px] bg-primary/8 text-primary px-1.5 py-0.5 rounded-full font-medium">
-                                  {durationMin} min
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Clinic */}
-                        <div className="flex items-start gap-2">
-                          <Building2 className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                          <div className="text-xs">
-                            <p className="font-medium text-foreground leading-tight">{clinicName}</p>
-                            {clinicAddress && <p className="text-muted-foreground mt-0.5 leading-tight">{clinicAddress}</p>}
-                          </div>
-                        </div>
-
-                        {/* Reason */}
-                        {booking.description && (
-                          <div className="flex items-start gap-2">
-                            <ClipboardList className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{booking.description}</p>
-                          </div>
-                        )}
-
-                        {/* Contact */}
-                        <div className="pt-1 border-t border-border/40 flex flex-wrap gap-x-4 gap-y-1 mt-auto">
-                          {booking.customerPhone && (
-                            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                              <Phone className="h-3 w-3 shrink-0" />
-                              <span>{booking.customerPhone}</span>
-                            </div>
-                          )}
-                          {booking.customerEmail && (
-                            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground min-w-0">
-                              <Mail className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{booking.customerEmail}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Booked on */}
-                        {booking.createdAt && (
-                          <p className="text-[10px] text-muted-foreground/60">
-                            Booked {new Date(booking.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                          </p>
-                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-16 text-muted-foreground border-dashed border-2 rounded-2xl">
-                <CalendarDays className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                <p className="font-semibold text-base">No appointments found</p>
-                <p className="text-sm mt-1">
-                  {appointmentDateFilter || appointmentClinicFilter !== "all"
-                    ? "Try adjusting your filters"
-                    : "Appointments assigned to you will appear here"}
-                </p>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+
+                    {/* Clinic */}
+                    <div className="flex items-start gap-2">
+                      <Building2 className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                      <div className="text-xs">
+                        <p className="font-medium text-foreground leading-tight">{clinicName}</p>
+                        {clinicAddress && <p className="text-muted-foreground mt-0.5 leading-tight">{clinicAddress}</p>}
+                      </div>
+                    </div>
+
+                    {/* Reason */}
+                    {booking.description && (
+                      <div className="flex items-start gap-2">
+                        <ClipboardList className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{booking.description}</p>
+                      </div>
+                    )}
+
+                    {/* Contact */}
+                    <div className="pt-1 border-t border-border/40 flex flex-wrap gap-x-4 gap-y-1 mt-auto">
+                      {booking.customerPhone && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <Phone className="h-3 w-3 shrink-0" />
+                          <span>{booking.customerPhone}</span>
+                        </div>
+                      )}
+                      {booking.customerEmail && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground min-w-0">
+                          <Mail className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{booking.customerEmail}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Booked on */}
+                    {booking.createdAt && (
+                      <p className="text-[10px] text-muted-foreground/60">
+                        Booked {new Date(booking.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-16 text-muted-foreground border-dashed border-2 rounded-2xl">
+            <CalendarDays className="h-10 w-10 mx-auto mb-3 opacity-20" />
+            <p className="font-semibold text-base">No appointments found</p>
+            <p className="text-sm mt-1">
+              {appointmentDateFilter || appointmentClinicFilter !== "all"
+                ? "Try adjusting your filters"
+                : "Appointments assigned to you will appear here"}
+            </p>
+          </div>
+        )}
       </main>
     </div>
   );
