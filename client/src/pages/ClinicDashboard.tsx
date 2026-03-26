@@ -389,8 +389,16 @@ export default function ClinicDashboard() {
     patientPhone: "",
     patientEmail: "",
     clinicName: "",
+    clinicAddress: "",
+    clinicPhone: "",
+    clinicEmail: "",
+    receiptNumber: "",
     services: [{ description: "Dental Consultation", amount: "500" }],
-    date: ""
+    date: "",
+    discount: "0",
+    tax: "0",
+    paymentMethod: "Cash",
+    remarks: ""
   });
 
   // Count today's bookings using the same timezone-safe comparison
@@ -452,13 +460,22 @@ export default function ClinicDashboard() {
 
   const handleOpenBilling = (booking: BookingWithSlot) => {
     setBillingBooking(booking);
+    const receiptDate = format(new Date(), "yyyyMMdd");
     setBillingDetails({
       patientName: booking.customerName,
       patientPhone: booking.customerPhone,
       patientEmail: booking.customerEmail || "",
       clinicName: clinic?.name || "",
+      clinicAddress: (clinic as any)?.address || "",
+      clinicPhone: (clinic as any)?.phone || "",
+      clinicEmail: (clinic as any)?.email || "",
+      receiptNumber: `RCP-${booking.id}-${receiptDate}`,
       services: [{ description: "Dental Consultation", amount: "500" }],
-      date: format(new Date(booking.slot.startTime), "PPP")
+      date: format(new Date(booking.slot.startTime), "PPP"),
+      discount: "0",
+      tax: "0",
+      paymentMethod: "Cash",
+      remarks: ""
     });
     setIsBillingOpen(true);
   };
@@ -521,60 +538,199 @@ export default function ClinicDashboard() {
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
 
-    // Header
-    doc.setFontSize(20);
-    doc.setTextColor(40);
-    doc.text(billingDetails.clinicName, pageWidth / 2, 20, { align: "center" });
+    // ── Aurora palette ──────────────────────────────────────────
+    const indigoDark: [number, number, number] = [62, 52, 180];   // primary
+    const magenta: [number, number, number]    = [168, 60, 210];   // accent
+    const indigoMid: [number, number, number]  = [99, 87, 220];
+    const lightBg: [number, number, number]    = [245, 244, 255];
+    const textDark: [number, number, number]   = [30, 28, 60];
+    const textMid: [number, number, number]    = [90, 88, 120];
+    const white: [number, number, number]      = [255, 255, 255];
 
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text("Medical Billing Invoice", pageWidth / 2, 28, { align: "center" });
+    // ── Top gradient bar ────────────────────────────────────────
+    // Simulate gradient with two overlapping rectangles
+    doc.setFillColor(...indigoDark);
+    doc.rect(0, 0, pageWidth / 2, 6, "F");
+    doc.setFillColor(...magenta);
+    doc.rect(pageWidth / 2, 0, pageWidth / 2, 6, "F");
 
-    // Divider
-    doc.setDrawColor(200);
-    doc.line(20, 35, pageWidth - 20, 35);
+    // ── Header: two-column layout ────────────────────────────────
+    // Left: Clinic Name + subtitle
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...textDark);
+    doc.text(billingDetails.clinicName || "Clinic", margin, 20);
 
-    // Patient Details
-    doc.setFontSize(12);
-    doc.setTextColor(40);
-    doc.text("Patient Information", 20, 45);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...indigoMid);
+    doc.text("Medical Services Receipt", margin, 27);
 
-    doc.setFontSize(10);
-    doc.setTextColor(80);
-    doc.text(`Name: ${billingDetails.patientName}`, 20, 52);
-    doc.text(`Phone: ${billingDetails.patientPhone}`, 20, 58);
-    doc.text(`Email: ${billingDetails.patientEmail}`, 20, 64);
-    doc.text(`Date: ${billingDetails.date}`, 20, 70);
+    // Right: clinic contact block
+    doc.setFontSize(8);
+    doc.setTextColor(...textMid);
+    const rightX = pageWidth - margin;
+    let contactY = 12;
+    if (billingDetails.clinicAddress) {
+      doc.text(billingDetails.clinicAddress, rightX, contactY, { align: "right" });
+      contactY += 5;
+    }
+    if (billingDetails.clinicPhone) {
+      doc.text(`Tel: ${billingDetails.clinicPhone}`, rightX, contactY, { align: "right" });
+      contactY += 5;
+    }
+    if (billingDetails.clinicEmail) {
+      doc.text(billingDetails.clinicEmail, rightX, contactY, { align: "right" });
+    }
 
-    // Billing Table
-    const tableBody = billingDetails.services.map(s => [s.description, s.amount]);
-    const totalAmount = billingDetails.services.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+    // ── Divider ──────────────────────────────────────────────────
+    doc.setDrawColor(...indigoDark);
+    doc.setLineWidth(0.4);
+    doc.line(margin, 33, pageWidth - margin, 33);
 
+    // ── Receipt meta row ─────────────────────────────────────────
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...textMid);
+    doc.text(`Date:  ${billingDetails.date}`, margin, 40);
+    doc.text(`Receipt #:  ${billingDetails.receiptNumber}`, rightX, 40, { align: "right" });
+
+    // ── Patient Information table ─────────────────────────────────
     autoTable(doc, {
-      startY: 80,
-      head: [["Service Description", "Amount (INR)"]],
-      body: tableBody,
-      theme: "striped",
-      headStyles: { fillColor: [79, 70, 229] }, // Indigo color
+      startY: 46,
+      head: [["Patient Information", ""]],
+      body: [
+        ["Name", billingDetails.patientName],
+        ["Phone", billingDetails.patientPhone],
+        ["Email", billingDetails.patientEmail || "—"],
+        ["Appointment Date", billingDetails.date],
+      ],
+      theme: "grid",
+      headStyles: {
+        fillColor: indigoDark,
+        textColor: white,
+        fontStyle: "bold",
+        fontSize: 9,
+        halign: "center",
+        cellPadding: 3,
+      },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: 48, textColor: textDark, fillColor: lightBg, fontSize: 8.5 },
+        1: { textColor: textMid, fontSize: 8.5 },
+      },
+      bodyStyles: { cellPadding: 2.5 },
+      margin: { left: margin, right: margin },
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY;
+    // ── Services table ────────────────────────────────────────────
+    const servicesStartY = (doc as any).lastAutoTable.finalY + 8;
+    const tableBody = billingDetails.services.map(s => [
+      s.description,
+      `INR ${parseFloat(s.amount || "0").toFixed(2)}`
+    ]);
 
-    // Total
-    doc.setFontSize(12);
-    doc.setTextColor(40);
-    doc.text(`Total Amount: INR ${totalAmount.toFixed(2)}`, pageWidth - 20, finalY + 15, { align: "right" });
+    autoTable(doc, {
+      startY: servicesStartY,
+      head: [["Description of Services", "Amount"]],
+      body: tableBody,
+      theme: "striped",
+      headStyles: {
+        fillColor: indigoDark,
+        textColor: white,
+        fontStyle: "bold",
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      columnStyles: {
+        0: { textColor: textDark, fontSize: 8.5 },
+        1: { halign: "right", textColor: textDark, cellWidth: 38, fontSize: 8.5 },
+      },
+      alternateRowStyles: { fillColor: [248, 247, 255] },
+      bodyStyles: { cellPadding: 2.5 },
+      margin: { left: margin, right: margin },
+    });
 
-    // Footer
-    doc.setFontSize(10);
-    doc.setTextColor(150);
-    doc.text("Generated by BookMySlot", pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: "center" });
+    const afterServicesY = (doc as any).lastAutoTable.finalY + 8;
 
-    doc.save(`bill_${billingDetails.patientName.replace(/\s+/g, "_")}_${format(new Date(), "yyyyMMdd")}.pdf`);
+    // ── Summary block (bottom right) + Payment block (bottom left) ─
+    const subtotal = billingDetails.services.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+    const discountPct = parseFloat(billingDetails.discount) || 0;
+    const taxPct = parseFloat(billingDetails.tax) || 0;
+    const discountAmt = subtotal * (discountPct / 100);
+    const taxAmt = (subtotal - discountAmt) * (taxPct / 100);
+    const total = subtotal - discountAmt + taxAmt;
+
+    // Payment method + Remarks (left side)
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...textDark);
+    doc.text("Payment Method:", margin, afterServicesY + 4);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...textMid);
+    doc.text(billingDetails.paymentMethod || "Cash", margin, afterServicesY + 10);
+
+    if (billingDetails.remarks) {
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...textDark);
+      doc.text("Remarks:", margin, afterServicesY + 18);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...textMid);
+      doc.text(billingDetails.remarks, margin, afterServicesY + 24);
+    }
+
+    // Summary table (right side)
+    const summaryData = [
+      ["Subtotal", `INR ${subtotal.toFixed(2)}`],
+      [`Discount (${discountPct}%)`, `- INR ${discountAmt.toFixed(2)}`],
+      [`Tax / GST (${taxPct}%)`, `+ INR ${taxAmt.toFixed(2)}`],
+      ["Total Amount Due", `INR ${total.toFixed(2)}`],
+    ];
+
+    autoTable(doc, {
+      startY: afterServicesY,
+      head: [],
+      body: summaryData,
+      theme: "grid",
+      columnStyles: {
+        0: { halign: "right", fontStyle: "normal", textColor: textMid, fontSize: 8.5, cellWidth: 55 },
+        1: { halign: "right", textColor: textDark, fontSize: 8.5, cellWidth: 38 },
+      },
+      bodyStyles: { cellPadding: 2.5 },
+      didDrawCell: (data) => {
+        // Bold + accent colour for the total row
+        if (data.row.index === 3) {
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...indigoDark);
+        }
+      },
+      margin: { left: pageWidth / 2 + 5, right: margin },
+    });
+
+    // ── Thank-you line ────────────────────────────────────────────
+    const finalY = (doc as any).lastAutoTable.finalY + 12;
+    doc.setFontSize(9.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...indigoMid);
+    doc.text(`Thank you for choosing ${billingDetails.clinicName || "us"}!`, pageWidth / 2, finalY, { align: "center" });
+
+    // ── Bottom gradient bar + footer ──────────────────────────────
+    doc.setFillColor(...indigoDark);
+    doc.rect(0, pageHeight - 8, pageWidth / 2, 8, "F");
+    doc.setFillColor(...magenta);
+    doc.rect(pageWidth / 2, pageHeight - 8, pageWidth / 2, 8, "F");
+
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...white);
+    doc.text("Powered by BookMySlot", pageWidth / 2, pageHeight - 3, { align: "center" });
+
+    doc.save(`receipt_${billingDetails.patientName.replace(/\s+/g, "_")}_${format(new Date(), "yyyyMMdd")}.pdf`);
 
     setIsBillingOpen(false);
-    toast({ title: "Bill Generated", description: "Your PDF download has started." });
+    toast({ title: "Receipt Generated", description: "Your PDF download has started." });
   };
 
   const handleLogout = async () => {
@@ -2143,23 +2299,25 @@ export default function ClinicDashboard() {
 
       {/* Billing Modal */}
       <Dialog open={isBillingOpen} onOpenChange={setIsBillingOpen}>
-        <DialogContent className="sm:max-w-[425px] rounded-2xl">
+        <DialogContent className="sm:max-w-[520px] rounded-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              Generate Billing Invoice
+              Generate Receipt
             </DialogTitle>
             <DialogDescription>
-              Review and update details before generating the PDF.
+              Review and edit details before generating the PDF. All fields are pre-filled from booking data.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Clinic Information</Label>
+          <div className="grid gap-5 py-2">
+
+            {/* Clinic Information */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Clinic Information</Label>
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
                   <Input
                     value={billingDetails.clinicName}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicName: e.target.value }))}
@@ -2167,104 +2325,214 @@ export default function ClinicDashboard() {
                     className="h-9"
                   />
                 </div>
-              </div>
-
-              <div className="grid gap-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Patient Information</Label>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={billingDetails.patientName}
-                      onChange={(e) => setBillingDetails(prev => ({ ...prev, patientName: e.target.value }))}
-                      placeholder="Patient Name"
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={billingDetails.patientPhone}
-                      onChange={(e) => setBillingDetails(prev => ({ ...prev, patientPhone: e.target.value }))}
-                      placeholder="Phone"
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={billingDetails.patientEmail}
-                      onChange={(e) => setBillingDetails(prev => ({ ...prev, patientEmail: e.target.value }))}
-                      placeholder="Email"
-                      className="h-9"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Services</Label>
-                  <Button variant="ghost" size="sm" onClick={addServiceRow} className="h-7 px-2 text-primary gap-1">
-                    <Plus className="h-3 w-3" />
-                    <span className="text-[10px]">Add Row</span>
-                  </Button>
-                </div>
-                <div className="space-y-3">
-                  {billingDetails.services.map((service, index) => (
-                    <div key={index} className="flex gap-2 items-start">
-                      <div className="flex-1">
-                        <Input
-                          value={service.description}
-                          onChange={(e) => updateService(index, "description", e.target.value)}
-                          placeholder="Service Description"
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div className="w-24">
-                        <Input
-                          type="number"
-                          value={service.amount}
-                          onChange={(e) => updateService(index, "amount", e.target.value)}
-                          placeholder="Amount"
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      {billingDetails.services.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeServiceRow(index)}
-                          className="h-9 w-9 text-destructive hover:bg-destructive/10"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Appointment Date</Label>
                 <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
                   <Input
-                    value={billingDetails.date}
-                    onChange={(e) => setBillingDetails(prev => ({ ...prev, date: e.target.value }))}
-                    placeholder="Date"
+                    value={billingDetails.clinicEmail}
+                    onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicEmail: e.target.value }))}
+                    placeholder="Clinic Email"
+                    className="h-9"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Input
+                    value={billingDetails.clinicPhone}
+                    onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicPhone: e.target.value }))}
+                    placeholder="Clinic Phone"
+                    className="h-9"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0 opacity-0" />
+                  <Input
+                    value={billingDetails.clinicAddress}
+                    onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicAddress: e.target.value }))}
+                    placeholder="Clinic Address"
                     className="h-9"
                   />
                 </div>
               </div>
             </div>
+
+            {/* Receipt + Date */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Receipt Details</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={billingDetails.receiptNumber}
+                  onChange={(e) => setBillingDetails(prev => ({ ...prev, receiptNumber: e.target.value }))}
+                  placeholder="Receipt #"
+                  className="h-9 text-sm"
+                />
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Input
+                    value={billingDetails.date}
+                    onChange={(e) => setBillingDetails(prev => ({ ...prev, date: e.target.value }))}
+                    placeholder="Date"
+                    className="h-9 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Patient Information */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Patient Information</Label>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Input
+                    value={billingDetails.patientName}
+                    onChange={(e) => setBillingDetails(prev => ({ ...prev, patientName: e.target.value }))}
+                    placeholder="Patient Name"
+                    className="h-9"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Input
+                    value={billingDetails.patientPhone}
+                    onChange={(e) => setBillingDetails(prev => ({ ...prev, patientPhone: e.target.value }))}
+                    placeholder="Phone"
+                    className="h-9"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Input
+                    value={billingDetails.patientEmail}
+                    onChange={(e) => setBillingDetails(prev => ({ ...prev, patientEmail: e.target.value }))}
+                    placeholder="Email"
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Services */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Services</Label>
+                <Button variant="ghost" size="sm" onClick={addServiceRow} className="h-7 px-2 text-primary gap-1">
+                  <Plus className="h-3 w-3" />
+                  <span className="text-[10px]">Add Row</span>
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {billingDetails.services.map((service, index) => (
+                  <div key={index} className="flex gap-2 items-start">
+                    <div className="flex-1">
+                      <Input
+                        value={service.description}
+                        onChange={(e) => updateService(index, "description", e.target.value)}
+                        placeholder="Service Description"
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <div className="w-24">
+                      <Input
+                        type="number"
+                        value={service.amount}
+                        onChange={(e) => updateService(index, "amount", e.target.value)}
+                        placeholder="Amount"
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    {billingDetails.services.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeServiceRow(index)}
+                        className="h-9 w-9 text-destructive hover:bg-destructive/10"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Discount, Tax, Payment */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Payment & Summary</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Discount %</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={billingDetails.discount}
+                    onChange={(e) => setBillingDetails(prev => ({ ...prev, discount: e.target.value }))}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Tax / GST %</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={billingDetails.tax}
+                    onChange={(e) => setBillingDetails(prev => ({ ...prev, tax: e.target.value }))}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Payment Method</Label>
+                  <Input
+                    value={billingDetails.paymentMethod}
+                    onChange={(e) => setBillingDetails(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    placeholder="Cash / UPI / Card"
+                    className="h-9 text-sm"
+                  />
+                </div>
+              </div>
+              <Input
+                value={billingDetails.remarks}
+                onChange={(e) => setBillingDetails(prev => ({ ...prev, remarks: e.target.value }))}
+                placeholder="Remarks (optional)"
+                className="h-9 text-sm"
+              />
+            </div>
+
+            {/* Live total preview */}
+            {(() => {
+              const sub = billingDetails.services.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+              const disc = sub * ((parseFloat(billingDetails.discount) || 0) / 100);
+              const tax = (sub - disc) * ((parseFloat(billingDetails.tax) || 0) / 100);
+              const total = sub - disc + tax;
+              return (
+                <div className="rounded-xl bg-primary/5 border border-primary/15 px-4 py-3 space-y-1 text-sm">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal</span><span>INR {sub.toFixed(2)}</span>
+                  </div>
+                  {disc > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Discount</span><span>- INR {disc.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {tax > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Tax / GST</span><span>+ INR {tax.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-semibold text-primary border-t border-primary/15 pt-1 mt-1">
+                    <span>Total Amount Due</span><span>INR {total.toFixed(2)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsBillingOpen(false)}>Cancel</Button>
             <Button onClick={generatePDF} className="gap-2">
               <Download className="h-4 w-4" />
-              Generate PDF
+              Generate Receipt
             </Button>
           </DialogFooter>
         </DialogContent>
