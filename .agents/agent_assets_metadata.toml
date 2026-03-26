@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "x3pxljJpq4fWfGuL9PF5o"
+uri = "file://screenshots/aurora-light.jpg"
+type = "image"
+title = "Aurora Theme — Light Mode Preview"
