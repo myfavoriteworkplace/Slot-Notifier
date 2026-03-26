@@ -1213,7 +1213,7 @@ export default function ClinicDashboard() {
                                     <CheckCircle2 className="h-2.5 w-2.5" />
                                     Confirmed
                                   </span>
-                                ) : !isPast && (
+                                ) : !isBookingPast && (
                                   <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full text-amber-600 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30">
                                     Pending
                                   </span>
@@ -1607,7 +1607,7 @@ export default function ClinicDashboard() {
 
                         {/* ── FOOTER ACTIONS ───────────────────────────── */}
                         <div className="shrink-0 px-4 py-3 border-t border-border/50 bg-muted/10 flex gap-2.5">
-                          {!isPast && booking.verificationStatus !== 'confirmed' && (
+                          {!isBookingPast && booking.verificationStatus !== 'confirmed' && (
                             <Button
                               className="flex-1 gap-2 h-9 text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 border-0 shadow-md shadow-emerald-500/20 text-white"
                               onClick={() => confirmBookingMutation.mutate(booking.id)}
@@ -1670,7 +1670,7 @@ export default function ClinicDashboard() {
 
                     {/* Quick-action footer */}
                     <div className="px-4 py-2.5 flex items-center gap-2 border-t border-border/50 bg-muted/20">
-                      {!isPast && booking.verificationStatus !== 'confirmed' && (
+                      {!isBookingPast && booking.verificationStatus !== 'confirmed' && (
                         <>
                           <Button
                             variant="ghost"
