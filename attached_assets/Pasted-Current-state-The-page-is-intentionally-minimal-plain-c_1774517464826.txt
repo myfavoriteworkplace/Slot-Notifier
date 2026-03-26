@@ -1,0 +1,57 @@
+Current state
+The page is intentionally minimal — plain centered text, two stock shadcn Cards, no background treatment. Compared to everywhere else in the app it has:
+* No hero banner
+* No gradient or neon accent bars
+* No glow blobs
+* Cards with no colour, no gradient header, no depth
+* A generic font-bold heading with no visual hierarchy
+
+What the rest of the app consistently does
+Every major page (Book, ClinicLogin, ClinicDashboard, Admin Smile Deals) follows the same pattern:
+1. 3px neon bar at the top — from-accent via-primary to-accent
+2. Dark gradient hero block — from-primary/90 via-primary to-accent/80 with a subtle radial white glow overlay and a decorative large icon faded in the corner
+3. Eyebrow label — small caps, wide tracking, text-white/60
+4. Bold headline + subdued subline — all white against the hero background
+5. Bottom gradient divider closing the hero
+6. Cards with a coloured gradient header strip, icon avatar with glow, and border-primary/25 shadow-primary/8 depth
+
+What I propose to do
+Rebuild GettingStarted.tsx to match that exact language:
+Element	Change
+Page wrapper	Add ambient glow blobs (top-right primary, bottom-left accent) — same as Book.tsx
+Header	Replace plain <h1> with a full-width hero banner: neon top bar → gradient background → eyebrow + headline + subline → bottom divider
+"Book a Slot" card	Add a coloured gradient header section (like Admin Smile Deals card), glow avatar around icon, primary-accented CTA button
+"Register Clinic" card	Same card structure but with a softer treatment — gradient header, slightly different icon glow, outline-style CTA
+Footer sign-in	Keep, but tighten the styling to match the rest of the form footers
+The decorative large icon in the hero corner would be the CalendarDays icon at low opacity — same technique used in the Book page hero.
+Visually this page will go from "generic landing page" to cohesive with everything the user already sees when they open a booking or clinic portal.
+
+——————————————————————————
+
+What the current card shows (lines 297–327): It's a flat horizontal list row — patient initial circle, name, a tiny clinic badge, phone number on the left, and date + time on the right. That's it. No card boundary per appointment, no visual hierarchy, no colour differentiation.
+
+Data available on every booking that's currently unused:
+Field	Currently shown
+customerName	✅
+customerPhone	✅
+slot.startTime (date)	✅
+slot.startTime (time)	✅
+customerEmail	❌
+description (reason for visit)	❌ — probably the most clinically useful field
+verificationStatus (verified / pending)	❌
+slot.endTime (appointment duration)	❌
+createdAt (when they booked)	❌
+clinic.name / clinic.address	❌ (only shown as a tiny secondary badge)
+booking.id (reference number)	❌
+What I'll build:
+Replace the flat row list with a proper card grid (one card per appointment). Each card will have:
+* Accent top strip in primary gradient — matches the clinic and doctor dashboard header style
+* Patient avatar with initials + name in font-display, and a #REF booking number in muted text
+* Status badge — green "Verified" or amber "Pending" depending on verificationStatus
+* Appointment time block — date bold and prominent, time range with a clock icon, and calculated duration (e.g. "30 min")
+* Clinic row with building icon and address if available
+* Description / reason row with a clipboard icon — only shown if description is set; this is the most important clinical data
+* Contact row — phone + email side by side with icons
+* Booked on footer in muted text
+The card style will mirror the hover-elevate, border/shadow, and glass-backdrop patterns already used on the clinic dashboard and doctor header.
+No backend changes needed — all the data is already in the response. Frontend-only edit to DoctorDashboard.tsx.
