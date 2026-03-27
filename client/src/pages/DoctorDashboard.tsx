@@ -39,7 +39,7 @@ const HELP_ITEMS = [
   },
   {
     icon: Hash,
-    color: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+    color: "bg-primary/10 text-primary",
     title: "Appointment cards",
     desc: "Each card shows the patient's name, a unique booking reference (REF-XXXX), the date, time, duration, reason for visit, and contact details — everything you need at a glance.",
   },

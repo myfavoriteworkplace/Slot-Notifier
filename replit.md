@@ -67,6 +67,15 @@ BookMySlot is a full-stack appointment booking application that enables service 
 - **Smile DEALS**: Create and manage promotional offers with images, descriptions, and pricing in ₹.
 - **Dashboard**: Tabbed interface for Active, Pending, Archived clinics, and Smile Deals.
 
+## Color Palette (Green Theme)
+- **Primary**: `#0F9B6E` (HSL 161 82% 33%) — main buttons, links, active states
+- **Dark Green**: `#085041` — header backgrounds, gradient starts, PDF accent
+- **Accent**: `#1D9E75` (HSL 161 69% 37%) — highlights, hover states, gradient ends
+- **Light Tint**: `#E1F5EE` — panel backgrounds, secondary fills
+- **Neutral**: `#F8F8F6` — near-white page background
+
+Sidebar nav color coding: Bookings = primary green, Configure Slots = blue, Manage Doctors = teal, Book a Slot = primary green.
+
 ## Recent Changes
 - **2026-03-05**: Added Smile DEALS system with admin CRUD and public gallery.
 - **2026-03-05**: Integrated Resend API for booking and invitation emails.

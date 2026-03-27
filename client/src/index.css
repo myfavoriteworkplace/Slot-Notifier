@@ -5,37 +5,39 @@
 @tailwind utilities;
 
 :root {
-  /* Aurora Theme — Light */
-  --background: 248 35% 97.5%;
-  --foreground: 224 71% 4%;
-  
+  /* BookMySlot — Green Theme Light */
+  /* Neutral background with subtle green tint */
+  --background: 160 25% 97%;
+  --foreground: 168 43% 10%;
+
   --card: 0 0% 100%;
-  --card-foreground: 224 71% 4%;
-  
+  --card-foreground: 168 43% 10%;
+
   --popover: 0 0% 100%;
-  --popover-foreground: 224 71% 4%;
-  
-  /* Electric Indigo */
-  --primary: 248 86% 55%;
-  --primary-foreground: 210 20% 98%;
-  
-  --secondary: 248 30% 94%;
-  --secondary-foreground: 222 47% 11%;
-  
-  --muted: 248 30% 94%;
-  --muted-foreground: 215 16% 47%;
-  
-  /* Magenta-Violet Accent */
-  --accent: 290 78% 60%;
-  --accent-foreground: 210 40% 98%;
-  
+  --popover-foreground: 168 43% 10%;
+
+  /* Primary: #0F9B6E → HSL 161 82% 33% */
+  --primary: 161 82% 33%;
+  --primary-foreground: 0 0% 100%;
+
+  /* Secondary: Light Tint #E1F5EE → HSL 159 50% 92% */
+  --secondary: 159 45% 91%;
+  --secondary-foreground: 168 43% 17%;
+
+  --muted: 160 20% 93%;
+  --muted-foreground: 160 12% 45%;
+
+  /* Accent: #1D9E75 → HSL 161 69% 37% */
+  --accent: 161 69% 37%;
+  --accent-foreground: 0 0% 100%;
+
   --destructive: 0 84% 60%;
-  --destructive-foreground: 210 40% 98%;
-  
-  --border: 248 30% 89%;
-  --input: 248 30% 89%;
-  --ring: 290 78% 60%;
-  
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 160 20% 88%;
+  --input: 160 20% 88%;
+  --ring: 161 69% 37%;
+
   --radius: 0.75rem;
 
   --font-sans: 'DM Sans', sans-serif;
@@ -43,36 +45,37 @@
 }
 
 .dark {
-  /* Aurora Theme — Dark (lightened for card depth) */
-  --background: 238 40% 9%;
-  --foreground: 210 20% 98%;
-  
-  --card: 240 38% 13%;
-  --card-foreground: 210 20% 98%;
-  
-  --popover: 240 38% 13%;
-  --popover-foreground: 210 20% 98%;
-  
-  /* Vivid Purple */
-  --primary: 255 72% 60%;
-  --primary-foreground: 210 20% 98%;
-  
-  --secondary: 242 35% 18%;
-  --secondary-foreground: 210 20% 98%;
-  
-  --muted: 242 35% 18%;
-  --muted-foreground: 220 15% 65%;
-  
-  /* Bright Magenta */
-  --accent: 298 72% 62%;
-  --accent-foreground: 210 20% 98%;
-  
+  /* BookMySlot — Green Theme Dark */
+  /* Deep forest background */
+  --background: 168 38% 8%;
+  --foreground: 160 20% 96%;
+
+  --card: 168 32% 12%;
+  --card-foreground: 160 20% 96%;
+
+  --popover: 168 32% 12%;
+  --popover-foreground: 160 20% 96%;
+
+  /* Primary lightened for dark: #1D9E75 → 161 69% 45% */
+  --primary: 161 69% 42%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 168 28% 17%;
+  --secondary-foreground: 160 20% 96%;
+
+  --muted: 168 28% 17%;
+  --muted-foreground: 160 12% 60%;
+
+  /* Accent brighter in dark mode */
+  --accent: 161 75% 48%;
+  --accent-foreground: 0 0% 100%;
+
   --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 20% 98%;
-  
-  --border: 242 35% 18%;
-  --input: 242 35% 18%;
-  --ring: 298 72% 62%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 168 28% 19%;
+  --input: 168 28% 19%;
+  --ring: 161 69% 42%;
 }
 
 @layer base {
@@ -83,7 +86,7 @@
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
   }
-  
+
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
     @apply font-bold tracking-tight text-foreground;
@@ -95,7 +98,7 @@
   .glass-panel {
     @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-xl;
   }
-  
+
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
   }

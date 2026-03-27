@@ -571,15 +571,15 @@ export default function ClinicDashboard() {
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
 
-    // ── Aurora palette ───────────────────────────────────────────
-    const indigoDark: [number, number, number]  = [62,  52,  180];
-    const magenta: [number, number, number]     = [168, 60,  210];
-    const indigoMid: [number, number, number]   = [99,  87,  220];
-    const lightBg: [number, number, number]     = [245, 244, 255];
-    const metaBg: [number, number, number]      = [237, 235, 252];
-    const totalRowBg: [number, number, number]  = [225, 222, 255];
-    const textDark: [number, number, number]    = [30,  28,  60];
-    const textMid: [number, number, number]     = [90,  88,  120];
+    // ── BookMySlot Green palette ─────────────────────────────────
+    const indigoDark: [number, number, number]  = [8,   80,  65];   // #085041 dark green
+    const magenta: [number, number, number]     = [29,  158, 117];  // #1D9E75 accent green
+    const indigoMid: [number, number, number]   = [15,  155, 110];  // #0F9B6E primary green
+    const lightBg: [number, number, number]     = [225, 245, 238];  // #E1F5EE light tint
+    const metaBg: [number, number, number]      = [209, 237, 226];  // soft green tint
+    const totalRowBg: [number, number, number]  = [193, 229, 215];  // medium green tint
+    const textDark: [number, number, number]    = [8,   40,  32];   // deep forest text
+    const textMid: [number, number, number]     = [50,  100, 80];   // medium green text
     const textLight: [number, number, number]   = [150, 148, 180];
     const white: [number, number, number]       = [255, 255, 255];
 
@@ -1013,16 +1013,16 @@ export default function ClinicDashboard() {
               <button
                 onClick={() => setActivePanel('manage-doctors')}
                 data-testid="nav-manage-doctors"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'manage-doctors' ? 'bg-emerald-500/10 border border-emerald-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'manage-doctors' ? 'bg-teal-500/10 border border-teal-500/20' : 'border border-transparent hover:bg-muted/50'}`}
               >
-                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'manage-doctors' ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-muted/50 border-border/50'}`}>
-                  <Stethoscope className={`h-4 w-4 ${activePanel === 'manage-doctors' ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'manage-doctors' ? 'bg-teal-500/10 border-teal-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Stethoscope className={`h-4 w-4 ${activePanel === 'manage-doctors' ? 'text-teal-600' : 'text-muted-foreground'}`} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'manage-doctors' ? 'text-emerald-600' : 'text-foreground'}`}>Manage Doctors</p>
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'manage-doctors' ? 'text-teal-700 dark:text-teal-400' : 'text-foreground'}`}>Manage Doctors</p>
                   <p className="text-[10px] text-muted-foreground">Add or remove doctors</p>
                 </div>
-                {activePanel === 'manage-doctors' && <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />}
+                {activePanel === 'manage-doctors' && <div className="h-1.5 w-1.5 rounded-full bg-teal-500 shrink-0" />}
               </button>
 
               <button
@@ -1373,10 +1373,10 @@ export default function ClinicDashboard() {
                             {/* Assigned doctor */}
                             {booking.assignedDoctor ? (
                               <div className="flex items-center gap-2.5 text-[12px]">
-                                <div className="h-5 w-5 rounded-md bg-indigo-500/10 flex items-center justify-center shrink-0">
-                                  <Stethoscope className="h-3 w-3 text-indigo-500" />
+                                <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                  <Stethoscope className="h-3 w-3 text-primary" />
                                 </div>
-                                <span className="font-medium text-indigo-600 dark:text-indigo-400">{booking.assignedDoctor}</span>
+                                <span className="font-medium text-primary">{booking.assignedDoctor}</span>
                               </div>
                             ) : !isBookingPast && (
                               <div className="flex items-center gap-2.5 text-[12px]">
@@ -1942,7 +1942,7 @@ export default function ClinicDashboard() {
           {/* MANAGE DOCTORS PANEL */}
           {activePanel === 'manage-doctors' && (
             <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-emerald-600 to-teal-500 px-5 py-4 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-[#085041] to-[#0F9B6E] px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Stethoscope className="h-5 w-5 text-white" />
                   <div>
