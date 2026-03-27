@@ -714,6 +714,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/clinics/:id/public", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid clinic ID" });
+      const clinic = await storage.getClinic(id);
+      if (!clinic || clinic.isArchived) return res.status(404).json({ message: "Clinic not found" });
+      const { passwordHash, registeredBy, ...publicFields } = clinic;
+      res.json(publicFields);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/clinics", isAuthenticated, async (req, res) => {
     if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Forbidden" });
     try {

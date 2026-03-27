@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Building2, MapPin, Mail, Clock, ArrowLeft, Globe, Phone, Award, Activity, ExternalLink, User } from "lucide-react";
@@ -17,37 +16,16 @@ export default function ClinicAbout() {
   // Clean up "null" string if it exists
   const finalClinicId = clinicIdFromUrl === "null" ? null : clinicIdFromUrl;
 
-  const { data: clinics, isLoading } = useQuery<Clinic[]>({
-    queryKey: ['/api/clinics'],
+  const { data: clinic, isLoading } = useQuery<Omit<Clinic, 'passwordHash' | 'registeredBy'>>({
+    queryKey: ['/api/clinics', finalClinicId, 'public'],
+    queryFn: async () => {
+      const res = await fetch(`/api/clinics/${finalClinicId}/public`);
+      if (!res.ok) throw new Error("Clinic not found");
+      return res.json();
+    },
+    enabled: !!finalClinicId,
+    retry: false,
   });
-
-  const hardcodedClinic: Clinic = {
-    id: 999,
-    name: "Demo Smile Clinic",
-    address: "123 Demo St, Dental City",
-    city: null,
-    pincode: null,
-    username: "demo_clinic",
-    passwordHash: "",
-    email: "demo@example.com",
-    phone: "9876543210",
-    website: "www.demosmile.com",
-    doctorName: "Dr. Demo",
-    doctorSpecialization: "General Dentistry",
-    doctorDegree: "DDS",
-    logoUrl: null,
-    status: "approved",
-    registeredBy: null,
-    doctors: [],
-    isArchived: false,
-    createdAt: new Date()
-  };
-
-  const allClinics = clinics 
-    ? [...clinics.filter(c => !c.isArchived && c.name !== "Demo Smile Clinic"), hardcodedClinic]
-    : [hardcodedClinic];
-
-  const clinic = allClinics.find(c => c.id.toString() === finalClinicId);
 
   if (isLoading) {
     return (
