@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X,
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, Receipt, FileText,
-  User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter
+  User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -89,6 +89,18 @@ export default function ClinicDashboard() {
   const [filterDate, setFilterDate] = useState<Date | undefined>(new Date());
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
   const [quickFilter, setQuickFilter] = useState<'all' | 'today' | 'upcoming' | 'past'>('all');
+  const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
+
+  const copyClinicUrl = (type: 'booking' | 'about') => {
+    if (!clinic?.id) return;
+    const url = type === 'booking'
+      ? `${window.location.origin}/book/${clinic.id}`
+      : `${window.location.origin}/about?clinicId=${clinic.id}`;
+    navigator.clipboard.writeText(url);
+    setCopiedUrlType(type);
+    toast({ title: type === 'booking' ? "Booking URL copied" : "About URL copied" });
+    setTimeout(() => setCopiedUrlType(null), 2000);
+  };
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
 
   // Reschedule state
@@ -1043,6 +1055,59 @@ export default function ClinicDashboard() {
 
             </div>
           </div>
+
+          {/* Share Links Card */}
+          <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden mt-3">
+            <div className="px-3 pt-3 pb-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Share Your Clinic</p>
+            </div>
+            <div className="px-2 pb-2 space-y-1.5">
+
+              {/* Booking URL */}
+              <div className="rounded-xl border border-border/50 bg-muted/30 px-2.5 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Book URL</p>
+                    <p className="text-[10px] text-foreground truncate font-mono mt-0.5">/book/{clinic?.id}</p>
+                  </div>
+                  <button
+                    onClick={() => copyClinicUrl('booking')}
+                    data-testid="button-copy-booking-url"
+                    title="Copy booking URL"
+                    className={`h-7 w-7 rounded-lg border flex items-center justify-center shrink-0 transition-all duration-200
+                      ${copiedUrlType === 'booking'
+                        ? 'bg-primary/10 border-primary/30 text-primary'
+                        : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}
+                  >
+                    {copiedUrlType === 'booking' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* About URL */}
+              <div className="rounded-xl border border-border/50 bg-muted/30 px-2.5 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">About URL</p>
+                    <p className="text-[10px] text-foreground truncate font-mono mt-0.5">/about?clinicId={clinic?.id}</p>
+                  </div>
+                  <button
+                    onClick={() => copyClinicUrl('about')}
+                    data-testid="button-copy-about-url"
+                    title="Copy about URL"
+                    className={`h-7 w-7 rounded-lg border flex items-center justify-center shrink-0 transition-all duration-200
+                      ${copiedUrlType === 'about'
+                        ? 'bg-primary/10 border-primary/30 text-primary'
+                        : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}
+                  >
+                    {copiedUrlType === 'about' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
         </div>
         {/* ===== END LEFT SIDEBAR NAV ===== */}
 

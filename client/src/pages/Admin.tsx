@@ -625,14 +625,25 @@ export default function Admin() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              const url = `${window.location.origin}/book/${clinic.id}`;
-                              navigator.clipboard.writeText(url);
+                              navigator.clipboard.writeText(`${window.location.origin}/book/${clinic.id}`);
                               toast({ title: "Booking URL copied" });
                             }}
                             className="h-8 gap-1.5 text-xs"
                           >
                             <Copy className="h-3.5 w-3.5" />
-                            Copy Link
+                            Book URL
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/about?clinicId=${clinic.id}`);
+                              toast({ title: "About URL copied" });
+                            }}
+                            className="h-8 gap-1.5 text-xs"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            About URL
                           </Button>
                           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => {
                             setSelectedClinic(clinic);
@@ -808,14 +819,25 @@ export default function Admin() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              const url = `${window.location.origin}/book/${clinic.id}`;
-                              navigator.clipboard.writeText(url);
+                              navigator.clipboard.writeText(`${window.location.origin}/book/${clinic.id}`);
                               toast({ title: "Booking URL copied" });
                             }}
                             className="h-8 gap-1.5 text-xs"
                           >
                             <Copy className="h-3.5 w-3.5" />
-                            Copy Link
+                            Book URL
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/about?clinicId=${clinic.id}`);
+                              toast({ title: "About URL copied" });
+                            }}
+                            className="h-8 gap-1.5 text-xs"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            About URL
                           </Button>
                           <Button
                             variant="outline"
