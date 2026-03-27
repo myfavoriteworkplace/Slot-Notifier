@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notifications";
 import { useState, useEffect } from "react";
-import logoPath from "@assets/Screenshot_2026-03-28_at_12.18.05_AM_1774637336793.png";
+import logoPath from "@assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png";
 import { 
   Bell, 
   LogOut,
