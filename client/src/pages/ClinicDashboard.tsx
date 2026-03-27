@@ -1211,10 +1211,25 @@ export default function ClinicDashboard() {
                               </div>
 
                               {/* Status pill */}
-                              <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${statusClass}`}>
-                                {isConfirmed && !isBookingPast && <CheckCircle2 className="h-2.5 w-2.5" />}
-                                {statusLabel}
-                              </span>
+                              {!isConfirmed && !isBookingPast ? (
+                                <TooltipProvider delayDuration={200}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${statusClass}`}>
+                                        {statusLabel}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" className="text-xs">
+                                      Awaiting confirmation
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              ) : (
+                                <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${statusClass}`}>
+                                  {isConfirmed && !isBookingPast && <CheckCircle2 className="h-2.5 w-2.5" />}
+                                  {statusLabel}
+                                </span>
+                              )}
                             </div>
                           </div>
 
