@@ -6,6 +6,7 @@ import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, Ey
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SpecializationInput } from "@/components/SpecializationInput";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -476,12 +477,12 @@ export default function Admin() {
                           required
                         />
                         <div className="grid grid-cols-2 gap-2">
-                          <Input
+                          <SpecializationInput
                             placeholder="Specialization"
                             value={doctor.specialization}
-                            onChange={(e) => {
+                            onChange={(val) => {
                               const updated = [...newClinicDoctors];
-                              updated[index].specialization = e.target.value;
+                              updated[index].specialization = val;
                               setNewClinicDoctors(updated);
                             }}
                             className="h-8"

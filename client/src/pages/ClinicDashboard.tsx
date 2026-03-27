@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
+import { SpecializationInput } from "@/components/SpecializationInput";
 import { Label } from "@/components/ui/label";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
@@ -2136,10 +2137,10 @@ export default function ClinicDashboard() {
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
                               <Label htmlFor="doctor-specialization" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Specialization</Label>
-                              <Input
+                              <SpecializationInput
                                 id="doctor-specialization"
                                 value={newDoctorSpecialization}
-                                onChange={(e) => setNewDoctorSpecialization(e.target.value)}
+                                onChange={setNewDoctorSpecialization}
                                 placeholder="General Dentist"
                                 data-testid="input-doctor-specialization"
                                 required
