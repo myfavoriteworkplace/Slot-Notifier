@@ -87,6 +87,7 @@ export default function ClinicDashboard() {
   });
   const [filterDate, setFilterDate] = useState<Date | undefined>(new Date());
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
+  const [quickFilter, setQuickFilter] = useState<'all' | 'today' | 'upcoming' | 'past'>('all');
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
 
   // Reschedule state
@@ -437,6 +438,17 @@ export default function ClinicDashboard() {
 
   const filteredBookings = bookings?.filter(booking => {
     const bookingDate = new Date(booking.slot.startTime);
+
+    // Quick filter takes precedence over date picker
+    if (quickFilter === 'today') {
+      return format(bookingDate, 'yyyy-MM-dd') === todayStr;
+    }
+    if (quickFilter === 'upcoming') {
+      return bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr;
+    }
+    if (quickFilter === 'past') {
+      return bookingDate < todayStart;
+    }
 
     if (filterDate && filterEndDate) {
       return bookingDate >= startOfDay(filterDate) && bookingDate <= endOfDay(filterEndDate);
@@ -1039,44 +1051,72 @@ export default function ClinicDashboard() {
           {/* BOOKINGS PANEL */}
           {activePanel === 'bookings' && (
             <div className="space-y-5">
-          {/* Enhanced Stats Cards */}
+          {/* Stats Cards — click to filter */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Card className="shadow-sm border-border/50 overflow-hidden">
+            {/* Upcoming */}
+            <Card
+              className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'upcoming' ? 'ring-2 ring-blue-500 border-blue-400' : 'border-border/50'}`}
+              onClick={() => setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming')}
+              data-testid="card-filter-upcoming"
+            >
               <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
               <CardContent className="p-4 text-left flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-blue-500/20' : 'bg-blue-500/10'}`}>
                   <TrendingUp className="h-4 w-4 text-blue-500" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-medium text-muted-foreground">Upcoming</p>
                   <p className="text-xl font-bold text-blue-600">{futureBookingsCount}</p>
                 </div>
+                {quickFilter === 'upcoming' && (
+                  <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                )}
               </CardContent>
             </Card>
-            <Card className="shadow-sm border-border/50 overflow-hidden">
+
+            {/* Past */}
+            <Card
+              className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'past' ? 'ring-2 ring-slate-400 border-slate-400' : 'border-border/50'}`}
+              onClick={() => setQuickFilter(q => q === 'past' ? 'all' : 'past')}
+              data-testid="card-filter-past"
+            >
               <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
               <CardContent className="p-4 text-left flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'past' ? 'bg-muted' : 'bg-muted'}`}>
                   <History className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-medium text-muted-foreground">Past</p>
                   <p className="text-xl font-bold text-muted-foreground">{pastBookingsCount}</p>
                 </div>
+                {quickFilter === 'past' && (
+                  <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                )}
               </CardContent>
             </Card>
-            <Card className="shadow-sm border-border/50 overflow-hidden">
+
+            {/* Today */}
+            <Card
+              className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'today' ? 'ring-2 ring-primary border-primary/60' : 'border-border/50'}`}
+              onClick={() => setQuickFilter(q => q === 'today' ? 'all' : 'today')}
+              data-testid="card-filter-today"
+            >
               <div className="h-1 bg-gradient-to-r from-primary to-accent" />
               <CardContent className="p-4 text-left flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-primary/20' : 'bg-primary/10'}`}>
                   <CalendarIcon className="h-4 w-4 text-primary" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-medium text-muted-foreground">Today</p>
                   <p className="text-xl font-bold text-primary">{todaysBookingsCount}</p>
                 </div>
+                {quickFilter === 'today' && (
+                  <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                )}
               </CardContent>
             </Card>
+
+            {/* Filtered (non-clickable, shows current result count) */}
             <Card className="shadow-sm border-border/50 overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
               <CardContent className="p-4 text-left flex items-center gap-3">
@@ -1084,7 +1124,7 @@ export default function ClinicDashboard() {
                   <Filter className="h-4 w-4 text-amber-500" />
                 </div>
                 <div>
-                  <p className="text-[11px] font-medium text-muted-foreground">Filtered</p>
+                  <p className="text-[11px] font-medium text-muted-foreground">Showing</p>
                   <p className="text-xl font-bold text-amber-600">{filteredBookings?.length || 0}</p>
                 </div>
               </CardContent>
@@ -1331,12 +1371,19 @@ export default function ClinicDashboard() {
                             )}
 
                             {/* Assigned doctor */}
-                            {booking.assignedDoctor && (
+                            {booking.assignedDoctor ? (
                               <div className="flex items-center gap-2.5 text-[12px]">
                                 <div className="h-5 w-5 rounded-md bg-indigo-500/10 flex items-center justify-center shrink-0">
                                   <Stethoscope className="h-3 w-3 text-indigo-500" />
                                 </div>
                                 <span className="font-medium text-indigo-600 dark:text-indigo-400">{booking.assignedDoctor}</span>
+                              </div>
+                            ) : !isBookingPast && (
+                              <div className="flex items-center gap-2.5 text-[12px]">
+                                <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                  <Stethoscope className="h-3 w-3 text-muted-foreground/50" />
+                                </div>
+                                <span className="italic text-muted-foreground/60">No doctor assigned</span>
                               </div>
                             )}
 
