@@ -555,50 +555,68 @@ export default function ClinicDashboard() {
     if (!billingBooking) return;
 
     const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageWidth  = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
 
-    // ── Aurora palette ──────────────────────────────────────────
-    const indigoDark: [number, number, number] = [62, 52, 180];   // primary
-    const magenta: [number, number, number]    = [168, 60, 210];   // accent
-    const indigoMid: [number, number, number]  = [99, 87, 220];
-    const lightBg: [number, number, number]    = [245, 244, 255];
-    const textDark: [number, number, number]   = [30, 28, 60];
-    const textMid: [number, number, number]    = [90, 88, 120];
-    const white: [number, number, number]      = [255, 255, 255];
+    // ── Aurora palette ───────────────────────────────────────────
+    const indigoDark: [number, number, number]  = [62,  52,  180];
+    const magenta: [number, number, number]     = [168, 60,  210];
+    const indigoMid: [number, number, number]   = [99,  87,  220];
+    const lightBg: [number, number, number]     = [245, 244, 255];
+    const metaBg: [number, number, number]      = [237, 235, 252];
+    const totalRowBg: [number, number, number]  = [225, 222, 255];
+    const textDark: [number, number, number]    = [30,  28,  60];
+    const textMid: [number, number, number]     = [90,  88,  120];
+    const textLight: [number, number, number]   = [150, 148, 180];
+    const white: [number, number, number]       = [255, 255, 255];
 
-    // ── Top gradient bar ────────────────────────────────────────
-    // Simulate gradient with two overlapping rectangles
+    // ── Top gradient bar (7 px) ──────────────────────────────────
     doc.setFillColor(...indigoDark);
-    doc.rect(0, 0, pageWidth / 2, 6, "F");
+    doc.rect(0, 0, pageWidth * 0.55, 7, "F");
     doc.setFillColor(...magenta);
-    doc.rect(pageWidth / 2, 0, pageWidth / 2, 6, "F");
+    doc.rect(pageWidth * 0.55, 0, pageWidth * 0.45, 7, "F");
 
-    // ── Header: two-column layout ────────────────────────────────
-    // Left: Clinic Name + subtitle
-    doc.setFontSize(18);
+    // ── Medical cross icon (left of clinic name) ─────────────────
+    const iconX = margin;
+    const iconY = 12;
+    const cs    = 4.5;                       // cross arm size
+    const cw    = 1.4;                       // cross arm width
+    doc.setFillColor(...indigoMid);
+    doc.rect(iconX + (cs - cw) / 2, iconY,        cw, cs, "F"); // vertical
+    doc.rect(iconX,                  iconY + (cs - cw) / 2, cs, cw, "F"); // horizontal
+
+    // ── Header left: clinic name + subtitle ─────────────────────
+    const nameX = iconX + cs + 3;
+    doc.setFontSize(19);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...textDark);
-    doc.text(billingDetails.clinicName || "Clinic", margin, 20);
+    doc.text(billingDetails.clinicName || "Clinic", nameX, 20);
 
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...indigoMid);
-    doc.text("Medical Services Receipt", margin, 27);
+    doc.text("Medical Services Receipt", nameX, 27);
 
-    // Right: clinic contact block
-    doc.setFontSize(8);
+    // ── Header right: address (wrapped) + phone + email ─────────
+    const rightX        = pageWidth - margin;
+    const rightColWidth = pageWidth * 0.42;   // max width for right column text
+    let   contactY      = 11;
+
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(...textMid);
-    const rightX = pageWidth - margin;
-    let contactY = 12;
+
     if (billingDetails.clinicAddress) {
-      doc.text(billingDetails.clinicAddress, rightX, contactY, { align: "right" });
-      contactY += 5;
+      const addrLines: string[] = doc.splitTextToSize(billingDetails.clinicAddress, rightColWidth);
+      addrLines.forEach((line: string) => {
+        doc.text(line, rightX, contactY, { align: "right" });
+        contactY += 4.2;
+      });
     }
     if (billingDetails.clinicPhone) {
       doc.text(`Tel: ${billingDetails.clinicPhone}`, rightX, contactY, { align: "right" });
-      contactY += 5;
+      contactY += 4.2;
     }
     if (billingDetails.clinicEmail) {
       doc.text(billingDetails.clinicEmail, rightX, contactY, { align: "right" });
@@ -606,24 +624,36 @@ export default function ClinicDashboard() {
 
     // ── Divider ──────────────────────────────────────────────────
     doc.setDrawColor(...indigoDark);
-    doc.setLineWidth(0.4);
+    doc.setLineWidth(0.5);
     doc.line(margin, 33, pageWidth - margin, 33);
 
-    // ── Receipt meta row ─────────────────────────────────────────
-    doc.setFontSize(8.5);
+    // ── Meta band: Date | Payment method (center) | Receipt # ───
+    const metaY = 34;
+    const metaH = 10;
+    doc.setFillColor(...metaBg);
+    doc.rect(margin, metaY, pageWidth - margin * 2, metaH, "F");
+
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...textMid);
-    doc.text(`Date:  ${billingDetails.date}`, margin, 40);
-    doc.text(`Receipt #:  ${billingDetails.receiptNumber}`, rightX, 40, { align: "right" });
+    doc.text(`Date:  ${billingDetails.date}`, margin + 4, metaY + 6.5);
+
+    doc.setTextColor(...indigoMid);
+    doc.setFont("helvetica", "bold");
+    doc.text(billingDetails.paymentMethod || "Cash", pageWidth / 2, metaY + 6.5, { align: "center" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...textMid);
+    doc.text(`Receipt #:  ${billingDetails.receiptNumber}`, rightX - 4, metaY + 6.5, { align: "right" });
 
     // ── Patient Information table ─────────────────────────────────
     autoTable(doc, {
-      startY: 46,
+      startY: metaY + metaH + 5,
       head: [["Patient Information", ""]],
       body: [
-        ["Name", billingDetails.patientName],
-        ["Phone", billingDetails.patientPhone],
-        ["Email", billingDetails.patientEmail || "—"],
+        ["Name",             billingDetails.patientName],
+        ["Phone",            billingDetails.patientPhone],
+        ["Email",            billingDetails.patientEmail || "—"],
         ["Appointment Date", billingDetails.date],
       ],
       theme: "grid",
@@ -632,19 +662,21 @@ export default function ClinicDashboard() {
         textColor: white,
         fontStyle: "bold",
         fontSize: 9,
-        halign: "center",
-        cellPadding: 3,
+        halign: "left",
+        cellPadding: { top: 3, bottom: 3, left: 5, right: 5 },
       },
       columnStyles: {
-        0: { fontStyle: "bold", cellWidth: 48, textColor: textDark, fillColor: lightBg, fontSize: 8.5 },
-        1: { textColor: textMid, fontSize: 8.5 },
+        0: { fontStyle: "bold", cellWidth: 48, textColor: textDark, fillColor: lightBg, fontSize: 8.5,
+             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
+        1: { textColor: textMid, fontSize: 8.5,
+             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
       },
-      bodyStyles: { cellPadding: 2.5 },
+      bodyStyles: { cellPadding: 3 },
       margin: { left: margin, right: margin },
     });
 
     // ── Services table ────────────────────────────────────────────
-    const servicesStartY = (doc as any).lastAutoTable.finalY + 8;
+    const servicesStartY = (doc as any).lastAutoTable.finalY + 7;
     const tableBody = billingDetails.services.map(s => [
       s.description,
       `INR ${parseFloat(s.amount || "0").toFixed(2)}`
@@ -660,51 +692,62 @@ export default function ClinicDashboard() {
         textColor: white,
         fontStyle: "bold",
         fontSize: 9,
-        cellPadding: 3,
+        cellPadding: { top: 3, bottom: 3, left: 5, right: 5 },
       },
       columnStyles: {
-        0: { textColor: textDark, fontSize: 8.5 },
-        1: { halign: "right", textColor: textDark, cellWidth: 38, fontSize: 8.5 },
+        0: { textColor: textDark, fontSize: 8.5,
+             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
+        1: { halign: "right", textColor: textDark, cellWidth: 40, fontSize: 8.5,
+             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
       },
       alternateRowStyles: { fillColor: [248, 247, 255] },
-      bodyStyles: { cellPadding: 2.5 },
+      bodyStyles: { cellPadding: 3 },
       margin: { left: margin, right: margin },
     });
 
     const afterServicesY = (doc as any).lastAutoTable.finalY + 8;
 
-    // ── Summary block (bottom right) + Payment block (bottom left) ─
-    const subtotal = billingDetails.services.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+    // ── Totals ───────────────────────────────────────────────────
+    const subtotal    = billingDetails.services.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
     const discountPct = parseFloat(billingDetails.discount) || 0;
-    const taxPct = parseFloat(billingDetails.tax) || 0;
+    const taxPct      = parseFloat(billingDetails.tax) || 0;
     const discountAmt = subtotal * (discountPct / 100);
-    const taxAmt = (subtotal - discountAmt) * (taxPct / 100);
-    const total = subtotal - discountAmt + taxAmt;
+    const taxAmt      = (subtotal - discountAmt) * (taxPct / 100);
+    const total       = subtotal - discountAmt + taxAmt;
 
-    // Payment method + Remarks (left side)
-    doc.setFontSize(8.5);
+    // ── Payment method box (left) ─────────────────────────────────
+    const leftBoxW = pageWidth / 2 - margin - 6;
+    const leftBoxH = billingDetails.remarks ? 34 : 24;
+
+    doc.setFillColor(...lightBg);
+    doc.setDrawColor(...indigoMid);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, afterServicesY, leftBoxW, leftBoxH, 2.5, 2.5, "FD");
+
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...indigoMid);
+    doc.text("PAYMENT METHOD", margin + 5, afterServicesY + 7);
+
+    doc.setFontSize(9.5);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...textDark);
-    doc.text("Payment Method:", margin, afterServicesY + 4);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...textMid);
-    doc.text(billingDetails.paymentMethod || "Cash", margin, afterServicesY + 10);
+    doc.text(billingDetails.paymentMethod || "Cash", margin + 5, afterServicesY + 15);
 
     if (billingDetails.remarks) {
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...textDark);
-      doc.text("Remarks:", margin, afterServicesY + 18);
+      doc.setFontSize(7.5);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...textMid);
-      doc.text(billingDetails.remarks, margin, afterServicesY + 24);
+      const remarkLines: string[] = doc.splitTextToSize("Note: " + billingDetails.remarks, leftBoxW - 10);
+      doc.text(remarkLines, margin + 5, afterServicesY + 23);
     }
 
-    // Summary table (right side)
+    // ── Summary table (right) ─────────────────────────────────────
     const summaryData = [
-      ["Subtotal", `INR ${subtotal.toFixed(2)}`],
+      ["Subtotal",               `INR ${subtotal.toFixed(2)}`],
       [`Discount (${discountPct}%)`, `- INR ${discountAmt.toFixed(2)}`],
-      [`Tax / GST (${taxPct}%)`, `+ INR ${taxAmt.toFixed(2)}`],
-      ["Total Amount Due", `INR ${total.toFixed(2)}`],
+      [`Tax / GST (${taxPct}%)`,    `+ INR ${taxAmt.toFixed(2)}`],
+      ["Total Amount Due",       `INR ${total.toFixed(2)}`],
     ];
 
     autoTable(doc, {
@@ -713,32 +756,51 @@ export default function ClinicDashboard() {
       body: summaryData,
       theme: "grid",
       columnStyles: {
-        0: { halign: "right", fontStyle: "normal", textColor: textMid, fontSize: 8.5, cellWidth: 55 },
-        1: { halign: "right", textColor: textDark, fontSize: 8.5, cellWidth: 38 },
+        0: { halign: "right", fontStyle: "normal", textColor: textMid,  fontSize: 8.5, cellWidth: 52,
+             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
+        1: { halign: "right", textColor: textDark, fontSize: 8.5, cellWidth: 38,
+             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
       },
-      bodyStyles: { cellPadding: 2.5 },
-      didDrawCell: (data) => {
-        // Bold + accent colour for the total row
-        if (data.row.index === 3) {
+      bodyStyles: { cellPadding: 3 },
+      willDrawCell: (data: any) => {
+        if (data.row.index === 3 && data.section === "body") {
+          doc.setFillColor(...totalRowBg);
+        }
+      },
+      didDrawCell: (data: any) => {
+        if (data.row.index === 3 && data.section === "body") {
           doc.setFont("helvetica", "bold");
           doc.setTextColor(...indigoDark);
         }
       },
-      margin: { left: pageWidth / 2 + 5, right: margin },
+      margin: { left: pageWidth / 2 + 3, right: margin },
     });
 
-    // ── Thank-you line ────────────────────────────────────────────
-    const finalY = (doc as any).lastAutoTable.finalY + 12;
-    doc.setFontSize(9.5);
+    // ── Thank-you + fine print ────────────────────────────────────
+    const finalY = Math.max((doc as any).lastAutoTable.finalY, afterServicesY + leftBoxH) + 12;
+
+    doc.setDrawColor(...indigoMid);
+    doc.setLineWidth(0.3);
+    doc.line(margin, finalY - 5, pageWidth - margin, finalY - 5);
+
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...indigoMid);
     doc.text(`Thank you for choosing ${billingDetails.clinicName || "us"}!`, pageWidth / 2, finalY, { align: "center" });
 
-    // ── Bottom gradient bar + footer ──────────────────────────────
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...textLight);
+    doc.text(
+      "This is a computer generated receipt and does not require a physical signature.",
+      pageWidth / 2, finalY + 6, { align: "center" }
+    );
+
+    // ── Bottom gradient bar ───────────────────────────────────────
     doc.setFillColor(...indigoDark);
-    doc.rect(0, pageHeight - 8, pageWidth / 2, 8, "F");
+    doc.rect(0, pageHeight - 8, pageWidth * 0.55, 8, "F");
     doc.setFillColor(...magenta);
-    doc.rect(pageWidth / 2, pageHeight - 8, pageWidth / 2, 8, "F");
+    doc.rect(pageWidth * 0.55, pageHeight - 8, pageWidth * 0.45, 8, "F");
 
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "normal");
