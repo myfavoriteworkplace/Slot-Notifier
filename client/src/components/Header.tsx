@@ -3,10 +3,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notifications";
 import { useState, useEffect } from "react";
+import logoPath from "@assets/Screenshot_2026-03-27_at_12.03.49_PM_1774636532734.png";
 import { 
   Bell, 
-  LogOut, 
-  Calendar, 
+  LogOut,
   CalendarPlus,
   LayoutDashboard,
   Shield,
@@ -217,7 +217,7 @@ export function Header() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2 font-display text-xl font-bold tracking-tight text-primary hover:opacity-80 transition-opacity" data-testid="link-home">
-            <Calendar className="h-6 w-6" />
+            <img src={logoPath} alt="BookMySlot logo" className="h-8 w-8 rounded-xl object-cover" />
             <span className="hidden sm:inline">BookMySlot</span>
           </Link>
 
