@@ -216,9 +216,9 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-md">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2 font-display text-xl font-bold tracking-tight text-primary hover:opacity-80 transition-opacity" data-testid="link-home">
+          <Link href="/" className="flex items-center gap-2 text-xl font-bold hover:opacity-80 transition-opacity" data-testid="link-home">
             <img src={logoPath} alt="BookMySlot logo" className="h-8 w-8 rounded-xl object-cover" />
-            <span className="hidden sm:inline">BookMySlot</span>
+            <span className="hidden sm:inline font-['Space_Grotesk'] tracking-wide bg-gradient-to-r from-[#085041] to-[#0F9B6E] bg-clip-text text-transparent">BookMySlot</span>
           </Link>
 
           <nav className="flex items-center gap-1 sm:gap-2">
