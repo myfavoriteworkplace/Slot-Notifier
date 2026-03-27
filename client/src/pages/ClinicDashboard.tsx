@@ -1150,12 +1150,19 @@ export default function ClinicDashboard() {
                     ? "bg-muted/30"
                     : "bg-gradient-to-r from-primary/5 to-accent/5";
 
-                  const statusLabel = isBookingToday ? "Today" : isBookingPast ? "Past" : "Upcoming";
-                  const statusClass = isBookingToday
-                    ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25"
-                    : isBookingPast
+                  const isConfirmed = booking.verificationStatus === 'confirmed';
+                  const statusLabel = isBookingPast
+                    ? "Past"
+                    : isConfirmed
+                    ? (isBookingToday ? "Today" : "Upcoming")
+                    : "Pending";
+                  const statusClass = isBookingPast
                     ? "text-muted-foreground bg-muted/50 border-border/50"
-                    : "text-primary bg-primary/10 border-primary/25";
+                    : isConfirmed
+                    ? (isBookingToday
+                        ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25"
+                        : "text-primary bg-primary/10 border-primary/25")
+                    : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
 
                   const cardOpacity = isBookingPast ? "opacity-75" : "";
 
@@ -1203,22 +1210,11 @@ export default function ClinicDashboard() {
                                 </div>
                               </div>
 
-                              {/* Status pills */}
-                              <div className="flex flex-col items-end gap-1 shrink-0">
-                                <span className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${statusClass}`}>
-                                  {statusLabel}
-                                </span>
-                                {booking.verificationStatus === 'confirmed' ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30">
-                                    <CheckCircle2 className="h-2.5 w-2.5" />
-                                    Confirmed
-                                  </span>
-                                ) : !isBookingPast && (
-                                  <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full text-amber-600 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30">
-                                    Pending
-                                  </span>
-                                )}
-                              </div>
+                              {/* Status pill */}
+                              <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${statusClass}`}>
+                                {isConfirmed && !isBookingPast && <CheckCircle2 className="h-2.5 w-2.5" />}
+                                {statusLabel}
+                              </span>
                             </div>
                           </div>
 
