@@ -1,0 +1,46 @@
+Consolidated Draft – Smile Deals Configure Page
+🔹 Core Concept
+The Configure Deals Page should be generic across all categories (deals, ads, product promotions, campaigns, etc.), with a flexible form that adapts based on the selected category.
+📝 Generic Core Fields (Always Present)
+Title (text field)  
+Example: “20% Off Dental Checkup” OR “New Whitening Kit Launch”
+Description (multi-line text area)  
+Example: “Comprehensive dental checkup including X-ray and cleaning” OR “Introducing our new whitening kit.”
+Image Upload (file upload)  
+Works for clinic logos, product images, or promotional banners
+Category (dropdown)  
+Options:
+Clinic Deals
+Seasonal / Festival Offers
+Advertisements / Sponsored Content
+Membership / Loyalty Programs
+New Clinic Launch Promotions
+Doctor-Specific Offers
+Community / Awareness Campaigns
+Product Promotions
+Premium Highlighted Deals
+🔹 Conditional Fields (Shown Based on Category)
+Price (₹) (numeric field) → visible if category = Clinic Deal / Package
+Booking Link (URL field) → visible if category = Clinic Deal / Doctor Offer
+Product Link (URL field) → visible if category = Product Promotion
+Ad Target URL (URL field) → visible if category = Advertisement / Sponsored Content
+Start Date / End Date (date pickers) → useful for all time-bound categories
+Active / Inactive Toggle (switch) → universal
+📊 Category → Field Mapping
+Category	Required Fields	Optional Fields
+Clinic Deals	Title, Description, Image, Price, Booking Link	Start/End Date, Active Toggle
+Seasonal / Festival Offers	Title, Description, Image	Price, Booking Link, Start/End Date
+Advertisements / Sponsored	Title, Description, Image, Ad Target URL	Start/End Date, Active Toggle
+Membership / Loyalty Programs	Title, Description, Image	Price, Booking Link
+New Clinic Launch Promotions	Title, Description, Image	Price, Booking Link
+Doctor-Specific Offers	Title, Description, Image, Booking Link	Price, Start/End Date
+Community Campaigns	Title, Description, Image	Start/End Date
+Product Promotions	Title, Description, Image, Product Link	Price, Start/End Date
+Premium Highlighted Deals	Title, Description, Image	Priority Flag, Start/End Date
+
+⚙️ Implementation Notes
+Core fields are always visible.
+Conditional fields appear dynamically based on category selection.
+Allow multi-category tagging (e.g., “Clinic Deal” + “Seasonal Offer”).
+Add a preview mode so admins can see how the deal/ad will look before publishing.
+Include a priority flag for Premium Highlighted Deals to ensure they appear at the top of the Smile Deals page.
