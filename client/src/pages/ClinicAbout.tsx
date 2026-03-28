@@ -9,6 +9,7 @@ import type { Clinic } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { API_BASE_URL } from "@/lib/queryClient";
 
 type PublicClinic = Omit<Clinic, "passwordHash" | "registeredBy">;
 
@@ -25,7 +26,7 @@ export default function ClinicAbout() {
   const { data: clinic, isLoading } = useQuery<PublicClinic>({
     queryKey: ["/api/clinics", finalClinicId, "public"],
     queryFn: async () => {
-      const res = await fetch(`/api/clinics/${finalClinicId}/public`);
+      const res = await fetch(`${API_BASE_URL}/api/clinics/${finalClinicId}/public`);
       if (!res.ok) throw new Error("Clinic not found");
       return res.json();
     },
