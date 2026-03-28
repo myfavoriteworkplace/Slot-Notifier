@@ -135,7 +135,6 @@ export default function Admin() {
       const uploadRes = await fetch(uploadUrl, {
         method: 'PUT',
         body: file,
-        headers: { 'Content-Type': file.type }
       });
       if (!uploadRes.ok) throw new Error("R2 Upload failed");
 

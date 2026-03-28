@@ -64,9 +64,6 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
       const uploadRes = await fetch(uploadUrl, {
         method: "PUT",
         body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
       });
 
       if (!uploadRes.ok) {
