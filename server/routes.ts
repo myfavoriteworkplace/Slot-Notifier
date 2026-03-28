@@ -381,7 +381,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const dealData = {
         ...req.body,
-        price: req.body.price || null
+        price: req.body.price || null,
+        expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null
       };
       const deal = await storage.createSmileDeal(dealData);
       res.json(deal);
@@ -392,7 +393,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch("/api/admin/smile-deals/:id", isAdmin, async (req, res) => {
     try {
-      const deal = await storage.updateSmileDeal(Number(req.params.id), req.body);
+      const updates = {
+        ...req.body,
+        ...(req.body.expiresAt !== undefined && { expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null })
+      };
+      const deal = await storage.updateSmileDeal(Number(req.params.id), updates);
       res.json(deal);
     } catch (err: any) {
       res.status(500).json({ message: "Failed to update deal", error: err.message });
