@@ -9,7 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X,
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, Receipt, FileText,
-  User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check
+  User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
+  Globe, Lock, ExternalLink, MapPin, Info
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -86,6 +87,35 @@ export default function ClinicDashboard() {
       toast({ title: "Logo updated successfully" });
     },
   });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: { phone?: string; email?: string; website?: string; address?: string; city?: string; pincode?: string; doctorName?: string }) => {
+      const response = await apiRequest('PATCH', '/api/auth/clinic/me', data);
+      if (!response.ok) throw new Error('Failed to update clinic profile');
+      return response.json();
+    },
+    onSuccess: () => {
+      if (refetchClinic) refetchClinic();
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/me'] });
+      toast({ title: "Profile updated", description: "Your clinic profile has been saved." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Update failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  useEffect(() => {
+    if (clinic) {
+      setProfilePhone(clinic.phone ?? "");
+      setProfileEmail(clinic.email ?? "");
+      setProfileWebsite(clinic.website ?? "");
+      setProfileAddress(clinic.address ?? "");
+      setProfileCity(clinic.city ?? "");
+      setProfilePincode(clinic.pincode ?? "");
+      setProfileDoctorName((clinic as any).doctorName ?? "");
+    }
+  }, [clinic]);
+
   const [filterDate, setFilterDate] = useState<Date | undefined>(new Date());
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
   const [quickFilter, setQuickFilter] = useState<'all' | 'today' | 'upcoming' | 'past'>('all');
@@ -110,7 +140,15 @@ export default function ClinicDashboard() {
 
   // Booking form state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'book-a-slot'>('bookings');
+  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot'>('bookings');
+
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileWebsite, setProfileWebsite] = useState("");
+  const [profileAddress, setProfileAddress] = useState("");
+  const [profileCity, setProfileCity] = useState("");
+  const [profilePincode, setProfilePincode] = useState("");
+  const [profileDoctorName, setProfileDoctorName] = useState("");
   const [bookingName, setBookingName] = useState("");
   const [bookingPhone, setBookingPhone] = useState("");
   const [bookingEmail, setBookingEmail] = useState("");
@@ -1036,6 +1074,21 @@ export default function ClinicDashboard() {
                   <p className="text-[10px] text-muted-foreground">Add or remove doctors</p>
                 </div>
                 {activePanel === 'manage-doctors' && <div className="h-1.5 w-1.5 rounded-full bg-teal-500 shrink-0" />}
+              </button>
+
+              <button
+                onClick={() => setActivePanel('clinic-profile')}
+                data-testid="nav-clinic-profile"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'clinic-profile' ? 'bg-violet-500/10 border border-violet-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'clinic-profile' ? 'bg-violet-500/10 border-violet-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Building2 className={`h-4 w-4 ${activePanel === 'clinic-profile' ? 'text-violet-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'clinic-profile' ? 'text-violet-700 dark:text-violet-400' : 'text-foreground'}`}>Clinic Profile</p>
+                  <p className="text-[10px] text-muted-foreground">Edit public about page</p>
+                </div>
+                {activePanel === 'clinic-profile' && <div className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />}
               </button>
 
               <button
@@ -2245,6 +2298,204 @@ export default function ClinicDashboard() {
             </div>
           </div>
         </div>
+          )}
+
+          {/* CLINIC PROFILE PANEL */}
+          {activePanel === 'clinic-profile' && (
+            <div className="space-y-5">
+
+              {/* Panel header */}
+              <div className="rounded-2xl overflow-hidden border border-border/50 shadow-sm">
+                <div className="bg-gradient-to-r from-violet-600 to-violet-400 px-5 py-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-xl">
+                      <Building2 className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-white tracking-tight">Clinic Profile</h2>
+                      <p className="text-white/70 text-[11px] mt-0.5">Update your public About page details</p>
+                    </div>
+                  </div>
+                  <a
+                    href={`/about?clinicId=${clinic?.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="link-preview-about"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors text-white text-xs font-semibold"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Preview
+                  </a>
+                </div>
+
+                {/* Locked identity row */}
+                <div className="px-5 py-3 bg-muted/30 border-b border-border/40 flex items-center gap-3">
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Clinic Name</span>
+                    <p className="text-sm font-semibold text-foreground truncate">{clinic?.name}</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] border-muted-foreground/30 text-muted-foreground shrink-0">
+                    Managed by platform
+                  </Badge>
+                </div>
+
+                {/* Editable fields */}
+                <div className="p-5 bg-card space-y-6">
+
+                  {/* Contact section */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-6 w-6 rounded-md bg-violet-500/10 flex items-center justify-center">
+                        <Phone className="h-3.5 w-3.5 text-violet-600" />
+                      </div>
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Contact Information</h3>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="profile-phone" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Phone</Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            id="profile-phone"
+                            value={profilePhone}
+                            onChange={(e) => setProfilePhone(e.target.value)}
+                            placeholder="+91 98765 43210"
+                            className="pl-9"
+                            data-testid="input-profile-phone"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="profile-email" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Email</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            id="profile-email"
+                            type="email"
+                            value={profileEmail}
+                            onChange={(e) => setProfileEmail(e.target.value)}
+                            placeholder="clinic@example.com"
+                            className="pl-9"
+                            data-testid="input-profile-email"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label htmlFor="profile-website" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Website</Label>
+                        <div className="relative">
+                          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            id="profile-website"
+                            value={profileWebsite}
+                            onChange={(e) => setProfileWebsite(e.target.value)}
+                            placeholder="https://yourclinic.com"
+                            className="pl-9"
+                            data-testid="input-profile-website"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Address section */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-6 w-6 rounded-md bg-violet-500/10 flex items-center justify-center">
+                        <MapPin className="h-3.5 w-3.5 text-violet-600" />
+                      </div>
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Address</h3>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label htmlFor="profile-address" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Street Address</Label>
+                        <Input
+                          id="profile-address"
+                          value={profileAddress}
+                          onChange={(e) => setProfileAddress(e.target.value)}
+                          placeholder="123 Main Street, Area"
+                          data-testid="input-profile-address"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="profile-city" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">City</Label>
+                        <Input
+                          id="profile-city"
+                          value={profileCity}
+                          onChange={(e) => setProfileCity(e.target.value)}
+                          placeholder="Mumbai"
+                          data-testid="input-profile-city"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="profile-pincode" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Pincode</Label>
+                        <Input
+                          id="profile-pincode"
+                          value={profilePincode}
+                          onChange={(e) => setProfilePincode(e.target.value)}
+                          placeholder="400001"
+                          data-testid="input-profile-pincode"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Primary doctor section */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-6 w-6 rounded-md bg-violet-500/10 flex items-center justify-center">
+                        <User className="h-3.5 w-3.5 text-violet-600" />
+                      </div>
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Primary Practitioner</h3>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="profile-doctor-name" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Doctor Name</Label>
+                      <Input
+                        id="profile-doctor-name"
+                        value={profileDoctorName}
+                        onChange={(e) => setProfileDoctorName(e.target.value)}
+                        placeholder="Dr. Jane Smith"
+                        data-testid="input-profile-doctor-name"
+                      />
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
+                        <Info className="h-3 w-3" />
+                        This is the lead doctor shown on your About page. Individual doctors are managed in Manage Doctors.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Save button */}
+                  <div className="flex items-center justify-end pt-2">
+                    <Button
+                      onClick={() => updateProfileMutation.mutate({
+                        phone: profilePhone,
+                        email: profileEmail,
+                        website: profileWebsite,
+                        address: profileAddress,
+                        city: profileCity,
+                        pincode: profilePincode,
+                        doctorName: profileDoctorName,
+                      })}
+                      disabled={updateProfileMutation.isPending}
+                      data-testid="button-save-profile"
+                      className="rounded-full bg-violet-600 hover:bg-violet-700 text-white shadow-lg shadow-violet-500/25 hover:-translate-y-0.5 transition-all px-6"
+                    >
+                      {updateProfileMutation.isPending ? (
+                        <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving…</>
+                      ) : (
+                        "Save Profile"
+                      )}
+                    </Button>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
           )}
 
           {/* BOOK A SLOT PANEL */}

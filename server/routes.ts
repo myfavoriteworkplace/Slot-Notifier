@@ -466,6 +466,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.patch("/api/auth/clinic/me", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    const ALLOWED_FIELDS = ["phone", "email", "website", "address", "city", "pincode", "doctorName", "logoUrl"];
+    const updates: Record<string, any> = {};
+    for (const field of ALLOWED_FIELDS) {
+      if (field in req.body) updates[field] = req.body[field];
+    }
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "No valid fields provided" });
+    }
+    try {
+      const clinic = await storage.updateClinic(sess.clinicId, updates);
+      res.json(clinic);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post("/api/auth/clinic/doctors", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
