@@ -299,6 +299,9 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='video_url') THEN
             ALTER TABLE smile_deals ADD COLUMN video_url VARCHAR(1000);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='starts_at') THEN
+            ALTER TABLE smile_deals ADD COLUMN starts_at TIMESTAMP;
+          END IF;
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='expires_at') THEN
             ALTER TABLE smile_deals ADD COLUMN expires_at TIMESTAMP;
           END IF;

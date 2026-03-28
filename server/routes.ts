@@ -382,6 +382,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const dealData = {
         ...req.body,
         price: req.body.price || null,
+        startsAt: req.body.startsAt ? new Date(req.body.startsAt) : null,
         expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null
       };
       const deal = await storage.createSmileDeal(dealData);
@@ -395,6 +396,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const updates = {
         ...req.body,
+        ...(req.body.startsAt !== undefined && { startsAt: req.body.startsAt ? new Date(req.body.startsAt) : null }),
         ...(req.body.expiresAt !== undefined && { expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null })
       };
       const deal = await storage.updateSmileDeal(Number(req.params.id), updates);

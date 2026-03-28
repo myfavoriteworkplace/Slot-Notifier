@@ -68,13 +68,33 @@ export default function Admin() {
   const [dealBookingLink, setDealBookingLink] = useState("");
   const [dealPrice, setDealPrice] = useState("");
   const [dealVideoUrl, setDealVideoUrl] = useState("");
+  const [dealStartsAt, setDealStartsAt] = useState<Date | undefined>(undefined);
   const [dealExpiresAt, setDealExpiresAt] = useState<Date | undefined>(undefined);
   const [dealIsFeatured, setDealIsFeatured] = useState(false);
   const [dealCategory, setDealCategory] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const DEAL_CATEGORIES = ["Whitening", "Scaling", "Braces", "Implants", "Root Canal", "Extraction", "Consultation", "Orthodontics", "Other"];
+  const DEAL_CATEGORIES = [
+    "Clinic Deals",
+    "Seasonal / Festival Offers",
+    "Advertisements / Sponsored",
+    "Membership / Loyalty Programs",
+    "New Clinic Launch",
+    "Doctor-Specific Offers",
+    "Community / Awareness",
+    "Product Promotions",
+    "Premium Highlighted Deals",
+  ];
+
+  const CATEGORIES_WITH_PRICE = ["Clinic Deals", "Seasonal / Festival Offers", "Membership / Loyalty Programs", "New Clinic Launch", "Doctor-Specific Offers", "Product Promotions", "Premium Highlighted Deals"];
+  const LINK_CONFIG: Record<string, { label: string; placeholder: string }> = {
+    "Product Promotions": { label: "Product Link", placeholder: "https://shop.example.com/product" },
+    "Advertisements / Sponsored": { label: "Ad Target URL", placeholder: "https://sponsor-website.com" },
+    "Community / Awareness": { label: "Campaign Link", placeholder: "https://campaign-page.com" },
+  };
+  const showPrice = !dealCategory || CATEGORIES_WITH_PRICE.includes(dealCategory);
+  const linkConfig = dealCategory ? (LINK_CONFIG[dealCategory] || { label: "Booking Link", placeholder: "/book/clinic-name" }) : { label: "Link", placeholder: "Select a category first" };
 
   const { data: smileDeals = [], isLoading: dealsLoading } = useQuery<SmileDeal[]>({
     queryKey: ['/api/smile-deals'],
@@ -94,6 +114,7 @@ export default function Admin() {
       setDealBookingLink("");
       setDealPrice("");
       setDealVideoUrl("");
+      setDealStartsAt(undefined);
       setDealExpiresAt(undefined);
       setDealIsFeatured(false);
       setDealCategory("");
@@ -1065,29 +1086,56 @@ export default function Admin() {
 
                   {/* Right: Form Fields */}
                   <div className="space-y-4">
+
+                    {/* Category — at top so it drives conditional fields */}
                     <div className="space-y-2">
-                      <Label htmlFor="deal-title">Deal Title</Label>
-                      <Input id="deal-title" value={dealTitle} onChange={(e) => setDealTitle(e.target.value)} placeholder="50% Off Scaling" />
+                      <Label htmlFor="deal-category" className="flex items-center gap-1.5">
+                        <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                        Category
+                      </Label>
+                      <select
+                        id="deal-category"
+                        value={dealCategory}
+                        onChange={(e) => setDealCategory(e.target.value)}
+                        className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+                      >
+                        <option value="">Select category</option>
+                        {DEAL_CATEGORIES.map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="deal-price">Price (₹)</Label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">₹</span>
-                          <Input id="deal-price" value={dealPrice} onChange={(e) => setDealPrice(e.target.value)} placeholder="499" className="pl-7" />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="deal-link">Booking Link</Label>
-                        <div className="relative">
-                          <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input id="deal-link" value={dealBookingLink} onChange={(e) => setDealBookingLink(e.target.value)} placeholder="/book/123" className="pl-9" />
-                        </div>
-                      </div>
+
+                    {/* Title */}
+                    <div className="space-y-2">
+                      <Label htmlFor="deal-title">Title</Label>
+                      <Input id="deal-title" value={dealTitle} onChange={(e) => setDealTitle(e.target.value)} placeholder="20% Off Dental Checkup" />
                     </div>
+
+                    {/* Description */}
                     <div className="space-y-2">
                       <Label htmlFor="deal-desc">Description</Label>
-                      <Textarea id="deal-desc" value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} placeholder="Enter deal details..." className="resize-none h-[88px]" />
+                      <Textarea id="deal-desc" value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} placeholder="Enter details..." className="resize-none h-[72px]" />
+                    </div>
+
+                    {/* Price + Link — price hidden for Ads & Community */}
+                    <div className={`grid gap-3 ${showPrice ? "grid-cols-2" : "grid-cols-1"}`}>
+                      {showPrice && (
+                        <div className="space-y-2">
+                          <Label htmlFor="deal-price">Price (₹)</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">₹</span>
+                            <Input id="deal-price" value={dealPrice} onChange={(e) => setDealPrice(e.target.value)} placeholder="499" className="pl-7" />
+                          </div>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        <Label htmlFor="deal-link">{linkConfig.label}</Label>
+                        <div className="relative">
+                          <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input id="deal-link" value={dealBookingLink} onChange={(e) => setDealBookingLink(e.target.value)} placeholder={linkConfig.placeholder} className="pl-9" />
+                        </div>
+                      </div>
                     </div>
 
                     {/* Video URL */}
@@ -1098,59 +1146,44 @@ export default function Admin() {
                       </Label>
                       <div className="relative">
                         <Video className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="deal-video"
-                          value={dealVideoUrl}
-                          onChange={(e) => setDealVideoUrl(e.target.value)}
-                          placeholder="YouTube, Vimeo, or .mp4 URL"
-                          className="pl-9"
-                        />
+                        <Input id="deal-video" value={dealVideoUrl} onChange={(e) => setDealVideoUrl(e.target.value)} placeholder="YouTube, Vimeo, or .mp4 URL" className="pl-9" />
                       </div>
-                      <p className="text-[11px] text-muted-foreground">Plays as background in the featured hero and on-hover in cards</p>
+                      <p className="text-[11px] text-muted-foreground">Plays on hover in cards and as hero background when featured</p>
                     </div>
 
-                    {/* Category + Expiry row */}
+                    {/* Start Date + Expiry Date */}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
-                        <Label htmlFor="deal-category" className="flex items-center gap-1.5">
-                          <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                          Category
-                        </Label>
-                        <select
-                          id="deal-category"
-                          value={dealCategory}
-                          onChange={(e) => setDealCategory(e.target.value)}
-                          className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
-                        >
-                          <option value="">Select category</option>
-                          {DEAL_CATEGORIES.map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-1.5">
-                          <Timer className="h-3.5 w-3.5 text-muted-foreground" />
-                          Expiry Date
+                        <Label className="flex items-center gap-1.5 text-xs">
+                          <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                          Start Date <span className="text-muted-foreground">(optional)</span>
                         </Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={`w-full justify-start text-left font-normal text-sm h-9 ${!dealExpiresAt && "text-muted-foreground"}`}
-                            >
+                            <Button variant="outline" className={`w-full justify-start text-left font-normal text-sm h-9 ${!dealStartsAt && "text-muted-foreground"}`}>
                               <CalendarDays className="mr-2 h-3.5 w-3.5" />
-                              {dealExpiresAt ? format(dealExpiresAt, "PPP") : "Pick an expiry date"}
+                              {dealStartsAt ? format(dealStartsAt, "d MMM yyyy") : "Start date"}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={dealExpiresAt}
-                              onSelect={setDealExpiresAt}
-                              disabled={(date) => date < new Date()}
-                              initialFocus
-                            />
+                            <Calendar mode="single" selected={dealStartsAt} onSelect={setDealStartsAt} initialFocus />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-1.5 text-xs">
+                          <Timer className="h-3.5 w-3.5 text-muted-foreground" />
+                          Expiry Date <span className="text-muted-foreground">(optional)</span>
+                        </Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={`w-full justify-start text-left font-normal text-sm h-9 ${!dealExpiresAt && "text-muted-foreground"}`}>
+                              <CalendarDays className="mr-2 h-3.5 w-3.5" />
+                              {dealExpiresAt ? format(dealExpiresAt, "d MMM yyyy") : "Expiry date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                            <Calendar mode="single" selected={dealExpiresAt} onSelect={setDealExpiresAt} disabled={(date) => date < new Date()} initialFocus />
                           </PopoverContent>
                         </Popover>
                       </div>
@@ -1179,6 +1212,7 @@ export default function Admin() {
                         bookingLink: dealBookingLink,
                         price: dealPrice || null,
                         videoUrl: dealVideoUrl || null,
+                        startsAt: dealStartsAt ? dealStartsAt.toISOString() : null,
                         expiresAt: dealExpiresAt ? dealExpiresAt.toISOString() : null,
                         isFeatured: dealIsFeatured,
                         category: dealCategory || null,
@@ -1190,6 +1224,47 @@ export default function Admin() {
                     </Button>
                   </div>
                 </div>
+
+                {/* Live Preview */}
+                {dealTitle && (
+                  <div className="mt-6 pt-6 border-t border-border/50">
+                    <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide flex items-center gap-1.5">
+                      <Eye className="h-3 w-3" /> Live Preview
+                    </p>
+                    <div className="max-w-sm rounded-2xl overflow-hidden border bg-card shadow-md">
+                      <div className="relative aspect-video overflow-hidden bg-muted">
+                        <img
+                          src={dealImageUrl || "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800"}
+                          alt={dealTitle}
+                          className="w-full h-full object-cover"
+                        />
+                        {dealIsFeatured && (
+                          <span className="absolute top-2 left-2 inline-flex items-center gap-1 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            <Star className="h-2.5 w-2.5 fill-white" /> Featured
+                          </span>
+                        )}
+                        {dealCategory && (
+                          <span className="absolute top-2 left-2 mt-5 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full">{dealCategory}</span>
+                        )}
+                        {dealPrice && showPrice && (
+                          <span className="absolute top-2 right-2 bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-lg">₹{dealPrice}</span>
+                        )}
+                      </div>
+                      <div className="p-4 space-y-1.5">
+                        <h3 className="font-bold text-sm leading-snug">{dealTitle}</h3>
+                        {dealDescription && <p className="text-xs text-muted-foreground line-clamp-2">{dealDescription}</p>}
+                        {(dealStartsAt || dealExpiresAt) && (
+                          <div className="flex items-center gap-1 text-[11px] text-muted-foreground pt-0.5">
+                            <CalendarDays className="h-3 w-3" />
+                            {dealStartsAt && <span>From {format(dealStartsAt, "d MMM")}</span>}
+                            {dealStartsAt && dealExpiresAt && <span>–</span>}
+                            {dealExpiresAt && <span>Until {format(dealExpiresAt, "d MMM")}</span>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

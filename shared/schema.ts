@@ -240,6 +240,7 @@ export const smileDeals = pgTable("smile_deals", {
   price: varchar("price", { length: 50 }),
   isActive: boolean("is_active").default(true).notNull(),
   videoUrl: varchar("video_url", { length: 1000 }),
+  startsAt: timestamp("starts_at"),
   expiresAt: timestamp("expires_at"),
   isFeatured: boolean("is_featured").default(false).notNull(),
   category: varchar("category", { length: 100 }),
