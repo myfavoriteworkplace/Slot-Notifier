@@ -61,6 +61,7 @@ export default function Admin() {
   const [dealTitle, setDealTitle] = useState("");
   const [dealDescription, setDealDescription] = useState("");
   const [dealImageUrl, setDealImageUrl] = useState("");
+  const [dealImageManualUrl, setDealImageManualUrl] = useState("");
   const [dealBookingLink, setDealBookingLink] = useState("");
   const [dealPrice, setDealPrice] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -80,6 +81,7 @@ export default function Admin() {
       setDealTitle("");
       setDealDescription("");
       setDealImageUrl("");
+      setDealImageManualUrl("");
       setDealBookingLink("");
       setDealPrice("");
       toast({ title: "Smile Deal added successfully" });
@@ -1001,15 +1003,18 @@ export default function Admin() {
 
                   {/* Left: Image Upload Zone */}
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium">Deal Image</Label>
+                    <Label className="text-sm font-medium">Deal Image <span className="text-muted-foreground font-normal">(optional)</span></Label>
                     <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
                     {dealImageUrl ? (
                       <div className="relative group rounded-xl overflow-hidden border-2 border-primary/30 aspect-video bg-muted">
                         <img src={dealImageUrl} alt="Preview" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                             {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                            Change Image
+                            Change
+                          </Button>
+                          <Button type="button" variant="secondary" size="sm" onClick={() => { setDealImageUrl(""); setDealImageManualUrl(""); }}>
+                            Remove
                           </Button>
                         </div>
                       </div>
@@ -1029,10 +1034,21 @@ export default function Admin() {
                         )}
                         <div className="text-center">
                           <p className="text-sm font-medium text-primary">Click to upload image</p>
-                          <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WEBP supported</p>
+                          <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WEBP · max 2 MB</p>
                         </div>
                       </button>
                     )}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Or paste an image URL</Label>
+                      <Input
+                        placeholder="https://example.com/image.jpg"
+                        value={dealImageManualUrl}
+                        onChange={(e) => {
+                          setDealImageManualUrl(e.target.value);
+                          setDealImageUrl(e.target.value);
+                        }}
+                      />
+                    </div>
                   </div>
 
                   {/* Right: Form Fields */}
@@ -1064,7 +1080,7 @@ export default function Admin() {
                     <Button
                       className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-md shadow-primary/20"
                       onClick={() => createDealMutation.mutate({ title: dealTitle, description: dealDescription, imageUrl: dealImageUrl, bookingLink: dealBookingLink, price: dealPrice })}
-                      disabled={createDealMutation.isPending || !dealTitle || !dealImageUrl}
+                      disabled={createDealMutation.isPending || !dealTitle}
                     >
                       {createDealMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                       Publish Deal
