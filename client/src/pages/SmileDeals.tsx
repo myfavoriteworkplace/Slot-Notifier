@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   Loader2, ExternalLink, Sparkles, Play, Eye, Timer, Star,
-  ChevronRight, Tag
+  ChevronRight, Tag, Maximize2
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
@@ -303,6 +303,7 @@ function DealCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const videoType = deal.videoUrl ? getVideoType(deal.videoUrl) : null;
+  const embedUrl = (deal.videoUrl && videoType && videoType !== "mp4") ? getEmbedUrl(deal.videoUrl) : null;
   const isExpired = deal.expiresAt ? new Date(deal.expiresAt) <= new Date() : false;
 
   const cardVariants = {
@@ -341,7 +342,7 @@ function DealCard({
             <img
               src={deal.imageUrl}
               alt={deal.title}
-              className={`w-full h-full object-cover transition-all duration-500 ${isHovered && videoType === "mp4" ? "opacity-0" : "opacity-100"} group-hover:scale-105`}
+              className={`w-full h-full object-cover transition-all duration-500 ${isHovered && videoType ? "opacity-0" : "opacity-100"} group-hover:scale-105`}
               onError={(e) => {
                 (e.target as HTMLImageElement).src =
                   "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800";
@@ -358,8 +359,8 @@ function DealCard({
               />
             )}
 
-            {/* YouTube/Vimeo play button overlay */}
-            {videoType && videoType !== "mp4" && (
+            {/* YouTube/Vimeo — play button when not hovered */}
+            {videoType && videoType !== "mp4" && !isHovered && (
               <div
                 className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/40 cursor-pointer"
                 onClick={() => onVideoOpen(deal)}
@@ -367,6 +368,26 @@ function DealCard({
                 <div className="p-4 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 hover:bg-white/30 transition-colors">
                   <Play className="h-8 w-8 text-white fill-white" />
                 </div>
+              </div>
+            )}
+
+            {/* YouTube/Vimeo — autoplay iframe on hover */}
+            {videoType && videoType !== "mp4" && isHovered && embedUrl && (
+              <div className="absolute inset-0">
+                <iframe
+                  src={embedUrl}
+                  className="w-full h-full"
+                  allow="autoplay; fullscreen"
+                  allowFullScreen
+                  style={{ border: "none", pointerEvents: "none" }}
+                />
+                <button
+                  className="absolute bottom-2 right-2 p-1.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 hover:bg-black/70 transition-colors cursor-pointer"
+                  onClick={() => onVideoOpen(deal)}
+                  title="Watch full video"
+                >
+                  <Maximize2 className="h-3.5 w-3.5 text-white" />
+                </button>
               </div>
             )}
 
