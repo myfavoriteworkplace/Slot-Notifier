@@ -291,6 +291,29 @@ app.use((req, res, next) => {
         `);
         log("Successfully created smile_deals table", "system");
       }
+
+      // Add missing columns to smile_deals if they don't exist
+      await db.execute(sql`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='video_url') THEN
+            ALTER TABLE smile_deals ADD COLUMN video_url VARCHAR(1000);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='is_featured') THEN
+            ALTER TABLE smile_deals ADD COLUMN is_featured BOOLEAN DEFAULT false NOT NULL;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='category') THEN
+            ALTER TABLE smile_deals ADD COLUMN category VARCHAR(100);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='view_count') THEN
+            ALTER TABLE smile_deals ADD COLUMN view_count INTEGER DEFAULT 0 NOT NULL;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='click_count') THEN
+            ALTER TABLE smile_deals ADD COLUMN click_count INTEGER DEFAULT 0 NOT NULL;
+          END IF;
+        END $$;
+      `);
+      log("smile_deals columns verified/updated", "system");
     } catch (dbErr: any) {
       log(`Schema sync warning: ${dbErr.message}`, "system");
     }
