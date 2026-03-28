@@ -16,6 +16,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Clinic, SmileDeal } from "@shared/schema";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -65,7 +68,7 @@ export default function Admin() {
   const [dealBookingLink, setDealBookingLink] = useState("");
   const [dealPrice, setDealPrice] = useState("");
   const [dealVideoUrl, setDealVideoUrl] = useState("");
-  const [dealExpiresAt, setDealExpiresAt] = useState("");
+  const [dealExpiresAt, setDealExpiresAt] = useState<Date | undefined>(undefined);
   const [dealIsFeatured, setDealIsFeatured] = useState(false);
   const [dealCategory, setDealCategory] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -91,7 +94,7 @@ export default function Admin() {
       setDealBookingLink("");
       setDealPrice("");
       setDealVideoUrl("");
-      setDealExpiresAt("");
+      setDealExpiresAt(undefined);
       setDealIsFeatured(false);
       setDealCategory("");
       toast({ title: "Smile Deal added successfully" });
@@ -1126,17 +1129,30 @@ export default function Admin() {
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="deal-expires" className="flex items-center gap-1.5">
+                        <Label className="flex items-center gap-1.5">
                           <Timer className="h-3.5 w-3.5 text-muted-foreground" />
                           Expiry Date
                         </Label>
-                        <Input
-                          id="deal-expires"
-                          type="datetime-local"
-                          value={dealExpiresAt}
-                          onChange={(e) => setDealExpiresAt(e.target.value)}
-                          className="text-sm"
-                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={`w-full justify-start text-left font-normal text-sm h-9 ${!dealExpiresAt && "text-muted-foreground"}`}
+                            >
+                              <CalendarDays className="mr-2 h-3.5 w-3.5" />
+                              {dealExpiresAt ? format(dealExpiresAt, "PPP") : "Pick an expiry date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={dealExpiresAt}
+                              onSelect={setDealExpiresAt}
+                              disabled={(date) => date < new Date()}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </div>
 
@@ -1163,7 +1179,7 @@ export default function Admin() {
                         bookingLink: dealBookingLink,
                         price: dealPrice || null,
                         videoUrl: dealVideoUrl || null,
-                        expiresAt: dealExpiresAt ? new Date(dealExpiresAt).toISOString() : null,
+                        expiresAt: dealExpiresAt ? dealExpiresAt.toISOString() : null,
                         isFeatured: dealIsFeatured,
                         category: dealCategory || null,
                       })}
