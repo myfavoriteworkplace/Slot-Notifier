@@ -359,6 +359,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.post("/api/smile-deals/:id/view", async (req, res) => {
+    try {
+      await storage.incrementDealView(Number(req.params.id));
+      res.sendStatus(204);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/smile-deals/:id/click", async (req, res) => {
+    try {
+      await storage.incrementDealClick(Number(req.params.id));
+      res.sendStatus(204);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post("/api/admin/smile-deals", isAdmin, async (req, res) => {
     try {
       const dealData = {

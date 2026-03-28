@@ -11,7 +11,7 @@ import {
   type SmileDeal, type InsertSmileDeal
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, or, isNull, gt, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -90,6 +90,8 @@ export interface IStorage {
   createSmileDeal(deal: InsertSmileDeal): Promise<SmileDeal>;
   updateSmileDeal(id: number, updates: Partial<SmileDeal>): Promise<SmileDeal>;
   deleteSmileDeal(id: number): Promise<void>;
+  incrementDealView(id: number): Promise<void>;
+  incrementDealClick(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -621,10 +623,18 @@ export class DatabaseStorage implements IStorage {
 
   // Smile Deals
   async getSmileDeals(onlyActive: boolean = false): Promise<SmileDeal[]> {
+    const now = new Date();
     if (onlyActive) {
-      return await db.select().from(smileDeals).where(eq(smileDeals.isActive, true)).orderBy(desc(smileDeals.createdAt));
+      return await db.select().from(smileDeals)
+        .where(
+          and(
+            eq(smileDeals.isActive, true),
+            or(isNull(smileDeals.expiresAt), gt(smileDeals.expiresAt, now))
+          )
+        )
+        .orderBy(desc(smileDeals.isFeatured), desc(smileDeals.createdAt));
     }
-    return await db.select().from(smileDeals).orderBy(desc(smileDeals.createdAt));
+    return await db.select().from(smileDeals).orderBy(desc(smileDeals.isFeatured), desc(smileDeals.createdAt));
   }
 
   async createSmileDeal(insertDeal: InsertSmileDeal): Promise<SmileDeal> {
@@ -642,6 +652,18 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSmileDeal(id: number): Promise<void> {
     await db.delete(smileDeals).where(eq(smileDeals.id, id));
+  }
+
+  async incrementDealView(id: number): Promise<void> {
+    await db.update(smileDeals)
+      .set({ viewCount: sql`${smileDeals.viewCount} + 1` })
+      .where(eq(smileDeals.id, id));
+  }
+
+  async incrementDealClick(id: number): Promise<void> {
+    await db.update(smileDeals)
+      .set({ clickCount: sql`${smileDeals.clickCount} + 1` })
+      .where(eq(smileDeals.id, id));
   }
 }
 

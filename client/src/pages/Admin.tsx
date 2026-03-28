@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -64,8 +64,14 @@ export default function Admin() {
   const [dealImageManualUrl, setDealImageManualUrl] = useState("");
   const [dealBookingLink, setDealBookingLink] = useState("");
   const [dealPrice, setDealPrice] = useState("");
+  const [dealVideoUrl, setDealVideoUrl] = useState("");
+  const [dealExpiresAt, setDealExpiresAt] = useState("");
+  const [dealIsFeatured, setDealIsFeatured] = useState(false);
+  const [dealCategory, setDealCategory] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const DEAL_CATEGORIES = ["Whitening", "Scaling", "Braces", "Implants", "Root Canal", "Extraction", "Consultation", "Orthodontics", "Other"];
 
   const { data: smileDeals = [], isLoading: dealsLoading } = useQuery<SmileDeal[]>({
     queryKey: ['/api/smile-deals'],
@@ -84,6 +90,10 @@ export default function Admin() {
       setDealImageManualUrl("");
       setDealBookingLink("");
       setDealPrice("");
+      setDealVideoUrl("");
+      setDealExpiresAt("");
+      setDealIsFeatured(false);
+      setDealCategory("");
       toast({ title: "Smile Deal added successfully" });
     },
     onError: (error: any) => {
@@ -1076,9 +1086,87 @@ export default function Admin() {
                       <Label htmlFor="deal-desc">Description</Label>
                       <Textarea id="deal-desc" value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} placeholder="Enter deal details..." className="resize-none h-[88px]" />
                     </div>
+
+                    {/* Video URL */}
+                    <div className="space-y-2">
+                      <Label htmlFor="deal-video" className="flex items-center gap-1.5">
+                        <Video className="h-3.5 w-3.5 text-muted-foreground" />
+                        Promo Video URL <span className="text-muted-foreground font-normal">(optional)</span>
+                      </Label>
+                      <div className="relative">
+                        <Video className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="deal-video"
+                          value={dealVideoUrl}
+                          onChange={(e) => setDealVideoUrl(e.target.value)}
+                          placeholder="YouTube, Vimeo, or .mp4 URL"
+                          className="pl-9"
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Plays as background in the featured hero and on-hover in cards</p>
+                    </div>
+
+                    {/* Category + Expiry row */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="deal-category" className="flex items-center gap-1.5">
+                          <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                          Category
+                        </Label>
+                        <select
+                          id="deal-category"
+                          value={dealCategory}
+                          onChange={(e) => setDealCategory(e.target.value)}
+                          className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+                        >
+                          <option value="">Select category</option>
+                          {DEAL_CATEGORIES.map((cat) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="deal-expires" className="flex items-center gap-1.5">
+                          <Timer className="h-3.5 w-3.5 text-muted-foreground" />
+                          Expiry Date
+                        </Label>
+                        <Input
+                          id="deal-expires"
+                          type="datetime-local"
+                          value={dealExpiresAt}
+                          onChange={(e) => setDealExpiresAt(e.target.value)}
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Featured toggle */}
+                    <div className="flex items-center justify-between p-3.5 rounded-xl border border-primary/20 bg-primary/5">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-primary/10 rounded-lg">
+                          <Star className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Featured Deal</p>
+                          <p className="text-xs text-muted-foreground">Shows as cinematic hero at the top of the page</p>
+                        </div>
+                      </div>
+                      <Switch checked={dealIsFeatured} onCheckedChange={setDealIsFeatured} />
+                    </div>
+
                     <Button
                       className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-md shadow-primary/20"
-                      onClick={() => createDealMutation.mutate({ title: dealTitle, description: dealDescription, imageUrl: dealImageUrl, bookingLink: dealBookingLink, price: dealPrice })}
+                      onClick={() => createDealMutation.mutate({
+                        title: dealTitle,
+                        description: dealDescription,
+                        imageUrl: dealImageUrl || "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800",
+                        bookingLink: dealBookingLink,
+                        price: dealPrice || null,
+                        videoUrl: dealVideoUrl || null,
+                        expiresAt: dealExpiresAt ? new Date(dealExpiresAt).toISOString() : null,
+                        isFeatured: dealIsFeatured,
+                        category: dealCategory || null,
+                      })}
                       disabled={createDealMutation.isPending || !dealTitle}
                     >
                       {createDealMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -1107,7 +1195,7 @@ export default function Admin() {
                 {smileDeals.map((deal) => (
                   <div
                     key={deal.id}
-                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all hover:shadow-md ${
+                    className={`flex gap-4 p-4 rounded-xl border transition-all hover:shadow-md ${
                       deal.isActive
                         ? "border-l-4 border-l-green-500 border-t border-r border-b"
                         : "border-l-4 border-l-muted-foreground/30 border-t border-r border-b opacity-60"
@@ -1122,6 +1210,16 @@ export default function Admin() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <h4 className="font-semibold text-sm">{deal.title}</h4>
+                        {deal.isFeatured && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">
+                            <Star className="h-2.5 w-2.5 fill-primary" /> Featured
+                          </span>
+                        )}
+                        {deal.category && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full border">
+                            <Tag className="h-2.5 w-2.5" /> {deal.category}
+                          </span>
+                        )}
                         {deal.price && (
                           <span className="inline-flex items-center text-xs font-bold bg-green-50 text-green-700 border border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800 px-2 py-0.5 rounded-full">
                             ₹{deal.price}
@@ -1129,22 +1227,59 @@ export default function Admin() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{deal.description}</p>
-                      {deal.bookingLink && (
-                        <a href={deal.bookingLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                          <LinkIcon className="h-3 w-3" />
-                          {deal.bookingLink}
-                        </a>
-                      )}
+                      <div className="flex flex-wrap items-center gap-3">
+                        {deal.bookingLink && (
+                          <a href={deal.bookingLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                            <LinkIcon className="h-3 w-3" />
+                            {deal.bookingLink}
+                          </a>
+                        )}
+                        {deal.expiresAt && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                            <Timer className="h-3 w-3" />
+                            Expires {new Date(deal.expiresAt).toLocaleDateString()}
+                          </span>
+                        )}
+                        {deal.videoUrl && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Video className="h-3 w-3" /> Video
+                          </span>
+                        )}
+                      </div>
+                      {/* Analytics row */}
+                      <div className="flex items-center gap-4 mt-2 pt-2 border-t border-border/50">
+                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <Eye className="h-3 w-3" /> {deal.viewCount ?? 0} views
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <MousePointerClick className="h-3 w-3" /> {deal.clickCount ?? 0} clicks
+                        </span>
+                        {(deal.viewCount ?? 0) > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-green-600 dark:text-green-400 font-medium">
+                            <BarChart2 className="h-3 w-3" />
+                            {Math.round(((deal.clickCount ?? 0) / (deal.viewCount ?? 1)) * 100)}% CTR
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex flex-col items-end gap-2 flex-shrink-0">
                       <div className="flex items-center gap-1.5">
                         <span className={`w-2 h-2 rounded-full ${deal.isActive ? "bg-green-500" : "bg-muted-foreground/40"}`} />
                         <span className="text-xs text-muted-foreground">{deal.isActive ? "Active" : "Stopped"}</span>
                       </div>
-                      <Switch
-                        checked={deal.isActive}
-                        onCheckedChange={(checked) => updateDealMutation.mutate({ id: deal.id, updates: { isActive: checked } })}
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <Switch
+                          checked={deal.isActive}
+                          onCheckedChange={(checked) => updateDealMutation.mutate({ id: deal.id, updates: { isActive: checked } })}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5" title="Toggle featured spotlight">
+                        <Star className={`h-3 w-3 ${deal.isFeatured ? "text-primary fill-primary" : "text-muted-foreground"}`} />
+                        <Switch
+                          checked={deal.isFeatured}
+                          onCheckedChange={(checked) => updateDealMutation.mutate({ id: deal.id, updates: { isFeatured: checked } })}
+                        />
+                      </div>
                       <Button
                         variant="ghost"
                         size="icon"

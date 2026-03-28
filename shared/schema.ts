@@ -239,12 +239,20 @@ export const smileDeals = pgTable("smile_deals", {
   bookingLink: varchar("booking_link", { length: 1000 }).notNull(),
   price: varchar("price", { length: 50 }),
   isActive: boolean("is_active").default(true).notNull(),
+  videoUrl: varchar("video_url", { length: 1000 }),
+  expiresAt: timestamp("expires_at"),
+  isFeatured: boolean("is_featured").default(false).notNull(),
+  category: varchar("category", { length: 100 }),
+  viewCount: integer("view_count").default(0).notNull(),
+  clickCount: integer("click_count").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertSmileDealSchema = createInsertSchema(smileDeals).omit({
   id: true,
   createdAt: true,
+  viewCount: true,
+  clickCount: true,
 });
 
 export type SmileDeal = typeof smileDeals.$inferSelect;
