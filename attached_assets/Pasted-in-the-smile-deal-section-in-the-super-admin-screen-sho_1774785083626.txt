@@ -1,0 +1,26 @@
+in the smile deal section in the super admin screen , should allow to edit deal also , mention allow to mention clinic name in the deal wherev is clinic specific , wherever its and advertisement allow the contact information to contact , when clinic deal is selected fill all mandatory fields and vice versa for all category , also in clinic deal prepopulate all listed clinics and their book id , please analyse and let me know your inputs before making any changes
+
+
+What currently exists
+* The form already has 9 categories with dynamic link labels (e.g. "Ad Target URL" for Ads, "Booking Link" for others)
+* Clinics are already loaded in the page (/api/clinics already queried)
+* The running deals list only has: toggle active, toggle featured, delete — no edit at all
+* The existing updateDealMutation (PATCH) is already wired to the backend but only used for toggling active/featured
+* Schema has no clinicId or contact info fields — just a generic bookingLink string
+
+My proposed plan — 3 parts
+1. Edit Deal
+Add a pencil (Edit) icon to each deal card in the Running Deals list. Clicking it opens a slide-in panel or dialog with the full creation form pre-populated with that deal's existing data. Saving calls the existing PATCH API. No backend changes needed here.
+2. Smart category-specific fields
+Category	Extra fields shown
+Clinic Deals	Clinic dropdown (all approved clinics pre-loaded) → selecting one auto-fills the booking link to /book/{id} and the clinic name. Mandatory: clinic selection
+Advertisements / Sponsored	Contact block: Sponsor Name, Phone, Email, Website. Booking link becomes "Ad Target URL". Mandatory: at least one contact method
+All others	Current behaviour unchanged
+3. Schema additions (2 new optional columns, non-breaking)
+* clinic_id (integer, nullable) — links a Clinic Deal to a specific clinic record
+* contact_info (jsonb, nullable) — stores { sponsorName, phone, email, website } for ad deals
+These are purely additive. No existing columns are renamed, removed, or changed in type.
+
+One thing to confirm before I build
+For Advertisements / Sponsored, should the contact info (phone/email/website) be shown publicly on the Smile Deals page for patients to see, or is it just internal admin metadata? This determines whether I show it on the deal card on the public page.
+yes we can show that in the deal page , for add , shall we keep an identifier as sponsered in light shade like shown in youtube , what do youthink
