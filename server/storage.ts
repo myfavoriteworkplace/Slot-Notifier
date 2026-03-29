@@ -11,7 +11,7 @@ import {
   type SmileDeal, type InsertSmileDeal
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, or, isNull, gt, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -622,10 +622,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Smile Deals
-  async getSmileDeals(onlyActive: boolean = false): Promise<SmileDeal[]> {
+  async getSmileDeals(onlyActive: boolean = false): Promise<(SmileDeal & { clinicCity: string | null })[]> {
     const now = new Date();
+    const cols = { ...getTableColumns(smileDeals), clinicCity: clinics.city };
     if (onlyActive) {
-      return await db.select().from(smileDeals)
+      return await db.select(cols).from(smileDeals)
+        .leftJoin(clinics, eq(smileDeals.clinicId, clinics.id))
         .where(
           and(
             eq(smileDeals.isActive, true),
@@ -634,7 +636,9 @@ export class DatabaseStorage implements IStorage {
         )
         .orderBy(desc(smileDeals.isFeatured), desc(smileDeals.createdAt));
     }
-    return await db.select().from(smileDeals).orderBy(desc(smileDeals.isFeatured), desc(smileDeals.createdAt));
+    return await db.select(cols).from(smileDeals)
+      .leftJoin(clinics, eq(smileDeals.clinicId, clinics.id))
+      .orderBy(desc(smileDeals.isFeatured), desc(smileDeals.createdAt));
   }
 
   async createSmileDeal(insertDeal: InsertSmileDeal): Promise<SmileDeal> {
