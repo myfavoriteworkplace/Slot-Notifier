@@ -382,6 +382,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const dealData = {
         ...req.body,
         price: req.body.price || null,
+        originalPrice: req.body.originalPrice || null,
+        subcategory: req.body.subcategory || null,
+        isFlash: req.body.isFlash ?? false,
         startsAt: req.body.startsAt ? new Date(req.body.startsAt) : null,
         expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null
       };

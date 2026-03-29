@@ -1,18 +1,24 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { SmileDeal } from "@shared/schema";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import {
-  Loader2, ExternalLink, Sparkles, Play, Eye, Timer, Star,
-  ChevronRight, Tag, Maximize2
-} from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Loader2, Play, Eye, Timer, Star, ChevronRight, Maximize2, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { apiRequest } from "@/lib/queryClient";
 
-const DEAL_CATEGORIES = ["All", "Whitening", "Scaling", "Braces", "Implants", "Root Canal", "Extraction", "Consultation", "Orthodontics", "Other"];
+const TEAL = "#0FCE8A";
+const TEAL_DIM = "#0A9E6A";
+const BG = "#080D0B";
+const CARD = "#111A16";
+const CARD_HOVER = "#162019";
+const SURFACE = "#0E1512";
+const BORDER = "rgba(15,206,138,.12)";
+const BORDER_H = "rgba(15,206,138,.35)";
+const TEXT = "#E8F5F0";
+const MUTED = "#6B8F7E";
+const GOLD = "#F0C060";
+const RED = "#FF5757";
 
 function getVideoType(url: string): "youtube" | "vimeo" | "mp4" | null {
   if (!url) return null;
@@ -30,13 +36,8 @@ function getEmbedUrl(url: string): string {
   return url;
 }
 
-function getWatchUrl(url: string): string {
-  return url;
-}
-
 function useCountdown(expiresAt: string | null | undefined) {
-  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
-
+  const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number } | null>(null);
   useEffect(() => {
     if (!expiresAt) return;
     const target = new Date(expiresAt).getTime();
@@ -44,8 +45,7 @@ function useCountdown(expiresAt: string | null | undefined) {
       const diff = target - Date.now();
       if (diff <= 0) { setTimeLeft(null); return; }
       setTimeLeft({
-        days: Math.floor(diff / 86400000),
-        hours: Math.floor((diff % 86400000) / 3600000),
+        hours: Math.floor(diff / 3600000),
         minutes: Math.floor((diff % 3600000) / 60000),
         seconds: Math.floor((diff % 60000) / 1000),
       });
@@ -54,229 +54,20 @@ function useCountdown(expiresAt: string | null | undefined) {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [expiresAt]);
-
   return timeLeft;
-}
-
-function CountdownDisplay({ expiresAt }: { expiresAt: string | null | undefined }) {
-  const timeLeft = useCountdown(expiresAt);
-  if (!timeLeft || !expiresAt) return null;
-  const units = [
-    { label: "Days", value: timeLeft.days },
-    { label: "Hrs", value: timeLeft.hours },
-    { label: "Min", value: timeLeft.minutes },
-    { label: "Sec", value: timeLeft.seconds },
-  ];
-  return (
-    <div className="flex items-center gap-2">
-      <Timer className="h-4 w-4 text-amber-400" />
-      <span className="text-xs text-amber-300 font-medium uppercase tracking-wider">Ends in</span>
-      <div className="flex gap-1">
-        {units.map(({ label, value }) => (
-          <div key={label} className="flex flex-col items-center bg-black/40 backdrop-blur-sm border border-white/10 rounded-lg px-2.5 py-1 min-w-[44px]">
-            <span className="text-white font-bold text-sm tabular-nums leading-none">
-              {String(value).padStart(2, "0")}
-            </span>
-            <span className="text-white/50 text-[9px] uppercase tracking-widest leading-none mt-0.5">{label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function HeroFeaturedDeal({ deal, onBookClick }: { deal: SmileDeal; onBookClick: (deal: SmileDeal) => void }) {
-  const videoType = deal.videoUrl ? getVideoType(deal.videoUrl) : null;
-  const embedUrl = deal.videoUrl ? getEmbedUrl(deal.videoUrl) : null;
-  const isExpired = deal.expiresAt ? new Date(deal.expiresAt) <= new Date() : false;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-      className="relative w-full overflow-hidden rounded-2xl mb-12"
-      style={{ minHeight: "520px" }}
-    >
-      {/* Background video / image */}
-      <div className="absolute inset-0 bg-black">
-        {videoType === "mp4" && deal.videoUrl ? (
-          <video
-            src={deal.videoUrl}
-            autoPlay muted loop playsInline
-            className="w-full h-full object-cover opacity-60"
-          />
-        ) : videoType && embedUrl ? (
-          <iframe
-            src={embedUrl}
-            className="w-full h-full scale-110 opacity-60"
-            allow="autoplay; fullscreen"
-            style={{ border: "none", pointerEvents: "none" }}
-          />
-        ) : (
-          <img
-            src={deal.imageUrl}
-            alt={deal.title}
-            className="w-full h-full object-cover opacity-50"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=1600";
-            }}
-          />
-        )}
-        {/* Gradient overlays */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
-      </div>
-
-      {/* Animated particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(12)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-1 h-1 rounded-full bg-primary/60"
-            style={{ left: `${10 + i * 8}%`, top: `${20 + (i % 4) * 20}%` }}
-            animate={{ y: [-20, 20, -20], opacity: [0.3, 0.8, 0.3] }}
-            transition={{ duration: 3 + i * 0.3, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 }}
-          />
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 flex flex-col justify-end h-full p-8 md:p-12 min-h-[520px]">
-        <div className="max-w-2xl">
-          {/* Badges */}
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-              className="inline-flex items-center gap-1.5 bg-primary/90 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg shadow-primary/30"
-            >
-              <Star className="h-3 w-3 fill-white" />
-              Featured Offer
-            </motion.div>
-            {deal.category && (
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 }}
-                className="inline-flex items-center gap-1 bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-medium px-3 py-1.5 rounded-full"
-              >
-                <Tag className="h-3 w-3" />
-                {deal.category}
-              </motion.div>
-            )}
-            {isExpired && (
-              <span className="bg-red-500/80 text-white text-xs font-bold px-3 py-1.5 rounded-full">Expired</span>
-            )}
-          </div>
-
-          {/* Title */}
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-            className="text-3xl md:text-5xl font-black text-white tracking-tight leading-tight mb-3"
-          >
-            {deal.title}
-          </motion.h2>
-
-          {/* Price */}
-          {deal.price && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.45 }}
-              className="text-3xl font-black text-primary mb-3"
-            >
-              ₹{deal.price}
-            </motion.div>
-          )}
-
-          {/* Description */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-white/75 text-base leading-relaxed mb-5 max-w-lg line-clamp-2"
-          >
-            {deal.description}
-          </motion.p>
-
-          {/* Countdown */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.55 }}
-            className="mb-6"
-          >
-            <CountdownDisplay expiresAt={deal.expiresAt ? String(deal.expiresAt) : null} />
-          </motion.div>
-
-          {/* CTAs */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="flex flex-wrap gap-3"
-          >
-            <Link href={deal.bookingLink}>
-              <Button
-                size="lg"
-                className="bg-primary hover:bg-primary/90 text-white font-bold shadow-xl shadow-primary/40 px-8 group"
-                onClick={() => onBookClick(deal)}
-              >
-                Book Now
-                <ChevronRight className="ml-1 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
-            {deal.videoUrl && videoType !== "mp4" && (
-              <a href={getWatchUrl(deal.videoUrl)} target="_blank" rel="noreferrer">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="bg-white/10 backdrop-blur border-white/25 text-white hover:bg-white/20 font-semibold"
-                >
-                  <Play className="mr-2 h-4 w-4 fill-white" />
-                  Watch Video
-                </Button>
-              </a>
-            )}
-          </motion.div>
-        </div>
-
-        {/* Stats pill */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="absolute top-6 right-6 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5"
-        >
-          <Eye className="h-3.5 w-3.5 text-white/60" />
-          <span className="text-white/60 text-xs">{deal.viewCount ?? 0} views</span>
-        </motion.div>
-      </div>
-    </motion.div>
-  );
 }
 
 function TiltCard({ children, className }: { children: React.ReactNode; className?: string }) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const rotateX = useTransform(y, [-0.5, 0.5], [7, -7]);
-  const rotateY = useTransform(x, [-0.5, 0.5], [-7, 7]);
-
+  const rotateX = useTransform(y, [-0.5, 0.5], [6, -6]);
+  const rotateY = useTransform(x, [-0.5, 0.5], [-6, 6]);
   function handleMouse(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     x.set((e.clientX - rect.left) / rect.width - 0.5);
     y.set((e.clientY - rect.top) / rect.height - 0.5);
   }
-  function handleLeave() {
-    x.set(0);
-    y.set(0);
-  }
-
+  function handleLeave() { x.set(0); y.set(0); }
   return (
     <motion.div
       style={{ rotateX, rotateY, transformStyle: "preserve-3d", perspective: 1000 }}
@@ -289,162 +80,365 @@ function TiltCard({ children, className }: { children: React.ReactNode; classNam
   );
 }
 
-function DealCard({
-  deal,
-  index,
-  onBookClick,
-  onVideoOpen,
-}: {
-  deal: SmileDeal;
-  index: number;
-  onBookClick: (deal: SmileDeal) => void;
-  onVideoOpen: (deal: SmileDeal) => void;
-}) {
+function VideoModal({ deal, open, onClose }: { deal: SmileDeal | null; open: boolean; onClose: () => void }) {
+  if (!deal?.videoUrl) return null;
+  const videoType = getVideoType(deal.videoUrl);
+  const embedUrl = getEmbedUrl(deal.videoUrl);
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-0">
+        <div className="aspect-video w-full">
+          {videoType === "mp4" ? (
+            <video src={deal.videoUrl} controls autoPlay className="w-full h-full" />
+          ) : (
+            <iframe src={embedUrl.replace("&controls=0", "&controls=1").replace("background=1", "background=0")} className="w-full h-full" allow="autoplay; fullscreen" style={{ border: "none" }} />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FeaturedCard({ deal, onBookClick }: { deal: SmileDeal; onBookClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const videoType = deal.videoUrl ? getVideoType(deal.videoUrl) : null;
+  const embedUrl = deal.videoUrl ? getEmbedUrl(deal.videoUrl) : null;
+  const isExpired = deal.expiresAt ? new Date(deal.expiresAt) <= new Date() : false;
+  const save = (deal as any).originalPrice && deal.price
+    ? parseInt((deal as any).originalPrice) - parseInt(deal.price)
+    : null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: CARD,
+        border: `1px solid ${hovered ? BORDER_H : BORDER}`,
+        borderRadius: 24,
+        overflow: "hidden",
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        minHeight: 380,
+        cursor: "pointer",
+        transform: hovered ? "translateY(-4px)" : "translateY(0)",
+        transition: "border-color .3s, transform .4s cubic-bezier(.16,1,.3,1)",
+      }}
+    >
+      {/* Image side */}
+      <div style={{ position: "relative", overflow: "hidden" }}>
+        {videoType && videoType !== "mp4" && hovered && embedUrl ? (
+          <iframe src={embedUrl} className="w-full h-full" allow="autoplay; fullscreen" style={{ border: "none", pointerEvents: "none", position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+        ) : videoType === "mp4" && deal.videoUrl ? (
+          <video src={deal.videoUrl} autoPlay={hovered} muted loop playsInline className="w-full h-full object-cover" style={{ transition: "transform .7s cubic-bezier(.16,1,.3,1)", transform: hovered ? "scale(1.05)" : "scale(1)" }} />
+        ) : (
+          <img
+            src={deal.imageUrl}
+            alt={deal.title}
+            className="w-full h-full object-cover"
+            style={{ transition: "transform .7s cubic-bezier(.16,1,.3,1)", transform: hovered ? "scale(1.05)" : "scale(1)" }}
+            onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=1200"; }}
+          />
+        )}
+        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, transparent 60%, ${CARD} 100%)` }} />
+        {isExpired && (
+          <div style={{ position: "absolute", top: 16, left: 16, background: `${RED}CC`, color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6 }}>
+            Expired
+          </div>
+        )}
+      </div>
+
+      {/* Content side */}
+      <div style={{ padding: "44px 44px 44px 36px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 18 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", background: `rgba(15,206,138,.12)`, color: TEAL, border: `1px solid ${BORDER_H}` }}>
+            <Star style={{ width: 10, height: 10, fill: TEAL }} /> Featured Offer
+          </span>
+          {(deal as any).subcategory && (
+            <span style={{ padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", background: `rgba(8,13,11,.8)`, color: MUTED, border: `1px solid ${BORDER}` }}>
+              {(deal as any).subcategory}
+            </span>
+          )}
+        </div>
+
+        <div style={{ fontSize: 30, fontWeight: 700, color: TEXT, lineHeight: 1.2, letterSpacing: "-.02em" }}>{deal.title}</div>
+
+        {deal.description && <div style={{ fontSize: 14, color: MUTED, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.description}</div>}
+
+        {(deal.price || (deal as any).originalPrice) && (
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+            {deal.price && <span style={{ fontSize: 38, fontWeight: 800, color: TEAL, letterSpacing: "-.03em" }}>₹{deal.price}</span>}
+            {(deal as any).originalPrice && <span style={{ fontSize: 17, color: MUTED, textDecoration: "line-through" }}>₹{(deal as any).originalPrice}</span>}
+            {save && save > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: RED, background: `rgba(255,87,87,.1)`, padding: "3px 8px", borderRadius: 4 }}>Save ₹{save.toLocaleString()}</span>}
+          </div>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <Link href={deal.bookingLink}>
+            <button
+              onClick={onBookClick}
+              style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "13px 26px", borderRadius: 12,
+                background: hovered ? TEAL_DIM : TEAL,
+                color: "#050E09", fontWeight: 700, fontSize: 14,
+                border: "none", cursor: "pointer",
+                fontFamily: "'Sora', sans-serif",
+                transition: "background .2s, transform .15s",
+              }}
+            >
+              Book Now
+              <ChevronRight style={{ width: 16, height: 16 }} />
+            </button>
+          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, color: MUTED, fontSize: 13 }}>
+            <Eye style={{ width: 14, height: 14 }} />
+            {deal.viewCount ?? 0} views
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function FlashCard({ deal }: { deal: SmileDeal }) {
+  const [hovered, setHovered] = useState(false);
+  const save = (deal as any).originalPrice && deal.price
+    ? parseInt((deal as any).originalPrice) - parseInt(deal.price)
+    : null;
+  return (
+    <Link href={deal.bookingLink}>
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          flex: "0 0 260px",
+          scrollSnapAlign: "start",
+          background: hovered ? `linear-gradient(135deg, rgba(15,206,138,.08) 0%, transparent 60%), ${CARD}` : CARD,
+          border: `1px solid ${hovered ? BORDER_H : BORDER}`,
+          borderRadius: 16,
+          padding: 20,
+          cursor: "pointer",
+          transition: "border-color .3s, transform .3s cubic-bezier(.16,1,.3,1)",
+          transform: hovered ? "translateY(-6px)" : "translateY(0)",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ width: 48, height: 48, borderRadius: 12, overflow: "hidden", marginBottom: 14, background: SURFACE }}>
+          <img src={deal.imageUrl} alt={deal.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=200"; }} />
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, marginBottom: 5 }}>{deal.title}</div>
+        {deal.description && <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5, marginBottom: 12, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.description}</div>}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+          {deal.price && <span style={{ fontSize: 20, fontWeight: 800, color: TEAL }}>₹{deal.price}</span>}
+          {(deal as any).originalPrice && <span style={{ fontSize: 13, color: MUTED, textDecoration: "line-through" }}>₹{(deal as any).originalPrice}</span>}
+          {save && save > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: RED, background: `rgba(255,87,87,.1)`, padding: "2px 6px", borderRadius: 4, marginLeft: 2 }}>-₹{save}</span>}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function CountdownCard({ deal }: { deal: SmileDeal }) {
+  const timeLeft = useCountdown(deal.expiresAt ? String(deal.expiresAt) : null);
+  const [colonVisible, setColonVisible] = useState(true);
+  useEffect(() => {
+    const id = setInterval(() => setColonVisible((v) => !v), 500);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!timeLeft) return null;
+  const units = [
+    { label: "Hours", value: timeLeft.hours },
+    { label: "Mins", value: timeLeft.minutes },
+    { label: "Secs", value: timeLeft.seconds },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      style={{
+        background: `linear-gradient(135deg, #0E1F17 0%, #091409 100%)`,
+        border: `1px solid rgba(15,206,138,.2)`,
+        borderRadius: 20,
+        padding: "36px 40px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        flexWrap: "wrap", gap: 24,
+        position: "relative", overflow: "hidden",
+        marginBottom: 48,
+      }}
+    >
+      <div style={{ position: "absolute", top: -80, right: -80, width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(15,206,138,.1), transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ flex: 1, minWidth: 220 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: RED, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 10 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: RED, display: "inline-block", animation: "dealpulse 1.2s ease-in-out infinite" }} />
+          Limited Time Offer
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, marginBottom: 6, letterSpacing: "-.02em" }}>{deal.title}</div>
+        {deal.description && <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.5 }}>{deal.description}</div>}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {units.map((unit, i) => (
+          <div key={unit.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ textAlign: "center" }}>
+              <span style={{ display: "block", fontSize: 38, fontWeight: 800, color: TEAL, letterSpacing: "-.04em", background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "6px 16px", minWidth: 68, textAlign: "center" }}>
+                {String(unit.value).padStart(2, "0")}
+              </span>
+              <div style={{ fontSize: 11, color: MUTED, marginTop: 5, letterSpacing: ".06em" }}>{unit.label}</div>
+            </div>
+            {i < 2 && <span style={{ fontSize: 30, fontWeight: 700, color: MUTED, marginBottom: 14, opacity: colonVisible ? 1 : 0.2, transition: "opacity .1s" }}>:</span>}
+          </div>
+        ))}
+      </div>
+      <Link href={deal.bookingLink}>
+        <button style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 12, background: TEAL, color: "#050E09", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer", fontFamily: "'Sora', sans-serif" }}>
+          Grab Deal <ChevronRight style={{ width: 16, height: 16 }} />
+        </button>
+      </Link>
+    </motion.div>
+  );
+}
+
+function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number; onVideoOpen: (d: SmileDeal) => void }) {
+  const [hovered, setHovered] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isHovered, setIsHovered] = useState(false);
   const videoType = deal.videoUrl ? getVideoType(deal.videoUrl) : null;
   const embedUrl = (deal.videoUrl && videoType && videoType !== "mp4") ? getEmbedUrl(deal.videoUrl) : null;
   const isExpired = deal.expiresAt ? new Date(deal.expiresAt) <= new Date() : false;
+  const save = (deal as any).originalPrice && deal.price
+    ? parseInt((deal as any).originalPrice) - parseInt(deal.price)
+    : null;
 
-  const cardVariants = {
-    hidden: { opacity: 0, y: 40, scale: 0.95 },
-    visible: {
-      opacity: 1, y: 0, scale: 1,
-      transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: index * 0.07 },
-    },
-  };
-
-  function handleMouseEnter() {
-    setIsHovered(true);
-    if (videoType === "mp4" && videoRef.current) {
-      videoRef.current.play().catch(() => {});
-    }
+  function handleEnter() {
+    setHovered(true);
+    if (videoType === "mp4" && videoRef.current) videoRef.current.play().catch(() => {});
   }
-  function handleMouseLeave() {
-    setIsHovered(false);
-    if (videoType === "mp4" && videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
+  function handleLeave() {
+    setHovered(false);
+    if (videoType === "mp4" && videoRef.current) { videoRef.current.pause(); videoRef.current.currentTime = 0; }
   }
 
   return (
-    <motion.div variants={cardVariants} initial="hidden" animate="visible">
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: index * 0.07 }}
+    >
       <TiltCard className="h-full">
         <div
-          className={`group relative flex flex-col h-full rounded-2xl overflow-hidden border bg-card shadow-md hover:shadow-2xl transition-shadow duration-300 ${isExpired ? "opacity-60" : ""}`}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
+          onMouseEnter={handleEnter}
+          onMouseLeave={handleLeave}
+          style={{
+            background: hovered ? CARD_HOVER : CARD,
+            border: `1px solid ${hovered ? BORDER_H : BORDER}`,
+            borderRadius: 20,
+            overflow: "hidden",
+            cursor: "pointer",
+            transition: "border-color .3s, transform .4s cubic-bezier(.16,1,.3,1), box-shadow .3s",
+            transform: hovered ? "translateY(-8px)" : "translateY(0)",
+            boxShadow: hovered ? `0 24px 60px rgba(0,0,0,.5), 0 0 0 1px ${BORDER_H}, inset 0 1px 0 rgba(15,206,138,.08)` : "none",
+            display: "flex", flexDirection: "column",
+            height: "100%",
+            opacity: isExpired ? 0.55 : 1,
+          }}
         >
-          {/* Media area */}
-          <div className="relative aspect-video overflow-hidden bg-muted">
-            {/* Still image */}
+          {/* Shine overlay */}
+          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 20, background: "linear-gradient(135deg, rgba(255,255,255,.04) 0%, transparent 50%)", opacity: hovered ? 1 : 0, transition: "opacity .3s" }} />
+
+          {/* Media */}
+          <div style={{ position: "relative", height: 196, overflow: "hidden" }}>
             <img
               src={deal.imageUrl}
               alt={deal.title}
-              className={`w-full h-full object-cover transition-all duration-500 ${isHovered && videoType ? "opacity-0" : "opacity-100"} group-hover:scale-105`}
-              onError={(e) => {
-                (e.target as HTMLImageElement).src =
-                  "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800";
-              }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(.9)", transition: "transform .6s cubic-bezier(.16,1,.3,1), opacity .5s", transform: hovered && videoType ? "scale(1)" : hovered ? "scale(1.08)" : "scale(1)", opacity: hovered && videoType ? 0 : 1 }}
+              onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800"; }}
             />
-
-            {/* mp4 hover video */}
             {videoType === "mp4" && deal.videoUrl && (
-              <video
-                ref={videoRef}
-                src={deal.videoUrl}
-                muted loop playsInline
-                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isHovered ? "opacity-100" : "opacity-0"}`}
-              />
+              <video ref={videoRef} src={deal.videoUrl} muted loop playsInline style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: hovered ? 1 : 0, transition: "opacity .5s" }} />
+            )}
+            {videoType && videoType !== "mp4" && (
+              <>
+                {!hovered && (
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 cursor-pointer" onClick={() => onVideoOpen(deal)}>
+                    <div className="p-3 rounded-full bg-white/20 backdrop-blur-sm border border-white/30">
+                      <Play className="h-7 w-7 text-white fill-white" />
+                    </div>
+                  </div>
+                )}
+                {hovered && embedUrl && (
+                  <div style={{ position: "absolute", inset: 0 }}>
+                    <iframe src={embedUrl} style={{ width: "100%", height: "100%", border: "none", pointerEvents: "none" }} allow="autoplay; fullscreen" />
+                    <button onClick={() => onVideoOpen(deal)} style={{ position: "absolute", bottom: 8, right: 8, padding: 6, borderRadius: "50%", background: "rgba(0,0,0,.5)", border: "1px solid rgba(255,255,255,.2)", cursor: "pointer" }}>
+                      <Maximize2 style={{ width: 13, height: 13, color: "#fff" }} />
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
-            {/* YouTube/Vimeo — play button when not hovered */}
-            {videoType && videoType !== "mp4" && !isHovered && (
-              <div
-                className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/40 cursor-pointer"
-                onClick={() => onVideoOpen(deal)}
-              >
-                <div className="p-4 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 hover:bg-white/30 transition-colors">
-                  <Play className="h-8 w-8 text-white fill-white" />
-                </div>
-              </div>
+            {/* Category badge */}
+            {(deal as any).subcategory && (
+              <span style={{ position: "absolute", top: 12, left: 12, zIndex: 3, background: "rgba(8,13,11,.8)", backdropFilter: "blur(8px)", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 10, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", padding: "4px 9px", borderRadius: 6 }}>
+                {(deal as any).subcategory}
+              </span>
             )}
-
-            {/* YouTube/Vimeo — autoplay iframe on hover */}
-            {videoType && videoType !== "mp4" && isHovered && embedUrl && (
-              <div className="absolute inset-0">
-                <iframe
-                  src={embedUrl}
-                  className="w-full h-full"
-                  allow="autoplay; fullscreen"
-                  allowFullScreen
-                  style={{ border: "none", pointerEvents: "none" }}
-                />
-                <button
-                  className="absolute bottom-2 right-2 p-1.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 hover:bg-black/70 transition-colors cursor-pointer"
-                  onClick={() => onVideoOpen(deal)}
-                  title="Watch full video"
-                >
-                  <Maximize2 className="h-3.5 w-3.5 text-white" />
-                </button>
-              </div>
+            {deal.isFeatured && (
+              <span style={{ position: "absolute", top: 12, left: (deal as any).subcategory ? 110 : 12, zIndex: 3, display: "inline-flex", alignItems: "center", gap: 4, background: "#0F9B6E", color: "#fff", fontSize: 10, fontWeight: 700, padding: "4px 9px", borderRadius: 9999 }}>
+                <Star style={{ width: 9, height: 9, fill: "#fff" }} /> Featured
+              </span>
             )}
-
-            {/* Top badges */}
-            <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-              {deal.isFeatured && (
-                <span className="inline-flex items-center gap-1 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
-                  <Star className="h-2.5 w-2.5 fill-white" /> Featured
-                </span>
-              )}
-              {deal.category && (
-                <span className="inline-flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-medium px-2 py-0.5 rounded-full border border-white/20">
-                  {deal.category}
-                </span>
-              )}
-              {isExpired && (
-                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Expired</span>
-              )}
-            </div>
+            {isExpired && (
+              <span style={{ position: "absolute", top: 12, right: 12, zIndex: 3, background: `${RED}CC`, color: "#fff", fontSize: 10, fontWeight: 700, padding: "4px 9px", borderRadius: 6 }}>Expired</span>
+            )}
 
             {/* Price badge */}
             {deal.price && (
-              <div className="absolute top-3 right-3 bg-primary text-white font-black text-sm px-3 py-1 rounded-xl shadow-lg shadow-primary/30">
+              <div style={{ position: "absolute", top: 12, right: isExpired ? 74 : 12, zIndex: 3, background: TEAL, color: "#050E09", fontSize: 13, fontWeight: 800, letterSpacing: "-.01em", padding: "5px 11px", borderRadius: 8, boxShadow: `0 4px 16px rgba(15,206,138,.4)` }}>
                 ₹{deal.price}
               </div>
             )}
           </div>
 
-          {/* Card body */}
-          <div className="flex flex-col flex-1 p-5 gap-3">
-            <div className="flex-1">
-              <h3 className="font-bold text-base leading-snug mb-1.5 line-clamp-2">{deal.title}</h3>
-              <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{deal.description}</p>
+          {/* Body */}
+          <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", flex: 1, gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: TEXT, letterSpacing: "-.01em", marginBottom: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.title}</div>
+              {deal.description && <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.description}</div>}
             </div>
 
-            {/* Countdown */}
-            {deal.expiresAt && !isExpired && (
-              <div className="text-xs">
-                <CountdownDisplay expiresAt={deal.expiresAt ? String(deal.expiresAt) : null} />
+            {save && save > 0 && (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: `rgba(255,87,87,.1)`, color: RED, width: "fit-content" }}>
+                Save ₹{save.toLocaleString()}
               </div>
             )}
 
-            {/* Footer */}
-            <div className="flex items-center justify-between pt-2 border-t border-border/60">
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <Eye className="h-3 w-3" />
-                <span>{deal.viewCount ?? 0}</span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: MUTED }}>
+                <Eye style={{ width: 12, height: 12 }} />
+                {deal.viewCount ?? 0}
               </div>
               <Link href={deal.bookingLink}>
-                <Button
-                  size="sm"
-                  className="text-xs font-semibold shadow-md shadow-primary/20 group/btn"
-                  onClick={() => onBookClick(deal)}
+                <button
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    padding: "8px 16px", borderRadius: 9,
+                    background: hovered ? TEAL_DIM : TEAL,
+                    color: "#050E09", fontSize: 12, fontWeight: 700,
+                    border: "none", cursor: "pointer",
+                    fontFamily: "'Sora', sans-serif",
+                    transition: "background .2s, box-shadow .2s",
+                    boxShadow: hovered ? `0 4px 16px rgba(15,206,138,.3)` : "none",
+                  }}
                 >
-                  Book Now
-                  <ExternalLink className="ml-1.5 h-3 w-3 opacity-70 group-hover/btn:opacity-100 transition-opacity" />
-                </Button>
+                  Book
+                  <ExternalLink style={{ width: 11, height: 11 }} />
+                </button>
               </Link>
             </div>
           </div>
@@ -454,33 +448,8 @@ function DealCard({
   );
 }
 
-function VideoModal({ deal, open, onClose }: { deal: SmileDeal | null; open: boolean; onClose: () => void }) {
-  if (!deal?.videoUrl) return null;
-  const videoType = getVideoType(deal.videoUrl);
-  const embedUrl = getEmbedUrl(deal.videoUrl);
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-0">
-        <div className="aspect-video w-full">
-          {videoType === "mp4" ? (
-            <video src={deal.videoUrl} controls autoPlay className="w-full h-full" />
-          ) : (
-            <iframe
-              src={embedUrl.replace("&controls=0", "&controls=1").replace("background=1", "background=0")}
-              className="w-full h-full"
-              allow="autoplay; fullscreen"
-              style={{ border: "none" }}
-            />
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function SmileDeals() {
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [activeSubcategory, setActiveSubcategory] = useState("All");
   const [videoModalDeal, setVideoModalDeal] = useState<SmileDeal | null>(null);
   const trackingRef = useRef(new Set<number>());
 
@@ -502,137 +471,220 @@ export default function SmileDeals() {
     deals.forEach((d) => trackView(d.id));
   }, [deals, trackView]);
 
-  const featuredDeal = deals.find((d) => d.isFeatured);
-  const categories = ["All", ...Array.from(new Set(deals.map((d) => d.category).filter(Boolean) as string[]))];
+  const featuredDeal = deals.find((d) => d.isFeatured && !(d as any).isFlash);
+  const flashDeals = deals.filter((d) => (d as any).isFlash);
+  const subcategories = ["All", ...Array.from(new Set(deals.map((d) => (d as any).subcategory).filter(Boolean) as string[]))];
 
   const filteredDeals = deals.filter((d) => {
     if (d.isFeatured) return false;
-    if (activeCategory === "All") return true;
-    return d.category === activeCategory;
+    if ((d as any).isFlash) return false;
+    if (activeSubcategory === "All") return true;
+    return (d as any).subcategory === activeSubcategory;
   });
+
+  const countdownDeal = deals.find((d) => {
+    if (!d.expiresAt) return false;
+    if (d.isFeatured || (d as any).isFlash) return false;
+    const exp = new Date(d.expiresAt).getTime();
+    return exp > Date.now() && exp - Date.now() < 72 * 3600 * 1000;
+  });
+
+  const activeCount = deals.filter((d) => !d.expiresAt || new Date(d.expiresAt) > new Date()).length;
+  const totalViews = deals.reduce((sum, d) => sum + (d.viewCount ?? 0), 0);
+  const dealsWithSavings = deals.filter((d) => (d as any).originalPrice && d.price && parseInt((d as any).originalPrice) > parseInt(d.price ?? "0"));
+  const avgSaving = dealsWithSavings.length > 0
+    ? Math.round(dealsWithSavings.reduce((sum, d) => sum + (parseInt((d as any).originalPrice) - parseInt(d.price ?? "0")), 0) / dealsWithSavings.length)
+    : null;
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div style={{ background: BG, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Loader2 style={{ width: 40, height: 40, color: TEAL, animation: "spin 1s linear infinite" }} />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-12 px-4">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="text-center mb-10"
-      >
-        <div className="inline-flex items-center gap-2 bg-primary/10 text-primary border border-primary/20 text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
-          <Sparkles className="h-4 w-4" />
-          Exclusive Offers
-        </div>
-        <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-4">
-          Smile <span className="text-primary">DEALS</span>
-        </h1>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Exclusive dental offers and packages from our partner clinics. Book your appointment today and save!
-        </p>
-      </motion.div>
+    <div style={{ background: BG, color: TEXT, minHeight: "100vh", fontFamily: "'Sora', sans-serif", position: "relative", overflow: "hidden" }}>
+      <style>{`
+        @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(40px,60px) scale(1.1); } }
+        @keyframes dealpulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.6)} }
+        @keyframes dealfadeup { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes dealspin { to { transform: rotate(360deg); } }
+      `}</style>
 
-      {/* Featured Hero */}
-      <AnimatePresence>
-        {featuredDeal && (
-          <HeroFeaturedDeal
-            deal={featuredDeal}
-            onBookClick={(d) => trackClick(d.id)}
-          />
-        )}
-      </AnimatePresence>
+      {/* Ambient orbs */}
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
+        <div style={{ position: "absolute", width: 600, height: 600, background: "radial-gradient(circle, rgba(15,206,138,.1) 0%, transparent 70%)", top: -200, left: -100, borderRadius: "50%", filter: "blur(90px)", animation: "drift 18s ease-in-out infinite alternate" }} />
+        <div style={{ position: "absolute", width: 500, height: 500, background: "radial-gradient(circle, rgba(15,206,138,.07) 0%, transparent 70%)", bottom: -100, right: -150, borderRadius: "50%", filter: "blur(90px)", animation: "drift 18s ease-in-out infinite alternate", animationDelay: "-6s" }} />
+        <div style={{ position: "absolute", width: 300, height: 300, background: "radial-gradient(circle, rgba(240,192,96,.05) 0%, transparent 70%)", top: "40%", left: "50%", borderRadius: "50%", filter: "blur(90px)", animation: "drift 18s ease-in-out infinite alternate", animationDelay: "-12s" }} />
+      </div>
 
-      {/* Category filter pills */}
-      {categories.length > 1 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="flex flex-wrap gap-2 mb-8"
-        >
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-full text-sm font-medium border transition-all duration-200 ${
-                activeCategory === cat
-                  ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
-                  : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
-              }`}
+      <div style={{ position: "relative", zIndex: 2 }}>
+        {/* Hero */}
+        <section style={{ padding: "72px 48px 52px", textAlign: "center" }}>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px", borderRadius: 100, border: `1px solid ${BORDER_H}`, background: "rgba(15,206,138,.08)", fontSize: 12, fontWeight: 600, letterSpacing: ".08em", color: TEAL, textTransform: "uppercase", marginBottom: 28 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ animation: "dealspin 8s linear infinite" }}>
+                <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
+              </svg>
+              Exclusive Offers
+            </div>
+            <h1 style={{ fontSize: "clamp(48px, 7vw, 88px)", fontWeight: 700, lineHeight: 1.0, letterSpacing: "-.03em", color: "#fff", marginBottom: 20 }}>
+              Smile <span style={{ color: TEAL }}>DEALS</span>
+            </h1>
+            <p style={{ fontSize: 16, color: MUTED, maxWidth: 520, margin: "0 auto 40px", lineHeight: 1.7 }}>
+              Premium dental care packages from our partner clinics — curated, priced lower, and bookable in seconds.
+            </p>
+
+            {/* Stats row */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 40, flexWrap: "wrap" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: TEAL, letterSpacing: "-.02em" }}>{activeCount}</div>
+                <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>Active Deals</div>
+              </div>
+              {avgSaving && avgSaving > 0 && (
+                <>
+                  <div style={{ width: 1, background: BORDER }} />
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: TEAL, letterSpacing: "-.02em" }}>₹{avgSaving.toLocaleString()}</div>
+                    <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>Avg Saving</div>
+                  </div>
+                </>
+              )}
+              {totalViews > 0 && (
+                <>
+                  <div style={{ width: 1, background: BORDER }} />
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: TEAL, letterSpacing: "-.02em" }}>{totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}K` : totalViews}</div>
+                    <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>Total Views</div>
+                  </div>
+                </>
+              )}
+            </div>
+          </motion.div>
+        </section>
+
+        <div style={{ padding: "0 48px" }}>
+          {/* Filter pills — uses subcategory */}
+          {subcategories.length > 1 && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 40, alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: MUTED, fontWeight: 500, marginRight: 4 }}>Filter:</span>
+              {subcategories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveSubcategory(cat)}
+                  style={{
+                    padding: "8px 20px", borderRadius: 100, fontSize: 13, fontWeight: 600,
+                    border: `1px solid ${activeSubcategory === cat ? TEAL : BORDER}`,
+                    background: activeSubcategory === cat ? TEAL : "transparent",
+                    color: activeSubcategory === cat ? "#050E09" : MUTED,
+                    cursor: "pointer", transition: "all .25s", letterSpacing: ".02em",
+                    fontFamily: "'Sora', sans-serif",
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </motion.div>
+          )}
+
+          {/* Featured card */}
+          <AnimatePresence>
+            {featuredDeal && (
+              <div style={{ marginBottom: 48 }}>
+                <FeaturedCard deal={featuredDeal} onBookClick={() => trackClick(featuredDeal.id)} />
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* Flash Deals scroll strip */}
+          {flashDeals.length > 0 && (
+            <div style={{ marginBottom: 52 }}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-.02em" }}>
+                  <span style={{ color: GOLD }}>⚡</span> Flash Deals
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 12, scrollSnapType: "x mandatory", scrollbarWidth: "none" }}>
+                {flashDeals.map((d) => (
+                  <FlashCard key={d.id} deal={d} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Countdown timer card */}
+          {countdownDeal && <CountdownCard deal={countdownDeal} />}
+
+          {/* Deals grid */}
+          {deals.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "80px 0", color: MUTED }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🦷</div>
+              <p style={{ fontSize: 18, fontWeight: 600, color: TEXT, marginBottom: 8 }}>No deals yet</p>
+              <p style={{ fontSize: 14 }}>Check back soon for exclusive offers.</p>
+            </div>
+          ) : (
+            <>
+              {filteredDeals.length > 0 && (
+                <>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24 }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-.02em" }}>
+                      All <span style={{ color: TEAL }}>Deals</span>
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20, marginBottom: 60 }}>
+                    {filteredDeals.map((deal, i) => (
+                      <DealCard key={deal.id} deal={deal} index={i} onVideoOpen={(d) => setVideoModalDeal(d)} />
+                    ))}
+                  </div>
+                </>
+              )}
+              {filteredDeals.length === 0 && activeSubcategory !== "All" && (
+                <div style={{ textAlign: "center", padding: "60px 0", color: MUTED }}>
+                  <p style={{ fontSize: 16 }}>No {activeSubcategory} deals right now.</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Bottom promo section */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 80 }}>
+            {/* Refer a Clinic */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+              style={{ background: "linear-gradient(135deg, #0A2018, #081510)", border: "1px solid rgba(15,206,138,.2)", borderRadius: 18, padding: 32, position: "relative", overflow: "hidden", cursor: "pointer", transition: "transform .35s cubic-bezier(.16,1,.3,1)" }}
+              whileHover={{ y: -6 }}
             >
-              {cat}
-            </button>
-          ))}
-        </motion.div>
-      )}
+              <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(15,206,138,.1), transparent 70%)", pointerEvents: "none" }} />
+              <div style={{ fontSize: 38, marginBottom: 14 }}>🏥</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: TEAL, marginBottom: 10 }}>Partner Clinics</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, marginBottom: 8, letterSpacing: "-.01em" }}>Refer a Clinic,<br />Unlock Exclusive Deals</div>
+              <div style={{ fontSize: 14, color: MUTED, lineHeight: 1.6, marginBottom: 20 }}>Know a great dental clinic? Refer them to bookMySlot and unlock exclusive deal access for both of you.</div>
+              <button style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 9, fontSize: 13, fontWeight: 700, background: TEAL, color: "#050E09", border: "none", cursor: "pointer", fontFamily: "'Sora', sans-serif", transition: "transform .15s" }}>
+                Refer Now →
+              </button>
+            </motion.div>
 
-      {/* Deals grid */}
-      {filteredDeals.length > 0 ? (
-        <motion.div
-          className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
-          initial="hidden"
-          animate="visible"
-        >
-          {filteredDeals.map((deal, i) => (
-            <DealCard
-              key={deal.id}
-              deal={deal}
-              index={i}
-              onBookClick={(d) => trackClick(d.id)}
-              onVideoOpen={(d) => setVideoModalDeal(d)}
-            />
-          ))}
-        </motion.div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-20 bg-muted/30 rounded-xl border-2 border-dashed"
-        >
-          <Sparkles className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-muted-foreground font-medium">
-            {deals.length === 0 ? "No active deals at the moment. Check back soon!" : `No deals in "${activeCategory}" yet.`}
-          </p>
-        </motion.div>
-      )}
-
-      {/* Partner section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="mt-20 bg-primary/5 border border-primary/10 rounded-2xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8"
-      >
-        <div>
-          <h2 className="text-2xl font-bold mb-3 flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            Partner with us?
-          </h2>
-          <p className="text-muted-foreground max-w-md">
-            Are you a clinic owner? Register your clinic and list your special offers on Smile DEALS to reach more patients.
-          </p>
+            {/* Loyalty Rewards - Coming Soon */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+              style={{ background: "linear-gradient(135deg, #1A1408, #100D05)", border: "1px solid rgba(240,192,96,.15)", borderRadius: 18, padding: 32, position: "relative", overflow: "hidden" }}
+            >
+              <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(240,192,96,.1), transparent 70%)", pointerEvents: "none" }} />
+              <div style={{ fontSize: 38, marginBottom: 14 }}>🎁</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: GOLD, marginBottom: 10 }}>Loyalty Rewards</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, marginBottom: 8, letterSpacing: "-.01em" }}>Book 3, Get 1<br />Completely Free</div>
+              <div style={{ fontSize: 14, color: MUTED, lineHeight: 1.6, marginBottom: 20 }}>Book any 3 deals this month and your 4th appointment is on us. No catches, no fine print.</div>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 9, fontSize: 12, fontWeight: 700, background: "rgba(240,192,96,.12)", color: GOLD, border: "1px solid rgba(240,192,96,.25)" }}>
+                ✦ Coming Soon
+              </span>
+            </motion.div>
+          </div>
         </div>
-        <Link href="/register-clinic">
-          <Button size="lg" className="whitespace-nowrap">
-            Register Your Clinic
-          </Button>
-        </Link>
-      </motion.div>
+      </div>
 
-      {/* Video modal */}
-      <VideoModal
-        deal={videoModalDeal}
-        open={!!videoModalDeal}
-        onClose={() => setVideoModalDeal(null)}
-      />
+      <VideoModal deal={videoModalDeal} open={!!videoModalDeal} onClose={() => setVideoModalDeal(null)} />
     </div>
   );
 }

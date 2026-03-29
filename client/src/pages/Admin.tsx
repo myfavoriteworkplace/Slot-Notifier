@@ -68,6 +68,9 @@ export default function Admin() {
   const [dealBookingLink, setDealBookingLink] = useState("");
   const [dealPrice, setDealPrice] = useState("");
   const [dealVideoUrl, setDealVideoUrl] = useState("");
+  const [dealOriginalPrice, setDealOriginalPrice] = useState("");
+  const [dealSubcategory, setDealSubcategory] = useState("");
+  const [dealIsFlash, setDealIsFlash] = useState(false);
   const [dealStartsAt, setDealStartsAt] = useState<Date | undefined>(undefined);
   const [dealExpiresAt, setDealExpiresAt] = useState<Date | undefined>(undefined);
   const [dealIsFeatured, setDealIsFeatured] = useState(false);
@@ -87,6 +90,7 @@ export default function Admin() {
     "Premium Highlighted Deals",
   ];
 
+  const DEAL_SUBCATEGORIES = ["Cleaning / Scaling", "Whitening", "Braces / Orthodontics", "Implants", "Root Canal", "Extraction", "X-Ray / Imaging", "Consultation", "Gum Treatment", "Cosmetic Dentistry", "Other"];
   const CATEGORIES_WITH_PRICE = ["Clinic Deals", "Seasonal / Festival Offers", "Membership / Loyalty Programs", "New Clinic Launch", "Doctor-Specific Offers", "Product Promotions", "Premium Highlighted Deals"];
   const LINK_CONFIG: Record<string, { label: string; placeholder: string }> = {
     "Product Promotions": { label: "Product Link", placeholder: "https://shop.example.com/product" },
@@ -114,6 +118,9 @@ export default function Admin() {
       setDealBookingLink("");
       setDealPrice("");
       setDealVideoUrl("");
+      setDealOriginalPrice("");
+      setDealSubcategory("");
+      setDealIsFlash(false);
       setDealStartsAt(undefined);
       setDealExpiresAt(undefined);
       setDealIsFeatured(false);
@@ -1106,6 +1113,24 @@ export default function Admin() {
                       </select>
                     </div>
 
+                    {/* Subcategory */}
+                    <div className="space-y-2">
+                      <Label htmlFor="deal-subcategory" className="flex items-center gap-1.5">
+                        Procedure / Type <span className="text-muted-foreground font-normal text-xs">(filter pill on public page)</span>
+                      </Label>
+                      <select
+                        id="deal-subcategory"
+                        value={dealSubcategory}
+                        onChange={(e) => setDealSubcategory(e.target.value)}
+                        className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+                      >
+                        <option value="">Select procedure type</option>
+                        {DEAL_SUBCATEGORIES.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+
                     {/* Title */}
                     <div className="space-y-2">
                       <Label htmlFor="deal-title">Title</Label>
@@ -1118,23 +1143,32 @@ export default function Admin() {
                       <Textarea id="deal-desc" value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} placeholder="Enter details..." className="resize-none h-[72px]" />
                     </div>
 
-                    {/* Price + Link — price hidden for Ads & Community */}
-                    <div className={`grid gap-3 ${showPrice ? "grid-cols-2" : "grid-cols-1"}`}>
-                      {showPrice && (
+                    {/* Price + Original Price + Link */}
+                    {showPrice && (
+                      <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
-                          <Label htmlFor="deal-price">Price (₹)</Label>
+                          <Label htmlFor="deal-price">Deal Price (₹)</Label>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">₹</span>
                             <Input id="deal-price" value={dealPrice} onChange={(e) => setDealPrice(e.target.value)} placeholder="499" className="pl-7" />
                           </div>
                         </div>
-                      )}
-                      <div className="space-y-2">
-                        <Label htmlFor="deal-link">{linkConfig.label}</Label>
-                        <div className="relative">
-                          <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input id="deal-link" value={dealBookingLink} onChange={(e) => setDealBookingLink(e.target.value)} placeholder={linkConfig.placeholder} className="pl-9" />
+                        <div className="space-y-2">
+                          <Label htmlFor="deal-original-price" className="flex items-center gap-1">
+                            Original Price (₹) <span className="text-[10px] text-muted-foreground">(strike-through)</span>
+                          </Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">₹</span>
+                            <Input id="deal-original-price" value={dealOriginalPrice} onChange={(e) => setDealOriginalPrice(e.target.value)} placeholder="999" className="pl-7" />
+                          </div>
                         </div>
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="deal-link">{linkConfig.label}</Label>
+                      <div className="relative">
+                        <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input id="deal-link" value={dealBookingLink} onChange={(e) => setDealBookingLink(e.target.value)} placeholder={linkConfig.placeholder} className="pl-9" />
                       </div>
                     </div>
 
@@ -1189,18 +1223,28 @@ export default function Admin() {
                       </div>
                     </div>
 
-                    {/* Featured toggle */}
-                    <div className="flex items-center justify-between p-3.5 rounded-xl border border-primary/20 bg-primary/5">
-                      <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-primary/10 rounded-lg">
+                    {/* Featured + Flash toggles */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center justify-between p-3 rounded-xl border border-primary/20 bg-primary/5">
+                        <div className="flex items-center gap-2">
                           <Star className="h-4 w-4 text-primary" />
+                          <div>
+                            <p className="text-xs font-medium">Featured</p>
+                            <p className="text-[10px] text-muted-foreground">Hero card</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium">Featured Deal</p>
-                          <p className="text-xs text-muted-foreground">Shows as cinematic hero at the top of the page</p>
-                        </div>
+                        <Switch checked={dealIsFeatured} onCheckedChange={setDealIsFeatured} />
                       </div>
-                      <Switch checked={dealIsFeatured} onCheckedChange={setDealIsFeatured} />
+                      <div className="flex items-center justify-between p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">⚡</span>
+                          <div>
+                            <p className="text-xs font-medium">Flash Deal</p>
+                            <p className="text-[10px] text-muted-foreground">Scroll strip</p>
+                          </div>
+                        </div>
+                        <Switch checked={dealIsFlash} onCheckedChange={setDealIsFlash} />
+                      </div>
                     </div>
 
                     <Button
@@ -1211,7 +1255,10 @@ export default function Admin() {
                         imageUrl: dealImageUrl || "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800",
                         bookingLink: dealBookingLink,
                         price: dealPrice || null,
+                        originalPrice: dealOriginalPrice || null,
                         videoUrl: dealVideoUrl || null,
+                        subcategory: dealSubcategory || null,
+                        isFlash: dealIsFlash,
                         startsAt: dealStartsAt ? dealStartsAt.toISOString() : null,
                         expiresAt: dealExpiresAt ? dealExpiresAt.toISOString() : null,
                         isFeatured: dealIsFeatured,

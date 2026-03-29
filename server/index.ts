@@ -317,6 +317,15 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='click_count') THEN
             ALTER TABLE smile_deals ADD COLUMN click_count INTEGER DEFAULT 0 NOT NULL;
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='original_price') THEN
+            ALTER TABLE smile_deals ADD COLUMN original_price VARCHAR(50);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='is_flash') THEN
+            ALTER TABLE smile_deals ADD COLUMN is_flash BOOLEAN DEFAULT false NOT NULL;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='subcategory') THEN
+            ALTER TABLE smile_deals ADD COLUMN subcategory VARCHAR(100);
+          END IF;
         END $$;
       `);
       log("smile_deals columns verified/updated", "system");

@@ -76,6 +76,29 @@ BookMySlot is a full-stack appointment booking application that enables service 
 
 Sidebar nav color coding: Bookings = primary green, Configure Slots = blue, Manage Doctors = teal, Book a Slot = primary green.
 
+## Smile DEALS — Schema Fields
+- `title`, `description`, `imageUrl`, `bookingLink` — core fields
+- `price` — deal price (₹), optional
+- `originalPrice` — was-price for strike-through + "Save ₹X" badge
+- `category` — broad business category (Clinic Deals, Advertisements, etc.)
+- `subcategory` — procedure type (Cleaning, Whitening, Braces, etc.) — drives public filter pills
+- `isFlash` — boolean; appears in horizontal "Flash Deals" scroll strip
+- `isFeatured` — boolean; appears as cinematic hero card
+- `startsAt`, `expiresAt` — scheduling timestamps
+- `videoUrl` — YouTube/Vimeo/mp4; autoplay on hover in cards and as hero background
+- `viewCount`, `clickCount` — analytics counters
+
+## Smile DEALS — Public Page Design
+- Full dark theme (`#080D0B` background, Sora font)
+- Animated ambient orbs behind content
+- Stats row: Active Deals count, Avg Saving (computed from originalPrice − price), Total Views
+- Filter pills from `subcategory` field
+- Featured hero card (cinematic side-by-side layout with video support)
+- Flash Deals horizontal scroll strip
+- Countdown timer card (auto-shown for deals expiring within 72h)
+- 3-column tilt cards grid with magnetic hover
+- Bottom promo: Refer a Clinic (exclusive deals) + Loyalty Rewards (coming soon)
+
 ## Recent Changes
 - **2026-03-05**: Added Smile DEALS system with admin CRUD and public gallery.
 - **2026-03-05**: Integrated Resend API for booking and invitation emails.
@@ -83,6 +106,9 @@ Sidebar nav color coding: Bookings = primary green, Configure Slots = blue, Mana
 - **2026-03-05**: Updated Admin Panel with tabbed navigation and deal configuration.
 - **2026-03-05**: Ensured all pricing uses Indian Rupee (₹) symbol.
 - **2026-03-05**: Improved Header with discrete Admin access for superusers.
-- **2026-03-06**: Fixed Smile Deals image upload by allowing "smile-deals" folder and passing required file metadata to the signed URL service.
-- **2026-03-08**: Added `/api/auth/user` endpoint for frontend authentication checks. Fixed superadmin logout by properly implementing session validation and destruction flow.
-- **2026-03-08**: Expanded pending clinics tab with full card layout matching active clinics design (doctor list, clinic details, copy link button).
+- **2026-03-06**: Fixed Smile Deals image upload by allowing "smile-deals" folder.
+- **2026-03-08**: Added `/api/auth/user` endpoint; fixed superadmin logout.
+- **2026-03-08**: Expanded pending clinics tab with full card layout.
+- **2026-03-29**: Added `originalPrice`, `subcategory`, `isFlash` to smile_deals schema.
+- **2026-03-29**: Full dark redesign of Smile Deals public page (Sora font, ambient orbs, flash strip, countdown, tilt cards, promo section).
+- **2026-03-29**: Admin deal form: added Procedure/Type dropdown, Original Price field, Flash Deal toggle, Start Date field, updated categories.
