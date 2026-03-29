@@ -143,49 +143,50 @@ app.use((req, res, next) => {
       const { db } = await import("./db");
       const { sql } = await import("drizzle-orm");
       
-      // Check if logo_url column exists in clinics table
-      const checkColumn = await db.execute(
-        sql`SELECT column_name FROM information_schema.columns WHERE table_name='clinics' AND column_name='logo_url'`
-      );
-      
-      if ((checkColumn as any).rowCount === 0) {
-        log("Adding missing logo_url column to clinics table...", "system");
-        await db.execute(sql`ALTER TABLE clinics ADD COLUMN logo_url varchar(1000)`);
-        log("Successfully added logo_url column", "system");
-      } else {
-        log("logo_url column already exists", "system");
-      }
+      // Add all missing clinics columns in one block
+      await db.execute(sql`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='logo_url') THEN
+            ALTER TABLE clinics ADD COLUMN logo_url varchar(1000);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='status') THEN
+            ALTER TABLE clinics ADD COLUMN status varchar(20) NOT NULL DEFAULT 'approved';
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='registered_by') THEN
+            ALTER TABLE clinics ADD COLUMN registered_by varchar(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='is_archived') THEN
+            ALTER TABLE clinics ADD COLUMN is_archived boolean NOT NULL DEFAULT false;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='city') THEN
+            ALTER TABLE clinics ADD COLUMN city varchar(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='pincode') THEN
+            ALTER TABLE clinics ADD COLUMN pincode varchar(20);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='phone') THEN
+            ALTER TABLE clinics ADD COLUMN phone varchar(50);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='website') THEN
+            ALTER TABLE clinics ADD COLUMN website varchar(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='doctor_name') THEN
+            ALTER TABLE clinics ADD COLUMN doctor_name varchar(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='doctor_specialization') THEN
+            ALTER TABLE clinics ADD COLUMN doctor_specialization varchar(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='doctor_degree') THEN
+            ALTER TABLE clinics ADD COLUMN doctor_degree varchar(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='doctors') THEN
+            ALTER TABLE clinics ADD COLUMN doctors jsonb DEFAULT '[]';
+          END IF;
+        END $$;
+      `);
+      log("clinics columns verified/updated", "system");
 
-      // Check if status column exists in clinics table
-      const checkStatusColumn = await db.execute(
-        sql`SELECT column_name FROM information_schema.columns WHERE table_name='clinics' AND column_name='status'`
-      );
-      if ((checkStatusColumn as any).rowCount === 0) {
-        log("Adding missing status column to clinics table...", "system");
-        await db.execute(sql`ALTER TABLE clinics ADD COLUMN status varchar(20) NOT NULL DEFAULT 'approved'`);
-        log("Successfully added status column", "system");
-      } else {
-        log("status column already exists", "system");
-      }
-
-      // Check if registered_by column exists in clinics table
-      const checkRegisteredByColumn = await db.execute(
-        sql`SELECT column_name FROM information_schema.columns WHERE table_name='clinics' AND column_name='registered_by'`
-      );
-      if ((checkRegisteredByColumn as any).rowCount === 0) {
-        await db.execute(sql`ALTER TABLE clinics ADD COLUMN registered_by varchar(255)`);
-        log("Added registered_by column to clinics", "system");
-      }
-
-      // Check if is_archived column exists in clinics table
-      const checkIsArchivedColumn = await db.execute(
-        sql`SELECT column_name FROM information_schema.columns WHERE table_name='clinics' AND column_name='is_archived'`
-      );
-      if ((checkIsArchivedColumn as any).rowCount === 0) {
-        await db.execute(sql`ALTER TABLE clinics ADD COLUMN is_archived boolean NOT NULL DEFAULT false`);
-        log("Added is_archived column to clinics", "system");
-      }
-      
       // Check if doctor_invites table exists
       const checkTable = await db.execute(
         sql`SELECT table_name FROM information_schema.tables WHERE table_name='doctor_invites'`
