@@ -249,6 +249,8 @@ export const smileDeals = pgTable("smile_deals", {
   subcategory: varchar("subcategory", { length: 100 }),
   viewCount: integer("view_count").default(0).notNull(),
   clickCount: integer("click_count").default(0).notNull(),
+  clinicId: integer("clinic_id").references(() => clinics.id),
+  contactInfo: jsonb("contact_info").$type<{ sponsorName?: string; phone?: string; email?: string; website?: string } | null>(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

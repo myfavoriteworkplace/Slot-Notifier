@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2 } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { SpecializationInput } from "@/components/SpecializationInput";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -78,6 +79,17 @@ export default function Admin() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // New deal fields
+  const [dealClinicId, setDealClinicId] = useState<number | null>(null);
+  const [dealSponsorName, setDealSponsorName] = useState("");
+  const [dealSponsorPhone, setDealSponsorPhone] = useState("");
+  const [dealSponsorEmail, setDealSponsorEmail] = useState("");
+  const [dealSponsorWebsite, setDealSponsorWebsite] = useState("");
+
+  // Edit deal sheet state
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [editingDeal, setEditingDeal] = useState<SmileDeal | null>(null);
+
   const DEAL_CATEGORIES = [
     "Clinic Deals",
     "Seasonal / Festival Offers",
@@ -111,20 +123,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/smile-deals'] });
-      setDealTitle("");
-      setDealDescription("");
-      setDealImageUrl("");
-      setDealImageManualUrl("");
-      setDealBookingLink("");
-      setDealPrice("");
-      setDealVideoUrl("");
-      setDealOriginalPrice("");
-      setDealSubcategory("");
-      setDealIsFlash(false);
-      setDealStartsAt(undefined);
-      setDealExpiresAt(undefined);
-      setDealIsFeatured(false);
-      setDealCategory("");
+      resetDealForm();
       toast({ title: "Smile Deal added successfully" });
     },
     onError: (error: any) => {
@@ -186,6 +185,64 @@ export default function Admin() {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const resetDealForm = () => {
+    setDealTitle(""); setDealDescription(""); setDealImageUrl(""); setDealImageManualUrl("");
+    setDealBookingLink(""); setDealPrice(""); setDealVideoUrl(""); setDealOriginalPrice("");
+    setDealSubcategory(""); setDealIsFlash(false); setDealStartsAt(undefined);
+    setDealExpiresAt(undefined); setDealIsFeatured(false); setDealCategory("");
+    setDealClinicId(null); setDealSponsorName(""); setDealSponsorPhone("");
+    setDealSponsorEmail(""); setDealSponsorWebsite("");
+  };
+
+  const getDealPayload = () => ({
+    title: dealTitle,
+    description: dealDescription,
+    imageUrl: dealImageUrl || "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800",
+    bookingLink: dealBookingLink,
+    price: dealPrice || null,
+    originalPrice: dealOriginalPrice || null,
+    videoUrl: dealVideoUrl || null,
+    subcategory: dealSubcategory || null,
+    isFlash: dealIsFlash,
+    startsAt: dealStartsAt ? dealStartsAt.toISOString() : null,
+    expiresAt: dealExpiresAt ? dealExpiresAt.toISOString() : null,
+    isFeatured: dealIsFeatured,
+    category: dealCategory || null,
+    clinicId: dealClinicId || null,
+    contactInfo: dealCategory === "Advertisements / Sponsored" && (dealSponsorName || dealSponsorPhone || dealSponsorEmail || dealSponsorWebsite)
+      ? { sponsorName: dealSponsorName || undefined, phone: dealSponsorPhone || undefined, email: dealSponsorEmail || undefined, website: dealSponsorWebsite || undefined }
+      : null,
+  });
+
+  const handleEditDeal = (deal: SmileDeal) => {
+    setDealTitle(deal.title);
+    setDealDescription(deal.description || "");
+    setDealImageUrl(deal.imageUrl || "");
+    setDealImageManualUrl(deal.imageUrl || "");
+    setDealBookingLink(deal.bookingLink || "");
+    setDealPrice(deal.price || "");
+    setDealVideoUrl(deal.videoUrl || "");
+    setDealOriginalPrice((deal as any).originalPrice || "");
+    setDealSubcategory((deal as any).subcategory || "");
+    setDealIsFlash((deal as any).isFlash || false);
+    setDealStartsAt(deal.startsAt ? new Date(deal.startsAt as any) : undefined);
+    setDealExpiresAt(deal.expiresAt ? new Date(deal.expiresAt as any) : undefined);
+    setDealIsFeatured(deal.isFeatured || false);
+    setDealCategory((deal as any).category || "");
+    setDealClinicId((deal as any).clinicId || null);
+    const ci = (deal as any).contactInfo;
+    if (ci) {
+      setDealSponsorName(ci.sponsorName || "");
+      setDealSponsorPhone(ci.phone || "");
+      setDealSponsorEmail(ci.email || "");
+      setDealSponsorWebsite(ci.website || "");
+    } else {
+      setDealSponsorName(""); setDealSponsorPhone(""); setDealSponsorEmail(""); setDealSponsorWebsite("");
+    }
+    setEditingDeal(deal);
+    setEditSheetOpen(true);
   };
 
   const { data: clinics = [], isLoading: clinicsLoading } = useQuery<Clinic[]>({
@@ -1131,6 +1188,39 @@ export default function Admin() {
                       </select>
                     </div>
 
+                    {/* Clinic selector — only for Clinic Deals */}
+                    {dealCategory === "Clinic Deals" && (
+                      <div className="space-y-2 p-3 rounded-xl border border-primary/20 bg-primary/5">
+                        <Label htmlFor="deal-clinic" className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                          <Building2 className="h-3.5 w-3.5" /> Select Clinic <span className="text-destructive">*</span>
+                        </Label>
+                        <select
+                          id="deal-clinic"
+                          value={dealClinicId ?? ""}
+                          onChange={(e) => {
+                            const id = Number(e.target.value);
+                            setDealClinicId(id || null);
+                            if (id) {
+                              const clinic = clinics.find(c => c.id === id);
+                              if (clinic) {
+                                setDealBookingLink(`/book/${id}`);
+                                if (!dealTitle) setDealTitle(clinic.name + " — Special Deal");
+                              }
+                            }
+                          }}
+                          className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+                        >
+                          <option value="">Select a clinic</option>
+                          {clinics.filter(c => !(c as any).isArchived && (c as any).status !== 'rejected').map(c => (
+                            <option key={c.id} value={c.id}>{c.name}{(c as any).city ? ` — ${(c as any).city}` : ""}</option>
+                          ))}
+                        </select>
+                        {dealClinicId && (
+                          <p className="text-[11px] text-muted-foreground">Booking link auto-set to <span className="text-primary font-mono">/book/{dealClinicId}</span></p>
+                        )}
+                      </div>
+                    )}
+
                     {/* Title */}
                     <div className="space-y-2">
                       <Label htmlFor="deal-title">Title</Label>
@@ -1142,6 +1232,30 @@ export default function Admin() {
                       <Label htmlFor="deal-desc">Description</Label>
                       <Textarea id="deal-desc" value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} placeholder="Enter details..." className="resize-none h-[72px]" />
                     </div>
+
+                    {/* Sponsor contact info — only for Advertisements / Sponsored */}
+                    {dealCategory === "Advertisements / Sponsored" && (
+                      <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 space-y-3">
+                        <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                          <Megaphone className="h-3.5 w-3.5" /> Sponsor Contact Info <span className="font-normal text-muted-foreground">(shown on deal card)</span>
+                        </p>
+                        <Input placeholder="Sponsor / Brand name" value={dealSponsorName} onChange={(e) => setDealSponsorName(e.target.value)} className="h-8 text-sm" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="relative">
+                            <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input placeholder="Phone" value={dealSponsorPhone} onChange={(e) => setDealSponsorPhone(e.target.value)} className="pl-8 h-8 text-sm" />
+                          </div>
+                          <div className="relative">
+                            <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input placeholder="Email" value={dealSponsorEmail} onChange={(e) => setDealSponsorEmail(e.target.value)} className="pl-8 h-8 text-sm" />
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <Globe className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input placeholder="Website URL" value={dealSponsorWebsite} onChange={(e) => setDealSponsorWebsite(e.target.value)} className="pl-8 h-8 text-sm" />
+                        </div>
+                      </div>
+                    )}
 
                     {/* Price + Original Price + Link */}
                     {showPrice && (
@@ -1249,21 +1363,7 @@ export default function Admin() {
 
                     <Button
                       className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-md shadow-primary/20"
-                      onClick={() => createDealMutation.mutate({
-                        title: dealTitle,
-                        description: dealDescription,
-                        imageUrl: dealImageUrl || "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800",
-                        bookingLink: dealBookingLink,
-                        price: dealPrice || null,
-                        originalPrice: dealOriginalPrice || null,
-                        videoUrl: dealVideoUrl || null,
-                        subcategory: dealSubcategory || null,
-                        isFlash: dealIsFlash,
-                        startsAt: dealStartsAt ? dealStartsAt.toISOString() : null,
-                        expiresAt: dealExpiresAt ? dealExpiresAt.toISOString() : null,
-                        isFeatured: dealIsFeatured,
-                        category: dealCategory || null,
-                      })}
+                      onClick={() => createDealMutation.mutate(getDealPayload())}
                       disabled={createDealMutation.isPending || !dealTitle}
                     >
                       {createDealMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -1421,6 +1521,15 @@ export default function Admin() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-7 w-7 hover:bg-primary/10 hover:text-primary text-muted-foreground"
+                        onClick={() => handleEditDeal(deal)}
+                        title="Edit deal"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
                         onClick={() => deleteDealMutation.mutate(deal.id)}
                       >
@@ -1478,6 +1587,216 @@ export default function Admin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Deal Sheet */}
+      <Sheet open={editSheetOpen} onOpenChange={(open) => { if (!open) { setEditSheetOpen(false); setEditingDeal(null); resetDealForm(); } }}>
+        <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4 text-primary" /> Edit Deal
+            </SheetTitle>
+            <SheetDescription>Update details for <span className="font-medium text-foreground">{editingDeal?.title}</span></SheetDescription>
+          </SheetHeader>
+
+          <div className="space-y-4">
+            {/* Image */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Deal Image</Label>
+              {dealImageUrl && (
+                <div className="relative rounded-xl overflow-hidden border aspect-video bg-muted mb-2">
+                  <img src={dealImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Paste image URL"
+                  value={dealImageManualUrl}
+                  onChange={(e) => { setDealImageManualUrl(e.target.value); setDealImageUrl(e.target.value); }}
+                  className="text-sm"
+                />
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            {/* Category */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5"><Tag className="h-3.5 w-3.5 text-muted-foreground" /> Category</Label>
+              <select value={dealCategory} onChange={(e) => setDealCategory(e.target.value)}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground">
+                <option value="">Select category</option>
+                {DEAL_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+            </div>
+
+            {/* Clinic selector */}
+            {dealCategory === "Clinic Deals" && (
+              <div className="space-y-2 p-3 rounded-xl border border-primary/20 bg-primary/5">
+                <Label className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                  <Building2 className="h-3.5 w-3.5" /> Clinic
+                </Label>
+                <select value={dealClinicId ?? ""} onChange={(e) => {
+                  const id = Number(e.target.value);
+                  setDealClinicId(id || null);
+                  if (id) { const clinic = clinics.find(c => c.id === id); if (clinic) setDealBookingLink(`/book/${id}`); }
+                }} className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground">
+                  <option value="">Select a clinic</option>
+                  {clinics.filter(c => !(c as any).isArchived && (c as any).status !== 'rejected').map(c => (
+                    <option key={c.id} value={c.id}>{c.name}{(c as any).city ? ` — ${(c as any).city}` : ""}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Subcategory */}
+            <div className="space-y-2">
+              <Label>Procedure / Type</Label>
+              <select value={dealSubcategory} onChange={(e) => setDealSubcategory(e.target.value)}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground">
+                <option value="">Select procedure type</option>
+                {DEAL_SUBCATEGORIES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+
+            {/* Title */}
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input value={dealTitle} onChange={(e) => setDealTitle(e.target.value)} placeholder="Deal title" />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} className="resize-none h-[72px]" />
+            </div>
+
+            {/* Sponsor contact info */}
+            {dealCategory === "Advertisements / Sponsored" && (
+              <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 space-y-3">
+                <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                  <Megaphone className="h-3.5 w-3.5" /> Sponsor Contact Info
+                </p>
+                <Input placeholder="Sponsor / Brand name" value={dealSponsorName} onChange={(e) => setDealSponsorName(e.target.value)} className="h-8 text-sm" />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input placeholder="Phone" value={dealSponsorPhone} onChange={(e) => setDealSponsorPhone(e.target.value)} className="pl-8 h-8 text-sm" />
+                  </div>
+                  <div className="relative">
+                    <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input placeholder="Email" value={dealSponsorEmail} onChange={(e) => setDealSponsorEmail(e.target.value)} className="pl-8 h-8 text-sm" />
+                  </div>
+                </div>
+                <div className="relative">
+                  <Globe className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input placeholder="Website URL" value={dealSponsorWebsite} onChange={(e) => setDealSponsorWebsite(e.target.value)} className="pl-8 h-8 text-sm" />
+                </div>
+              </div>
+            )}
+
+            {/* Price */}
+            {(!dealCategory || CATEGORIES_WITH_PRICE.includes(dealCategory)) && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-sm">Deal Price (₹)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
+                    <Input value={dealPrice} onChange={(e) => setDealPrice(e.target.value)} placeholder="499" className="pl-7" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Original Price (₹)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
+                    <Input value={dealOriginalPrice} onChange={(e) => setDealOriginalPrice(e.target.value)} placeholder="999" className="pl-7" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Booking link */}
+            <div className="space-y-2">
+              <Label>{linkConfig.label}</Label>
+              <div className="relative">
+                <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input value={dealBookingLink} onChange={(e) => setDealBookingLink(e.target.value)} placeholder={linkConfig.placeholder} className="pl-9" />
+              </div>
+            </div>
+
+            {/* Video URL */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5"><Video className="h-3.5 w-3.5 text-muted-foreground" /> Promo Video URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <div className="relative">
+                <Video className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input value={dealVideoUrl} onChange={(e) => setDealVideoUrl(e.target.value)} placeholder="YouTube, Vimeo, or .mp4 URL" className="pl-9" />
+              </div>
+            </div>
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" /> Start Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={`w-full justify-start text-left font-normal text-sm h-9 ${!dealStartsAt && "text-muted-foreground"}`}>
+                      <CalendarDays className="mr-2 h-3.5 w-3.5" />
+                      {dealStartsAt ? format(dealStartsAt, "d MMM yyyy") : "Start date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                    <Calendar mode="single" selected={dealStartsAt} onSelect={setDealStartsAt} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs flex items-center gap-1.5"><Timer className="h-3.5 w-3.5 text-muted-foreground" /> Expiry Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={`w-full justify-start text-left font-normal text-sm h-9 ${!dealExpiresAt && "text-muted-foreground"}`}>
+                      <CalendarDays className="mr-2 h-3.5 w-3.5" />
+                      {dealExpiresAt ? format(dealExpiresAt, "d MMM yyyy") : "Expiry date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                    <Calendar mode="single" selected={dealExpiresAt} onSelect={setDealExpiresAt} disabled={(date) => date < new Date()} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            {/* Featured + Flash */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-primary/20 bg-primary/5">
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-primary" />
+                  <div><p className="text-xs font-medium">Featured</p><p className="text-[10px] text-muted-foreground">Hero card</p></div>
+                </div>
+                <Switch checked={dealIsFeatured} onCheckedChange={setDealIsFeatured} />
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">⚡</span>
+                  <div><p className="text-xs font-medium">Flash Deal</p><p className="text-[10px] text-muted-foreground">Scroll strip</p></div>
+                </div>
+                <Switch checked={dealIsFlash} onCheckedChange={setDealIsFlash} />
+              </div>
+            </div>
+
+            <Button
+              className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium"
+              onClick={() => updateDealMutation.mutate(
+                { id: editingDeal!.id, updates: getDealPayload() },
+                { onSuccess: () => { setEditSheetOpen(false); setEditingDeal(null); resetDealForm(); } }
+              )}
+              disabled={updateDealMutation.isPending || !dealTitle}
+            >
+              {updateDealMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              Save Changes
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Credentials Dialog */}
       <Dialog open={credentialsDialogOpen} onOpenChange={setCredentialsDialogOpen}>

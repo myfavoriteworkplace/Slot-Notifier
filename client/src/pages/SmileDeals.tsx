@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { SmileDeal } from "@shared/schema";
+import { SmileDeal, Clinic } from "@shared/schema";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Loader2, Play, Eye, Timer, Star, ChevronRight, Maximize2, ExternalLink } from "lucide-react";
+import { Loader2, Play, Eye, Timer, Star, ChevronRight, Maximize2, ExternalLink, Phone, Mail, Globe, MapPin } from "lucide-react";
 import { Link } from "wouter";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -388,6 +388,12 @@ function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number
                 {(deal as any).subcategory}
               </span>
             )}
+            {/* Sponsored badge — YouTube-style */}
+            {(deal as any).category === "Advertisements / Sponsored" && (
+              <span style={{ position: "absolute", bottom: 10, left: 10, zIndex: 3, background: "rgba(0,0,0,.55)", backdropFilter: "blur(6px)", color: "rgba(255,255,255,.55)", fontSize: 9, fontWeight: 500, letterSpacing: ".06em", padding: "3px 7px", borderRadius: 4 }}>
+                Sponsored
+              </span>
+            )}
             {deal.isFeatured && (
               <span style={{ position: "absolute", top: 12, left: (deal as any).subcategory ? 110 : 12, zIndex: 3, display: "inline-flex", alignItems: "center", gap: 4, background: "#0F9B6E", color: "#fff", fontSize: 10, fontWeight: 700, padding: "4px 9px", borderRadius: 9999 }}>
                 <Star style={{ width: 9, height: 9, fill: "#fff" }} /> Featured
@@ -415,6 +421,32 @@ function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number
             {save && save > 0 && (
               <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: `rgba(255,87,87,.1)`, color: RED, width: "fit-content" }}>
                 Save ₹{save.toLocaleString()}
+              </div>
+            )}
+
+            {/* Sponsor contact info for Ad deals */}
+            {(deal as any).category === "Advertisements / Sponsored" && (deal as any).contactInfo && (
+              <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: `1px solid ${BORDER}`, fontSize: 11, color: MUTED, display: "flex", flexDirection: "column", gap: 5 }}>
+                {(deal as any).contactInfo.sponsorName && (
+                  <div style={{ fontWeight: 600, color: TEXT, fontSize: 12 }}>{(deal as any).contactInfo.sponsorName}</div>
+                )}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                  {(deal as any).contactInfo.phone && (
+                    <a href={`tel:${(deal as any).contactInfo.phone}`} style={{ display: "flex", alignItems: "center", gap: 4, color: TEAL, textDecoration: "none" }}>
+                      <Phone style={{ width: 10, height: 10 }} />{(deal as any).contactInfo.phone}
+                    </a>
+                  )}
+                  {(deal as any).contactInfo.email && (
+                    <a href={`mailto:${(deal as any).contactInfo.email}`} style={{ display: "flex", alignItems: "center", gap: 4, color: TEAL, textDecoration: "none" }}>
+                      <Mail style={{ width: 10, height: 10 }} />{(deal as any).contactInfo.email}
+                    </a>
+                  )}
+                  {(deal as any).contactInfo.website && (
+                    <a href={(deal as any).contactInfo.website} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, color: TEAL, textDecoration: "none" }}>
+                      <Globe style={{ width: 10, height: 10 }} />Website
+                    </a>
+                  )}
+                </div>
               </div>
             )}
 
@@ -450,12 +482,25 @@ function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number
 
 export default function SmileDeals() {
   const [activeSubcategory, setActiveSubcategory] = useState("All");
+  const [selectedCity, setSelectedCity] = useState("All");
   const [videoModalDeal, setVideoModalDeal] = useState<SmileDeal | null>(null);
   const trackingRef = useRef(new Set<number>());
 
   const { data: deals = [], isLoading } = useQuery<SmileDeal[]>({
     queryKey: ["/api/smile-deals?active=true"],
   });
+
+  const { data: clinics = [] } = useQuery<Clinic[]>({
+    queryKey: ["/api/clinics"],
+  });
+
+  const clinicCityMap = Object.fromEntries(clinics.map(c => [c.id, (c as any).city as string | undefined]));
+
+  const availableCities = Array.from(new Set(
+    deals
+      .filter(d => (d as any).clinicId && clinicCityMap[(d as any).clinicId])
+      .map(d => clinicCityMap[(d as any).clinicId] as string)
+  )).sort();
 
   const trackView = useCallback(async (id: number) => {
     if (trackingRef.current.has(id)) return;
@@ -478,8 +523,15 @@ export default function SmileDeals() {
   const filteredDeals = deals.filter((d) => {
     if (d.isFeatured) return false;
     if ((d as any).isFlash) return false;
-    if (activeSubcategory === "All") return true;
-    return (d as any).subcategory === activeSubcategory;
+    if (activeSubcategory !== "All" && (d as any).subcategory !== activeSubcategory) return false;
+    if (selectedCity !== "All") {
+      const clinicId = (d as any).clinicId;
+      if (clinicId) {
+        const city = clinicCityMap[clinicId];
+        if (city !== selectedCity) return false;
+      }
+    }
+    return true;
   });
 
   const countdownDeal = deals.find((d) => {
@@ -566,10 +618,10 @@ export default function SmileDeals() {
         </section>
 
         <div style={{ padding: "0 48px" }}>
-          {/* Filter pills — uses subcategory */}
+          {/* Filter pills — subcategory */}
           {subcategories.length > 1 && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 40, alignItems: "center" }}>
-              <span style={{ fontSize: 12, color: MUTED, fontWeight: 500, marginRight: 4 }}>Filter:</span>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: availableCities.length > 0 ? 16 : 40, alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: MUTED, fontWeight: 500, marginRight: 4 }}>Procedure:</span>
               {subcategories.map((cat) => (
                 <button
                   key={cat}
@@ -584,6 +636,33 @@ export default function SmileDeals() {
                   }}
                 >
                   {cat}
+                </button>
+              ))}
+            </motion.div>
+          )}
+
+          {/* City filter pills — dynamic from linked clinics */}
+          {availableCities.length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 40, alignItems: "center" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: MUTED, fontWeight: 500, marginRight: 4 }}>
+                <MapPin style={{ width: 12, height: 12 }} /> City:
+              </span>
+              {["All", ...availableCities].map((city) => (
+                <button
+                  key={city}
+                  onClick={() => setSelectedCity(city)}
+                  style={{
+                    padding: "7px 18px", borderRadius: 100, fontSize: 12, fontWeight: 600,
+                    border: `1px solid ${selectedCity === city ? TEAL : BORDER}`,
+                    background: selectedCity === city ? `rgba(15,206,138,.12)` : "transparent",
+                    color: selectedCity === city ? TEAL : MUTED,
+                    cursor: "pointer", transition: "all .25s", letterSpacing: ".02em",
+                    fontFamily: "'Sora', sans-serif",
+                    display: "flex", alignItems: "center", gap: 5,
+                  }}
+                >
+                  {city !== "All" && <MapPin style={{ width: 10, height: 10 }} />}
+                  {city}
                 </button>
               ))}
             </motion.div>

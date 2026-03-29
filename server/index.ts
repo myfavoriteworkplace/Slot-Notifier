@@ -327,6 +327,12 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='subcategory') THEN
             ALTER TABLE smile_deals ADD COLUMN subcategory VARCHAR(100);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='clinic_id') THEN
+            ALTER TABLE smile_deals ADD COLUMN clinic_id INTEGER REFERENCES clinics(id);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='contact_info') THEN
+            ALTER TABLE smile_deals ADD COLUMN contact_info JSONB;
+          END IF;
         END $$;
       `);
       log("smile_deals columns verified/updated", "system");
