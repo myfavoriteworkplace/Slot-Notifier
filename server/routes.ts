@@ -610,6 +610,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const clinic = clinicResults[0].clinic;
       const isDefaultPassword = await bcrypt.compare("demo123", doctor.passwordHash || "");
       res.json({
+        id: doctor.id,
         email: doctor.email,
         name: doctor.name,
         specialization: doctor.specialization,

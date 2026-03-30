@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { API_BASE_URL } from "@/lib/queryClient";
 
 interface DoctorSession {
+  id: number;
   email: string;
   name: string;
   specialization: string;
