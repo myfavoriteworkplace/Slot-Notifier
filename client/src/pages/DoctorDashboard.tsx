@@ -14,7 +14,7 @@ import {
   ClipboardList, CheckCircle2, AlertCircle, Hash, CalendarDays, TrendingUp, ArrowRight,
   Info, X, Filter, BadgeCheck, RotateCcw, User, Award, BookOpen, Plus, Pencil, Trash2,
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
-  Upload, Play, Globe, Share2
+  Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -73,6 +73,11 @@ export default function DoctorDashboard() {
 
   // Share profile copied state
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Notes panel state (keyed by booking id)
+  const [notesOpenId, setNotesOpenId] = useState<number | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [statusDraft, setStatusDraft] = useState("");
 
   // Certification sheet state
   const [certSheetOpen, setCertSheetOpen] = useState(false);
@@ -178,6 +183,17 @@ export default function DoctorDashboard() {
     mutationFn: (id: number) => apiRequest("DELETE", `/api/doctor/cases/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/doctor/cases"] }),
     onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
+  });
+
+  const saveNotesMutation = useMutation({
+    mutationFn: ({ id, doctorNotes, clinicalStatus }: { id: number; doctorNotes: string; clinicalStatus: string }) =>
+      apiRequest("PATCH", `/api/doctor/bookings/${id}/notes`, { doctorNotes, clinicalStatus }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
+      setNotesOpenId(null);
+      toast({ title: "Notes saved" });
+    },
+    onError: () => toast({ title: "Failed to save notes", variant: "destructive" }),
   });
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -570,16 +586,102 @@ export default function DoctorDashboard() {
                             <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{booking.description}</p>
                           </div>
                         )}
-                        <div className="pt-1 border-t border-border/40 flex flex-wrap gap-x-4 gap-y-1 mt-auto">
-                          {booking.customerPhone && (
-                            <a href={`tel:${booking.customerPhone}`} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors">
-                              <Phone className="h-3 w-3" />{booking.customerPhone}
-                            </a>
-                          )}
-                          {booking.customerEmail && (
-                            <a href={`mailto:${booking.customerEmail}`} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors">
-                              <Mail className="h-3 w-3" />{booking.customerEmail}
-                            </a>
+
+                        {/* Clinical status + notes preview */}
+                        {(booking.clinicalStatus || booking.doctorNotes) && (
+                          <div className="flex flex-col gap-1.5 px-3 py-2 rounded-xl bg-primary/5 border border-primary/10">
+                            {booking.clinicalStatus && (
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full w-fit
+                                ${booking.clinicalStatus === "case_closed" ? "bg-green-500/15 text-green-600 dark:text-green-400" :
+                                  booking.clinicalStatus === "follow_up_required" ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" :
+                                  booking.clinicalStatus === "revisit" ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" :
+                                  "bg-primary/15 text-primary"}`}>
+                                {booking.clinicalStatus === "first_visit" ? "First Visit" :
+                                 booking.clinicalStatus === "revisit" ? "Revisit" :
+                                 booking.clinicalStatus === "follow_up_required" ? "Follow-up Required" :
+                                 booking.clinicalStatus === "case_closed" ? "Case Closed" :
+                                 booking.clinicalStatus}
+                              </span>
+                            )}
+                            {booking.doctorNotes && (
+                              <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2 italic">"{booking.doctorNotes}"</p>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="pt-1 border-t border-border/40 mt-auto space-y-2">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1">
+                            {booking.customerPhone && (
+                              <a href={`tel:${booking.customerPhone}`} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors">
+                                <Phone className="h-3 w-3" />{booking.customerPhone}
+                              </a>
+                            )}
+                            {booking.customerEmail && (
+                              <a href={`mailto:${booking.customerEmail}`} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors">
+                                <Mail className="h-3 w-3" />{booking.customerEmail}
+                              </a>
+                            )}
+                          </div>
+
+                          {/* Notes toggle button */}
+                          <button
+                            onClick={() => {
+                              if (notesOpenId === booking.id) {
+                                setNotesOpenId(null);
+                              } else {
+                                setNotesOpenId(booking.id);
+                                setNotesDraft(booking.doctorNotes || "");
+                                setStatusDraft(booking.clinicalStatus || "");
+                              }
+                            }}
+                            className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+                          >
+                            <FileText className="h-3 w-3" />
+                            {booking.doctorNotes ? "Edit Notes" : "Add Notes"}
+                            {notesOpenId === booking.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                          </button>
+
+                          {/* Inline notes panel */}
+                          {notesOpenId === booking.id && (
+                            <div className="space-y-2.5 pt-2 border-t border-border/30 animate-in slide-in-from-top-1 duration-150">
+                              <div className="space-y-1">
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
+                                <Select value={statusDraft} onValueChange={setStatusDraft}>
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Select status..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="first_visit">First Visit</SelectItem>
+                                    <SelectItem value="revisit">Revisit</SelectItem>
+                                    <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
+                                    <SelectItem value="case_closed">Case Closed</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Doctor Notes</Label>
+                                <Textarea
+                                  value={notesDraft}
+                                  onChange={e => setNotesDraft(e.target.value)}
+                                  placeholder="Add clinical notes, diagnosis, treatment plan..."
+                                  className="resize-none text-xs h-20"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  className="flex-1 h-7 text-xs bg-gradient-to-r from-primary to-accent text-white"
+                                  onClick={() => saveNotesMutation.mutate({ id: booking.id, doctorNotes: notesDraft, clinicalStatus: statusDraft })}
+                                  disabled={saveNotesMutation.isPending}
+                                >
+                                  {saveNotesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                  Save
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground" onClick={() => setNotesOpenId(null)}>
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>

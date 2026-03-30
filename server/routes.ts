@@ -999,6 +999,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // ── Doctor Booking Notes (doctor updates notes + clinical status on their own bookings) ──
+  app.patch("/api/doctor/bookings/:id/notes", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor' || !sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { doctorNotes, clinicalStatus } = req.body;
+      const updated = await storage.updateBookingDoctorNotes(
+        Number(req.params.id),
+        sess.doctorEmail,
+        doctorNotes ?? null,
+        clinicalStatus ?? null,
+      );
+      res.json(updated);
+    } catch (err: any) {
+      const status = err.message?.startsWith("Forbidden") ? 403 : err.message === "Booking not found" ? 404 : 500;
+      res.status(status).json({ message: err.message });
+    }
+  });
+
   // ── Public Doctor Profile (no auth) ──
   app.get("/api/public/doctor/:id", async (req, res) => {
     try {
