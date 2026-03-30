@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { format, formatDistanceToNow } from "date-fns";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
 import {
   Download, FileSpreadsheet, FileText, FileBadge, Lock, Bell, X,
   Users, CalendarDays, History, RefreshCw, CheckCircle2, Clock, AlertTriangle,
@@ -112,6 +111,136 @@ function generateCSV(rows: (string | number | null | undefined)[][], headers: st
   const escape = (v: string | number | null | undefined) =>
     `"${String(v ?? "").replace(/"/g, '""')}"`;
   return [headers, ...rows].map(r => r.map(escape).join(",")).join("\n");
+}
+
+async function buildFormattedXLSX(
+  clinicName: string,
+  scope: string[],
+  patientsHeaders: string[],
+  patientsData: (string | number | null | undefined)[][],
+  apptHeaders: string[],
+  apptData: (string | number | null | undefined)[][],
+  patientCount: number,
+  apptCount: number,
+  exportDate: string,
+): Promise<ArrayBuffer> {
+  const { default: ExcelJS } = await import("exceljs");
+
+  const DARK    = "FF085041";
+  const MID     = "FF0A6649";
+  const PRIMARY = "FF0F9B6E";
+  const TINT    = "FFE1F5EE";
+  const OFF     = "FFF8F8F6";
+  const WHITE   = "FFFFFFFF";
+  const STATUS_COLORS: Record<string, string> = {
+    verified:   "FF0F9B6E",
+    pending:    "FFD97706",
+    cancelled:  "FFDC2626",
+    unverified: "FFD97706",
+  };
+
+  const thin = (argb = "FFCCCCCC") => ({ style: "thin" as const, color: { argb } });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function applyHeaderCell(cell: any) {
+    cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: PRIMARY } };
+    cell.font      = { bold: true, size: 10, color: { argb: WHITE } };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+    cell.border    = { top: thin("FF085041"), bottom: thin("FF085041"), left: thin("FF085041"), right: thin("FF085041") };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function applyDataCell(cell: any, rowIdx: number, statusColor?: string) {
+    cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: rowIdx % 2 === 1 ? TINT : OFF } };
+    cell.border    = { top: thin(), bottom: thin(), left: thin(), right: thin() };
+    cell.alignment = { vertical: "middle", wrapText: false };
+    cell.font      = statusColor
+      ? { size: 9, bold: true, color: { argb: statusColor } }
+      : { size: 9, color: { argb: "FF1A1A1A" } };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function buildSheet(
+    wb: any,
+    sheetName: string,
+    headers: string[],
+    rows: (string | number | null | undefined)[][],
+    colWidths: number[],
+    recordCount: number,
+    statusColIdx?: number,
+  ) {
+    const ws = wb.addWorksheet(sheetName);
+    const nc = headers.length;
+    const lastLetter = nc <= 26 ? String.fromCharCode(64 + nc) : "Z";
+
+    // Row 1 — Clinic name banner
+    ws.mergeCells(`A1:${lastLetter}1`);
+    const r1 = ws.getCell("A1");
+    r1.value = clinicName;
+    r1.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: DARK } };
+    r1.font  = { bold: true, size: 14, color: { argb: WHITE } };
+    r1.alignment = { vertical: "middle", horizontal: "center" };
+    ws.getRow(1).height = 32;
+
+    // Row 2 — Subtitle
+    ws.mergeCells(`A2:${lastLetter}2`);
+    const r2 = ws.getCell("A2");
+    r2.value = `${sheetName}  ·  Exported: ${exportDate}  ·  ${recordCount} records`;
+    r2.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: MID } };
+    r2.font  = { italic: true, size: 9, color: { argb: "FFAACCBB" } };
+    r2.alignment = { vertical: "middle", horizontal: "center" };
+    ws.getRow(2).height = 18;
+
+    // Row 3 — Thin accent stripe
+    ws.mergeCells(`A3:${lastLetter}3`);
+    ws.getCell("A3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: PRIMARY } };
+    ws.getRow(3).height = 4;
+
+    // Row 4 — Column headers (set values first, then style)
+    const hRow = ws.getRow(4);
+    hRow.values = ["", ...headers]; // ExcelJS rows are 1-indexed; index 0 is skipped
+    headers.forEach((_h, i) => applyHeaderCell(hRow.getCell(i + 1)));
+    hRow.height = 22;
+
+    // Data rows (start at row 5)
+    rows.forEach((row, rIdx) => {
+      const dRow = ws.getRow(5 + rIdx);
+      row.forEach((val, cIdx) => {
+        const cell = dRow.getCell(cIdx + 1);
+        cell.value = val ?? "";
+        const statusColor =
+          statusColIdx !== undefined && cIdx === statusColIdx
+            ? STATUS_COLORS[String(val ?? "").toLowerCase()]
+            : undefined;
+        applyDataCell(cell, rIdx, statusColor);
+      });
+      dRow.height = 18;
+    });
+
+    // Column widths
+    colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+
+    // Auto-filter on header row
+    ws.autoFilter = `A4:${lastLetter}4`;
+
+    // Freeze top 4 rows
+    ws.views = [{ state: "frozen", ySplit: 4, xSplit: 0, topLeftCell: "A5", activeCell: "A5" }];
+  }
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = clinicName;
+  wb.created = new Date();
+
+  if (scope.includes("patients")) {
+    buildSheet(wb, "Patient Profiles", patientsHeaders, patientsData,
+      [32, 20, 36], patientCount);
+  }
+  if (scope.includes("appointments")) {
+    buildSheet(wb, "Appointments", apptHeaders, apptData,
+      [10, 28, 18, 32, 14, 10, 26, 14, 40], apptCount, 7);
+  }
+
+  return wb.xlsx.writeBuffer() as Promise<ArrayBuffer>;
 }
 
 export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelProps) {
@@ -228,18 +357,17 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
         downloadBlob(csvContent, "text/csv;charset=utf-8;", fileName);
 
       } else if (fmt === "xlsx") {
-        const wb = XLSX.utils.book_new();
-        if (scope.includes("patients")) {
-          const ws = XLSX.utils.aoa_to_sheet([patientsHeaders, ...patientsData]);
-          ws["!cols"] = [{ wch: 30 }, { wch: 18 }, { wch: 32 }];
-          XLSX.utils.book_append_sheet(wb, ws, "Patient Profiles");
-        }
-        if (scope.includes("appointments")) {
-          const ws = XLSX.utils.aoa_to_sheet([apptHeaders, ...apptData]);
-          ws["!cols"] = [{ wch: 10 }, { wch: 30 }, { wch: 18 }, { wch: 32 }, { wch: 14 }, { wch: 10 }, { wch: 25 }, { wch: 14 }, { wch: 40 }];
-          XLSX.utils.book_append_sheet(wb, ws, "Appointments");
-        }
-        const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        const buffer = await buildFormattedXLSX(
+          clinic.name,
+          scope,
+          patientsHeaders,
+          patientsData,
+          apptHeaders,
+          apptData,
+          uniquePatients.length,
+          appointmentsCount,
+          format(new Date(), "dd MMM yyyy, hh:mm a"),
+        );
         downloadBlob(buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
 
       } else if (fmt === "pdf") {
