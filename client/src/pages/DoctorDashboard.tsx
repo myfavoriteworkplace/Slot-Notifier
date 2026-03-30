@@ -89,7 +89,12 @@ export default function DoctorDashboard() {
   const [caseTitle, setCaseTitle] = useState("");
   const [caseDesc, setCaseDesc] = useState("");
   const [caseTags, setCaseTags] = useState("");
-  const [caseMediaUrls, setCaseMediaUrls] = useState("");
+  const [caseBeforeUrl, setCaseBeforeUrl] = useState("");
+  const [caseAfterUrl, setCaseAfterUrl] = useState("");
+  const [caseBeforeUploading, setCaseBeforeUploading] = useState(false);
+  const [caseAfterUploading, setCaseAfterUploading] = useState(false);
+  const caseBeforeInputRef = useRef<HTMLInputElement>(null);
+  const caseAfterInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) setLocation("/clinic-login");
@@ -218,17 +223,47 @@ export default function DoctorDashboard() {
 
   function openNewCase() {
     setEditingCase(null);
-    setCaseTitle(""); setCaseDesc(""); setCaseTags(""); setCaseMediaUrls("");
+    setCaseTitle(""); setCaseDesc(""); setCaseTags(""); setCaseBeforeUrl(""); setCaseAfterUrl("");
     setCaseSheetOpen(true);
   }
   function openEditCase(c: DoctorCase) {
     setEditingCase(c);
     setCaseTitle(c.title); setCaseDesc(c.description || "");
     setCaseTags(((c.tags as string[]) || []).join(", "));
-    setCaseMediaUrls(((c.mediaUrls as string[]) || []).join("\n"));
+    const media = (c.mediaUrls as string[]) || [];
+    setCaseBeforeUrl(media[0] || "");
+    setCaseAfterUrl(media[1] || "");
     setCaseSheetOpen(true);
   }
   function closeCaseSheet() { setCaseSheetOpen(false); setEditingCase(null); }
+
+  async function handleCaseMediaUpload(slot: "before" | "after", e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const setUploading = slot === "before" ? setCaseBeforeUploading : setCaseAfterUploading;
+    const setUrl = slot === "before" ? setCaseBeforeUrl : setCaseAfterUrl;
+    const ref = slot === "before" ? caseBeforeInputRef : caseAfterInputRef;
+    setUploading(true);
+    try {
+      const signedRes = await apiRequest("POST", "/api/uploads/signed-url", {
+        fileName: file.name,
+        contentType: file.type,
+        fileSize: file.size,
+        folder: "case-media",
+      });
+      if (!signedRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadUrl, publicUrl } = await signedRes.json();
+      const uploadRes = await fetch(uploadUrl, { method: "PUT", body: file });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      setUrl(publicUrl);
+      toast({ title: `${slot === "before" ? "Before" : "After"} photo uploaded` });
+    } catch {
+      toast({ title: "Upload failed", description: "Could not upload photo.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (ref.current) ref.current.value = "";
+    }
+  }
 
   function saveCert() {
     const payload = { title: certTitle, issuer: certIssuer || null, year: certYear || null, description: certDesc || null, imageUrl: certImageUrl || null };
@@ -238,7 +273,7 @@ export default function DoctorDashboard() {
 
   function saveCase() {
     const tags = caseTags.split(",").map(t => t.trim()).filter(Boolean);
-    const mediaUrls = caseMediaUrls.split("\n").map(u => u.trim()).filter(Boolean);
+    const mediaUrls = [caseBeforeUrl, caseAfterUrl].filter(Boolean);
     const payload = { title: caseTitle, description: caseDesc || null, tags, mediaUrls };
     if (editingCase) updateCaseMutation.mutate({ id: editingCase.id, ...payload });
     else createCaseMutation.mutate(payload);
@@ -886,10 +921,18 @@ export default function DoctorDashboard() {
                   return (
                     <div key={c.id} className="rounded-2xl border border-border/50 bg-background shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col">
                       {media.length > 0 && (
-                        <div className={`grid gap-1 p-2 bg-muted/30 ${media.length >= 2 ? "grid-cols-2" : "grid-cols-1"}`}>
-                          {media.slice(0, 2).map((url, i) => <MediaThumb key={i} url={url} />)}
-                          {media.length > 2 && (
-                            <div className="col-span-2 text-center text-[10px] text-muted-foreground py-1">+{media.length - 2} more media</div>
+                        <div className="grid grid-cols-2 gap-1 p-2 bg-muted/30">
+                          {(["Before", "After"] as const).map((label, i) =>
+                            media[i] ? (
+                              <div key={i} className="relative">
+                                <MediaThumb url={media[i]} />
+                                <span className="absolute top-1.5 left-1.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-black/60 text-white/90 backdrop-blur-sm">{label}</span>
+                              </div>
+                            ) : (
+                              <div key={i} className="aspect-video rounded-xl bg-muted/40 border border-dashed border-border/40 flex items-center justify-center">
+                                <span className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-wider">{label}</span>
+                              </div>
+                            )
                           )}
                         </div>
                       )}
@@ -993,13 +1036,59 @@ export default function DoctorDashboard() {
               )}
             </div>
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5"><ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />Media URLs <span className="text-muted-foreground font-normal text-xs">(one per line — images or videos)</span></Label>
-              <Textarea value={caseMediaUrls} onChange={e => setCaseMediaUrls(e.target.value)} placeholder={"https://example.com/before.jpg\nhttps://example.com/after.jpg"} className="resize-none h-24 font-mono text-xs" />
-              {caseMediaUrls && (
-                <div className={`grid gap-2 mt-2 ${caseMediaUrls.split("\n").filter(u => u.trim()).length >= 2 ? "grid-cols-2" : "grid-cols-1"}`}>
-                  {caseMediaUrls.split("\n").map(u => u.trim()).filter(Boolean).slice(0, 4).map((url, i) => <MediaThumb key={i} url={url} />)}
+              <Label className="flex items-center gap-1.5"><ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />Before &amp; After Photos</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Before slot */}
+                <div className="space-y-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Before</span>
+                  <input ref={caseBeforeInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={e => handleCaseMediaUpload("before", e)} />
+                  {caseBeforeUrl ? (
+                    <div className="relative rounded-xl overflow-hidden border border-border/40 aspect-video bg-muted/30 group">
+                      {isVideo(caseBeforeUrl) ? (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Play className="h-7 w-7 text-primary/60" />
+                        </div>
+                      ) : (
+                        <img src={caseBeforeUrl} alt="Before" className="w-full h-full object-cover" />
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button onClick={() => caseBeforeInputRef.current?.click()} className="text-white text-xs bg-white/20 border border-white/30 rounded-lg px-3 py-1.5 hover:bg-white/30 transition-colors">Replace</button>
+                        <button onClick={() => setCaseBeforeUrl("")} className="text-white text-xs bg-destructive/60 border border-white/20 rounded-lg px-3 py-1.5 hover:bg-destructive/80 transition-colors">Remove</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => caseBeforeInputRef.current?.click()} disabled={caseBeforeUploading} className="w-full aspect-video rounded-xl border-2 border-dashed border-border/50 bg-muted/20 hover:bg-muted/40 hover:border-primary/40 transition-all flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                      {caseBeforeUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+                      <span className="text-xs">Upload Before<br />photo or video</span>
+                    </button>
+                  )}
                 </div>
-              )}
+                {/* After slot */}
+                <div className="space-y-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">After</span>
+                  <input ref={caseAfterInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={e => handleCaseMediaUpload("after", e)} />
+                  {caseAfterUrl ? (
+                    <div className="relative rounded-xl overflow-hidden border border-border/40 aspect-video bg-muted/30 group">
+                      {isVideo(caseAfterUrl) ? (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Play className="h-7 w-7 text-primary/60" />
+                        </div>
+                      ) : (
+                        <img src={caseAfterUrl} alt="After" className="w-full h-full object-cover" />
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button onClick={() => caseAfterInputRef.current?.click()} className="text-white text-xs bg-white/20 border border-white/30 rounded-lg px-3 py-1.5 hover:bg-white/30 transition-colors">Replace</button>
+                        <button onClick={() => setCaseAfterUrl("")} className="text-white text-xs bg-destructive/60 border border-white/20 rounded-lg px-3 py-1.5 hover:bg-destructive/80 transition-colors">Remove</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => caseAfterInputRef.current?.click()} disabled={caseAfterUploading} className="w-full aspect-video rounded-xl border-2 border-dashed border-border/50 bg-muted/20 hover:bg-muted/40 hover:border-primary/40 transition-all flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                      {caseAfterUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+                      <span className="text-xs">Upload After<br />photo or video</span>
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
             <Button className="w-full bg-gradient-to-r from-primary to-accent text-white font-semibold" onClick={saveCase} disabled={!caseTitle || createCaseMutation.isPending || updateCaseMutation.isPending}>
               {(createCaseMutation.isPending || updateCaseMutation.isPending) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}

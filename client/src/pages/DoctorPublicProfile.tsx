@@ -212,13 +212,22 @@ export default function DoctorPublicProfile() {
               {cases.map((c) => {
                 const media: string[] = c.mediaUrls || [];
                 const tags: string[] = c.tags || [];
+                const hasAnyMedia = media[0] || media[1];
                 return (
                   <div key={c.id} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 20, overflow: "hidden" }}>
-                    {media.length > 0 && (
-                      <div style={{ padding: 12, background: "rgba(0,0,0,.3)", display: "grid", gridTemplateColumns: media.length >= 2 ? "1fr 1fr" : "1fr", gap: 8 }}>
-                        {media.slice(0, 2).map((url, i) => <MediaThumb key={i} url={url} onClick={() => setLightboxUrl(url)} />)}
-                        {media.length > 2 && (
-                          <div style={{ gridColumn: "1 / -1", textAlign: "center", fontSize: 11, color: MUTED }}>+{media.length - 2} more</div>
+                    {hasAnyMedia && (
+                      <div style={{ padding: 12, background: "rgba(0,0,0,.3)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        {(["Before", "After"] as const).map((label, i) =>
+                          media[i] ? (
+                            <div key={i} style={{ position: "relative" }}>
+                              <MediaThumb url={media[i]} onClick={() => setLightboxUrl(media[i])} />
+                              <span style={{ position: "absolute", top: 6, left: 6, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#fff", background: "rgba(0,0,0,.65)", backdropFilter: "blur(4px)", borderRadius: 5, padding: "2px 7px" }}>{label}</span>
+                            </div>
+                          ) : (
+                            <div key={i} style={{ aspectRatio: "16/9", borderRadius: 12, border: `1px dashed ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, opacity: 0.5 }}>{label}</span>
+                            </div>
+                          )
                         )}
                       </div>
                     )}
