@@ -90,7 +90,31 @@ export const doctors = pgTable("doctors", {
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   specialization: varchar("specialization", { length: 255 }),
   degree: varchar("degree", { length: 255 }),
+  college: varchar("college", { length: 255 }),
+  bio: text("bio"),
+  phone: varchar("phone", { length: 50 }),
   imageUrl: varchar("image_url", { length: 1000 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const doctorCertifications = pgTable("doctor_certifications", {
+  id: serial("id").primaryKey(),
+  doctorId: integer("doctor_id").notNull().references(() => doctors.id),
+  title: varchar("title", { length: 255 }).notNull(),
+  issuer: varchar("issuer", { length: 255 }),
+  year: varchar("year", { length: 10 }),
+  description: text("description"),
+  imageUrl: varchar("image_url", { length: 1000 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const doctorCases = pgTable("doctor_cases", {
+  id: serial("id").primaryKey(),
+  doctorId: integer("doctor_id").notNull().references(() => doctors.id),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  mediaUrls: jsonb("media_urls").$type<string[]>().default([]),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -116,6 +140,16 @@ export const insertDoctorSchema = createInsertSchema(doctors).omit({
   createdAt: true,
 });
 
+export const insertDoctorCertificationSchema = createInsertSchema(doctorCertifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDoctorCaseSchema = createInsertSchema(doctorCases).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertClinicDoctorSchema = createInsertSchema(clinicDoctors).omit({
   id: true,
   createdAt: true,
@@ -128,6 +162,10 @@ export const insertPatientSchema = createInsertSchema(patients).omit({
 
 export type Doctor = typeof doctors.$inferSelect;
 export type InsertDoctor = z.infer<typeof insertDoctorSchema>;
+export type DoctorCertification = typeof doctorCertifications.$inferSelect;
+export type InsertDoctorCertification = z.infer<typeof insertDoctorCertificationSchema>;
+export type DoctorCase = typeof doctorCases.$inferSelect;
+export type InsertDoctorCase = z.infer<typeof insertDoctorCaseSchema>;
 export type ClinicDoctor = typeof clinicDoctors.$inferSelect;
 export type InsertClinicDoctor = z.infer<typeof insertClinicDoctorSchema>;
 export type Patient = typeof patients.$inferSelect;

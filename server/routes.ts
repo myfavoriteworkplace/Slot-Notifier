@@ -896,6 +896,120 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── Doctor Profile (self-update) ──
+  app.patch("/api/doctor/profile", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const d = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!d) return res.status(404).json({ message: "Doctor not found" });
+      const updated = await storage.updateDoctorProfile(d.id, req.body);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Doctor Certifications ──
+  app.get("/api/doctor/certifications", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const d = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!d) return res.json([]);
+      res.json(await storage.getCertificationsByDoctor(d.id));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/doctor/certifications", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const d = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!d) return res.status(404).json({ message: "Doctor not found" });
+      const cert = await storage.createCertification({ ...req.body, doctorId: d.id });
+      res.status(201).json(cert);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch("/api/doctor/certifications/:id", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const d = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!d) return res.status(404).json({ message: "Doctor not found" });
+      const cert = await storage.updateCertification(Number(req.params.id), d.id, req.body);
+      res.json(cert);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.delete("/api/doctor/certifications/:id", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const d = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!d) return res.status(404).json({ message: "Doctor not found" });
+      await storage.deleteCertification(Number(req.params.id), d.id);
+      res.sendStatus(204);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Doctor Cases ──
+  app.get("/api/doctor/cases", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const d = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!d) return res.json([]);
+      res.json(await storage.getCasesByDoctor(d.id));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/doctor/cases", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const d = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!d) return res.status(404).json({ message: "Doctor not found" });
+      const c = await storage.createCase({ ...req.body, doctorId: d.id });
+      res.status(201).json(c);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch("/api/doctor/cases/:id", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const d = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!d) return res.status(404).json({ message: "Doctor not found" });
+      const c = await storage.updateCase(Number(req.params.id), d.id, req.body);
+      res.json(c);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.delete("/api/doctor/cases/:id", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const d = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!d) return res.status(404).json({ message: "Doctor not found" });
+      await storage.deleteCase(Number(req.params.id), d.id);
+      res.sendStatus(204);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Public Doctor Profile (no auth) ──
+  app.get("/api/public/doctor/:id", async (req, res) => {
+    try {
+      const d = await storage.getDoctorById(Number(req.params.id));
+      if (!d) return res.status(404).json({ message: "Doctor not found" });
+      const certs = await storage.getCertificationsByDoctor(d.id);
+      const cases = await storage.getCasesByDoctor(d.id);
+      const { passwordHash, ...safeDoctor } = d;
+      res.json({ doctor: safeDoctor, certifications: certs, cases });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   app.post("/api/admin/upload", isAdmin, async (req, res) => {
     try {
       // Since we are using R2 with signed URLs in other parts of the app,

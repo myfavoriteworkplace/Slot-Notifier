@@ -20,6 +20,7 @@ import ClinicAbout from "@/pages/ClinicAbout";
 import SetupPassword from "@/pages/SetupPassword";
 import SmileDeals from "@/pages/SmileDeals";
 import DoctorDashboard from "@/pages/DoctorDashboard";
+import DoctorPublicProfile from "@/pages/DoctorPublicProfile";
 import GettingStarted from "@/pages/GettingStarted";
 import RegisterClinic from "@/pages/RegisterClinic";
 
@@ -137,6 +138,7 @@ function Router() {
       <Route path="/setup-password" component={SetupPassword} />
       <Route path="/deals" component={SmileDeals} />
       <Route path="/doctor-dashboard" component={DoctorDashboard} />
+      <Route path="/doctor/:id" component={DoctorPublicProfile} />
       <Route component={NotFound} />
     </Switch>
   );

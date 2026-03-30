@@ -336,6 +336,53 @@ app.use((req, res, next) => {
         END $$;
       `);
       log("smile_deals columns verified/updated", "system");
+
+      // Add missing columns to doctors table
+      await db.execute(sql`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='doctors' AND column_name='college') THEN
+            ALTER TABLE doctors ADD COLUMN college VARCHAR(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='doctors' AND column_name='bio') THEN
+            ALTER TABLE doctors ADD COLUMN bio TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='doctors' AND column_name='phone') THEN
+            ALTER TABLE doctors ADD COLUMN phone VARCHAR(50);
+          END IF;
+        END $$;
+      `);
+      log("doctors columns verified/updated", "system");
+
+      // Create doctor_certifications table
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS doctor_certifications (
+          id SERIAL PRIMARY KEY,
+          doctor_id INTEGER NOT NULL REFERENCES doctors(id),
+          title VARCHAR(255) NOT NULL,
+          issuer VARCHAR(255),
+          year VARCHAR(10),
+          description TEXT,
+          image_url VARCHAR(1000),
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      log("doctor_certifications table verified/created", "system");
+
+      // Create doctor_cases table
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS doctor_cases (
+          id SERIAL PRIMARY KEY,
+          doctor_id INTEGER NOT NULL REFERENCES doctors(id),
+          title VARCHAR(255) NOT NULL,
+          description TEXT,
+          tags JSONB DEFAULT '[]',
+          media_urls JSONB DEFAULT '[]',
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      log("doctor_cases table verified/created", "system");
+
     } catch (dbErr: any) {
       log(`Schema sync warning: ${dbErr.message}`, "system");
     }

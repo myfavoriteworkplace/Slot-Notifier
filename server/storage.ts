@@ -1,11 +1,14 @@
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
+  doctorCertifications, doctorCases,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
   type Notification, type InsertNotification,
   type Clinic, type InsertClinic,
   type Doctor, type InsertDoctor,
+  type DoctorCertification, type InsertDoctorCertification,
+  type DoctorCase, type InsertDoctorCase,
   type ClinicDoctor, type InsertClinicDoctor,
   type Patient, type InsertPatient,
   type SmileDeal, type InsertSmileDeal,
@@ -85,6 +88,22 @@ export interface IStorage {
   // Patients
   getPatientsByDoctor(doctorId: number): Promise<(Patient & { clinic: Clinic })[]>;
   createPatient(patient: InsertPatient): Promise<Patient>;
+
+  // Doctor Profile
+  updateDoctorProfile(id: number, updates: Partial<Doctor>): Promise<Doctor>;
+  getDoctorById(id: number): Promise<Doctor | null>;
+
+  // Doctor Certifications
+  getCertificationsByDoctor(doctorId: number): Promise<DoctorCertification[]>;
+  createCertification(cert: InsertDoctorCertification): Promise<DoctorCertification>;
+  updateCertification(id: number, doctorId: number, updates: Partial<DoctorCertification>): Promise<DoctorCertification>;
+  deleteCertification(id: number, doctorId: number): Promise<void>;
+
+  // Doctor Cases
+  getCasesByDoctor(doctorId: number): Promise<DoctorCase[]>;
+  createCase(c: InsertDoctorCase): Promise<DoctorCase>;
+  updateCase(id: number, doctorId: number, updates: Partial<DoctorCase>): Promise<DoctorCase>;
+  deleteCase(id: number, doctorId: number): Promise<void>;
 
   // Smile Deals
   getSmileDeals(onlyActive?: boolean): Promise<SmileDeal[]>;
@@ -624,6 +643,57 @@ export class DatabaseStorage implements IStorage {
   async createPatient(insertPatient: InsertPatient): Promise<Patient> {
     const [patient] = await db.insert(patients).values(insertPatient).returning();
     return patient;
+  }
+
+  // Doctor Profile
+  async getDoctorById(id: number): Promise<Doctor | null> {
+    const [doc] = await db.select().from(doctors).where(eq(doctors.id, id)).limit(1);
+    return doc ?? null;
+  }
+
+  async updateDoctorProfile(id: number, updates: Partial<Doctor>): Promise<Doctor> {
+    const allowed = { name: updates.name, specialization: updates.specialization, degree: updates.degree, college: (updates as any).college, bio: (updates as any).bio, phone: (updates as any).phone, imageUrl: updates.imageUrl };
+    const clean = Object.fromEntries(Object.entries(allowed).filter(([, v]) => v !== undefined));
+    const [updated] = await db.update(doctors).set(clean).where(eq(doctors.id, id)).returning();
+    return updated;
+  }
+
+  // Doctor Certifications
+  async getCertificationsByDoctor(doctorId: number): Promise<DoctorCertification[]> {
+    return await db.select().from(doctorCertifications).where(eq(doctorCertifications.doctorId, doctorId)).orderBy(desc(doctorCertifications.createdAt));
+  }
+
+  async createCertification(cert: InsertDoctorCertification): Promise<DoctorCertification> {
+    const [c] = await db.insert(doctorCertifications).values(cert).returning();
+    return c;
+  }
+
+  async updateCertification(id: number, doctorId: number, updates: Partial<DoctorCertification>): Promise<DoctorCertification> {
+    const [c] = await db.update(doctorCertifications).set(updates).where(and(eq(doctorCertifications.id, id), eq(doctorCertifications.doctorId, doctorId))).returning();
+    return c;
+  }
+
+  async deleteCertification(id: number, doctorId: number): Promise<void> {
+    await db.delete(doctorCertifications).where(and(eq(doctorCertifications.id, id), eq(doctorCertifications.doctorId, doctorId)));
+  }
+
+  // Doctor Cases
+  async getCasesByDoctor(doctorId: number): Promise<DoctorCase[]> {
+    return await db.select().from(doctorCases).where(eq(doctorCases.doctorId, doctorId)).orderBy(desc(doctorCases.createdAt));
+  }
+
+  async createCase(c: InsertDoctorCase): Promise<DoctorCase> {
+    const [created] = await db.insert(doctorCases).values(c).returning();
+    return created;
+  }
+
+  async updateCase(id: number, doctorId: number, updates: Partial<DoctorCase>): Promise<DoctorCase> {
+    const [updated] = await db.update(doctorCases).set(updates).where(and(eq(doctorCases.id, id), eq(doctorCases.doctorId, doctorId))).returning();
+    return updated;
+  }
+
+  async deleteCase(id: number, doctorId: number): Promise<void> {
+    await db.delete(doctorCases).where(and(eq(doctorCases.id, id), eq(doctorCases.doctorId, doctorId)));
   }
 
   // Smile Deals
