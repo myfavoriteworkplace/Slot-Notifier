@@ -100,6 +100,7 @@ Sidebar nav color coding: Bookings = primary green, Configure Slots = blue, Mana
 - Bottom promo: Refer a Clinic (exclusive deals) + Loyalty Rewards (coming soon)
 
 ## Recent Changes
+- **2026-03-30**: Doctor profile: replaced URL input with file upload (R2), added completeness bar, years of experience field, languages multi-select (English/Malayalam/Tamil/Hindi/Kannada), Preview Profile button. New `years_of_experience` and `languages TEXT[]` columns added to doctors table. Public profile page updated to display both new fields.
 - **2026-03-05**: Added Smile DEALS system with admin CRUD and public gallery.
 - **2026-03-05**: Integrated Resend API for booking and invitation emails.
 - **2026-03-05**: Fixed doctor patient/clinic lookup to handle session email strings.

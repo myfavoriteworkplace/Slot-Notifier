@@ -66,6 +66,10 @@ export default function DoctorDashboard() {
   const [profBio, setProfBio] = useState("");
   const [profPhone, setProfPhone] = useState("");
   const [profImageUrl, setProfImageUrl] = useState("");
+  const [profYearsExp, setProfYearsExp] = useState<string>("");
+  const [profLanguages, setProfLanguages] = useState<string[]>([]);
+  const [profUploading, setProfUploading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   // Share profile copied state
   const [linkCopied, setLinkCopied] = useState(false);
@@ -100,6 +104,8 @@ export default function DoctorDashboard() {
       setProfBio((doctor as any).bio || "");
       setProfPhone((doctor as any).phone || "");
       setProfImageUrl((doctor as any).imageUrl || "");
+      setProfYearsExp((doctor as any).yearsOfExperience != null ? String((doctor as any).yearsOfExperience) : "");
+      setProfLanguages(Array.isArray((doctor as any).languages) ? (doctor as any).languages : []);
     }
   }, [doctor]);
 
@@ -168,6 +174,35 @@ export default function DoctorDashboard() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/doctor/cases"] }),
     onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
   });
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProfUploading(true);
+    try {
+      const signedRes = await apiRequest("POST", "/api/uploads/signed-url", {
+        fileName: file.name,
+        contentType: file.type,
+        fileSize: file.size,
+        folder: "doctor-photos",
+      });
+      if (!signedRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadUrl, publicUrl } = await signedRes.json();
+      const uploadRes = await fetch(uploadUrl, { method: "PUT", body: file });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      setProfImageUrl(publicUrl);
+      toast({ title: "Photo uploaded", description: "Click Save Profile to apply." });
+    } catch {
+      toast({ title: "Upload failed", description: "Could not upload photo.", variant: "destructive" });
+    } finally {
+      setProfUploading(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  }
+
+  function toggleLanguage(lang: string) {
+    setProfLanguages(prev => prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]);
+  }
 
   function openNewCert() {
     setEditingCert(null);
@@ -530,97 +565,221 @@ export default function DoctorDashboard() {
         )}
 
         {/* ─────────────── PROFILE TAB ─────────────── */}
-        {activeTab === "profile" && (
-          <div className="max-w-2xl mx-auto space-y-6">
-            {/* Profile photo */}
-            <div className="rounded-2xl border border-border/50 bg-background shadow-sm overflow-hidden">
-              <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-6 py-5 overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
-                <User className="absolute right-5 top-1/2 -translate-y-1/2 h-20 w-20 text-white opacity-[0.06] pointer-events-none" />
-                <div className="relative flex items-center gap-4">
-                  <Avatar className="h-16 w-16 ring-2 ring-white/30 shadow-lg">
-                    <AvatarImage src={profImageUrl || undefined} />
-                    <AvatarFallback className="bg-white/20 text-white font-bold text-xl">{profName.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/55 mb-0.5">Your Identity</p>
-                    <h3 className="text-lg font-extrabold text-white">Dr. {profName}</h3>
-                    <p className="text-xs text-white/60 mt-0.5">{profSpecialization}</p>
-                  </div>
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
-              </div>
-
-              <div className="p-6 space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Profile Photo URL</Label>
-                  <div className="relative">
-                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input value={profImageUrl} onChange={e => setProfImageUrl(e.target.value)} placeholder="https://..." className="pl-9" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Full Name</Label>
-                    <Input value={profName} onChange={e => setProfName(e.target.value)} placeholder="Dr. John Smith" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Phone</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input value={profPhone} onChange={e => setProfPhone(e.target.value)} placeholder="+91 98765 43210" className="pl-9" />
+        {activeTab === "profile" && (() => {
+          const LANGUAGES = ["English", "Malayalam", "Tamil", "Hindi", "Kannada"];
+          const completenessFields = [profName, profSpecialization, profDegree, profCollege, profBio, profPhone, profImageUrl, profYearsExp, profLanguages.length > 0 ? "yes" : ""];
+          const filled = completenessFields.filter(Boolean).length;
+          const pct = Math.round((filled / completenessFields.length) * 100);
+          const isComplete = pct === 100;
+          return (
+            <div className="max-w-2xl mx-auto space-y-6">
+              {/* Profile card */}
+              <div className="rounded-2xl border border-border/50 bg-background shadow-sm overflow-hidden">
+                {/* Banner */}
+                <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-6 py-5 overflow-hidden">
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
+                  <User className="absolute right-5 top-1/2 -translate-y-1/2 h-20 w-20 text-white opacity-[0.06] pointer-events-none" />
+                  <div className="relative flex items-center gap-4">
+                    <Avatar className="h-16 w-16 ring-2 ring-white/30 shadow-lg">
+                      <AvatarImage src={profImageUrl || undefined} />
+                      <AvatarFallback className="bg-white/20 text-white font-bold text-xl">{profName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/55 mb-0.5">Your Identity</p>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-extrabold text-white">Dr. {profName}</h3>
+                        {isComplete && (
+                          <span className="flex items-center gap-1 bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            <BadgeCheck className="h-3 w-3" />Complete Profile
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-white/60 mt-0.5">{profSpecialization}</p>
                     </div>
                   </div>
+                  <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Stethoscope className="h-3 w-3" />Specialization</Label>
-                    <Input value={profSpecialization} onChange={e => setProfSpecialization(e.target.value)} placeholder="Orthodontist" />
+                {/* Completeness bar */}
+                <div className="px-6 pt-4 pb-1">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-semibold text-muted-foreground">Profile completeness</span>
+                    <span className={`text-[11px] font-bold ${isComplete ? "text-primary" : "text-muted-foreground"}`}>{pct}%</span>
                   </div>
+                  <div className="h-1.5 w-full rounded-full bg-muted/60 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  {!isComplete && (
+                    <p className="text-[10px] text-muted-foreground/70 mt-1.5">
+                      Fill in all fields to earn a Complete Profile badge visible to patients.
+                    </p>
+                  )}
+                </div>
+
+                <div className="p-6 space-y-4">
+                  {/* Hidden file input */}
+                  <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} data-testid="input-doctor-photo" />
+
+                  {/* Photo upload */}
                   <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><GraduationCap className="h-3 w-3" />Degree</Label>
-                    <Input value={profDegree} onChange={e => setProfDegree(e.target.value)} placeholder="BDS, MDS" />
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Profile Photo</Label>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-12 w-12 ring-1 ring-border shrink-0">
+                        <AvatarImage src={profImageUrl || undefined} />
+                        <AvatarFallback className="bg-primary/10 text-primary font-bold">{profName.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-dashed"
+                        onClick={() => photoInputRef.current?.click()}
+                        disabled={profUploading}
+                        data-testid="button-upload-photo"
+                      >
+                        {profUploading
+                          ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</>
+                          : <><Upload className="h-4 w-4 mr-2" />Upload Photo</>
+                        }
+                      </Button>
+                      {profImageUrl && (
+                        <button
+                          onClick={() => setProfImageUrl("")}
+                          className="text-[11px] text-muted-foreground hover:text-destructive transition-colors"
+                          data-testid="button-remove-photo"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Name + Phone */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Full Name</Label>
+                      <Input data-testid="input-prof-name" value={profName} onChange={e => setProfName(e.target.value)} placeholder="Dr. John Smith" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Phone</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input data-testid="input-prof-phone" value={profPhone} onChange={e => setProfPhone(e.target.value)} placeholder="+91 98765 43210" className="pl-9" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Specialization + Degree */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Stethoscope className="h-3 w-3" />Specialization</Label>
+                      <Input data-testid="input-prof-specialization" value={profSpecialization} onChange={e => setProfSpecialization(e.target.value)} placeholder="Orthodontist" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><GraduationCap className="h-3 w-3" />Degree</Label>
+                      <Input data-testid="input-prof-degree" value={profDegree} onChange={e => setProfDegree(e.target.value)} placeholder="BDS, MDS" />
+                    </div>
+                  </div>
+
+                  {/* College + Years of experience */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Building2 className="h-3 w-3" />College / University</Label>
+                      <Input data-testid="input-prof-college" value={profCollege} onChange={e => setProfCollege(e.target.value)} placeholder="AIIMS New Delhi" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><TrendingUp className="h-3 w-3" />Years of Experience</Label>
+                      <Input
+                        data-testid="input-prof-experience"
+                        type="number"
+                        min="0"
+                        max="70"
+                        value={profYearsExp}
+                        onChange={e => setProfYearsExp(e.target.value)}
+                        placeholder="e.g. 10"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Languages spoken */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Globe className="h-3 w-3" />Languages Spoken</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {LANGUAGES.map(lang => (
+                        <button
+                          key={lang}
+                          type="button"
+                          data-testid={`toggle-lang-${lang.toLowerCase()}`}
+                          onClick={() => toggleLanguage(lang)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                            profLanguages.includes(lang)
+                              ? "bg-primary text-white border-primary shadow-sm shadow-primary/20"
+                              : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                          }`}
+                        >
+                          {lang}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Bio */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Professional Bio</Label>
+                    <Textarea data-testid="input-prof-bio" value={profBio} onChange={e => setProfBio(e.target.value)} placeholder="Brief professional summary visible on your public profile..." className="resize-none h-24" />
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-3">
+                    <Button
+                      className="flex-1 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-semibold shadow-md shadow-primary/20"
+                      onClick={() => updateProfileMutation.mutate({
+                        name: profName,
+                        specialization: profSpecialization,
+                        degree: profDegree,
+                        college: profCollege,
+                        bio: profBio,
+                        phone: profPhone,
+                        imageUrl: profImageUrl,
+                        yearsOfExperience: profYearsExp !== "" ? parseInt(profYearsExp, 10) : null,
+                        languages: profLanguages,
+                      })}
+                      disabled={updateProfileMutation.isPending}
+                      data-testid="button-save-profile"
+                    >
+                      {updateProfileMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                      Save Profile
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="border-primary/30 text-primary hover:bg-primary/5"
+                      onClick={() => window.open(`/doctor/${(doctor as any).id}`, "_blank")}
+                      data-testid="button-preview-profile"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />Preview
+                    </Button>
                   </div>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Building2 className="h-3 w-3" />College / University</Label>
-                  <Input value={profCollege} onChange={e => setProfCollege(e.target.value)} placeholder="AIIMS New Delhi" />
+              {/* Share profile card */}
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Share2 className="h-6 w-6 text-primary" />
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Professional Bio</Label>
-                  <Textarea value={profBio} onChange={e => setProfBio(e.target.value)} placeholder="Brief professional summary visible on your public profile..." className="resize-none h-24" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">Shareable Profile Link</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{window.location.origin}/doctor/{(doctor as any).id}</p>
                 </div>
-
-                <Button
-                  className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-semibold shadow-md shadow-primary/20"
-                  onClick={() => updateProfileMutation.mutate({ name: profName, specialization: profSpecialization, degree: profDegree, college: profCollege, bio: profBio, phone: profPhone, imageUrl: profImageUrl })}
-                  disabled={updateProfileMutation.isPending}
-                >
-                  {updateProfileMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                  Save Profile
+                <Button variant="outline" size="sm" onClick={copyProfileLink} className="shrink-0 border-primary/30 text-primary hover:bg-primary/10">
+                  {linkCopied ? <><Check className="h-3.5 w-3.5 mr-1.5" />Copied!</> : <><Copy className="h-3.5 w-3.5 mr-1.5" />Copy</>}
                 </Button>
               </div>
             </div>
-
-            {/* Share profile card */}
-            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                <Share2 className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm">Shareable Profile Link</p>
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">{window.location.origin}/doctor/{(doctor as any).id}</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={copyProfileLink} className="shrink-0 border-primary/30 text-primary hover:bg-primary/10">
-                {linkCopied ? <><Check className="h-3.5 w-3.5 mr-1.5" />Copied!</> : <><Copy className="h-3.5 w-3.5 mr-1.5" />Copy</>}
-              </Button>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ─────────────── CERTIFICATIONS TAB ─────────────── */}
         {activeTab === "certifications" && (

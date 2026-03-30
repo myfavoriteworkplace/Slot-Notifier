@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
-import { Loader2, Stethoscope, GraduationCap, Building2, Phone, Mail, Award, BookOpen, Star, Tag, Play, ExternalLink, ChevronLeft } from "lucide-react";
+import { Loader2, Stethoscope, GraduationCap, Building2, Phone, Mail, Award, BookOpen, Star, Tag, Play, ExternalLink, ChevronLeft, TrendingUp, Globe } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 
@@ -134,6 +134,22 @@ export default function DoctorPublicProfile() {
               <a href={`tel:${doctor.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: TEAL, textDecoration: "none", marginRight: 16 }}>
                 <Phone style={{ width: 13, height: 13 }} />{doctor.phone}
               </a>
+            )}
+
+            {/* Years of experience + languages row */}
+            {((doctor as any).yearsOfExperience != null || (Array.isArray((doctor as any).languages) && (doctor as any).languages.length > 0)) && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+                {(doctor as any).yearsOfExperience != null && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: TEAL, background: `${TEAL}18`, border: `1px solid ${TEAL}33`, borderRadius: 100, padding: "4px 12px" }}>
+                    <TrendingUp style={{ width: 11, height: 11 }} />{(doctor as any).yearsOfExperience} yrs experience
+                  </span>
+                )}
+                {Array.isArray((doctor as any).languages) && (doctor as any).languages.map((lang: string) => (
+                  <span key={lang} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: MUTED, background: "rgba(255,255,255,.05)", border: `1px solid ${BORDER}`, borderRadius: 100, padding: "4px 12px" }}>
+                    <Globe style={{ width: 11, height: 11 }} />{lang}
+                  </span>
+                ))}
+              </div>
             )}
 
             {doctor.bio && (

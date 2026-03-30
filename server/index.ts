@@ -350,6 +350,12 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='doctors' AND column_name='phone') THEN
             ALTER TABLE doctors ADD COLUMN phone VARCHAR(50);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='doctors' AND column_name='years_of_experience') THEN
+            ALTER TABLE doctors ADD COLUMN years_of_experience INTEGER;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='doctors' AND column_name='languages') THEN
+            ALTER TABLE doctors ADD COLUMN languages TEXT[];
+          END IF;
         END $$;
       `);
       log("doctors columns verified/updated", "system");
