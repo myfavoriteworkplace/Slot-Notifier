@@ -1,5 +1,5 @@
 import { 
-  users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals,
+  users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -8,7 +8,8 @@ import {
   type Doctor, type InsertDoctor,
   type ClinicDoctor, type InsertClinicDoctor,
   type Patient, type InsertPatient,
-  type SmileDeal, type InsertSmileDeal
+  type SmileDeal, type InsertSmileDeal,
+  type ExportHistory, type InsertExportHistory
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns } from "drizzle-orm";
@@ -92,6 +93,10 @@ export interface IStorage {
   deleteSmileDeal(id: number): Promise<void>;
   incrementDealView(id: number): Promise<void>;
   incrementDealClick(id: number): Promise<void>;
+
+  // Export History
+  createExportRecord(data: InsertExportHistory): Promise<ExportHistory>;
+  getExportHistory(clinicId: number): Promise<ExportHistory[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -668,6 +673,17 @@ export class DatabaseStorage implements IStorage {
     await db.update(smileDeals)
       .set({ clickCount: sql`${smileDeals.clickCount} + 1` })
       .where(eq(smileDeals.id, id));
+  }
+
+  async createExportRecord(data: InsertExportHistory): Promise<ExportHistory> {
+    const [record] = await db.insert(exportHistory).values(data).returning();
+    return record;
+  }
+
+  async getExportHistory(clinicId: number): Promise<ExportHistory[]> {
+    return await db.select().from(exportHistory)
+      .where(eq(exportHistory.clinicId, clinicId))
+      .orderBy(desc(exportHistory.createdAt));
   }
 }
 

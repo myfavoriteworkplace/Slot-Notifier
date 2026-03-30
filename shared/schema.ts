@@ -272,6 +272,24 @@ export const insertSiteSettingsSchema = createInsertSchema(siteSettings).omit({
 export type SiteSetting = typeof siteSettings.$inferSelect;
 export type InsertSiteSetting = z.infer<typeof insertSiteSettingsSchema>;
 
+export const exportHistory = pgTable("export_history", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").references(() => clinics.id).notNull(),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  format: varchar("format", { length: 10 }).notNull(),
+  scope: text("scope").array().notNull(),
+  recordCount: integer("record_count").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertExportHistorySchema = createInsertSchema(exportHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ExportHistory = typeof exportHistory.$inferSelect;
+export type InsertExportHistory = z.infer<typeof insertExportHistorySchema>;
+
 export interface ClinicSession {
   adminLoggedIn?: boolean;
   adminEmail?: string;

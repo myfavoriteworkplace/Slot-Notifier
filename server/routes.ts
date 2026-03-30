@@ -660,6 +660,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.status(403).json({ message: "Forbidden" });
   });
 
+  app.get("/api/auth/clinic/export-history", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      const history = await storage.getExportHistory(sess.clinicId);
+      res.json(history);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/auth/clinic/export-log", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    const { fileName, format, scope, recordCount } = req.body;
+    if (!fileName || !format || !scope || recordCount === undefined) {
+      return res.status(400).json({ message: "fileName, format, scope and recordCount are required" });
+    }
+    try {
+      const record = await storage.createExportRecord({
+        clinicId: sess.clinicId,
+        fileName,
+        format,
+        scope,
+        recordCount,
+      });
+      res.json(record);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post("/api/auth/clinic/slots/configure", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });

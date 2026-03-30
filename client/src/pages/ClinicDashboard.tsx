@@ -1,4 +1,5 @@
 import { ImageUpload } from "@/components/ImageUpload";
+import ExportDataPanel from "@/components/ExportDataPanel";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
@@ -140,7 +141,7 @@ export default function ClinicDashboard() {
 
   // Booking form state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot'>('bookings');
+  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data'>('bookings');
 
   const [profilePhone, setProfilePhone] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -1104,6 +1105,21 @@ export default function ClinicDashboard() {
                   <p className="text-[10px] text-muted-foreground">New patient appointment</p>
                 </div>
                 {activePanel === 'book-a-slot' && <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
+              </button>
+
+              <button
+                onClick={() => setActivePanel('export-data')}
+                data-testid="nav-export-data"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'export-data' ? 'bg-amber-500/10 border border-amber-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'export-data' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Download className={`h-4 w-4 ${activePanel === 'export-data' ? 'text-amber-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'export-data' ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'}`}>Export Data</p>
+                  <p className="text-[10px] text-muted-foreground">Download patient records</p>
+                </div>
+                {activePanel === 'export-data' && <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />}
               </button>
 
             </div>
@@ -2792,6 +2808,11 @@ export default function ClinicDashboard() {
               </div>
             </div>
           </div>
+          )}
+
+          {/* EXPORT DATA PANEL */}
+          {activePanel === 'export-data' && (
+            <ExportDataPanel clinic={clinic} bookings={bookings} />
           )}
 
         </div>
