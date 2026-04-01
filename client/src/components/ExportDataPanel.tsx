@@ -228,12 +228,7 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
         downloadBlob(csvContent, "text/csv;charset=utf-8;", fileName);
 
       } else if (fmt === "xlsx") {
-        const xlsxRes = await fetch("/api/auth/clinic/export/xlsx", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ scope }),
-        });
+        const xlsxRes = await apiRequest("POST", "/api/auth/clinic/export/xlsx", { scope });
         if (!xlsxRes.ok) {
           const err = await xlsxRes.json().catch(() => ({ message: "Export failed" }));
           throw new Error(err.message ?? "Export failed");
