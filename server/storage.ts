@@ -1,6 +1,6 @@
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
-  doctorCertifications, doctorCases,
+  doctorCertifications, doctorCases, bookingNotes,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -12,7 +12,8 @@ import {
   type ClinicDoctor, type InsertClinicDoctor,
   type Patient, type InsertPatient,
   type SmileDeal, type InsertSmileDeal,
-  type ExportHistory, type InsertExportHistory
+  type ExportHistory, type InsertExportHistory,
+  type BookingNote, type InsertBookingNote
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns } from "drizzle-orm";
@@ -117,6 +118,10 @@ export interface IStorage {
   // Export History
   createExportRecord(data: InsertExportHistory): Promise<ExportHistory>;
   getExportHistory(clinicId: number): Promise<ExportHistory[]>;
+
+  // Booking Notes (shared conversation thread)
+  getBookingNotes(bookingId: number): Promise<BookingNote[]>;
+  createBookingNote(data: InsertBookingNote): Promise<BookingNote>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -767,6 +772,17 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(exportHistory)
       .where(eq(exportHistory.clinicId, clinicId))
       .orderBy(desc(exportHistory.createdAt));
+  }
+
+  async getBookingNotes(bookingId: number): Promise<BookingNote[]> {
+    return await db.select().from(bookingNotes)
+      .where(eq(bookingNotes.bookingId, bookingId))
+      .orderBy(bookingNotes.createdAt);
+  }
+
+  async createBookingNote(data: InsertBookingNote): Promise<BookingNote> {
+    const [note] = await db.insert(bookingNotes).values(data).returning();
+    return note;
   }
 }
 

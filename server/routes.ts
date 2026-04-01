@@ -1176,6 +1176,75 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── Booking Notes (shared conversation thread) ──
+  app.get("/api/booking/:id/notes", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    const bookingId = Number(req.params.id);
+    if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking id" });
+    try {
+      const notes = await storage.getBookingNotes(bookingId);
+      res.json(notes);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/booking/:id/notes", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    const bookingId = Number(req.params.id);
+    if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking id" });
+    const { content } = req.body;
+    if (!content || typeof content !== "string" || !content.trim()) {
+      return res.status(400).json({ message: "Content is required" });
+    }
+    try {
+      let authorType: string;
+      let authorName: string;
+      if (sess.role === "doctor" && sess.doctorId) {
+        const doc = await storage.getDoctorById(sess.doctorId);
+        authorType = "doctor";
+        authorName = doc ? `Dr. ${doc.name}` : "Doctor";
+      } else if ((sess.adminLoggedIn || sess.role === "owner") && sess.clinicId) {
+        const clinic = await storage.getClinic(sess.clinicId);
+        authorType = "clinic_admin";
+        authorName = clinic ? `${clinic.name} Admin` : "Clinic Admin";
+      } else {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const note = await storage.createBookingNote({
+        bookingId,
+        authorType,
+        authorName,
+        content: content.trim(),
+      });
+      res.json(note);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Clinical status only (doesn't touch doctorNotes / thread)
+  app.patch("/api/doctor/bookings/:id/clinical-status", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== "doctor" || !sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { clinicalStatus } = req.body;
+      const booking = await storage.getBooking(Number(req.params.id));
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
+      const updated = await storage.updateBookingDoctorNotes(
+        Number(req.params.id),
+        sess.doctorEmail,
+        booking.doctorNotes ?? null,
+        clinicalStatus ?? null,
+      );
+      res.json(updated);
+    } catch (err: any) {
+      const status = err.message?.startsWith("Forbidden") ? 403 : err.message === "Booking not found" ? 404 : 500;
+      res.status(status).json({ message: err.message });
+    }
+  });
+
   // ── Public Doctor Profile (no auth) ──
   app.get("/api/public/doctor/:id", async (req, res) => {
     try {

@@ -77,6 +77,35 @@ export async function ensureSessionTable() {
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "pincode" varchar(20);
     `);
 
+    // Create booking_notes table for shared conversation threads
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS booking_notes (
+        id serial PRIMARY KEY,
+        booking_id integer NOT NULL REFERENCES bookings(id),
+        author_type varchar(20) NOT NULL,
+        author_name varchar(255) NOT NULL,
+        content text NOT NULL,
+        created_at timestamp DEFAULT NOW()
+      );
+    `);
+
+    // Migrate existing doctorNotes → first message in thread (idempotent)
+    await pool.query(`
+      INSERT INTO booking_notes (booking_id, author_type, author_name, content, created_at)
+      SELECT
+        b.id,
+        'doctor',
+        COALESCE(b.assigned_doctor, 'Doctor'),
+        b.doctor_notes,
+        COALESCE(b.created_at, NOW())
+      FROM bookings b
+      WHERE b.doctor_notes IS NOT NULL AND b.doctor_notes != ''
+        AND NOT EXISTS (
+          SELECT 1 FROM booking_notes bn
+          WHERE bn.booking_id = b.id AND bn.author_type = 'doctor'
+        );
+    `);
+
     console.log("[DATABASE] Session table and schema checks complete.");
   } catch (err: any) {
     if (err.code === "42P07") {

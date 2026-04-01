@@ -266,6 +266,23 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Clinic = typeof clinics.$inferSelect;
 export type InsertClinic = z.infer<typeof insertClinicSchema>;
 
+export const bookingNotes = pgTable("booking_notes", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id").notNull().references(() => bookings.id),
+  authorType: varchar("author_type", { length: 20 }).notNull(),
+  authorName: varchar("author_name", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBookingNoteSchema = createInsertSchema(bookingNotes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type BookingNote = typeof bookingNotes.$inferSelect;
+export type InsertBookingNote = z.infer<typeof insertBookingNoteSchema>;
+
 export const siteSettings = pgTable("site_settings", {
   id: serial("id").primaryKey(),
   key: varchar("key", { length: 255 }).notNull().unique(),
