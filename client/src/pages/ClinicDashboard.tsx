@@ -69,6 +69,8 @@ type BookingWithSlot = Booking & {
   slot: Slot; 
   description?: string | null;
   assignedDoctor?: string | null;
+  doctorNotes?: string | null;
+  clinicalStatus?: string | null;
   clinicDoctors?: { name: string; specialization: string; degree: string }[];
 };
 
@@ -1662,9 +1664,43 @@ export default function ClinicDashboard() {
                             <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                               <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                 <FileText className="h-3 w-3 text-primary" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Notes</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Chief Complaint</span>
                               </div>
                               <p className="px-3 py-2.5 text-sm text-muted-foreground italic leading-relaxed">"{booking.description}"</p>
+                            </div>
+                          )}
+
+                          {/* Doctor notes & clinical status (read-only) */}
+                          {(booking.clinicalStatus || booking.doctorNotes) && (
+                            <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                              <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5">
+                                  <FileText className="h-3 w-3 text-primary" />
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Doctor's Notes</span>
+                                </div>
+                                {booking.clinicalStatus && (
+                                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                    booking.clinicalStatus === "case_closed"
+                                      ? "bg-green-500/15 text-green-600 dark:text-green-400"
+                                      : booking.clinicalStatus === "follow_up_required"
+                                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                      : booking.clinicalStatus === "revisit"
+                                      ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                                      : "bg-primary/10 text-primary"
+                                  }`}>
+                                    {booking.clinicalStatus === "first_visit" ? "First Visit"
+                                      : booking.clinicalStatus === "revisit" ? "Revisit"
+                                      : booking.clinicalStatus === "follow_up_required" ? "Follow-up Required"
+                                      : booking.clinicalStatus === "case_closed" ? "Case Closed"
+                                      : booking.clinicalStatus}
+                                  </span>
+                                )}
+                              </div>
+                              {booking.doctorNotes ? (
+                                <p className="px-3 py-2.5 text-sm text-muted-foreground italic leading-relaxed">"{booking.doctorNotes}"</p>
+                              ) : (
+                                <p className="px-3 py-2.5 text-xs text-muted-foreground/60">No notes added yet.</p>
+                              )}
                             </div>
                           )}
 
