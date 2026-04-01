@@ -10,6 +10,7 @@ import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
+import ExcelJS from "exceljs";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
@@ -690,6 +691,163 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(record);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/auth/clinic/export/xlsx", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    const { scope } = req.body as { scope: string[] };
+    if (!scope || !Array.isArray(scope) || scope.length === 0) {
+      return res.status(400).json({ message: "scope is required" });
+    }
+    try {
+      const clinic = await storage.getClinic(sess.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+      const allBookings = await storage.getClinicBookings(sess.clinicId);
+      const exportDate = new Date().toLocaleDateString("en-GB", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+
+      // Deduplicate patients
+      const seen = new Set<string>();
+      const uniquePatients = allBookings.filter(b => {
+        const key = b.customerEmail || b.customerPhone;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      const patientsHeaders = ["Patient Name", "Phone", "Email"];
+      const patientsData = uniquePatients.map(b => [
+        b.customerName,
+        b.customerPhone,
+        b.customerEmail ?? "",
+      ]);
+
+      const apptHeaders = ["Booking ID", "Patient Name", "Phone", "Email", "Date", "Time", "Doctor", "Status", "Chief Complaint"];
+      const apptData = allBookings.map(b => [
+        b.id,
+        b.customerName,
+        b.customerPhone,
+        b.customerEmail ?? "",
+        new Date(b.slot.startTime).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+        new Date(b.slot.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+        (b as any).assignedDoctor ?? "Unassigned",
+        b.verificationStatus,
+        b.description ?? "",
+      ]);
+
+      // --- ExcelJS formatting ---
+      const DARK    = "FF085041";
+      const MID     = "FF0A6649";
+      const PRIMARY = "FF0F9B6E";
+      const TINT    = "FFE1F5EE";
+      const OFF     = "FFF8F8F6";
+      const WHITE   = "FFFFFFFF";
+      const STATUS_COLORS: Record<string, string> = {
+        verified:   "FF0F9B6E",
+        pending:    "FFD97706",
+        cancelled:  "FFDC2626",
+        unverified: "FFD97706",
+      };
+      const thin = (argb = "FFCCCCCC") => ({ style: "thin" as const, color: { argb } });
+
+      function applyHeaderCell(cell: ExcelJS.Cell) {
+        cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: PRIMARY } };
+        cell.font      = { bold: true, size: 10, color: { argb: WHITE } };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+        cell.border    = { top: thin("FF085041"), bottom: thin("FF085041"), left: thin("FF085041"), right: thin("FF085041") };
+      }
+
+      function applyDataCell(cell: ExcelJS.Cell, rowIdx: number, statusColor?: string) {
+        cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: rowIdx % 2 === 1 ? TINT : OFF } };
+        cell.border    = { top: thin(), bottom: thin(), left: thin(), right: thin() };
+        cell.alignment = { vertical: "middle", wrapText: false };
+        cell.font      = statusColor
+          ? { size: 9, bold: true, color: { argb: statusColor } }
+          : { size: 9, color: { argb: "FF1A1A1A" } };
+      }
+
+      function buildSheet(
+        wb: ExcelJS.Workbook,
+        sheetName: string,
+        headers: string[],
+        rows: (string | number | null | undefined)[][],
+        colWidths: number[],
+        recordCount: number,
+        statusColIdx?: number,
+      ) {
+        const ws = wb.addWorksheet(sheetName);
+        const nc = headers.length;
+        const lastLetter = nc <= 26 ? String.fromCharCode(64 + nc) : "Z";
+
+        ws.mergeCells(`A1:${lastLetter}1`);
+        const r1 = ws.getCell("A1");
+        r1.value = clinic!.name;
+        r1.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: DARK } };
+        r1.font  = { bold: true, size: 14, color: { argb: WHITE } };
+        r1.alignment = { vertical: "middle", horizontal: "center" };
+        ws.getRow(1).height = 32;
+
+        ws.mergeCells(`A2:${lastLetter}2`);
+        const r2 = ws.getCell("A2");
+        r2.value = `${sheetName}  ·  Exported: ${exportDate}  ·  ${recordCount} records`;
+        r2.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: MID } };
+        r2.font  = { italic: true, size: 9, color: { argb: "FFAACCBB" } };
+        r2.alignment = { vertical: "middle", horizontal: "center" };
+        ws.getRow(2).height = 18;
+
+        ws.mergeCells(`A3:${lastLetter}3`);
+        ws.getCell("A3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: PRIMARY } };
+        ws.getRow(3).height = 4;
+
+        const hRow = ws.getRow(4);
+        hRow.values = ["", ...headers];
+        headers.forEach((_h, i) => applyHeaderCell(hRow.getCell(i + 1)));
+        hRow.height = 22;
+
+        rows.forEach((row, rIdx) => {
+          const dRow = ws.getRow(5 + rIdx);
+          row.forEach((val, cIdx) => {
+            const cell = dRow.getCell(cIdx + 1);
+            cell.value = val ?? "";
+            const statusColor =
+              statusColIdx !== undefined && cIdx === statusColIdx
+                ? STATUS_COLORS[String(val ?? "").toLowerCase()]
+                : undefined;
+            applyDataCell(cell, rIdx, statusColor);
+          });
+          dRow.height = 18;
+        });
+
+        colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+        ws.autoFilter = `A4:${lastLetter}4`;
+        ws.views = [{ state: "frozen", ySplit: 4, xSplit: 0, topLeftCell: "A5", activeCell: "A5" }];
+      }
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = clinic.name;
+      wb.created = new Date();
+
+      if (scope.includes("patients")) {
+        buildSheet(wb, "Patient Profiles", patientsHeaders, patientsData,
+          [32, 20, 36], uniquePatients.length);
+      }
+      if (scope.includes("appointments")) {
+        buildSheet(wb, "Appointments", apptHeaders, apptData,
+          [10, 28, 18, 32, 14, 10, 26, 14, 40], allBookings.length, 7);
+      }
+
+      const buffer = await wb.xlsx.writeBuffer();
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="export.xlsx"`);
+      res.send(Buffer.from(buffer));
+    } catch (err: any) {
+      console.error("[EXPORT] XLSX generation failed:", err);
+      res.status(500).json({ message: "Failed to generate Excel file" });
     }
   });
 
