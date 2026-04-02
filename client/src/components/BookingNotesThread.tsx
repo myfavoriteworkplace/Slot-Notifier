@@ -83,14 +83,14 @@ export function BookingNotesThread({ bookingId, authorType }: BookingNotesThread
                   className={`max-w-[88%] px-2.5 py-1.5 rounded-xl text-xs leading-relaxed ${
                     note.authorType === "doctor"
                       ? "bg-primary/10 text-foreground rounded-tl-sm"
-                      : "bg-blue-500/10 text-foreground rounded-tr-sm"
+                      : "bg-accent/10 text-foreground rounded-tr-sm"
                   }`}
                 >
                   <p
                     className={`text-[10px] font-semibold mb-0.5 ${
                       note.authorType === "doctor"
                         ? "text-primary"
-                        : "text-blue-600 dark:text-blue-400"
+                        : "text-accent"
                     }`}
                   >
                     {note.authorName}

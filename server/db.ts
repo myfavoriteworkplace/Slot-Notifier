@@ -77,7 +77,18 @@ export async function ensureSessionTable() {
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "pincode" varchar(20);
     `);
 
-    // Create booking_notes table for shared conversation threads
+    console.log("[DATABASE] Session table and schema checks complete.");
+  } catch (err: any) {
+    if (err.code === "42P07") {
+      console.log("[DATABASE] Session index already exists, skipping");
+    } else {
+      console.error("[DATABASE] Error ensuring session table:", err.message);
+    }
+  }
+
+  // booking_notes is in its own block so a 42P07 from the session index
+  // can never abort this migration.
+  try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS booking_notes (
         id serial PRIMARY KEY,
@@ -106,12 +117,8 @@ export async function ensureSessionTable() {
         );
     `);
 
-    console.log("[DATABASE] Session table and schema checks complete.");
+    console.log("[DATABASE] booking_notes table ready.");
   } catch (err: any) {
-    if (err.code === "42P07") {
-      console.log("[DATABASE] Session index already exists, skipping");
-      return;
-    }
-    console.error("[DATABASE] Error ensuring session table:", err.message);
+    console.error("[DATABASE] Error ensuring booking_notes table:", err.message);
   }
 }
