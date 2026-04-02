@@ -54,6 +54,7 @@ export const bookings = pgTable("bookings", {
   description: text("description"),
   assignedDoctor: varchar("assigned_doctor", { length: 255 }),
   assignedDoctorEmail: varchar("assigned_doctor_email", { length: 255 }),
+  doctorApprovalStatus: varchar("doctor_approval_status", { length: 20 }),
   doctorNotes: text("doctor_notes"),
   clinicalStatus: varchar("clinical_status", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow(),

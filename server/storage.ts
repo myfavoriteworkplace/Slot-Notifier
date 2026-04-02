@@ -59,7 +59,8 @@ export interface IStorage {
   getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
   getBooking(id: number): Promise<Booking | undefined>;
   updateBookingStatus(id: number, status: string): Promise<Booking>;
-  updateBookingAssignment(id: number, doctorName: string): Promise<Booking>;
+  updateBookingAssignment(id: number, doctorName: string, doctorEmail?: string | null, doctorApprovalStatus?: string | null): Promise<Booking>;
+  updateBookingDoctorApproval(id: number, doctorEmail: string, status: 'approved' | 'declined'): Promise<Booking>;
   rescheduleBooking(id: number, newSlotId: number): Promise<Booking>;
   updateBookingDoctorNotes(id: number, doctorEmail: string, notes: string | null, clinicalStatus: string | null): Promise<Booking>;
   updateClinicCredentials(id: number, username: string, passwordHash: string): Promise<void>;
@@ -352,12 +353,24 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateBookingAssignment(id: number, doctorName: string, doctorEmail?: string): Promise<Booking> {
+  async updateBookingAssignment(id: number, doctorName: string, doctorEmail?: string | null, doctorApprovalStatus?: string | null): Promise<Booking> {
     const [updated] = await db.update(bookings)
       .set({ 
         assignedDoctor: doctorName,
-        assignedDoctorEmail: doctorEmail || null
+        assignedDoctorEmail: doctorEmail || null,
+        doctorApprovalStatus: doctorApprovalStatus !== undefined ? doctorApprovalStatus : 'pending',
       })
+      .where(eq(bookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateBookingDoctorApproval(id: number, doctorEmail: string, status: 'approved' | 'declined'): Promise<Booking> {
+    const booking = await this.getBookingById(id);
+    if (!booking) throw new Error("Booking not found");
+    if (booking.assignedDoctorEmail !== doctorEmail) throw new Error("Forbidden");
+    const [updated] = await db.update(bookings)
+      .set({ doctorApprovalStatus: status })
       .where(eq(bookings.id, id))
       .returning();
     return updated;

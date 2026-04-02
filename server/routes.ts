@@ -900,7 +900,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.verificationStatus === 'confirmed') return res.status(400).json({ message: "Booking already confirmed" });
 
+      // If a doctor was assigned and their approval is still pending, admin is overriding — mark as admin_confirmed
+      const needsDoctorOverride = booking.assignedDoctorEmail && booking.doctorApprovalStatus === 'pending';
       const updated = await storage.updateBookingStatus(bookingId, 'confirmed');
+      if (needsDoctorOverride) {
+        await storage.updateBookingAssignment(bookingId, booking.assignedDoctor!, booking.assignedDoctorEmail!, 'admin_confirmed');
+      }
 
       // Fetch clinic details for the email
       const [clinic] = await db.select().from(clinics).where(eq(clinics.id, sess.clinicId || 0));
@@ -945,10 +950,70 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           .where(and(eq(clinicDoctors.clinicId, sess.clinicId), eq(doctors.name, doctorName)));
         if (doctorRecord?.email) resolvedEmail = doctorRecord.email;
       }
-      const updated = await storage.updateBookingAssignment(bookingId, doctorName, resolvedEmail);
+      // If doctor has a known email, set doctorApprovalStatus to 'pending' so they must approve first.
+      // If no email is known, fall back to null (no approval gate for display-only doctor names).
+      const approvalStatus = resolvedEmail ? 'pending' : null;
+      const updated = await storage.updateBookingAssignment(bookingId, doctorName, resolvedEmail, approvalStatus);
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Doctor approves an appointment assigned to them
+  app.patch("/api/doctor/bookings/:id/approve", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor' || !sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const booking = await storage.getBookingById(Number(req.params.id));
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
+      if (booking.doctorApprovalStatus !== 'pending') return res.status(400).json({ message: "No pending approval for this booking" });
+
+      const updated = await storage.updateBookingDoctorApproval(Number(req.params.id), sess.doctorEmail, 'approved');
+
+      // Notify patient via email that their appointment is confirmed (fire-and-forget)
+      if (booking.customerEmail) {
+        const slot = await storage.getSlot(booking.slotId);
+        const [clinic] = await db.select().from(clinics)
+          .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
+          .innerJoin(doctors, eq(doctors.id, clinicDoctors.doctorId))
+          .where(eq(doctors.email, sess.doctorEmail))
+          .limit(1)
+          .then(rows => rows.map(r => (r as any).clinics || r));
+        sendConfirmationEmail(
+          booking.customerEmail,
+          booking.customerName,
+          booking.assignedDoctor || 'your clinic',
+          slot ? new Date(slot.startTime) : new Date(),
+          booking.assignedDoctor || null,
+          null, null, null,
+          booking.id,
+        ).catch(() => {});
+      }
+
+      res.json(updated);
+    } catch (err: any) {
+      const status = err.message === "Booking not found" ? 404 : err.message === "Forbidden" ? 403 : 500;
+      res.status(status).json({ message: err.message });
+    }
+  });
+
+  // Doctor declines an appointment assigned to them
+  app.patch("/api/doctor/bookings/:id/decline", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor' || !sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const booking = await storage.getBookingById(Number(req.params.id));
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
+      if (booking.doctorApprovalStatus !== 'pending') return res.status(400).json({ message: "No pending approval for this booking" });
+
+      const updated = await storage.updateBookingDoctorApproval(Number(req.params.id), sess.doctorEmail, 'declined');
+      res.json(updated);
+    } catch (err: any) {
+      const status = err.message === "Booking not found" ? 404 : err.message === "Forbidden" ? 403 : 500;
+      res.status(status).json({ message: err.message });
     }
   });
 

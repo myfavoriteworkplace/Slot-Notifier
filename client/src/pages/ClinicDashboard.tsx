@@ -70,6 +70,8 @@ type BookingWithSlot = Booking & {
   slot: Slot; 
   description?: string | null;
   assignedDoctor?: string | null;
+  assignedDoctorEmail?: string | null;
+  doctorApprovalStatus?: string | null;
   doctorNotes?: string | null;
   clinicalStatus?: string | null;
   clinicDoctors?: { name: string; specialization: string; degree: string }[];
@@ -1510,11 +1512,23 @@ export default function ClinicDashboard() {
 
                             {/* Assigned doctor */}
                             {booking.assignedDoctor ? (
-                              <div className="flex items-center gap-2.5 text-[12px]">
-                                <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                                  <Stethoscope className="h-3 w-3 text-primary" />
+                              <div className="flex items-center gap-2 text-[12px] flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                    <Stethoscope className="h-3 w-3 text-primary" />
+                                  </div>
+                                  <span className="font-medium text-primary">{booking.assignedDoctor}</span>
                                 </div>
-                                <span className="font-medium text-primary">{booking.assignedDoctor}</span>
+                                {booking.doctorApprovalStatus === 'pending' && (
+                                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
+                                    Awaiting approval
+                                  </span>
+                                )}
+                                {booking.doctorApprovalStatus === 'declined' && (
+                                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800">
+                                    Declined — reassign
+                                  </span>
+                                )}
                               </div>
                             ) : !isBookingPast && (
                               <div className="flex items-center gap-2.5 text-[12px]">

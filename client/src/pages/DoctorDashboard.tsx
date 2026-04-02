@@ -22,7 +22,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Clinic, DoctorCertification, DoctorCase } from "@shared/schema";
 
-type QuickFilter = "all" | "today" | "upcoming";
+type QuickFilter = "all" | "today" | "upcoming" | "awaiting";
 type Tab = "appointments" | "profile" | "certifications" | "cases";
 
 function isVideo(url: string) {
@@ -196,6 +196,24 @@ export default function DoctorDashboard() {
     onError: () => toast({ title: "Failed to save status", variant: "destructive" }),
   });
 
+  const approveMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("PATCH", `/api/doctor/bookings/${id}/approve`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
+      toast({ title: "Appointment accepted", description: "The appointment is now in your schedule." });
+    },
+    onError: () => toast({ title: "Failed to accept appointment", variant: "destructive" }),
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("PATCH", `/api/doctor/bookings/${id}/decline`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
+      toast({ title: "Appointment declined", description: "The clinic admin has been notified." });
+    },
+    onError: () => toast({ title: "Failed to decline appointment", variant: "destructive" }),
+  });
+
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -316,17 +334,21 @@ export default function DoctorDashboard() {
 
   const allBookings = Array.isArray(bookings) ? bookings : [];
   const myBookings = allBookings.filter((b: any) => b.assignedDoctorEmail === (doctor as any).email);
+  // Awaiting approval: assigned to this doctor, pending their approval
+  const awaitingBookings = myBookings.filter((b: any) => b.doctorApprovalStatus === 'pending');
+  // Confirmed appointments: everything else (null = pre-feature, approved, admin_confirmed)
+  const confirmedBookings = myBookings.filter((b: any) => b.doctorApprovalStatus !== 'pending' && b.doctorApprovalStatus !== 'declined');
   const todayStr = new Date().toISOString().split("T")[0];
-  const todayBookings = myBookings.filter((b: any) => {
+  const todayBookings = confirmedBookings.filter((b: any) => {
     const d = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
     return d === todayStr;
   });
-  const upcomingBookings = myBookings.filter((b: any) => {
+  const upcomingBookings = confirmedBookings.filter((b: any) => {
     const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
     return d && d >= new Date();
   });
   const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setAppointmentDateFilter(""); };
-  const filteredBookings = myBookings.filter((b: any) => {
+  const filteredBookings = (quickFilter === "awaiting" ? awaitingBookings : confirmedBookings).filter((b: any) => {
     const matchesClinic = appointmentClinicFilter === "all" || b.clinicId === parseInt(appointmentClinicFilter);
     const bd = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
     const bdt = b.slot?.startTime ? new Date(b.slot.startTime) : null;
@@ -437,7 +459,7 @@ export default function DoctorDashboard() {
           <p className="text-[11px] text-white/45 mb-5">Manage your appointments, profile, certifications, and case studies below.</p>
           <div className="flex flex-wrap gap-3">
             {[
-              { label: "Total", count: myBookings.length, icon: Calendar, filter: "all" as QuickFilter },
+              { label: "Total", count: confirmedBookings.length, icon: Calendar, filter: "all" as QuickFilter },
               { label: "Today", count: todayBookings.length, icon: Clock, filter: "today" as QuickFilter },
               { label: "Upcoming", count: upcomingBookings.length, icon: TrendingUp, filter: "upcoming" as QuickFilter },
             ].map(({ label, count, icon: Icon, filter }) => (
@@ -454,6 +476,21 @@ export default function DoctorDashboard() {
                 {quickFilter === filter && activeTab === "appointments" && <ArrowRight className="h-3.5 w-3.5 text-white/60 ml-1" />}
               </button>
             ))}
+            {/* Amber awaiting approval card — only shown if there are pending items */}
+            {awaitingBookings.length > 0 && (
+              <button onClick={() => { setActiveTab("appointments"); handleQuickFilter("awaiting"); }}
+                className={`flex items-center gap-2.5 rounded-xl px-4 py-2.5 border backdrop-blur-sm transition-all duration-200 ${quickFilter === "awaiting" && activeTab === "appointments" ? "bg-amber-400/30 border-amber-300/70 ring-2 ring-amber-300/50 shadow-lg" : "bg-amber-400/15 border-amber-300/25 hover:bg-amber-400/25 hover:border-amber-300/45"}`}
+              >
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${quickFilter === "awaiting" && activeTab === "appointments" ? "bg-amber-300/30" : "bg-amber-300/20"}`}>
+                  <AlertCircle className="h-4 w-4 text-amber-200" />
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] text-amber-200/80 font-medium uppercase tracking-wide leading-none mb-0.5">Awaiting</p>
+                  <p className="text-lg font-extrabold text-amber-100 leading-none">{awaitingBookings.length}</p>
+                </div>
+                {quickFilter === "awaiting" && activeTab === "appointments" && <ArrowRight className="h-3.5 w-3.5 text-amber-200/60 ml-1" />}
+              </button>
+            )}
           </div>
         </div>
         <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/40 via-primary/60 to-accent/40" />
@@ -484,7 +521,7 @@ export default function DoctorDashboard() {
           <div className="space-y-5">
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
               <div className="flex items-center gap-2 flex-wrap">
-                {([{ key: "all", label: "All", count: myBookings.length }, { key: "today", label: "Today", count: todayBookings.length }, { key: "upcoming", label: "Upcoming", count: upcomingBookings.length }] as { key: QuickFilter; label: string; count: number }[]).map(chip => (
+                {([{ key: "all", label: "All", count: confirmedBookings.length }, { key: "today", label: "Today", count: todayBookings.length }, { key: "upcoming", label: "Upcoming", count: upcomingBookings.length }] as { key: QuickFilter; label: string; count: number }[]).map(chip => (
                   <button key={chip.key} onClick={() => handleQuickFilter(chip.key)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200 ${quickFilter === chip.key ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20" : "bg-background text-muted-foreground border-border/60 hover:border-primary/40 hover:text-primary"}`}
                   >
@@ -492,6 +529,12 @@ export default function DoctorDashboard() {
                     <span className={`text-[10px] rounded-full px-1.5 py-0.5 font-bold leading-none ${quickFilter === chip.key ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>{chip.count}</span>
                   </button>
                 ))}
+                <button onClick={() => handleQuickFilter("awaiting")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200 ${quickFilter === "awaiting" ? "bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-500/20" : "bg-background text-amber-600 border-amber-300 hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20"}`}
+                >
+                  Awaiting
+                  <span className={`text-[10px] rounded-full px-1.5 py-0.5 font-bold leading-none ${quickFilter === "awaiting" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"}`}>{awaitingBookings.length}</span>
+                </button>
               </div>
               <div className="flex gap-2 flex-1 sm:justify-end flex-wrap">
                 {quickFilter === "all" && (
@@ -517,7 +560,9 @@ export default function DoctorDashboard() {
 
             <p className="text-xs text-muted-foreground px-1">
               Showing <span className="font-semibold text-foreground">{filteredBookings.length}</span> appointment{filteredBookings.length !== 1 ? "s" : ""}
-              {quickFilter !== "all" && <span className="ml-1 text-primary font-medium">· {quickFilter === "today" ? "Today" : "Upcoming"}</span>}
+              {quickFilter === "awaiting" && <span className="ml-1 text-amber-600 font-medium">· Awaiting your approval</span>}
+              {quickFilter === "today" && <span className="ml-1 text-primary font-medium">· Today</span>}
+              {quickFilter === "upcoming" && <span className="ml-1 text-primary font-medium">· Upcoming</span>}
               {appointmentDateFilter && quickFilter === "all" && <span className="ml-1 text-primary font-medium">· {new Date(appointmentDateFilter + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>}
             </p>
 
@@ -618,55 +663,94 @@ export default function DoctorDashboard() {
                             )}
                           </div>
 
-                          {/* Notes toggle button */}
-                          <button
-                            onClick={() => {
-                              if (notesOpenId === booking.id) {
-                                setNotesOpenId(null);
-                              } else {
-                                setNotesOpenId(booking.id);
-                                setStatusDraft(booking.clinicalStatus || "");
-                              }
-                            }}
-                            className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
-                          >
-                            <FileText className="h-3 w-3" />
-                            Notes &amp; Messages
-                            {notesOpenId === booking.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                          </button>
-
-                          {/* Inline notes panel */}
-                          {notesOpenId === booking.id && (
-                            <div className="space-y-2.5 pt-2 border-t border-border/30 animate-in slide-in-from-top-1 duration-150">
-                              <div className="space-y-1">
-                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
-                                <div className="flex gap-2">
-                                  <Select value={statusDraft} onValueChange={setStatusDraft}>
-                                    <SelectTrigger className="h-8 text-xs flex-1">
-                                      <SelectValue placeholder="Select status..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="first_visit">First Visit</SelectItem>
-                                      <SelectItem value="revisit">Revisit</SelectItem>
-                                      <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
-                                      <SelectItem value="case_closed">Case Closed</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                  <Button
-                                    size="sm"
-                                    className="h-8 px-3 text-xs shrink-0"
-                                    onClick={() => saveNotesMutation.mutate({ id: booking.id, clinicalStatus: statusDraft })}
-                                    disabled={saveNotesMutation.isPending}
-                                  >
-                                    {saveNotesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
-                                  </Button>
-                                </div>
-                              </div>
-                              <BookingNotesThread bookingId={booking.id} authorType="doctor" />
-                              <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground w-full" onClick={() => setNotesOpenId(null)}>
-                                Close
+                          {/* Accept / Decline buttons — only shown in awaiting filter */}
+                          {quickFilter === "awaiting" && booking.doctorApprovalStatus === 'pending' && (
+                            <div className="flex gap-2 pt-1">
+                              <Button
+                                size="sm"
+                                className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white font-semibold"
+                                onClick={() => approveMutation.mutate(booking.id)}
+                                disabled={approveMutation.isPending || declineMutation.isPending}
+                                data-testid={`button-approve-${booking.id}`}
+                              >
+                                {approveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3 mr-1.5" />}
+                                Accept
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-8 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 dark:hover:bg-red-950/20 font-semibold"
+                                onClick={() => declineMutation.mutate(booking.id)}
+                                disabled={approveMutation.isPending || declineMutation.isPending}
+                                data-testid={`button-decline-${booking.id}`}
+                              >
+                                {declineMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3 mr-1.5" />}
+                                Decline
                               </Button>
                             </div>
+                          )}
+
+                          {/* Admin-confirmed notice */}
+                          {booking.doctorApprovalStatus === 'admin_confirmed' && (
+                            <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
+                              <AlertCircle className="h-3 w-3 shrink-0" />
+                              Confirmed by clinic admin on your behalf
+                            </div>
+                          )}
+
+                          {/* Notes toggle button — hidden in awaiting view */}
+                          {quickFilter !== "awaiting" && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  if (notesOpenId === booking.id) {
+                                    setNotesOpenId(null);
+                                  } else {
+                                    setNotesOpenId(booking.id);
+                                    setStatusDraft(booking.clinicalStatus || "");
+                                  }
+                                }}
+                                className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+                              >
+                                <FileText className="h-3 w-3" />
+                                Notes &amp; Messages
+                                {notesOpenId === booking.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                              </button>
+
+                              {/* Inline notes panel */}
+                              {notesOpenId === booking.id && (
+                                <div className="space-y-2.5 pt-2 border-t border-border/30 animate-in slide-in-from-top-1 duration-150">
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
+                                    <div className="flex gap-2">
+                                      <Select value={statusDraft} onValueChange={setStatusDraft}>
+                                        <SelectTrigger className="h-8 text-xs flex-1">
+                                          <SelectValue placeholder="Select status..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="first_visit">First Visit</SelectItem>
+                                          <SelectItem value="revisit">Revisit</SelectItem>
+                                          <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
+                                          <SelectItem value="case_closed">Case Closed</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Button
+                                        size="sm"
+                                        className="h-8 px-3 text-xs shrink-0"
+                                        onClick={() => saveNotesMutation.mutate({ id: booking.id, clinicalStatus: statusDraft })}
+                                        disabled={saveNotesMutation.isPending}
+                                      >
+                                        {saveNotesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <BookingNotesThread bookingId={booking.id} authorType="doctor" />
+                                  <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground w-full" onClick={() => setNotesOpenId(null)}>
+                                    Close
+                                  </Button>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -676,11 +760,18 @@ export default function DoctorDashboard() {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <div className="h-14 w-14 rounded-2xl bg-muted/60 flex items-center justify-center">
-                  <Calendar className="h-7 w-7 text-muted-foreground/40" />
+                <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${quickFilter === "awaiting" ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>
+                  {quickFilter === "awaiting"
+                    ? <CheckCircle2 className="h-7 w-7 text-amber-500/60" />
+                    : <Calendar className="h-7 w-7 text-muted-foreground/40" />
+                  }
                 </div>
-                <p className="text-sm font-medium text-muted-foreground">No appointments found</p>
-                <p className="text-xs text-muted-foreground/70">Try adjusting your filters</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {quickFilter === "awaiting" ? "No appointments awaiting approval" : "No appointments found"}
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  {quickFilter === "awaiting" ? "You're all caught up — nothing waiting for your review." : "Try adjusting your filters"}
+                </p>
               </div>
             )}
           </div>
