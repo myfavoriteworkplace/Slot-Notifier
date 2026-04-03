@@ -17,6 +17,59 @@ const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>
 const RESEND_MODE = (process.env.RESEND || 'DEV').toUpperCase();
 const TEST_EMAIL = 'itsmyfavoriteworkplace@gmail.com';
 
+function makeGoogleCalLink(title: string, start: Date, location?: string | null): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const fmt = (d: Date) => `${d.getUTCFullYear()}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+  const end = new Date(start.getTime() + 30 * 60 * 1000);
+  let url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${fmt(start)}/${fmt(end)}`;
+  if (location) url += `&location=${encodeURIComponent(location)}`;
+  return url;
+}
+
+function emailShell(headerColor: string, headerTitle: string, headerSubtitle: string, body: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f4ff;font-family:'Helvetica Neue',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;padding:32px 16px">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(62,52,180,0.10)">
+        <tr>
+          <td style="background:${headerColor};padding:28px 32px 24px">
+            <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.60)">BookMySlot</p>
+            <h1 style="margin:0;font-size:22px;font-weight:800;color:#ffffff;line-height:1.2">${headerTitle}</h1>
+            <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.82)">${headerSubtitle}</p>
+          </td>
+        </tr>
+        ${body}
+        <tr>
+          <td style="background:${headerColor};padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.60)">Powered by <strong style="color:#fff">BookMySlot</strong> &nbsp;·&nbsp; Please do not reply to this email</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+function detailsTable(rows: { label: string; value: string; mono?: boolean }[]): string {
+  const rowsHtml = rows.map((r, i) => `
+    <tr style="${i < rows.length - 1 ? 'border-bottom:1px solid #e5e3fa' : ''}">
+      <td style="padding:9px 14px;color:#6b6f8c;font-size:13px;width:130px;vertical-align:top">${r.label}</td>
+      <td style="padding:9px 14px;font-size:13px;font-weight:600;color:${r.mono ? '#3e34b4' : '#1e1c3c'};${r.mono ? 'font-family:monospace' : ''}">${r.value}</td>
+    </tr>`).join('');
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;border-radius:10px;overflow:hidden;border:1px solid #e5e3fa">
+    <tr style="background:#3e34b4"><td colspan="2" style="padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.85)">Appointment Details</td></tr>
+    ${rowsHtml}
+  </table>`;
+}
+
+function actionButton(label: string, href: string, color = '#3e34b4'): string {
+  return `<a href="${href}" style="display:inline-block;padding:12px 28px;background:${color};color:#fff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px">${label}</a>`;
+}
+
 async function sendBookingEmails(customerEmail: string, customerName: string, clinicEmail: string | null, clinicName: string, startTime: Date) {
   if (!resend) {
     console.log(`[EMAIL MOCK] Resend not configured.`);
@@ -24,22 +77,59 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
   }
   const finalCustomerEmail = RESEND_MODE === 'PRODUCTION' ? customerEmail : TEST_EMAIL;
   const finalClinicEmail = RESEND_MODE === 'PRODUCTION' ? clinicEmail : TEST_EMAIL;
-  const formattedTime = startTime.toLocaleString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+  const formattedTime = startTime.toLocaleString('en-IN', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
+  const calLink = makeGoogleCalLink(`Appointment at ${clinicName}`, startTime);
+
+  const patientHtml = emailShell(
+    'linear-gradient(90deg,#3e34b4 0%,#a83cd2 100%)',
+    'Booking Received ✓',
+    `Your request has been sent to <strong>${clinicName}</strong>.`,
+    `<tr><td style="padding:24px 32px 0">
+      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${customerName}</strong>,</p>
+      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
+        Thanks for booking with us! Your appointment request is now <strong>pending clinic confirmation</strong>. You will receive another email as soon as the clinic approves it.
+      </p>
+      ${detailsTable([
+        { label: 'Clinic', value: clinicName },
+        { label: 'Date &amp; Time', value: formattedTime },
+      ])}
+    </td></tr>
+    <tr><td style="padding:20px 32px 28px">
+      ${actionButton('Add to Google Calendar', calLink)}
+      <p style="margin:16px 0 0;font-size:12px;color:#9ca3af">The calendar invite is a placeholder — it will update once confirmed.</p>
+    </td></tr>`
+  );
+
+  const clinicHtml = emailShell(
+    'linear-gradient(90deg,#1e1c3c 0%,#3e34b4 100%)',
+    'New Booking Request',
+    `A patient has requested an appointment at <strong>${clinicName}</strong>.`,
+    `<tr><td style="padding:24px 32px 20px">
+      <p style="margin:0 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
+        A new appointment request is waiting for your review. Log in to your Clinic Portal to confirm or manage this booking.
+      </p>
+      ${detailsTable([
+        { label: 'Patient', value: customerName },
+        { label: 'Date &amp; Time', value: formattedTime },
+      ])}
+    </td></tr>`
+  );
+
   try {
     await resend.emails.send({
       from: EMAIL_FROM,
       to: finalCustomerEmail,
-      subject: `Booking Confirmed at ${clinicName}`,
-      html: `<p>Booking confirmed for ${customerName} at ${clinicName} on ${formattedTime}</p>`
+      subject: `Booking Received at ${clinicName} — Pending Confirmation`,
+      html: patientHtml,
     });
     if (finalClinicEmail) {
       await resend.emails.send({
         from: EMAIL_FROM,
         to: finalClinicEmail,
-        subject: `New Booking: ${customerName}`,
-        html: `<p>New booking for ${customerName} at ${formattedTime}</p>`
+        subject: `New Booking Request: ${customerName} — ${formattedTime}`,
+        html: clinicHtml,
       });
     }
   } catch (error) {
@@ -68,99 +158,48 @@ async function sendConfirmationEmail(
     hour: '2-digit', minute: '2-digit',
   });
   const receiptRef = bookingId ? `BMS-${bookingId}` : '—';
+  const calLink = makeGoogleCalLink(`Appointment at ${clinicName}`, startTime, clinicAddress);
+  const mapsLink = clinicAddress ? `https://maps.google.com/?q=${encodeURIComponent(clinicAddress)}` : null;
 
-  const doctorRow = doctorName
-    ? `<tr><td style="padding:8px 12px;color:#6b6f8c;font-size:13px;width:140px">Assigned Doctor</td><td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e1c3c">${doctorName}</td></tr>`
+  const detailRows = [
+    { label: 'Date &amp; Time', value: formattedTime },
+    { label: 'Clinic', value: clinicName },
+    ...(doctorName ? [{ label: 'Doctor', value: doctorName }] : []),
+    { label: 'Reference', value: receiptRef, mono: true },
+  ];
+
+  const contactRows = [
+    ...(clinicPhone ? [{ label: 'Phone', value: clinicPhone }] : []),
+    ...(clinicAddress ? [{ label: 'Address', value: mapsLink ? `<a href="${mapsLink}" style="color:#3e34b4;text-decoration:none">${clinicAddress} ↗</a>` : clinicAddress }] : []),
+    ...(clinicEmail ? [{ label: 'Email', value: clinicEmail }] : []),
+  ];
+
+  const contactSection = contactRows.length > 0
+    ? `<tr><td style="padding:0 32px 24px">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;border-radius:10px;overflow:hidden;border:1px solid #e5e3fa">
+          <tr style="background:#6357dc"><td colspan="2" style="padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.85)">Clinic Contact</td></tr>
+          ${contactRows.map((r, i) => `<tr style="${i < contactRows.length - 1 ? 'border-bottom:1px solid #e5e3fa' : ''}"><td style="padding:9px 14px;color:#6b6f8c;font-size:13px;width:130px">${r.label}</td><td style="padding:9px 14px;font-size:13px;color:#1e1c3c">${r.value}</td></tr>`).join('')}
+        </table>
+      </td></tr>`
     : '';
-  const phoneRow = clinicPhone
-    ? `<tr><td style="padding:8px 12px;color:#6b6f8c;font-size:13px">Phone</td><td style="padding:8px 12px;font-size:13px;color:#1e1c3c">${clinicPhone}</td></tr>`
-    : '';
-  const addressRow = clinicAddress
-    ? `<tr><td style="padding:8px 12px;color:#6b6f8c;font-size:13px">Address</td><td style="padding:8px 12px;font-size:13px;color:#1e1c3c">${clinicAddress}</td></tr>`
-    : '';
-  const emailRow = clinicEmail
-    ? `<tr><td style="padding:8px 12px;color:#6b6f8c;font-size:13px">Email</td><td style="padding:8px 12px;font-size:13px;color:#1e1c3c">${clinicEmail}</td></tr>`
-    : '';
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f4ff;font-family:'Helvetica Neue',Arial,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;padding:32px 16px">
-    <tr><td align="center">
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(62,52,180,0.10)">
-
-        <!-- Header bar -->
-        <tr>
-          <td style="background:linear-gradient(90deg,#3e34b4 0%,#a83cd2 100%);padding:28px 32px 24px">
-            <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.65)">BookMySlot</p>
-            <h1 style="margin:0;font-size:22px;font-weight:800;color:#ffffff;line-height:1.2">Appointment Confirmed ✓</h1>
-            <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.80)">Your booking at <strong>${clinicName}</strong> has been confirmed.</p>
-          </td>
-        </tr>
-
-        <!-- Greeting -->
-        <tr>
-          <td style="padding:24px 32px 0">
-            <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${customerName}</strong>,</p>
-            <p style="margin:10px 0 0;font-size:14px;color:#6b6f8c;line-height:1.6">
-              Great news — the clinic has confirmed your appointment. Please find the details below and arrive a few minutes early.
-            </p>
-          </td>
-        </tr>
-
-        <!-- Appointment details -->
-        <tr>
-          <td style="padding:20px 32px">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;border-radius:10px;overflow:hidden;border:1px solid #e5e3fa">
-              <tr style="background:#3e34b4">
-                <td colspan="2" style="padding:10px 12px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.85)">Appointment Details</td>
-              </tr>
-              <tr style="border-bottom:1px solid #e5e3fa">
-                <td style="padding:8px 12px;color:#6b6f8c;font-size:13px;width:140px">Date &amp; Time</td>
-                <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e1c3c">${formattedTime}</td>
-              </tr>
-              <tr style="border-bottom:1px solid #e5e3fa">
-                <td style="padding:8px 12px;color:#6b6f8c;font-size:13px">Clinic</td>
-                <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#1e1c3c">${clinicName}</td>
-              </tr>
-              ${doctorRow}
-              <tr style="border-bottom:1px solid #e5e3fa">
-                <td style="padding:8px 12px;color:#6b6f8c;font-size:13px">Reference</td>
-                <td style="padding:8px 12px;font-size:13px;font-family:monospace;color:#3e34b4;font-weight:700">${receiptRef}</td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- Clinic contact -->
-        <tr>
-          <td style="padding:0 32px 20px">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;border-radius:10px;overflow:hidden;border:1px solid #e5e3fa">
-              <tr style="background:#6357dc">
-                <td colspan="2" style="padding:10px 12px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.85)">Clinic Contact</td>
-              </tr>
-              ${phoneRow}
-              ${addressRow}
-              ${emailRow}
-              ${(!clinicPhone && !clinicAddress && !clinicEmail) ? `<tr><td colspan="2" style="padding:10px 12px;font-size:13px;color:#6b6f8c">Contact details not available — please reach out to the clinic directly.</td></tr>` : ''}
-            </table>
-          </td>
-        </tr>
-
-        <!-- Footer -->
-        <tr>
-          <td style="background:linear-gradient(90deg,#3e34b4 0%,#a83cd2 100%);padding:16px 32px;text-align:center">
-            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.65)">Powered by <strong style="color:#fff">BookMySlot</strong> · Please do not reply to this email</p>
-          </td>
-        </tr>
-
-      </table>
+  const html = emailShell(
+    'linear-gradient(90deg,#3e34b4 0%,#a83cd2 100%)',
+    'Appointment Confirmed ✓',
+    `Your booking at <strong>${clinicName}</strong> has been confirmed.`,
+    `<tr><td style="padding:24px 32px 0">
+      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${customerName}</strong>,</p>
+      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
+        Great news — your appointment has been confirmed. Find the details below and please arrive a few minutes early.
+      </p>
+      ${detailsTable(detailRows)}
     </td></tr>
-  </table>
-</body>
-</html>`;
+    <tr><td style="padding:20px 32px">
+      ${actionButton('Add to Google Calendar', calLink)}
+      ${mapsLink ? `&nbsp;&nbsp;${actionButton('Get Directions ↗', mapsLink, '#6357dc')}` : ''}
+    </td></tr>
+    ${contactSection}`
+  );
 
   try {
     await resend.emails.send({
@@ -177,12 +216,30 @@ async function sendConfirmationEmail(
 async function sendCancellationEmail(email: string, name: string, date: Date, clinic: string) {
   if (!resend) return;
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
+  const formattedTime = date.toLocaleString('en-IN', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+  const html = emailShell(
+    'linear-gradient(90deg,#7c3aed 0%,#c026d3 100%)',
+    'Appointment Cancelled',
+    `Your booking at <strong>${clinic}</strong> has been cancelled.`,
+    `<tr><td style="padding:24px 32px 32px">
+      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${name}</strong>,</p>
+      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
+        Your appointment has been cancelled. If this was unexpected, please contact the clinic directly to rebook.
+      </p>
+      ${detailsTable([
+        { label: 'Clinic', value: clinic },
+        { label: 'Date &amp; Time', value: formattedTime },
+      ])}
+    </td></tr>`
+  );
   try {
     await resend.emails.send({
       from: EMAIL_FROM,
       to: finalEmail,
-      subject: 'Appointment Cancellation - BookMySlot',
-      html: `<p>Appointment at ${clinic} on ${date.toLocaleString()} has been cancelled.</p>`
+      subject: `Appointment Cancelled at ${clinic}`,
+      html,
     });
   } catch (error) {
     console.error('[EMAIL ERROR] Failed to send cancellation email:', error);
@@ -219,25 +276,34 @@ async function sendDoctorAssignmentEmail(
   }
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? doctorEmail : TEST_EMAIL;
   const formattedTime = startTime.toLocaleString('en-IN', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
+  const html = emailShell(
+    'linear-gradient(90deg,#1e1c3c 0%,#3e34b4 100%)',
+    'New Appointment — Action Required',
+    `You have been assigned a patient at <strong>${clinicName}</strong>.`,
+    `<tr><td style="padding:24px 32px 0">
+      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${doctorName}</strong>,</p>
+      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
+        A new appointment has been assigned to you and is <strong>awaiting your approval</strong>. Please log in to your Doctor Portal to accept or decline.
+      </p>
+      ${detailsTable([
+        { label: 'Patient', value: patientName },
+        { label: 'Clinic', value: clinicName },
+        { label: 'Date &amp; Time', value: formattedTime },
+        { label: 'Reference', value: `BMS-${bookingId}`, mono: true },
+      ])}
+    </td></tr>
+    <tr><td style="padding:20px 32px 28px">
+      ${actionButton('View in Doctor Portal →', '#')}
+    </td></tr>`
+  );
   try {
     await resend.emails.send({
       from: EMAIL_FROM,
       to: finalEmail,
       subject: `Action Required: New appointment assigned to you at ${clinicName}`,
-      html: `
-        <p>Hi ${doctorName},</p>
-        <p>You have been assigned a new appointment at <strong>${clinicName}</strong> that requires your approval.</p>
-        <table>
-          <tr><td><strong>Patient:</strong></td><td>${patientName}</td></tr>
-          <tr><td><strong>Date &amp; Time:</strong></td><td>${formattedTime}</td></tr>
-          <tr><td><strong>Reference:</strong></td><td>BMS-${bookingId}</td></tr>
-        </table>
-        <p>Please log in to your Doctor Portal to accept or decline this appointment.</p>
-        <p>— BookMySlot</p>
-      `,
+      html,
     });
   } catch (error) {
     console.error('[EMAIL ERROR] Failed to send doctor assignment email:', error);
@@ -258,25 +324,35 @@ async function sendDoctorAdminConfirmEmail(
   }
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? doctorEmail : TEST_EMAIL;
   const formattedTime = startTime.toLocaleString('en-IN', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
+  const calLink = makeGoogleCalLink(`Patient: ${patientName} at ${clinicName}`, startTime);
+  const html = emailShell(
+    'linear-gradient(90deg,#b45309 0%,#d97706 100%)',
+    'Appointment Confirmed by Admin',
+    `The clinic admin confirmed a booking on your behalf at <strong>${clinicName}</strong>.`,
+    `<tr><td style="padding:24px 32px 0">
+      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${doctorName}</strong>,</p>
+      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
+        The clinic admin confirmed the appointment below on your behalf without waiting for your approval. This appointment is now active on your schedule.
+      </p>
+      ${detailsTable([
+        { label: 'Patient', value: patientName },
+        { label: 'Clinic', value: clinicName },
+        { label: 'Date &amp; Time', value: formattedTime },
+        { label: 'Reference', value: `BMS-${bookingId}`, mono: true },
+      ])}
+    </td></tr>
+    <tr><td style="padding:20px 32px 28px">
+      ${actionButton('Add to Google Calendar', calLink, '#b45309')}
+    </td></tr>`
+  );
   try {
     await resend.emails.send({
       from: EMAIL_FROM,
       to: finalEmail,
       subject: `FYI: Clinic admin confirmed an appointment on your behalf at ${clinicName}`,
-      html: `
-        <p>Hi ${doctorName},</p>
-        <p>The clinic admin at <strong>${clinicName}</strong> has confirmed the following appointment on your behalf without waiting for your approval.</p>
-        <table>
-          <tr><td><strong>Patient:</strong></td><td>${patientName}</td></tr>
-          <tr><td><strong>Date &amp; Time:</strong></td><td>${formattedTime}</td></tr>
-          <tr><td><strong>Reference:</strong></td><td>BMS-${bookingId}</td></tr>
-        </table>
-        <p>This appointment is now confirmed. Please log in to your Doctor Portal to view the details.</p>
-        <p>— BookMySlot</p>
-      `,
+      html,
     });
   } catch (error) {
     console.error('[EMAIL ERROR] Failed to send doctor admin-confirm email:', error);
@@ -297,24 +373,34 @@ async function sendAdminDoctorDeclineEmail(
   }
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? adminEmail : TEST_EMAIL;
   const formattedTime = startTime.toLocaleString('en-IN', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
+  const html = emailShell(
+    'linear-gradient(90deg,#991b1b 0%,#b45309 100%)',
+    'Doctor Declined — Action Needed',
+    `A doctor has declined an assignment at <strong>${clinicName}</strong>.`,
+    `<tr><td style="padding:24px 32px 0">
+      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi,</p>
+      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
+        <strong>${doctorName}</strong> has declined the appointment below. Please log in to your Clinic Portal to reassign a doctor or take further action before the patient's slot time.
+      </p>
+      ${detailsTable([
+        { label: 'Patient', value: patientName },
+        { label: 'Doctor', value: doctorName },
+        { label: 'Date &amp; Time', value: formattedTime },
+        { label: 'Reference', value: `BMS-${bookingId}`, mono: true },
+      ])}
+    </td></tr>
+    <tr><td style="padding:20px 32px 28px">
+      ${actionButton('Manage in Clinic Portal →', '#', '#991b1b')}
+    </td></tr>`
+  );
   try {
     await resend.emails.send({
       from: EMAIL_FROM,
       to: finalEmail,
-      subject: `Doctor declined an appointment at ${clinicName} — action needed`,
-      html: `
-        <p>Hi,</p>
-        <p><strong>${doctorName}</strong> has declined the appointment assigned to them at <strong>${clinicName}</strong>. Please log in to reassign a doctor or take further action.</p>
-        <table>
-          <tr><td><strong>Patient:</strong></td><td>${patientName}</td></tr>
-          <tr><td><strong>Date &amp; Time:</strong></td><td>${formattedTime}</td></tr>
-          <tr><td><strong>Reference:</strong></td><td>BMS-${bookingId}</td></tr>
-        </table>
-        <p>— BookMySlot</p>
-      `,
+      subject: `⚠ Doctor Declined: ${patientName}'s appointment at ${clinicName} — action needed`,
+      html,
     });
   } catch (error) {
     console.error('[EMAIL ERROR] Failed to send admin doctor-decline email:', error);
@@ -324,12 +410,31 @@ async function sendAdminDoctorDeclineEmail(
 async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLink: string) {
   if (!resend) return;
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
+  const html = emailShell(
+    'linear-gradient(90deg,#3e34b4 0%,#a83cd2 100%)',
+    "You've Been Invited",
+    `<strong>${clinicName}</strong> has added you as a doctor on BookMySlot.`,
+    `<tr><td style="padding:24px 32px 0">
+      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi there,</p>
+      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
+        You have been invited to join <strong>${clinicName}</strong> on BookMySlot. Click the button below to set up your Doctor Portal account and start managing your appointments.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;border-radius:10px;border:1px solid #e5e3fa">
+        <tr><td style="padding:14px 16px;font-size:13px;color:#6b6f8c">
+          This invitation link will expire. If you did not expect this email, you can safely ignore it.
+        </td></tr>
+      </table>
+    </td></tr>
+    <tr><td style="padding:20px 32px 28px">
+      ${actionButton('Set Up My Account →', inviteLink)}
+    </td></tr>`
+  );
   try {
     await resend.emails.send({
       from: EMAIL_FROM,
       to: finalEmail,
-      subject: `Invitation to join ${clinicName} on BookMySlot`,
-      html: `<p>Join ${clinicName}: <a href="${inviteLink}">Setup Account</a></p>`
+      subject: `You've been invited to join ${clinicName} on BookMySlot`,
+      html,
     });
   } catch (error) {
     console.error('[EMAIL ERROR] Failed to send doctor invite email:', error);
