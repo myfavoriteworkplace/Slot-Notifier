@@ -698,9 +698,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
               </div>
 
               <DialogHeader className="space-y-1">
-                <DialogTitle className="text-2xl font-extrabold tracking-tight">Appointment Confirmed!</DialogTitle>
+                <DialogTitle className="text-2xl font-extrabold tracking-tight">Booking Received!</DialogTitle>
                 <DialogDescription className="text-muted-foreground text-sm">
-                  You're all set. See you soon!
+                  Your appointment request has been submitted. You'll get a confirmation email once the clinic approves it.
                 </DialogDescription>
               </DialogHeader>
 
