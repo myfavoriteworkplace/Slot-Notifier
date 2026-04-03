@@ -1123,7 +1123,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       // If a doctor was assigned and their approval is still pending, admin is overriding — mark as admin_confirmed
       const needsDoctorOverride = booking.assignedDoctorEmail && booking.doctorApprovalStatus === 'pending';
-      const updated = await storage.updateBookingStatus(bookingId, 'confirmed');
+      const updated = await storage.updateBookingStatus(bookingId, 'confirmed', 'admin');
       if (needsDoctorOverride) {
         await storage.updateBookingAssignment(bookingId, booking.assignedDoctor!, booking.assignedDoctorEmail!, 'admin_confirmed');
       }

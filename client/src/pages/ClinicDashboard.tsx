@@ -1467,10 +1467,17 @@ export default function ClinicDashboard() {
                                   </Tooltip>
                                 </TooltipProvider>
                               ) : (
+                                <div className="flex flex-col items-end gap-0.5">
                                 <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${statusClass}`}>
                                   {isConfirmed && !isBookingPast && <CheckCircle2 className="h-2.5 w-2.5" />}
                                   {statusLabel}
                                 </span>
+                                {isConfirmed && !isBookingPast && booking.confirmedBy && (
+                                  <span className="text-[9px] text-muted-foreground font-medium">
+                                    by {booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}
+                                  </span>
+                                )}
+                              </div>
                               )}
                             </div>
                           </div>
@@ -1522,6 +1529,16 @@ export default function ClinicDashboard() {
                                 {booking.doctorApprovalStatus === 'pending' && (
                                   <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
                                     Awaiting approval
+                                  </span>
+                                )}
+                                {booking.doctorApprovalStatus === 'approved' && (
+                                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
+                                    Confirmed by doctor
+                                  </span>
+                                )}
+                                {booking.doctorApprovalStatus === 'admin_confirmed' && (
+                                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
+                                    Confirmed by admin
                                   </span>
                                 )}
                                 {booking.doctorApprovalStatus === 'declined' && (
@@ -1921,6 +1938,11 @@ export default function ClinicDashboard() {
                             <div className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 dark:border-emerald-500/30 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                               <CheckCircle2 className="h-3.5 w-3.5" />
                               Confirmed
+                              {booking.confirmedBy && (
+                                <span className="font-normal text-emerald-500 dark:text-emerald-500">
+                                  · by {booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}
+                                </span>
+                              )}
                             </div>
                           )}
                           <Button

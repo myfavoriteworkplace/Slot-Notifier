@@ -57,6 +57,7 @@ export const bookings = pgTable("bookings", {
   doctorApprovalStatus: varchar("doctor_approval_status", { length: 20 }),
   doctorNotes: text("doctor_notes"),
   clinicalStatus: varchar("clinical_status", { length: 50 }),
+  confirmedBy: varchar("confirmed_by", { length: 20 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

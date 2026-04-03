@@ -337,9 +337,9 @@ export class DatabaseStorage implements IStorage {
     return this.getBookingById(id);
   }
 
-  async updateBookingStatus(id: number, status: string): Promise<Booking> {
+  async updateBookingStatus(id: number, status: string, confirmedBy?: 'admin' | 'doctor'): Promise<Booking> {
     const [updated] = await db.update(bookings)
-      .set({ verificationStatus: status as any })
+      .set({ verificationStatus: status as any, ...(confirmedBy ? { confirmedBy } : {}) })
       .where(eq(bookings.id, id))
       .returning();
     
@@ -369,8 +369,11 @@ export class DatabaseStorage implements IStorage {
     const booking = await this.getBookingById(id);
     if (!booking) throw new Error("Booking not found");
     if (booking.assignedDoctorEmail !== doctorEmail) throw new Error("Forbidden");
+    const extraFields = status === 'approved'
+      ? { verificationStatus: 'confirmed' as const, confirmedBy: 'doctor' as const }
+      : {};
     const [updated] = await db.update(bookings)
-      .set({ doctorApprovalStatus: status })
+      .set({ doctorApprovalStatus: status, ...extraFields })
       .where(eq(bookings.id, id))
       .returning();
     return updated;

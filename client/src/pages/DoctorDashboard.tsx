@@ -690,11 +690,17 @@ export default function DoctorDashboard() {
                             </div>
                           )}
 
-                          {/* Admin-confirmed notice */}
+                          {/* Confirmation notice */}
                           {booking.doctorApprovalStatus === 'admin_confirmed' && (
                             <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
                               <AlertCircle className="h-3 w-3 shrink-0" />
                               Confirmed by clinic admin on your behalf
+                            </div>
+                          )}
+                          {booking.doctorApprovalStatus === 'approved' && (
+                            <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-1.5">
+                              <CheckCircle2 className="h-3 w-3 shrink-0" />
+                              You confirmed this appointment
                             </div>
                           )}
 
