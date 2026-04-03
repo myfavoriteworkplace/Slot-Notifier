@@ -204,7 +204,7 @@ function FeaturedCard({ deal, onBookClick }: { deal: SmileDeal; onBookClick: () 
   );
 }
 
-function FlashCard({ deal }: { deal: SmileDeal }) {
+function FlashCard({ deal, gridMode }: { deal: SmileDeal; gridMode?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const save = (deal as any).originalPrice && deal.price
     ? parseInt((deal as any).originalPrice) - parseInt(deal.price)
@@ -215,8 +215,7 @@ function FlashCard({ deal }: { deal: SmileDeal }) {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          flex: "0 0 260px",
-          scrollSnapAlign: "start",
+          ...(gridMode ? {} : { flex: "0 0 260px", scrollSnapAlign: "start" }),
           background: hovered ? `linear-gradient(135deg, rgba(15,206,138,.08) 0%, transparent 60%), ${CARD}` : CARD,
           border: `1px solid ${hovered ? BORDER_H : BORDER}`,
           borderRadius: 16,
@@ -226,20 +225,63 @@ function FlashCard({ deal }: { deal: SmileDeal }) {
           transform: hovered ? "translateY(-6px)" : "translateY(0)",
           position: "relative",
           overflow: "hidden",
+          height: "100%",
         }}
       >
-        <div style={{ width: 48, height: 48, borderRadius: 12, overflow: "hidden", marginBottom: 14, background: SURFACE }}>
-          <img src={deal.imageUrl} alt={deal.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=200"; }} />
+        <div style={{ display: "flex", alignItems: "flex-start", gap: gridMode ? 16 : 0, flexDirection: gridMode ? "row" : "column" }}>
+          <div style={{ width: gridMode ? 80 : 48, height: gridMode ? 80 : 48, flexShrink: 0, borderRadius: 12, overflow: "hidden", marginBottom: gridMode ? 0 : 14, background: SURFACE }}>
+            <img src={deal.imageUrl} alt={deal.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=200"; }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: gridMode ? 15 : 14, fontWeight: 700, color: TEXT, marginBottom: 5 }}>{deal.title}</div>
+            {deal.description && <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5, marginBottom: 12, display: "-webkit-box", WebkitLineClamp: gridMode ? 3 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.description}</div>}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              {deal.price && <span style={{ fontSize: gridMode ? 22 : 20, fontWeight: 800, color: TEAL }}>₹{deal.price}</span>}
+              {(deal as any).originalPrice && <span style={{ fontSize: 13, color: MUTED, textDecoration: "line-through" }}>₹{(deal as any).originalPrice}</span>}
+              {save && save > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: RED, background: `rgba(255,87,87,.1)`, padding: "2px 6px", borderRadius: 4, marginLeft: 2 }}>-₹{save}</span>}
+            </div>
+          </div>
         </div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, marginBottom: 5 }}>{deal.title}</div>
-        {deal.description && <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5, marginBottom: 12, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.description}</div>}
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-          {deal.price && <span style={{ fontSize: 20, fontWeight: 800, color: TEAL }}>₹{deal.price}</span>}
-          {(deal as any).originalPrice && <span style={{ fontSize: 13, color: MUTED, textDecoration: "line-through" }}>₹{(deal as any).originalPrice}</span>}
-          {save && save > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: RED, background: `rgba(255,87,87,.1)`, padding: "2px 6px", borderRadius: 4, marginLeft: 2 }}>-₹{save}</span>}
-        </div>
+        {/* ⚡ badge */}
+        <span style={{ position: "absolute", top: 12, right: 12, fontSize: 11, fontWeight: 700, color: GOLD, background: `rgba(240,192,96,.12)`, border: `1px solid rgba(240,192,96,.25)`, padding: "2px 7px", borderRadius: 6 }}>⚡ Flash</span>
       </div>
     </Link>
+  );
+}
+
+function PlaceholderCard() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+      style={{ height: "100%" }}
+    >
+      <div style={{
+        background: "rgba(17,26,22,0.35)",
+        border: "1px dashed rgba(15,206,138,.1)",
+        borderRadius: 20,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minHeight: 300,
+      }}>
+        <div style={{ height: 196, background: "rgba(15,206,138,.03)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: 40, opacity: 0.2 }}>🦷</span>
+        </div>
+        <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", flex: 1, gap: 10 }}>
+          <div style={{ height: 14, background: "rgba(255,255,255,.04)", borderRadius: 6, width: "65%" }} />
+          <div style={{ height: 11, background: "rgba(255,255,255,.03)", borderRadius: 6, width: "85%" }} />
+          <div style={{ height: 11, background: "rgba(255,255,255,.03)", borderRadius: 6, width: "55%" }} />
+          <div style={{ marginTop: "auto", paddingTop: 12, borderTop: "1px solid rgba(15,206,138,.06)", display: "flex", justifyContent: "center" }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(107,143,126,.35)", letterSpacing: ".1em", textTransform: "uppercase" }}>
+              More deals coming soon
+            </span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -677,7 +719,7 @@ export default function SmileDeals() {
             )}
           </AnimatePresence>
 
-          {/* Flash Deals scroll strip */}
+          {/* Flash Deals — scroll strip for 3+, grid for 1–2 */}
           {flashDeals.length > 0 && (
             <div style={{ marginBottom: 52 }}>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
@@ -685,11 +727,19 @@ export default function SmileDeals() {
                   <span style={{ color: GOLD }}>⚡</span> Flash Deals
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 12, scrollSnapType: "x mandatory", scrollbarWidth: "none" }}>
-                {flashDeals.map((d) => (
-                  <FlashCard key={d.id} deal={d} />
-                ))}
-              </div>
+              {flashDeals.length >= 3 ? (
+                <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 12, scrollSnapType: "x mandatory", scrollbarWidth: "none" }}>
+                  {flashDeals.map((d) => (
+                    <FlashCard key={d.id} deal={d} />
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: `repeat(${flashDeals.length}, 1fr)`, gap: 16 }}>
+                  {flashDeals.map((d) => (
+                    <FlashCard key={d.id} deal={d} gridMode />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -705,23 +755,42 @@ export default function SmileDeals() {
             </div>
           ) : (
             <>
-              {filteredDeals.length > 0 && (
-                <>
-                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24 }}>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-.02em" }}>
-                      All <span style={{ color: TEAL }}>Deals</span>
+              {filteredDeals.length > 0 && (() => {
+                const count = filteredDeals.length;
+                const noFilters = activeSubcategory === "All" && selectedCity === "All";
+                const placeholderCount = noFilters && count < 3 ? 3 - count : 0;
+                const gridCols = count === 1
+                  ? "minmax(0, 480px)"
+                  : count === 2 && placeholderCount === 0
+                  ? "repeat(2, minmax(0, 1fr))"
+                  : "repeat(auto-fill, minmax(280px, 1fr))";
+                return (
+                  <>
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24 }}>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-.02em" }}>
+                        All <span style={{ color: TEAL }}>Deals</span>
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20, marginBottom: 60 }}>
-                    {filteredDeals.map((deal, i) => (
-                      <DealCard key={deal.id} deal={deal} index={i} onVideoOpen={(d) => setVideoModalDeal(d)} />
-                    ))}
-                  </div>
-                </>
-              )}
-              {filteredDeals.length === 0 && activeSubcategory !== "All" && (
+                    <div style={{ display: "grid", gridTemplateColumns: gridCols, justifyContent: count < 3 ? "center" : "start", gap: 20, marginBottom: 60 }}>
+                      {filteredDeals.map((deal, i) => (
+                        <DealCard key={deal.id} deal={deal} index={i} onVideoOpen={(d) => setVideoModalDeal(d)} />
+                      ))}
+                      {Array.from({ length: placeholderCount }).map((_, i) => (
+                        <PlaceholderCard key={`ph-${i}`} />
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
+              {filteredDeals.length === 0 && (
                 <div style={{ textAlign: "center", padding: "60px 0", color: MUTED }}>
-                  <p style={{ fontSize: 16 }}>No {activeSubcategory} deals right now.</p>
+                  <p style={{ fontSize: 16 }}>
+                    {activeSubcategory !== "All"
+                      ? `No ${activeSubcategory} deals right now.`
+                      : selectedCity !== "All"
+                      ? `No deals available in ${selectedCity} right now.`
+                      : "No deals match your current filters."}
+                  </p>
                 </div>
               )}
             </>
