@@ -205,6 +205,122 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   return res.status(401).json({ message: "Authentication required" });
 }
 
+async function sendDoctorAssignmentEmail(
+  doctorEmail: string,
+  doctorName: string,
+  patientName: string,
+  clinicName: string,
+  startTime: Date,
+  bookingId: number,
+) {
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Resend not configured — doctor assignment email skipped.`);
+    return;
+  }
+  const finalEmail = RESEND_MODE === 'PRODUCTION' ? doctorEmail : TEST_EMAIL;
+  const formattedTime = startTime.toLocaleString('en-IN', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: finalEmail,
+      subject: `Action Required: New appointment assigned to you at ${clinicName}`,
+      html: `
+        <p>Hi ${doctorName},</p>
+        <p>You have been assigned a new appointment at <strong>${clinicName}</strong> that requires your approval.</p>
+        <table>
+          <tr><td><strong>Patient:</strong></td><td>${patientName}</td></tr>
+          <tr><td><strong>Date &amp; Time:</strong></td><td>${formattedTime}</td></tr>
+          <tr><td><strong>Reference:</strong></td><td>BMS-${bookingId}</td></tr>
+        </table>
+        <p>Please log in to your Doctor Portal to accept or decline this appointment.</p>
+        <p>— BookMySlot</p>
+      `,
+    });
+  } catch (error) {
+    console.error('[EMAIL ERROR] Failed to send doctor assignment email:', error);
+  }
+}
+
+async function sendDoctorAdminConfirmEmail(
+  doctorEmail: string,
+  doctorName: string,
+  patientName: string,
+  clinicName: string,
+  startTime: Date,
+  bookingId: number,
+) {
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Resend not configured — doctor admin-confirm email skipped.`);
+    return;
+  }
+  const finalEmail = RESEND_MODE === 'PRODUCTION' ? doctorEmail : TEST_EMAIL;
+  const formattedTime = startTime.toLocaleString('en-IN', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: finalEmail,
+      subject: `FYI: Clinic admin confirmed an appointment on your behalf at ${clinicName}`,
+      html: `
+        <p>Hi ${doctorName},</p>
+        <p>The clinic admin at <strong>${clinicName}</strong> has confirmed the following appointment on your behalf without waiting for your approval.</p>
+        <table>
+          <tr><td><strong>Patient:</strong></td><td>${patientName}</td></tr>
+          <tr><td><strong>Date &amp; Time:</strong></td><td>${formattedTime}</td></tr>
+          <tr><td><strong>Reference:</strong></td><td>BMS-${bookingId}</td></tr>
+        </table>
+        <p>This appointment is now confirmed. Please log in to your Doctor Portal to view the details.</p>
+        <p>— BookMySlot</p>
+      `,
+    });
+  } catch (error) {
+    console.error('[EMAIL ERROR] Failed to send doctor admin-confirm email:', error);
+  }
+}
+
+async function sendAdminDoctorDeclineEmail(
+  adminEmail: string,
+  clinicName: string,
+  doctorName: string,
+  patientName: string,
+  startTime: Date,
+  bookingId: number,
+) {
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Resend not configured — admin doctor-decline email skipped.`);
+    return;
+  }
+  const finalEmail = RESEND_MODE === 'PRODUCTION' ? adminEmail : TEST_EMAIL;
+  const formattedTime = startTime.toLocaleString('en-IN', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: finalEmail,
+      subject: `Doctor declined an appointment at ${clinicName} — action needed`,
+      html: `
+        <p>Hi,</p>
+        <p><strong>${doctorName}</strong> has declined the appointment assigned to them at <strong>${clinicName}</strong>. Please log in to reassign a doctor or take further action.</p>
+        <table>
+          <tr><td><strong>Patient:</strong></td><td>${patientName}</td></tr>
+          <tr><td><strong>Date &amp; Time:</strong></td><td>${formattedTime}</td></tr>
+          <tr><td><strong>Reference:</strong></td><td>BMS-${bookingId}</td></tr>
+        </table>
+        <p>— BookMySlot</p>
+      `,
+    });
+  } catch (error) {
+    console.error('[EMAIL ERROR] Failed to send admin doctor-decline email:', error);
+  }
+}
+
 async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLink: string) {
   if (!resend) return;
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
@@ -909,10 +1025,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       // Fetch clinic details for the email
       const [clinic] = await db.select().from(clinics).where(eq(clinics.id, sess.clinicId || 0));
+      const slot = await storage.getSlot(booking.slotId);
 
       // Send confirmation email to patient (fire-and-forget)
       if (booking.customerEmail) {
-        const slot = await storage.getSlot(booking.slotId);
         sendConfirmationEmail(
           booking.customerEmail,
           booking.customerName,
@@ -924,6 +1040,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           clinic?.email || null,
           bookingId,
         ).catch((err) => console.error('[EMAIL ERROR] Confirm email failed:', err));
+      }
+
+      // Notify the doctor that the admin confirmed on their behalf (fire-and-forget)
+      if (needsDoctorOverride) {
+        sendDoctorAdminConfirmEmail(
+          booking.assignedDoctorEmail!,
+          booking.assignedDoctor!,
+          booking.customerName,
+          clinic?.name || 'the clinic',
+          slot ? new Date(slot.startTime) : new Date(),
+          bookingId,
+        ).catch((err) => console.error('[EMAIL ERROR] Doctor admin-confirm email failed:', err));
       }
 
       res.json(updated);
@@ -954,6 +1082,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // If no email is known, fall back to null (no approval gate for display-only doctor names).
       const approvalStatus = resolvedEmail ? 'pending' : null;
       const updated = await storage.updateBookingAssignment(bookingId, doctorName, resolvedEmail, approvalStatus);
+
+      // Notify doctor by email that they have a new appointment awaiting their approval
+      if (resolvedEmail) {
+        const slot = await storage.getSlot(booking.slotId);
+        const clinicForAssign = sess.clinicId ? await storage.getClinic(sess.clinicId) : null;
+        sendDoctorAssignmentEmail(
+          resolvedEmail,
+          doctorName,
+          booking.customerName,
+          clinicForAssign?.name || 'the clinic',
+          slot ? new Date(slot.startTime) : new Date(),
+          bookingId,
+        ).catch((err) => console.error('[EMAIL ERROR] Doctor assignment email failed:', err));
+      }
+
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -1010,6 +1153,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (booking.doctorApprovalStatus !== 'pending') return res.status(400).json({ message: "No pending approval for this booking" });
 
       const updated = await storage.updateBookingDoctorApproval(Number(req.params.id), sess.doctorEmail, 'declined');
+
+      // Notify clinic admin that the doctor has declined (fire-and-forget)
+      const slot = await storage.getSlot(booking.slotId);
+      if (slot?.clinicId) {
+        const clinicForDecline = await storage.getClinic(slot.clinicId);
+        if (clinicForDecline?.email) {
+          sendAdminDoctorDeclineEmail(
+            clinicForDecline.email,
+            clinicForDecline.name,
+            booking.assignedDoctor || sess.doctorEmail,
+            booking.customerName,
+            new Date(slot.startTime),
+            booking.id,
+          ).catch((err) => console.error('[EMAIL ERROR] Admin doctor-decline email failed:', err));
+        }
+      }
+
       res.json(updated);
     } catch (err: any) {
       const status = err.message === "Booking not found" ? 404 : err.message === "Forbidden" ? 403 : 500;
