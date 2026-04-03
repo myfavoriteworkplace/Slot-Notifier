@@ -397,7 +397,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                               <div className="flex-1 min-w-0">
                                 <p className={`text-sm font-semibold truncate ${isSelected ? "text-primary" : ""}`}>{clinic.name}</p>
                                 <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
-                                  {clinic.doctorName && <><Stethoscope className="h-2.5 w-2.5 shrink-0" />{clinic.doctorName}</>}
+                                  {clinic.doctorName && <><Stethoscope className="h-2.5 w-2.5 shrink-0" />Dr. {clinic.doctorName}</>}
                                   {clinic.address && <><MapPin className="h-2.5 w-2.5 shrink-0 ml-1" />{[(clinic as any).city, clinic.address].filter(Boolean).join(", ")}</>}
                                 </p>
                               </div>
@@ -486,7 +486,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                               <div className="flex-1 min-w-0">
                                 <p className={`text-sm font-semibold truncate ${isSelected ? "text-primary" : ""}`}>{clinic.name}</p>
                                 <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                                  {clinic.doctorName && <><Stethoscope className="h-2.5 w-2.5 shrink-0" />{clinic.doctorName} · </>}
+                                  {clinic.doctorName && <><Stethoscope className="h-2.5 w-2.5 shrink-0" />Dr. {clinic.doctorName} · </>}
                                   {[(clinic as any).city, clinic.address].filter(Boolean).join(", ")}
                                 </p>
                               </div>
@@ -525,7 +525,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                   {selectedClinicObj?.doctorName && (
                     <p className="text-white/60 text-xs mt-0.5 flex items-center gap-1">
                       <Stethoscope className="h-3 w-3" />
-                      {selectedClinicObj.doctorName}
+                      Dr. {selectedClinicObj.doctorName}
                       {selectedClinicObj.doctorSpecialization ? ` · ${selectedClinicObj.doctorSpecialization}` : ""}
                     </p>
                   )}

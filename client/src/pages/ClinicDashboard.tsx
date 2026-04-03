@@ -1517,7 +1517,7 @@ export default function ClinicDashboard() {
                                   <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                                     <Stethoscope className="h-3 w-3 text-primary" />
                                   </div>
-                                  <span className="font-medium text-primary">{booking.assignedDoctor}</span>
+                                  <span className="font-medium text-primary">Dr. {booking.assignedDoctor}</span>
                                 </div>
                                 {booking.doctorApprovalStatus === 'pending' && (
                                   <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
@@ -1889,7 +1889,7 @@ export default function ClinicDashboard() {
                                         <span className="text-xs font-bold text-emerald-600">{doctor.name.charAt(0)}</span>
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-semibold text-foreground leading-tight truncate">{doctor.name}</p>
+                                        <p className="text-xs font-semibold text-foreground leading-tight truncate">Dr. {doctor.name}</p>
                                         <p className="text-[10px] text-muted-foreground">{doctor.specialization}{doctor.degree ? ` · ${doctor.degree}` : ''}</p>
                                       </div>
                                       {isAssigned && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
@@ -2179,7 +2179,7 @@ export default function ClinicDashboard() {
                               <div className="flex-1 text-left min-w-0">
                                 {/* Name + active pill */}
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="font-bold text-sm tracking-tight">{doctor.name}</p>
+                                  <p className="font-bold text-sm tracking-tight">Dr. {doctor.name}</p>
                                   <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-px rounded-full">
                                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                     Active
@@ -2293,7 +2293,7 @@ export default function ClinicDashboard() {
                               id="doctor-name"
                               value={newDoctorName}
                               onChange={(e) => setNewDoctorName(e.target.value)}
-                              placeholder="Dr. John Smith"
+                              placeholder="John Smith"
                               data-testid="input-doctor-name"
                               required
                             />
@@ -2516,7 +2516,7 @@ export default function ClinicDashboard() {
                         id="profile-doctor-name"
                         value={profileDoctorName}
                         onChange={(e) => setProfileDoctorName(e.target.value)}
-                        placeholder="Dr. Jane Smith"
+                        placeholder="Jane Smith"
                         data-testid="input-profile-doctor-name"
                       />
                       <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">

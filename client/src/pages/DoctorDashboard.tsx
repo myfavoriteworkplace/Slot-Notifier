@@ -873,7 +873,7 @@ export default function DoctorDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Full Name</Label>
-                      <Input data-testid="input-prof-name" value={profName} onChange={e => setProfName(e.target.value)} placeholder="Dr. John Smith" />
+                      <Input data-testid="input-prof-name" value={profName} onChange={e => setProfName(e.target.value)} placeholder="John Smith" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Phone</Label>

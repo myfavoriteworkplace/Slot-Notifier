@@ -835,7 +835,7 @@ export default function Admin() {
                                   {doc.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="text-xs font-medium leading-tight truncate">{doc.name}</p>
+                                  <p className="text-xs font-medium leading-tight truncate">Dr. {doc.name}</p>
                                   <p className="text-[10px] text-muted-foreground truncate">{doc.specialization}{doc.degree ? ` · ${doc.degree}` : ''}</p>
                                 </div>
                               </div>
@@ -1030,7 +1030,7 @@ export default function Admin() {
                                   {doc.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="text-xs font-medium leading-tight truncate">{doc.name}</p>
+                                  <p className="text-xs font-medium leading-tight truncate">Dr. {doc.name}</p>
                                   <p className="text-[10px] text-muted-foreground truncate">{doc.specialization}{doc.degree ? ` · ${doc.degree}` : ''}</p>
                                 </div>
                               </div>
