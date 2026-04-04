@@ -11,6 +11,7 @@ import { Resend } from 'resend';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
 import ExcelJS from "exceljs";
+import { sendWhatsAppBookingNotification } from "./twilio.service";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
@@ -554,6 +555,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
 
       await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart);
+
+      if (customerPhone) {
+        await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
+      }
 
       res.status(201).json({ message: "Booking confirmed!", booking: { ...booking, slot } });
     } catch (err: any) {
