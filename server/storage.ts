@@ -1,6 +1,6 @@
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
-  doctorCertifications, doctorCases, bookingNotes,
+  doctorCertifications, doctorCases, bookingNotes, doctorLeaves,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -13,7 +13,8 @@ import {
   type Patient, type InsertPatient,
   type SmileDeal, type InsertSmileDeal,
   type ExportHistory, type InsertExportHistory,
-  type BookingNote, type InsertBookingNote
+  type BookingNote, type InsertBookingNote,
+  type DoctorLeave, type InsertDoctorLeave
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns } from "drizzle-orm";
@@ -123,6 +124,13 @@ export interface IStorage {
   // Booking Notes (shared conversation thread)
   getBookingNotes(bookingId: number): Promise<BookingNote[]>;
   createBookingNote(data: InsertBookingNote): Promise<BookingNote>;
+
+  // Doctor Leaves
+  getDoctorLeaves(doctorId: number): Promise<DoctorLeave[]>;
+  addDoctorLeave(data: InsertDoctorLeave): Promise<DoctorLeave>;
+  removeDoctorLeave(id: number, doctorId: number): Promise<void>;
+  getDoctorLeavesOnDate(date: string, doctorIds: number[]): Promise<DoctorLeave[]>;
+  getAllDoctorLeavesForClinic(doctorIds: number[]): Promise<(DoctorLeave & { doctorEmail?: string; doctorName?: string })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -799,6 +807,41 @@ export class DatabaseStorage implements IStorage {
   async createBookingNote(data: InsertBookingNote): Promise<BookingNote> {
     const [note] = await db.insert(bookingNotes).values(data).returning();
     return note;
+  }
+
+  // Doctor Leaves
+  async getDoctorLeaves(doctorId: number): Promise<DoctorLeave[]> {
+    return await db.select().from(doctorLeaves)
+      .where(eq(doctorLeaves.doctorId, doctorId))
+      .orderBy(doctorLeaves.leaveDate);
+  }
+
+  async addDoctorLeave(data: InsertDoctorLeave): Promise<DoctorLeave> {
+    const [leave] = await db.insert(doctorLeaves).values(data).returning();
+    return leave;
+  }
+
+  async removeDoctorLeave(id: number, doctorId: number): Promise<void> {
+    await db.delete(doctorLeaves)
+      .where(and(eq(doctorLeaves.id, id), eq(doctorLeaves.doctorId, doctorId)));
+  }
+
+  async getDoctorLeavesOnDate(date: string, doctorIds: number[]): Promise<DoctorLeave[]> {
+    if (doctorIds.length === 0) return [];
+    return await db.select().from(doctorLeaves)
+      .where(and(
+        eq(doctorLeaves.leaveDate, date),
+        sql`${doctorLeaves.doctorId} = ANY(${sql.raw(`ARRAY[${doctorIds.join(",")}]::integer[]`)})`,
+      ));
+  }
+
+  async getAllDoctorLeavesForClinic(doctorIds: number[]): Promise<(DoctorLeave & { doctorEmail?: string; doctorName?: string })[]> {
+    if (doctorIds.length === 0) return [];
+    const leaves = await db.select({ leave: doctorLeaves, doctor: doctors })
+      .from(doctorLeaves)
+      .innerJoin(doctors, eq(doctorLeaves.doctorId, doctors.id))
+      .where(sql`${doctorLeaves.doctorId} = ANY(${sql.raw(`ARRAY[${doctorIds.join(",")}]::integer[]`)})`);
+    return leaves.map(row => ({ ...row.leave, doctorEmail: row.doctor.email, doctorName: row.doctor.name }));
   }
 }
 

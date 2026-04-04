@@ -389,6 +389,18 @@ app.use((req, res, next) => {
       `);
       log("doctor_cases table verified/created", "system");
 
+      // Create doctor_leaves table
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS doctor_leaves (
+          id SERIAL PRIMARY KEY,
+          doctor_id INTEGER NOT NULL REFERENCES doctors(id),
+          leave_date VARCHAR(10) NOT NULL,
+          reason VARCHAR(255),
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      log("doctor_leaves table verified/created", "system");
+
     } catch (dbErr: any) {
       log(`Schema sync warning: ${dbErr.message}`, "system");
     }

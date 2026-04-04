@@ -1492,6 +1492,72 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // ── Doctor Leaves (Out of Office) ──
+  app.get("/api/doctor/leaves", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const d = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!d) return res.status(404).json({ message: "Doctor not found" });
+      const leaves = await storage.getDoctorLeaves(d.id);
+      res.json(leaves);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/doctor/leaves", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const d = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!d) return res.status(404).json({ message: "Doctor not found" });
+      const { leaveDate, reason } = req.body;
+      if (!leaveDate) return res.status(400).json({ message: "leaveDate is required" });
+      const leave = await storage.addDoctorLeave({ doctorId: d.id, leaveDate, reason: reason || null });
+      res.status(201).json(leave);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.delete("/api/doctor/leaves/:id", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const d = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!d) return res.status(404).json({ message: "Doctor not found" });
+      await storage.removeDoctorLeave(Number(req.params.id), d.id);
+      res.sendStatus(204);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Clinic: get all doctor leaves for all clinic doctors (for OOO in assign panel) ──
+  app.get("/api/clinic/doctor-leaves/all", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const clinicDocList = await storage.getClinicDoctors(sess.clinicId);
+      const doctorIds = clinicDocList.map((d: any) => d.id);
+      const leaves = await storage.getAllDoctorLeavesForClinic(doctorIds);
+      res.json(leaves);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Clinic: get doctor leaves for a specific date ──
+  app.get("/api/clinic/doctor-leaves", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { date } = req.query as { date?: string };
+      if (!date) return res.status(400).json({ message: "date query param required" });
+      const clinicDocList = await storage.getClinicDoctors(sess.clinicId);
+      const doctorIds = clinicDocList.map((d: any) => d.id);
+      const leaves = await storage.getDoctorLeavesOnDate(date, doctorIds);
+      const onLeave = leaves.map(l => {
+        const doc = clinicDocList.find((d: any) => d.id === l.doctorId);
+        return { doctorId: l.doctorId, doctorEmail: doc?.email, doctorName: doc?.name, reason: l.reason };
+      });
+      res.json(onLeave);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // ── Doctor Booking Notes (doctor updates notes + clinical status on their own bookings) ──
   app.patch("/api/doctor/bookings/:id/notes", isAuthenticated, async (req, res) => {
     const sess = req.session as any;

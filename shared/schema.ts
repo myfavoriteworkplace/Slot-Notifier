@@ -183,6 +183,22 @@ export const insertDoctorInviteSchema = createInsertSchema(doctorInvites).omit({
   status: true
 });
 
+export const doctorLeaves = pgTable("doctor_leaves", {
+  id: serial("id").primaryKey(),
+  doctorId: integer("doctor_id").notNull().references(() => doctors.id),
+  leaveDate: varchar("leave_date", { length: 10 }).notNull(),
+  reason: varchar("reason", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDoctorLeaveSchema = createInsertSchema(doctorLeaves).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type DoctorLeave = typeof doctorLeaves.$inferSelect;
+export type InsertDoctorLeave = z.infer<typeof insertDoctorLeaveSchema>;
+
 export type DoctorInvite = typeof doctorInvites.$inferSelect;
 export type InsertDoctorInvite = z.infer<typeof insertDoctorInviteSchema>;
 export const slotsRelations = relations(slots, ({ one, many }) => ({

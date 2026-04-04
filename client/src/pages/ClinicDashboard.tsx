@@ -563,6 +563,11 @@ export default function ClinicDashboard() {
     },
   });
 
+  const { data: allDoctorLeaves = [] } = useQuery<{ doctorEmail?: string; doctorName?: string; leaveDate: string; reason?: string | null }[]>({
+    queryKey: ['/api/clinic/doctor-leaves/all'],
+    enabled: isAuthenticated,
+  });
+
   const rescheduleMutation = useMutation({
     mutationFn: async ({ bookingId, newSlotId }: { bookingId: number; newSlotId: number }) => {
       const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/reschedule`, { newSlotId });
@@ -1857,7 +1862,19 @@ export default function ClinicDashboard() {
                           </div>
 
                           {/* Assign Doctor Panel */}
-                          {(clinic?.doctorName || (clinic?.doctors && (clinic.doctors as any[]).length > 0)) && (
+                          {(clinic?.doctorName || (clinic?.doctors && (clinic.doctors as any[]).length > 0)) && (() => {
+                            const bookingDateStr = format(new Date(booking.slot.startTime), 'yyyy-MM-dd');
+                            const isOOO = (email?: string, name?: string) =>
+                              allDoctorLeaves.some(l =>
+                                l.leaveDate === bookingDateStr &&
+                                ((email && l.doctorEmail === email) || (name && l.doctorName === name))
+                              );
+                            const oooReason = (email?: string, name?: string) =>
+                              allDoctorLeaves.find(l =>
+                                l.leaveDate === bookingDateStr &&
+                                ((email && l.doctorEmail === email) || (name && l.doctorName === name))
+                              )?.reason;
+                            return (
                             <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                               <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                 <Stethoscope className="h-3 w-3 text-primary" />
@@ -1867,55 +1884,90 @@ export default function ClinicDashboard() {
                                 {/* Lead doctor */}
                                 {clinic?.doctorName && (() => {
                                   const isAssigned = booking.assignedDoctor === clinic.doctorName;
-                                  return (
+                                  const outOfOffice = isOOO(undefined, clinic.doctorName);
+                                  const reason = oooReason(undefined, clinic.doctorName);
+                                  const btn = (
                                     <button
                                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
                                         isAssigned
-                                          ? 'bg-primary/10 border-primary/30 ring-1 ring-primary/20'
-                                          : 'bg-background border-border/50 hover:border-primary/30 hover:bg-primary/5'
+                                          ? 'bg-primary border-primary shadow-md shadow-primary/20'
+                                          : outOfOffice
+                                          ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
+                                          : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
                                       }`}
                                       onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: clinic.doctorName!, doctorEmail: undefined }); }}
                                       disabled={assignDoctorMutation.isPending}
                                     >
-                                      <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 flex items-center justify-center shrink-0">
-                                        <span className="text-xs font-bold text-primary">{clinic.doctorName.charAt(0)}</span>
+                                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isAssigned ? 'bg-white/20 border border-white/30' : 'bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20'}`}>
+                                        <span className={`text-xs font-bold ${isAssigned ? 'text-white' : 'text-primary'}`}>{clinic.doctorName.charAt(0)}</span>
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-semibold text-foreground leading-tight truncate">{clinic.doctorName}</p>
-                                        <p className="text-[10px] text-muted-foreground">{clinic.doctorSpecialization || 'Lead Doctor'}</p>
+                                        <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-white' : 'text-foreground'}`}>{clinic.doctorName}</p>
+                                        <p className={`text-[10px] ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                                          {outOfOffice ? '⚠ Out of office' : (clinic.doctorSpecialization || 'Lead Doctor')}
+                                        </p>
                                       </div>
-                                      {isAssigned && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                                      {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
                                     </button>
                                   );
+                                  return outOfOffice ? (
+                                    <TooltipProvider key="lead" delayDuration={100}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                                        <TooltipContent side="left" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
+                                          <p className="font-semibold">Out of office on {format(new Date(booking.slot.startTime), 'MMM d')}</p>
+                                          {reason && <p className="text-amber-300 mt-0.5">{reason}</p>}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  ) : btn;
                                 })()}
                                 {/* Other doctors */}
                                 {clinic?.doctors && Array.isArray(clinic.doctors) && (clinic.doctors as any[]).map((doctor, idx) => {
                                   const isAssigned = booking.assignedDoctor === doctor.name;
-                                  return (
+                                  const outOfOffice = isOOO(doctor.email, doctor.name);
+                                  const reason = oooReason(doctor.email, doctor.name);
+                                  const btn = (
                                     <button
                                       key={idx}
                                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
                                         isAssigned
-                                          ? 'bg-primary/10 border-primary/30 ring-1 ring-primary/20'
-                                          : 'bg-background border-border/50 hover:border-primary/30 hover:bg-primary/5'
+                                          ? 'bg-primary border-primary shadow-md shadow-primary/20'
+                                          : outOfOffice
+                                          ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
+                                          : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
                                       }`}
                                       onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: doctor.name, doctorEmail: doctor.email }); }}
                                       disabled={assignDoctorMutation.isPending}
                                     >
-                                      <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-300/30 flex items-center justify-center shrink-0">
-                                        <span className="text-xs font-bold text-emerald-600">{doctor.name.charAt(0)}</span>
+                                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isAssigned ? 'bg-white/20 border border-white/30' : 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-300/30'}`}>
+                                        <span className={`text-xs font-bold ${isAssigned ? 'text-white' : 'text-emerald-600'}`}>{doctor.name.charAt(0)}</span>
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-semibold text-foreground leading-tight truncate">Dr. {doctor.name}</p>
-                                        <p className="text-[10px] text-muted-foreground">{doctor.specialization}{doctor.degree ? ` · ${doctor.degree}` : ''}</p>
+                                        <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-white' : 'text-foreground'}`}>Dr. {doctor.name}</p>
+                                        <p className={`text-[10px] ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                                          {outOfOffice ? '⚠ Out of office' : `${doctor.specialization}${doctor.degree ? ` · ${doctor.degree}` : ''}`}
+                                        </p>
                                       </div>
-                                      {isAssigned && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                                      {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
                                     </button>
                                   );
+                                  return outOfOffice ? (
+                                    <TooltipProvider key={idx} delayDuration={100}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                                        <TooltipContent side="left" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
+                                          <p className="font-semibold">Out of office on {format(new Date(booking.slot.startTime), 'MMM d')}</p>
+                                          {reason && <p className="text-amber-300 mt-0.5">{reason}</p>}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  ) : btn;
                                 })}
                               </div>
                             </div>
-                          )}
+                            );
+                          })()}
 
                         </div>
 
