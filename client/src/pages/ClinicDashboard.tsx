@@ -1914,7 +1914,7 @@ export default function ClinicDashboard() {
                                     <TooltipProvider key="lead" delayDuration={100}>
                                       <Tooltip>
                                         <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                                        <TooltipContent side="left" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
+                                        <TooltipContent side="top" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
                                           <p className="font-semibold">Out of office on {format(new Date(booking.slot.startTime), 'MMM d')}</p>
                                           {reason && <p className="text-amber-300 mt-0.5">{reason}</p>}
                                         </TooltipContent>
@@ -1956,7 +1956,7 @@ export default function ClinicDashboard() {
                                     <TooltipProvider key={idx} delayDuration={100}>
                                       <Tooltip>
                                         <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                                        <TooltipContent side="left" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
+                                        <TooltipContent side="top" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
                                           <p className="font-semibold">Out of office on {format(new Date(booking.slot.startTime), 'MMM d')}</p>
                                           {reason && <p className="text-amber-300 mt-0.5">{reason}</p>}
                                         </TooltipContent>
