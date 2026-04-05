@@ -427,6 +427,7 @@ export default function ClinicDashboard() {
     },
     enabled: isAuthenticated,
     refetchOnMount: 'always',
+    refetchInterval: 30000,
     staleTime: 0,
   });
 
