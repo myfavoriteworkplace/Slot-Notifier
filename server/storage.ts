@@ -421,7 +421,10 @@ export class DatabaseStorage implements IStorage {
     description?: string | null;
     verificationCode?: string | null;
     verificationExpiresAt?: Date | null;
-    verificationStatus?: 'pending' | 'verified';
+    verificationStatus?: 'pending' | 'verified' | 'confirmed';
+    paymentStatus?: string | null;
+    razorpayOrderId?: string | null;
+    razorpayPaymentId?: string | null;
   }): Promise<Booking> {
     const [booking] = await db.insert(bookings).values({
       slotId: data.slotId,
@@ -432,6 +435,9 @@ export class DatabaseStorage implements IStorage {
       verificationCode: data.verificationCode || null,
       verificationStatus: data.verificationStatus || 'verified',
       verificationExpiresAt: data.verificationExpiresAt || null,
+      paymentStatus: data.paymentStatus || null,
+      razorpayOrderId: data.razorpayOrderId || null,
+      razorpayPaymentId: data.razorpayPaymentId || null,
     }).returning();
     return booking;
   }

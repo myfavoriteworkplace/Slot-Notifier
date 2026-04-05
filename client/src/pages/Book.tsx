@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CalendarDays, CheckCircle2, Building2, User, Phone, Mail,
   MapPin, Sun, Moon, Clock, Shield, Sparkles, Search, Stethoscope, X, ChevronDown,
+  CreditCard, ClipboardCheck,
 } from "lucide-react";
 import type { Clinic, Slot } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
@@ -70,6 +71,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [clinicMode, setClinicMode]         = useState<"select" | "search">("select");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [slotTimings, setSlotTimings]       = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [bookingPath, setBookingPath]       = useState<"pay" | "pending" | null>(null);
+  const razorpayScriptRef = useRef(false);
 
   const validateIndianPhone = (phone: string): boolean => {
     const cleaned = phone.replace(/[\s\-\(\)]/g, "");
@@ -148,8 +152,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
       return response.json();
     },
     onSuccess: () => {
+      setBookingPath("pending");
       setStep("success");
-      toast({ title: "Booking Confirmed!", description: "Your appointment has been successfully booked." });
+      toast({ title: "Booking Submitted!", description: "Your request has been sent to the clinic for approval." });
     },
     onError: (error: any) => {
       toast({ title: "Booking Failed", description: error.message || "Failed to create booking", variant: "destructive" });
@@ -208,6 +213,98 @@ export default function Book(props: { params: { clinicId?: string } }) {
     });
   };
 
+  const loadRazorpayScript = (): Promise<boolean> => {
+    if (razorpayScriptRef.current) return Promise.resolve(true);
+    return new Promise(resolve => {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => { razorpayScriptRef.current = true; resolve(true); };
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handlePayAndConfirm = async () => {
+    if (!selectedSlot || !customerName || !customerPhone || !customerEmail || !selectedClinic) return;
+    const slotInfo = slotTimings.find(s => s.id === selectedSlot);
+    if (!slotInfo) return;
+
+    const startTime = new Date(selectedDate);
+    startTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
+    const endTime = new Date(selectedDate);
+    endTime.setHours(slotInfo.endHour, slotInfo.endMinute, 0, 0);
+
+    const selectedClinicData = clinicsData?.find(c => c.name === selectedClinic);
+    const clinicId = selectedClinicData?.id;
+    if (!clinicId) {
+      toast({ title: "Error", description: "Please select a valid clinic", variant: "destructive" });
+      return;
+    }
+
+    setPaymentLoading(true);
+    try {
+      const loaded = await loadRazorpayScript();
+      if (!loaded) throw new Error("Failed to load payment gateway");
+
+      const orderRes = await apiRequest("POST", "/api/public/razorpay/create-order", {
+        clinicId,
+        startTime: startTime.toISOString(),
+      });
+      if (!orderRes.ok) {
+        const body = await orderRes.json().catch(() => ({}));
+        throw new Error(body.message || "Failed to create order");
+      }
+      const order = await orderRes.json();
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        name: selectedClinic,
+        description: "Token booking fee – actual consultation fee payable at clinic",
+        order_id: order.orderId,
+        prefill: { name: customerName, contact: customerPhone, email: customerEmail },
+        theme: { color: "#6d28d9" },
+        handler: async (response: any) => {
+          try {
+            const verifyRes = await apiRequest("POST", "/api/public/razorpay/verify-payment", {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              customerName, customerPhone, customerEmail,
+              clinicId, clinicName: selectedClinic,
+              startTime: startTime.toISOString(),
+              endTime: endTime.toISOString(),
+              description,
+            });
+            if (!verifyRes.ok) {
+              const body = await verifyRes.json().catch(() => ({}));
+              throw new Error(body.message || "Payment verification failed");
+            }
+            setBookingPath("pay");
+            setStep("success");
+            toast({ title: "Payment Successful!", description: "Your slot is confirmed." });
+          } catch (err: any) {
+            toast({ title: "Verification Failed", description: err.message, variant: "destructive" });
+          }
+        },
+        modal: {
+          ondismiss: () => setPaymentLoading(false),
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on("payment.failed", () => {
+        setPaymentLoading(false);
+        toast({ title: "Payment Failed", description: "Please try again or choose clinic approval.", variant: "destructive" });
+      });
+      rzp.open();
+    } catch (err: any) {
+      setPaymentLoading(false);
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
   const resetForm = () => {
     setIsDetailsOpen(false);
     setShowSlots(false);
@@ -217,6 +314,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
     setCustomerEmail("");
     setDescription("");
     setPhoneError("");
+    setPaymentLoading(false);
+    setBookingPath(null);
     setStep("details");
   };
 
@@ -698,9 +797,13 @@ export default function Book(props: { params: { clinicId?: string } }) {
               </div>
 
               <DialogHeader className="space-y-1">
-                <DialogTitle className="text-2xl font-extrabold tracking-tight">Booking Received!</DialogTitle>
+                <DialogTitle className="text-2xl font-extrabold tracking-tight">
+                  {bookingPath === "pay" ? "Slot Confirmed!" : "Booking Submitted!"}
+                </DialogTitle>
                 <DialogDescription className="text-muted-foreground text-sm">
-                  Your appointment request has been submitted. You'll get a confirmation email once the clinic approves it.
+                  {bookingPath === "pay"
+                    ? "Payment of ₹1 received. Your slot is reserved — pay the consultation fee at the clinic."
+                    : "Your request has been sent to the clinic. You'll get a confirmation once they approve it."}
                 </DialogDescription>
               </DialogHeader>
 
@@ -709,6 +812,16 @@ export default function Book(props: { params: { clinicId?: string } }) {
                 <div className="px-4 py-2.5 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                   <CalendarDays className="h-3 w-3 text-primary" />
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Booking Summary</span>
+                  {bookingPath === "pay" && (
+                    <span className="ml-auto text-[9px] font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-400/25 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <CreditCard className="h-2.5 w-2.5" /> ₹1 Paid
+                    </span>
+                  )}
+                  {bookingPath === "pending" && (
+                    <span className="ml-auto text-[9px] font-bold bg-amber-500/15 text-amber-600 border border-amber-400/25 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <ClipboardCheck className="h-2.5 w-2.5" /> Pending Approval
+                    </span>
+                  )}
                 </div>
                 <div className="divide-y divide-border/40">
                   <div className="flex items-center gap-3 px-4 py-2.5">
@@ -1000,16 +1113,73 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       );
                     })}
 
-                    <Button
-                      onClick={handleBook}
-                      disabled={!selectedSlot || createBookingMutation.isPending}
-                      className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl mt-2"
-                      data-testid="button-confirm-booking"
-                    >
-                      {createBookingMutation.isPending ? (
-                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Confirming…</>
-                      ) : "Confirm Booking"}
-                    </Button>
+                    {/* ── TWO BOOKING OPTIONS ──────────────────────── */}
+                    {selectedClinic !== "Demo Smile Clinic" && (
+                      <div className="mt-3 space-y-2.5">
+                        {/* Divider */}
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-px bg-border/50" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2">Choose how to confirm</span>
+                          <div className="flex-1 h-px bg-border/50" />
+                        </div>
+
+                        {/* Option 1: Pay & Confirm */}
+                        <button
+                          onClick={handlePayAndConfirm}
+                          disabled={!selectedSlot || paymentLoading || createBookingMutation.isPending}
+                          data-testid="button-pay-confirm"
+                          className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-primary/40 bg-gradient-to-r from-primary/8 to-accent/8 hover:from-primary/15 hover:to-accent/15 hover:border-primary/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-left group"
+                        >
+                          <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0 shadow-md shadow-primary/20">
+                            {paymentLoading
+                              ? <Loader2 className="h-5 w-5 text-white animate-spin" />
+                              : <CreditCard className="h-5 w-5 text-white" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm text-foreground">Pay ₹1 &amp; Confirm Instantly</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">Token fee only · Slot reserved immediately · Pay at clinic for treatment</p>
+                          </div>
+                          <div className="shrink-0">
+                            <span className="text-[10px] font-bold bg-primary/15 text-primary border border-primary/25 px-2 py-1 rounded-lg">INSTANT</span>
+                          </div>
+                        </button>
+
+                        {/* Option 2: Clinic Approval */}
+                        <button
+                          onClick={handleBook}
+                          disabled={!selectedSlot || createBookingMutation.isPending || paymentLoading}
+                          data-testid="button-clinic-approval"
+                          className="w-full flex items-center gap-4 p-4 rounded-2xl border border-border/60 bg-card hover:border-primary/30 hover:bg-primary/4 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                        >
+                          <div className="h-11 w-11 rounded-xl bg-muted/60 border border-border/50 flex items-center justify-center shrink-0">
+                            {createBookingMutation.isPending
+                              ? <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+                              : <ClipboardCheck className="h-5 w-5 text-muted-foreground" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm text-foreground">Book with Clinic Approval</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">Free · Clinic will confirm your slot · No payment now</p>
+                          </div>
+                          <div className="shrink-0">
+                            <span className="text-[10px] font-bold bg-muted text-muted-foreground border border-border/50 px-2 py-1 rounded-lg">FREE</span>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Demo clinic: single button */}
+                    {selectedClinic === "Demo Smile Clinic" && (
+                      <Button
+                        onClick={handleBook}
+                        disabled={!selectedSlot || createBookingMutation.isPending}
+                        className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl mt-2"
+                        data-testid="button-confirm-booking"
+                      >
+                        {createBookingMutation.isPending
+                          ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Confirming…</>
+                          : "Confirm Booking"}
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>

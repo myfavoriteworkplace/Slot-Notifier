@@ -12,11 +12,16 @@ import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
 import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification } from "./twilio.service";
+import Razorpay from "razorpay";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
 const RESEND_MODE = (process.env.RESEND || 'DEV').toUpperCase();
 const TEST_EMAIL = 'itsmyfavoriteworkplace@gmail.com';
+
+const razorpay = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
+  ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET })
+  : null;
 
 function makeGoogleCalLink(title: string, start: Date, location?: string | null): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -509,6 +514,107 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── RAZORPAY: create order (₹1 token) ─────────────────────────────────────
+  app.post("/api/public/razorpay/create-order", async (req, res) => {
+    try {
+      if (!razorpay) return res.status(503).json({ message: "Razorpay not configured" });
+      const { clinicId, startTime } = req.body;
+      if (!clinicId || !startTime) return res.status(400).json({ message: "Missing clinicId or startTime" });
+
+      const clinic = await storage.getClinic(parseInt(clinicId));
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+      const requestedStart = new Date(startTime);
+      const existingBookings = await storage.countVerifiedBookingsForClinicTime(clinic.id, clinic.name, requestedStart);
+      if (existingBookings >= 3) return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
+
+      const order = await razorpay.orders.create({
+        amount: 100, // ₹1 in paise
+        currency: "INR",
+        receipt: `bms_${Date.now()}`,
+      });
+
+      res.json({
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        keyId: process.env.RAZORPAY_KEY_ID,
+      });
+    } catch (err: any) {
+      console.error('[RAZORPAY CREATE ORDER ERROR]', err.message);
+      res.status(500).json({ message: "Failed to create Razorpay order" });
+    }
+  });
+
+  // ── RAZORPAY: verify payment + create confirmed booking ─────────────────────
+  app.post("/api/public/razorpay/verify-payment", async (req, res) => {
+    try {
+      if (!razorpay) return res.status(503).json({ message: "Razorpay not configured" });
+      const {
+        razorpay_order_id, razorpay_payment_id, razorpay_signature,
+        customerName, customerPhone, customerEmail,
+        clinicId, clinicName, startTime, endTime, description,
+      } = req.body;
+
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return res.status(400).json({ message: "Missing payment verification fields" });
+      }
+      if (!customerName || !customerPhone || !customerEmail || !clinicId || !startTime || !endTime) {
+        return res.status(400).json({ message: "Missing booking fields" });
+      }
+
+      // HMAC-SHA256 signature verification (mandatory security check)
+      const expectedSignature = crypto
+        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest("hex");
+
+      if (expectedSignature !== razorpay_signature) {
+        return res.status(400).json({ message: "Payment verification failed: invalid signature" });
+      }
+
+      const clinic = await storage.getClinic(parseInt(clinicId));
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+      const requestedStart = new Date(startTime);
+
+      const slot = await storage.createSlot({
+        ownerId: null,
+        startTime: requestedStart,
+        endTime: new Date(endTime),
+        clinicName: clinicName || clinic.name,
+        clinicId: clinic.id,
+        isBooked: true,
+      } as any);
+
+      const booking = await storage.createPublicBooking({
+        slotId: slot.id,
+        customerName,
+        customerPhone,
+        customerEmail,
+        description: description || null,
+        verificationCode: null,
+        verificationExpiresAt: null,
+        verificationStatus: 'confirmed',
+        paymentStatus: 'paid',
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+      });
+
+      await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart);
+
+      if (customerPhone) {
+        await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
+      }
+
+      res.status(201).json({ message: "Payment verified and booking confirmed!", booking: { ...booking, slot } });
+    } catch (err: any) {
+      console.error('[RAZORPAY VERIFY ERROR]', err.message);
+      res.status(500).json({ message: "Failed to verify payment" });
+    }
+  });
+
+  // ── PUBLIC BOOKING: clinic-approval path (pending) ─────────────────────────
   app.post("/api/public/bookings", async (req, res) => {
     try {
       const { customerName, customerPhone, customerEmail, clinicId, clinicName, startTime, endTime, description } = req.body;
@@ -551,7 +657,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         description: description || null,
         verificationCode: null,
         verificationExpiresAt: null,
-        verificationStatus: 'verified',
+        verificationStatus: 'pending',
       });
 
       await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart);
@@ -560,7 +666,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
       }
 
-      res.status(201).json({ message: "Booking confirmed!", booking: { ...booking, slot } });
+      res.status(201).json({ message: "Booking request submitted!", booking: { ...booking, slot } });
     } catch (err: any) {
       console.error('[PUBLIC BOOKING ERROR]', err.message);
       res.status(500).json({ message: "Failed to create booking" });

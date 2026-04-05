@@ -54,6 +54,8 @@ RESEND_API_KEY = "re_KAYpcUw4_6rveZtUcbwFGchjM6JEA6P3y"
 EMAIL_FROM = "alerts@book-my-slot.itsmyfavoriteworkplace.workers.dev"
 VITE_API_URL = ""
 VITE_RAZORPAY_KEY_ID = "rzp_test_SZV9zC0qD6WjHH"
+RAZORPAY_KEY_ID = "rzp_test_SZV9zC0qD6WjHH"
+RAZORPAY_KEY_SECRET = "99FHwUNjq73bqeIvUWnfgqG3"
 
 [userenv.development]
 PORT = "5000"
