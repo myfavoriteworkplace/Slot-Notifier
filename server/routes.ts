@@ -830,7 +830,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/auth/clinic/me", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
-    const ALLOWED_FIELDS = ["phone", "email", "website", "address", "city", "pincode", "doctorName", "logoUrl"];
+    const ALLOWED_FIELDS = ["phone", "email", "website", "address", "city", "pincode", "doctorName", "logoUrl", "latitude", "longitude"];
     const updates: Record<string, any> = {};
     for (const field of ALLOWED_FIELDS) {
       if (field in req.body) updates[field] = req.body[field];

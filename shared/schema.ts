@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, boolean, varchar, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, varchar, integer, jsonb, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./models/auth";
@@ -27,6 +27,8 @@ export const clinics = pgTable("clinics", {
   registeredBy: varchar("registered_by", { length: 255 }), // user id if registered by user
   isArchived: boolean("is_archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
 });
 
 export const slots = pgTable("slots", {

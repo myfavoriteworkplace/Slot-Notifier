@@ -3,13 +3,26 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Loader2, Building2, MapPin, Mail, Clock, ArrowLeft,
   Globe, Phone, Award, ExternalLink, User, ShieldCheck,
-  CalendarDays, ArrowRight, Sun, Sunset, MoonStar,
+  CalendarDays, ArrowRight, Sun, Sunset, MoonStar, Navigation,
 } from "lucide-react";
 import type { Clinic } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { API_BASE_URL } from "@/lib/queryClient";
+import { MapContainer, TileLayer, Marker } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+const PIN_ICON = L.divIcon({
+  html: `<div style="width:32px;height:40px;display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.4))">
+    <div style="width:28px;height:28px;background:hsl(258 90% 56%);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25)"></div>
+    <div style="width:4px;height:12px;background:hsl(258 90% 56%);border-radius:0 0 2px 2px;margin-top:-2px"></div>
+  </div>`,
+  className: "",
+  iconSize: [32, 40],
+  iconAnchor: [16, 40],
+});
 
 type PublicClinic = Omit<Clinic, "passwordHash" | "registeredBy">;
 
@@ -216,6 +229,55 @@ export default function ClinicAbout() {
             </CardContent>
           </Card>
         </div>
+
+        {/* ── Map ──────────────────────────────────────────────── */}
+        {(clinic as any).latitude && (clinic as any).longitude && (
+          <Card className="mt-5 bg-card border shadow-sm rounded-2xl overflow-hidden animate-fade-in-up delay-150">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between gap-3 px-7 pt-6 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-primary/10 p-2.5 ring-1 ring-primary/20">
+                    <MapPin className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="font-display font-bold text-lg leading-tight">Find Us</h2>
+                    {clinic.address && (
+                      <p className="text-sm text-muted-foreground mt-0.5">{clinic.address}{clinic.city ? `, ${clinic.city}` : ""}</p>
+                    )}
+                  </div>
+                </div>
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${(clinic as any).latitude},${(clinic as any).longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="link-get-directions"
+                >
+                  <Button size="sm" className="rounded-full shadow-sm gap-2 bg-primary hover:bg-primary/90">
+                    <Navigation className="h-4 w-4" />
+                    Get Directions
+                  </Button>
+                </a>
+              </div>
+              <div style={{ height: 320 }}>
+                <MapContainer
+                  center={[(clinic as any).latitude, (clinic as any).longitude]}
+                  zoom={16}
+                  style={{ height: "100%", width: "100%" }}
+                  scrollWheelZoom={false}
+                  zoomControl={true}
+                  dragging={true}
+                  attributionControl={true}
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  />
+                  <Marker position={[(clinic as any).latitude, (clinic as any).longitude]} icon={PIN_ICON} />
+                </MapContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ── Doctors ──────────────────────────────────────────── */}
         {(doctors || clinic.doctorName) && (

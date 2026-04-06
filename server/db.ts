@@ -75,6 +75,8 @@ export async function ensureSessionTable() {
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "doctors" jsonb DEFAULT '[]'::jsonb;
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "city" varchar(255);
       ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "pincode" varchar(20);
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "latitude" real;
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "longitude" real;
     `);
 
     console.log("[DATABASE] Session table and schema checks complete.");
@@ -84,6 +86,17 @@ export async function ensureSessionTable() {
     } else {
       console.error("[DATABASE] Error ensuring session table:", err.message);
     }
+  }
+
+  // Dedicated block for map location columns so they always run regardless of earlier errors
+  try {
+    await pool.query(`
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "latitude" real;
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "longitude" real;
+    `);
+    console.log("[DATABASE] Map location columns ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error adding map location columns:", err.message);
   }
 
   // booking_notes is in its own block so a 42P07 from the session index

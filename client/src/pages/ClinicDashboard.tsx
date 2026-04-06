@@ -1,4 +1,5 @@
 import { ImageUpload } from "@/components/ImageUpload";
+import MapLocationPicker from "@/components/MapLocationPicker";
 import ExportDataPanel from "@/components/ExportDataPanel";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import { jsPDF } from "jspdf";
@@ -119,6 +120,8 @@ export default function ClinicDashboard() {
       setProfileCity(clinic.city ?? "");
       setProfilePincode(clinic.pincode ?? "");
       setProfileDoctorName((clinic as any).doctorName ?? "");
+      setProfileLatitude((clinic as any).latitude ?? null);
+      setProfileLongitude((clinic as any).longitude ?? null);
     }
   }, [clinic]);
 
@@ -155,6 +158,8 @@ export default function ClinicDashboard() {
   const [profileCity, setProfileCity] = useState("");
   const [profilePincode, setProfilePincode] = useState("");
   const [profileDoctorName, setProfileDoctorName] = useState("");
+  const [profileLatitude, setProfileLatitude] = useState<number | null>(null);
+  const [profileLongitude, setProfileLongitude] = useState<number | null>(null);
   const [bookingName, setBookingName] = useState("");
   const [bookingPhone, setBookingPhone] = useState("");
   const [bookingEmail, setBookingEmail] = useState("");
@@ -2579,6 +2584,31 @@ export default function ClinicDashboard() {
 
                   <Separator />
 
+                  {/* Map location section */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="h-6 w-6 rounded-md bg-violet-500/10 flex items-center justify-center">
+                        <MapPin className="h-3.5 w-3.5 text-violet-600" />
+                      </div>
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Map Location</h3>
+                      {profileLatitude && profileLongitude && (
+                        <span className="ml-auto text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-full px-2 py-0.5">
+                          Pin saved
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mb-3">
+                      Search your clinic or click on the map to drop a pin. Patients will see this map on your public profile page.
+                    </p>
+                    <MapLocationPicker
+                      latitude={profileLatitude}
+                      longitude={profileLongitude}
+                      onChange={(lat, lng) => { setProfileLatitude(lat); setProfileLongitude(lng); }}
+                    />
+                  </div>
+
+                  <Separator />
+
                   {/* Primary doctor section */}
                   <div>
                     <div className="flex items-center gap-2 mb-3">
@@ -2614,6 +2644,8 @@ export default function ClinicDashboard() {
                         city: profileCity,
                         pincode: profilePincode,
                         doctorName: profileDoctorName,
+                        latitude: profileLatitude,
+                        longitude: profileLongitude,
                       })}
                       disabled={updateProfileMutation.isPending}
                       data-testid="button-save-profile"
