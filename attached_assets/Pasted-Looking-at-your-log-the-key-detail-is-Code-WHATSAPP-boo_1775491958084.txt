@@ -1,0 +1,28 @@
+Looking at your log, the key detail is:
+Code
+[WHATSAPP] (booking-received) Sent. SID: SMbeae998936c8a795b8817cc6f839b4ed → +919746767146
+This means Twilio accepted the message request and returned a valid SID. So your app did trigger the WhatsApp API call successfully. The fact that you’re not seeing the message on the device points to issues outside your backend:
+🔎 Likely Causes
+Sandbox Enrollment
+In Twilio Sandbox, the recipient must first send the join code (e.g., join <code>) to the Twilio sandbox number (+14155238886) from their WhatsApp.
+If the patient number hasn’t joined, messages won’t be delivered even though Twilio shows “Sent”.
+Number Formatting
+Ensure you’re sending to whatsapp:+91XXXXXXXXXX format, not just +91….
+Your log shows +919746767146, which looks correct, but confirm the prefix whatsapp: is included in the API call.
+Sandbox Limitations
+Sandbox only allows messaging between the Twilio sandbox number and enrolled test numbers.
+You cannot send to arbitrary patient numbers until you move to production.
+Template vs Session Messages
+Sandbox allows free‑form messages only in active sessions (user initiated).
+For business‑initiated messages, you must use an approved template (in production). Sandbox may silently drop them.
+Delivery Status
+Twilio marks “Sent” when it hands off to WhatsApp, but delivery can fail if:
+The recipient hasn’t joined sandbox.
+The number is invalid or blocked.
+The message type isn’t allowed.
+✅ Next Steps Before Making Changes
+Confirm the patient number has joined the sandbox by sending the join code to the Twilio sandbox number.
+Check your API call includes from: "whatsapp:+14155238886" and to: "whatsapp:+919746767146".
+Test by sending a simple text message (not a template) to the joined number.
+Review Twilio Console → Messaging Logs → WhatsApp → Delivery status for that SID.
+👉 In short: Your backend is fine — Twilio accepted the message. The issue is almost certainly sandbox enrollment or message type restrictions. Once you verify the recipient has joined the sandbox, messages should appear.
