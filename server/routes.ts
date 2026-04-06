@@ -76,7 +76,16 @@ function actionButton(label: string, href: string, color = '#3e34b4'): string {
   return `<a href="${href}" style="display:inline-block;padding:12px 28px;background:${color};color:#fff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px">${label}</a>`;
 }
 
-async function sendBookingEmails(customerEmail: string, customerName: string, clinicEmail: string | null, clinicName: string, startTime: Date) {
+async function sendBookingEmails(
+  customerEmail: string,
+  customerName: string,
+  clinicEmail: string | null,
+  clinicName: string,
+  startTime: Date,
+  customerPhone?: string | null,
+  clinicPhone?: string | null,
+  bookingId?: number | null,
+) {
   if (!resend) {
     console.log(`[EMAIL MOCK] Resend not configured.`);
     return;
@@ -87,6 +96,14 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
   const calLink = makeGoogleCalLink(`Appointment at ${clinicName}`, startTime);
+  const receiptRef = bookingId ? `BMS-${bookingId}` : null;
+
+  const patientDetailRows: { label: string; value: string; mono?: boolean }[] = [
+    { label: 'Clinic', value: clinicName },
+    { label: 'Date &amp; Time', value: formattedTime },
+    ...(clinicPhone ? [{ label: 'Clinic Phone', value: clinicPhone }] : []),
+    ...(receiptRef ? [{ label: 'Reference', value: receiptRef, mono: true }] : []),
+  ];
 
   const patientHtml = emailShell(
     'linear-gradient(90deg,#3e34b4 0%,#a83cd2 100%)',
@@ -97,16 +114,20 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
       <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
         Thanks for booking with us! Your appointment request is now <strong>pending clinic confirmation</strong>. You will receive another email as soon as the clinic approves it.
       </p>
-      ${detailsTable([
-        { label: 'Clinic', value: clinicName },
-        { label: 'Date &amp; Time', value: formattedTime },
-      ])}
+      ${detailsTable(patientDetailRows)}
     </td></tr>
     <tr><td style="padding:20px 32px 28px">
       ${actionButton('Add to Google Calendar', calLink)}
-      <p style="margin:16px 0 0;font-size:12px;color:#9ca3af">The calendar invite is a placeholder — it will update once confirmed.</p>
     </td></tr>`
   );
+
+  const clinicDetailRows: { label: string; value: string }[] = [
+    { label: 'Patient', value: customerName },
+    ...(customerPhone ? [{ label: 'Phone', value: customerPhone }] : []),
+    ...(customerEmail ? [{ label: 'Email', value: customerEmail }] : []),
+    { label: 'Date &amp; Time', value: formattedTime },
+    ...(receiptRef ? [{ label: 'Reference', value: receiptRef }] : []),
+  ];
 
   const clinicHtml = emailShell(
     'linear-gradient(90deg,#1e1c3c 0%,#3e34b4 100%)',
@@ -116,10 +137,7 @@ async function sendBookingEmails(customerEmail: string, customerName: string, cl
       <p style="margin:0 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
         A new appointment request is waiting for your review. Log in to your Clinic Portal to confirm or manage this booking.
       </p>
-      ${detailsTable([
-        { label: 'Patient', value: customerName },
-        { label: 'Date &amp; Time', value: formattedTime },
-      ])}
+      ${detailsTable(clinicDetailRows)}
     </td></tr>`
   );
 
@@ -153,6 +171,8 @@ async function sendConfirmationEmail(
   clinicAddress?: string | null,
   clinicEmail?: string | null,
   bookingId?: number | null,
+  lat?: number | null,
+  lng?: number | null,
 ) {
   if (!resend) {
     console.log(`[EMAIL MOCK] Resend not configured — confirmation email skipped.`);
@@ -165,7 +185,9 @@ async function sendConfirmationEmail(
   });
   const receiptRef = bookingId ? `BMS-${bookingId}` : '—';
   const calLink = makeGoogleCalLink(`Appointment at ${clinicName}`, startTime, clinicAddress);
-  const mapsLink = clinicAddress ? `https://maps.google.com/?q=${encodeURIComponent(clinicAddress)}` : null;
+  const mapsLink = (lat != null && lng != null)
+    ? `https://maps.google.com/?q=${lat},${lng}`
+    : clinicAddress ? `https://maps.google.com/?q=${encodeURIComponent(clinicAddress)}` : null;
 
   const detailRows = [
     { label: 'Date &amp; Time', value: formattedTime },
@@ -601,7 +623,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         razorpayPaymentId: razorpay_payment_id,
       });
 
-      await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart);
+      await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id);
 
       if (customerPhone) {
         await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
@@ -660,7 +682,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         verificationStatus: 'pending',
       });
 
-      await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart);
+      await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id);
 
       if (customerPhone) {
         await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
@@ -1244,6 +1266,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const slot = await storage.getSlot(booking.slotId);
 
       // Send confirmation email to patient (fire-and-forget)
+      const clinicLat = (clinic as any)?.latitude ?? null;
+      const clinicLng = (clinic as any)?.longitude ?? null;
+      const clinicAddress = (clinic as any)?.address ?? null;
+      const clinicPhone = (clinic as any)?.phone ?? null;
+      const confirmMapsLink = (clinicLat != null && clinicLng != null)
+        ? `https://maps.google.com/?q=${clinicLat},${clinicLng}`
+        : clinicAddress ? `https://maps.google.com/?q=${encodeURIComponent(clinicAddress)}` : null;
       if (booking.customerEmail) {
         sendConfirmationEmail(
           booking.customerEmail,
@@ -1251,10 +1280,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           clinic?.name || 'the clinic',
           slot ? new Date(slot.startTime) : new Date(),
           booking.assignedDoctor || null,
-          (clinic as any)?.phone || null,
-          (clinic as any)?.address || null,
+          clinicPhone,
+          clinicAddress,
           clinic?.email || null,
           bookingId,
+          clinicLat,
+          clinicLng,
         ).catch((err) => console.error('[EMAIL ERROR] Confirm email failed:', err));
       }
 
@@ -1266,6 +1297,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           clinic?.name || slot?.clinicName || 'the clinic',
           slot ? new Date(slot.startTime) : new Date(),
           booking.assignedDoctor || null,
+          clinicAddress,
+          clinicPhone,
+          confirmMapsLink,
+          `BMS-${bookingId}`,
         ).catch(() => {});
       }
 
@@ -1344,24 +1379,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       // Notify patient via email and WhatsApp that their appointment is confirmed (fire-and-forget)
       const slot = await storage.getSlot(booking.slotId);
+      const doctorClinic = slot?.clinicId ? await storage.getClinic(slot.clinicId) : null;
+      const dClinicLat = (doctorClinic as any)?.latitude ?? null;
+      const dClinicLng = (doctorClinic as any)?.longitude ?? null;
+      const dClinicAddress = (doctorClinic as any)?.address ?? null;
+      const dClinicPhone = (doctorClinic as any)?.phone ?? null;
+      const dMapsLink = (dClinicLat != null && dClinicLng != null)
+        ? `https://maps.google.com/?q=${dClinicLat},${dClinicLng}`
+        : dClinicAddress ? `https://maps.google.com/?q=${encodeURIComponent(dClinicAddress)}` : null;
       if (booking.customerEmail) {
         sendConfirmationEmail(
           booking.customerEmail,
           booking.customerName,
-          booking.assignedDoctor || 'your clinic',
+          doctorClinic?.name || slot?.clinicName || 'the clinic',
           slot ? new Date(slot.startTime) : new Date(),
           booking.assignedDoctor || null,
-          null, null, null,
+          dClinicPhone,
+          dClinicAddress,
+          doctorClinic?.email || null,
           booking.id,
+          dClinicLat,
+          dClinicLng,
         ).catch(() => {});
       }
       if (booking.customerPhone) {
         sendWhatsAppConfirmationNotification(
           booking.customerPhone,
           booking.customerName,
-          slot?.clinicName || booking.assignedDoctor || 'your clinic',
+          doctorClinic?.name || slot?.clinicName || 'the clinic',
           slot ? new Date(slot.startTime) : new Date(),
           booking.assignedDoctor || null,
+          dClinicAddress,
+          dClinicPhone,
+          dMapsLink,
+          `BMS-${booking.id}`,
         ).catch(() => {});
       }
 

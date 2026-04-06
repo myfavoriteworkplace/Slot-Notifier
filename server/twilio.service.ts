@@ -81,16 +81,28 @@ export async function sendWhatsAppConfirmationNotification(
   patientName: string,
   clinicName: string,
   appointmentTime: Date,
-  doctorName?: string | null
+  doctorName?: string | null,
+  clinicAddress?: string | null,
+  clinicPhone?: string | null,
+  mapsLink?: string | null,
+  bookingRef?: string | null,
 ): Promise<void> {
   const doctorLine = doctorName ? `👨‍⚕️ Doctor: ${doctorName}\n` : "";
+  const addressLine = clinicAddress ? `📍 Address: ${clinicAddress}\n` : "";
+  const mapsLine = mapsLink ? `🗺 Directions: ${mapsLink}\n` : "";
+  const phoneLine = clinicPhone ? `📞 Clinic: ${clinicPhone}\n` : "";
+  const refLine = bookingRef ? `🔖 Ref: ${bookingRef}\n` : "";
 
   const message =
     `Hello ${patientName}! ✅\n\n` +
     `Great news — your appointment at *${clinicName}* has been *confirmed*.\n\n` +
     `📅 Date: ${formatDate(appointmentTime)}\n` +
     `🕐 Time: ${formatTime(appointmentTime)}\n` +
-    `${doctorLine}\n` +
+    `${doctorLine}` +
+    `${addressLine}` +
+    `${mapsLine}` +
+    `${phoneLine}` +
+    `${refLine}\n` +
     `Please arrive 10 minutes early. Reply to this message if you need to reschedule.\n\n` +
     `— BookMySlot 🦷`;
 
