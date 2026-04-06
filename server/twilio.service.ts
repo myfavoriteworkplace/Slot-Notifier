@@ -76,6 +76,23 @@ export async function sendWhatsAppBookingNotification(
   await sendWhatsApp(toPhone, message, "booking-received");
 }
 
+export async function sendWhatsAppConsentLink(
+  toPhone: string,
+  patientName: string,
+  clinicName: string,
+  consentUrl: string,
+): Promise<void> {
+  const message =
+    `Hello ${patientName}! 📋\n\n` +
+    `*${clinicName}* has sent you a digital consent form for your upcoming dental appointment.\n\n` +
+    `Please review and sign the consent form by clicking the link below:\n` +
+    `🔗 ${consentUrl}\n\n` +
+    `This link is valid for 72 hours. Please do not share it with others.\n\n` +
+    `— BookMySlot 🦷`;
+
+  await sendWhatsApp(toPhone, message, "consent-request");
+}
+
 export async function sendWhatsAppConfirmationNotification(
   toPhone: string,
   patientName: string,

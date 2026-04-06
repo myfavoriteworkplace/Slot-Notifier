@@ -134,4 +134,34 @@ export async function ensureSessionTable() {
   } catch (err: any) {
     console.error("[DATABASE] Error ensuring booking_notes table:", err.message);
   }
+
+  // Consent signature columns on bookings
+  try {
+    await pool.query(`
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "consent_signature" text;
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "consent_signed_at" timestamp;
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "consent_ip" varchar(45);
+    `);
+    console.log("[DATABASE] Consent columns on bookings ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error adding consent columns:", err.message);
+  }
+
+  // Consent tokens table
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS consent_tokens (
+        id SERIAL PRIMARY KEY,
+        booking_id INTEGER NOT NULL REFERENCES bookings(id),
+        clinic_id INTEGER NOT NULL REFERENCES clinics(id),
+        token VARCHAR(255) NOT NULL UNIQUE,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    console.log("[DATABASE] consent_tokens table ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error ensuring consent_tokens table:", err.message);
+  }
 }

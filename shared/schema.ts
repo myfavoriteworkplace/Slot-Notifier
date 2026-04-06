@@ -63,6 +63,9 @@ export const bookings = pgTable("bookings", {
   paymentStatus: varchar("payment_status", { length: 20 }),
   razorpayOrderId: varchar("razorpay_order_id", { length: 255 }),
   razorpayPaymentId: varchar("razorpay_payment_id", { length: 255 }),
+  consentSignature: text("consent_signature"),
+  consentSignedAt: timestamp("consent_signed_at"),
+  consentIp: varchar("consent_ip", { length: 45 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -305,6 +308,24 @@ export const insertBookingNoteSchema = createInsertSchema(bookingNotes).omit({
 
 export type BookingNote = typeof bookingNotes.$inferSelect;
 export type InsertBookingNote = z.infer<typeof insertBookingNoteSchema>;
+
+export const consentTokens = pgTable("consent_tokens", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id").notNull().references(() => bookings.id),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  status: varchar("status", { length: 20 }).default("pending").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertConsentTokenSchema = createInsertSchema(consentTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ConsentToken = typeof consentTokens.$inferSelect;
+export type InsertConsentToken = z.infer<typeof insertConsentTokenSchema>;
 
 export const siteSettings = pgTable("site_settings", {
   id: serial("id").primaryKey(),
