@@ -11,7 +11,7 @@ import { Resend } from 'resend';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
 import ExcelJS from "exceljs";
-import { sendWhatsAppBookingNotification } from "./twilio.service";
+import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification } from "./twilio.service";
 import Razorpay from "razorpay";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -1258,6 +1258,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         ).catch((err) => console.error('[EMAIL ERROR] Confirm email failed:', err));
       }
 
+      // Send WhatsApp confirmation to patient (fire-and-forget)
+      if (booking.customerPhone) {
+        sendWhatsAppConfirmationNotification(
+          booking.customerPhone,
+          booking.customerName,
+          clinic?.name || slot?.clinicName || 'the clinic',
+          slot ? new Date(slot.startTime) : new Date(),
+          booking.assignedDoctor || null,
+        ).catch(() => {});
+      }
+
       // Notify the doctor that the admin confirmed on their behalf (fire-and-forget)
       if (needsDoctorOverride) {
         sendDoctorAdminConfirmEmail(
@@ -1331,15 +1342,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const updated = await storage.updateBookingDoctorApproval(Number(req.params.id), sess.doctorEmail, 'approved');
 
-      // Notify patient via email that their appointment is confirmed (fire-and-forget)
+      // Notify patient via email and WhatsApp that their appointment is confirmed (fire-and-forget)
+      const slot = await storage.getSlot(booking.slotId);
       if (booking.customerEmail) {
-        const slot = await storage.getSlot(booking.slotId);
-        const [clinic] = await db.select().from(clinics)
-          .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
-          .innerJoin(doctors, eq(doctors.id, clinicDoctors.doctorId))
-          .where(eq(doctors.email, sess.doctorEmail))
-          .limit(1)
-          .then(rows => rows.map(r => (r as any).clinics || r));
         sendConfirmationEmail(
           booking.customerEmail,
           booking.customerName,
@@ -1348,6 +1353,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           booking.assignedDoctor || null,
           null, null, null,
           booking.id,
+        ).catch(() => {});
+      }
+      if (booking.customerPhone) {
+        sendWhatsAppConfirmationNotification(
+          booking.customerPhone,
+          booking.customerName,
+          slot?.clinicName || booking.assignedDoctor || 'your clinic',
+          slot ? new Date(slot.startTime) : new Date(),
+          booking.assignedDoctor || null,
         ).catch(() => {});
       }
 
