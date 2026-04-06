@@ -99,7 +99,15 @@ Sidebar nav color coding: Bookings = primary green, Configure Slots = blue, Mana
 - 3-column tilt cards grid with magnetic hover
 - Bottom promo: Refer a Clinic (exclusive deals) + Loyalty Rewards (coming soon)
 
+## Digital Consent Form
+- **Flow**: Clinic clicks "Request →" in booking card → backend generates a 72-hour token → WhatsApp link sent to patient via Twilio → patient visits `/consent/:token` → signs with finger/mouse on canvas → signature saved to `bookings.consent_signature` with timestamp and IP.
+- **Clinic UI**: "Digital Consent" panel in each booking card. Shows "Request →" / "Resend →" button and the consent URL (copy + open). Shows green "Signed ✓" badge once patient has signed.
+- **Patient UI**: `/consent/:token` — public page (no login), shows clinic info, appointment summary, consent declaration text, signature pad (using `signature_pad`), and submit button.
+- **API**: `POST /api/auth/clinic/bookings/:id/request-consent` (clinic-auth), `GET /api/consent/:token` (public), `POST /api/consent/:token/sign` (public).
+
 ## Recent Changes
+- **2026-04-06**: Full digital consent form implementation: 3 API routes, storage methods, patient signing page (`/consent/:token`), clinic dashboard panel with "Request Consent" button and signed status.
+- **2026-04-06**: Fixed missing DB columns (`assigned_doctor_email`, `doctor_notes`, `clinical_status`, etc.) via isolated migration blocks in `db.ts`.
 - **2026-03-30**: Doctor profile: replaced URL input with file upload (R2), added completeness bar, years of experience field, languages multi-select (English/Malayalam/Tamil/Hindi/Kannada), Preview Profile button. New `years_of_experience` and `languages TEXT[]` columns added to doctors table. Public profile page updated to display both new fields.
 - **2026-03-05**: Added Smile DEALS system with admin CRUD and public gallery.
 - **2026-03-05**: Integrated Resend API for booking and invitation emails.

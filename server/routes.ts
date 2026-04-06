@@ -11,7 +11,7 @@ import { Resend } from 'resend';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
 import ExcelJS from "exceljs";
-import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification } from "./twilio.service";
+import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./twilio.service";
 import Razorpay from "razorpay";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -1831,13 +1831,94 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/admin/upload", isAdmin, async (req, res) => {
     try {
-      // Since we are using R2 with signed URLs in other parts of the app,
-      // and this is a simple "upload" for admin, we'll implement a basic version
-      // or redirect to the signed URL flow. 
-      // For now, let's just make it return a 400 with instructions or 
-      // if the user expects a direct upload, we'd need multer.
-      // But looking at the project, we have generateSignedUploadUrl.
       res.status(400).json({ message: "Use /api/uploads/signed-url for R2 uploads" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Digital Consent Form ──
+
+  // POST /api/auth/clinic/bookings/:id/request-consent
+  // Generates a consent token and sends the WhatsApp link to the patient
+  app.post("/api/auth/clinic/bookings/:id/request-consent", async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const bookingId = Number(req.params.id);
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+
+      const clinic = await storage.getClinic(Number(sess.clinicId));
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
+
+      await storage.createConsentToken(bookingId, clinic.id, token, expiresAt);
+
+      const baseUrl = process.env.APP_URL ||
+        `${req.protocol}://${req.get("host")}`;
+      const consentUrl = `${baseUrl}/consent/${token}`;
+
+      await sendWhatsAppConsentLink(
+        booking.customerPhone,
+        booking.customerName,
+        clinic.name,
+        consentUrl,
+      );
+
+      res.json({ success: true, consentUrl });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/consent/:token — public, no auth, loads form data for patient
+  app.get("/api/consent/:token", async (req, res) => {
+    try {
+      const record = await storage.getConsentByToken(req.params.token);
+      if (!record) return res.status(404).json({ message: "Invalid or expired consent link" });
+      if (record.status === "signed") return res.status(410).json({ message: "This consent form has already been signed" });
+      if (new Date() > record.expiresAt) return res.status(410).json({ message: "This consent link has expired" });
+
+      const slot = await storage.getSlot(record.booking.slotId);
+      const { passwordHash, ...safeClinic } = record.clinic as any;
+
+      res.json({
+        patientName: record.booking.customerName,
+        patientPhone: record.booking.customerPhone,
+        clinicName: record.clinic.name,
+        clinicAddress: record.clinic.address,
+        clinicPhone: record.clinic.phone,
+        appointmentTime: slot?.startTime || null,
+        status: record.status,
+        expiresAt: record.expiresAt,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/consent/:token/sign — public, patient submits their signature
+  app.post("/api/consent/:token/sign", async (req, res) => {
+    try {
+      const record = await storage.getConsentByToken(req.params.token);
+      if (!record) return res.status(404).json({ message: "Invalid or expired consent link" });
+      if (record.status === "signed") return res.status(410).json({ message: "Already signed" });
+      if (new Date() > record.expiresAt) return res.status(410).json({ message: "This consent link has expired" });
+
+      const { signature } = req.body;
+      if (!signature || typeof signature !== "string") {
+        return res.status(400).json({ message: "Signature is required" });
+      }
+
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+        req.socket.remoteAddress || "unknown";
+
+      await storage.markConsentSigned(req.params.token, signature, ip);
+
+      res.json({ success: true, message: "Consent signed successfully" });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

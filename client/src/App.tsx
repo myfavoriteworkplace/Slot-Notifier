@@ -23,6 +23,7 @@ import DoctorDashboard from "@/pages/DoctorDashboard";
 import DoctorPublicProfile from "@/pages/DoctorPublicProfile";
 import GettingStarted from "@/pages/GettingStarted";
 import RegisterClinic from "@/pages/RegisterClinic";
+import ConsentForm from "@/pages/ConsentForm";
 
 function HealthIndicator() {
   const { isAuthenticated: isUserAuth } = useAuth();
@@ -139,6 +140,7 @@ function Router() {
       <Route path="/deals" component={SmileDeals} />
       <Route path="/doctor-dashboard" component={DoctorDashboard} />
       <Route path="/doctor/:id" component={DoctorPublicProfile} />
+      <Route path="/consent/:token" component={ConsentForm} />
       <Route component={NotFound} />
     </Switch>
   );

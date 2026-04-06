@@ -135,6 +135,23 @@ export async function ensureSessionTable() {
     console.error("[DATABASE] Error ensuring booking_notes table:", err.message);
   }
 
+  // Extended bookings columns (added over time)
+  try {
+    await pool.query(`
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "assigned_doctor_email" varchar(255);
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "doctor_approval_status" varchar(20);
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "doctor_notes" text;
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "clinical_status" varchar(50);
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "confirmed_by" varchar(20);
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "payment_status" varchar(20);
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "razorpay_order_id" varchar(255);
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "razorpay_payment_id" varchar(255);
+    `);
+    console.log("[DATABASE] Extended booking columns ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error adding extended booking columns:", err.message);
+  }
+
   // Consent signature columns on bookings
   try {
     await pool.query(`

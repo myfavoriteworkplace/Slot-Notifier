@@ -13,7 +13,7 @@ import {
   Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X,
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, Receipt, FileText,
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
-  Globe, Lock, ExternalLink, MapPin, Info
+  Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -146,6 +146,8 @@ export default function ClinicDashboard() {
   const [rescheduleBookingId, setRescheduleBookingId] = useState<number | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState<Date>(startOfToday());
   const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
+  const [consentUrls, setConsentUrls] = useState<Record<number, string>>({});
+  const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
 
   // Booking form state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
@@ -588,6 +590,24 @@ export default function ClinicDashboard() {
     },
     onError: (error: any) => {
       toast({ title: "Failed to reschedule booking", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const requestConsentMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      const response = await apiRequest('POST', `/api/auth/clinic/bookings/${bookingId}/request-consent`, {});
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to send consent request');
+      }
+      return response.json() as Promise<{ consentUrl: string }>;
+    },
+    onSuccess: (data, bookingId) => {
+      setConsentUrls(prev => ({ ...prev, [bookingId]: data.consentUrl }));
+      toast({ title: "Consent request sent", description: "WhatsApp link sent to the patient." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to send consent request", description: error.message, variant: "destructive" });
     },
   });
 
@@ -1863,6 +1883,71 @@ export default function ClinicDashboard() {
                                   {rescheduleMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
                                   Confirm Reschedule
                                 </Button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Digital Consent Panel */}
+                          <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                            <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <ClipboardCheck className="h-3 w-3 text-primary" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Digital Consent</span>
+                              </div>
+                              {booking.consentSignedAt ? (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
+                                  <CheckCircle2 className="h-3 w-3" /> Signed
+                                </span>
+                              ) : (
+                                <button
+                                  className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+                                  onClick={() => requestConsentMutation.mutate(booking.id)}
+                                  disabled={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
+                                  data-testid={`button-request-consent-${booking.id}`}
+                                >
+                                  {requestConsentMutation.isPending && requestConsentMutation.variables === booking.id
+                                    ? "Sending…"
+                                    : consentUrls[booking.id] ? "Resend →" : "Request →"}
+                                </button>
+                              )}
+                            </div>
+                            {!booking.consentSignedAt && consentUrls[booking.id] && (
+                              <div className="px-3 py-2.5 space-y-2">
+                                <p className="text-[10px] text-muted-foreground">
+                                  WhatsApp link sent to <strong>{booking.customerPhone}</strong>. Share manually if needed:
+                                </p>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-[10px] text-muted-foreground font-mono truncate">
+                                    {consentUrls[booking.id]}
+                                  </div>
+                                  <button
+                                    className="shrink-0 p-1.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(consentUrls[booking.id]);
+                                      setCopiedConsentId(booking.id);
+                                      setTimeout(() => setCopiedConsentId(null), 2000);
+                                    }}
+                                    data-testid={`button-copy-consent-${booking.id}`}
+                                  >
+                                    {copiedConsentId === booking.id
+                                      ? <Check className="h-3 w-3 text-green-500" />
+                                      : <Copy className="h-3 w-3 text-muted-foreground" />}
+                                  </button>
+                                  <a
+                                    href={consentUrls[booking.id]}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="shrink-0 p-1.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors"
+                                    data-testid={`link-open-consent-${booking.id}`}
+                                  >
+                                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                  </a>
+                                </div>
+                              </div>
+                            )}
+                            {booking.consentSignedAt && (
+                              <div className="px-3 py-2 text-[10px] text-muted-foreground">
+                                Signed on {format(new Date(booking.consentSignedAt), "dd MMM yyyy, hh:mm a")}
                               </div>
                             )}
                           </div>

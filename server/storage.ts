@@ -1,6 +1,6 @@
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
-  doctorCertifications, doctorCases, bookingNotes, doctorLeaves,
+  doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -14,7 +14,8 @@ import {
   type SmileDeal, type InsertSmileDeal,
   type ExportHistory, type InsertExportHistory,
   type BookingNote, type InsertBookingNote,
-  type DoctorLeave, type InsertDoctorLeave
+  type DoctorLeave, type InsertDoctorLeave,
+  type ConsentToken
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns } from "drizzle-orm";
@@ -131,6 +132,11 @@ export interface IStorage {
   removeDoctorLeave(id: number, doctorId: number): Promise<void>;
   getDoctorLeavesOnDate(date: string, doctorIds: number[]): Promise<DoctorLeave[]>;
   getAllDoctorLeavesForClinic(doctorIds: number[]): Promise<(DoctorLeave & { doctorEmail?: string; doctorName?: string })[]>;
+
+  // Consent Tokens
+  createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date): Promise<ConsentToken>;
+  getConsentByToken(token: string): Promise<(ConsentToken & { booking: Booking; clinic: Clinic }) | undefined>;
+  markConsentSigned(token: string, signature: string, ip: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -848,6 +854,34 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(doctors, eq(doctorLeaves.doctorId, doctors.id))
       .where(sql`${doctorLeaves.doctorId} = ANY(${sql.raw(`ARRAY[${doctorIds.join(",")}]::integer[]`)})`);
     return leaves.map(row => ({ ...row.leave, doctorEmail: row.doctor.email, doctorName: row.doctor.name }));
+  }
+
+  // Consent Tokens
+  async createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date): Promise<ConsentToken> {
+    const [ct] = await db.insert(consentTokens).values({ bookingId, clinicId, token, status: 'pending', expiresAt }).returning();
+    return ct;
+  }
+
+  async getConsentByToken(token: string): Promise<(ConsentToken & { booking: Booking; clinic: Clinic }) | undefined> {
+    const rows = await db.select({ ct: consentTokens, booking: bookings, clinic: clinics })
+      .from(consentTokens)
+      .innerJoin(bookings, eq(consentTokens.bookingId, bookings.id))
+      .innerJoin(clinics, eq(consentTokens.clinicId, clinics.id))
+      .where(eq(consentTokens.token, token))
+      .limit(1);
+    if (!rows[0]) return undefined;
+    return { ...rows[0].ct, booking: rows[0].booking, clinic: rows[0].clinic };
+  }
+
+  async markConsentSigned(token: string, signature: string, ip: string): Promise<void> {
+    const [ct] = await db.select().from(consentTokens).where(eq(consentTokens.token, token)).limit(1);
+    if (!ct) throw new Error("Consent token not found");
+    await db.update(consentTokens).set({ status: 'signed' }).where(eq(consentTokens.token, token));
+    await db.update(bookings).set({
+      consentSignature: signature,
+      consentSignedAt: new Date(),
+      consentIp: ip,
+    }).where(eq(bookings.id, ct.bookingId));
   }
 }
 
