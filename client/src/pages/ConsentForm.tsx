@@ -91,7 +91,7 @@ export default function ConsentForm() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F6]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F6] dark:bg-gray-950">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -100,8 +100,8 @@ export default function ConsentForm() {
   if (error || !data) {
     const msg = (error as Error)?.message || "Invalid link";
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F6] px-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 text-center space-y-4">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F6] dark:bg-gray-950 px-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-8 text-center space-y-4">
           <div className="h-14 w-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
             <AlertCircle className="h-7 w-7 text-destructive" />
           </div>
@@ -114,8 +114,8 @@ export default function ConsentForm() {
 
   if (signed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F6] px-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 text-center space-y-4">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F6] dark:bg-gray-950 px-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-8 text-center space-y-4">
           <div className="h-16 w-16 rounded-full bg-[#E1F5EE] flex items-center justify-center mx-auto">
             <CheckCircle2 className="h-8 w-8 text-primary" />
           </div>
@@ -131,7 +131,7 @@ export default function ConsentForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F8F6] flex items-start justify-center py-8 px-4">
+    <div className="min-h-screen bg-[#F8F8F6] dark:bg-gray-950 flex items-start justify-center py-8 px-4">
       <div className="w-full max-w-lg space-y-5">
         {/* Header */}
         <div className="bg-gradient-to-r from-[#085041] to-[#0F9B6E] rounded-2xl p-6 text-white shadow-lg">
@@ -146,7 +146,7 @@ export default function ConsentForm() {
         </div>
 
         {/* Appointment Summary */}
-        <div className="bg-white rounded-2xl shadow-sm border border-border/40 p-5 space-y-3">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-border/40 p-5 space-y-3">
           <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Appointment Details</h2>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -166,14 +166,14 @@ export default function ConsentForm() {
               <span className="text-sm font-semibold">{data.clinicName}</span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 rounded-lg px-3 py-2">
             <Clock className="h-3 w-3 shrink-0" />
             <span>Link expires: {format(new Date(data.expiresAt), "dd MMM yyyy, hh:mm a")}</span>
           </div>
         </div>
 
         {/* Consent Text */}
-        <div className="bg-white rounded-2xl shadow-sm border border-border/40 p-5 space-y-3">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-border/40 p-5 space-y-3">
           <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Consent Declaration</h2>
           <div className="text-sm text-foreground/80 leading-relaxed space-y-2">
             <p>
@@ -199,7 +199,7 @@ export default function ConsentForm() {
         </div>
 
         {/* Signature Pad */}
-        <div className="bg-white rounded-2xl shadow-sm border border-border/40 p-5 space-y-3">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-border/40 p-5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Pen className="h-4 w-4 text-primary" />
@@ -214,7 +214,7 @@ export default function ConsentForm() {
               Clear
             </button>
           </div>
-          <div className="relative rounded-xl border-2 border-dashed border-border overflow-hidden bg-white" style={{ height: "180px" }}>
+          <div className="relative rounded-xl border-2 border-dashed border-border overflow-hidden bg-white dark:bg-gray-800" style={{ height: "180px" }}>
             <canvas
               ref={canvasRef}
               className="w-full h-full touch-none"
