@@ -11,7 +11,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X,
-  Download, Plus, ChevronDown, ChevronUp, CheckCircle2, Receipt, FileText,
+  Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText,
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
   Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2
 } from "lucide-react";
@@ -1483,33 +1483,41 @@ export default function ClinicDashboard() {
                                 </div>
                               </div>
 
-                              {/* Status pill */}
-                              {!isConfirmed && !isBookingPast ? (
-                                <TooltipProvider delayDuration={200}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${statusClass}`}>
-                                        {statusLabel}
+                              {/* Status pill + consent pill */}
+                              <div className="flex flex-col items-end gap-1">
+                                {!isConfirmed && !isBookingPast ? (
+                                  <TooltipProvider delayDuration={200}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${statusClass}`}>
+                                          {statusLabel}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="left" className="text-xs">
+                                        Awaiting confirmation
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                ) : (
+                                  <div className="flex flex-col items-end gap-0.5">
+                                    <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${statusClass}`}>
+                                      {isConfirmed && !isBookingPast && <CheckCircle2 className="h-2.5 w-2.5" />}
+                                      {statusLabel}
+                                    </span>
+                                    {isConfirmed && !isBookingPast && booking.confirmedBy && (
+                                      <span className="text-[9px] text-muted-foreground font-medium">
+                                        by {booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}
                                       </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="left" className="text-xs">
-                                      Awaiting confirmation
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              ) : (
-                                <div className="flex flex-col items-end gap-0.5">
-                                <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${statusClass}`}>
-                                  {isConfirmed && !isBookingPast && <CheckCircle2 className="h-2.5 w-2.5" />}
-                                  {statusLabel}
-                                </span>
-                                {isConfirmed && !isBookingPast && booking.confirmedBy && (
-                                  <span className="text-[9px] text-muted-foreground font-medium">
-                                    by {booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}
+                                    )}
+                                  </div>
+                                )}
+                                {booking.consentSignedAt && (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 px-1.5 py-0.5 rounded-full">
+                                    <CheckCircle2 className="h-2 w-2" />
+                                    Consent
                                   </span>
                                 )}
                               </div>
-                              )}
                             </div>
                           </div>
 
@@ -1946,8 +1954,25 @@ export default function ClinicDashboard() {
                               </div>
                             )}
                             {booking.consentSignedAt && (
-                              <div className="px-3 py-2 text-[10px] text-muted-foreground">
-                                Signed on {format(new Date(booking.consentSignedAt), "dd MMM yyyy, hh:mm a")}
+                              <div className="px-3 py-2 flex items-center justify-between gap-2">
+                                <span className="text-[10px] text-muted-foreground">
+                                  Signed on {format(new Date(booking.consentSignedAt), "dd MMM yyyy, hh:mm a")}
+                                </span>
+                                {booking.consentSignature && (
+                                  <button
+                                    className="flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                                    onClick={() => {
+                                      const a = document.createElement("a");
+                                      a.href = booking.consentSignature as string;
+                                      a.download = `consent-${booking.customerName.replace(/\s+/g, "-")}.png`;
+                                      a.click();
+                                    }}
+                                    data-testid={`button-download-consent-${booking.id}`}
+                                  >
+                                    <Download className="h-3 w-3" />
+                                    Download
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>
@@ -2095,7 +2120,7 @@ export default function ClinicDashboard() {
                             onClick={() => handleOpenBilling(booking)}
                             data-testid={`button-dialog-bill-${booking.id}`}
                           >
-                            <Receipt className="h-3.5 w-3.5" />
+                            <IndianRupee className="h-3.5 w-3.5" />
                             Generate Bill
                           </Button>
                           <AlertDialog>
@@ -2159,7 +2184,7 @@ export default function ClinicDashboard() {
                         onClick={(e) => { e.stopPropagation(); handleOpenBilling(booking); }}
                         data-testid={`button-bill-${booking.id}`}
                       >
-                        <Receipt className="h-3 w-3" />
+                        <IndianRupee className="h-3 w-3" />
                         Bill
                       </Button>
                       <div className="h-4 w-px bg-border/60 shrink-0" />
