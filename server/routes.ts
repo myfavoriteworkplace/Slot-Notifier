@@ -1857,7 +1857,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       await storage.createConsentToken(bookingId, clinic.id, token, expiresAt);
 
-      const baseUrl = process.env.APP_URL ||
+      const baseUrl = process.env.FRONTEND_URL ||
         `${req.protocol}://${req.get("host")}`;
       const consentUrl = `${baseUrl}/consent/${token}`;
 
