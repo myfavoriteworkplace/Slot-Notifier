@@ -913,6 +913,241 @@ export default function ClinicDashboard() {
     toast({ title: "Receipt Generated", description: "Your PDF download has started." });
   };
 
+  const generateConsentPdf = (booking: BookingWithSlot) => {
+    const doc = new jsPDF();
+    const pageWidth  = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+
+    // ── Colour palette (matches billing PDF) ─────────────────────
+    const indigoDark: [number, number, number]  = [8,   80,  65];
+    const magenta: [number, number, number]     = [29,  158, 117];
+    const indigoMid: [number, number, number]   = [15,  155, 110];
+    const lightBg: [number, number, number]     = [225, 245, 238];
+    const metaBg: [number, number, number]      = [209, 237, 226];
+    const textDark: [number, number, number]    = [8,   40,  32];
+    const textMid: [number, number, number]     = [50,  100, 80];
+    const textLight: [number, number, number]   = [150, 148, 180];
+    const white: [number, number, number]       = [255, 255, 255];
+
+    // ── Top gradient bar ─────────────────────────────────────────
+    doc.setFillColor(...indigoDark);
+    doc.rect(0, 0, pageWidth * 0.55, 7, "F");
+    doc.setFillColor(...magenta);
+    doc.rect(pageWidth * 0.55, 0, pageWidth * 0.45, 7, "F");
+
+    // ── Medical cross icon ───────────────────────────────────────
+    const iconX = margin;
+    const iconY = 12;
+    const cs    = 4.5;
+    const cw    = 1.4;
+    doc.setFillColor(...indigoMid);
+    doc.rect(iconX + (cs - cw) / 2, iconY,                   cw, cs, "F");
+    doc.rect(iconX,                  iconY + (cs - cw) / 2,  cs, cw, "F");
+
+    // ── Header left: clinic name + subtitle ──────────────────────
+    const nameX = iconX + cs + 3;
+    doc.setFontSize(19);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...textDark);
+    doc.text(clinic?.name || "Clinic", nameX, 20);
+
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...indigoMid);
+    doc.text("Digital Informed Consent Form", nameX, 27);
+
+    // ── Header right: address / phone ────────────────────────────
+    const rightX        = pageWidth - margin;
+    const rightColWidth = pageWidth * 0.42;
+    let   contactY      = 11;
+
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...textMid);
+
+    if (clinic?.address) {
+      const addrLines: string[] = doc.splitTextToSize(clinic.address, rightColWidth);
+      addrLines.forEach((line: string) => {
+        doc.text(line, rightX, contactY, { align: "right" });
+        contactY += 4.2;
+      });
+    }
+    if (clinic?.phone) {
+      doc.text(`Tel: ${clinic.phone}`, rightX, contactY, { align: "right" });
+      contactY += 4.2;
+    }
+    if (clinic?.email) {
+      doc.text(clinic.email, rightX, contactY, { align: "right" });
+    }
+
+    // ── Divider ──────────────────────────────────────────────────
+    doc.setDrawColor(...indigoDark);
+    doc.setLineWidth(0.5);
+    doc.line(margin, 33, pageWidth - margin, 33);
+
+    // ── Meta band ────────────────────────────────────────────────
+    const metaY = 34;
+    const metaH = 10;
+    doc.setFillColor(...metaBg);
+    doc.rect(margin, metaY, pageWidth - margin * 2, metaH, "F");
+
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...indigoMid);
+    doc.text("DIGITAL CONSENT RECORD", pageWidth / 2, metaY + 6.5, { align: "center" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...textMid);
+    doc.text(
+      `Generated: ${format(new Date(), "dd MMM yyyy, hh:mm a")}`,
+      rightX - 4, metaY + 6.5, { align: "right" }
+    );
+
+    // ── Patient details table ────────────────────────────────────
+    autoTable(doc, {
+      startY: metaY + metaH + 5,
+      head: [["Patient & Appointment Details", ""]],
+      body: [
+        ["Patient Name",   booking.customerName],
+        ["Phone",          booking.customerPhone],
+        ["Appointment",    format(new Date(booking.slot.startTime), "dd MMM yyyy, hh:mm a")],
+        ["Clinic",         clinic?.name || ""],
+      ],
+      theme: "grid",
+      headStyles: {
+        fillColor: indigoDark, textColor: white, fontStyle: "bold",
+        fontSize: 9, halign: "left",
+        cellPadding: { top: 3, bottom: 3, left: 5, right: 5 },
+      },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: 48, textColor: textDark, fillColor: lightBg,
+             fontSize: 8.5, cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
+        1: { textColor: textMid, fontSize: 8.5,
+             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
+      },
+      bodyStyles: { cellPadding: 3 },
+      margin: { left: margin, right: margin },
+    });
+
+    let curY = (doc as any).lastAutoTable.finalY + 9;
+
+    // ── Consent Declaration heading ──────────────────────────────
+    doc.setFillColor(...lightBg);
+    doc.rect(margin, curY, pageWidth - margin * 2, 7, "F");
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...indigoDark);
+    doc.text("CONSENT DECLARATION", margin + 4, curY + 4.8);
+    curY += 11;
+
+    // ── Consent body text ────────────────────────────────────────
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...textDark);
+
+    const textW = pageWidth - margin * 2;
+
+    const para1 = `I, ${booking.customerName}, hereby give my informed consent to ${clinic?.name || "the clinic"} to perform dental examination and any necessary dental treatment deemed appropriate by the treating dentist.`;
+    const p1Lines: string[] = doc.splitTextToSize(para1, textW);
+    doc.text(p1Lines, margin, curY);
+    curY += p1Lines.length * 5 + 4;
+
+    doc.text("I understand and acknowledge the following:", margin, curY);
+    curY += 6;
+
+    const bullets = [
+      "The nature of the proposed treatment and its alternatives have been explained to me.",
+      "All dental procedures carry certain risks including pain, swelling, and infection.",
+      "I am responsible for informing the clinic of any allergies or medical conditions.",
+      "My personal and health information will be kept confidential.",
+      "I have the right to withdraw consent at any time before treatment begins.",
+    ];
+    doc.setTextColor(...textMid);
+    bullets.forEach(b => {
+      const bLines: string[] = doc.splitTextToSize(`\u2022  ${b}`, textW - 6);
+      doc.text(bLines, margin + 4, curY);
+      curY += bLines.length * 5 + 1.5;
+    });
+
+    curY += 2;
+    doc.setTextColor(...textDark);
+    const para3 = `By signing below, I confirm that I have read and understood the above and voluntarily consent to the dental care at ${clinic?.name || "the clinic"}.`;
+    const p3Lines: string[] = doc.splitTextToSize(para3, textW);
+    doc.text(p3Lines, margin, curY);
+    curY += p3Lines.length * 5 + 10;
+
+    // ── Signature section ────────────────────────────────────────
+    doc.setFillColor(...lightBg);
+    doc.rect(margin, curY, pageWidth - margin * 2, 7, "F");
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...indigoDark);
+    doc.text("PATIENT SIGNATURE", margin + 4, curY + 4.8);
+    curY += 10;
+
+    // signature image box
+    const sigBoxW = 90;
+    const sigBoxH = 40;
+    doc.setDrawColor(...indigoMid);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(margin, curY, sigBoxW, sigBoxH, 2, 2, "D");
+
+    if (booking.consentSignature) {
+      try {
+        doc.addImage(booking.consentSignature, "PNG", margin + 2, curY + 2, sigBoxW - 4, sigBoxH - 4);
+      } catch (_) {}
+    }
+    curY += sigBoxH + 5;
+
+    // signed on + audit line
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...textMid);
+    if (booking.consentSignedAt) {
+      doc.text(
+        `Signed digitally on: ${format(new Date(booking.consentSignedAt), "dd MMMM yyyy 'at' hh:mm a")}`,
+        margin, curY
+      );
+      curY += 5;
+    }
+    doc.text("IP address recorded for audit purposes. This is a legally binding digital consent.", margin, curY);
+    curY += 12;
+
+    // ── Footer ───────────────────────────────────────────────────
+    doc.setDrawColor(...indigoMid);
+    doc.setLineWidth(0.3);
+    doc.line(margin, curY - 4, pageWidth - margin, curY - 4);
+
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...indigoMid);
+    doc.text(`Thank you for choosing ${clinic?.name || "us"}!`, pageWidth / 2, curY, { align: "center" });
+
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...textLight);
+    doc.text(
+      "This document was generated by BookMySlot and serves as the official digital consent record.",
+      pageWidth / 2, curY + 6, { align: "center" }
+    );
+
+    // ── Bottom gradient bar ───────────────────────────────────────
+    doc.setFillColor(...indigoDark);
+    doc.rect(0, pageHeight - 8, pageWidth * 0.55, 8, "F");
+    doc.setFillColor(...magenta);
+    doc.rect(pageWidth * 0.55, pageHeight - 8, pageWidth * 0.45, 8, "F");
+
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...white);
+    doc.text("Powered by BookMySlot", pageWidth / 2, pageHeight - 3, { align: "center" });
+
+    const fileName = `consent_${booking.customerName.replace(/\s+/g, "_")}_${format(new Date(booking.slot.startTime), "yyyyMMdd")}.pdf`;
+    doc.save(fileName);
+    toast({ title: "Consent PDF Downloaded", description: `${fileName} saved successfully.` });
+  };
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -1961,16 +2196,11 @@ export default function ClinicDashboard() {
                                 {booking.consentSignature && (
                                   <button
                                     className="flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
-                                    onClick={() => {
-                                      const a = document.createElement("a");
-                                      a.href = booking.consentSignature as string;
-                                      a.download = `consent-${booking.customerName.replace(/\s+/g, "-")}.png`;
-                                      a.click();
-                                    }}
+                                    onClick={() => generateConsentPdf(booking)}
                                     data-testid={`button-download-consent-${booking.id}`}
                                   >
                                     <Download className="h-3 w-3" />
-                                    Download
+                                    Download PDF
                                   </button>
                                 )}
                               </div>
