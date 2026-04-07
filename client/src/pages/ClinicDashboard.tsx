@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay } from "date-fns";
+import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay, differenceInCalendarDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -525,7 +525,7 @@ export default function ClinicDashboard() {
     }
 
     return true;
-  });
+  })?.sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime());
 
   if (authLoading) {
     return (
@@ -1680,10 +1680,11 @@ export default function ClinicDashboard() {
                       )
                     : [];
 
+                  const isPending = !isConfirmed && !isBookingPast;
                   return (
                   <Card
                     key={booking.id}
-                    className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group ${cardOpacity}`}
+                    className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group ${cardOpacity} ${isPending ? "border-l-2 border-l-amber-400 dark:border-l-amber-500" : ""}`}
                     data-testid={`card-booking-${booking.id}`}
                   >
                     {/* Status accent bar */}
@@ -1747,10 +1748,19 @@ export default function ClinicDashboard() {
                                   </div>
                                 )}
                                 {booking.consentSignedAt && (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 px-1.5 py-0.5 rounded-full">
-                                    <CheckCircle2 className="h-2 w-2" />
-                                    Consent
-                                  </span>
+                                  <TooltipProvider delayDuration={200}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 px-1.5 py-0.5 rounded-full cursor-default">
+                                          <CheckCircle2 className="h-2 w-2" />
+                                          Consent Signed
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="left" className="text-xs">
+                                        Digital consent signed by patient
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 )}
                               </div>
                             </div>
@@ -1767,6 +1777,20 @@ export default function ClinicDashboard() {
                               <span className="font-semibold text-foreground">
                                 {format(bookingDateTime, "EEEE, MMMM do")}
                               </span>
+                              {!isBookingPast && (() => {
+                                const daysAway = differenceInCalendarDays(bookingDateTime, new Date());
+                                const label = isBookingToday ? "Today" : daysAway === 1 ? "Tomorrow" : `in ${daysAway} days`;
+                                const cls = isBookingToday
+                                  ? "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"
+                                  : daysAway === 1
+                                  ? "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
+                                  : "text-muted-foreground bg-muted/50 border-border/50";
+                                return (
+                                  <span className={`text-[9px] font-bold uppercase tracking-wider border px-1.5 py-0.5 rounded-full ${cls}`}>
+                                    {label}
+                                  </span>
+                                );
+                              })()}
                             </div>
 
                             {/* Time range */}
@@ -1806,8 +1830,9 @@ export default function ClinicDashboard() {
                                   </span>
                                 )}
                                 {booking.doctorApprovalStatus === 'approved' && (
-                                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
-                                    Confirmed by doctor
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-green-500 text-white dark:bg-green-600">
+                                    <CheckCircle2 className="h-2.5 w-2.5" />
+                                    Confirmed by Doctor
                                   </span>
                                 )}
                                 {booking.doctorApprovalStatus === 'admin_confirmed' && (
