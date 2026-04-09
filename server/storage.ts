@@ -1,6 +1,7 @@
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
   doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, clinicalRecords,
+  inventoryCategories, inventoryItems, stockTransactions, stockAlerts,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -17,6 +18,10 @@ import {
   type DoctorLeave, type InsertDoctorLeave,
   type ConsentToken,
   type ClinicalRecord, type InsertClinicalRecord,
+  type InventoryCategory, type InsertInventoryCategory,
+  type InventoryItem, type InsertInventoryItem,
+  type StockTransaction, type InsertStockTransaction,
+  type StockAlert, type InsertStockAlert,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns } from "drizzle-orm";
@@ -145,6 +150,19 @@ export interface IStorage {
   getClinicalRecordsByClinicId(clinicId: number): Promise<ClinicalRecord[]>;
   updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord>;
   softDeleteClinicalRecord(id: number): Promise<void>;
+
+  // Inventory
+  getInventoryCategories(clinicId: number): Promise<InventoryCategory[]>;
+  createInventoryCategory(data: InsertInventoryCategory): Promise<InventoryCategory>;
+  getInventoryItems(clinicId: number): Promise<InventoryItem[]>;
+  createInventoryItem(data: InsertInventoryItem): Promise<InventoryItem>;
+  updateInventoryItem(id: number, clinicId: number, updates: Partial<InventoryItem>): Promise<InventoryItem>;
+  deleteInventoryItem(id: number, clinicId: number): Promise<void>;
+  getStockTransactions(clinicId: number): Promise<(StockTransaction & { itemName: string })[]>;
+  createStockTransaction(data: InsertStockTransaction): Promise<StockTransaction>;
+  getStockAlerts(clinicId: number): Promise<(StockAlert & { itemName: string })[]>;
+  createStockAlert(data: InsertStockAlert): Promise<StockAlert>;
+  dismissStockAlert(id: number, clinicId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -926,6 +944,80 @@ export class DatabaseStorage implements IStorage {
     await db.update(clinicalRecords)
       .set({ isDeleted: true, updatedAt: new Date() })
       .where(eq(clinicalRecords.id, id));
+  }
+
+  // ── Inventory ──────────────────────────────────────────────────────────────
+
+  async getInventoryCategories(clinicId: number): Promise<InventoryCategory[]> {
+    return db.select().from(inventoryCategories)
+      .where(eq(inventoryCategories.clinicId, clinicId))
+      .orderBy(inventoryCategories.name);
+  }
+
+  async createInventoryCategory(data: InsertInventoryCategory): Promise<InventoryCategory> {
+    const [cat] = await db.insert(inventoryCategories).values(data).returning();
+    return cat;
+  }
+
+  async getInventoryItems(clinicId: number): Promise<InventoryItem[]> {
+    return db.select().from(inventoryItems)
+      .where(eq(inventoryItems.clinicId, clinicId))
+      .orderBy(inventoryItems.name);
+  }
+
+  async createInventoryItem(data: InsertInventoryItem): Promise<InventoryItem> {
+    const [item] = await db.insert(inventoryItems).values(data).returning();
+    return item;
+  }
+
+  async updateInventoryItem(id: number, clinicId: number, updates: Partial<InventoryItem>): Promise<InventoryItem> {
+    const [item] = await db.update(inventoryItems)
+      .set(updates)
+      .where(and(eq(inventoryItems.id, id), eq(inventoryItems.clinicId, clinicId)))
+      .returning();
+    if (!item) throw new Error("Item not found");
+    return item;
+  }
+
+  async deleteInventoryItem(id: number, clinicId: number): Promise<void> {
+    await db.delete(inventoryItems)
+      .where(and(eq(inventoryItems.id, id), eq(inventoryItems.clinicId, clinicId)));
+  }
+
+  async getStockTransactions(clinicId: number): Promise<(StockTransaction & { itemName: string })[]> {
+    const rows = await db
+      .select({ tx: stockTransactions, itemName: inventoryItems.name })
+      .from(stockTransactions)
+      .innerJoin(inventoryItems, eq(stockTransactions.itemId, inventoryItems.id))
+      .where(eq(stockTransactions.clinicId, clinicId))
+      .orderBy(desc(stockTransactions.performedAt));
+    return rows.map(r => ({ ...r.tx, itemName: r.itemName }));
+  }
+
+  async createStockTransaction(data: InsertStockTransaction): Promise<StockTransaction> {
+    const [tx] = await db.insert(stockTransactions).values(data).returning();
+    return tx;
+  }
+
+  async getStockAlerts(clinicId: number): Promise<(StockAlert & { itemName: string })[]> {
+    const rows = await db
+      .select({ alert: stockAlerts, itemName: inventoryItems.name })
+      .from(stockAlerts)
+      .innerJoin(inventoryItems, eq(stockAlerts.itemId, inventoryItems.id))
+      .where(and(eq(stockAlerts.clinicId, clinicId), eq(stockAlerts.isDismissed, false)))
+      .orderBy(desc(stockAlerts.createdAt));
+    return rows.map(r => ({ ...r.alert, itemName: r.itemName }));
+  }
+
+  async createStockAlert(data: InsertStockAlert): Promise<StockAlert> {
+    const [alert] = await db.insert(stockAlerts).values(data).returning();
+    return alert;
+  }
+
+  async dismissStockAlert(id: number, clinicId: number): Promise<void> {
+    await db.update(stockAlerts)
+      .set({ isDismissed: true })
+      .where(and(eq(stockAlerts.id, id), eq(stockAlerts.clinicId, clinicId)));
   }
 }
 

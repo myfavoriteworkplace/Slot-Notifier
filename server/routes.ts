@@ -2040,5 +2040,182 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── INVENTORY ROUTES ──────────────────────────────────────────────────────
+
+  function clinicSession(req: Request) {
+    const sess = req.session as any;
+    const clinicId: number | undefined = sess?.clinicId;
+    const loggedIn: boolean = !!(sess?.adminLoggedIn || (sess?.clinicId && sess?.role === 'owner'));
+    return { clinicId, loggedIn };
+  }
+
+  // GET /api/clinic/inventory/categories
+  app.get("/api/clinic/inventory/categories", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const cats = await storage.getInventoryCategories(clinicId);
+      res.json(cats);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // POST /api/clinic/inventory/categories
+  app.post("/api/clinic/inventory/categories", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const { name, department } = req.body;
+      if (!name) return res.status(400).json({ message: "Name required" });
+      const cat = await storage.createInventoryCategory({ clinicId, name, department });
+      res.json(cat);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // GET /api/clinic/inventory/items
+  app.get("/api/clinic/inventory/items", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const items = await storage.getInventoryItems(clinicId);
+      res.json(items);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // POST /api/clinic/inventory/items
+  app.post("/api/clinic/inventory/items", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const { name, trackingType, unit, currentQty, reorderLevel, criticalLevel,
+              expiryDate, warrantyExpiry, nextServiceDate, notes, categoryId } = req.body;
+      if (!name) return res.status(400).json({ message: "Name required" });
+      const item = await storage.createInventoryItem({
+        clinicId, name,
+        trackingType: trackingType || "consumable",
+        unit: unit || null,
+        currentQty: currentQty ?? 0,
+        reorderLevel: reorderLevel ?? null,
+        criticalLevel: criticalLevel ?? null,
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+        warrantyExpiry: warrantyExpiry ? new Date(warrantyExpiry) : null,
+        nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
+        notes: notes || null,
+        categoryId: categoryId || null,
+      });
+      // Record initial stock transaction if qty > 0
+      if (item.currentQty > 0) {
+        const sess = req.session as any;
+        await storage.createStockTransaction({
+          itemId: item.id, clinicId,
+          type: "add",
+          qtyBefore: 0, qtyChange: item.currentQty, qtyAfter: item.currentQty,
+          reason: "Initial stock",
+          performedBy: sess?.adminEmail || "clinic admin",
+        });
+      }
+      res.json(item);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // PATCH /api/clinic/inventory/items/:id
+  app.patch("/api/clinic/inventory/items/:id", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const updates = req.body;
+      if (updates.expiryDate) updates.expiryDate = new Date(updates.expiryDate);
+      if (updates.warrantyExpiry) updates.warrantyExpiry = new Date(updates.warrantyExpiry);
+      if (updates.nextServiceDate) updates.nextServiceDate = new Date(updates.nextServiceDate);
+      const item = await storage.updateInventoryItem(id, clinicId, updates);
+      res.json(item);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // DELETE /api/clinic/inventory/items/:id
+  app.delete("/api/clinic/inventory/items/:id", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      await storage.deleteInventoryItem(id, clinicId);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // GET /api/clinic/inventory/transactions
+  app.get("/api/clinic/inventory/transactions", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const txs = await storage.getStockTransactions(clinicId);
+      res.json(txs);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // POST /api/clinic/inventory/transactions  (add / deduct / adjust stock)
+  app.post("/api/clinic/inventory/transactions", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const { itemId, type, qtyChange, reason } = req.body;
+      if (!itemId || !type || qtyChange === undefined) {
+        return res.status(400).json({ message: "itemId, type and qtyChange required" });
+      }
+      const items = await storage.getInventoryItems(clinicId);
+      const item = items.find(i => i.id === itemId);
+      if (!item) return res.status(404).json({ message: "Item not found" });
+
+      const qtyBefore = item.currentQty;
+      let qtyAfter: number;
+      if (type === "add") qtyAfter = qtyBefore + Math.abs(qtyChange);
+      else if (type === "deduct") qtyAfter = Math.max(0, qtyBefore - Math.abs(qtyChange));
+      else qtyAfter = Math.max(0, qtyChange); // adjust = set to value
+
+      const sess = req.session as any;
+      const tx = await storage.createStockTransaction({
+        itemId, clinicId, type,
+        qtyBefore, qtyChange: qtyAfter - qtyBefore, qtyAfter,
+        reason: reason || null,
+        performedBy: sess?.adminEmail || "clinic admin",
+      });
+
+      const updated = await storage.updateInventoryItem(itemId, clinicId, { currentQty: qtyAfter });
+
+      // Auto-generate alerts based on new quantity
+      if (updated.criticalLevel !== null && qtyAfter <= updated.criticalLevel) {
+        await storage.createStockAlert({ itemId, clinicId, alertType: "critical", isDismissed: false });
+      } else if (updated.reorderLevel !== null && qtyAfter <= updated.reorderLevel) {
+        await storage.createStockAlert({ itemId, clinicId, alertType: "low", isDismissed: false });
+      }
+
+      res.json({ tx, item: updated });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // GET /api/clinic/inventory/alerts
+  app.get("/api/clinic/inventory/alerts", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const alerts = await storage.getStockAlerts(clinicId);
+      res.json(alerts);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // PATCH /api/clinic/inventory/alerts/:id/dismiss
+  app.patch("/api/clinic/inventory/alerts/:id/dismiss", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      await storage.dismissStockAlert(id, clinicId);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   return createServer(app);
 }

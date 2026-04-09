@@ -3,6 +3,7 @@ import MapLocationPicker from "@/components/MapLocationPicker";
 import ExportDataPanel from "@/components/ExportDataPanel";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
+import { InventoryPanel } from "@/components/InventoryPanel";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
@@ -14,7 +15,7 @@ import {
   Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X,
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText,
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
-  Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList
+  Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -158,7 +159,7 @@ export default function ClinicDashboard() {
 
   // Booking form state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data'>('bookings');
+  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory'>('bookings');
 
   const [profilePhone, setProfilePhone] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -570,14 +571,6 @@ export default function ClinicDashboard() {
     return new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime();
   });
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   const handleOpenBilling = (booking: BookingWithSlot) => {
     setBillingBooking(booking);
     const receiptDate = format(new Date(), "yyyyMMdd");
@@ -686,6 +679,14 @@ export default function ClinicDashboard() {
       toast({ title: "Failed to confirm booking", description: error.message, variant: "destructive" });
     },
   });
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const addServiceRow = () => {
     setBillingDetails(prev => ({
@@ -1449,6 +1450,21 @@ export default function ClinicDashboard() {
                   <p className="text-[10px] text-muted-foreground">Download patient records</p>
                 </div>
                 {activePanel === 'export-data' && <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />}
+              </button>
+
+              <button
+                onClick={() => setActivePanel('inventory')}
+                data-testid="nav-inventory"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'inventory' ? 'bg-emerald-500/10 border border-emerald-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'inventory' ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Package className={`h-4 w-4 ${activePanel === 'inventory' ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'inventory' ? 'text-emerald-700 dark:text-emerald-400' : 'text-foreground'}`}>Inventory</p>
+                  <p className="text-[10px] text-muted-foreground">Stock, assets & alerts</p>
+                </div>
+                {activePanel === 'inventory' && <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />}
               </button>
 
             </div>
@@ -3712,6 +3728,11 @@ export default function ClinicDashboard() {
           {/* EXPORT DATA PANEL */}
           {activePanel === 'export-data' && (
             <ExportDataPanel clinic={clinic} bookings={bookings} />
+          )}
+
+          {/* INVENTORY PANEL */}
+          {activePanel === 'inventory' && (
+            <InventoryPanel clinicId={clinic.id} />
           )}
 
         </div>

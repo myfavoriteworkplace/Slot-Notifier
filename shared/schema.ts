@@ -420,6 +420,71 @@ export const insertExportHistorySchema = createInsertSchema(exportHistory).omit(
 export type ExportHistory = typeof exportHistory.$inferSelect;
 export type InsertExportHistory = z.infer<typeof insertExportHistorySchema>;
 
+// ── INVENTORY ──────────────────────────────────────────────────────────────
+
+export const inventoryCategories = pgTable("inventory_categories", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  department: varchar("department", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const inventoryItems = pgTable("inventory_items", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  categoryId: integer("category_id").references(() => inventoryCategories.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  trackingType: varchar("tracking_type", { length: 20 }).notNull().default("consumable"),
+  unit: varchar("unit", { length: 50 }),
+  currentQty: integer("current_qty").notNull().default(0),
+  reorderLevel: integer("reorder_level"),
+  criticalLevel: integer("critical_level"),
+  expiryDate: timestamp("expiry_date"),
+  warrantyExpiry: timestamp("warranty_expiry"),
+  nextServiceDate: timestamp("next_service_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const stockTransactions = pgTable("stock_transactions", {
+  id: serial("id").primaryKey(),
+  itemId: integer("item_id").notNull().references(() => inventoryItems.id),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  type: varchar("type", { length: 20 }).notNull(),
+  qtyBefore: integer("qty_before").notNull(),
+  qtyChange: integer("qty_change").notNull(),
+  qtyAfter: integer("qty_after").notNull(),
+  reason: varchar("reason", { length: 500 }),
+  performedBy: varchar("performed_by", { length: 255 }),
+  performedAt: timestamp("performed_at").defaultNow(),
+});
+
+export const stockAlerts = pgTable("stock_alerts", {
+  id: serial("id").primaryKey(),
+  itemId: integer("item_id").notNull().references(() => inventoryItems.id),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  alertType: varchar("alert_type", { length: 20 }).notNull(),
+  isDismissed: boolean("is_dismissed").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertInventoryCategorySchema = createInsertSchema(inventoryCategories).omit({ id: true, createdAt: true });
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({ id: true, createdAt: true });
+export const insertStockTransactionSchema = createInsertSchema(stockTransactions).omit({ id: true, performedAt: true });
+export const insertStockAlertSchema = createInsertSchema(stockAlerts).omit({ id: true, createdAt: true });
+
+export type InventoryCategory = typeof inventoryCategories.$inferSelect;
+export type InsertInventoryCategory = z.infer<typeof insertInventoryCategorySchema>;
+export type InventoryItem = typeof inventoryItems.$inferSelect;
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
+export type StockTransaction = typeof stockTransactions.$inferSelect;
+export type InsertStockTransaction = z.infer<typeof insertStockTransactionSchema>;
+export type StockAlert = typeof stockAlerts.$inferSelect;
+export type InsertStockAlert = z.infer<typeof insertStockAlertSchema>;
+
+// ────────────────────────────────────────────────────────────────────────────
+
 export interface ClinicSession {
   adminLoggedIn?: boolean;
   adminEmail?: string;
