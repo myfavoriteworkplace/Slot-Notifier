@@ -773,7 +773,7 @@ export default function DoctorDashboard() {
                                   <div className="pt-2 border-t border-border/30 animate-in slide-in-from-top-1 duration-150">
                                     <ClinicalRecordsTab
                                       bookingId={booking.id}
-                                      clinicId={booking.clinicId ?? 0}
+                                      clinicId={booking.clinicId}
                                       patientName={booking.customerName}
                                       patientPhone={booking.customerPhone}
                                       doctorName={profName || booking.assignedDoctor}

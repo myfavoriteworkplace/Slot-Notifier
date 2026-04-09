@@ -1950,7 +1950,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(401).json({ message: "Doctor authentication required" });
       }
       const { bookingId, clinicId, patientName, patientPhone, doctorName, diagnosis, prescription, notes } = req.body;
-      if (!bookingId || !clinicId || !patientName) {
+      if (bookingId == null || clinicId == null || !patientName) {
         return res.status(400).json({ message: "bookingId, clinicId, and patientName are required" });
       }
       const record = await storage.createClinicalRecord({
