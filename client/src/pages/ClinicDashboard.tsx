@@ -1518,116 +1518,170 @@ export default function ClinicDashboard() {
           {/* Stats Cards — click to filter */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {/* Upcoming */}
-            <Card
-              className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'upcoming' ? 'ring-2 ring-blue-500 border-blue-400' : 'border-border/50'}`}
-              onClick={() => setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming')}
-              data-testid="card-filter-upcoming"
-            >
-              <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
-              <CardContent className="p-4 text-left flex items-center gap-3">
-                <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-blue-500/20' : 'bg-blue-500/10'}`}>
-                  <TrendingUp className="h-4 w-4 text-blue-500" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-medium text-muted-foreground">Upcoming</p>
-                  <p className="text-xl font-bold text-blue-600">{futureBookingsCount}</p>
-                </div>
-                {quickFilter === 'upcoming' && (
-                  <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                )}
-              </CardContent>
-            </Card>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card
+                    className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'upcoming' ? 'ring-2 ring-blue-500 border-blue-400' : 'border-border/50'}`}
+                    onClick={() => setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming')}
+                    data-testid="card-filter-upcoming"
+                  >
+                    <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
+                    <CardContent className="p-4 text-left flex items-center gap-3">
+                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-blue-500/20' : 'bg-blue-500/10'}`}>
+                        <TrendingUp className="h-4 w-4 text-blue-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-medium text-muted-foreground">Upcoming</p>
+                        <p className="text-xl font-bold text-blue-600">{futureBookingsCount}</p>
+                      </div>
+                      {quickFilter === 'upcoming' && (
+                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                  Confirmed & pending appointments from tomorrow onwards
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             {/* Past */}
-            <Card
-              className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'past' ? 'ring-2 ring-slate-400 border-slate-400' : 'border-border/50'}`}
-              onClick={() => setQuickFilter(q => q === 'past' ? 'all' : 'past')}
-              data-testid="card-filter-past"
-            >
-              <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
-              <CardContent className="p-4 text-left flex items-center gap-3">
-                <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'past' ? 'bg-muted' : 'bg-muted'}`}>
-                  <History className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-medium text-muted-foreground">Past</p>
-                  <p className="text-xl font-bold text-muted-foreground">{pastBookingsCount}</p>
-                </div>
-                {quickFilter === 'past' && (
-                  <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                )}
-              </CardContent>
-            </Card>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card
+                    className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'past' ? 'ring-2 ring-slate-400 border-slate-400' : 'border-border/50'}`}
+                    onClick={() => setQuickFilter(q => q === 'past' ? 'all' : 'past')}
+                    data-testid="card-filter-past"
+                  >
+                    <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
+                    <CardContent className="p-4 text-left flex items-center gap-3">
+                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'past' ? 'bg-muted' : 'bg-muted'}`}>
+                        <History className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-medium text-muted-foreground">Past</p>
+                        <p className="text-xl font-bold text-muted-foreground">{pastBookingsCount}</p>
+                      </div>
+                      {quickFilter === 'past' && (
+                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                  All appointments that have already passed
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             {/* Today */}
-            <Card
-              className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'today' ? 'ring-2 ring-primary border-primary/60' : 'border-border/50'}`}
-              onClick={() => setQuickFilter(q => q === 'today' ? 'all' : 'today')}
-              data-testid="card-filter-today"
-            >
-              <div className="h-1 bg-gradient-to-r from-primary to-accent" />
-              <CardContent className="p-4 text-left flex items-center gap-3">
-                <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-primary/20' : 'bg-primary/10'}`}>
-                  <CalendarIcon className="h-4 w-4 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-medium text-muted-foreground">Today</p>
-                  <p className="text-xl font-bold text-primary">{todaysBookingsCount}</p>
-                </div>
-                {quickFilter === 'today' && (
-                  <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                )}
-              </CardContent>
-            </Card>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card
+                    className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'today' ? 'ring-2 ring-primary border-primary/60' : 'border-border/50'}`}
+                    onClick={() => setQuickFilter(q => q === 'today' ? 'all' : 'today')}
+                    data-testid="card-filter-today"
+                  >
+                    <div className="h-1 bg-gradient-to-r from-primary to-accent" />
+                    <CardContent className="p-4 text-left flex items-center gap-3">
+                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-primary/20' : 'bg-primary/10'}`}>
+                        <CalendarIcon className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-medium text-muted-foreground">Today</p>
+                        <p className="text-xl font-bold text-primary">{todaysBookingsCount}</p>
+                      </div>
+                      {quickFilter === 'today' && (
+                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                  All appointments scheduled for today
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             {/* Filtered (non-clickable, shows current result count) */}
-            <Card className="shadow-sm border-border/50 overflow-hidden">
-              <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
-              <CardContent className="p-4 text-left flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
-                  <Filter className="h-4 w-4 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium text-muted-foreground">Showing</p>
-                  <p className="text-xl font-bold text-amber-600">{filteredBookings?.length || 0}</p>
-                </div>
-              </CardContent>
-            </Card>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card className="shadow-sm border-border/50 overflow-hidden cursor-default">
+                    <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
+                    <CardContent className="p-4 text-left flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                        <Filter className="h-4 w-4 text-amber-500" />
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-medium text-muted-foreground">Showing</p>
+                        <p className="text-xl font-bold text-amber-600">{filteredBookings?.length || 0}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                  Total bookings matching your current filter or date range
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           {/* Week filter chips */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-medium text-muted-foreground">Quick week:</span>
-            <button
-              onClick={() => setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week')}
-              data-testid="chip-filter-this-week"
-              className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-all ${
-                quickFilter === 'this-week'
-                  ? 'bg-violet-500 text-white border-violet-500 shadow-sm'
-                  : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400 hover:text-violet-600'
-              }`}
-            >
-              <CalendarIcon className="h-3 w-3" />
-              This Week
-              <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-white/20 text-white' : 'bg-violet-500/10 text-violet-600'}`}>
-                {thisWeekCount}
-              </span>
-            </button>
-            <button
-              onClick={() => setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week')}
-              data-testid="chip-filter-next-week"
-              className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-all ${
-                quickFilter === 'next-week'
-                  ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
-                  : 'bg-background text-muted-foreground border-border/60 hover:border-indigo-400 hover:text-indigo-600'
-              }`}
-            >
-              <CalendarDays className="h-3 w-3" />
-              Next Week
-              <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-600'}`}>
-                {nextWeekCount}
-              </span>
-            </button>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week')}
+                    data-testid="chip-filter-this-week"
+                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                      quickFilter === 'this-week'
+                        ? 'bg-violet-500 text-white border-violet-500 shadow-sm'
+                        : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400 hover:text-violet-600'
+                    }`}
+                  >
+                    <CalendarIcon className="h-3 w-3" />
+                    This Week
+                    <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-white/20 text-white' : 'bg-violet-500/10 text-violet-600'}`}>
+                      {thisWeekCount}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                  Bookings falling within the current Mon–Sun week
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week')}
+                    data-testid="chip-filter-next-week"
+                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                      quickFilter === 'next-week'
+                        ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
+                        : 'bg-background text-muted-foreground border-border/60 hover:border-indigo-400 hover:text-indigo-600'
+                    }`}
+                  >
+                    <CalendarDays className="h-3 w-3" />
+                    Next Week
+                    <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-600'}`}>
+                      {nextWeekCount}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                  Bookings falling within next Mon–Sun week
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             {(quickFilter === 'this-week' || quickFilter === 'next-week') && (
               <button
                 onClick={() => setQuickFilter('all')}
