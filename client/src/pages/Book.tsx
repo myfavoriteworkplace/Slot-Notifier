@@ -6,8 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CalendarDays, CheckCircle2, Building2, User, Phone, Mail,
   MapPin, Sun, Moon, Clock, Shield, Sparkles, Search, Stethoscope, X, ChevronDown,
-  CreditCard, ClipboardCheck,
+  CreditCard, ClipboardCheck, Info,
 } from "lucide-react";
+import ClinicInfoSheet from "@/components/ClinicInfoSheet";
 import type { Clinic, Slot } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -71,8 +72,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [clinicMode, setClinicMode]         = useState<"select" | "search">("select");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [slotTimings, setSlotTimings]       = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [bookingPath, setBookingPath]       = useState<"pay" | "pending" | null>(null);
+  const [paymentLoading, setPaymentLoading]     = useState(false);
+  const [bookingPath, setBookingPath]           = useState<"pay" | "pending" | null>(null);
+  const [isClinicSheetOpen, setIsClinicSheetOpen] = useState(false);
   const razorpayScriptRef = useRef(false);
 
   const validateIndianPhone = (phone: string): boolean => {
@@ -629,14 +631,24 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     </p>
                   )}
                 </div>
-                {!clinicIdFromUrl && (
+                <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={() => setSelectedClinic("")}
-                    className="shrink-0 h-7 w-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-all"
+                    onClick={() => setIsClinicSheetOpen(true)}
+                    className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-white/10 hover:bg-white/25 text-white/70 hover:text-white text-[11px] font-semibold transition-all border border-white/15 hover:border-white/30"
+                    data-testid="button-view-clinic-details"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <Info className="h-3 w-3" />
+                    <span className="hidden sm:inline">Clinic Info</span>
                   </button>
-                )}
+                  {!clinicIdFromUrl && (
+                    <button
+                      onClick={() => setSelectedClinic("")}
+                      className="h-7 w-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-all"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
             </div>
@@ -1187,6 +1199,13 @@ export default function Book(props: { params: { clinicId?: string } }) {
           )}
         </DialogContent>
       </Dialog>
+
+      <ClinicInfoSheet
+        clinic={selectedClinicObj as any ?? null}
+        open={isClinicSheetOpen}
+        onOpenChange={setIsClinicSheetOpen}
+        onContinueBooking={() => setIsClinicSheetOpen(false)}
+      />
     </div>
   );
 }
