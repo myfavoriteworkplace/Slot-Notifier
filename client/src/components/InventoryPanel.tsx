@@ -841,6 +841,28 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
     queryKey: ["/api/clinic/inventory/alerts"],
   });
 
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (catsLoading || seededRef.current || categories.length > 0) return;
+    seededRef.current = true;
+    const defaults = [
+      "PPE",
+      "Patient Care",
+      "Sterilization & Disinfection",
+      "Anesthetics",
+      "Restorative Materials",
+      "Impression Materials",
+      "Endodontic Supplies",
+      "Surgical Supplies",
+      "Diagnostic Instruments",
+      "Restorative Instruments",
+      "Surgical Instruments",
+      "Equipment",
+    ];
+    Promise.all(defaults.map(name => apiRequest("POST", "/api/clinic/inventory/categories", { name })))
+      .then(() => queryClient.invalidateQueries({ queryKey: ["/api/clinic/inventory/categories"] }));
+  }, [catsLoading, categories.length]);
+
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/clinic/inventory/items/${id}`),
     onSuccess: () => {
