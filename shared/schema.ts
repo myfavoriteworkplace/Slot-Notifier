@@ -66,6 +66,8 @@ export const bookings = pgTable("bookings", {
   consentSignature: text("consent_signature"),
   consentSignedAt: timestamp("consent_signed_at"),
   consentIp: varchar("consent_ip", { length: 45 }),
+  consentToken: varchar("consent_token", { length: 255 }),
+  paymentAmount: integer("payment_amount"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
