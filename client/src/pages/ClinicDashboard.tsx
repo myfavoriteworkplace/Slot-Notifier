@@ -1894,7 +1894,7 @@ export default function ClinicDashboard() {
                         </div>
                       </DialogTrigger>
 
-                      <DialogContent className="w-[95vw] sm:max-w-[680px] rounded-2xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
+                      <DialogContent className="w-[95vw] sm:max-w-[680px] rounded-2xl p-0 overflow-hidden h-[85vh] flex flex-col">
 
                         {/* ── HEADER ── */}
                         <div className="shrink-0 bg-gradient-to-br from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-0 relative overflow-hidden">
