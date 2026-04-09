@@ -120,11 +120,14 @@ export default function ClinicalRecordsTab({
 
   const queryKey = ["/api/clinical-records/booking", bookingId];
 
-  const { data: records = [], isLoading } = useQuery<ClinicalRecord[]>({
+  const { data: records = [], isLoading, error } = useQuery<ClinicalRecord[]>({
     queryKey,
     queryFn: async () => {
       const res = await fetch(`/api/clinical-records/booking/${bookingId}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch records");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || `Error ${res.status}`);
+      }
       return res.json();
     },
   });
@@ -212,6 +215,15 @@ export default function ClinicalRecordsTab({
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-5 w-5 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-6 text-center rounded-xl border border-dashed border-destructive/40 bg-destructive/5">
+        <p className="text-xs font-medium text-destructive">Failed to load records</p>
+        <p className="text-[10px] text-muted-foreground">{(error as Error).message}</p>
       </div>
     );
   }

@@ -1930,14 +1930,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/clinical-records/booking/:bookingId", async (req, res) => {
     try {
       const session = req.session as any;
+      console.log("[CLINICAL-RECORDS-GET] session doctorLoggedIn:", session?.doctorLoggedIn, "adminLoggedIn:", session?.adminLoggedIn, "role:", session?.role);
       if (!session?.doctorLoggedIn && !session?.adminLoggedIn) {
         return res.status(401).json({ message: "Not authenticated" });
       }
       const bookingId = parseInt(req.params.bookingId);
       if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
       const records = await storage.getClinicalRecordsByBookingId(bookingId);
+      console.log("[CLINICAL-RECORDS-GET] bookingId:", bookingId, "found records:", records.length);
       res.json(records);
     } catch (err: any) {
+      console.error("[CLINICAL-RECORDS-GET] error:", err.message);
       res.status(500).json({ message: err.message });
     }
   });
