@@ -122,6 +122,7 @@ export default function ClinicalRecordsTab({
 
   const { data: records = [], isLoading, error } = useQuery<ClinicalRecord[]>({
     queryKey,
+    staleTime: 0,
     queryFn: async () => {
       const res = await fetch(`/api/clinical-records/booking/${bookingId}`, { credentials: "include" });
       if (!res.ok) {
@@ -146,7 +147,7 @@ export default function ClinicalRecordsTab({
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.refetchQueries({ queryKey });
       toast({ title: "Record saved", description: "Clinical record added successfully." });
       resetForm();
     },
@@ -165,7 +166,7 @@ export default function ClinicalRecordsTab({
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.refetchQueries({ queryKey });
       toast({ title: "Record updated" });
       resetForm();
     },
@@ -178,7 +179,7 @@ export default function ClinicalRecordsTab({
       if (!res.ok) { const b = await res.json(); throw new Error(b.message); }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.refetchQueries({ queryKey });
       toast({ title: "Record deleted" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
