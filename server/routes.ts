@@ -1949,9 +1949,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!session?.doctorLoggedIn) {
         return res.status(401).json({ message: "Doctor authentication required" });
       }
-      const { bookingId, clinicId, patientName, patientPhone, doctorName, diagnosis, prescription, notes } = req.body;
-      if (bookingId == null || clinicId == null || !patientName) {
-        return res.status(400).json({ message: "bookingId, clinicId, and patientName are required" });
+      const { bookingId, patientName, patientPhone, doctorName, diagnosis, prescription, notes } = req.body;
+      let { clinicId } = req.body;
+      if (bookingId == null || !patientName) {
+        return res.status(400).json({ message: "bookingId and patientName are required" });
+      }
+      if (clinicId == null) {
+        const [row] = await db.select({ slotClinicId: slots.clinicId })
+          .from(bookings)
+          .innerJoin(slots, eq(bookings.slotId, slots.id))
+          .where(eq(bookings.id, Number(bookingId)))
+          .limit(1);
+        clinicId = row?.slotClinicId ?? null;
+      }
+      if (clinicId == null) {
+        return res.status(400).json({ message: "Could not determine clinic for this booking" });
       }
       const record = await storage.createClinicalRecord({
         bookingId: Number(bookingId),

@@ -2036,7 +2036,7 @@ export default function ClinicDashboard() {
                             <div className="p-3">
                               <ClinicalRecordsTab
                                 bookingId={booking.id}
-                                clinicId={clinic?.id ?? (booking.slot as any)?.clinicId ?? 0}
+                                clinicId={clinic?.id ?? (booking.slot as any)?.clinicId}
                                 patientName={booking.customerName}
                                 patientPhone={booking.customerPhone}
                                 doctorName={booking.assignedDoctor}
