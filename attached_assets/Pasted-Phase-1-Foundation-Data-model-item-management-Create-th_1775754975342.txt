@@ -1,0 +1,37 @@
+Phase 1 — Foundation
+Data model + item management
+Create the 4 tables above Add Item screen with all fields including tracking_type, unit, thresholds Category management — flat list with department tag Stock list view with search and filter Per-clinic isolation on every query
+
+UI verdict — what the screen should look like
+One page, three tabs: Stock (the full item list with search, filter, category, status colour coding) · Alerts (a prioritised single list — red critical first, then yellow low stock, then orange expiring — this is what the admin checks every morning) · Log (read-only transaction history with who/what/when/why).
+Each item card in Stock view shows: name, category, current quantity with unit, a colour-coded status bar (green/yellow/red based on thresholds), expiry date if applicable, and a Quick-Deduct button for consumables. Tapping the card opens a detail panel with full history and the option to add stock or adjust.
+Assets (Profile D) appear in a separate section of the Stock tab — not mixed with consumables — showing asset name, purchase date, warranty expiry, next service date, and a colour-coded service status. No quantity shown for assets.	
+
+
+Recommended v1 database tables — simplified from your document
+TABLE
+V1?
+KEY FIELDS
+inventory_categories
+v1
+id, clinic_id, name, department (Endo/Ortho/Admin)
+inventory_items
+v1
+id, clinic_id, name, category_id, tracking_type, unit, current_qty, reorder_level, critical_level, expiry_date, warranty_expiry, next_service_date
+stock_transactions
+v1
+id, item_id, clinic_id, type (add/deduct/adjust), qty_before, qty_change, qty_after, reason, performed_by_user_id, performed_at
+stock_alerts
+v1
+id, item_id, alert_type (low/critical/expiry/service_due), triggered_at, resolved_at, is_dismissed
+
+
+UI - EXPLANATION 
+
+Alert strip at the top — the four summary cards (Critical, Low Stock, Expiring Soon, Total Items) are the first thing the admin sees every morning. Clicking any of them jumps straight to the Alerts tab. This is the "morning check" view your document asked for, but without needing a separate screen.
+Three tabs — Stock, Alerts, Log — simplified from your three-zone layout. Alerts is where 90% of daily attention goes. Stock is for browsing and searching. Log is for compliance and audit — read-only with clear labelling so no one is tempted to edit it.
+Stock tab — consumables shown as colour-coded cards with a progress bar showing how much stock remains relative to thresholds. Red pulsing dot for critical, orange for expiring, yellow for low, green for healthy. The Quick-Deduct button appears on hover so it doesn't clutter the card but is always one click away. Equipment assets shown as a separate list below with warranty and service status badges — completely different treatment from consumables, exactly as your document specified.
+Add Item drawer — four item type selectors (Consumable, Perishable, Instrument, Equipment) that will eventually show different fields based on the type. Unit of measure dropdown, dual threshold fields with colour hints, expiry date, and reason for adding — all the missing fields from your original document are here.
+Search and filter — name search and category dropdown on the Stock tab so a clinic with 100+ items can find anything instantly.
+Alerts tab — grouped by severity with red critical at top, then orange expiring, then yellow low stock. Each alert shows exactly what action is needed and has a direct action link.
+Log tab — colour-coded dots (green add, red deduct, blue adjustment), every entry shows who did it, before and after quantities, and the reason. The read-only banner is prominent so the admin understands this is an audit trail.
