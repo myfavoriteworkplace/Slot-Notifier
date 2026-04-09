@@ -401,6 +401,25 @@ app.use((req, res, next) => {
       `);
       log("doctor_leaves table verified/created", "system");
 
+      // Create clinical_records table
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS clinical_records (
+          id SERIAL PRIMARY KEY,
+          booking_id INTEGER NOT NULL REFERENCES bookings(id),
+          clinic_id INTEGER NOT NULL REFERENCES clinics(id),
+          patient_name VARCHAR(255) NOT NULL,
+          patient_phone VARCHAR(50),
+          doctor_name VARCHAR(255),
+          diagnosis JSONB DEFAULT '[]',
+          prescription TEXT,
+          notes TEXT,
+          is_deleted BOOLEAN NOT NULL DEFAULT false,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      log("clinical_records table verified/created", "system");
+
     } catch (dbErr: any) {
       log(`Schema sync warning: ${dbErr.message}`, "system");
     }

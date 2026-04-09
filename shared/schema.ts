@@ -375,6 +375,31 @@ export const insertSiteSettingsSchema = createInsertSchema(siteSettings).omit({
 export type SiteSetting = typeof siteSettings.$inferSelect;
 export type InsertSiteSetting = z.infer<typeof insertSiteSettingsSchema>;
 
+export const clinicalRecords = pgTable("clinical_records", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id").notNull().references(() => bookings.id),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  patientName: varchar("patient_name", { length: 255 }).notNull(),
+  patientPhone: varchar("patient_phone", { length: 50 }),
+  doctorName: varchar("doctor_name", { length: 255 }),
+  diagnosis: jsonb("diagnosis").$type<string[]>().default([]),
+  prescription: text("prescription"),
+  notes: text("notes"),
+  isDeleted: boolean("is_deleted").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertClinicalRecordSchema = createInsertSchema(clinicalRecords).omit({
+  id: true,
+  isDeleted: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type ClinicalRecord = typeof clinicalRecords.$inferSelect;
+export type InsertClinicalRecord = z.infer<typeof insertClinicalRecordSchema>;
+
 export const exportHistory = pgTable("export_history", {
   id: serial("id").primaryKey(),
   clinicId: integer("clinic_id").references(() => clinics.id).notNull(),

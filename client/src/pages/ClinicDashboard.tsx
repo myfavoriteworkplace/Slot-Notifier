@@ -2,6 +2,7 @@ import { ImageUpload } from "@/components/ImageUpload";
 import MapLocationPicker from "@/components/MapLocationPicker";
 import ExportDataPanel from "@/components/ExportDataPanel";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
+import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
@@ -13,7 +14,7 @@ import {
   Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X,
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText,
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
-  Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2
+  Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -2025,6 +2026,25 @@ export default function ClinicDashboard() {
 
                           {/* Shared notes & messages thread */}
                           <BookingNotesThread bookingId={booking.id} authorType="clinic_admin" />
+
+                          {/* Clinical Records — read-only for clinic admin */}
+                          <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                            <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
+                              <ClipboardList className="h-3 w-3 text-primary" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Clinical Records</span>
+                            </div>
+                            <div className="p-3">
+                              <ClinicalRecordsTab
+                                bookingId={booking.id}
+                                clinicId={clinic?.id ?? (booking.slot as any)?.clinicId ?? 0}
+                                patientName={booking.customerName}
+                                patientPhone={booking.customerPhone}
+                                doctorName={booking.assignedDoctor}
+                                mode="admin"
+                                clinicName={clinic?.name}
+                              />
+                            </div>
+                          </div>
 
                           {/* Reschedule Panel */}
                           <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">

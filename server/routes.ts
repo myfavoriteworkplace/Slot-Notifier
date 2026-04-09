@@ -1924,5 +1924,88 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── CLINICAL RECORDS ────────────────────────────────────────────────────────
+
+  // GET /api/clinical-records/booking/:bookingId — doctor or clinic admin
+  app.get("/api/clinical-records/booking/:bookingId", async (req, res) => {
+    try {
+      const session = req.session as any;
+      if (!session?.doctorLoggedIn && !session?.adminLoggedIn) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const bookingId = parseInt(req.params.bookingId);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const records = await storage.getClinicalRecordsByBookingId(bookingId);
+      res.json(records);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/clinical-records — doctor only
+  app.post("/api/clinical-records", async (req, res) => {
+    try {
+      const session = req.session as any;
+      if (!session?.doctorLoggedIn) {
+        return res.status(401).json({ message: "Doctor authentication required" });
+      }
+      const { bookingId, clinicId, patientName, patientPhone, doctorName, diagnosis, prescription, notes } = req.body;
+      if (!bookingId || !clinicId || !patientName) {
+        return res.status(400).json({ message: "bookingId, clinicId, and patientName are required" });
+      }
+      const record = await storage.createClinicalRecord({
+        bookingId: Number(bookingId),
+        clinicId: Number(clinicId),
+        patientName,
+        patientPhone: patientPhone || null,
+        doctorName: doctorName || null,
+        diagnosis: Array.isArray(diagnosis) ? diagnosis : [],
+        prescription: prescription || null,
+        notes: notes || null,
+      });
+      res.status(201).json(record);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // PATCH /api/clinical-records/:id — doctor only, update latest
+  app.patch("/api/clinical-records/:id", async (req, res) => {
+    try {
+      const session = req.session as any;
+      if (!session?.doctorLoggedIn) {
+        return res.status(401).json({ message: "Doctor authentication required" });
+      }
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid record ID" });
+      const { diagnosis, prescription, notes, doctorName } = req.body;
+      const record = await storage.updateClinicalRecord(id, {
+        ...(diagnosis !== undefined ? { diagnosis } : {}),
+        ...(prescription !== undefined ? { prescription } : {}),
+        ...(notes !== undefined ? { notes } : {}),
+        ...(doctorName !== undefined ? { doctorName } : {}),
+      });
+      res.json(record);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // DELETE /api/clinical-records/:id — doctor only, soft delete
+  app.delete("/api/clinical-records/:id", async (req, res) => {
+    try {
+      const session = req.session as any;
+      if (!session?.doctorLoggedIn) {
+        return res.status(401).json({ message: "Doctor authentication required" });
+      }
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid record ID" });
+      await storage.softDeleteClinicalRecord(id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   return createServer(app);
 }

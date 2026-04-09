@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
+import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import { useDoctorAuth } from "@/hooks/use-doctor-auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,7 @@ export default function DoctorDashboard() {
 
   const [linkCopied, setLinkCopied] = useState(false);
   const [notesOpenId, setNotesOpenId] = useState<number | null>(null);
+  const [recordsOpenId, setRecordsOpenId] = useState<number | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
   const [statusDraft, setStatusDraft] = useState("");
 
@@ -710,20 +712,36 @@ export default function DoctorDashboard() {
                               </div>
                             )}
 
-                            {/* Notes toggle */}
+                            {/* Notes & Records toggles */}
                             {quickFilter !== "awaiting" && (
                               <>
-                                <button
-                                  onClick={() => {
-                                    if (notesOpenId === booking.id) { setNotesOpenId(null); }
-                                    else { setNotesOpenId(booking.id); setStatusDraft(booking.clinicalStatus || ""); }
-                                  }}
-                                  className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
-                                >
-                                  <FileText className="h-3 w-3" />
-                                  Notes &amp; Messages
-                                  {notesOpenId === booking.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                </button>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => {
+                                      if (notesOpenId === booking.id) { setNotesOpenId(null); }
+                                      else { setNotesOpenId(booking.id); setRecordsOpenId(null); setStatusDraft(booking.clinicalStatus || ""); }
+                                    }}
+                                    className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+                                  >
+                                    <FileText className="h-3 w-3" />
+                                    Notes
+                                    {notesOpenId === booking.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                  </button>
+                                  <span className="text-border/60 text-xs">·</span>
+                                  <button
+                                    onClick={() => {
+                                      if (recordsOpenId === booking.id) { setRecordsOpenId(null); }
+                                      else { setRecordsOpenId(booking.id); setNotesOpenId(null); }
+                                    }}
+                                    className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+                                    data-testid={`button-clinical-records-${booking.id}`}
+                                  >
+                                    <ClipboardList className="h-3 w-3" />
+                                    Records
+                                    {recordsOpenId === booking.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                  </button>
+                                </div>
+
                                 {notesOpenId === booking.id && (
                                   <div className="space-y-2.5 pt-2 border-t border-border/30 animate-in slide-in-from-top-1 duration-150">
                                     <div className="space-y-1">
@@ -748,6 +766,21 @@ export default function DoctorDashboard() {
                                     </div>
                                     <BookingNotesThread bookingId={booking.id} authorType="doctor" />
                                     <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground w-full" onClick={() => setNotesOpenId(null)}>Close</Button>
+                                  </div>
+                                )}
+
+                                {recordsOpenId === booking.id && (
+                                  <div className="pt-2 border-t border-border/30 animate-in slide-in-from-top-1 duration-150">
+                                    <ClinicalRecordsTab
+                                      bookingId={booking.id}
+                                      clinicId={booking.clinicId ?? 0}
+                                      patientName={booking.customerName}
+                                      patientPhone={booking.customerPhone}
+                                      doctorName={profName || booking.assignedDoctor}
+                                      mode="doctor"
+                                      clinicName={booking.clinic?.name || booking.clinicName}
+                                    />
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground w-full mt-2" onClick={() => setRecordsOpenId(null)}>Close</Button>
                                   </div>
                                 )}
                               </>

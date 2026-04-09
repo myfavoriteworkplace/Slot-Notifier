@@ -1,6 +1,6 @@
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
-  doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens,
+  doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, clinicalRecords,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -15,7 +15,8 @@ import {
   type ExportHistory, type InsertExportHistory,
   type BookingNote, type InsertBookingNote,
   type DoctorLeave, type InsertDoctorLeave,
-  type ConsentToken
+  type ConsentToken,
+  type ClinicalRecord, type InsertClinicalRecord,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns } from "drizzle-orm";
@@ -137,6 +138,13 @@ export interface IStorage {
   createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date): Promise<ConsentToken>;
   getConsentByToken(token: string): Promise<(ConsentToken & { booking: Booking; clinic: Clinic }) | undefined>;
   markConsentSigned(token: string, signature: string, ip: string): Promise<void>;
+
+  // Clinical Records
+  createClinicalRecord(data: InsertClinicalRecord): Promise<ClinicalRecord>;
+  getClinicalRecordsByBookingId(bookingId: number): Promise<ClinicalRecord[]>;
+  getClinicalRecordsByClinicId(clinicId: number): Promise<ClinicalRecord[]>;
+  updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord>;
+  softDeleteClinicalRecord(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -882,6 +890,42 @@ export class DatabaseStorage implements IStorage {
       consentSignedAt: new Date(),
       consentIp: ip,
     }).where(eq(bookings.id, ct.bookingId));
+  }
+
+  // Clinical Records
+  async createClinicalRecord(data: InsertClinicalRecord): Promise<ClinicalRecord> {
+    const [record] = await db.insert(clinicalRecords).values({
+      ...data,
+      updatedAt: new Date(),
+    }).returning();
+    return record;
+  }
+
+  async getClinicalRecordsByBookingId(bookingId: number): Promise<ClinicalRecord[]> {
+    return db.select().from(clinicalRecords)
+      .where(and(eq(clinicalRecords.bookingId, bookingId), eq(clinicalRecords.isDeleted, false)))
+      .orderBy(desc(clinicalRecords.createdAt));
+  }
+
+  async getClinicalRecordsByClinicId(clinicId: number): Promise<ClinicalRecord[]> {
+    return db.select().from(clinicalRecords)
+      .where(and(eq(clinicalRecords.clinicId, clinicId), eq(clinicalRecords.isDeleted, false)))
+      .orderBy(desc(clinicalRecords.createdAt));
+  }
+
+  async updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord> {
+    const [record] = await db.update(clinicalRecords)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(clinicalRecords.id, id))
+      .returning();
+    if (!record) throw new Error("Clinical record not found");
+    return record;
+  }
+
+  async softDeleteClinicalRecord(id: number): Promise<void> {
+    await db.update(clinicalRecords)
+      .set({ isDeleted: true, updatedAt: new Date() })
+      .where(eq(clinicalRecords.id, id));
   }
 }
 
