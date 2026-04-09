@@ -187,6 +187,56 @@ app.use((req, res, next) => {
       `);
       log("clinics columns verified/updated", "system");
 
+      // Add missing columns to bookings table
+      await db.execute(sql`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='description') THEN
+            ALTER TABLE bookings ADD COLUMN description text;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='assigned_doctor') THEN
+            ALTER TABLE bookings ADD COLUMN assigned_doctor varchar(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='assigned_doctor_email') THEN
+            ALTER TABLE bookings ADD COLUMN assigned_doctor_email varchar(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='doctor_approval_status') THEN
+            ALTER TABLE bookings ADD COLUMN doctor_approval_status varchar(30);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='doctor_notes') THEN
+            ALTER TABLE bookings ADD COLUMN doctor_notes text;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='clinical_status') THEN
+            ALTER TABLE bookings ADD COLUMN clinical_status varchar(50);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='confirmed_by') THEN
+            ALTER TABLE bookings ADD COLUMN confirmed_by varchar(20);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='consent_signed_at') THEN
+            ALTER TABLE bookings ADD COLUMN consent_signed_at timestamp;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='consent_signature') THEN
+            ALTER TABLE bookings ADD COLUMN consent_signature text;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='consent_token') THEN
+            ALTER TABLE bookings ADD COLUMN consent_token varchar(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='payment_status') THEN
+            ALTER TABLE bookings ADD COLUMN payment_status varchar(30);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='payment_amount') THEN
+            ALTER TABLE bookings ADD COLUMN payment_amount integer;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='razorpay_order_id') THEN
+            ALTER TABLE bookings ADD COLUMN razorpay_order_id varchar(255);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='razorpay_payment_id') THEN
+            ALTER TABLE bookings ADD COLUMN razorpay_payment_id varchar(255);
+          END IF;
+        END $$;
+      `);
+      log("bookings columns verified/updated", "system");
+
       // Check if doctor_invites table exists
       const checkTable = await db.execute(
         sql`SELECT table_name FROM information_schema.tables WHERE table_name='doctor_invites'`

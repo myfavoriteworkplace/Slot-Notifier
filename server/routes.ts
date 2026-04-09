@@ -1245,6 +1245,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.patch("/api/auth/clinic/bookings/:id/clinical-status", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const { clinicalStatus } = req.body;
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const [updated] = await db.update(bookings)
+        .set({ clinicalStatus: clinicalStatus ?? null })
+        .where(eq(bookings.id, bookingId))
+        .returning();
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.patch("/api/auth/clinic/bookings/:id/confirm", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });

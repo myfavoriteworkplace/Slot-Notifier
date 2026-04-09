@@ -143,6 +143,12 @@ export default function ClinicDashboard() {
   };
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
 
+  // Modal tab state — keyed by booking id
+  const [modalTabs, setModalTabs] = useState<Record<number, 'overview' | 'clinical' | 'notes' | 'actions'>>({});
+  const getModalTab = (id: number) => modalTabs[id] ?? 'overview';
+  const setModalTab = (id: number, tab: 'overview' | 'clinical' | 'notes' | 'actions') =>
+    setModalTabs(prev => ({ ...prev, [id]: tab }));
+
   // Reschedule state
   const [rescheduleBookingId, setRescheduleBookingId] = useState<number | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState<Date>(startOfToday());
@@ -591,6 +597,21 @@ export default function ClinicDashboard() {
     },
     onError: (error: any) => {
       toast({ title: "Failed to reschedule booking", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateClinicalStatusMutation = useMutation({
+    mutationFn: async ({ bookingId, clinicalStatus }: { bookingId: number; clinicalStatus: string }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/clinical-status`, { clinicalStatus });
+      if (!response.ok) throw new Error('Failed to update clinical status');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      toast({ title: "Clinical status updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to update clinical status", description: error.message, variant: "destructive" });
     },
   });
 
@@ -1873,540 +1894,700 @@ export default function ClinicDashboard() {
                         </div>
                       </DialogTrigger>
 
-                      <DialogContent className="w-[95vw] sm:max-w-[460px] rounded-2xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
+                      <DialogContent className="w-[95vw] sm:max-w-[680px] rounded-2xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
 
-                        {/* ── HERO HEADER ─────────────────────────────── */}
-                        <div className="relative overflow-hidden shrink-0">
-                          {/* Neon accent bar */}
-                          <div className={`h-[3px] ${accentBar}`} />
-                          {/* Gradient background */}
-                          <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 pt-4 pb-4">
-                            {/* Radial glow overlay */}
-                            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
-                            <div className="relative flex items-start gap-4">
-                              {/* Large avatar */}
-                              <div className="shrink-0 relative">
-                                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-accent/40 to-primary/30 blur-sm" />
-                                <div className="relative h-14 w-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center ring-2 ring-white/10">
-                                  <span className="text-2xl font-black text-white leading-none drop-shadow">
-                                    {booking.customerName.charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-                              </div>
-                              {/* Name block */}
-                              <div className="flex-1 min-w-0 pt-0.5">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <DialogTitle className="text-white font-extrabold text-xl leading-tight tracking-tight">
-                                    {booking.customerName}
-                                  </DialogTitle>
-                                  <span className="font-mono text-[9px] uppercase tracking-widest text-white/60 bg-white/10 border border-white/20 px-1.5 py-0.5 rounded-md shrink-0">
-                                    #{getBookingNumber(booking).padStart(2, '0')}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                  <span className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${
-                                    isBookingToday ? 'text-emerald-300 bg-emerald-400/15 border-emerald-400/30'
-                                    : isBookingPast ? 'text-white/50 bg-white/10 border-white/20'
-                                    : 'text-primary bg-primary/10 border-primary/20'
-                                  }`}>
-                                    {statusLabel}
-                                  </span>
-                                  <span className="text-[10px] text-white/50 font-medium flex items-center gap-1">
-                                    <Clock className="h-2.5 w-2.5" />
-                                    {booking.createdAt ? format(new Date(booking.createdAt), "MMM d, h:mm a") : "—"}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            {/* Nameplate strip */}
-                            <div className="mt-3 flex items-center gap-2">
-                              <div className="flex-1 h-px bg-white/10" />
-                              <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-white/35">appointment details</span>
-                              <div className="flex-1 h-px bg-white/10" />
-                            </div>
-                          </div>
-                          {/* Bottom accent */}
-                          <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-50" />
-                        </div>
-
-                        {/* ── SCROLLABLE BODY ──────────────────────────── */}
-                        <div className="overflow-y-auto flex-1 p-4 space-y-3">
-
-                          {/* Appointment Info Panel */}
-                          <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                            <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                              <CalendarDays className="h-3 w-3 text-primary" />
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Appointment</span>
-                            </div>
-                            <div className="grid grid-cols-2 divide-x divide-border/50">
-                              <div className="px-3 py-2.5">
-                                <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Date</p>
-                                <p className="text-sm font-bold text-foreground">{format(bookingDateTime, "MMM d, yyyy")}</p>
-                                <p className="text-[10px] text-muted-foreground">{format(bookingDateTime, "EEEE")}</p>
-                              </div>
-                              <div className="px-3 py-2.5">
-                                <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Time</p>
-                                <p className="text-sm font-bold text-foreground">{format(bookingDateTime, "h:mm a")}</p>
-                                <p className="text-[10px] text-muted-foreground">→ {format(new Date(booking.slot.endTime), "h:mm a")}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Patient Contact Panel */}
-                          <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                            <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                              <User className="h-3 w-3 text-primary" />
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Contact</span>
-                            </div>
-                            <div className="divide-y divide-border/40">
-                              <div className="px-3 py-2.5 flex items-center gap-3">
-                                <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                  <Phone className="h-3 w-3 text-primary" />
-                                </div>
-                                <span className="text-sm font-medium text-foreground">{booking.customerPhone}</span>
-                              </div>
-                              <div className="px-3 py-2.5 flex items-center gap-3">
-                                <div className="h-6 w-6 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                                  <Mail className="h-3 w-3 text-blue-500" />
-                                </div>
-                                <span className="text-sm text-muted-foreground">{booking.customerEmail || "No email provided"}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Chief Complaints Panel */}
-                          {complaints.length > 0 && (
-                            <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                              <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                                <FlaskConical className="h-3 w-3 text-primary" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Chief Complaints</span>
-                              </div>
-                              <div className="px-3 py-2.5 flex flex-wrap gap-1.5">
-                                {complaints.map((c, i) => (
-                                  <span key={i} className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/10 border border-primary/25 px-2 py-1 rounded-lg">
-                                    {c}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Detailed description */}
-                          {booking.description && (
-                            <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                              <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                                <FileText className="h-3 w-3 text-primary" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Chief Complaint</span>
-                              </div>
-                              <p className="px-3 py-2.5 text-sm text-muted-foreground italic leading-relaxed">"{booking.description}"</p>
-                            </div>
-                          )}
-
-                          {/* Clinical status badge (doctor-set, read-only for clinic admin) */}
-                          {booking.clinicalStatus && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Clinical Status:</span>
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                booking.clinicalStatus === "case_closed"
-                                  ? "bg-green-500/15 text-green-600 dark:text-green-400"
-                                  : booking.clinicalStatus === "follow_up_required"
-                                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                                  : booking.clinicalStatus === "revisit"
-                                  ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
-                                  : "bg-primary/10 text-primary"
-                              }`}>
-                                {booking.clinicalStatus === "first_visit" ? "First Visit"
-                                  : booking.clinicalStatus === "revisit" ? "Revisit"
-                                  : booking.clinicalStatus === "follow_up_required" ? "Follow-up Required"
-                                  : booking.clinicalStatus === "case_closed" ? "Case Closed"
-                                  : booking.clinicalStatus}
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Shared notes & messages thread */}
-                          <BookingNotesThread bookingId={booking.id} authorType="clinic_admin" />
-
-                          {/* Clinical Records — read-only for clinic admin */}
-                          <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                            <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                              <ClipboardList className="h-3 w-3 text-primary" />
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Clinical Records</span>
-                            </div>
-                            <div className="p-3">
-                              <ClinicalRecordsTab
-                                bookingId={booking.id}
-                                clinicId={clinic?.id ?? (booking.slot as any)?.clinicId}
-                                patientName={booking.customerName}
-                                patientPhone={booking.customerPhone}
-                                doctorName={booking.assignedDoctor}
-                                mode="admin"
-                                clinicName={clinic?.name}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Reschedule Panel */}
-                          <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                            <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5">
-                                <CalendarDays className="h-3 w-3 text-primary" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Reschedule</span>
-                              </div>
-                              {rescheduleBookingId === booking.id ? (
-                                <button
-                                  className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                                  onClick={() => { setRescheduleBookingId(null); setRescheduleSlot(null); }}
-                                  data-testid="button-cancel-reschedule"
-                                >
-                                  Collapse ↑
-                                </button>
-                              ) : (
-                                <button
-                                  className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
-                                  onClick={() => { setRescheduleBookingId(booking.id); setRescheduleDate(new Date(booking.slot.startTime)); }}
-                                  data-testid="button-start-reschedule"
-                                >
-                                  Change →
-                                </button>
-                              )}
-                            </div>
-
-                            {rescheduleBookingId === booking.id && (
-                              <div className="px-3 py-3 space-y-3">
-                                {/* Date strip */}
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Select Date</span>
-                                    <span className="text-[10px] text-muted-foreground">{format(rescheduleDate, "MMMM yyyy")}</span>
-                                  </div>
-                                  <ScrollArea className="w-full whitespace-nowrap pb-1">
-                                    <div className="flex space-x-1.5 w-max pb-1">
-                                      {dates.map((date) => (
-                                        <button
-                                          key={date.toISOString()}
-                                          onClick={() => { setRescheduleDate(date); setRescheduleSlot(null); }}
-                                          className={`flex flex-col items-center justify-center min-w-[2.75rem] h-11 rounded-xl border transition-all text-center ${
-                                            isSameDay(date, rescheduleDate)
-                                              ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
-                                              : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5'
-                                          }`}
-                                          data-testid={`reschedule-date-${format(date, 'yyyy-MM-dd')}`}
-                                        >
-                                          <span className="text-[8px] uppercase font-bold opacity-70">{format(date, "EEE")}</span>
-                                          <span className="text-sm font-black leading-tight">{format(date, "d")}</span>
-                                        </button>
-                                      ))}
-                                    </div>
-                                    <ScrollBar orientation="horizontal" />
-                                  </ScrollArea>
-                                </div>
-
-                                {/* Slot grid */}
-                                <div className="space-y-1.5">
-                                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
-                                  <div className="grid grid-cols-3 gap-1.5">
-                                    {slotTimings.map((slot) => {
-                                      const slotTime = new Date(rescheduleDate);
-                                      slotTime.setHours(slot.startHour, slot.startMinute, 0, 0);
-                                      const isoString = slotTime.toISOString();
-                                      const currentBookings = bookings?.filter(b =>
-                                        new Date(b.slot.startTime).toISOString() === isoString && b.id !== booking.id
-                                      ).length || 0;
-                                      const isFull = currentBookings >= 3;
-                                      const isSelected = rescheduleSlot === slot.id;
-                                      return (
-                                        <button
-                                          key={slot.id}
-                                          onClick={() => !isFull && setRescheduleSlot(slot.id)}
-                                          disabled={isFull}
-                                          className={`relative flex flex-col items-center justify-center h-12 rounded-xl border text-center transition-all ${
-                                            isSelected
-                                              ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
-                                              : isFull
-                                              ? 'bg-muted/30 border-border/40 opacity-50 cursor-not-allowed'
-                                              : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5'
-                                          }`}
-                                          data-testid={`reschedule-slot-${slot.id}`}
-                                        >
-                                          <span className="text-[10px] font-bold leading-tight">{slot.label}</span>
-                                          <span className="text-[9px] opacity-70 leading-tight">{formatTime(slot.startHour, slot.startMinute)}</span>
-                                          {isFull && (
-                                            <span className="absolute -top-1.5 -right-1.5 text-[8px] font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
-                                          )}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-
-                                {/* Confirm button */}
-                                <Button
-                                  className="w-full h-9 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0"
-                                  disabled={!rescheduleSlot || rescheduleMutation.isPending}
-                                  onClick={async () => {
-                                    if (!rescheduleSlot) return;
-                                    const slotInfo = slotTimings.find(s => s.id === rescheduleSlot);
-                                    if (!slotInfo) return;
-                                    const newSlotTime = new Date(rescheduleDate);
-                                    newSlotTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
-                                    try {
-                                      const configResponse = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
-                                        startTime: newSlotTime.toISOString(), maxBookings: 3, isCancelled: false
-                                      });
-                                      if (!configResponse.ok) throw new Error('Failed to ensure slot exists');
-                                      const configResult = await configResponse.json();
-                                      const newSlotId = configResult.id;
-                                      if (newSlotId) {
-                                        rescheduleMutation.mutate({ bookingId: booking.id, newSlotId });
-                                      } else {
-                                        throw new Error("Invalid slot ID received from server");
-                                      }
-                                    } catch (error: any) {
-                                      toast({ title: "Failed to reschedule", description: error.message, variant: "destructive" });
-                                    }
-                                  }}
-                                  data-testid="button-confirm-reschedule"
-                                >
-                                  {rescheduleMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
-                                  Confirm Reschedule
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Digital Consent Panel */}
-                          <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                            <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5">
-                                <ClipboardCheck className="h-3 w-3 text-primary" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Digital Consent</span>
-                              </div>
-                              {booking.consentSignedAt ? (
-                                <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
-                                  <CheckCircle2 className="h-3 w-3" /> Signed
+                        {/* ── HEADER ── */}
+                        <div className="shrink-0 bg-gradient-to-br from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-0 relative overflow-hidden">
+                          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
+                          {/* Top row: avatar + name + close */}
+                          <div className="relative flex items-start gap-4 mb-3">
+                            <div className="shrink-0">
+                              <div className="h-12 w-12 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center ring-2 ring-white/10">
+                                <span className="text-xl font-black text-white leading-none">
+                                  {booking.customerName.charAt(0).toUpperCase()}
                                 </span>
-                              ) : (
-                                <button
-                                  className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
-                                  onClick={() => requestConsentMutation.mutate(booking.id)}
-                                  disabled={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
-                                  data-testid={`button-request-consent-${booking.id}`}
-                                >
-                                  {requestConsentMutation.isPending && requestConsentMutation.variables === booking.id
-                                    ? "Sending…"
-                                    : consentUrls[booking.id] ? "Resend →" : "Request →"}
-                                </button>
-                              )}
-                            </div>
-                            {!booking.consentSignedAt && consentUrls[booking.id] && (
-                              <div className="px-3 py-2.5 space-y-2">
-                                <p className="text-[10px] text-muted-foreground">
-                                  WhatsApp link sent to <strong>{booking.customerPhone}</strong>. Share manually if needed:
-                                </p>
-                                <div className="flex items-center gap-1.5">
-                                  <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-[10px] text-muted-foreground font-mono truncate">
-                                    {consentUrls[booking.id]}
-                                  </div>
-                                  <button
-                                    className="shrink-0 p-1.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors"
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(consentUrls[booking.id]);
-                                      setCopiedConsentId(booking.id);
-                                      setTimeout(() => setCopiedConsentId(null), 2000);
-                                    }}
-                                    data-testid={`button-copy-consent-${booking.id}`}
-                                  >
-                                    {copiedConsentId === booking.id
-                                      ? <Check className="h-3 w-3 text-green-500" />
-                                      : <Copy className="h-3 w-3 text-muted-foreground" />}
-                                  </button>
-                                  <a
-                                    href={consentUrls[booking.id]}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="shrink-0 p-1.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors"
-                                    data-testid={`link-open-consent-${booking.id}`}
-                                  >
-                                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                                  </a>
-                                </div>
                               </div>
-                            )}
-                            {booking.consentSignedAt && (
-                              <div className="px-3 py-2 flex items-center justify-between gap-2">
-                                <span className="text-[10px] text-muted-foreground">
-                                  Signed on {format(new Date(booking.consentSignedAt), "dd MMM yyyy, hh:mm a")}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <DialogTitle className="text-white font-extrabold text-xl leading-tight tracking-tight">
+                                  {booking.customerName}
+                                </DialogTitle>
+                                <span className="font-mono text-[9px] uppercase tracking-widest text-white/60 bg-white/10 border border-white/20 px-1.5 py-0.5 rounded-md shrink-0">
+                                  REF-{getBookingNumber(booking).padStart(4, '0')}
                                 </span>
-                                {booking.consentSignature && (
-                                  <button
-                                    className="flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
-                                    onClick={() => generateConsentPdf(booking)}
-                                    data-testid={`button-download-consent-${booking.id}`}
-                                  >
-                                    <Download className="h-3 w-3" />
-                                    Download PDF
-                                  </button>
+                              </div>
+                              {/* Badges row */}
+                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                {booking.verificationStatus === 'confirmed' && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/20 text-white">
+                                    <CheckCircle2 className="h-2.5 w-2.5" />
+                                    Verified
+                                  </span>
+                                )}
+                                {booking.doctorApprovalStatus === 'approved' && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white border border-white/25">
+                                    <CheckCircle2 className="h-2.5 w-2.5" />
+                                    Doctor Confirmed
+                                  </span>
+                                )}
+                                {booking.doctorApprovalStatus === 'pending' && booking.assignedDoctor && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30">
+                                    Awaiting Doctor
+                                  </span>
+                                )}
+                                {booking.consentSignedAt && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white/90 border border-white/20">
+                                    <CheckCircle2 className="h-2.5 w-2.5" />
+                                    Consent Signed
+                                  </span>
                                 )}
                               </div>
-                            )}
+                            </div>
                           </div>
 
-                          {/* Assign Doctor Panel */}
-                          {(clinic?.doctorName || (clinic?.doctors && (clinic.doctors as any[]).length > 0)) && (() => {
-                            const bookingDateStr = format(new Date(booking.slot.startTime), 'yyyy-MM-dd');
-                            const isOOO = (email?: string, name?: string) =>
-                              allDoctorLeaves.some(l =>
-                                l.leaveDate === bookingDateStr &&
-                                ((email && l.doctorEmail === email) || (name && l.doctorName === name))
-                              );
-                            const oooReason = (email?: string, name?: string) =>
-                              allDoctorLeaves.find(l =>
-                                l.leaveDate === bookingDateStr &&
-                                ((email && l.doctorEmail === email) || (name && l.doctorName === name))
-                              )?.reason;
-                            return (
-                            <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                              <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                                <Stethoscope className="h-3 w-3 text-primary" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign Doctor</span>
-                              </div>
-                              <div className="p-2.5 space-y-1.5">
-                                {/* Lead doctor */}
-                                {clinic?.doctorName && (() => {
-                                  const isAssigned = booking.assignedDoctor === clinic.doctorName;
-                                  const outOfOffice = isOOO(undefined, clinic.doctorName);
-                                  const reason = oooReason(undefined, clinic.doctorName);
-                                  const btn = (
-                                    <button
-                                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
-                                        isAssigned
-                                          ? 'bg-primary border-primary shadow-md shadow-primary/20'
-                                          : outOfOffice
-                                          ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
-                                          : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
-                                      }`}
-                                      onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: clinic.doctorName!, doctorEmail: undefined }); }}
-                                      disabled={assignDoctorMutation.isPending}
-                                    >
-                                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isAssigned ? 'bg-white/20 border border-white/30' : 'bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20'}`}>
-                                        <span className={`text-xs font-bold ${isAssigned ? 'text-white' : 'text-primary'}`}>{clinic.doctorName.charAt(0)}</span>
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-white' : 'text-foreground'}`}>{clinic.doctorName}</p>
-                                        <p className={`text-[10px] ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
-                                          {outOfOffice ? '⚠ Out of office' : (clinic.doctorSpecialization || 'Lead Doctor')}
-                                        </p>
-                                      </div>
-                                      {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
-                                    </button>
-                                  );
-                                  return outOfOffice ? (
-                                    <TooltipProvider key="lead" delayDuration={100}>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                                        <TooltipContent side="top" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
-                                          <p className="font-semibold">Out of office on {format(new Date(booking.slot.startTime), 'MMM d')}</p>
-                                          {reason && <p className="text-amber-300 mt-0.5">{reason}</p>}
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  ) : btn;
-                                })()}
-                                {/* Other doctors */}
-                                {clinic?.doctors && Array.isArray(clinic.doctors) && (clinic.doctors as any[]).map((doctor, idx) => {
-                                  const isAssigned = booking.assignedDoctor === doctor.name;
-                                  const outOfOffice = isOOO(doctor.email, doctor.name);
-                                  const reason = oooReason(doctor.email, doctor.name);
-                                  const btn = (
-                                    <button
-                                      key={idx}
-                                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
-                                        isAssigned
-                                          ? 'bg-primary border-primary shadow-md shadow-primary/20'
-                                          : outOfOffice
-                                          ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
-                                          : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
-                                      }`}
-                                      onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: doctor.name, doctorEmail: doctor.email }); }}
-                                      disabled={assignDoctorMutation.isPending}
-                                    >
-                                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isAssigned ? 'bg-white/20 border border-white/30' : 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-300/30'}`}>
-                                        <span className={`text-xs font-bold ${isAssigned ? 'text-white' : 'text-emerald-600'}`}>{doctor.name.charAt(0)}</span>
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-white' : 'text-foreground'}`}>Dr. {doctor.name}</p>
-                                        <p className={`text-[10px] ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
-                                          {outOfOffice ? '⚠ Out of office' : `${doctor.specialization}${doctor.degree ? ` · ${doctor.degree}` : ''}`}
-                                        </p>
-                                      </div>
-                                      {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
-                                    </button>
-                                  );
-                                  return outOfOffice ? (
-                                    <TooltipProvider key={idx} delayDuration={100}>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                                        <TooltipContent side="top" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
-                                          <p className="font-semibold">Out of office on {format(new Date(booking.slot.startTime), 'MMM d')}</p>
-                                          {reason && <p className="text-amber-300 mt-0.5">{reason}</p>}
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  ) : btn;
-                                })}
-                              </div>
+                          {/* Appointment strip */}
+                          <div className="relative flex items-center gap-4 pb-3 flex-wrap">
+                            <div className="flex items-center gap-1.5 text-[12px] text-white/75">
+                              <CalendarDays className="h-3 w-3 opacity-80 shrink-0" />
+                              <strong className="text-white font-semibold">{format(bookingDateTime, "EEE, d MMM yyyy")}</strong>
                             </div>
-                            );
-                          })()}
+                            <div className="flex items-center gap-1.5 text-[12px] text-white/75">
+                              <Clock className="h-3 w-3 opacity-80 shrink-0" />
+                              <strong className="text-white font-semibold">{format(bookingDateTime, "h:mm a")}</strong>
+                              <span>→ {format(new Date(booking.slot.endTime), "h:mm a")}</span>
+                            </div>
+                            {clinic?.name && (
+                              <div className="flex items-center gap-1.5 text-[12px] text-white/75">
+                                <Building2 className="h-3 w-3 opacity-80 shrink-0" />
+                                <span>{clinic.name}</span>
+                              </div>
+                            )}
+                            {!isBookingPast && (() => {
+                              const daysAway = differenceInCalendarDays(bookingDateTime, new Date());
+                              const label = isBookingToday ? "Today" : daysAway === 1 ? "Tomorrow" : `in ${daysAway} days`;
+                              return (
+                                <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30">
+                                  {label}
+                                </span>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Tab bar — sits at the bottom of the header */}
+                          <div className="relative flex border-t border-white/10 -mx-5">
+                            {([ 
+                              { key: 'overview', label: 'Overview', icon: <User className="h-3 w-3" /> },
+                              { key: 'clinical', label: 'Clinical', icon: <ClipboardList className="h-3 w-3" /> },
+                              { key: 'notes',    label: 'Notes',    icon: <FileText className="h-3 w-3" /> },
+                              { key: 'actions',  label: 'Actions',  icon: <Settings className="h-3 w-3" /> },
+                            ] as const).map(({ key, label, icon }) => {
+                              const isActive = getModalTab(booking.id) === key;
+                              return (
+                                <button
+                                  key={key}
+                                  onClick={() => setModalTab(booking.id, key)}
+                                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition-all border-b-2 ${
+                                    isActive
+                                      ? 'text-white border-white'
+                                      : 'text-white/55 border-transparent hover:text-white/80'
+                                  }`}
+                                  data-testid={`modal-tab-${key}-${booking.id}`}
+                                >
+                                  {icon}{label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* ── TAB PANELS ── */}
+                        <div className="overflow-y-auto flex-1">
+
+                          {/* OVERVIEW TAB */}
+                          {getModalTab(booking.id) === 'overview' && (
+                            <div className="p-4 space-y-3">
+
+                              {/* Appointment details */}
+                              <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
+                                  <CalendarDays className="h-3 w-3 text-primary" />
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Appointment</span>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 divide-x divide-border/50">
+                                  <div className="px-3 py-2.5">
+                                    <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Date</p>
+                                    <p className="text-sm font-bold text-foreground">{format(bookingDateTime, "MMM d, yyyy")}</p>
+                                    <p className="text-[10px] text-muted-foreground">{format(bookingDateTime, "EEEE")}</p>
+                                  </div>
+                                  <div className="px-3 py-2.5">
+                                    <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Time</p>
+                                    <p className="text-sm font-bold text-foreground">{format(bookingDateTime, "h:mm a")}</p>
+                                    <p className="text-[10px] text-muted-foreground">→ {format(new Date(booking.slot.endTime), "h:mm a")}</p>
+                                  </div>
+                                  {booking.assignedDoctor && (
+                                    <div className="px-3 py-2.5 col-span-2 sm:col-span-1 border-t border-border/50 sm:border-t-0">
+                                      <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Doctor</p>
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                                          <span className="text-[8px] font-bold text-primary">{booking.assignedDoctor.charAt(0)}</span>
+                                        </div>
+                                        <p className="text-sm font-semibold text-foreground truncate">Dr. {booking.assignedDoctor}</p>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                {booking.createdAt && (
+                                  <div className="px-3 py-1.5 bg-muted/20 border-t border-border/40">
+                                    <span className="text-[10px] text-muted-foreground">Booked on {format(new Date(booking.createdAt), "MMM d, yyyy · h:mm a")}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Contact */}
+                              <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
+                                  <User className="h-3 w-3 text-primary" />
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Contact</span>
+                                </div>
+                                <div className="divide-y divide-border/40">
+                                  <div className="px-3 py-2.5 flex items-center gap-3">
+                                    <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                      <Phone className="h-3 w-3 text-primary" />
+                                    </div>
+                                    <span className="text-sm font-medium text-foreground">{booking.customerPhone}</span>
+                                  </div>
+                                  <div className="px-3 py-2.5 flex items-center gap-3">
+                                    <div className="h-6 w-6 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                                      <Mail className="h-3 w-3 text-blue-500" />
+                                    </div>
+                                    <span className="text-sm text-muted-foreground">{booking.customerEmail || "No email provided"}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Chief Complaints */}
+                              {(complaints.length > 0 || booking.description) && (
+                                <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                  <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
+                                    <FlaskConical className="h-3 w-3 text-primary" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Chief Complaint</span>
+                                  </div>
+                                  {complaints.length > 0 && (
+                                    <div className="px-3 py-2.5 flex flex-wrap gap-1.5">
+                                      {complaints.map((c, i) => (
+                                        <span key={i} className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/10 border border-primary/25 px-2 py-1 rounded-lg">
+                                          {c}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {booking.description && complaints.length === 0 && (
+                                    <p className="px-3 py-2.5 text-sm text-muted-foreground italic leading-relaxed">"{booking.description}"</p>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Consent Status */}
+                              <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <ClipboardCheck className="h-3 w-3 text-primary" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Digital Consent</span>
+                                  </div>
+                                  {booking.consentSignedAt ? (
+                                    <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
+                                      <CheckCircle2 className="h-3 w-3" /> Signed
+                                    </span>
+                                  ) : null}
+                                </div>
+                                {booking.consentSignedAt ? (
+                                  <div className="px-3 py-2 flex items-center justify-between gap-2">
+                                    <span className="text-[10px] text-muted-foreground">
+                                      Signed on {format(new Date(booking.consentSignedAt), "dd MMM yyyy, hh:mm a")}
+                                    </span>
+                                    {booking.consentSignature && (
+                                      <button
+                                        className="flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                                        onClick={() => generateConsentPdf(booking)}
+                                        data-testid={`button-download-consent-${booking.id}`}
+                                      >
+                                        <Download className="h-3 w-3" />
+                                        Download PDF
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+                                    <span className="text-[11px] text-muted-foreground">Not yet signed</span>
+                                    <button
+                                      className="text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+                                      onClick={() => { requestConsentMutation.mutate(booking.id); setModalTab(booking.id, 'actions'); }}
+                                      disabled={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
+                                      data-testid={`button-request-consent-overview-${booking.id}`}
+                                    >
+                                      Request Consent →
+                                    </button>
+                                  </div>
+                                )}
+                                {!booking.consentSignedAt && consentUrls[booking.id] && (
+                                  <div className="px-3 pb-2.5 space-y-2">
+                                    <p className="text-[10px] text-muted-foreground">
+                                      Link sent to <strong>{booking.customerPhone}</strong>. Share manually:
+                                    </p>
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-[10px] text-muted-foreground font-mono truncate">
+                                        {consentUrls[booking.id]}
+                                      </div>
+                                      <button
+                                        className="shrink-0 p-1.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors"
+                                        onClick={() => { navigator.clipboard.writeText(consentUrls[booking.id]); setCopiedConsentId(booking.id); setTimeout(() => setCopiedConsentId(null), 2000); }}
+                                        data-testid={`button-copy-consent-${booking.id}`}
+                                      >
+                                        {copiedConsentId === booking.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                                      </button>
+                                      <a href={consentUrls[booking.id]} target="_blank" rel="noopener noreferrer" className="shrink-0 p-1.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors" data-testid={`link-open-consent-${booking.id}`}>
+                                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                      </a>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                            </div>
+                          )}
+
+                          {/* CLINICAL TAB */}
+                          {getModalTab(booking.id) === 'clinical' && (
+                            <div className="p-4 space-y-3">
+
+                              {/* Clinical Status — now interactive for admin */}
+                              <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
+                                  <ClipboardCheck className="h-3 w-3 text-primary" />
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Clinical Status</span>
+                                </div>
+                                <div className="px-3 py-3 flex flex-wrap gap-2">
+                                  {([
+                                    { value: 'first_visit', label: 'First Visit' },
+                                    { value: 'revisit', label: 'Revisit' },
+                                    { value: 'follow_up_required', label: 'Follow-up Required' },
+                                    { value: 'case_closed', label: 'Case Closed' },
+                                  ] as const).map(({ value, label }) => {
+                                    const isActive = booking.clinicalStatus === value;
+                                    return (
+                                      <button
+                                        key={value}
+                                        onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: value })}
+                                        disabled={updateClinicalStatusMutation.isPending}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                                          isActive
+                                            ? value === 'case_closed'
+                                              ? 'bg-green-500 text-white border-green-500'
+                                              : value === 'follow_up_required'
+                                              ? 'bg-amber-500 text-white border-amber-500'
+                                              : value === 'revisit'
+                                              ? 'bg-blue-500 text-white border-blue-500'
+                                              : 'bg-primary text-primary-foreground border-primary'
+                                            : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                                        }`}
+                                        data-testid={`clinical-status-${value}-${booking.id}`}
+                                      >
+                                        {label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Clinical Records */}
+                              <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
+                                  <ClipboardList className="h-3 w-3 text-primary" />
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Clinical Records</span>
+                                </div>
+                                <div className="p-3">
+                                  <ClinicalRecordsTab
+                                    bookingId={booking.id}
+                                    clinicId={clinic?.id ?? (booking.slot as any)?.clinicId}
+                                    patientName={booking.customerName}
+                                    patientPhone={booking.customerPhone}
+                                    doctorName={booking.assignedDoctor}
+                                    mode="admin"
+                                    clinicName={clinic?.name}
+                                  />
+                                </div>
+                              </div>
+
+                            </div>
+                          )}
+
+                          {/* NOTES TAB */}
+                          {getModalTab(booking.id) === 'notes' && (
+                            <div className="p-4">
+                              <BookingNotesThread bookingId={booking.id} authorType="clinic_admin" />
+                            </div>
+                          )}
+
+                          {/* ACTIONS TAB */}
+                          {getModalTab(booking.id) === 'actions' && (
+                            <div className="p-4 space-y-3">
+
+                              {/* Reschedule */}
+                              <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <CalendarDays className="h-3 w-3 text-primary" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Reschedule Appointment</span>
+                                  </div>
+                                  {rescheduleBookingId === booking.id ? (
+                                    <button
+                                      className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                                      onClick={() => { setRescheduleBookingId(null); setRescheduleSlot(null); }}
+                                      data-testid="button-cancel-reschedule"
+                                    >
+                                      Collapse ↑
+                                    </button>
+                                  ) : (
+                                    <button
+                                      className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                                      onClick={() => { setRescheduleBookingId(booking.id); setRescheduleDate(new Date(booking.slot.startTime)); }}
+                                      data-testid="button-start-reschedule"
+                                    >
+                                      Change →
+                                    </button>
+                                  )}
+                                </div>
+                                {rescheduleBookingId !== booking.id && (
+                                  <div className="px-3 py-2.5">
+                                    <p className="text-[12px] text-muted-foreground">Current: <span className="font-medium text-foreground">{format(bookingDateTime, "EEE, MMM d")} · {format(bookingDateTime, "h:mm a")} → {format(new Date(booking.slot.endTime), "h:mm a")}</span></p>
+                                  </div>
+                                )}
+                                {rescheduleBookingId === booking.id && (
+                                  <div className="px-3 py-3 space-y-3">
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Select Date</span>
+                                        <span className="text-[10px] text-muted-foreground">{format(rescheduleDate, "MMMM yyyy")}</span>
+                                      </div>
+                                      <ScrollArea className="w-full whitespace-nowrap pb-1">
+                                        <div className="flex space-x-1.5 w-max pb-1">
+                                          {dates.map((date) => (
+                                            <button
+                                              key={date.toISOString()}
+                                              onClick={() => { setRescheduleDate(date); setRescheduleSlot(null); }}
+                                              className={`flex flex-col items-center justify-center min-w-[2.75rem] h-11 rounded-xl border transition-all text-center ${
+                                                isSameDay(date, rescheduleDate)
+                                                  ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
+                                                  : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5'
+                                              }`}
+                                              data-testid={`reschedule-date-${format(date, 'yyyy-MM-dd')}`}
+                                            >
+                                              <span className="text-[8px] uppercase font-bold opacity-70">{format(date, "EEE")}</span>
+                                              <span className="text-sm font-black leading-tight">{format(date, "d")}</span>
+                                            </button>
+                                          ))}
+                                        </div>
+                                        <ScrollBar orientation="horizontal" />
+                                      </ScrollArea>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
+                                      <div className="grid grid-cols-3 gap-1.5">
+                                        {slotTimings.map((slot) => {
+                                          const slotTime = new Date(rescheduleDate);
+                                          slotTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+                                          const isoString = slotTime.toISOString();
+                                          const currentBookings = bookings?.filter(b =>
+                                            new Date(b.slot.startTime).toISOString() === isoString && b.id !== booking.id
+                                          ).length || 0;
+                                          const isFull = currentBookings >= 3;
+                                          const isSelected = rescheduleSlot === slot.id;
+                                          return (
+                                            <button
+                                              key={slot.id}
+                                              onClick={() => !isFull && setRescheduleSlot(slot.id)}
+                                              disabled={isFull}
+                                              className={`relative flex flex-col items-center justify-center h-12 rounded-xl border text-center transition-all ${
+                                                isSelected
+                                                  ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
+                                                  : isFull
+                                                  ? 'bg-muted/30 border-border/40 opacity-50 cursor-not-allowed'
+                                                  : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5'
+                                              }`}
+                                              data-testid={`reschedule-slot-${slot.id}`}
+                                            >
+                                              <span className="text-[10px] font-bold leading-tight">{slot.label}</span>
+                                              <span className="text-[9px] opacity-70 leading-tight">{formatTime(slot.startHour, slot.startMinute)}</span>
+                                              {isFull && (
+                                                <span className="absolute -top-1.5 -right-1.5 text-[8px] font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                    <Button
+                                      className="w-full h-9 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0"
+                                      disabled={!rescheduleSlot || rescheduleMutation.isPending}
+                                      onClick={async () => {
+                                        if (!rescheduleSlot) return;
+                                        const slotInfo = slotTimings.find(s => s.id === rescheduleSlot);
+                                        if (!slotInfo) return;
+                                        const newSlotTime = new Date(rescheduleDate);
+                                        newSlotTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
+                                        try {
+                                          const configResponse = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
+                                            startTime: newSlotTime.toISOString(), maxBookings: 3, isCancelled: false
+                                          });
+                                          if (!configResponse.ok) throw new Error('Failed to ensure slot exists');
+                                          const configResult = await configResponse.json();
+                                          const newSlotId = configResult.id;
+                                          if (newSlotId) {
+                                            rescheduleMutation.mutate({ bookingId: booking.id, newSlotId });
+                                          } else {
+                                            throw new Error("Invalid slot ID received from server");
+                                          }
+                                        } catch (error: any) {
+                                          toast({ title: "Failed to reschedule", description: error.message, variant: "destructive" });
+                                        }
+                                      }}
+                                      data-testid="button-confirm-reschedule"
+                                    >
+                                      {rescheduleMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                                      Confirm Reschedule
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Digital Consent */}
+                              <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <ClipboardCheck className="h-3 w-3 text-primary" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Request Digital Consent</span>
+                                  </div>
+                                  {booking.consentSignedAt ? (
+                                    <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
+                                      <CheckCircle2 className="h-3 w-3" /> Signed
+                                    </span>
+                                  ) : (
+                                    <button
+                                      className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+                                      onClick={() => requestConsentMutation.mutate(booking.id)}
+                                      disabled={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
+                                      data-testid={`button-request-consent-${booking.id}`}
+                                    >
+                                      {requestConsentMutation.isPending && requestConsentMutation.variables === booking.id
+                                        ? "Sending…"
+                                        : consentUrls[booking.id] ? "Resend →" : "Send Link →"}
+                                    </button>
+                                  )}
+                                </div>
+                                {!booking.consentSignedAt && (
+                                  <div className="px-3 py-2.5">
+                                    {consentUrls[booking.id] ? (
+                                      <div className="space-y-2">
+                                        <p className="text-[10px] text-muted-foreground">
+                                          WhatsApp link sent to <strong>{booking.customerPhone}</strong>. Share manually if needed:
+                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                          <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-[10px] text-muted-foreground font-mono truncate">
+                                            {consentUrls[booking.id]}
+                                          </div>
+                                          <button
+                                            className="shrink-0 p-1.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors"
+                                            onClick={() => { navigator.clipboard.writeText(consentUrls[booking.id]); setCopiedConsentId(booking.id); setTimeout(() => setCopiedConsentId(null), 2000); }}
+                                            data-testid={`button-copy-consent-actions-${booking.id}`}
+                                          >
+                                            {copiedConsentId === booking.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                                          </button>
+                                          <a href={consentUrls[booking.id]} target="_blank" rel="noopener noreferrer" className="shrink-0 p-1.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors" data-testid={`link-open-consent-actions-${booking.id}`}>
+                                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                          </a>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <p className="text-[12px] text-muted-foreground">Send a digital consent form to the patient via WhatsApp or SMS.</p>
+                                    )}
+                                  </div>
+                                )}
+                                {booking.consentSignedAt && (
+                                  <div className="px-3 py-2 flex items-center justify-between gap-2">
+                                    <span className="text-[10px] text-muted-foreground">
+                                      Signed on {format(new Date(booking.consentSignedAt), "dd MMM yyyy, hh:mm a")}
+                                    </span>
+                                    {booking.consentSignature && (
+                                      <button
+                                        className="flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                                        onClick={() => generateConsentPdf(booking)}
+                                        data-testid={`button-download-consent-actions-${booking.id}`}
+                                      >
+                                        <Download className="h-3 w-3" />
+                                        Download PDF
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Assign Doctor */}
+                              {(clinic?.doctorName || (clinic?.doctors && (clinic.doctors as any[]).length > 0)) && (() => {
+                                const bookingDateStr = format(new Date(booking.slot.startTime), 'yyyy-MM-dd');
+                                const isOOO = (email?: string, name?: string) =>
+                                  allDoctorLeaves.some(l =>
+                                    l.leaveDate === bookingDateStr &&
+                                    ((email && l.doctorEmail === email) || (name && l.doctorName === name))
+                                  );
+                                const oooReason = (email?: string, name?: string) =>
+                                  allDoctorLeaves.find(l =>
+                                    l.leaveDate === bookingDateStr &&
+                                    ((email && l.doctorEmail === email) || (name && l.doctorName === name))
+                                  )?.reason;
+                                return (
+                                  <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                    <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-1.5">
+                                        <Stethoscope className="h-3 w-3 text-primary" />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign Doctor</span>
+                                      </div>
+                                      <span className="text-[10px] text-muted-foreground">{format(new Date(booking.slot.startTime), "MMM d · h:mm a")}</span>
+                                    </div>
+                                    <div className="p-2.5 space-y-1.5">
+                                      {clinic?.doctorName && (() => {
+                                        const isAssigned = booking.assignedDoctor === clinic.doctorName;
+                                        const outOfOffice = isOOO(undefined, clinic.doctorName);
+                                        const reason = oooReason(undefined, clinic.doctorName);
+                                        const btn = (
+                                          <button
+                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
+                                              isAssigned
+                                                ? 'bg-primary border-primary shadow-md shadow-primary/20'
+                                                : outOfOffice
+                                                ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
+                                                : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
+                                            }`}
+                                            onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: clinic.doctorName!, doctorEmail: undefined }); }}
+                                            disabled={assignDoctorMutation.isPending}
+                                          >
+                                            <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isAssigned ? 'bg-white/20 border border-white/30' : 'bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20'}`}>
+                                              <span className={`text-xs font-bold ${isAssigned ? 'text-white' : 'text-primary'}`}>{clinic.doctorName.charAt(0)}</span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-white' : 'text-foreground'}`}>{clinic.doctorName}</p>
+                                              <p className={`text-[10px] ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                                                {outOfOffice ? '⚠ Out of office' : (clinic.doctorSpecialization || 'Lead Doctor')}
+                                              </p>
+                                            </div>
+                                            {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
+                                          </button>
+                                        );
+                                        return outOfOffice ? (
+                                          <TooltipProvider key="lead" delayDuration={100}>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                                              <TooltipContent side="top" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
+                                                <p className="font-semibold">Out of office on {format(new Date(booking.slot.startTime), 'MMM d')}</p>
+                                                {reason && <p className="text-amber-300 mt-0.5">{reason}</p>}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        ) : btn;
+                                      })()}
+                                      {clinic?.doctors && Array.isArray(clinic.doctors) && (clinic.doctors as any[]).map((doctor, idx) => {
+                                        const isAssigned = booking.assignedDoctor === doctor.name;
+                                        const outOfOffice = isOOO(doctor.email, doctor.name);
+                                        const reason = oooReason(doctor.email, doctor.name);
+                                        const btn = (
+                                          <button
+                                            key={idx}
+                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
+                                              isAssigned
+                                                ? 'bg-primary border-primary shadow-md shadow-primary/20'
+                                                : outOfOffice
+                                                ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
+                                                : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
+                                            }`}
+                                            onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: doctor.name, doctorEmail: doctor.email }); }}
+                                            disabled={assignDoctorMutation.isPending}
+                                          >
+                                            <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${isAssigned ? 'bg-white/20 border border-white/30' : 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-300/30'}`}>
+                                              <span className={`text-xs font-bold ${isAssigned ? 'text-white' : 'text-emerald-600'}`}>{doctor.name.charAt(0)}</span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-white' : 'text-foreground'}`}>Dr. {doctor.name}</p>
+                                              <p className={`text-[10px] ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                                                {outOfOffice ? '⚠ Out of office' : `${doctor.specialization}${doctor.degree ? ` · ${doctor.degree}` : ''}`}
+                                              </p>
+                                            </div>
+                                            {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
+                                          </button>
+                                        );
+                                        return outOfOffice ? (
+                                          <TooltipProvider key={idx} delayDuration={100}>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                                              <TooltipContent side="top" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
+                                                <p className="font-semibold">Out of office on {format(new Date(booking.slot.startTime), 'MMM d')}</p>
+                                                {reason && <p className="text-amber-300 mt-0.5">{reason}</p>}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        ) : btn;
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                            </div>
+                          )}
 
                         </div>
 
-                        {/* ── FOOTER ACTIONS ───────────────────────────── */}
-                        <div className="shrink-0 px-4 py-3 border-t border-border/50 bg-muted/10 flex gap-2.5">
+                        {/* ── PERSISTENT FOOTER ── */}
+                        <div className="shrink-0 px-4 py-3 border-t border-border/50 bg-muted/10 flex gap-2">
+                          {/* Confirm / Confirmed status */}
                           {!isBookingPast && booking.verificationStatus !== 'confirmed' && (
                             <Button
-                              className="flex-1 gap-2 h-9 text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 border-0 shadow-md shadow-emerald-500/20 text-white"
+                              className="flex-1 gap-1.5 h-9 text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 border-0 shadow-md shadow-emerald-500/20 text-white"
                               onClick={() => confirmBookingMutation.mutate(booking.id)}
                               disabled={confirmBookingMutation.isPending}
                               data-testid={`button-dialog-confirm-${booking.id}`}
                             >
-                              {confirmBookingMutation.isPending
-                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                : <CheckCircle2 className="h-3.5 w-3.5" />}
-                              Confirm Booking
+                              {confirmBookingMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                              Confirm
                             </Button>
                           )}
                           {booking.verificationStatus === 'confirmed' && (
-                            <div className="flex-1 flex flex-col items-center justify-center h-9 rounded-lg bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-                              <div className="flex items-center gap-1.5 text-xs font-semibold">
-                                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                                <span>Confirmed</span>
-                              </div>
+                            <div className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                              <span className="text-xs font-semibold">Confirmed</span>
                               {booking.confirmedBy && (
-                                <span className="text-[10px] font-normal text-emerald-500 dark:text-emerald-500 leading-tight">
-                                  by {booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}
-                                </span>
+                                <span className="text-[10px] font-normal opacity-75">· by {booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}</span>
                               )}
                             </div>
                           )}
+                          {/* Generate Bill */}
                           <Button
-                            className="flex-1 gap-2 h-9 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20"
+                            className="flex-1 gap-1.5 h-9 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20"
                             onClick={() => handleOpenBilling(booking)}
                             data-testid={`button-dialog-bill-${booking.id}`}
                           >
                             <IndianRupee className="h-3.5 w-3.5" />
                             Generate Bill
                           </Button>
+                          {/* Cancel Booking */}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
                                 variant="outline"
-                                className="flex-1 gap-2 h-9 text-xs font-bold text-destructive border-destructive/30 hover:bg-destructive/5 hover:border-destructive/50"
+                                className="gap-1.5 h-9 text-xs font-bold text-destructive border-destructive/30 hover:bg-destructive/5 hover:border-destructive/50"
                                 data-testid={`button-dialog-cancel-${booking.id}`}
                               >
                                 <X className="h-3.5 w-3.5" />
-                                Cancel Booking
+                                Cancel
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
