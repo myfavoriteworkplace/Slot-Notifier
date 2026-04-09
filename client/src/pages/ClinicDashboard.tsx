@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay, differenceInCalendarDays } from "date-fns";
+import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay, differenceInCalendarDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -128,7 +128,7 @@ export default function ClinicDashboard() {
 
   const [filterDate, setFilterDate] = useState<Date | undefined>(new Date());
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
-  const [quickFilter, setQuickFilter] = useState<'all' | 'today' | 'upcoming' | 'past'>('all');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week'>('all');
   const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
 
   const copyClinicUrl = (type: 'booking' | 'about') => {
@@ -495,6 +495,21 @@ export default function ClinicDashboard() {
     return bookingDate < todayStart;
   }).length || 0;
 
+  const thisWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const thisWeekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+  const nextWeekStart = startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
+  const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
+
+  const thisWeekCount = bookings?.filter(b => {
+    const d = new Date(b.slot.startTime);
+    return d >= thisWeekStart && d <= thisWeekEnd;
+  }).length || 0;
+
+  const nextWeekCount = bookings?.filter(b => {
+    const d = new Date(b.slot.startTime);
+    return d >= nextWeekStart && d <= nextWeekEnd;
+  }).length || 0;
+
   // Calculate booking numbers based on appointment time
   const getBookingNumber = (booking: BookingWithSlot) => {
     if (!bookings) return "0";
@@ -506,6 +521,14 @@ export default function ClinicDashboard() {
     
     const index = dayBookings.findIndex(b => b.id === booking.id);
     return (index + 1).toString();
+  };
+
+  const getStatusGroup = (booking: BookingWithSlot) => {
+    const d = new Date(booking.slot.startTime);
+    const isPast = d < todayStart && format(d, 'yyyy-MM-dd') !== todayStr;
+    if (isPast) return 2;
+    if (booking.verificationStatus === 'confirmed') return 1;
+    return 0;
   };
 
   const filteredBookings = bookings?.filter(booking => {
@@ -521,6 +544,12 @@ export default function ClinicDashboard() {
     if (quickFilter === 'past') {
       return bookingDate < todayStart;
     }
+    if (quickFilter === 'this-week') {
+      return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
+    }
+    if (quickFilter === 'next-week') {
+      return bookingDate >= nextWeekStart && bookingDate <= nextWeekEnd;
+    }
 
     if (filterDate && filterEndDate) {
       return bookingDate >= startOfDay(filterDate) && bookingDate <= endOfDay(filterEndDate);
@@ -532,7 +561,14 @@ export default function ClinicDashboard() {
     }
 
     return true;
-  })?.sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime());
+  })?.sort((a, b) => {
+    if (quickFilter === 'all' && !filterDate) {
+      const groupA = getStatusGroup(a);
+      const groupB = getStatusGroup(b);
+      if (groupA !== groupB) return groupA - groupB;
+    }
+    return new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime();
+  });
 
   if (authLoading) {
     return (
@@ -1559,6 +1595,49 @@ export default function ClinicDashboard() {
             </Card>
           </div>
 
+          {/* Week filter chips */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-medium text-muted-foreground">Quick week:</span>
+            <button
+              onClick={() => setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week')}
+              data-testid="chip-filter-this-week"
+              className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                quickFilter === 'this-week'
+                  ? 'bg-violet-500 text-white border-violet-500 shadow-sm'
+                  : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400 hover:text-violet-600'
+              }`}
+            >
+              <CalendarIcon className="h-3 w-3" />
+              This Week
+              <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-white/20 text-white' : 'bg-violet-500/10 text-violet-600'}`}>
+                {thisWeekCount}
+              </span>
+            </button>
+            <button
+              onClick={() => setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week')}
+              data-testid="chip-filter-next-week"
+              className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                quickFilter === 'next-week'
+                  ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
+                  : 'bg-background text-muted-foreground border-border/60 hover:border-indigo-400 hover:text-indigo-600'
+              }`}
+            >
+              <CalendarDays className="h-3 w-3" />
+              Next Week
+              <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-600'}`}>
+                {nextWeekCount}
+              </span>
+            </button>
+            {(quickFilter === 'this-week' || quickFilter === 'next-week') && (
+              <button
+                onClick={() => setQuickFilter('all')}
+                className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
           {/* Bookings Section */}
           <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
 
@@ -1662,7 +1741,15 @@ export default function ClinicDashboard() {
                   <p className="text-muted-foreground">No bookings found for the selected date range.</p>
                 </div>
               ) : (
-                filteredBookings?.map((booking) => {
+                (() => {
+                  const isGrouped = quickFilter === 'all' && !filterDate;
+                  const groupConfig = [
+                    { label: 'Pending', textColor: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800' },
+                    { label: 'Confirmed', textColor: 'text-primary', bg: 'bg-primary/5 dark:bg-primary/10', border: 'border-primary/20' },
+                    { label: 'Past', textColor: 'text-muted-foreground', bg: 'bg-muted/40', border: 'border-border/40' },
+                  ];
+                  let lastGroup = -1;
+                  return filteredBookings?.flatMap((booking) => {
                   const bookingDateTime = new Date(booking.slot.startTime);
                   const bookingDateStr = format(bookingDateTime, 'yyyy-MM-dd');
                   const isBookingToday = bookingDateStr === todayStr;
@@ -1703,7 +1790,21 @@ export default function ClinicDashboard() {
                     : [];
 
                   const isPending = !isConfirmed && !isBookingPast;
-                  return (
+                  const group = isGrouped ? getStatusGroup(booking) : -1;
+                  const showDivider = isGrouped && group !== lastGroup;
+                  if (isGrouped) lastGroup = group;
+                  const groupCfg = groupConfig[Math.max(0, group)];
+                  return [
+                    showDivider ? (
+                      <div key={`divider-group-${group}`} className="col-span-full flex items-center gap-3 mt-2 mb-1">
+                        <div className="h-px flex-1 bg-border/50" />
+                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${groupCfg.textColor} ${groupCfg.bg} ${groupCfg.border}`}>
+                          {groupCfg.label}
+                        </span>
+                        <div className="h-px flex-1 bg-border/50" />
+                      </div>
+                    ) : null,
+                    (
                   <Card
                     key={booking.id}
                     className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group ${cardOpacity} ${isPending ? "border-l-2 border-l-amber-400 dark:border-l-amber-500" : ""}`}
@@ -1752,22 +1853,28 @@ export default function ClinicDashboard() {
                                         </span>
                                       </TooltipTrigger>
                                       <TooltipContent side="left" className="text-xs">
-                                        Awaiting confirmation
+                                        Patient booked — awaiting clinic confirmation
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
                                 ) : (
-                                  <div className="flex flex-col items-end gap-0.5">
-                                    <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full ${statusClass}`}>
-                                      {isConfirmed && !isBookingPast && <CheckCircle2 className="h-2.5 w-2.5" />}
-                                      {statusLabel}
-                                    </span>
-                                    {isConfirmed && !isBookingPast && booking.confirmedBy && (
-                                      <span className="text-[9px] text-muted-foreground font-medium">
-                                        by {booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}
-                                      </span>
-                                    )}
-                                  </div>
+                                  <TooltipProvider delayDuration={200}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${statusClass}`}>
+                                          {isConfirmed && !isBookingPast && <CheckCircle2 className="h-2.5 w-2.5" />}
+                                          {statusLabel}
+                                        </span>
+                                      </TooltipTrigger>
+                                      {isConfirmed && !isBookingPast && booking.confirmedBy && (
+                                        <TooltipContent side="left" className="text-xs">
+                                          {booking.confirmedBy === 'doctor'
+                                            ? `Confirmed by Dr. ${booking.assignedDoctor || 'Doctor'}`
+                                            : 'Confirmed by Admin'}
+                                        </TooltipContent>
+                                      )}
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 )}
                                 {booking.consentSignedAt && (
                                   <TooltipProvider delayDuration={200}>
@@ -1848,7 +1955,7 @@ export default function ClinicDashboard() {
                                 </div>
                                 {booking.doctorApprovalStatus === 'pending' && (
                                   <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-                                    Awaiting approval
+                                    Awaiting Dr. Approval
                                   </span>
                                 )}
                                 {booking.doctorApprovalStatus === 'approved' && (
@@ -1869,11 +1976,19 @@ export default function ClinicDashboard() {
                                 )}
                               </div>
                             ) : !isBookingPast && (
-                              <div className="flex items-center gap-2.5 text-[12px]">
-                                <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
-                                  <Stethoscope className="h-3 w-3 text-muted-foreground/50" />
+                              <div className="flex items-center gap-2 flex-wrap text-[12px]">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                    <Stethoscope className="h-3 w-3 text-muted-foreground/50" />
+                                  </div>
+                                  <span className="italic text-muted-foreground/60">No doctor assigned</span>
                                 </div>
-                                <span className="italic text-muted-foreground/60">No doctor assigned</span>
+                                {booking.confirmedBy === 'admin' && (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
+                                    <CheckCircle2 className="h-2.5 w-2.5" />
+                                    Confirmed by Admin
+                                  </span>
+                                )}
                               </div>
                             )}
 
@@ -2681,8 +2796,10 @@ export default function ClinicDashboard() {
                       </AlertDialog>
                     </div>
                   </Card>
-                  );
-                })
+                    )
+                  ].filter(Boolean) as React.ReactNode[];
+                  });
+                })()
               )}
             </div>
           )}
