@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -290,6 +290,135 @@ function AssetRow({
   );
 }
 
+// ─── Dental item catalogue (used for autocomplete) ──────────────────────────
+
+const DENTAL_CATALOGUE: Record<string, string[]> = {
+  consumable: [
+    "Nitrile Gloves (Latex-free)", "Surgical Masks (Level 2/3)", "N95/FFP2 Respirators",
+    "Face Shields", "Disposable Aprons", "Surgical Caps",
+    "Cotton Rolls", "Cotton Pellets", "Gauze Pads (2×2)", "Gauze Pads (4×4)",
+    "Saliva Ejectors", "HVE Tips (High Volume Evacuation)", "Disposable Bibs",
+    "Bib Clips", "Tongue Depressors",
+    "Autoclave Pouches", "Sterilization Wraps", "Biological Indicators (Spore Tests)",
+    "Chemical Indicator Strips",
+    "Surface Disinfectant Spray", "CaviWipes (Disinfectant Wipes)",
+    "Suction Line Cleaner", "Hand Sanitizer",
+    "Prophy Paste (Fine)", "Prophy Paste (Medium)", "Prophy Paste (Coarse)",
+    "Disposable Prophy Angles", "Fluoride Varnish (Unit Doses)",
+    "Dental Floss", "Articulating Paper (Blue)", "Articulating Paper (Red)",
+  ],
+  perishable: [
+    "Lidocaine Carpules (Red)", "Articaine Carpules (Gold)", "Mepivacaine Carpules (Tan)",
+    "Composite Resin (A1 Shade)", "Composite Resin (A2 Shade)", "Composite Resin (B1 Shade)",
+    "Glass Ionomer Cement (GIC)", "Flowable Composite",
+    "Bonding Agent (Adhesive)", "Etchant Gel (Phosphoric Acid 37%)",
+    "Zinc Phosphate Cement", "Resin Cement",
+    "Cavity Liner (Dycal)", "MTA (Mineral Trioxide Aggregate)", "Core Build-up Material",
+    "Alginate Powder", "PVS Putty", "PVS Cartridges (Light Body)", "Bite Registration Material",
+    "Sodium Hypochlorite (Irrigant)", "EDTA Solution",
+    "Calcium Hydroxide Paste", "Gutta-Percha Points", "Paper Points",
+    "Sutures (Silk)", "Sutures (Vicryl)", "Haemostatic Sponges (Gelfoam)", "Sterile Saline",
+  ],
+  instrument: [
+    "Mouth Mirror (Size 4)", "Mouth Mirror (Size 5)",
+    "Sickle Exploration Probe", "Briault Probe",
+    "Periodontal Probe (CPITN)", "Periodontal Probe (UNC-15)", "College Tweezers",
+    "Spoon Excavator", "Amalgam Carrier", "Condenser (Plugger)",
+    "Burnisher (Ball)", "Burnisher (Egg)", "Composite Plastic Instrument (Teflon-coated)",
+    "Extraction Forceps (Upper Universal)", "Extraction Forceps (Lower Universal)",
+    "Cowhorn Forceps", "Coupland Elevator", "Cryer Elevator", "Warwick James Elevator",
+    "Periosteal Elevator", "Scalpel Handle (Size 3)", "Needle Holder", "Hemostat",
+    "K-Files (Hand Files)", "Hedstrom Files", "NiTi Rotary Files", "Endodontic Ruler",
+    "Sickle Scaler", "Gracey Curette 1/2", "Gracey Curette 11/12", "Gracey Curette 13/14",
+    "Diamond Burs", "Carbide Burs", "Polishing Discs", "Mandrels",
+  ],
+  equipment: [
+    "Dental Chair (Dental Unit)", "Operatory Light", "3-in-1 Air/Water Syringe",
+    "Foot Control", "Suction Unit",
+    "High-Speed Turbine", "Low-Speed Micromotor",
+    "Straight Handpiece", "Contra-Angle Handpiece",
+    "Intraoral Camera", "Apex Locator", "Digital X-ray Sensor (RVG)", "Pulp Tester",
+    "Autoclave (Class B)", "Ultrasonic Cleaner", "Model Trimmer",
+    "Vacuum Mixer", "Light Curing Unit (LED)",
+    "Wall-mounted X-ray Unit", "OPG (Panoramic) Machine", "CBCT Scanner",
+    "Air Compressor (Oil-free)", "Dry Suction Motor", "Amalgam Separator",
+  ],
+};
+
+// ─── Item name combobox ──────────────────────────────────────────────────────
+
+function ItemNameCombobox({
+  value,
+  onChange,
+  trackingType,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  trackingType: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const catalogue = DENTAL_CATALOGUE[trackingType] ?? [];
+
+  const query = value.trim().toLowerCase();
+  const filtered = query.length === 0
+    ? catalogue.slice(0, 10)
+    : catalogue.filter(i => i.toLowerCase().includes(query));
+
+  const exactMatch = catalogue.some(i => i.toLowerCase() === query);
+
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  const showDropdown = open && (filtered.length > 0 || (value.trim().length > 0 && !exactMatch));
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <Input
+        id="inv-name"
+        data-testid="input-item-name"
+        placeholder={`e.g. ${catalogue[0] ?? "Item name"}`}
+        value={value}
+        autoComplete="off"
+        required
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
+      />
+      {showDropdown && (
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-border bg-popover shadow-lg overflow-hidden">
+          <div className="max-h-52 overflow-y-auto">
+            {filtered.map((item) => (
+              <button
+                key={item}
+                type="button"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                onMouseDown={(e) => { e.preventDefault(); onChange(item); setOpen(false); }}
+              >
+                {item}
+              </button>
+            ))}
+            {value.trim().length > 0 && !exactMatch && (
+              <button
+                type="button"
+                className={`w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors ${filtered.length > 0 ? "border-t border-border" : ""}`}
+                onMouseDown={(e) => { e.preventDefault(); setOpen(false); }}
+              >
+                Use <span className="font-semibold text-foreground">"{value}"</span> as item name
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Add Item Sheet ──────────────────────────────────────────────────────────
 
 function AddItemSheet({
@@ -384,13 +513,10 @@ function AddItemSheet({
           {/* Name */}
           <div>
             <Label htmlFor="inv-name" className="text-xs font-semibold mb-1 block">Item Name *</Label>
-            <Input
-              id="inv-name"
-              data-testid="input-item-name"
-              placeholder={`e.g. ${form.trackingType === "consumable" ? "Latex Gloves" : form.trackingType === "perishable" ? "Lidocaine 2%" : form.trackingType === "instrument" ? "Dental Mirror" : "Autoclave Machine"}`}
+            <ItemNameCombobox
               value={form.name}
-              onChange={onChange("name")}
-              required
+              onChange={(v) => setForm(f => ({ ...f, name: v }))}
+              trackingType={form.trackingType}
             />
           </div>
 
