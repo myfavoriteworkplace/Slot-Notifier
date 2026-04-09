@@ -527,7 +527,7 @@ export default function ClinicDashboard() {
     const d = new Date(booking.slot.startTime);
     const isPast = d < todayStart && format(d, 'yyyy-MM-dd') !== todayStr;
     if (isPast) return 2;
-    if (booking.verificationStatus === 'confirmed') return 1;
+    if (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy) return 1;
     return 0;
   };
 
@@ -1799,7 +1799,7 @@ export default function ClinicDashboard() {
                   const isGrouped = quickFilter === 'all' && !filterDate;
                   const groupConfig = [
                     { label: 'Pending', textColor: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800' },
-                    { label: 'Confirmed', textColor: 'text-primary', bg: 'bg-primary/5 dark:bg-primary/10', border: 'border-primary/20' },
+                    { label: 'Upcoming', textColor: 'text-primary', bg: 'bg-primary/5 dark:bg-primary/10', border: 'border-primary/20' },
                     { label: 'Past', textColor: 'text-muted-foreground', bg: 'bg-muted/40', border: 'border-border/40' },
                   ];
                   let lastGroup = -1;
@@ -1821,7 +1821,7 @@ export default function ClinicDashboard() {
                     ? "bg-muted/30"
                     : "bg-gradient-to-r from-primary/5 to-accent/5";
 
-                  const isConfirmed = booking.verificationStatus === 'confirmed';
+                  const isConfirmed = booking.verificationStatus === 'confirmed' || !!booking.confirmedBy;
                   const statusLabel = isBookingPast
                     ? "Past"
                     : isConfirmed
@@ -1861,7 +1861,7 @@ export default function ClinicDashboard() {
                     (
                   <Card
                     key={booking.id}
-                    className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group ${cardOpacity} ${isPending ? "border-l-2 border-l-amber-400 dark:border-l-amber-500" : ""}`}
+                    className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group flex flex-col ${cardOpacity} ${isPending ? "border-l-2 border-l-amber-400 dark:border-l-amber-500" : ""}`}
                     data-testid={`card-booking-${booking.id}`}
                   >
                     {/* Status accent bar */}
@@ -1869,7 +1869,7 @@ export default function ClinicDashboard() {
 
                     <Dialog>
                       <DialogTrigger asChild>
-                        <div className="w-full text-left cursor-pointer">
+                        <div className="w-full text-left cursor-pointer flex-1 flex flex-col">
 
                           {/* Card Header */}
                           <div className={`px-4 pt-3.5 pb-3 ${headerBg} transition-colors group-hover:brightness-[0.97]`}>
@@ -1906,7 +1906,7 @@ export default function ClinicDashboard() {
                                           {statusLabel}
                                         </span>
                                       </TooltipTrigger>
-                                      <TooltipContent side="left" className="text-xs">
+                                      <TooltipContent side="top" className="text-xs">
                                         Patient booked — awaiting clinic confirmation
                                       </TooltipContent>
                                     </Tooltip>
@@ -1921,7 +1921,7 @@ export default function ClinicDashboard() {
                                         </span>
                                       </TooltipTrigger>
                                       {isConfirmed && !isBookingPast && booking.confirmedBy && (
-                                        <TooltipContent side="left" className="text-xs">
+                                        <TooltipContent side="top" className="text-xs">
                                           {booking.confirmedBy === 'doctor'
                                             ? `Confirmed by Dr. ${booking.assignedDoctor || 'Doctor'}`
                                             : 'Confirmed by Admin'}
