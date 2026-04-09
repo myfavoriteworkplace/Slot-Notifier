@@ -2030,7 +2030,7 @@ export default function ClinicDashboard() {
                                 )}
                               </div>
                             ) : !isBookingPast && (
-                              <div className="flex items-center gap-2 flex-wrap text-[12px]">
+                              <div className="flex items-center gap-2 text-[12px]">
                                 <div className="flex items-center gap-2.5">
                                   <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
                                     <Stethoscope className="h-3 w-3 text-muted-foreground/50" />
