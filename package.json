@@ -8,7 +8,8 @@
     "build": "node_modules/.bin/tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "scan": "node scripts/scan.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1019.0",
@@ -49,6 +50,7 @@
     "@types/leaflet": "^1.9.21",
     "@types/memoizee": "^0.4.12",
     "@types/uuid": "^10.0.0",
+    "@typescript-eslint/parser": "^8.58.1",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -59,6 +61,8 @@
     "drizzle-orm": "^0.39.3",
     "drizzle-zod": "^0.7.0",
     "embla-carousel-react": "^8.6.0",
+    "eslint": "^10.2.0",
+    "eslint-plugin-security": "^4.0.0",
     "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "express-session": "^1.18.2",
