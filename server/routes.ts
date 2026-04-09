@@ -1002,7 +1002,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .innerJoin(slots, eq(bookings.slotId, slots.id))
         .leftJoin(clinics, eq(slots.clinicId, clinics.id))
         .where(eq(bookings.assignedDoctorEmail, email));
-      return res.json(results.map(r => ({ ...r.booking, slot: r.slot, clinic: r.clinic })));
+      return res.json(results.map(r => ({ ...r.booking, clinicId: r.booking.clinicId ?? r.slot.clinicId, slot: r.slot, clinic: r.clinic })));
     }
     if (sess.clinicId) {
       const b = await storage.getClinicBookings(sess.clinicId);
