@@ -1,0 +1,61 @@
+1. Consumables (Daily High-Volume Use)
+
+These are high-turnover items. Tracking should focus on quantity thresholds.
+
+PPE (Personal Protective Equipment): Nitrile Gloves (Latex-free), Surgical Masks (Level 2/3), N95/FFP2 Respirators, Face Shields, Disposable Aprons, Surgical Caps.
+
+Patient Care: Cotton Rolls (Sizes 1-3), Cotton Pellets, Gauze Pads (2x2 or 4x4), Saliva Ejectors (Suction Tips), HVE (High Volume Evacuation) Tips, Disposable Bibs, Bib Clips, Tongue Depressors.
+
+Sterilization Supplies: Autoclave Pouches (various sizes), Sterilization Wraps, Biological Indicators (spore tests), Chemical Indicator Strips.
+
+Disinfectants: Surface Disinfectant Spray, High-level Disinfectant Wipes (CaviWipes), Suction Line Cleaner, Hand Sanitizer.
+
+Hygiene & Prevention: Prophy Paste (various grits), Disposable Prophy Angles (Polishing cups), Fluoride Varnish (Unit doses), Floss, Articulating Paper (Blue/Red).
+
+2. Perishables (Medical-Grade & Expiry-Sensitive)
+
+These require Batch/Lot tracking and Expiry Alerts. Use a FIFO (First-In-First-Out) logic.
+
+Local Anesthetics: Lidocaine (Red), Articaine (Gold), Mepivacaine (Tan) – usually stored in "Carpules."
+
+Restorative Materials: Composite Resins (A1, A2, B1 shades), Glass Ionomer Cements (GIC), Flowable Composites, Bonding Agents (Adhesives), Etchant Gel (Phosphoric Acid).
+
+Cements & Liners: Zinc Phosphate Cement, Resin Cement, Cavity Liners (Dycal/MTA), Core Build-up material.
+
+Impression Materials: Alginate Powder, PVS (Polyvinyl Siloxane) Putty & Cartridges, Bite Registration material.
+
+Endodontic Medicaments: Sodium Hypochlorite (Irrigant), EDTA, Calcium Hydroxide paste, Gutta-Percha Points, Paper Points.
+
+Surgical Perishables: Sutures (Silk, Vicryl), Haemostatic Sponges (Gelfoam), Sterile Saline.
+
+3. Instruments (Reusable & Sterilizable)
+
+Tracking focuses on Sterilization Cycles and Availability.
+
+Diagnostic Set: Mouth Mirror (Size 4/5), Exploration Probe (Sickle/Briault), Periodontal Probe (CPITN/UNC-15), College Tweezers.
+
+Restorative Tools: Spoon Excavators, Amalgam Carriers, Condensers (Pluggers), Burnishers (Ball/Egg), Composite Plastic Instruments (Teflon-coated).
+
+Surgical Tools: Extraction Forceps (Upper/Lower Universals, Cowhorns), Elevators (Coupland, Cryer, Warwick James), Periosteal Elevators, Scalpel Handles (Size 3), Needle Holders, Hemostats.
+
+Endodontic Files: Hand Files (K-Files, Hedstrom), Rotary Files (NiTi sets), Endodontic Rulers.
+
+Periodontal Tools: Scalers (Sickle), Curettes (Gracey 1/2, 11/12, 13/14).
+
+Rotary Instruments (Burs): Diamond Burs, Carbide Burs, Polishing Discs, Mandrels.
+
+4. Equipment (Capital Assets)
+
+Tracking focuses on Service Dates, Warranty, and Maintenance Logs.
+
+Chair-side Equipment: Dental Chair (Dental Unit), Operatory Light, 3-in-1 Air/Water Syringe, Foot Control, Suction Unit.
+
+Handpieces: High-Speed Turbines, Low-Speed Micromotors, Straight & Contra-Angle Handpieces.
+
+Diagnostic Devices: Intraoral Camera, Apex Locator (for root canals), Digital X-ray Sensors (RVG), Pulp Tester.
+
+Lab & Sterilization: Autoclave (Class B), Ultrasonic Cleaner, Model Trimmer, Vacuum Mixer, Light Curing Unit (LED).
+
+Radiography: Wall-mounted X-ray Unit, OPG (Panoramic) Machine, CBCT Scanner.
+
+Utility: Air Compressor (Oil-free), Dry Suction Motor, Amalgam Separator.
