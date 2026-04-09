@@ -1917,28 +1917,32 @@ export default function ClinicDashboard() {
                                   REF-{getBookingNumber(booking).padStart(4, '0')}
                                 </span>
                               </div>
-                              {/* Badges row */}
+                              {/* Badges row — consistent pill style throughout */}
                               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                {/* Single confirmation badge — shows WHO confirmed, using confirmedBy field */}
                                 {booking.verificationStatus === 'confirmed' && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/20 text-white">
-                                    <CheckCircle2 className="h-2.5 w-2.5" />
-                                    Verified
-                                  </span>
-                                )}
-                                {booking.doctorApprovalStatus === 'approved' && (
                                   <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white border border-white/25">
-                                    <CheckCircle2 className="h-2.5 w-2.5" />
-                                    Doctor Confirmed
+                                    {booking.confirmedBy === 'doctor'
+                                      ? <Stethoscope className="h-2.5 w-2.5" />
+                                      : <CheckCircle2 className="h-2.5 w-2.5" />}
+                                    {booking.confirmedBy === 'doctor'
+                                      ? `Dr. ${booking.assignedDoctor || 'Doctor'} Confirmed`
+                                      : booking.confirmedBy === 'admin'
+                                      ? 'Admin Confirmed'
+                                      : 'Payment Confirmed'}
                                   </span>
                                 )}
-                                {booking.doctorApprovalStatus === 'pending' && booking.assignedDoctor && (
+                                {/* Awaiting doctor — only when unconfirmed and doctor hasn't acted yet */}
+                                {booking.verificationStatus !== 'confirmed' && booking.doctorApprovalStatus === 'pending' && booking.assignedDoctor && (
                                   <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30">
-                                    Awaiting Doctor
+                                    <Clock className="h-2.5 w-2.5" />
+                                    Awaiting Dr. {booking.assignedDoctor.split(' ')[0]}
                                   </span>
                                 )}
+                                {/* Consent signed */}
                                 {booking.consentSignedAt && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white/90 border border-white/20">
-                                    <CheckCircle2 className="h-2.5 w-2.5" />
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/20">
+                                    <PenLine className="h-2.5 w-2.5" />
                                     Consent Signed
                                   </span>
                                 )}
