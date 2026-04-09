@@ -2030,15 +2030,22 @@ export default function ClinicDashboard() {
                                 )}
                               </div>
                             ) : !isBookingPast && (
-                              <div className="flex items-center gap-2 text-[12px]">
-                                <div className="flex items-center gap-2.5">
+                              <div className="flex items-center gap-2 text-[12px] min-w-0">
+                                <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
                                   <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
                                     <Stethoscope className="h-3 w-3 text-muted-foreground/50" />
                                   </div>
-                                  <span className="italic text-muted-foreground/60">No doctor assigned</span>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="italic text-muted-foreground/60 truncate">No doctor assigned</span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>No doctor assigned</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 </div>
                                 {booking.confirmedBy === 'admin' && (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 shrink-0">
                                     <CheckCircle2 className="h-2.5 w-2.5" />
                                     Confirmed by Admin
                                   </span>
