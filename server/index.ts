@@ -439,16 +439,8 @@ app.use((req, res, next) => {
   // Register API routes
   await registerRoutes(httpServer, app);
 
-  // Serve frontend static files in production
-  if (process.env.NODE_ENV === "production") {
-    console.log("[SYSTEM] Production mode: Serving static files");
-    serveStatic(app);
-  } else {
-    const { setupVite } = await import("./vite");
-    await setupVite(httpServer, app);
-  }
-
-  // 404 handler for API routes
+  // 404 handler for API routes — must be before Vite middleware so unmatched
+  // API paths return JSON instead of the HTML catch-all
   app.use("/api/*", (req, res) => {
     res.status(404).json({
       message: "API endpoint not found",
@@ -458,6 +450,15 @@ app.use((req, res, next) => {
         "Ensure the path matches exactly and CORS is configured correctly for cross-origin requests.",
     });
   });
+
+  // Serve frontend static files in production
+  if (process.env.NODE_ENV === "production") {
+    console.log("[SYSTEM] Production mode: Serving static files");
+    serveStatic(app);
+  } else {
+    const { setupVite } = await import("./vite");
+    await setupVite(httpServer, app);
+  }
 
   // Global error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
