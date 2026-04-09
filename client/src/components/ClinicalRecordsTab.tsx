@@ -124,7 +124,7 @@ export default function ClinicalRecordsTab({
     queryKey,
     staleTime: 0,
     queryFn: async () => {
-      const res = await fetch(`/api/clinical-records/booking/${bookingId}`, { credentials: "include" });
+      const res = await apiRequest("GET", `/api/clinical-records/booking/${bookingId}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message || `Error ${res.status}`);
