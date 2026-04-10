@@ -98,9 +98,8 @@ export function Header() {
         label: "Book a Slot", 
         icon: CalendarPlus 
       },
-      { href: "/clinic-login", label: "Clinic Portal", icon: Building2 },
     ] : []),
-    { href: "/deals", label: "Smile DEALS", icon: Sparkles },
+    { href: "/deals", label: "Smile Deals", icon: Sparkles },
     ...(location.startsWith("/book/") || location === "/about" || location === "/clinic-login" ? (() => {
       const clinicId = (location.startsWith("/book/") && !location.endsWith("/null")) 
         ? location.split("/").pop() 
@@ -217,8 +216,10 @@ export function Header() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2 text-xl font-bold hover:opacity-80 transition-opacity" data-testid="link-home">
-            <img src={logoPath} alt="BookMySlot logo" className="h-8 w-8 rounded-xl object-cover" />
-            <span className="hidden sm:inline font-['Space_Grotesk'] tracking-wide bg-gradient-to-r from-[#085041] to-[#0F9B6E] bg-clip-text text-transparent">BookMySlot</span>
+            <img src={logoPath} alt="bookMySlot logo" className="h-8 w-8 rounded-xl object-cover" />
+            <span className="hidden sm:inline text-[15px] font-bold tracking-tight" style={{ fontFamily: "'Sora', sans-serif", letterSpacing: "-.02em" }}>
+              book<span style={{ color: "#0F9B6E" }}>My</span>Slot
+            </span>
           </Link>
 
           <nav className="flex items-center gap-1 sm:gap-2">
@@ -250,6 +251,21 @@ export function Header() {
                 <Button variant="outline" size="sm" className="gap-2 hidden sm:flex">
                   <Shield className="h-4 w-4" />
                   Admin
+                </Button>
+              </Link>
+            )}
+            {!isAuthenticated && !isClinicAuthenticated && (
+              <Link href="/clinic-login">
+                <Button
+                  size="sm"
+                  className="gap-2 h-9 px-3 sm:px-4 hidden sm:flex text-white font-semibold"
+                  style={{ background: "#0F9B6E", border: "none" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#0A7A56"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#0F9B6E"; }}
+                  data-testid="button-clinic-portal"
+                >
+                  <Building2 className="h-4 w-4" />
+                  Clinic Portal
                 </Button>
               </Link>
             )}
