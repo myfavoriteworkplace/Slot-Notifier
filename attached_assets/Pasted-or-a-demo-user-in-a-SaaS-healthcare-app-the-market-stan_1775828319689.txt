@@ -1,0 +1,32 @@
+or a demo user in a SaaS healthcare app, the market‑standard approach is to keep demo data completely separate from production data. You want to show realistic flows without touching the live database. Here’s a breakdown of best practices:
+🔑 Market‑Standard Approaches
+Static JSON/CSV files
+Store demo data in a JSON or CSV file bundled with the frontend or backend.
+When the app detects a “demo user,” it loads data from these files instead of querying the database.
+Easy to maintain, portable, and safe — no risk of corrupting production DB.
+Mock API layer
+Create a lightweight mock backend (or mock routes in your existing backend) that serve demo responses.
+Example: /api/demo/patients returns static JSON.
+Frontend switches to these endpoints when demo mode is active.
+Seeded in‑memory DB
+Use an in‑memory database (like SQLite or H2) with seeded demo data.
+Only activated in demo mode, so production DB remains untouched.
+Useful if you want realistic query behavior without persistence.
+Feature flagging
+Add a DEMO_MODE=true environment variable.
+When enabled, the app routes all data requests to mock/demo sources.
+Easy to toggle on/off without code changes.
+🛠 Recommended Flow for Your Case
+Keep demo data in a CSV/JSON file inside your repo (e.g., demo-data/patients.json).
+Add a demo flag in your backend (DEMO_MODE=true).
+If demo mode is active:
+Backend routes return data from the file instead of Postgres.
+Frontend loads demo data for dashboards, appointments, etc.
+Once live, disable demo mode and remove the demo data files.
+Marketing demo → You can even host a separate “demo environment” on Render with demo mode enabled, so production stays clean.
+✅ Why This Is Market‑Standard
+Security → No risk of leaking real patient data.
+Compliance → HIPAA/GDPR safe, since demo data is synthetic.
+Flexibility → Easy to update demo scenarios without touching DB.
+Scalability → You can spin up a demo environment anytime for sales/marketing.
+👉 In short: The best approach is to bundle demo data in static files (JSON/CSV) or mock APIs, controlled by a demo mode flag. This keeps production DB safe while giving you realistic demo flows.
