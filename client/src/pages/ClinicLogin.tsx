@@ -96,6 +96,21 @@ export default function ClinicLogin() {
     }
   };
 
+  const handleDoctorDemo = async () => {
+    setError("");
+    setDoctorEmail("demo.doctor@bookmyslot.in");
+    setDoctorPassword("demo_doctor123");
+    setIsDemoLoading(true);
+    try {
+      await doctorLogin({ email: "demo.doctor@bookmyslot.in", password: "demo_doctor123" });
+      setLocation("/doctor-dashboard");
+    } catch (err: any) {
+      setError(humaniseError(err.message || "Demo login failed"));
+    } finally {
+      setIsDemoLoading(false);
+    }
+  };
+
   const featureTiles = [
     {
       icon: <CalendarCheck className="h-4 w-4 text-primary" />,
@@ -477,6 +492,28 @@ export default function ClinicLogin() {
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Signing in...</>
                 ) : "Sign In"}
               </Button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 py-1">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-[11px] text-muted-foreground">or try the demo</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+
+              {/* Doctor demo button */}
+              <button
+                type="button"
+                onClick={handleDoctorDemo}
+                disabled={isDemoLoading || isDoctorLoggingIn}
+                className="w-full h-11 rounded-xl border border-primary/40 bg-transparent text-primary text-[13.5px] font-semibold hover:bg-primary/6 hover:border-primary/70 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                data-testid="button-try-doctor-demo"
+              >
+                {isDemoLoading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Loading demo...</>
+                ) : (
+                  <>Try Demo &nbsp;→</>
+                )}
+              </button>
 
               {/* Doctor info panel */}
               <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-card border border-border/70">
