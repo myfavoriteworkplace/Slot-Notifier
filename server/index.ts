@@ -18,16 +18,22 @@ const httpServer = createServer(app);
 app.set("trust proxy", 1);
 
 // Determine frontend URL(s)
-const FRONTEND_URL =
+// FRONTEND_URL can be a comma-separated list of allowed origins
+const FRONTEND_URL_RAW =
   process.env.NODE_ENV === "production"
     ? process.env.FRONTEND_URL || "https://book-my-slot-client.onrender.com"
     : "http://localhost:5173";
+
 const FRONTEND_ORIGINS = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://localhost:5000",
   "http://127.0.0.1:5000",
-  FRONTEND_URL,
+  "https://bookmyslot.dental.mossaic.in",
+  "https://www.bookmyslot.dental.mossaic.in",
+  "https://api.bookmyslot.dental.mossaic.in",
+  "https://book-my-slot-client.onrender.com",
+  ...FRONTEND_URL_RAW.split(",").map((u) => u.trim()).filter(Boolean),
 ];
 
 // ------------------ SESSION ------------------
