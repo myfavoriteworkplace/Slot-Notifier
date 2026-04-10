@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>bookMySlot — Dental Practice Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --teal:       #0F9B6E;
+  --teal-d:     #0A7A56;
+  --teal-mid:   #1DB887;
+  --teal-l:     #E1F5EE;
+  --teal-soft:  rgba(15,155,110,.09);
+  --teal-bdr:   rgba(15,155,110,.22);
+  --nav-bg:     #0C1812;
+  --nav-bdr:    rgba(255,255,255,.07);
+  --bg:         #F4FAF7;
+  --bg-2:       #EDF5F0;
+  --white:      #FFFFFF;
+  --text:       #0A1F16;
+  --text-2:     #2E5042;
+  --muted:      #6B8F7E;
+  --border:     rgba(15,155,110,.13);
+  --border-d:   rgba(15,155,110,.25);
+  --shadow-sm:  0 2px 12px rgba(10,31,22,.07);
+  --shadow-md:  0 8px 32px rgba(10,31,22,.1);
+  --shadow-lg:  0 20px 60px rgba(10,31,22,.14);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Sora', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+/* ══════════════════════════════════
+   NAV — fully responsive
+══════════════════════════════════ */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  height: 62px;
+  background: rgba(12,24,18,.96);
+  backdrop-filter: blur(20px) saturate(1.5);
+  border-bottom: 1px solid var(--nav-bdr);
+  display: flex; align-items: center;
+  padding: 0 max(24px, env(safe-area-inset-left));
+}
+
+.nav-inner {
+  width: 100%; max-width: 1200px; margin: 0 auto;
+  display: flex; align-items: center; gap: 0;
+}
+
+/* Logo */
+.nav-logo {
+  display: flex; align-items: center; gap: 9px;
+  text-decoration: none; flex-shrink: 0; margin-right: auto;
+}
+.nav-logo-text {
+  font-size: 16px; font-weight: 700;
+  color: #fff; letter-spacing: -.02em;
+  white-space: nowrap;
+}
+.nav-logo-text .my { color: var(--teal-mid); }
+
+/* Desktop nav links */
+.nav-links {
+  display: flex; align-items: center; gap: 2px;
+  margin-right: 16px;
+}
+.nav-link {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  color: rgba(255,255,255,.55); text-decoration: none;
+  transition: all .2s; border: 1px solid transparent;
+  white-space: nowrap;
+}
+.nav-link:hover { color: rgba(255,255,255,.9); background: rgba(255,255,255,.05); }
+.nav-link.active { color: rgba(255,255,255,.95); }
+.nav-link svg { opacity: .7; flex-shrink: 0; }
+
+/* Clinic Portal CTA button */
+.nav-portal-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border-radius: 9px;
+  background: var(--teal); color: #fff;
+  font-size: 13px; font-weight: 700;
+  text-decoration: none; border: none; cursor: pointer;
+  font-family: 'Sora', sans-serif;
+  transition: all .22s; white-space: nowrap; flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(15,155,110,.3);
+}
+.nav-portal-btn:hover { background: var(--teal-d); transform: translateY(-1px); }
+
+/* Right utilities */
+.nav-utils {
+  display: flex; align-items: center; gap: 6px; margin-left: 10px;
+}
+.nav-util-btn {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: transparent; border: 1px solid rgba(255,255,255,.1);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: rgba(255,255,255,.55); transition: all .2s;
+}
+.nav-util-btn:hover { background: rgba(255,255,255,.06); color: rgba(255,255,255,.9); border-color: rgba(255,255,255,.2); }
+
+/* Hamburger */
+.hamburger {
+  display: none; flex-direction: column; gap: 4.5px;
+  cursor: pointer; padding: 6px; margin-left: 8px;
+  background: transparent; border: none;
+}
+.hamburger span {
+  display: block; width: 20px; height: 2px;
+  background: rgba(255,255,255,.7); border-radius: 2px;
+  transition: all .28s cubic-bezier(.4,0,.2,1);
+}
+.hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(4.5px,4.5px); }
+.hamburger.open span:nth-child(2) { opacity: 0; transform: translateX(-6px); }
+.hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(4.5px,-4.5px); }
+
+/* Mobile menu drawer */
+.mobile-menu {
+  display: none; position: fixed;
+  top: 62px; left: 0; right: 0; bottom: 0; z-index: 190;
+  background: rgba(8,18,12,.97);
+  backdrop-filter: blur(20px);
+  flex-direction: column; padding: 24px 24px 40px;
+  overflow-y: auto;
+  transform: translateY(-8px); opacity: 0;
+  transition: all .28s cubic-bezier(.16,1,.3,1);
+  pointer-events: none;
+}
+.mobile-menu.open {
+  display: flex; transform: translateY(0); opacity: 1; pointer-events: all;
+}
+.mob-link {
+  display: flex; align-items: center; gap: 12px;
+  padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,.06);
+  font-size: 16px; font-weight: 600; color: rgba(255,255,255,.7);
+  text-decoration: none; transition: color .2s;
+}
+.mob-link:hover { color: #fff; }
+.mob-link svg { opacity: .6; flex-shrink: 0; }
+.mob-portal-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 14px; border-radius: 12px;
+  background: var(--teal); color: #fff;
+  font-size: 15px; font-weight: 700; font-family: 'Sora', sans-serif;
+  border: none; cursor: pointer; margin-top: 20px;
+  box-shadow: 0 4px 20px rgba(15,155,110,.35);
+}
+.mob-divider { height: 1px; background: rgba(255,255,255,.06); margin: 8px 0; }
+.mob-util-row { display: flex; align-items: center; gap: 10px; padding: 14px 0; }
+.mob-util-label { font-size: 14px; color: rgba(255,255,255,.5); }
+
+/* ══════════════════════════════════
+   HERO
+══════════════════════════════════ */
+.hero {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 32px;
+  padding: 100px max(48px, 4vw) 60px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* LEFT */
+.hero-left {}
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 14px; border-radius: 100px;
+  background: var(--teal-soft); border: 1px solid var(--teal-bdr);
+  font-size: 11.5px; font-weight: 600; color: var(--teal);
+  letter-spacing: .04em; margin-bottom: 26px;
+  animation: fadeUp .6s ease both;
+}
+.badge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--teal); animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.6)} }
+
+.hero-title {
+  font-size: clamp(36px, 4.5vw, 62px);
+  font-weight: 800; line-height: 1.07;
+  letter-spacing: -.04em; color: var(--text);
+  margin-bottom: 20px;
+  animation: fadeUp .6s ease .08s both;
+}
+.hero-title .accent {
+  color: var(--teal); display: inline-block; position: relative;
+}
+.hero-title .accent::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: -3px; height: 3px;
+  background: linear-gradient(90deg, var(--teal), transparent);
+  border-radius: 2px;
+}
+
+.hero-sub {
+  font-size: clamp(14px, 1.6vw, 16px);
+  color: var(--muted); line-height: 1.7;
+  max-width: 420px; margin-bottom: 36px;
+  animation: fadeUp .6s ease .16s both;
+}
+
+.hero-actions {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 36px;
+  animation: fadeUp .6s ease .24s both;
+}
+.btn-primary {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 28px; border-radius: 100px;
+  background: var(--teal); color: #fff;
+  font-size: 14px; font-weight: 700; font-family: 'Sora', sans-serif;
+  border: none; cursor: pointer; text-decoration: none;
+  transition: all .25s;
+  box-shadow: 0 4px 20px rgba(15,155,110,.3);
+  letter-spacing: .01em;
+}
+.btn-primary:hover { background: var(--teal-d); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(15,155,110,.4); }
+.btn-primary:active { transform: translateY(0); }
+.btn-secondary {
+  display: flex; align-items: center; gap: 7px;
+  padding: 14px 24px; border-radius: 100px;
+  background: transparent; color: var(--text-2);
+  font-size: 14px; font-weight: 600; font-family: 'Sora', sans-serif;
+  border: 1.5px solid var(--border-d); cursor: pointer; text-decoration: none;
+  transition: all .22s;
+}
+.btn-secondary:hover { background: var(--teal-l); color: var(--teal); border-color: var(--teal); }
+
+.trust-row {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  animation: fadeUp .6s ease .32s both;
+}
+.trust-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--muted); font-weight: 500;
+}
+.trust-divider { width: 1px; height: 14px; background: var(--border-d); }
+
+/* Scroll hint */
+.scroll-hint {
+  display: flex; align-items: center; gap: 6px; margin-top: 32px;
+  font-size: 11px; color: var(--muted); animation: fadeUp .6s ease .4s both;
+  cursor: pointer;
+}
+.scroll-arrow { animation: bounce 1.8s ease-in-out infinite; }
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
+
+/* RIGHT — product visual */
+.hero-right {
+  position: relative; display: flex;
+  align-items: center; justify-content: center;
+  animation: fadeUp .7s ease .15s both;
+}
+
+.product-card {
+  width: 100%; max-width: 460px;
+  background: var(--white); border-radius: 20px;
+  border: 1px solid var(--border-d);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden; position: relative;
+}
+.card-topbar {
+  background: var(--teal); padding: 12px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-dots { display: flex; gap: 5px; }
+.card-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.3); }
+.card-title-txt { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.9); }
+.card-time { font-size: 11px; color: rgba(255,255,255,.6); }
+
+.card-greeting {
+  background: linear-gradient(135deg, #0A7A56, var(--teal));
+  padding: 16px 18px;
+}
+.card-greeting-sub { font-size: 10px; font-weight: 600; letter-spacing: .1em; color: rgba(255,255,255,.6); text-transform: uppercase; margin-bottom: 3px; }
+.card-greeting-name { font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 12px; }
+.card-stats { display: flex; gap: 8px; }
+.card-stat {
+  flex: 1; background: rgba(255,255,255,.15); border-radius: 9px;
+  padding: 8px 10px; border: 1px solid rgba(255,255,255,.2);
+}
+.card-stat-num   { font-size: 18px; font-weight: 800; color: #fff; }
+.card-stat-label { font-size: 9px; color: rgba(255,255,255,.6); text-transform: uppercase; letter-spacing: .06em; }
+.card-stat.hl    { background: rgba(255,255,255,.25); }
+
+.card-body { padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+.card-section-label { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.appt-row {
+  background: var(--bg); border-radius: 10px; overflow: hidden;
+  border: 1px solid var(--border);
+  animation: cardFloat 4s ease-in-out infinite;
+}
+@keyframes cardFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+.appt-hd {
+  background: var(--teal); padding: 9px 13px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.appt-patient { display: flex; align-items: center; gap: 8px; }
+.appt-av {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(255,255,255,.25); color: #fff;
+  font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.appt-name { font-size: 12px; font-weight: 600; color: #fff; }
+.appt-ref  { font-size: 10px; color: rgba(255,255,255,.6); }
+.appt-confirmed {
+  font-size: 10px; font-weight: 600; color: #fff;
+  background: rgba(255,255,255,.2); padding: 2px 8px; border-radius: 20px;
+  display: flex; align-items: center; gap: 3px;
+}
+.appt-body { padding: 10px 13px; display: flex; flex-direction: column; gap: 4px; }
+.appt-detail { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+
+/* Notification toast on card */
+.card-toast {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 12px; border-radius: 9px;
+  background: var(--teal-l); border: 1px solid var(--teal-bdr);
+  animation: toastAnim 4s ease-in-out infinite;
+}
+@keyframes toastAnim {
+  0%,8%   { opacity:0; transform:translateX(16px); }
+  18%,80% { opacity:1; transform:translateX(0); }
+  90%,100%{ opacity:0; transform:translateX(16px); }
+}
+.toast-dot {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--teal); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.toast-title { font-size: 11px; font-weight: 700; color: var(--teal); }
+.toast-sub   { font-size: 10px; color: var(--muted); }
+
+/* Floating badges */
+.float-badge {
+  position: absolute; background: var(--white);
+  border: 1px solid var(--border-d); border-radius: 12px;
+  padding: 10px 14px; box-shadow: var(--shadow-md);
+}
+.float-badge-1 {
+  top: 20px; right: -20px;
+  animation: fb1 5s ease-in-out infinite;
+}
+@keyframes fb1 { 0%,100%{transform:translateY(0) rotate(1deg)} 50%{transform:translateY(-7px) rotate(1deg)} }
+.float-badge-2 {
+  bottom: 60px; left: -20px;
+  animation: fb2 6s ease-in-out 1s infinite;
+}
+@keyframes fb2 { 0%,100%{transform:translateY(0) rotate(-1deg)} 50%{transform:translateY(-6px) rotate(-1deg)} }
+.fb-lbl { font-size: 9.5px; color: var(--muted); margin-bottom: 2px; }
+.fb-num { font-size: 19px; font-weight: 800; color: var(--teal); letter-spacing: -.02em; }
+.fb-sub { font-size: 9.5px; color: var(--muted); }
+
+/* ══════════════════════════════════
+   FEATURES SECTION
+══════════════════════════════════ */
+.features {
+  padding: 80px max(48px,4vw) 90px;
+  max-width: 1200px; margin: 0 auto;
+}
+.section-eyebrow {
+  font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--teal); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 7px;
+}
+.section-title {
+  font-size: clamp(26px,3.5vw,40px); font-weight: 800;
+  color: var(--text); letter-spacing: -.03em; line-height: 1.15;
+  margin-bottom: 14px;
+}
+.section-title span { color: var(--teal); }
+.section-sub { font-size: 15px; color: var(--muted); max-width: 480px; line-height: 1.6; margin-bottom: 48px; }
+
+.features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
+.feature-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 18px; padding: 26px;
+  transition: all .28s cubic-bezier(.16,1,.3,1);
+  position: relative; overflow: hidden;
+}
+.feature-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--teal), transparent);
+  opacity: 0; transition: opacity .28s;
+}
+.feature-card:hover { border-color: var(--border-d); transform: translateY(-5px); box-shadow: var(--shadow-md); }
+.feature-card:hover::before { opacity: 1; }
+.feature-card:hover .fi-wrap { background: var(--teal); }
+.feature-card:hover .fi-wrap svg { stroke: #fff; }
+.fi-wrap {
+  width: 46px; height: 46px; border-radius: 13px;
+  background: var(--teal-l); border: 1px solid var(--teal-bdr);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px; transition: all .28s;
+}
+.f-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 7px; letter-spacing: -.01em; }
+.f-desc  { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+/* ══════════════════════════════════
+   HOW IT WORKS
+══════════════════════════════════ */
+.how { padding: 0 max(24px,2vw) 90px; }
+.how-inner {
+  max-width: 1200px; margin: 0 auto;
+  background: linear-gradient(135deg, #0A2018, #081410);
+  border-radius: 24px; padding: 56px max(32px,4vw);
+  position: relative; overflow: hidden;
+}
+.how-inner::before {
+  content: ''; position: absolute; top: -80px; right: -80px;
+  width: 350px; height: 350px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(15,155,110,.15), transparent 70%);
+  pointer-events: none;
+}
+.how-hd { text-align: center; margin-bottom: 44px; }
+.how-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--teal-mid); margin-bottom: 12px; }
+.how-title { font-size: clamp(24px,3vw,36px); font-weight: 800; color: #fff; letter-spacing: -.03em; }
+.steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 0; position: relative; }
+.steps::before {
+  content: ''; position: absolute; top: 28px;
+  left: calc(16% + 16px); right: calc(16% + 16px);
+  height: 1px; background: rgba(255,255,255,.08);
+}
+.step { text-align: center; padding: 0 16px; }
+.step-num {
+  width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 18px;
+  background: rgba(15,155,110,.18); border: 1px solid rgba(15,155,110,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 800; color: var(--teal-mid);
+  position: relative; z-index: 1; transition: all .28s;
+}
+.step:hover .step-num { background: var(--teal); color: #fff; border-color: var(--teal); }
+.step-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+.step-desc  { font-size: 12.5px; color: rgba(255,255,255,.5); line-height: 1.6; }
+
+/* ══════════════════════════════════
+   CTA
+══════════════════════════════════ */
+.cta { padding: 0 max(24px,2vw) 90px; }
+.cta-inner {
+  max-width: 1200px; margin: 0 auto;
+  background: var(--white); border: 1px solid var(--border-d);
+  border-radius: 22px; padding: 56px 40px; text-align: center;
+  position: relative; overflow: hidden;
+}
+.cta-inner::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(15,155,110,.06) 0%, transparent 65%);
+  pointer-events: none;
+}
+.cta-title { font-size: clamp(24px,3.5vw,38px); font-weight: 800; color: var(--text); letter-spacing: -.03em; margin-bottom: 14px; }
+.cta-title span { color: var(--teal); }
+.cta-sub { font-size: 15px; color: var(--muted); max-width: 420px; margin: 0 auto 30px; line-height: 1.6; }
+.cta-btns { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+
+/* ══════════════════════════════════
+   FOOTER
+══════════════════════════════════ */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 22px max(48px,4vw);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px;
+  font-size: 12px; color: var(--muted);
+}
+.footer-logo { font-size: 14px; font-weight: 700; color: var(--text); }
+.footer-logo .my { color: var(--teal); }
+
+/* ══════════════════════════════════
+   ANIMATIONS
+══════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { opacity: 0; transform: translateY(22px); transition: opacity .6s ease, transform .6s ease; }
+.fade-up.visible { opacity: 1; transform: translateY(0); }
+
+/* ══════════════════════════════════
+   RESPONSIVE — TABLET  (≤900px)
+══════════════════════════════════ */
+@media (max-width: 900px) {
+  .nav-links { display: none; }
+  .nav-portal-btn { display: none; }
+  .hamburger { display: flex; }
+
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 90px 24px 48px;
+    min-height: auto; gap: 40px;
+  }
+  .hero-right { justify-content: center; }
+  .product-card { max-width: 420px; }
+  .float-badge-1 { right: -8px; top: 12px; }
+  .float-badge-2 { left: -8px; bottom: 40px; }
+
+  .features { padding: 60px 24px 70px; }
+  .features-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .how-inner { padding: 40px 24px; }
+  .steps { grid-template-columns: 1fr; gap: 28px; }
+  .steps::before { display: none; }
+
+  .cta { padding: 0 24px 70px; }
+  .cta-inner { padding: 40px 24px; }
+  footer { padding: 18px 24px; }
+}
+
+/* ══════════════════════════════════
+   RESPONSIVE — MOBILE  (≤540px)
+══════════════════════════════════ */
+@media (max-width: 540px) {
+  .hero { padding: 84px 18px 40px; }
+  .hero-badge { font-size: 11px; padding: 5px 12px; }
+  .hero-actions { flex-direction: column; align-items: stretch; }
+  .btn-primary, .btn-secondary { justify-content: center; }
+  .float-badge-1 { display: none; }
+  .float-badge-2 { display: none; }
+  .trust-divider { display: none; }
+  .trust-row { gap: 10px; }
+
+  .features { padding: 48px 18px 56px; }
+  .features-grid { grid-template-columns: 1fr; }
+  .section-sub { margin-bottom: 32px; }
+
+  .how-inner { border-radius: 16px; padding: 32px 18px; }
+  .cta-inner { border-radius: 16px; padding: 32px 18px; }
+  .cta-btns { flex-direction: column; }
+  .cta-btns .btn-secondary { justify-content: center; }
+
+  footer { flex-direction: column; text-align: center; gap: 6px; }
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: var(--border-d); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════ NAV ══════════ -->
+<nav>
+  <div class="nav-inner">
+
+    <!-- Logo -->
+    <a class="nav-logo" href="#">
+      <svg width="28" height="28" viewBox="0 0 56 56">
+        <rect width="56" height="56" rx="13" fill="#0F9B6E"/>
+        <circle cx="19" cy="22" r="14" fill="white"/>
+        <rect x="17.5" y="9.5" width="3" height="6.5" rx="1" fill="#0F9B6E"/>
+        <rect x="15.5" y="11.5" width="7" height="2.5" rx="1" fill="#0F9B6E"/>
+        <line x1="19" y1="22" x2="13" y2="16" stroke="#0F9B6E" stroke-width="2.2" stroke-linecap="round"/>
+        <line x1="19" y1="22" x2="25" y2="17" stroke="#0F9B6E" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="19" cy="22" r="2" fill="#0F9B6E"/>
+        <rect x="35" y="9" width="17" height="8" rx="3" fill="white" opacity="0.22"/>
+        <rect x="35" y="21" width="17" height="8" rx="3" fill="white" opacity="0.5"/>
+        <rect x="35" y="33" width="17" height="10" rx="3" fill="white"/>
+        <polyline points="38,38 41.5,42 50,35" fill="none" stroke="#0F9B6E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="nav-logo-text">book<span class="my">My</span>Slot</div>
+    </a>
+
+    <!-- Desktop links — patient facing only -->
+    <div class="nav-links">
+      <a class="nav-link active" href="#">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Find a Clinic
+      </a>
+      <a class="nav-link" href="#">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+        Smile Deals
+      </a>
+    </div>
+
+    <!-- Clinic Portal — distinct CTA, NOT a peer nav link -->
+    <a class="nav-portal-btn" href="#">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16"/></svg>
+      Clinic Portal
+    </a>
+
+    <!-- Utilities -->
+    <div class="nav-utils">
+      <button class="nav-util-btn" title="Admin" onclick="window.location='#'">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      </button>
+      <button class="nav-util-btn" title="Toggle dark mode" onclick="toggleDark()">
+        <svg id="darkIcon" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+      </button>
+    </div>
+
+    <!-- Hamburger — mobile only -->
+    <button class="hamburger" id="hamburger" onclick="toggleMenu()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+
+  </div>
+</nav>
+
+<!-- ══════════ MOBILE MENU ══════════ -->
+<div class="mobile-menu" id="mobileMenu">
+  <a class="mob-link" href="#" onclick="toggleMenu()">
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Find a Clinic
+  </a>
+  <a class="mob-link" href="#" onclick="toggleMenu()">
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+    Smile Deals
+  </a>
+  <div class="mob-divider"></div>
+  <div class="mob-util-row">
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,.4)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+    <span class="mob-util-label">Admin</span>
+  </div>
+  <button class="mob-portal-btn" onclick="toggleMenu()">
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16"/></svg>
+    Sign in to Clinic Portal
+  </button>
+</div>
+
+<!-- ══════════ HERO ══════════ -->
+<section class="hero">
+  <div class="hero-left">
+    <div class="hero-badge">
+      <div class="badge-dot"></div>
+      Live · Trusted by dental clinics in Kerala
+    </div>
+
+    <h1 class="hero-title">
+      Booking made<br><span class="accent">effortless</span>
+    </h1>
+
+    <p class="hero-sub">
+      Streamline your clinic's scheduling in minutes. Doctors manage availability, patients book slots instantly — no more back-and-forth calls.
+    </p>
+
+    <div class="hero-actions">
+      <a href="#" class="btn-primary">
+        Get Started
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+      </a>
+      <a href="#features" class="btn-secondary">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/></svg>
+        See how it works
+      </a>
+    </div>
+
+    <div class="trust-row">
+      <div class="trust-item">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#0F9B6E" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        Free to get started
+      </div>
+      <div class="trust-divider"></div>
+      <div class="trust-item">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#0F9B6E" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        No setup fees
+      </div>
+      <div class="trust-divider"></div>
+      <div class="trust-item">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#0F9B6E" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        Works on any device
+      </div>
+    </div>
+
+    <div class="scroll-hint" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">
+      <svg class="scroll-arrow" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+      Scroll to explore
+    </div>
+  </div>
+
+  <!-- Product visual -->
+  <div class="hero-right">
+    <div style="position:relative;width:100%;max-width:460px;">
+
+      <!-- Float badge top right -->
+      <div class="float-badge float-badge-1">
+        <div class="fb-lbl">This month</div>
+        <div class="fb-num">1,240+</div>
+        <div class="fb-sub">slots booked</div>
+      </div>
+
+      <!-- Float badge bottom left -->
+      <div class="float-badge float-badge-2">
+        <div class="fb-lbl">Avg booking time</div>
+        <div class="fb-num">8 sec</div>
+        <div class="fb-sub">to confirm a slot</div>
+      </div>
+
+      <div class="product-card">
+        <div class="card-topbar">
+          <div class="card-dots">
+            <div class="card-dot"></div><div class="card-dot"></div><div class="card-dot"></div>
+          </div>
+          <div class="card-title-txt">Doctor Portal</div>
+          <div class="card-time">2:00 PM</div>
+        </div>
+        <div class="card-greeting">
+          <div class="card-greeting-sub">Your Schedule</div>
+          <div class="card-greeting-name">Good afternoon, Dr. Priya</div>
+          <div class="card-stats">
+            <div class="card-stat"><div class="card-stat-num">3</div><div class="card-stat-label">Total</div></div>
+            <div class="card-stat hl"><div class="card-stat-num">1</div><div class="card-stat-label">Today</div></div>
+            <div class="card-stat"><div class="card-stat-num">2</div><div class="card-stat-label">Upcoming</div></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-section-label">Upcoming appointment</div>
+          <div class="appt-row">
+            <div class="appt-hd">
+              <div class="appt-patient">
+                <div class="appt-av">A</div>
+                <div>
+                  <div class="appt-name">Anand Kumar</div>
+                  <div class="appt-ref">#REF-0041</div>
+                </div>
+              </div>
+              <div class="appt-confirmed">
+                <svg width="9" height="9" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                Confirmed
+              </div>
+            </div>
+            <div class="appt-body">
+              <div class="appt-detail">
+                <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                2:00 PM – 4:00 PM &nbsp;·&nbsp; 2 hrs
+              </div>
+              <div class="appt-detail">
+                <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16"/></svg>
+                Elite Dental Studio
+              </div>
+              <div class="appt-detail">
+                <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10"/></svg>
+                Routine checkup
+              </div>
+            </div>
+          </div>
+          <div class="card-toast">
+            <div class="toast-dot">
+              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5"/></svg>
+            </div>
+            <div>
+              <div class="toast-title">New slot booked</div>
+              <div class="toast-sub">Rahul M. · 12 Apr · 10:00 AM</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ FEATURES ══════════ -->
+<section class="features fade-up" id="features">
+  <div class="section-eyebrow">
+    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+    Everything you need
+  </div>
+  <h2 class="section-title">Built for clinics,<br>loved by <span>doctors & patients</span></h2>
+  <p class="section-sub">Every feature is designed around how a real dental clinic actually works — not how generic software thinks it should.</p>
+
+  <div class="features-grid">
+    <div class="feature-card fade-up">
+      <div class="fi-wrap"><svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#0F9B6E" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></div>
+      <div class="f-title">Real-time Availability</div>
+      <div class="f-desc">See open slots instantly. Updates happen live so double bookings are eliminated permanently.</div>
+    </div>
+    <div class="feature-card fade-up" style="transition-delay:.07s">
+      <div class="fi-wrap"><svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#0F9B6E" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div>
+      <div class="f-title">Doctor Approval Flow</div>
+      <div class="f-desc">Doctors confirm or decline appointments before they appear in their schedule. Full control, zero surprises.</div>
+    </div>
+    <div class="feature-card fade-up" style="transition-delay:.14s">
+      <div class="fi-wrap"><svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#0F9B6E" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg></div>
+      <div class="f-title">Role-based Access</div>
+      <div class="f-desc">Clinic admins, doctors, and patients each see a tailored interface — exactly what they need, nothing they don't.</div>
+    </div>
+    <div class="feature-card fade-up" style="transition-delay:.05s">
+      <div class="fi-wrap"><svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#0F9B6E" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></div>
+      <div class="f-title">Inventory Management</div>
+      <div class="f-desc">Track consumables, perishables, and equipment. Automated expiry and low-stock alerts — never run out mid-procedure.</div>
+    </div>
+    <div class="feature-card fade-up" style="transition-delay:.12s">
+      <div class="fi-wrap"><svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#0F9B6E" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg></div>
+      <div class="f-title">Smile Deals</div>
+      <div class="f-desc">Exclusive dental packages from partner clinics. Patients save, clinics fill slots faster — everyone wins.</div>
+    </div>
+    <div class="feature-card fade-up" style="transition-delay:.19s">
+      <div class="fi-wrap"><svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#0F9B6E" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></div>
+      <div class="f-title">Data Export & Backup</div>
+      <div class="f-desc">Monthly patient data exports in Excel, CSV, or PDF. Scheduled reminders, audit-safe logs, always compliant.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ HOW IT WORKS ══════════ -->
+<section class="how">
+  <div class="how-inner fade-up">
+    <div class="how-hd">
+      <div class="how-eyebrow">Simple by design</div>
+      <div class="how-title">Up and running in three steps</div>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-title">Register your clinic</div>
+        <div class="step-desc">Create an account, add your clinic details, and invite your doctors — takes under five minutes.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-title">Set up availability</div>
+        <div class="step-desc">Doctors configure their slots. The system handles conflicts and double-booking automatically.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-title">Patients start booking</div>
+        <div class="step-desc">Share your clinic link. Patients book, confirm, and get reminders — all without a phone call.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ CTA ══════════ -->
+<section class="cta">
+  <div class="cta-inner fade-up">
+    <h2 class="cta-title">Ready to simplify your<br><span>clinic scheduling?</span></h2>
+    <p class="cta-sub">Join clinics across Kerala already using bookMySlot to save time and serve more patients.</p>
+    <div class="cta-btns">
+      <a href="#" class="btn-primary" style="padding:14px 36px;font-size:15px;">
+        Get Started Free
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+      </a>
+      <a href="#" class="btn-secondary" style="padding:14px 28px;font-size:15px;">Talk to us first</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer>
+  <div class="footer-logo">book<span class="my">My</span>Slot</div>
+  <div>Built for dental clinics · Kerala, India</div>
+  <div>© 2026 bookMySlot. All rights reserved.</div>
+</footer>
+
+<script>
+  let menuOpen = false;
+  function toggleMenu() {
+    menuOpen = !menuOpen;
+    document.getElementById('hamburger').classList.toggle('open', menuOpen);
+    const menu = document.getElementById('mobileMenu');
+    if (menuOpen) {
+      menu.style.display = 'flex';
+      requestAnimationFrame(() => menu.classList.add('open'));
+      document.body.style.overflow = 'hidden';
+    } else {
+      menu.classList.remove('open');
+      setTimeout(() => { menu.style.display = 'none'; }, 280);
+      document.body.style.overflow = '';
+    }
+  }
+
+  function toggleDark() {
+    document.body.style.filter = document.body.style.filter ? '' : 'invert(1) hue-rotate(180deg)';
+  }
+
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 60);
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: .1 });
+  document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+  // Close menu on resize to desktop
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 900 && menuOpen) toggleMenu();
+  });
+</script>
+</body>
+</html>
