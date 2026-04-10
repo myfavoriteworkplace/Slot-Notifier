@@ -16,7 +16,6 @@ import {
   Eye,
   EyeOff,
   CalendarCheck,
-  Clock,
   Package,
   FileText,
   AlertCircle,
@@ -32,7 +31,7 @@ export default function ClinicLogin() {
   const [activeTab, setActiveTab] = useState<"clinic" | "doctor">("clinic");
   const [showClinicPassword, setShowClinicPassword] = useState(false);
   const [showDoctorPassword, setShowDoctorPassword] = useState(false);
-  const [showDemoPassword, setShowDemoPassword] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   const { login: clinicLogin, isLoggingIn: isClinicLoggingIn, isAuthenticated: isClinicAuthenticated } = useClinicAuth();
   const { login: doctorLogin, isLoggingIn: isDoctorLoggingIn, isAuthenticated: isDoctorAuthenticated } = useDoctorAuth();
@@ -81,10 +80,20 @@ export default function ClinicLogin() {
     }
   };
 
-  const fillDemo = () => {
+  const handleDemo = async () => {
+    setError("");
+    setActiveTab("clinic");
     setClinicUsername("demo_clinic");
     setClinicPassword("demo_password123");
-    setError("");
+    setIsDemoLoading(true);
+    try {
+      await clinicLogin({ username: "demo_clinic", password: "demo_password123" });
+      setLocation("/clinic-dashboard");
+    } catch (err: any) {
+      setError(humaniseError(err.message || "Demo login failed"));
+    } finally {
+      setIsDemoLoading(false);
+    }
   };
 
   const featureTiles = [
@@ -365,36 +374,20 @@ export default function ClinicLogin() {
                 <div className="flex-1 h-px bg-border" />
               </div>
 
-              {/* Demo card */}
-              <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-card border border-border/70">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Demo Account</p>
-                  <p className="text-[12px] text-foreground/80 font-medium">
-                    demo_clinic &nbsp;·&nbsp;{" "}
-                    {showDemoPassword ? (
-                      <span className="font-mono text-[11px]">demo_password123</span>
-                    ) : (
-                      <span>••••••••••</span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setShowDemoPassword(v => !v)}
-                      className="ml-1.5 text-[10px] font-semibold text-primary hover:opacity-75 transition-opacity"
-                      data-testid="button-toggle-demo-password"
-                    >
-                      {showDemoPassword ? "hide" : "show"}
-                    </button>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={fillDemo}
-                  className="shrink-0 text-[12px] font-bold text-white bg-primary hover:bg-primary/90 px-3.5 py-1.5 rounded-lg transition-colors"
-                  data-testid="button-use-demo"
-                >
-                  Use Demo
-                </button>
-              </div>
+              {/* Demo button */}
+              <button
+                type="button"
+                onClick={handleDemo}
+                disabled={isDemoLoading || isClinicLoggingIn}
+                className="w-full h-11 rounded-xl border border-primary/40 bg-transparent text-primary text-[13.5px] font-semibold hover:bg-primary/6 hover:border-primary/70 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                data-testid="button-try-demo"
+              >
+                {isDemoLoading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Loading demo...</>
+                ) : (
+                  <>Try Demo &nbsp;→</>
+                )}
+              </button>
 
             </form>
           )}
