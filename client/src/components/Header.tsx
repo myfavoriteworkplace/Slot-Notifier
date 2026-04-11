@@ -5,8 +5,8 @@ import { useDoctorAuth } from "@/hooks/use-doctor-auth";
 import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notifications";
 import { useState, useEffect } from "react";
 import logoPath from "@assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png";
-import { 
-  Bell, 
+import {
+  Bell,
   LogOut,
   CalendarPlus,
   LayoutDashboard,
@@ -14,9 +14,11 @@ import {
   Building2,
   Sparkles,
   Stethoscope,
+  Sun,
+  Moon,
 } from "lucide-react";
-import { queryClient, apiRequest, API_BASE_URL } from "@/lib/queryClient";
-import { ThemeToggle } from "./ThemeToggle";
+import { API_BASE_URL } from "@/lib/queryClient";
+import { useTheme } from "next-themes";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +26,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDistanceToNow } from "date-fns";
 
 export function Header() {
@@ -34,7 +35,8 @@ export function Header() {
   const [location] = useLocation();
   const { data: notifications = [] } = useNotifications();
   const { mutate: markRead } = useMarkNotificationRead();
-  
+  const { setTheme } = useTheme();
+
   const [healthStatus, setHealthStatus] = useState<{
     backend: boolean | null;
     database: boolean | null;
@@ -52,12 +54,12 @@ export function Header() {
       const clinicId = new URLSearchParams(window.location.search).get("clinicId");
       if (clinicId) sessionStorage.setItem("lastClinicId", clinicId);
     }
-    
+
     const checkHealth = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/health`, { 
-          cache: 'no-store',
-          headers: { 'Accept': 'application/json' }
+        const res = await fetch(`${API_BASE_URL}/api/health`, {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
         });
         if (res.ok) {
           const contentType = res.headers.get("content-type");
@@ -70,7 +72,7 @@ export function Header() {
         } else {
           setHealthStatus({ backend: false, database: false });
         }
-      } catch (err) {
+      } catch {
         setHealthStatus({ backend: false, database: false });
       }
     };
@@ -80,50 +82,70 @@ export function Header() {
     return () => clearInterval(interval);
   }, [location]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const isSuperUser = isAuthenticated && user?.role === 'superuser';
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const isSuperUser = isAuthenticated && user?.role === "superuser";
 
   const tabs = [
-    ...(isClinicAuthenticated ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
-    ...(isDoctorAuthenticated ? [{ href: "/doctor-dashboard", label: "Doctor Portal", icon: Stethoscope }] : []),
-    ...(!isClinicAuthenticated && !isDoctorAuthenticated ? [
-      { 
-        href: location.startsWith("/book/") && !location.endsWith("/null") 
-          ? location 
-          : (location === "/about" || location === "/clinic-login" 
-              ? (() => {
-                  const id = new URLSearchParams(window.location.search).get("clinicId") || sessionStorage.getItem("lastClinicId");
-                  return id && id !== "null" ? `/book/${id}` : "/book";
-                })()
-              : "/book"), 
-        label: "Book a Slot", 
-        icon: CalendarPlus 
-      },
-    ] : []),
+    ...(isClinicAuthenticated
+      ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }]
+      : []),
+    ...(isDoctorAuthenticated
+      ? [{ href: "/doctor-dashboard", label: "Doctor Portal", icon: Stethoscope }]
+      : []),
+    ...(!isClinicAuthenticated && !isDoctorAuthenticated
+      ? [
+          {
+            href:
+              location.startsWith("/book/") && !location.endsWith("/null")
+                ? location
+                : location === "/about" || location === "/clinic-login"
+                ? (() => {
+                    const id =
+                      new URLSearchParams(window.location.search).get("clinicId") ||
+                      sessionStorage.getItem("lastClinicId");
+                    return id && id !== "null" ? `/book/${id}` : "/book";
+                  })()
+                : "/book",
+            label: "Book a Slot",
+            icon: CalendarPlus,
+          },
+        ]
+      : []),
     { href: "/deals", label: "Smile Deals", icon: Sparkles },
-    ...(!isClinicAuthenticated && !isDoctorAuthenticated && (location.startsWith("/book/") || location === "/about" || location === "/clinic-login") ? (() => {
-      const clinicId = (location.startsWith("/book/") && !location.endsWith("/null")) 
-        ? location.split("/").pop() 
-        : (new URLSearchParams(window.location.search).get("clinicId") || sessionStorage.getItem("lastClinicId"));
-      
-      return clinicId && clinicId !== "null" ? [
-        { href: `/about?clinicId=${clinicId}`, label: "About", icon: Building2 }
-      ] : [];
-    })() : []),
+    ...(!isClinicAuthenticated &&
+    !isDoctorAuthenticated &&
+    (location.startsWith("/book/") || location === "/about" || location === "/clinic-login")
+      ? (() => {
+          const clinicId =
+            location.startsWith("/book/") && !location.endsWith("/null")
+              ? location.split("/").pop()
+              : new URLSearchParams(window.location.search).get("clinicId") ||
+                sessionStorage.getItem("lastClinicId");
+          return clinicId && clinicId !== "null"
+            ? [{ href: `/about?clinicId=${clinicId}`, label: "About", icon: Building2 }]
+            : [];
+        })()
+      : []),
   ];
 
-  const renderAuthSection = () => {
+  /* ── Auth block (right of separator) ── */
+  const renderAuthBlock = () => {
+    /* Superuser */
     if (isAuthenticated) {
       return (
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex items-center gap-2">
+          {/* Notifications */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative hover:bg-muted/50 rounded-full" data-testid="button-notifications">
-                <Bell className="h-5 w-5 text-muted-foreground" />
+              <button
+                className="relative h-8 w-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                data-testid="button-notifications"
+              >
+                <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-accent animate-pulse" />
+                  <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent animate-pulse" />
                 )}
-              </Button>
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80 p-0">
               <div className="p-4 border-b bg-muted/30">
@@ -135,17 +157,17 @@ export function Header() {
                     No notifications yet
                   </div>
                 ) : (
-                  notifications.map((notification) => (
+                  notifications.map((n) => (
                     <DropdownMenuItem
-                      key={notification.id}
-                      className={`flex flex-col items-start gap-1 p-4 cursor-pointer focus:bg-muted/50 ${!notification.read ? 'bg-primary/5' : ''}`}
-                      onClick={() => !notification.read && markRead(notification.id)}
+                      key={n.id}
+                      className={`flex flex-col items-start gap-1 p-4 cursor-pointer focus:bg-muted/50 ${!n.read ? "bg-primary/5" : ""}`}
+                      onClick={() => !n.read && markRead(n.id)}
                     >
-                      <p className={`text-sm ${!notification.read ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
-                        {notification.message}
+                      <p className={`text-sm ${!n.read ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                        {n.message}
                       </p>
                       <span className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(notification.createdAt!), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(n.createdAt!), { addSuffix: true })}
                       </span>
                     </DropdownMenuItem>
                   ))
@@ -154,103 +176,125 @@ export function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="flex items-center gap-2 pl-2 border-l ml-1">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium leading-none">{user?.firstName} {user?.lastName}</p>
-              <p className="text-xs text-muted-foreground mt-0.5 capitalize">{user?.role}</p>
+          {/* Avatar + name */}
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <span className="text-[11px] font-bold text-primary">
+                {user?.firstName?.charAt(0)}
+              </span>
             </div>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => logout()}
-              className="gap-1.5 text-muted-foreground hover:text-destructive transition-colors px-2"
-              data-testid="button-logout"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs">Logout</span>
-            </Button>
+            <div className="hidden sm:block text-left leading-none">
+              <p className="text-sm font-medium leading-none">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-[3px] capitalize">{user?.role}</p>
+            </div>
           </div>
+
+          <button
+            onClick={() => logout()}
+            className="h-8 px-2.5 flex items-center gap-1.5 rounded-md text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-colors"
+            data-testid="button-logout"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
         </div>
       );
     }
 
+    /* Clinic admin */
     if (isClinicAuthenticated) {
       return (
-        <div className="flex items-center gap-2 pl-2 border-l ml-1">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium leading-none max-w-[150px] truncate">{clinic?.name}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Clinic Admin</p>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <span className="text-[11px] font-bold text-primary">
+                {clinic?.name?.charAt(0)}
+              </span>
+            </div>
+            <div className="hidden sm:block text-left leading-none">
+              <p className="text-sm font-medium leading-none max-w-[140px] truncate">
+                {clinic?.name}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-[3px]">Clinic Admin</p>
+            </div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm"
+
+          <button
             onClick={() => clinicLogout()}
-            className="gap-1.5 text-muted-foreground hover:text-destructive transition-colors px-2"
+            className="h-8 px-2.5 flex items-center gap-1.5 rounded-md text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-colors"
             data-testid="button-clinic-logout"
           >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline text-xs">Logout</span>
-          </Button>
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
         </div>
       );
     }
 
+    /* Doctor */
     if (isDoctorAuthenticated) {
+      const displayName = doctor?.name || "";
       return (
-        <div className="flex items-center gap-2 pl-2 border-l ml-1">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium leading-none max-w-[150px] truncate">
-              Dr. {doctor?.name?.split(" ")[0]}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">Doctor</p>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <span className="text-[11px] font-bold text-primary">
+                {displayName.replace(/^Dr\.\s*/i, "").charAt(0)}
+              </span>
+            </div>
+            <div className="hidden sm:block text-left leading-none">
+              <p className="text-sm font-medium leading-none max-w-[140px] truncate">
+                {displayName}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-[3px]">Doctor</p>
+            </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
+
+          <button
             onClick={() => doctorLogout()}
-            className="gap-1.5 text-muted-foreground hover:text-destructive transition-colors px-2"
+            className="h-8 px-2.5 flex items-center gap-1.5 rounded-md text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-colors"
             data-testid="button-doctor-logout"
           >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline text-xs">Logout</span>
-          </Button>
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
         </div>
       );
     }
 
+    /* Logged out */
     return (
-      <div className="flex items-center gap-1 sm:gap-2">
-        {isSuperUser && location !== "/admin" && (
-          <Link href="/admin">
-            <Button variant="outline" size="sm" className="gap-2 hidden sm:flex">
-              <Shield className="h-4 w-4" />
-              Admin
-            </Button>
-          </Link>
-        )}
+      <div className="flex items-center gap-2">
         <Link href="/clinic-login">
           <Button
             size="sm"
-            className="gap-2 h-9 px-3 sm:px-4 hidden sm:flex text-white font-semibold"
+            className="gap-2 h-8 px-3 text-white font-semibold text-xs"
             style={{ background: "#0F9B6E", border: "none" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#0A7A56"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#0F9B6E"; }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#0A7A56"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#0F9B6E"; }}
             data-testid="button-clinic-portal"
           >
-            <Building2 className="h-4 w-4" />
-            Clinic Portal
+            <Building2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Clinic Portal</span>
           </Button>
         </Link>
-        <Button 
-          onClick={() => window.location.href = "/admin"} 
-          variant={location === "/admin" ? "default" : "ghost"}
-          size="sm"
-          className={`gap-2 h-9 px-3 sm:px-4 ${location === "/admin" ? "" : "text-muted-foreground hover:text-foreground"}`}
-          data-testid="button-login"
-        >
-          <Shield className="h-4 w-4" />
-          <span className="hidden sm:inline">Admin</span>
-        </Button>
+
+        {/* Admin — subtle text link, not a competing button */}
+        <Link href="/admin">
+          <span
+            className={`hidden sm:flex items-center gap-1 text-xs px-1.5 py-1 rounded transition-colors ${
+              location === "/admin"
+                ? "text-foreground font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            data-testid="link-admin"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            Admin
+          </span>
+        </Link>
       </div>
     );
   };
@@ -260,37 +304,48 @@ export function Header() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center gap-4">
 
-          {/* Logo — fixed left */}
-          <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0" data-testid="link-home">
+          {/* ── Logo — always far left ── */}
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0"
+            data-testid="link-home"
+          >
             <img src={logoPath} alt="bookMySlot logo" className="h-8 w-8 rounded-xl object-cover" />
             <div className="hidden sm:flex flex-col leading-none">
-              <span className="text-[15px] font-bold tracking-tight" style={{ fontFamily: "'Sora', sans-serif", letterSpacing: "-.02em" }}>
+              <span
+                className="text-[15px] font-bold tracking-tight"
+                style={{ fontFamily: "'Sora', sans-serif", letterSpacing: "-.02em" }}
+              >
                 book<span style={{ color: "#0F9B6E" }}>My</span>Slot
               </span>
-              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground mt-[2px]">
+              {/* Fix 3: use text-primary/60 so it's visible in both light and dark mode */}
+              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-primary/60 mt-[2px]">
                 Dental
               </span>
             </div>
           </Link>
 
-          {/* Nav tabs — flex-1 centered so they never shift */}
-          <nav className="flex-1 flex items-center justify-center gap-1 sm:gap-2">
+          {/* ── Nav tabs — flex-1 centered, fixed min-width per tab ── */}
+          <nav className="flex-1 flex items-center justify-center gap-1">
             {tabs.map((tab) => {
-              const isActive = location === tab.href || 
+              const isActive =
+                location === tab.href ||
                 (tab.label === "Dashboard" && location === "/clinic-dashboard") ||
                 (tab.label === "Doctor Portal" && location === "/doctor-dashboard") ||
                 (tab.label === "Book a Slot" && location.startsWith("/book/"));
               const Icon = tab.icon;
-              
+
               return (
                 <Link key={tab.href} href={tab.href}>
                   <Button
                     variant={isActive ? "default" : "ghost"}
                     size="sm"
-                    className={`gap-2 h-9 px-3 sm:px-4 ${isActive ? "" : "text-muted-foreground hover:text-foreground"}`}
-                    data-testid={`tab-${tab.label.toLowerCase().replace(/\s+/g, '-')}`}
+                    className={`gap-2 h-9 min-w-[100px] justify-center ${
+                      isActive ? "" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid={`tab-${tab.label.toLowerCase().replace(/\s+/g, "-")}`}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4 shrink-0" />
                     <span className="hidden sm:inline">{tab.label}</span>
                   </Button>
                 </Link>
@@ -298,10 +353,39 @@ export function Header() {
             })}
           </nav>
 
-          {/* Auth section — fixed right */}
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <ThemeToggle />
-            {renderAuthSection()}
+          {/* ── Right utility bar — fixed order, never moves ── */}
+          <div className="flex items-center gap-3 shrink-0">
+
+            {/* Fix 1 & 2: Theme toggle always first, then a separator, then auth block */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="h-8 w-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                  data-testid="button-theme-toggle"
+                >
+                  <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                  <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                  <span className="sr-only">Toggle theme</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setTheme("light")} data-testid="item-theme-light">
+                  Light
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("dark")} data-testid="item-theme-dark">
+                  Dark
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("system")} data-testid="item-theme-system">
+                  System
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Thin vertical separator */}
+            <div className="w-px h-5 bg-border/60" />
+
+            {/* Auth block */}
+            {renderAuthBlock()}
           </div>
 
         </div>
