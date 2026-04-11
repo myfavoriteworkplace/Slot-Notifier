@@ -1,12 +1,9 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
-import { ArrowRight, Clock, Shield, Users, Star, Download, UserCheck, Check, Menu, X, Building2, CalendarPlus, Sparkles, ChevronDown } from "lucide-react";
+import { ArrowRight, Clock, Shield, Users, Star, Download, UserCheck, Check, ChevronDown } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useTheme } from "next-themes";
-import { Sun, Moon } from "lucide-react";
-import logoPath from "@assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png";
+import { motion } from "framer-motion";
 
 const T     = "#0F9B6E";
 const T_D   = "#0A7A56";
@@ -27,42 +24,13 @@ const fadeUp = (delay = 0) => ({
   transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1], delay },
 });
 
-const NAV_LINK_STYLE: React.CSSProperties = {
-  display: "flex", alignItems: "center", gap: 6,
-  padding: "7px 14px", borderRadius: 8,
-  fontSize: 13, fontWeight: 500,
-  color: "rgba(255,255,255,.55)",
-  textDecoration: "none", transition: "all .2s",
-  whiteSpace: "nowrap", border: "1px solid transparent",
-};
-
-const NAV_UTIL_STYLE: React.CSSProperties = {
-  width: 34, height: 34, borderRadius: 8,
-  background: "transparent",
-  border: "1px solid rgba(255,255,255,.1)",
-  display: "flex", alignItems: "center", justifyContent: "center",
-  cursor: "pointer", color: "rgba(255,255,255,.55)",
-  transition: "all .2s", flexShrink: 0,
-};
-
-const MOB_LINK_STYLE: React.CSSProperties = {
-  display: "flex", alignItems: "center", gap: 12,
-  padding: "15px 0",
-  borderBottom: "1px solid rgba(255,255,255,.06)",
-  fontSize: 16, fontWeight: 600,
-  color: "rgba(255,255,255,.7)",
-  textDecoration: "none", transition: "color .2s",
-};
 
 export default function Landing() {
   const { isAuthenticated, user } = useAuth();
   const { isAuthenticated: isClinicAuthenticated } = useClinicAuth();
   const [_, setLocation] = useLocation();
-  const { theme, setTheme } = useTheme();
 
-  const [toastVisible, setToastVisible]   = useState(false);
-  const [menuOpen,     setMenuOpen]       = useState(false);
-  const [navScrolled,  setNavScrolled]    = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
 
   useEffect(() => {
     if (isClinicAuthenticated) setLocation("/clinic-dashboard");
@@ -86,23 +54,6 @@ export default function Landing() {
     return () => clearTimeout(init);
   }, []);
 
-  useEffect(() => {
-    const onScroll = () => setNavScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    const onResize = () => { if (window.innerWidth > 900) setMenuOpen(false); };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  useEffect(() => {
-    document.body.style.overflow = menuOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [menuOpen]);
-
   if (isAuthenticated || isClinicAuthenticated) return null;
 
   const features = [
@@ -114,13 +65,8 @@ export default function Landing() {
     { icon: Download,  title: "Data & Exports",         desc: "Export patient data in Excel, CSV, or PDF anytime. Automated monthly backup reminders included." },
   ];
 
-  const isDark = theme === "dark";
-  const navBg  = navScrolled
-    ? "rgba(12,24,18,.99)"
-    : "rgba(12,24,18,.96)";
-
   return (
-    <div style={{ background: "#F5FAF7", color: TXT, fontFamily: "'Sora', sans-serif", overflowX: "hidden" }}>
+    <div style={{ color: TXT, fontFamily: "'Sora', sans-serif", overflowX: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
         @keyframes lndDrift  { from { transform:translate(0,0) scale(1); } to { transform:translate(30px,40px) scale(1.08); } }
@@ -130,19 +76,11 @@ export default function Landing() {
         @keyframes lndFloat3 { 0%,100%{transform:translateY(0) rotate(-1.5deg)} 50%{transform:translateY(-6px) rotate(-1.5deg)} }
         @keyframes lndBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
 
-        .lnd-nav-link:hover { color: rgba(255,255,255,.9) !important; background: rgba(255,255,255,.05) !important; }
-        .lnd-nav-util:hover { background: rgba(255,255,255,.06) !important; color: rgba(255,255,255,.9) !important; border-color: rgba(255,255,255,.2) !important; }
-        .lnd-portal-btn:hover { background: #0A7A56 !important; transform: translateY(-1px); }
-        .lnd-mob-link:hover { color: #fff !important; }
         .lnd-scroll-arrow { animation: lndBounce 1.8s ease-in-out infinite; }
 
         /* ── Tablet 540–900px ── */
         @media (max-width: 900px) {
-          .lnd-nav-links  { display: none !important; }
-          .lnd-nav-portal { display: none !important; }
-          .lnd-hamburger  { display: flex  !important; }
-
-          .lnd-hero { grid-template-columns: 1fr !important; min-height: auto !important; padding: 90px 24px 60px !important; }
+          .lnd-hero { grid-template-columns: 1fr !important; min-height: auto !important; padding: 40px 24px 60px !important; }
           .lnd-float-badge-1 { right: -8px  !important; top: 12px    !important; }
           .lnd-float-badge-2 { left:  -8px  !important; bottom: 40px !important; }
           .lnd-features-grid { grid-template-columns: 1fr 1fr !important; gap: 14px !important; }
@@ -156,7 +94,7 @@ export default function Landing() {
 
         /* ── Mobile ≤540px ── */
         @media (max-width: 540px) {
-          .lnd-hero          { padding: 88px 18px 48px !important; }
+          .lnd-hero          { padding: 24px 18px 48px !important; }
           .lnd-hero-actions  { flex-direction: column !important; align-items: stretch !important; }
           .lnd-hero-actions > * { width: 100% !important; justify-content: center !important; }
           .lnd-float-badge   { display: none !important; }
@@ -169,149 +107,6 @@ export default function Landing() {
           .lnd-trust-divider { display: none !important; }
         }
       `}</style>
-
-      {/* ══════════════════════════════════
-          LANDING NAV
-      ══════════════════════════════════ */}
-      <nav style={{
-        position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
-        height: 62,
-        background: navBg,
-        backdropFilter: "blur(20px) saturate(1.5)",
-        borderBottom: "1px solid rgba(255,255,255,.07)",
-        display: "flex", alignItems: "center",
-        padding: "0 max(24px, env(safe-area-inset-left))",
-        transition: "background .3s ease",
-      }}>
-        <div style={{ width: "100%", maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", gap: 0 }}>
-
-          {/* Logo */}
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 9, textDecoration: "none", flexShrink: 0, marginRight: "auto" } as React.CSSProperties}>
-            <img src={logoPath} alt="bookMySlot" style={{ width: 28, height: 28, borderRadius: 8, objectFit: "cover" }} />
-            <span style={{ fontSize: 16, fontWeight: 700, color: "#fff", letterSpacing: "-.02em", whiteSpace: "nowrap" }}>
-              book<span style={{ color: T_MID }}>My</span>Slot
-            </span>
-          </Link>
-
-          {/* Desktop nav links */}
-          <div className="lnd-nav-links" style={{ display: "flex", alignItems: "center", gap: 2, marginRight: 16 }}>
-            <Link href="/book" className="lnd-nav-link" style={NAV_LINK_STYLE as React.CSSProperties}>
-              <CalendarPlus style={{ width: 13, height: 13, opacity: .7, flexShrink: 0 }} />
-              Book a Slot
-            </Link>
-            <Link href="/deals" className="lnd-nav-link" style={NAV_LINK_STYLE as React.CSSProperties}>
-              <Sparkles style={{ width: 13, height: 13, opacity: .7, flexShrink: 0 }} />
-              Smile Deals
-            </Link>
-          </div>
-
-          {/* Clinic Portal — distinct teal CTA */}
-          <Link href="/clinic-login" className="lnd-nav-portal lnd-portal-btn" style={{
-            display: "flex", alignItems: "center", gap: 7,
-            padding: "8px 16px", borderRadius: 9,
-            background: T, color: "#fff",
-            fontSize: 13, fontWeight: 700,
-            textDecoration: "none", transition: "all .22s",
-            whiteSpace: "nowrap", flexShrink: 0,
-            boxShadow: "0 2px 12px rgba(15,155,110,.3)",
-          } as React.CSSProperties}>
-            <Building2 style={{ width: 13, height: 13 }} />
-            Clinic Portal
-          </Link>
-
-          {/* Utility buttons */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 10 }}>
-            <Link href="/admin" title="Admin" className="lnd-nav-util" style={NAV_UTIL_STYLE as React.CSSProperties}>
-              <Shield style={{ width: 15, height: 15 }} />
-            </Link>
-            <button
-              className="lnd-nav-util"
-              style={NAV_UTIL_STYLE}
-              title="Toggle theme"
-              onClick={() => setTheme(isDark ? "light" : "dark")}
-            >
-              {isDark
-                ? <Sun  style={{ width: 15, height: 15 }} />
-                : <Moon style={{ width: 15, height: 15 }} />}
-            </button>
-          </div>
-
-          {/* Hamburger — mobile only */}
-          <button
-            className="lnd-hamburger"
-            style={{ display: "none", alignItems: "center", justifyContent: "center", width: 34, height: 34, background: "transparent", border: "none", cursor: "pointer", marginLeft: 8, flexShrink: 0, color: "rgba(255,255,255,.7)" }}
-            onClick={() => setMenuOpen(o => !o)}
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-          >
-            {menuOpen
-              ? <X    style={{ width: 20, height: 20 }} />
-              : <Menu style={{ width: 20, height: 20 }} />}
-          </button>
-        </div>
-      </nav>
-
-      {/* ══════════════════════════════════
-          MOBILE DRAWER
-      ══════════════════════════════════ */}
-      <AnimatePresence>
-        {menuOpen && (
-          <motion.div
-            key="mob-drawer"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            style={{
-              position: "fixed", top: 62, left: 0, right: 0, bottom: 0, zIndex: 190,
-              background: "rgba(8,18,12,.97)",
-              backdropFilter: "blur(20px)",
-              display: "flex", flexDirection: "column",
-              padding: "24px 24px 40px",
-              overflowY: "auto",
-            }}
-          >
-            <Link href="/book" className="lnd-mob-link" style={MOB_LINK_STYLE as React.CSSProperties} onClick={() => setMenuOpen(false)}>
-              <CalendarPlus style={{ width: 18, height: 18, opacity: .6, flexShrink: 0 }} />
-              Book a Slot
-            </Link>
-            <Link href="/deals" className="lnd-mob-link" style={MOB_LINK_STYLE as React.CSSProperties} onClick={() => setMenuOpen(false)}>
-              <Sparkles style={{ width: 18, height: 18, opacity: .6, flexShrink: 0 }} />
-              Smile Deals
-            </Link>
-
-            <div style={{ height: 1, background: "rgba(255,255,255,.06)", margin: "8px 0" }} />
-
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0" }}>
-              <Shield style={{ width: 16, height: 16, color: "rgba(255,255,255,.4)" }} />
-              <Link href="/admin" style={{ fontSize: 14, color: "rgba(255,255,255,.5)", textDecoration: "none" } as React.CSSProperties} onClick={() => setMenuOpen(false)}>Admin</Link>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0 14px" }}>
-              {isDark
-                ? <Sun  style={{ width: 16, height: 16, color: "rgba(255,255,255,.4)" }} />
-                : <Moon style={{ width: 16, height: 16, color: "rgba(255,255,255,.4)" }} />}
-              <button
-                style={{ fontSize: 14, color: "rgba(255,255,255,.5)", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "'Sora', sans-serif" }}
-                onClick={() => { setTheme(isDark ? "light" : "dark"); }}
-              >
-                {isDark ? "Light mode" : "Dark mode"}
-              </button>
-            </div>
-
-            <Link href="/clinic-login" onClick={() => setMenuOpen(false)} style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              padding: "14px", borderRadius: 12,
-              background: T, color: "#fff",
-              fontSize: 15, fontWeight: 700,
-              textDecoration: "none", marginTop: 8,
-              boxShadow: "0 4px 20px rgba(15,155,110,.35)",
-            } as React.CSSProperties}>
-              <Building2 style={{ width: 16, height: 16 }} />
-              Sign in to Clinic Portal
-            </Link>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Ambient background blobs */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
@@ -326,7 +121,7 @@ export default function Landing() {
         ══════════════════════════════════ */}
         <section
           className="lnd-hero"
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", alignItems: "center", minHeight: "100vh", padding: "100px max(48px, 4vw) 60px", gap: 48 }}
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", alignItems: "center", minHeight: "100vh", padding: "60px max(48px, 4vw) 60px", gap: 48 }}
         >
           {/* Left */}
           <div>
