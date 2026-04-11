@@ -365,9 +365,6 @@ export default function DoctorDashboard() {
   return (
     <div className="min-h-screen bg-muted/30">
 
-      {/* 3px neon top bar */}
-      <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
-
       {/* Default password warning */}
       {(doctor as any).isDefaultPassword && (
         <div className="bg-gradient-to-r from-amber-500/90 via-yellow-500/90 to-amber-500/90 text-white px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-2">
@@ -376,40 +373,27 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {/* Slim header */}
-      <header className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-border/50 shadow-sm">
-        <div className="container mx-auto px-4 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-              <Stethoscope className="h-4 w-4 text-primary" />
+      {/* Page greeting bar */}
+      <div className="border-b border-border/40 bg-background/60">
+        <div className="container mx-auto px-4 h-11 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <Stethoscope className="h-3.5 w-3.5 text-primary" />
             </div>
-            <span className="font-bold text-sm text-foreground">Doctor Portal</span>
-            <span className="hidden sm:block text-border">·</span>
+            <span className="font-semibold text-sm text-foreground">Doctor Portal</span>
+            <span className="text-border hidden sm:block">·</span>
             <span className="hidden sm:block text-sm text-muted-foreground">Good {greet}, Dr. {(doctor as any).name.split(" ")[0]}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={copyProfileLink}
-              title="Copy shareable profile link"
-              className="h-8 w-8 rounded-full border border-border/60 bg-background flex items-center justify-center text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all duration-200"
-              data-testid="button-copy-profile-link"
-            >
-              {linkCopied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Share2 className="h-3.5 w-3.5" />}
-            </button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => logout()}
-              disabled={isLoggingOut}
-              className="h-8 border-border/50 text-muted-foreground hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive transition-colors duration-200"
-              data-testid="button-logout"
-            >
-              {isLoggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5 mr-1.5" />}
-              Logout
-            </Button>
-          </div>
+          <button
+            onClick={copyProfileLink}
+            title="Copy shareable profile link"
+            className="h-7 w-7 rounded-full border border-border/60 bg-background flex items-center justify-center text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all duration-200"
+            data-testid="button-copy-profile-link"
+          >
+            {linkCopied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Share2 className="h-3.5 w-3.5" />}
+          </button>
         </div>
-      </header>
+      </div>
 
       {/* Two-column layout */}
       <div className="container mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6 items-start">

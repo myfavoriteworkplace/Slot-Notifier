@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
+import { useDoctorAuth } from "@/hooks/use-doctor-auth";
 import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notifications";
 import { useState, useEffect } from "react";
 import logoPath from "@assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png";
@@ -12,6 +13,7 @@ import {
   Shield,
   Building2,
   Sparkles,
+  Stethoscope,
 } from "lucide-react";
 import { queryClient, apiRequest, API_BASE_URL } from "@/lib/queryClient";
 import { ThemeToggle } from "./ThemeToggle";
@@ -28,6 +30,7 @@ import { formatDistanceToNow } from "date-fns";
 export function Header() {
   const { user, logout, isAuthenticated } = useAuth();
   const { clinic, isAuthenticated: isClinicAuthenticated, logout: clinicLogout } = useClinicAuth();
+  const { doctor, isAuthenticated: isDoctorAuthenticated, logout: doctorLogout } = useDoctorAuth();
   const [location] = useLocation();
   const { data: notifications = [] } = useNotifications();
   const { mutate: markRead } = useMarkNotificationRead();
@@ -38,12 +41,10 @@ export function Header() {
   }>({ backend: null, database: null });
 
   useEffect(() => {
-    // If we are on the root landing page, clear the session context
     if (location === "/") {
       sessionStorage.removeItem("lastClinicId");
     }
 
-    // Persist clinic context for navigation
     if (location.startsWith("/book/")) {
       const id = location.split("/").pop();
       if (id && id !== "book") sessionStorage.setItem("lastClinicId", id);
@@ -75,7 +76,7 @@ export function Header() {
     };
 
     checkHealth();
-    const interval = setInterval(checkHealth, 30000); // Check every 30s
+    const interval = setInterval(checkHealth, 30000);
     return () => clearInterval(interval);
   }, [location]);
 
@@ -84,8 +85,8 @@ export function Header() {
 
   const tabs = [
     ...(isClinicAuthenticated ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
-    // Only show Book a Slot and Clinic Portal when NOT logged in as clinic admin
-    ...(!isClinicAuthenticated ? [
+    ...(isDoctorAuthenticated ? [{ href: "/doctor-dashboard", label: "Doctor Portal", icon: Stethoscope }] : []),
+    ...(!isClinicAuthenticated && !isDoctorAuthenticated ? [
       { 
         href: location.startsWith("/book/") && !location.endsWith("/null") 
           ? location 
@@ -100,7 +101,7 @@ export function Header() {
       },
     ] : []),
     { href: "/deals", label: "Smile Deals", icon: Sparkles },
-    ...(location.startsWith("/book/") || location === "/about" || location === "/clinic-login" ? (() => {
+    ...(!isClinicAuthenticated && !isDoctorAuthenticated && (location.startsWith("/book/") || location === "/about" || location === "/clinic-login") ? (() => {
       const clinicId = (location.startsWith("/book/") && !location.endsWith("/null")) 
         ? location.split("/").pop() 
         : (new URLSearchParams(window.location.search).get("clinicId") || sessionStorage.getItem("lastClinicId"));
@@ -111,10 +112,10 @@ export function Header() {
     })() : []),
   ];
 
-  const renderAuthButtons = () => {
+  const renderAuthSection = () => {
     if (isAuthenticated) {
       return (
-        <>
+        <div className="flex items-center gap-1 sm:gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative hover:bg-muted/50 rounded-full" data-testid="button-notifications">
@@ -153,79 +154,131 @@ export function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="hidden sm:flex items-center gap-3 pl-2 border-l ml-2">
-            <div className="text-right">
+          <div className="flex items-center gap-2 pl-2 border-l ml-1">
+            <div className="text-right hidden sm:block">
               <p className="text-sm font-medium leading-none">{user?.firstName} {user?.lastName}</p>
               <p className="text-xs text-muted-foreground mt-0.5 capitalize">{user?.role}</p>
             </div>
             <Button 
               variant="ghost" 
-              size="icon"
+              size="sm"
               onClick={() => logout()}
-              className="text-muted-foreground hover:text-destructive transition-colors"
+              className="gap-1.5 text-muted-foreground hover:text-destructive transition-colors px-2"
               data-testid="button-logout"
             >
               <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">Logout</span>
             </Button>
           </div>
-        </>
+        </div>
       );
     }
 
     if (isClinicAuthenticated) {
       return (
-        <div className="flex items-center gap-2 sm:gap-3 pl-2 border-l ml-2">
+        <div className="flex items-center gap-2 pl-2 border-l ml-1">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-medium leading-none max-w-[150px] truncate">{clinic?.name}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Clinic Admin</p>
           </div>
           <Button 
             variant="ghost" 
-            size="icon"
+            size="sm"
             onClick={() => clinicLogout()}
-            className="text-muted-foreground hover:text-destructive transition-colors"
+            className="gap-1.5 text-muted-foreground hover:text-destructive transition-colors px-2"
             data-testid="button-clinic-logout"
           >
             <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline text-xs">Logout</span>
           </Button>
         </div>
       );
     }
 
-    if (!isAuthenticated && !isClinicAuthenticated) {
-      const isAdminActive = location === "/admin";
+    if (isDoctorAuthenticated) {
       return (
+        <div className="flex items-center gap-2 pl-2 border-l ml-1">
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-medium leading-none max-w-[150px] truncate">
+              Dr. {doctor?.name?.split(" ")[0]}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Doctor</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => doctorLogout()}
+            className="gap-1.5 text-muted-foreground hover:text-destructive transition-colors px-2"
+            data-testid="button-doctor-logout"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline text-xs">Logout</span>
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1 sm:gap-2">
+        {isSuperUser && location !== "/admin" && (
+          <Link href="/admin">
+            <Button variant="outline" size="sm" className="gap-2 hidden sm:flex">
+              <Shield className="h-4 w-4" />
+              Admin
+            </Button>
+          </Link>
+        )}
+        <Link href="/clinic-login">
+          <Button
+            size="sm"
+            className="gap-2 h-9 px-3 sm:px-4 hidden sm:flex text-white font-semibold"
+            style={{ background: "#0F9B6E", border: "none" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#0A7A56"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#0F9B6E"; }}
+            data-testid="button-clinic-portal"
+          >
+            <Building2 className="h-4 w-4" />
+            Clinic Portal
+          </Button>
+        </Link>
         <Button 
           onClick={() => window.location.href = "/admin"} 
-          variant={isAdminActive ? "default" : "ghost"}
+          variant={location === "/admin" ? "default" : "ghost"}
           size="sm"
-          className={`gap-2 h-9 px-3 sm:px-4 ml-2 ${isAdminActive ? "" : "text-muted-foreground hover:text-foreground"}`}
+          className={`gap-2 h-9 px-3 sm:px-4 ${location === "/admin" ? "" : "text-muted-foreground hover:text-foreground"}`}
           data-testid="button-login"
         >
           <Shield className="h-4 w-4" />
           <span className="hidden sm:inline">Admin</span>
         </Button>
-      );
-    }
-
-    return null;
+      </div>
+    );
   };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-md">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2 text-xl font-bold hover:opacity-80 transition-opacity" data-testid="link-home">
+        <div className="flex h-16 items-center gap-4">
+
+          {/* Logo — fixed left */}
+          <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0" data-testid="link-home">
             <img src={logoPath} alt="bookMySlot logo" className="h-8 w-8 rounded-xl object-cover" />
-            <span className="hidden sm:inline text-[15px] font-bold tracking-tight" style={{ fontFamily: "'Sora', sans-serif", letterSpacing: "-.02em" }}>
-              book<span style={{ color: "#0F9B6E" }}>My</span>Slot
-            </span>
+            <div className="hidden sm:flex flex-col leading-none">
+              <span className="text-[15px] font-bold tracking-tight" style={{ fontFamily: "'Sora', sans-serif", letterSpacing: "-.02em" }}>
+                book<span style={{ color: "#0F9B6E" }}>My</span>Slot
+              </span>
+              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground mt-[2px]">
+                Dental
+              </span>
+            </div>
           </Link>
 
-          <nav className="flex items-center gap-1 sm:gap-2">
+          {/* Nav tabs — flex-1 centered so they never shift */}
+          <nav className="flex-1 flex items-center justify-center gap-1 sm:gap-2">
             {tabs.map((tab) => {
               const isActive = location === tab.href || 
-                (tab.href === "/clinic-login" && location === "/clinic-dashboard") ||
+                (tab.label === "Dashboard" && location === "/clinic-dashboard") ||
+                (tab.label === "Doctor Portal" && location === "/doctor-dashboard") ||
                 (tab.label === "Book a Slot" && location.startsWith("/book/"));
               const Icon = tab.icon;
               
@@ -245,33 +298,12 @@ export function Header() {
             })}
           </nav>
 
-          <div className="flex items-center gap-1 sm:gap-2">
-            {isSuperUser && location !== "/admin" && (
-              <Link href="/admin">
-                <Button variant="outline" size="sm" className="gap-2 hidden sm:flex">
-                  <Shield className="h-4 w-4" />
-                  Admin
-                </Button>
-              </Link>
-            )}
-            {!isAuthenticated && !isClinicAuthenticated && (
-              <Link href="/clinic-login">
-                <Button
-                  size="sm"
-                  className="gap-2 h-9 px-3 sm:px-4 hidden sm:flex text-white font-semibold"
-                  style={{ background: "#0F9B6E", border: "none" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#0A7A56"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#0F9B6E"; }}
-                  data-testid="button-clinic-portal"
-                >
-                  <Building2 className="h-4 w-4" />
-                  Clinic Portal
-                </Button>
-              </Link>
-            )}
-            {renderAuthButtons()}
+          {/* Auth section — fixed right */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <ThemeToggle />
+            {renderAuthSection()}
           </div>
+
         </div>
       </div>
     </header>
