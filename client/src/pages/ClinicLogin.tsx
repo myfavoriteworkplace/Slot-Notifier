@@ -21,6 +21,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Link } from "wouter";
+import logoPath from "@assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png";
 
 export default function ClinicLogin() {
   const [clinicUsername, setClinicUsername] = useState("");
@@ -157,14 +158,17 @@ export default function ClinicLogin() {
 
         <div className="relative z-10 flex flex-col h-full px-12 py-10">
 
-          {/* Logo */}
+          {/* Logo — same lockup as the main header */}
           <div className="flex items-center gap-2.5 mb-auto">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <CalendarCheck className="h-4 w-4 text-white" />
+            <img src={logoPath} alt="bookMySlot logo" className="h-8 w-8 rounded-xl object-cover" />
+            <div className="flex flex-col leading-none">
+              <span className="text-[15px] font-bold text-white tracking-tight" style={{ letterSpacing: "-.02em" }}>
+                book<span style={{ color: "#0F9B6E" }}>My</span>Slot
+              </span>
+              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/40 mt-[2px]">
+                Dental
+              </span>
             </div>
-            <span className="text-base font-bold text-white/90 tracking-tight">
-              book<span className="text-primary">My</span>Slot
-            </span>
           </div>
 
           {/* Center content */}
