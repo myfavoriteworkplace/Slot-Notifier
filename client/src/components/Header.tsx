@@ -25,6 +25,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 
@@ -35,7 +41,7 @@ export function Header() {
   const [location] = useLocation();
   const { data: notifications = [] } = useNotifications();
   const { mutate: markRead } = useMarkNotificationRead();
-  const { setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
 
   const [healthStatus, setHealthStatus] = useState<{
     backend: boolean | null;
@@ -87,7 +93,7 @@ export function Header() {
 
   const tabs = [
     ...(isClinicAuthenticated
-      ? [{ href: "/clinic-dashboard", label: "Dashboard", icon: LayoutDashboard }]
+      ? [{ href: "/clinic-dashboard", label: "Clinic Dashboard", icon: LayoutDashboard }]
       : []),
     ...(isDoctorAuthenticated
       ? [{ href: "/doctor-dashboard", label: "Doctor Portal", icon: Stethoscope }]
@@ -330,7 +336,7 @@ export function Header() {
             {tabs.map((tab) => {
               const isActive =
                 location === tab.href ||
-                (tab.label === "Dashboard" && location === "/clinic-dashboard") ||
+                (tab.label === "Clinic Dashboard" && location === "/clinic-dashboard") ||
                 (tab.label === "Doctor Portal" && location === "/doctor-dashboard") ||
                 (tab.label === "Book a Slot" && location.startsWith("/book/"));
               const Icon = tab.icon;
@@ -353,39 +359,34 @@ export function Header() {
             })}
           </nav>
 
-          {/* ── Right utility bar — fixed order, never moves ── */}
+          {/* ── Right utility bar: [auth] [separator] [theme toggle] ── */}
           <div className="flex items-center gap-3 shrink-0">
 
-            {/* Fix 1 & 2: Theme toggle always first, then a separator, then auth block */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="h-8 w-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                  data-testid="button-theme-toggle"
-                >
-                  <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                  <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                  <span className="sr-only">Toggle theme</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTheme("light")} data-testid="item-theme-light">
-                  Light
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("dark")} data-testid="item-theme-dark">
-                  Dark
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("system")} data-testid="item-theme-system">
-                  System
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Auth block */}
+            {renderAuthBlock()}
 
             {/* Thin vertical separator */}
             <div className="w-px h-5 bg-border/60" />
 
-            {/* Auth block */}
-            {renderAuthBlock()}
+            {/* Single-click theme toggle — extreme right, tooltip shows next action */}
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+                    className="h-8 w-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                    data-testid="button-theme-toggle"
+                  >
+                    <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                    <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                    <span className="sr-only">Toggle theme</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
         </div>
