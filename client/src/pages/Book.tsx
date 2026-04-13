@@ -512,36 +512,54 @@ export default function Book(props: { params: { clinicId?: string } }) {
       <div className="fixed bottom-0 left-0  w-[420px] h-[420px] bg-accent/5  rounded-full blur-3xl pointer-events-none  translate-y-1/4 -translate-x-1/4" />
 
       {/* ── HERO BANNER ──────────────────────────────────── */}
-      <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 overflow-hidden">
+      <div className="relative bg-foreground dark:bg-background overflow-hidden">
+        {/* Top accent bar */}
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
-        {/* decorative large icon */}
-        <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-[0.07] pointer-events-none select-none">
+
+        {/* Ambient glow blobs — same as login panel */}
+        <div className="absolute -top-40 -left-20 w-[500px] h-[500px] rounded-full bg-primary/20 blur-[120px] pointer-events-none" />
+        <div className="absolute -bottom-32 -right-20 w-[400px] h-[400px] rounded-full bg-primary/10 blur-[100px] pointer-events-none" />
+
+        {/* Grid texture — same as login panel */}
+        <div
+          className="absolute inset-0 pointer-events-none opacity-[0.04]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+          }}
+        />
+
+        {/* Decorative large icon */}
+        <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-[0.06] pointer-events-none select-none">
           <CalendarDays className="h-52 w-52 text-white" />
         </div>
+
         <div className="relative container mx-auto px-4 sm:px-6 py-10 sm:py-14 max-w-5xl">
-          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-white/60 mb-3">
+          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-white/50 mb-3">
             <CalendarDays className="h-3 w-3" /> BookMySlot
           </p>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight mb-2">
-            Book Your <span className="text-white/85">Appointment</span>
+            Book Your <span className="text-primary">Appointment</span>
           </h1>
-          <p className="text-white/55 text-sm sm:text-base mb-7 max-w-md">
+          <p className="text-white/50 text-sm sm:text-base mb-7 max-w-md">
             Choose a clinic, pick a date, and confirm instantly — no account required.
           </p>
           <div className="flex flex-wrap gap-2">
             {[
-              { Icon: Clock,     label: "3 time slots daily"   },
-              { Icon: Sparkles,  label: "Confirmed instantly"  },
-              { Icon: Shield,    label: "No account needed"    },
+              { Icon: Clock,    label: "3 time slots daily"  },
+              { Icon: Sparkles, label: "Confirmed instantly" },
+              { Icon: Shield,   label: "No account needed"   },
             ].map(({ Icon, label }) => (
-              <div key={label} className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-full px-3 py-1.5 text-[11px] font-semibold text-white/80 backdrop-blur-sm">
+              <div key={label} className="flex items-center gap-1.5 bg-white/[0.06] border border-white/[0.1] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white/70 backdrop-blur-sm">
                 <Icon className="h-3 w-3" />
                 {label}
               </div>
             ))}
           </div>
         </div>
+
+        {/* Bottom accent bar */}
         <div className="h-[2px] bg-gradient-to-r from-accent/40 via-primary/60 to-accent/40" />
       </div>
 
@@ -1052,8 +1070,19 @@ export default function Book(props: { params: { clinicId?: string } }) {
           ) : (
             <>
               {/* ── DIALOG HERO HEADER ─────────────────────── */}
-              <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-4 shrink-0 overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
+              <div className="relative bg-foreground dark:bg-background px-5 pt-5 pb-4 shrink-0 overflow-hidden">
+                {/* Glow blobs */}
+                <div className="absolute -top-20 -left-10 w-[260px] h-[260px] rounded-full bg-primary/20 blur-[80px] pointer-events-none" />
+                <div className="absolute -bottom-16 -right-10 w-[200px] h-[200px] rounded-full bg-primary/10 blur-[60px] pointer-events-none" />
+                {/* Grid texture */}
+                <div
+                  className="absolute inset-0 pointer-events-none opacity-[0.04]"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)",
+                    backgroundSize: "40px 40px",
+                  }}
+                />
                 <div className="relative">
                   {/* Step pills */}
                   <div className="flex items-center gap-2 mb-3">
