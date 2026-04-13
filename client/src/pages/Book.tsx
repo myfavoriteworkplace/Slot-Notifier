@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CalendarDays, CheckCircle2, Building2, User, Phone, Mail,
   MapPin, Sun, Moon, Clock, Shield, Sparkles, Search, Stethoscope, X, ChevronDown,
-  CreditCard, ClipboardCheck, Info,
+  CreditCard, ClipboardCheck, Info, Lock,
 } from "lucide-react";
 import ClinicInfoSheet from "@/components/ClinicInfoSheet";
 import type { Clinic, Slot } from "@shared/schema";
@@ -170,6 +170,36 @@ export default function Book(props: { params: { clinicId?: string } }) {
     const timer = setTimeout(() => setResendCountdown(c => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCountdown]);
+
+  // Auto-submit OTP when all 6 digits are entered
+  useEffect(() => {
+    if (otpCode.length === 6 && otpSent && !emailVerified && !verifyOtpMutation.isPending) {
+      const code = otpCode.trim();
+      if (/^\d{6}$/.test(code)) {
+        verifyOtpMutation.mutate({ email: customerEmail.trim().toLowerCase(), code });
+      }
+    }
+  }, [otpCode]);
+
+  // Restore form fields from sessionStorage on mount
+  useEffect(() => {
+    const name  = sessionStorage.getItem("bms_name");
+    const phone = sessionStorage.getItem("bms_phone");
+    const email = sessionStorage.getItem("bms_email");
+    const desc  = sessionStorage.getItem("bms_description");
+    if (name)  setCustomerName(name);
+    if (phone) setCustomerPhone(phone);
+    if (email) setCustomerEmail(email);
+    if (desc)  setDescription(desc);
+  }, []);
+
+  // Persist form fields to sessionStorage on every change
+  useEffect(() => {
+    if (customerName)  sessionStorage.setItem("bms_name",  customerName);
+    if (customerPhone) sessionStorage.setItem("bms_phone", customerPhone);
+    if (customerEmail) sessionStorage.setItem("bms_email", customerEmail);
+    sessionStorage.setItem("bms_description", description);
+  }, [customerName, customerPhone, customerEmail, description]);
 
   const handleComplaintClick = (complaint: string) => {
     const current = description ? description.split(", ").filter(Boolean) : [];
@@ -451,6 +481,10 @@ export default function Book(props: { params: { clinicId?: string } }) {
     setBookingPath(null);
     setStep("details");
     resetOtpState();
+    sessionStorage.removeItem("bms_name");
+    sessionStorage.removeItem("bms_phone");
+    sessionStorage.removeItem("bms_email");
+    sessionStorage.removeItem("bms_description");
   };
 
   const selectedClinicObj = clinics.find(c => c.name === selectedClinic);
@@ -868,6 +902,13 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                 <span className={`text-[8px] mt-0.5 ${isSelected ? "text-white/50" : "text-muted-foreground/60"}`}>
                                   {format(date, "MMM")}
                                 </span>
+                                <div className={`h-1.5 w-1.5 rounded-full mt-1 transition-colors ${
+                                  isSelected
+                                    ? "bg-white/60"
+                                    : isDayFull
+                                    ? "bg-muted-foreground/30"
+                                    : "bg-emerald-400"
+                                }`} />
                                 {isDayFull && (
                                   <span className="absolute -top-1.5 -right-1.5 text-[8px] font-bold bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded-full">
                                     FULL
@@ -1047,6 +1088,15 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
               {/* ── DIALOG BODY ─────────────────────────────── */}
               <div className="overflow-y-auto flex-1 p-5">
+                {/* Floating verified badge — sticky inside scroll area */}
+                {emailVerified && !showSlots && (
+                  <div className="sticky top-0 z-10 flex justify-end mb-3 pointer-events-none">
+                    <div className="flex items-center gap-1.5 bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-full shadow-md shadow-emerald-500/25 animate-in fade-in slide-in-from-top-1 duration-300">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Email verified ✓
+                    </div>
+                  </div>
+                )}
                 {!showSlots ? (
                   /* STEP 1: Patient details */
                   <div className="space-y-4">
@@ -1237,13 +1287,23 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     </div>
 
                     {/* Chief complaints */}
-                    <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                    <div className={`rounded-xl border overflow-hidden transition-all duration-300 ${
+                      emailVerified
+                        ? "border-border/60 bg-muted/20"
+                        : "border-border/40 bg-muted/30"
+                    }`}>
                       <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                         <Sparkles className="h-3 w-3 text-primary" />
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Chief Complaints</span>
-                        <span className="ml-auto text-[10px] text-muted-foreground">Select all that apply</span>
+                        {emailVerified ? (
+                          <span className="ml-auto text-[10px] text-muted-foreground">Select all that apply</span>
+                        ) : (
+                          <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Lock className="h-3 w-3" /> Verify email to select
+                          </span>
+                        )}
                       </div>
-                      <div className="p-3 flex flex-wrap gap-1.5">
+                      <div className={`p-3 flex flex-wrap gap-1.5 transition-opacity duration-300 ${!emailVerified ? "opacity-50 pointer-events-none" : ""}`}>
                         {CHIEF_COMPLAINTS.map(complaint => {
                           const isOn = description.split(", ").includes(complaint);
                           return (
@@ -1251,11 +1311,12 @@ export default function Book(props: { params: { clinicId?: string } }) {
                               key={complaint}
                               type="button"
                               onClick={() => handleComplaintClick(complaint)}
-                              className={`text-[11px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-lg border transition-all ${
+                              disabled={!emailVerified}
+                              className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-all ${
                                 isOn
                                   ? "bg-primary/15 border-primary/35 text-primary shadow-sm"
                                   : "bg-background border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                              }`}
+                              } disabled:cursor-not-allowed`}
                               data-testid={`chip-complaint-${complaint}`}
                             >
                               {complaint}
@@ -1279,14 +1340,32 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     </div>
 
                     {/* CTA */}
-                    <Button
-                      onClick={() => setShowSlots(true)}
-                      disabled={!canProceedToSlots}
-                      className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
-                      data-testid="button-check-slots"
-                    >
-                      {emailVerified ? "View Available Slots →" : "Verify Email to View Slots"}
-                    </Button>
+                    <div className="relative">
+                      {canProceedToSlots && (
+                        <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-primary/50 to-accent/50 blur-sm animate-pulse pointer-events-none" />
+                      )}
+                      <Button
+                        onClick={() => setShowSlots(true)}
+                        disabled={!canProceedToSlots}
+                        className={`relative w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 rounded-xl transition-all duration-300 ${
+                          canProceedToSlots
+                            ? "shadow-lg shadow-primary/30"
+                            : "shadow-md shadow-primary/20"
+                        }`}
+                        data-testid="button-check-slots"
+                      >
+                        {emailVerified ? "View Available Slots →" : "Verify Email to View Slots"}
+                      </Button>
+                    </div>
+                    {emailVerified && !canProceedToSlots && (
+                      <p className="text-center text-[11px] text-muted-foreground animate-in fade-in duration-300 -mt-1">
+                        {!customerName
+                          ? "Enter your name to continue"
+                          : !isPhoneValid
+                          ? "Enter a valid phone number to continue"
+                          : "Complete all fields to continue"}
+                      </p>
+                    )}
                   </div>
 
                 ) : (
