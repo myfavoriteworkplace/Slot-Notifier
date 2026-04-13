@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { sql, eq, and } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
@@ -74,6 +74,22 @@ function detailsTable(rows: { label: string; value: string; mono?: boolean }[]):
 
 function actionButton(label: string, href: string, color = '#3e34b4'): string {
   return `<a href="${href}" style="display:inline-block;padding:12px 28px;background:${color};color:#fff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px">${label}</a>`;
+}
+
+function sendOtpEmail(code: string): string {
+  return emailShell(
+    '#3e34b4',
+    'Your Verification Code',
+    'Use this code to verify your email and complete your booking',
+    `<tr><td style="padding:28px 32px">
+      <p style="margin:0 0 20px;font-size:14px;color:#4a4a6a;line-height:1.6">Enter the code below in the booking form. It is valid for <strong>5 minutes</strong> and can only be used once.</p>
+      <div style="background:#f5f4ff;border:2px dashed #c4c0f0;border-radius:12px;padding:28px;text-align:center;margin:0 0 20px">
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#6b6f8c">Your verification code</p>
+        <p style="margin:0;font-size:44px;font-weight:900;letter-spacing:12px;color:#3e34b4;font-family:monospace">${code}</p>
+      </div>
+      <p style="margin:0;font-size:12px;color:#9090aa;text-align:center">If you did not request this, you can safely ignore this email.</p>
+    </td></tr>`
+  );
 }
 
 async function sendBookingEmails(
@@ -536,12 +552,114 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── OTP: send verification code ────────────────────────────────────────────
+  app.post("/api/public/otp/send", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ message: "A valid email address is required" });
+      }
+      const normalizedEmail = email.toLowerCase();
+
+      // Rate-limit: if an OTP was created < 60 seconds ago, block
+      const [recent] = await db.select().from(emailOtps)
+        .where(and(
+          eq(emailOtps.email, normalizedEmail),
+          sql`${emailOtps.expiresAt} > NOW() + INTERVAL '4 minutes'`
+        ))
+        .limit(1);
+
+      if (recent) {
+        return res.status(429).json({ message: "Please wait before requesting a new code" });
+      }
+
+      // Remove any previous OTPs for this email
+      await db.delete(emailOtps).where(eq(emailOtps.email, normalizedEmail));
+
+      // Generate 6-digit code and hash it
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpHash = await bcrypt.hash(code, 10);
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+      await db.insert(emailOtps).values({ email: normalizedEmail, otpHash, expiresAt });
+
+      if (resend) {
+        await resend.emails.send({
+          from: EMAIL_FROM,
+          to: email,
+          subject: "Your BookMySlot verification code",
+          html: sendOtpEmail(code),
+        });
+      } else {
+        console.log(`[OTP DEV] Code for ${email}: ${code}`);
+      }
+
+      res.json({ success: true, message: "Verification code sent to your email" });
+    } catch (err: any) {
+      console.error('[OTP SEND ERROR]', err.message);
+      res.status(500).json({ message: "Failed to send verification code" });
+    }
+  });
+
+  // ── OTP: verify code and return session token ──────────────────────────────
+  app.post("/api/public/otp/verify", async (req, res) => {
+    try {
+      const { email, code } = req.body;
+      if (!email || !code) {
+        return res.status(400).json({ message: "Email and code are required" });
+      }
+      const normalizedEmail = email.toLowerCase();
+
+      const [otpRow] = await db.select().from(emailOtps)
+        .where(and(
+          eq(emailOtps.email, normalizedEmail),
+          eq(emailOtps.verified, false),
+          sql`${emailOtps.expiresAt} > NOW()`
+        ))
+        .limit(1);
+
+      if (!otpRow) {
+        return res.status(400).json({ message: "No valid code found. Please request a new one." });
+      }
+
+      const isMatch = await bcrypt.compare(code.toString(), otpRow.otpHash);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Incorrect code. Please try again." });
+      }
+
+      const verifiedToken = crypto.randomBytes(32).toString("hex");
+      await db.update(emailOtps)
+        .set({ verified: true, verifiedToken })
+        .where(eq(emailOtps.id, otpRow.id));
+
+      res.json({ success: true, verifiedToken });
+    } catch (err: any) {
+      console.error('[OTP VERIFY ERROR]', err.message);
+      res.status(500).json({ message: "Failed to verify code" });
+    }
+  });
+
   // ── RAZORPAY: create order (₹1 token) ─────────────────────────────────────
   app.post("/api/public/razorpay/create-order", async (req, res) => {
     try {
       if (!razorpay) return res.status(503).json({ message: "Razorpay not configured" });
-      const { clinicId, startTime } = req.body;
+      const { clinicId, startTime, email, verifiedToken } = req.body;
       if (!clinicId || !startTime) return res.status(400).json({ message: "Missing clinicId or startTime" });
+
+      // Require verified email token
+      if (!email || !verifiedToken) {
+        return res.status(401).json({ message: "Email verification required before booking" });
+      }
+      const [otpRow] = await db.select().from(emailOtps)
+        .where(and(
+          eq(emailOtps.verified, true),
+          eq(emailOtps.verifiedToken, verifiedToken),
+          eq(emailOtps.email, email.toLowerCase())
+        ))
+        .limit(1);
+      if (!otpRow) {
+        return res.status(401).json({ message: "Email verification expired. Please verify your email again." });
+      }
 
       const clinic = await storage.getClinic(parseInt(clinicId));
       if (!clinic) return res.status(404).json({ message: "Clinic not found" });
@@ -575,7 +693,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const {
         razorpay_order_id, razorpay_payment_id, razorpay_signature,
         customerName, customerPhone, customerEmail,
-        clinicId, clinicName, startTime, endTime, description,
+        clinicId, clinicName, startTime, endTime, description, verifiedToken,
       } = req.body;
 
       if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -583,6 +701,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       if (!customerName || !customerPhone || !customerEmail || !clinicId || !startTime || !endTime) {
         return res.status(400).json({ message: "Missing booking fields" });
+      }
+
+      // Require verified email token
+      if (!verifiedToken) {
+        return res.status(401).json({ message: "Email verification required before booking" });
+      }
+      const [otpRow] = await db.select().from(emailOtps)
+        .where(and(
+          eq(emailOtps.verified, true),
+          eq(emailOtps.verifiedToken, verifiedToken),
+          eq(emailOtps.email, customerEmail.toLowerCase())
+        ))
+        .limit(1);
+      if (!otpRow) {
+        return res.status(401).json({ message: "Email verification expired. Please verify your email again." });
       }
 
       // HMAC-SHA256 signature verification (mandatory security check)
@@ -617,11 +750,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         description: description || null,
         verificationCode: null,
         verificationExpiresAt: null,
-        verificationStatus: 'confirmed',
+        verificationStatus: 'email_verified',
         paymentStatus: 'paid',
         razorpayOrderId: razorpay_order_id,
         razorpayPaymentId: razorpay_payment_id,
       });
+
+      // Consume the OTP token — one token, one booking
+      await db.delete(emailOtps).where(eq(emailOtps.id, otpRow.id));
 
       await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id);
 
@@ -639,7 +775,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── PUBLIC BOOKING: clinic-approval path (pending) ─────────────────────────
   app.post("/api/public/bookings", async (req, res) => {
     try {
-      const { customerName, customerPhone, customerEmail, clinicId, clinicName, startTime, endTime, description } = req.body;
+      const { customerName, customerPhone, customerEmail, clinicId, clinicName, startTime, endTime, description, verifiedToken } = req.body;
 
       if (!customerName || !customerPhone || !customerEmail || !clinicId || !startTime || !endTime) {
         return res.status(400).json({ message: "Missing required fields" });
@@ -648,6 +784,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(customerEmail)) {
         return res.status(400).json({ message: "Invalid email format" });
+      }
+
+      // Require verified email token
+      if (!verifiedToken) {
+        return res.status(401).json({ message: "Email verification required before booking" });
+      }
+      const [otpRow] = await db.select().from(emailOtps)
+        .where(and(
+          eq(emailOtps.verified, true),
+          eq(emailOtps.verifiedToken, verifiedToken),
+          eq(emailOtps.email, customerEmail.toLowerCase())
+        ))
+        .limit(1);
+      if (!otpRow) {
+        return res.status(401).json({ message: "Email verification expired. Please verify your email again." });
       }
 
       const clinic = await storage.getClinic(parseInt(clinicId));
@@ -679,8 +830,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         description: description || null,
         verificationCode: null,
         verificationExpiresAt: null,
-        verificationStatus: 'pending',
+        verificationStatus: 'email_verified',
       });
+
+      // Consume the OTP token — one token, one booking
+      await db.delete(emailOtps).where(eq(emailOtps.id, otpRow.id));
 
       await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id);
 

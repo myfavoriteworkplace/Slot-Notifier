@@ -77,6 +77,14 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [isClinicSheetOpen, setIsClinicSheetOpen] = useState(false);
   const razorpayScriptRef = useRef(false);
 
+  // OTP verification state
+  const [otpSent, setOtpSent]               = useState(false);
+  const [otpCode, setOtpCode]               = useState("");
+  const [emailVerified, setEmailVerified]   = useState(false);
+  const [verifiedToken, setVerifiedToken]   = useState("");
+  const [otpError, setOtpError]             = useState("");
+  const [resendCountdown, setResendCountdown] = useState(0);
+
   const validateIndianPhone = (phone: string): boolean => {
     const cleaned = phone.replace(/[\s\-\(\)]/g, "");
     return /^(\+91|91)?[6-9]\d{9}$/.test(cleaned);
@@ -90,6 +98,29 @@ export default function Book(props: { params: { clinicId?: string } }) {
       setPhoneError("");
     }
   };
+
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail);
+
+  const resetOtpState = () => {
+    setOtpSent(false);
+    setOtpCode("");
+    setEmailVerified(false);
+    setVerifiedToken("");
+    setOtpError("");
+    setResendCountdown(0);
+  };
+
+  const handleEmailChange = (value: string) => {
+    setCustomerEmail(value);
+    if (emailVerified || otpSent) resetOtpState();
+  };
+
+  // Countdown for OTP resend cooldown
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+    const timer = setTimeout(() => setResendCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCountdown]);
 
   const handleComplaintClick = (complaint: string) => {
     const current = description ? description.split(", ").filter(Boolean) : [];
@@ -163,6 +194,46 @@ export default function Book(props: { params: { clinicId?: string } }) {
     },
   });
 
+  const sendOtpMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const response = await apiRequest("POST", "/api/public/otp/send", { email });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.message || "Failed to send verification code");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setOtpSent(true);
+      setOtpError("");
+      setResendCountdown(60);
+      toast({ title: "Code Sent!", description: "Check your email for the 6-digit verification code." });
+    },
+    onError: (error: any) => {
+      setOtpError(error.message || "Failed to send verification code. Please try again.");
+    },
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: async ({ email, code }: { email: string; code: string }) => {
+      const response = await apiRequest("POST", "/api/public/otp/verify", { email, code });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.message || "Invalid or expired code");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setEmailVerified(true);
+      setVerifiedToken(data.verifiedToken);
+      setOtpError("");
+      toast({ title: "Email Verified!", description: "You can now complete your booking." });
+    },
+    onError: (error: any) => {
+      setOtpError(error.message || "Invalid code. Please try again.");
+    },
+  });
+
   const dates = Array.from({ length: 14 }, (_, i) => addDays(startOfToday(), i));
 
   const formatTime = (hour: number, minute: number) => {
@@ -212,6 +283,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
       customerName, customerPhone, customerEmail,
       clinicId, clinicName: selectedClinic,
       startTime: startTime.toISOString(), endTime: endTime.toISOString(), description,
+      verifiedToken,
     });
   };
 
@@ -251,6 +323,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
       const orderRes = await apiRequest("POST", "/api/public/razorpay/create-order", {
         clinicId,
         startTime: startTime.toISOString(),
+        email: customerEmail,
+        verifiedToken,
       });
       if (!orderRes.ok) {
         const body = await orderRes.json().catch(() => ({}));
@@ -278,6 +352,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
               startTime: startTime.toISOString(),
               endTime: endTime.toISOString(),
               description,
+              verifiedToken,
             });
             if (!verifyRes.ok) {
               const body = await verifyRes.json().catch(() => ({}));
@@ -319,6 +394,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
     setPaymentLoading(false);
     setBookingPath(null);
     setStep("details");
+    resetOtpState();
   };
 
   const selectedClinicObj = clinics.find(c => c.name === selectedClinic);

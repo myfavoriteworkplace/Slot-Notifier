@@ -321,6 +321,18 @@ export const consentTokens = pgTable("consent_tokens", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const emailOtps = pgTable("email_otps", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull(),
+  otpHash: varchar("otp_hash", { length: 255 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  verified: boolean("verified").default(false).notNull(),
+  verifiedToken: varchar("verified_token", { length: 64 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type EmailOtp = typeof emailOtps.$inferSelect;
+
 export const insertConsentTokenSchema = createInsertSchema(consentTokens).omit({
   id: true,
   createdAt: true,
