@@ -273,7 +273,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
   const sendOtpMutation = useMutation({
     mutationFn: async (email: string) => {
-      const response = await apiRequest("POST", "/api/public/otp/send", { email });
+      const response = await apiRequest("POST", "/api/public/otp/send", { email, purpose: "booking" });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body.message || "Failed to send verification code");
@@ -294,7 +294,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
   const verifyOtpMutation = useMutation({
     mutationFn: async ({ email, code }: { email: string; code: string }) => {
-      const response = await apiRequest("POST", "/api/public/otp/verify", { email, code });
+      const response = await apiRequest("POST", "/api/public/otp/verify", { email, code, purpose: "booking" });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body.message || "Invalid or expired code");

@@ -479,6 +479,14 @@ app.use((req, res, next) => {
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
+      await db.execute(sql`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_otps' AND column_name='purpose') THEN
+            ALTER TABLE email_otps ADD COLUMN purpose VARCHAR(50) NOT NULL DEFAULT 'booking';
+          END IF;
+        END $$;
+      `);
       log("email_otps table verified/created", "system");
 
       // Create clinical_records table

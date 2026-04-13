@@ -328,6 +328,7 @@ export const emailOtps = pgTable("email_otps", {
   expiresAt: timestamp("expires_at").notNull(),
   verified: boolean("verified").default(false).notNull(),
   verifiedToken: varchar("verified_token", { length: 64 }),
+  purpose: varchar("purpose", { length: 50 }).notNull().default("booking"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation } from "@tanstack/react-query";
 import { insertClinicSchema, type InsertClinic } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, Building2, Mail, Phone, MapPin, Hash,
   User, Lock, Info, ArrowLeft, Eye, EyeOff, Sparkles,
+  Shield, CheckCircle2,
 } from "lucide-react";
 import { z } from "zod";
 
@@ -40,6 +42,17 @@ export default function RegisterClinic() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verifiedToken, setVerifiedToken] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [resendCountdown, setResendCountdown] = useState(0);
+
+  const otpDigits = Array.from({ length: 6 }, (_, i) => otpCode[i] || "");
+  const isOtpComplete = otpCode.length === 6;
+
   const form = useForm<InsertClinic>({
     resolver: zodResolver(insertClinicSchema.extend({
       username: z.string().min(3, "Username must be at least 3 characters"),
@@ -64,10 +77,134 @@ export default function RegisterClinic() {
     },
   });
 
+  const watchedEmail = form.watch("email");
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watchedEmail || "");
+
+  const resetOtpState = () => {
+    setOtpSent(false);
+    setOtpCode("");
+    setEmailVerified(false);
+    setVerifiedToken("");
+    setOtpError("");
+    setResendCountdown(0);
+  };
+
+  useEffect(() => {
+    resetOtpState();
+  }, [watchedEmail]);
+
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+    const timer = setTimeout(() => setResendCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCountdown]);
+
+  useEffect(() => {
+    if (otpCode.length === 6 && otpSent && !emailVerified && !verifyOtpMutation.isPending) {
+      const code = otpCode.trim();
+      if (/^\d{6}$/.test(code)) {
+        verifyOtpMutation.mutate({ email: watchedEmail.trim().toLowerCase(), code });
+      }
+    }
+  }, [otpCode]);
+
+  const sendOtpMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const response = await apiRequest("POST", "/api/public/otp/send", { email, purpose: "clinic_registration" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.message || "Failed to send verification code");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setOtpSent(true);
+      setOtpError("");
+      setResendCountdown(60);
+      setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
+      toast({ title: "Code Sent!", description: "Check your email for the 6-digit verification code." });
+    },
+    onError: (error: any) => {
+      setOtpError(error.message || "Failed to send verification code. Please try again.");
+    },
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: async ({ email, code }: { email: string; code: string }) => {
+      const response = await apiRequest("POST", "/api/public/otp/verify", { email, code, purpose: "clinic_registration" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.message || "Invalid or expired code");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setEmailVerified(true);
+      setVerifiedToken(data.verifiedToken);
+      setOtpError("");
+      toast({ title: "Email Verified!", description: "You can now complete your registration." });
+    },
+    onError: (error: any) => {
+      setOtpError(error.message || "Invalid code. Please try again.");
+    },
+  });
+
+  const handleSendOtp = () => {
+    if (!isEmailValid) {
+      setOtpError("Please enter a valid email address first.");
+      return;
+    }
+    sendOtpMutation.mutate(watchedEmail.trim().toLowerCase());
+  };
+
+  const handleVerifyOtp = () => {
+    const code = otpCode.trim();
+    if (!/^\d{6}$/.test(code)) {
+      setOtpError("Please enter the 6-digit code from your email.");
+      return;
+    }
+    verifyOtpMutation.mutate({ email: watchedEmail.trim().toLowerCase(), code });
+  };
+
+  const handleOtpDigitChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, "").slice(-1);
+    const nextDigits = [...otpDigits];
+    nextDigits[index] = digit;
+    const nextCode = nextDigits.join("").slice(0, 6);
+    setOtpCode(nextCode);
+    setOtpError("");
+    if (digit && index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, event: any) => {
+    if (event.key === "Backspace" && !otpDigits[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (event: any) => {
+    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!pasted) return;
+    event.preventDefault();
+    setOtpCode(pasted);
+    setOtpError("");
+    otpInputRefs.current[Math.min(pasted.length, 6) - 1]?.focus();
+  };
+
   async function onSubmit(data: InsertClinic) {
+    if (!emailVerified || !verifiedToken) {
+      toast({
+        title: "Email Verification Required",
+        description: "Please verify your email before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsSubmitting(true);
     try {
-      await apiRequest("POST", "/api/clinics/register", data);
+      await apiRequest("POST", "/api/clinics/register", { ...data, verifiedToken });
       toast({
         title: "Registration Submitted",
         description: "Your clinic registration is pending approval by the system administrator.",
@@ -100,10 +237,8 @@ export default function RegisterClinic() {
         <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-6 pt-6 pb-6 overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
 
-          {/* Decorative large icon in corner */}
           <Building2 className="absolute right-5 top-1/2 -translate-y-1/2 h-32 w-32 text-white opacity-[0.06] pointer-events-none select-none" />
 
-          {/* Back link */}
           <button
             type="button"
             onClick={() => setLocation("/getting-started")}
@@ -115,13 +250,11 @@ export default function RegisterClinic() {
           </button>
 
           <div className="relative flex flex-col items-center text-center pt-4">
-            {/* Eyebrow */}
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="h-3.5 w-3.5 text-white/60" />
               <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/60">For Clinic Owners</span>
             </div>
 
-            {/* Icon avatar with glow */}
             <div className="relative mb-4">
               <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-accent/30 to-primary/20 blur-lg" />
               <div className="relative h-16 w-16 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center ring-2 ring-white/10">
@@ -137,7 +270,6 @@ export default function RegisterClinic() {
             </p>
           </div>
 
-          {/* Bottom neon divider */}
           <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/40 via-primary/60 to-accent/40" />
         </div>
 
@@ -212,6 +344,150 @@ export default function RegisterClinic() {
                   )}
                 />
               </div>
+
+              {/* ── Email OTP verification block ── */}
+              {isEmailValid && (
+                <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-300">
+
+                  {!emailVerified && !otpSent && (
+                    <div className="flex items-center gap-2 px-1">
+                      <Shield className="h-3.5 w-3.5 text-primary/60 shrink-0" />
+                      <p className="text-[11px] text-muted-foreground">
+                        Email verification is required to complete registration
+                      </p>
+                    </div>
+                  )}
+
+                  <div className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
+                    emailVerified
+                      ? "border-emerald-400/30 bg-emerald-500/10 shadow-sm shadow-emerald-500/10"
+                      : otpSent
+                      ? "border-primary/20 bg-card shadow-lg shadow-primary/10"
+                      : "border-border/60 bg-muted/20"
+                  }`}>
+                    {emailVerified ? (
+                      <div className="flex items-center gap-3 p-3 text-emerald-600 animate-in fade-in slide-in-from-top-1 duration-300" data-testid="status-email-verified">
+                        <div className="h-9 w-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/25">
+                          <CheckCircle2 className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold">Email verified</p>
+                          <p className="text-[11px] text-emerald-700/80">You can now complete your clinic registration.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {!otpSent && (
+                          <div className="p-4 space-y-3">
+                            <div className="flex items-start gap-3">
+                              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                <Shield className="h-4 w-4 text-primary" />
+                              </div>
+                              <div className="min-w-0 pt-0.5">
+                                <p className="text-sm font-bold text-foreground">Verify your email</p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">We'll send a 6-digit code to confirm</p>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              onClick={handleSendOtp}
+                              disabled={!isEmailValid || sendOtpMutation.isPending}
+                              className="w-full h-10 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 rounded-xl shadow-md shadow-primary/15"
+                              data-testid="button-send-otp"
+                            >
+                              {sendOtpMutation.isPending ? (
+                                <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Sending Code…</>
+                              ) : (
+                                "Send Verification Code"
+                              )}
+                            </Button>
+                          </div>
+                        )}
+
+                        {otpSent && (
+                          <div className="p-4 animate-in fade-in slide-in-from-top-2 duration-300" data-testid="section-otp-verification">
+                            <div className="flex items-center justify-between gap-3 mb-4">
+                              <div>
+                                <p className="text-sm font-bold text-foreground">Verify your email</p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">Enter the code we sent to your email</p>
+                              </div>
+                              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                                {verifyOtpMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                                ) : (
+                                  <Shield className="h-4 w-4 text-primary" />
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                              {otpDigits.map((digit, index) => (
+                                <input
+                                  key={index}
+                                  ref={node => { otpInputRefs.current[index] = node; }}
+                                  value={digit}
+                                  onChange={e => handleOtpDigitChange(index, e.target.value)}
+                                  onKeyDown={e => handleOtpKeyDown(index, e)}
+                                  onPaste={handleOtpPaste}
+                                  inputMode="numeric"
+                                  maxLength={1}
+                                  disabled={verifyOtpMutation.isPending}
+                                  className={`h-12 w-10 sm:w-12 rounded-xl border text-center text-xl font-bold outline-none transition-all duration-200 shadow-sm ${
+                                    digit
+                                      ? "border-primary/35 bg-primary/8 text-foreground shadow-primary/10"
+                                      : "border-border/60 bg-background text-foreground"
+                                  } focus:border-primary/70 focus:bg-white focus:ring-4 focus:ring-primary/15 focus:shadow-lg focus:shadow-primary/15 disabled:opacity-60`}
+                                  data-testid={`input-otp-digit-${index}`}
+                                  aria-label={`OTP digit ${index + 1}`}
+                                />
+                              ))}
+                              <button
+                                type="button"
+                                onClick={handleVerifyOtp}
+                                disabled={!isOtpComplete || verifyOtpMutation.isPending}
+                                className={`h-12 w-12 rounded-xl border flex items-center justify-center transition-all duration-200 shrink-0 ${
+                                  isOtpComplete
+                                    ? "border-emerald-400/50 bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 hover:bg-emerald-600"
+                                    : "border-border/60 bg-muted/40 text-muted-foreground"
+                                } disabled:cursor-not-allowed disabled:opacity-60`}
+                                data-testid="button-verify-otp"
+                                aria-label="Verify OTP code"
+                              >
+                                {verifyOtpMutation.isPending ? (
+                                  <Loader2 className="h-5 w-5 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="h-5 w-5" />
+                                )}
+                              </button>
+                            </div>
+                            <div className="mt-3 flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
+                              {resendCountdown > 0 ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                                  <span data-testid="text-resend-countdown">Resend code in 0:{resendCountdown.toString().padStart(2, "0")}</span>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={handleSendOtp}
+                                  disabled={sendOtpMutation.isPending}
+                                  className="font-bold text-primary hover:text-accent transition-colors disabled:opacity-60"
+                                  data-testid="button-resend-otp"
+                                >
+                                  {sendOtpMutation.isPending ? "Sending…" : "Resend code"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {otpError && (
+                          <p className="px-4 pb-3 text-[11px] text-destructive animate-in fade-in duration-200" data-testid="text-otp-error">{otpError}</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* ── Section: Location ── */}
               <SectionLabel>Location</SectionLabel>
@@ -351,12 +627,14 @@ export default function RegisterClinic() {
               <div className="flex flex-col gap-3 pt-1">
                 <Button
                   type="submit"
-                  className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
-                  disabled={isSubmitting}
+                  className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl disabled:opacity-50"
+                  disabled={isSubmitting || !emailVerified}
                   data-testid="button-submit-registration"
                 >
                   {isSubmitting
                     ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</>
+                    : !emailVerified
+                    ? "Verify Email to Continue"
                     : "Submit Registration"
                   }
                 </Button>

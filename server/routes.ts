@@ -494,8 +494,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/clinics/register", async (req, res) => {
     try {
-      const passwordHash = await bcrypt.hash(req.body.passwordHash, 10);
-      const clinic = await storage.createClinic({ ...req.body, status: "pending", isArchived: false, passwordHash } as any);
+      const { verifiedToken, email, ...rest } = req.body;
+
+      if (!verifiedToken || !email) {
+        return res.status(401).json({ message: "Email verification is required to register a clinic" });
+      }
+
+      const [otpRow] = await db.select().from(emailOtps)
+        .where(and(
+          eq(emailOtps.verified, true),
+          eq(emailOtps.verifiedToken, verifiedToken),
+          eq(emailOtps.email, email.toLowerCase()),
+          eq(emailOtps.purpose, "clinic_registration"),
+          sql`${emailOtps.expiresAt} > NOW()`
+        ))
+        .limit(1);
+
+      if (!otpRow) {
+        return res.status(401).json({ message: "Email verification expired or invalid. Please verify your email and try again." });
+      }
+
+      const passwordHash = await bcrypt.hash(rest.passwordHash, 10);
+      const clinic = await storage.createClinic({ ...rest, email, status: "pending", isArchived: false, passwordHash } as any);
+
+      // Consume the token — one use only
+      await db.delete(emailOtps).where(eq(emailOtps.id, otpRow.id));
+
       res.status(201).json(clinic);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -555,16 +579,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── OTP: send verification code ────────────────────────────────────────────
   app.post("/api/public/otp/send", async (req, res) => {
     try {
-      const { email } = req.body;
+      const { email, purpose = "booking" } = req.body;
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return res.status(400).json({ message: "A valid email address is required" });
       }
       const normalizedEmail = email.toLowerCase();
 
-      // Rate-limit: if an OTP was created < 60 seconds ago, block
+      // Rate-limit: if an OTP was created < 60 seconds ago for same email+purpose, block
       const [recent] = await db.select().from(emailOtps)
         .where(and(
           eq(emailOtps.email, normalizedEmail),
+          eq(emailOtps.purpose, purpose),
           sql`${emailOtps.expiresAt} > NOW() + INTERVAL '4 minutes'`
         ))
         .limit(1);
@@ -573,15 +598,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(429).json({ message: "Please wait before requesting a new code" });
       }
 
-      // Remove any previous OTPs for this email
-      await db.delete(emailOtps).where(eq(emailOtps.email, normalizedEmail));
+      // Remove any previous OTPs for this email+purpose combination
+      await db.delete(emailOtps).where(and(
+        eq(emailOtps.email, normalizedEmail),
+        eq(emailOtps.purpose, purpose),
+      ));
 
       // Generate 6-digit code and hash it
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       const otpHash = await bcrypt.hash(code, 10);
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-      await db.insert(emailOtps).values({ email: normalizedEmail, otpHash, expiresAt });
+      await db.insert(emailOtps).values({ email: normalizedEmail, otpHash, expiresAt, purpose });
 
       if (resend && RESEND_MODE === 'PRODUCTION') {
         await resend.emails.send({
@@ -604,7 +632,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── OTP: verify code and return session token ──────────────────────────────
   app.post("/api/public/otp/verify", async (req, res) => {
     try {
-      const { email, code } = req.body;
+      const { email, code, purpose = "booking" } = req.body;
       if (!email || !code) {
         return res.status(400).json({ message: "Email and code are required" });
       }
@@ -613,6 +641,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const [otpRow] = await db.select().from(emailOtps)
         .where(and(
           eq(emailOtps.email, normalizedEmail),
+          eq(emailOtps.purpose, purpose),
           eq(emailOtps.verified, false),
           sql`${emailOtps.expiresAt} > NOW()`
         ))
@@ -655,6 +684,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           eq(emailOtps.verified, true),
           eq(emailOtps.verifiedToken, verifiedToken),
           eq(emailOtps.email, email.toLowerCase()),
+          eq(emailOtps.purpose, "booking"),
           sql`${emailOtps.expiresAt} > NOW()`
         ))
         .limit(1);
@@ -713,6 +743,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           eq(emailOtps.verified, true),
           eq(emailOtps.verifiedToken, verifiedToken),
           eq(emailOtps.email, customerEmail.toLowerCase()),
+          eq(emailOtps.purpose, "booking"),
           sql`${emailOtps.expiresAt} > NOW()`
         ))
         .limit(1);
@@ -797,6 +828,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           eq(emailOtps.verified, true),
           eq(emailOtps.verifiedToken, verifiedToken),
           eq(emailOtps.email, customerEmail.toLowerCase()),
+          eq(emailOtps.purpose, "booking"),
           sql`${emailOtps.expiresAt} > NOW()`
         ))
         .limit(1);
