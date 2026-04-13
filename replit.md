@@ -106,6 +106,7 @@ Sidebar nav color coding: Bookings = primary green, Configure Slots = blue, Mana
 - **API**: `POST /api/auth/clinic/bookings/:id/request-consent` (clinic-auth), `GET /api/consent/:token` (public), `POST /api/consent/:token/sign` (public).
 
 ## Recent Changes
+- **2026-04-13**: Completed patient booking email OTP verification UI and safeguards: patients must send and verify a 6-digit email code before viewing slots or booking, OTP tokens expire with the code window, and the `email_otps` table is created during startup.
 - **2026-04-13**: Migrated app startup for Replit preview: installed missing runtime dependency, configured the app workflow on port 5000, added root health and notifications API endpoints requested by the frontend, and ignored local `.env` files.
 - **2026-04-06**: Full digital consent form implementation: 3 API routes, storage methods, patient signing page (`/consent/:token`), clinic dashboard panel with "Request Consent" button and signed status.
 - **2026-04-06**: Fixed missing DB columns (`assigned_doctor_email`, `doctor_notes`, `clinical_status`, etc.) via isolated migration blocks in `db.ts`.

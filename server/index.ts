@@ -116,6 +116,17 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+function redactLogBody(value: any): any {
+  if (Array.isArray(value)) return value.map(redactLogBody);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nested]) => [
+      key,
+      key.toLowerCase().includes("token") ? "[redacted]" : redactLogBody(nested),
+    ])
+  );
+}
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -131,7 +142,7 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      if (capturedJsonResponse) logLine += ` :: ${JSON.stringify(redactLogBody(capturedJsonResponse))}`;
       log(logLine);
     }
   });
@@ -456,6 +467,19 @@ app.use((req, res, next) => {
         )
       `);
       log("doctor_leaves table verified/created", "system");
+
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS email_otps (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) NOT NULL,
+          otp_hash VARCHAR(255) NOT NULL,
+          expires_at TIMESTAMP NOT NULL,
+          verified BOOLEAN DEFAULT false NOT NULL,
+          verified_token VARCHAR(64),
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      log("email_otps table verified/created", "system");
 
       // Create clinical_records table
       await db.execute(sql`

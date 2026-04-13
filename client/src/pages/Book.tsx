@@ -99,7 +99,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
     }
   };
 
+  const isPhoneValid = customerPhone && validateIndianPhone(customerPhone);
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail);
+  const canProceedToSlots = Boolean(customerName && isPhoneValid && isEmailValid && selectedClinic && emailVerified && verifiedToken);
 
   const resetOtpState = () => {
     setOtpSent(false);
@@ -113,6 +115,23 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const handleEmailChange = (value: string) => {
     setCustomerEmail(value);
     if (emailVerified || otpSent) resetOtpState();
+  };
+
+  const handleSendOtp = () => {
+    if (!isEmailValid) {
+      setOtpError("Please enter a valid email address first.");
+      return;
+    }
+    sendOtpMutation.mutate(customerEmail.trim().toLowerCase());
+  };
+
+  const handleVerifyOtp = () => {
+    const code = otpCode.trim();
+    if (!/^\d{6}$/.test(code)) {
+      setOtpError("Please enter the 6-digit code from your email.");
+      return;
+    }
+    verifyOtpMutation.mutate({ email: customerEmail.trim().toLowerCase(), code });
   };
 
   // Countdown for OTP resend cooldown
@@ -129,8 +148,6 @@ export default function Book(props: { params: { clinicId?: string } }) {
       : [...current, complaint];
     setDescription(updated.join(", "));
   };
-
-  const isPhoneValid = customerPhone && validateIndianPhone(customerPhone);
 
   useEffect(() => {
     const saved = localStorage.getItem("slotTimings");
@@ -244,6 +261,10 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
   const handleBook = () => {
     if (!selectedSlot || !customerName || !customerPhone || !customerEmail || !selectedClinic) return;
+    if (!emailVerified || !verifiedToken) {
+      toast({ title: "Email Verification Required", description: "Please verify your email before booking.", variant: "destructive" });
+      return;
+    }
     const slotInfo = slotTimings.find(s => s.id === selectedSlot);
     if (!slotInfo) return;
 
@@ -300,6 +321,10 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
   const handlePayAndConfirm = async () => {
     if (!selectedSlot || !customerName || !customerPhone || !customerEmail || !selectedClinic) return;
+    if (!emailVerified || !verifiedToken) {
+      toast({ title: "Email Verification Required", description: "Please verify your email before booking.", variant: "destructive" });
+      return;
+    }
     const slotInfo = slotTimings.find(s => s.id === selectedSlot);
     if (!slotInfo) return;
 
@@ -1044,11 +1069,88 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         <input
                           type="email"
                           value={customerEmail}
-                          onChange={e => setCustomerEmail(e.target.value)}
+                          onChange={e => handleEmailChange(e.target.value)}
                           placeholder="you@example.com"
                           className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
                           data-testid="input-email"
                         />
+                      </div>
+                      <div className={`rounded-xl border p-3 space-y-2.5 ${
+                        emailVerified
+                          ? "border-emerald-400/30 bg-emerald-500/10"
+                          : "border-border/60 bg-muted/20"
+                      }`}>
+                        {emailVerified ? (
+                          <div className="flex items-center gap-2 text-emerald-600" data-testid="status-email-verified">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="text-xs font-bold">Email verified</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                onClick={handleSendOtp}
+                                disabled={!isEmailValid || sendOtpMutation.isPending || resendCountdown > 0}
+                                className="h-9 px-3 text-xs font-bold bg-primary hover:bg-primary/90"
+                                data-testid="button-send-otp"
+                              >
+                                {sendOtpMutation.isPending ? (
+                                  <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Sending…</>
+                                ) : resendCountdown > 0 ? (
+                                  `Resend in ${resendCountdown}s`
+                                ) : otpSent ? (
+                                  "Resend Code"
+                                ) : (
+                                  "Send Verification Code"
+                                )}
+                              </Button>
+                              {otpSent && (
+                                <span className="text-[11px] text-muted-foreground" data-testid="text-otp-sent">
+                                  Code sent to your email
+                                </span>
+                              )}
+                            </div>
+                            {otpSent && (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  value={otpCode}
+                                  onChange={e => {
+                                    setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                                    setOtpError("");
+                                  }}
+                                  inputMode="numeric"
+                                  maxLength={6}
+                                  placeholder="6-digit code"
+                                  className="h-9 text-sm"
+                                  data-testid="input-otp-code"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={handleVerifyOtp}
+                                  disabled={otpCode.length !== 6 || verifyOtpMutation.isPending}
+                                  className="h-9 px-3 text-xs font-bold shrink-0"
+                                  data-testid="button-verify-otp"
+                                >
+                                  {verifyOtpMutation.isPending ? (
+                                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Verifying…</>
+                                  ) : (
+                                    "Verify"
+                                  )}
+                                </Button>
+                              </div>
+                            )}
+                            {otpError && (
+                              <p className="text-[11px] text-destructive" data-testid="text-otp-error">{otpError}</p>
+                            )}
+                            {!otpSent && !otpError && (
+                              <p className="text-[11px] text-muted-foreground" data-testid="text-email-verification-hint">
+                                Verify your email to unlock available appointment slots.
+                              </p>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -1097,11 +1199,11 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     {/* CTA */}
                     <Button
                       onClick={() => setShowSlots(true)}
-                      disabled={!customerName || !isPhoneValid || !customerEmail || !selectedClinic}
+                      disabled={!canProceedToSlots}
                       className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
                       data-testid="button-check-slots"
                     >
-                      View Available Slots →
+                      {emailVerified ? "View Available Slots →" : "Verify Email to View Slots"}
                     </Button>
                   </div>
 
@@ -1214,7 +1316,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         {/* Option 1: Pay & Confirm */}
                         <button
                           onClick={handlePayAndConfirm}
-                          disabled={!selectedSlot || paymentLoading || createBookingMutation.isPending}
+                          disabled={!selectedSlot || !emailVerified || !verifiedToken || paymentLoading || createBookingMutation.isPending}
                           data-testid="button-pay-confirm"
                           className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-primary/40 bg-gradient-to-r from-primary/8 to-accent/8 hover:from-primary/15 hover:to-accent/15 hover:border-primary/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-left group"
                         >
@@ -1235,7 +1337,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         {/* Option 2: Clinic Approval */}
                         <button
                           onClick={handleBook}
-                          disabled={!selectedSlot || createBookingMutation.isPending || paymentLoading}
+                          disabled={!selectedSlot || !emailVerified || !verifiedToken || createBookingMutation.isPending || paymentLoading}
                           data-testid="button-clinic-approval"
                           className="w-full flex items-center gap-4 p-4 rounded-2xl border border-border/60 bg-card hover:border-primary/30 hover:bg-primary/4 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed text-left"
                         >
@@ -1259,7 +1361,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     {selectedClinic === "Demo Smile Clinic" && (
                       <Button
                         onClick={handleBook}
-                        disabled={!selectedSlot || createBookingMutation.isPending}
+                        disabled={!selectedSlot || !emailVerified || !verifiedToken || createBookingMutation.isPending}
                         className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl mt-2"
                         data-testid="button-confirm-booking"
                       >

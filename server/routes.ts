@@ -583,7 +583,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       await db.insert(emailOtps).values({ email: normalizedEmail, otpHash, expiresAt });
 
-      if (resend) {
+      if (resend && RESEND_MODE === 'PRODUCTION') {
         await resend.emails.send({
           from: EMAIL_FROM,
           to: email,
@@ -654,7 +654,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .where(and(
           eq(emailOtps.verified, true),
           eq(emailOtps.verifiedToken, verifiedToken),
-          eq(emailOtps.email, email.toLowerCase())
+          eq(emailOtps.email, email.toLowerCase()),
+          sql`${emailOtps.expiresAt} > NOW()`
         ))
         .limit(1);
       if (!otpRow) {
@@ -711,7 +712,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .where(and(
           eq(emailOtps.verified, true),
           eq(emailOtps.verifiedToken, verifiedToken),
-          eq(emailOtps.email, customerEmail.toLowerCase())
+          eq(emailOtps.email, customerEmail.toLowerCase()),
+          sql`${emailOtps.expiresAt} > NOW()`
         ))
         .limit(1);
       if (!otpRow) {
@@ -794,7 +796,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .where(and(
           eq(emailOtps.verified, true),
           eq(emailOtps.verifiedToken, verifiedToken),
-          eq(emailOtps.email, customerEmail.toLowerCase())
+          eq(emailOtps.email, customerEmail.toLowerCase()),
+          sql`${emailOtps.expiresAt} > NOW()`
         ))
         .limit(1);
       if (!otpRow) {
