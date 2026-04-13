@@ -940,6 +940,43 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/health", async (req, res) => {
+    try {
+      await db.execute(sql`SELECT 1`);
+      res.json({ status: "ok", timestamp: new Date().toISOString(), backend: true, database: true });
+    } catch (error: any) {
+      res.status(500).json({ status: "error", message: error.message, backend: true, database: false });
+    }
+  });
+
+  app.get("/api/notifications", async (req, res) => {
+    const sess = req.session as any;
+    if (!sess?.adminLoggedIn && !sess?.doctorLoggedIn) {
+      return res.json([]);
+    }
+
+    const userId = String(sess.doctorId || sess.doctorEmail || sess.clinicId || sess.adminEmail || "superuser");
+
+    try {
+      const userNotifications = await storage.getNotifications(userId);
+      res.json(userNotifications);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", isAuthenticated, async (req, res) => {
+    try {
+      const notification = await storage.markNotificationRead(Number(req.params.id));
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      res.json(notification);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/auth/clinic/login", async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -982,18 +1019,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (sess.adminLoggedIn && sess.role === 'superuser') {
       res.json({ email: sess.adminEmail || process.env.ADMIN_EMAIL, role: 'superuser', firstName: 'Super', lastName: 'Admin' });
     } else if (sess.adminLoggedIn && sess.clinicId && sess.role === 'owner') {
-      // Clinic owner login
-      res.status(401).json({ message: "Not authenticated as superuser" });
+      res.json(null);
     } else {
-      res.status(401).json({ message: "Not authenticated" });
+      res.json(null);
     }
   });
 
   app.get("/api/auth/me", isAuthenticated, (req, res) => res.json((req as any).user));
 
-  app.get("/api/auth/clinic/me", isAuthenticated, async (req, res) => {
+  app.get("/api/auth/clinic/me", async (req, res) => {
     const sess = req.session as any;
-    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    if (!sess?.adminLoggedIn || !sess.clinicId) return res.json(null);
     try {
       const clinic = await storage.getClinic(sess.clinicId);
       if (!clinic) return res.status(404).json({ message: "Clinic not found" });
@@ -1106,11 +1142,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/auth/doctor/me", async (req, res) => {
     const sess = req.session as any;
     if (!sess.doctorLoggedIn || sess.role !== 'doctor' || !sess.doctorEmail) {
-      return res.status(401).json({ message: "Not authenticated as doctor" });
+      return res.json(null);
     }
     try {
       const doctor = await storage.getDoctorByEmail(sess.doctorEmail);
-      if (!doctor) return res.status(401).json({ message: "Doctor not found" });
+      if (!doctor) return res.json(null);
       const clinicResults = await db.select({ clinic: clinics })
         .from(clinics)
         .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
