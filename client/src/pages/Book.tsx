@@ -76,6 +76,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [bookingPath, setBookingPath]           = useState<"pay" | "pending" | null>(null);
   const [isClinicSheetOpen, setIsClinicSheetOpen] = useState(false);
   const razorpayScriptRef = useRef(false);
+  const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   // OTP verification state
   const [otpSent, setOtpSent]               = useState(false);
@@ -101,6 +102,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
   const isPhoneValid = customerPhone && validateIndianPhone(customerPhone);
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail);
+  const otpDigits = Array.from({ length: 6 }, (_, index) => otpCode[index] || "");
+  const isOtpComplete = otpCode.length === 6;
   const canProceedToSlots = Boolean(customerName && isPhoneValid && isEmailValid && selectedClinic && emailVerified && verifiedToken);
 
   const resetOtpState = () => {
@@ -132,6 +135,33 @@ export default function Book(props: { params: { clinicId?: string } }) {
       return;
     }
     verifyOtpMutation.mutate({ email: customerEmail.trim().toLowerCase(), code });
+  };
+
+  const handleOtpDigitChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, "").slice(-1);
+    const nextDigits = [...otpDigits];
+    nextDigits[index] = digit;
+    const nextCode = nextDigits.join("").slice(0, 6);
+    setOtpCode(nextCode);
+    setOtpError("");
+    if (digit && index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, event: any) => {
+    if (event.key === "Backspace" && !otpDigits[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (event: any) => {
+    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!pasted) return;
+    event.preventDefault();
+    setOtpCode(pasted);
+    setOtpError("");
+    otpInputRefs.current[Math.min(pasted.length, 6) - 1]?.focus();
   };
 
   // Countdown for OTP resend cooldown
@@ -224,6 +254,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
       setOtpSent(true);
       setOtpError("");
       setResendCountdown(60);
+      setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
       toast({ title: "Code Sent!", description: "Check your email for the 6-digit verification code." });
     },
     onError: (error: any) => {
@@ -1075,79 +1106,130 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           data-testid="input-email"
                         />
                       </div>
-                      <div className={`rounded-xl border p-3 space-y-2.5 ${
+                      <div className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
                         emailVerified
-                          ? "border-emerald-400/30 bg-emerald-500/10"
+                          ? "border-emerald-400/30 bg-emerald-500/10 shadow-sm shadow-emerald-500/10"
+                          : otpSent
+                          ? "border-primary/20 bg-card shadow-lg shadow-primary/10"
                           : "border-border/60 bg-muted/20"
                       }`}>
                         {emailVerified ? (
-                          <div className="flex items-center gap-2 text-emerald-600" data-testid="status-email-verified">
-                            <CheckCircle2 className="h-4 w-4" />
-                            <span className="text-xs font-bold">Email verified</span>
+                          <div className="flex items-center gap-3 p-3 text-emerald-600 animate-in fade-in slide-in-from-top-1 duration-300" data-testid="status-email-verified">
+                            <div className="h-9 w-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/25">
+                              <CheckCircle2 className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold">Email verified</p>
+                              <p className="text-[11px] text-emerald-700/80">You can now view slots and complete your booking.</p>
+                            </div>
                           </div>
                         ) : (
                           <>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                type="button"
-                                onClick={handleSendOtp}
-                                disabled={!isEmailValid || sendOtpMutation.isPending || resendCountdown > 0}
-                                className="h-9 px-3 text-xs font-bold bg-primary hover:bg-primary/90"
-                                data-testid="button-send-otp"
-                              >
-                                {sendOtpMutation.isPending ? (
-                                  <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Sending…</>
-                                ) : resendCountdown > 0 ? (
-                                  `Resend in ${resendCountdown}s`
-                                ) : otpSent ? (
-                                  "Resend Code"
-                                ) : (
-                                  "Send Verification Code"
-                                )}
-                              </Button>
-                              {otpSent && (
-                                <span className="text-[11px] text-muted-foreground" data-testid="text-otp-sent">
-                                  Code sent to your email
-                                </span>
-                              )}
-                            </div>
-                            {otpSent && (
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  value={otpCode}
-                                  onChange={e => {
-                                    setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6));
-                                    setOtpError("");
-                                  }}
-                                  inputMode="numeric"
-                                  maxLength={6}
-                                  placeholder="6-digit code"
-                                  className="h-9 text-sm"
-                                  data-testid="input-otp-code"
-                                />
+                            {!otpSent && (
+                              <div className="p-3 space-y-2.5">
+                                <div className="flex items-start gap-2.5">
+                                  <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                    <Shield className="h-4 w-4 text-primary" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-foreground">Verification</p>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">Send a 6-digit code to confirm this email address.</p>
+                                  </div>
+                                </div>
                                 <Button
                                   type="button"
-                                  variant="outline"
-                                  onClick={handleVerifyOtp}
-                                  disabled={otpCode.length !== 6 || verifyOtpMutation.isPending}
-                                  className="h-9 px-3 text-xs font-bold shrink-0"
-                                  data-testid="button-verify-otp"
+                                  onClick={handleSendOtp}
+                                  disabled={!isEmailValid || sendOtpMutation.isPending}
+                                  className="w-full h-10 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 rounded-xl shadow-md shadow-primary/15"
+                                  data-testid="button-send-otp"
                                 >
-                                  {verifyOtpMutation.isPending ? (
-                                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Verifying…</>
+                                  {sendOtpMutation.isPending ? (
+                                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Sending Code…</>
                                   ) : (
-                                    "Verify"
+                                    "Send Verification Code"
                                   )}
                                 </Button>
                               </div>
                             )}
-                            {otpError && (
-                              <p className="text-[11px] text-destructive" data-testid="text-otp-error">{otpError}</p>
+                            {otpSent && (
+                              <div className="p-4 animate-in fade-in slide-in-from-top-2 duration-300" data-testid="section-otp-verification">
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                  <div>
+                                    <p className="text-xs font-black uppercase tracking-[0.16em] text-foreground">Verification</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-muted-foreground mt-1">Enter 6-digit code</p>
+                                  </div>
+                                  <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    {verifyOtpMutation.isPending ? (
+                                      <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                                    ) : (
+                                      <Shield className="h-4 w-4 text-primary" />
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 sm:gap-2">
+                                  {otpDigits.map((digit, index) => (
+                                    <input
+                                      key={index}
+                                      ref={node => {
+                                        otpInputRefs.current[index] = node;
+                                      }}
+                                      value={digit}
+                                      onChange={e => handleOtpDigitChange(index, e.target.value)}
+                                      onKeyDown={e => handleOtpKeyDown(index, e)}
+                                      onPaste={handleOtpPaste}
+                                      inputMode="numeric"
+                                      maxLength={1}
+                                      disabled={verifyOtpMutation.isPending}
+                                      className={`h-12 w-10 sm:w-12 rounded-xl border text-center text-xl font-bold outline-none transition-all duration-200 shadow-sm ${
+                                        digit
+                                          ? "border-primary/35 bg-primary/8 text-foreground shadow-primary/10"
+                                          : "border-border/60 bg-background text-foreground"
+                                      } focus:border-primary/70 focus:bg-white focus:ring-4 focus:ring-primary/15 focus:shadow-lg focus:shadow-primary/15 disabled:opacity-60`}
+                                      data-testid={`input-otp-digit-${index}`}
+                                      aria-label={`OTP digit ${index + 1}`}
+                                    />
+                                  ))}
+                                  <button
+                                    type="button"
+                                    onClick={handleVerifyOtp}
+                                    disabled={!isOtpComplete || verifyOtpMutation.isPending}
+                                    className={`h-12 w-12 rounded-xl border flex items-center justify-center transition-all duration-200 shrink-0 ${
+                                      isOtpComplete
+                                        ? "border-emerald-400/50 bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 hover:bg-emerald-600"
+                                        : "border-border/60 bg-muted/40 text-muted-foreground"
+                                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                                    data-testid="button-verify-otp"
+                                    aria-label="Verify OTP code"
+                                  >
+                                    {verifyOtpMutation.isPending ? (
+                                      <Loader2 className="h-5 w-5 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="h-5 w-5" />
+                                    )}
+                                  </button>
+                                </div>
+                                <div className="mt-3 flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
+                                  {resendCountdown > 0 ? (
+                                    <>
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                                      <span data-testid="text-resend-countdown">Resend Code in 0:{resendCountdown.toString().padStart(2, "0")}</span>
+                                    </>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={handleSendOtp}
+                                      disabled={sendOtpMutation.isPending}
+                                      className="font-bold text-primary hover:text-accent transition-colors disabled:opacity-60"
+                                      data-testid="button-resend-otp"
+                                    >
+                                      {sendOtpMutation.isPending ? "Sending…" : "Resend Code"}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             )}
-                            {!otpSent && !otpError && (
-                              <p className="text-[11px] text-muted-foreground" data-testid="text-email-verification-hint">
-                                Verify your email to unlock available appointment slots.
-                              </p>
+                            {otpError && (
+                              <p className="px-3 pb-3 text-[11px] text-destructive animate-in fade-in duration-200" data-testid="text-otp-error">{otpError}</p>
                             )}
                           </>
                         )}
