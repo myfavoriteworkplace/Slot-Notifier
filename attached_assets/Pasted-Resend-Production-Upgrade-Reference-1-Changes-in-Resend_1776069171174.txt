@@ -1,0 +1,78 @@
+Resend Production Upgrade Reference
+1. Changes in Resend Console
+Added domain: bookmyslot.dental.mossaic.in (without https://).
+Selected region: Asia‑Pacific (closest to India hosting).
+Resend provided DNS records:
+DKIM TXT Record → resend._domainkey.bookmyslot.dental with Resend DKIM value.
+SPF TXT Record → send.bookmyslot.dental with value v=spf1 include:spf.resend.com ~all.
+MX Record (optional) → send.bookmyslot.dental pointing to Resend mail servers (only needed for inbound).
+Waited for DNS propagation (up to 24 hours). Domain marked Verified.
+2. Changes in Domain Registrar (Mossaic.in)
+Logged into DNS management for bookmyslot.dental.mossaic.in.
+Added records exactly as Resend instructed:
+TXT (DKIM) → Name: resend._domainkey.bookmyslot.dental, Value: DKIM key.
+TXT (SPF) → Name: send.bookmyslot.dental, Value: v=spf1 include:spf.resend.com ~all.
+MX (optional) → Name: send.bookmyslot.dental, Priority: 10, Value: Resend mail server.
+TTL: Set to 1 hour (3600 seconds) for all records (standard practice).
+Saved and confirmed records were active.
+3. Code / Config Changes
+Updated environment variables:
+RESEND=PRODUCTION → ensures emails go to real recipients instead of sandbox test address.
+EMAIL_FROM="BookMySlot <noreply@bookmyslot.dental.mossaic.in>" → sets sender address to verified domain.
+No code changes required — only .env updates.
+Redeployed backend with updated environment variables.
+4. Key Updates (Plain Language)
+Before: Emails only went to sandbox test inbox (itsmyfavoriteworkplace@gmail.com).
+After: Domain verified, SPF/DKIM added, environment variables updated.
+Result: Appointment reminders and billing receipts now send to real patient emails from noreply@bookmyslot.dental.mossaic.in.
+5. Common-Man Summary
+Tell Resend your domain.
+Add TXT records (DKIM + SPF) in registrar.
+Wait for verification.
+Switch to production mode (RESEND=PRODUCTION).
+Use your domain email (EMAIL_FROM=noreply@bookmyslot.dental.mossaic.in).
+Done — emails now reach real patients.
+6. Next Steps
+Monitor deliverability in Resend dashboard.
+Upgrade plan if volume exceeds free tier (Pro = $20/month for 50,000 emails).
+Add inbound MX records later if patient replies need to be captured.
+👉 This document is now your deployment reference for Resend production setup.
+Would you like me to also prepare a ready‑to‑use .env template (with placeholders for production keys and sender email) so your team can drop it straight into your backend?Here’s a consolidated reference document capturing everything we did to upgrade your Resend integration from sandbox to production. It’s structured so you (or your team) can revisit it later without needing to re‑trace steps.
+📑 Resend Production Upgrade Reference
+1. Changes in Resend Console
+Added domain: bookmyslot.dental.mossaic.in (without https://).
+Selected region: Asia‑Pacific (closest to India hosting).
+Resend provided DNS records:
+DKIM TXT Record → resend._domainkey.bookmyslot.dental with Resend DKIM value.
+SPF TXT Record → send.bookmyslot.dental with value v=spf1 include:spf.resend.com ~all.
+MX Record (optional) → send.bookmyslot.dental pointing to Resend mail servers (only needed for inbound).
+Waited for DNS propagation (up to 24 hours). Domain marked Verified.
+2. Changes in Domain Registrar (Mossaic.in)
+Logged into DNS management for bookmyslot.dental.mossaic.in.
+Added records exactly as Resend instructed:
+TXT (DKIM) → Name: resend._domainkey.bookmyslot.dental, Value: DKIM key.
+TXT (SPF) → Name: send.bookmyslot.dental, Value: v=spf1 include:spf.resend.com ~all.
+MX (optional) → Name: send.bookmyslot.dental, Priority: 10, Value: Resend mail server.
+TTL: Set to 1 hour (3600 seconds) for all records (standard practice).
+Saved and confirmed records were active.
+3. Code / Config Changes
+Updated environment variables:
+RESEND=PRODUCTION → ensures emails go to real recipients instead of sandbox test address.
+EMAIL_FROM="BookMySlot <noreply@bookmyslot.dental.mossaic.in>" → sets sender address to verified domain.
+No code changes required — only .env updates.
+Redeployed backend with updated environment variables.
+4. Key Updates (Plain Language)
+Before: Emails only went to sandbox test inbox (itsmyfavoriteworkplace@gmail.com).
+After: Domain verified, SPF/DKIM added, environment variables updated.
+Result: Appointment reminders and billing receipts now send to real patient emails from noreply@bookmyslot.dental.mossaic.in.
+5. Common-Man Summary
+Tell Resend your domain.
+Add TXT records (DKIM + SPF) in registrar.
+Wait for verification.
+Switch to production mode (RESEND=PRODUCTION).
+Use your domain email (EMAIL_FROM=noreply@bookmyslot.dental.mossaic.in).
+Done — emails now reach real patients.
+6. Next Steps
+Monitor deliverability in Resend dashboard.
+Upgrade plan if volume exceeds free tier (Pro = $20/month for 50,000 emails).
+Add inbound MX records later if patient replies need to be captured.
