@@ -158,9 +158,20 @@ export default function Landing() {
               {" "}Let patients book themselves.
             </motion.h1>
 
-            <motion.p {...fadeUp(0.16)} style={{ fontSize: 16, color: c.muted, lineHeight: 1.75, maxWidth: 420, marginBottom: 36 }}>
-              From slot management and clinical records to patient booking and Smile Deals — everything a modern dental clinic needs, in one place.
-            </motion.p>
+            <motion.div {...fadeUp(0.16)} style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 420, marginBottom: 36 }}>
+              {[
+                "Book appointments at verified dental clinics",
+                "Register and manage your practice online",
+                "Access your clinic or doctor dashboard",
+              ].map((line) => (
+                <div key={line} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: c.muted, lineHeight: 1.5 }}>
+                  <span style={{ width: 18, height: 18, borderRadius: "50%", background: c.tL, border: `1.5px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Check style={{ width: 10, height: 10, color: c.T, strokeWidth: 3 }} />
+                  </span>
+                  {line}
+                </div>
+              ))}
+            </motion.div>
 
             <motion.div {...fadeUp(0.22)} className="lnd-hero-actions" style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 36 }}>
               <Link href="/getting-started">
