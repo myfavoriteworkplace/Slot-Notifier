@@ -414,6 +414,14 @@ export default function RegisterClinic() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 
               {/* ── REQUIRED FIELDS ── clean, no-frills ── */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-border/40" />
+                <div className="text-center">
+                  <p className="text-[11px] font-semibold text-foreground/70 tracking-wide">To get started</p>
+                  <p className="text-[10px] text-muted-foreground">We only need a few basics</p>
+                </div>
+                <div className="flex-1 h-px bg-border/40" />
+              </div>
 
               {/* Field group: Clinic name & location */}
               <div className="space-y-2.5">
