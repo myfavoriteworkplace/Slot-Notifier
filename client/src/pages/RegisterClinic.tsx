@@ -278,7 +278,7 @@ function LockedField({ locked, nudgeMessage, onLockedClick, children }: {
         {children}
       </div>
       <div className="absolute inset-0 cursor-not-allowed z-10" onClick={handleClick} />
-      {showNudge && (
+      {showNudge && nudgeMessage && (
         <div className="mt-1.5 flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="h-4 w-4 rounded-full bg-amber-400/20 flex items-center justify-center shrink-0">
             <span className="text-[9px] font-bold text-amber-600">↑</span>
@@ -459,7 +459,7 @@ export default function RegisterClinic() {
     { label: "Clinic name", done: nameReady,    active: !nameReady },
     { label: "Location",    done: nameReady && addressReady, active: nameReady && !addressReady },
     { label: "Phone",       done: phoneComplete, active: nameReady && addressReady && !phoneComplete },
-    { label: "Verified",    done: emailVerified, active: phoneComplete && !emailVerified },
+    { label: "Email",       done: emailVerified, active: phoneComplete && !emailVerified },
   ];
 
   return (
@@ -549,7 +549,7 @@ export default function RegisterClinic() {
 
                 <LockedField
                   locked={!addressUnlocked}
-                  nudgeMessage="Enter your clinic name first"
+                  nudgeMessage=""
                   onLockedClick={() => form.setFocus("name")}
                 >
                   <FormField control={form.control} name="address"
@@ -570,7 +570,7 @@ export default function RegisterClinic() {
 
                 <LockedField
                   locked={!cityPinUnlocked}
-                  nudgeMessage="Fill in your area / locality first"
+                  nudgeMessage=""
                   onLockedClick={() => form.setFocus("address")}
                 >
                   <div className="grid grid-cols-2 gap-2 mt-2.5">
@@ -609,7 +609,7 @@ export default function RegisterClinic() {
               {/* Field: Phone */}
               <LockedField
                 locked={!phoneUnlocked}
-                nudgeMessage="Fill in your location details first"
+                nudgeMessage=""
                 onLockedClick={() => form.setFocus("address")}
               >
                 <FormField control={form.control} name="phone"
@@ -631,7 +631,7 @@ export default function RegisterClinic() {
               {/* Field: Email + OTP */}
               <LockedField
                 locked={!emailUnlocked}
-                nudgeMessage="Enter a valid phone number first"
+                nudgeMessage=""
                 onLockedClick={() => form.setFocus("phone")}
               >
               <div className="space-y-2">
@@ -681,7 +681,7 @@ export default function RegisterClinic() {
                       <div className="p-3 space-y-2.5">
                         <div className="flex items-center gap-2">
                           <Shield className="h-3.5 w-3.5 text-primary/50 shrink-0" />
-                          <p className="text-[11px] text-muted-foreground">Email verification required to complete registration</p>
+                          <p className="text-[11px] text-muted-foreground">Verify your email to submit your registration</p>
                         </div>
                         <Button type="button" onClick={handleSendOtp}
                           disabled={!isEmailValid || sendOtpMutation.isPending}
@@ -848,7 +848,7 @@ export default function RegisterClinic() {
                     {isSubmitting
                       ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</>
                       : !emailVerified
-                      ? "Verify your email to continue"
+                      ? "Verify your email above to submit"
                       : "Submit Registration"}
                   </Button>
                   <button type="button" onClick={() => setLocation("/getting-started")}
