@@ -678,6 +678,14 @@ export default function RegisterClinic() {
               {/* ── TRUST SCORE SUMMARY — at the bottom ── */}
               <TrustSummary score={trustScore} />
 
+              {/* Review notice */}
+              <div className="rounded-xl border border-amber-400/40 bg-amber-500/5 px-4 py-3 space-y-1">
+                <p className="text-xs font-semibold text-foreground">Your application is subject to review.</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  We'll send our decision to your registered email address. Clinics with a higher Trust Score are typically reviewed and approved faster — the optional fields above make a real difference.
+                </p>
+              </div>
+
               {/* Submit */}
               <div className="flex flex-col gap-3 pt-1">
                 <Button type="submit"
