@@ -276,10 +276,7 @@ export function Header() {
         <Link href="/clinic-login">
           <Button
             size="sm"
-            className="gap-2 h-8 px-3 text-white font-semibold text-xs"
-            style={{ background: "#0F9B6E", border: "none" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#0A7A56"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#0F9B6E"; }}
+            className="gap-2 h-8 px-3 text-primary-foreground font-semibold text-xs bg-primary hover:bg-primary/90"
             data-testid="button-clinic-portal"
           >
             <Building2 className="h-3.5 w-3.5" />

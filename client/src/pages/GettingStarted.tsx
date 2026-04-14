@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { CalendarPlus, Building2, ArrowRight, CalendarDays, Sparkles } from "lucide-react";
+import { CalendarPlus, Building2, ArrowRight, CalendarDays, Sparkles, Stethoscope } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function GettingStarted() {
@@ -93,9 +93,9 @@ export default function GettingStarted() {
           </div>
 
           {/* Register Clinic card */}
-          <div className="rounded-2xl border border-border/60 bg-background shadow-sm overflow-hidden flex flex-col hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5 transition-all duration-300">
-            {/* Softer gradient card header */}
-            <div className="relative bg-gradient-to-r from-primary/70 via-primary/80 to-accent/60 px-5 pt-5 pb-4 overflow-hidden">
+          <div className="rounded-2xl border border-primary/25 bg-background shadow-md shadow-primary/8 overflow-hidden flex flex-col hover:shadow-lg hover:shadow-primary/12 hover:-translate-y-0.5 transition-all duration-300">
+            {/* Same gradient intensity as Book a Slot */}
+            <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-4 overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.06)_0%,transparent_65%)] pointer-events-none" />
               <div className="relative flex items-center gap-3">
                 <div className="relative shrink-0">
@@ -115,12 +115,11 @@ export default function GettingStarted() {
             {/* Card body */}
             <div className="px-5 py-5 flex flex-col flex-1 gap-4">
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Manage your clinic's availability, doctors, and bookings. Join our network of healthcare providers and reach more patients.
+                Manage slots, clinical records, inventory, and doctor schedules — all from one dashboard. Set up in under five minutes.
               </p>
               <div className="mt-auto">
                 <Button
-                  variant="outline"
-                  className="w-full gap-2 group h-11 font-bold border-primary/40 text-primary hover:bg-primary/8 hover:border-primary/60 rounded-xl"
+                  className="w-full gap-2 group h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
                   onClick={() => setLocation("/register-clinic")}
                   data-testid="button-get-started-register"
                 >
@@ -132,8 +131,8 @@ export default function GettingStarted() {
           </div>
         </div>
 
-        {/* Footer sign-in */}
-        <div className="px-6 sm:px-8 pb-6 text-center">
+        {/* Footer links */}
+        <div className="px-6 sm:px-8 pb-7 flex flex-col items-center gap-2.5">
           <p className="text-xs text-muted-foreground">
             Already have a clinic account?{" "}
             <button
@@ -142,6 +141,17 @@ export default function GettingStarted() {
               data-testid="link-clinic-signin"
             >
               Sign in here
+            </button>
+          </p>
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+            <Stethoscope className="h-3 w-3 text-muted-foreground/70" />
+            Are you a doctor?{" "}
+            <button
+              className="text-primary font-semibold hover:underline underline-offset-4 transition-colors"
+              onClick={() => setLocation("/clinic-login")}
+              data-testid="link-doctor-signin"
+            >
+              Sign in here →
             </button>
           </p>
         </div>
