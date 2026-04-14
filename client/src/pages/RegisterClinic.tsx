@@ -11,7 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, Building2, Mail, Phone, MapPin, Hash,
-  User, Lock, Info, ArrowLeft, Eye, EyeOff, Sparkles,
+  Info, ArrowLeft, Sparkles,
   Shield, CheckCircle2,
 } from "lucide-react";
 import { z } from "zod";
@@ -40,7 +40,6 @@ export default function RegisterClinic() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [otpSent, setOtpSent] = useState(false);
@@ -55,8 +54,6 @@ export default function RegisterClinic() {
 
   const form = useForm<InsertClinic>({
     resolver: zodResolver(insertClinicSchema.extend({
-      username: z.string().min(3, "Username must be at least 3 characters"),
-      passwordHash: z.string().min(6, "Password must be at least 6 characters"),
       email: z.string().email("Valid email is required"),
       phone: z.string().min(10, "Valid phone number is required"),
       address: z.string().optional().or(z.literal("")),
@@ -70,8 +67,6 @@ export default function RegisterClinic() {
       pincode: "",
       email: "",
       phone: "",
-      username: "",
-      passwordHash: "",
       status: "pending",
       doctors: [],
     },
@@ -556,61 +551,6 @@ export default function RegisterClinic() {
                 />
               </div>
 
-              {/* ── Section: Account ── */}
-              <SectionLabel>Account Credentials</SectionLabel>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FormField
-                  control={form.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <FieldRow icon={User}>
-                          <Input
-                            placeholder="clinic_admin"
-                            {...field}
-                            value={field.value || ""}
-                            className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
-                            data-testid="input-clinic-username"
-                          />
-                        </FieldRow>
-                      </FormControl>
-                      <FormMessage className="text-xs pl-1" />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="passwordHash"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <FieldRow icon={Lock}>
-                          <Input
-                            type={showPassword ? "text" : "password"}
-                            placeholder="••••••••"
-                            {...field}
-                            value={field.value || ""}
-                            className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm flex-1"
-                            data-testid="input-clinic-password"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(v => !v)}
-                            className="h-10 w-10 shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                            tabIndex={-1}
-                          >
-                            {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                          </button>
-                        </FieldRow>
-                      </FormControl>
-                      <FormMessage className="text-xs pl-1" />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
               {/* Approval info panel */}
               <div className="rounded-xl border border-border/50 bg-muted/20 overflow-hidden">
                 <div className="px-4 py-3 flex items-start gap-3">
@@ -618,7 +558,7 @@ export default function RegisterClinic() {
                     <Info className="h-3.5 w-3.5 text-primary" />
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Your registration will be reviewed by our admin team. Once approved, you'll receive an email with instructions to set up your clinic dashboard.
+                    Your registration will be reviewed by our admin team. Once approved, your login credentials will be automatically generated and sent to your registered email address.
                   </p>
                 </div>
               </div>

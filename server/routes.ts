@@ -485,6 +485,55 @@ async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLi
   }
 }
 
+async function sendClinicApprovalEmail(clinicName: string, clinicEmail: string, username: string, plainPassword: string) {
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Clinic approval email for ${clinicEmail} — username: ${username}, password: ${plainPassword}`);
+    return;
+  }
+  const finalEmail = RESEND_MODE === 'PRODUCTION' ? clinicEmail : TEST_EMAIL;
+  const loginUrl = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
+  const html = emailShell(
+    'linear-gradient(90deg,#3e34b4 0%,#1ab97c 100%)',
+    '🎉 Your Clinic is Approved!',
+    `Welcome to BookMySlot, <strong>${clinicName}</strong>`,
+    `<tr><td style="padding:28px 32px 0">
+      <p style="margin:0 0 12px;font-size:14px;color:#4a4a6a;line-height:1.6">
+        Congratulations! Your clinic registration has been reviewed and approved by our team. You can now log in to your clinic dashboard and start managing appointments.
+      </p>
+      <p style="margin:0 0 20px;font-size:14px;color:#4a4a6a;line-height:1.6">
+        Here are your login credentials. We recommend changing your password after your first login.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;border-radius:12px;overflow:hidden;border:1px solid #e5e3fa;margin-bottom:20px">
+        <tr style="background:#3e34b4">
+          <td colspan="2" style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.85)">Your Login Credentials</td>
+        </tr>
+        <tr style="border-bottom:1px solid #e5e3fa">
+          <td style="padding:12px 16px;color:#6b6f8c;font-size:13px;width:130px">Username</td>
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:#3e34b4;font-family:monospace">${username}</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 16px;color:#6b6f8c;font-size:13px">Password</td>
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:#3e34b4;font-family:monospace">${plainPassword}</td>
+        </tr>
+      </table>
+      <p style="margin:0 0 20px;font-size:12px;color:#9090aa;">Keep this email safe. Do not share your credentials with anyone.</p>
+    </td></tr>
+    <tr><td style="padding:8px 32px 28px">
+      ${actionButton('Go to Clinic Dashboard →', loginUrl, '#1ab97c')}
+    </td></tr>`
+  );
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: finalEmail,
+      subject: `Your clinic "${clinicName}" has been approved on BookMySlot`,
+      html,
+    });
+  } catch (error) {
+    console.error('[EMAIL ERROR] Failed to send clinic approval email:', error);
+  }
+}
+
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   const isAdmin = (req: any, res: any, next: any) => {
     const sess = req.session as any;
@@ -494,7 +543,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/clinics/register", async (req, res) => {
     try {
-      const { verifiedToken, email, ...rest } = req.body;
+      const { verifiedToken, email, username: _u, passwordHash: _p, ...rest } = req.body;
 
       if (!verifiedToken || !email) {
         return res.status(401).json({ message: "Email verification is required to register a clinic" });
@@ -514,8 +563,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(401).json({ message: "Email verification expired or invalid. Please verify your email and try again." });
       }
 
-      const passwordHash = await bcrypt.hash(rest.passwordHash, 10);
-      const clinic = await storage.createClinic({ ...rest, email, status: "pending", isArchived: false, passwordHash } as any);
+      // Username and password are not set at registration — generated on admin approval
+      const clinic = await storage.createClinic({ ...rest, email, status: "pending", isArchived: false, username: null, passwordHash: null } as any);
 
       // Consume the token — one use only
       await db.delete(emailOtps).where(eq(emailOtps.id, otpRow.id));
@@ -529,7 +578,43 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/clinics/:id/approve", isAuthenticated, async (req, res) => {
     if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Only superusers can approve clinics" });
     try {
-      const clinic = await storage.updateClinic(parseInt(req.params.id), { status: "approved" });
+      const clinicId = parseInt(req.params.id);
+      const existing = await storage.getClinic(clinicId);
+      if (!existing) return res.status(404).json({ message: "Clinic not found" });
+
+      // Generate a meaningful username from the clinic name
+      const base = existing.name
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, "")
+        .trim()
+        .replace(/\s+/g, "_")
+        .slice(0, 30);
+
+      let username = base;
+      let suffix = 2;
+      while (await storage.getClinicByUsername(username)) {
+        username = `${base}_${suffix}`;
+        suffix++;
+      }
+
+      // Generate a secure readable temporary password
+      const adjectives = ["bright", "swift", "clear", "smart", "care", "prime", "vital", "safe"];
+      const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+      const digits = Math.floor(1000 + Math.random() * 9000).toString();
+      const symbols = ["@", "#", "!"];
+      const sym = symbols[Math.floor(Math.random() * symbols.length)];
+      const plainPassword = `${adj.charAt(0).toUpperCase()}${adj.slice(1)}${digits}${sym}`;
+
+      const passwordHash = await bcrypt.hash(plainPassword, 10);
+      await storage.updateClinicCredentials(clinicId, username, passwordHash);
+
+      const clinic = await storage.updateClinic(clinicId, { status: "approved" });
+
+      // Send approval email with credentials
+      if (existing.email) {
+        await sendClinicApprovalEmail(existing.name, existing.email, username, plainPassword);
+      }
+
       res.json(clinic);
     } catch (error: any) {
       res.status(400).json({ message: error.message });

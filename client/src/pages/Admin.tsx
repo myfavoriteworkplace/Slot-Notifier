@@ -358,7 +358,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      toast({ title: "Clinic approved" });
+      toast({ title: "Clinic approved", description: "Login credentials have been generated and sent to the clinic's email address." });
     }
   });
 
