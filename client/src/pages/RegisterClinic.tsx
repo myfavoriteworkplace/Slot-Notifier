@@ -409,10 +409,12 @@ export default function RegisterClinic() {
   const medDocsEarned = !!(medicalLicenseUrl || clinicRegCertUrl);
 
   // Sequential unlock gates
-  const nameReady = watchedName.trim().length >= 2;
-  const locationUnlocked = nameReady;
-  const phoneUnlocked = nameReady;
-  const emailUnlocked = phoneComplete;
+  const nameReady    = watchedName.trim().length >= 2;
+  const addressReady = watchedAddress.trim().length >= 1;
+  const addressUnlocked  = nameReady;
+  const cityPinUnlocked  = nameReady && addressReady;
+  const phoneUnlocked    = nameReady && addressReady;
+  const emailUnlocked    = phoneComplete;
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 relative overflow-hidden bg-background">
@@ -497,7 +499,7 @@ export default function RegisterClinic() {
                 />
 
                 <LockedField
-                  locked={!locationUnlocked}
+                  locked={!addressUnlocked}
                   nudgeMessage="Enter your clinic name first"
                   onLockedClick={() => form.setFocus("name")}
                 >
@@ -515,7 +517,13 @@ export default function RegisterClinic() {
                       </FormItem>
                     )}
                   />
+                </LockedField>
 
+                <LockedField
+                  locked={!cityPinUnlocked}
+                  nudgeMessage="Fill in your area / locality first"
+                  onLockedClick={() => form.setFocus("address")}
+                >
                   <div className="grid grid-cols-2 gap-2 mt-2.5">
                     <FormField control={form.control} name="city"
                       render={({ field }) => (
@@ -552,8 +560,8 @@ export default function RegisterClinic() {
               {/* Field: Phone */}
               <LockedField
                 locked={!phoneUnlocked}
-                nudgeMessage="Enter your clinic name first"
-                onLockedClick={() => form.setFocus("name")}
+                nudgeMessage="Fill in your location details first"
+                onLockedClick={() => form.setFocus("address")}
               >
                 <FormField control={form.control} name="phone"
                   render={({ field }) => (
