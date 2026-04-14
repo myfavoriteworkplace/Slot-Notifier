@@ -374,7 +374,7 @@ export default function RegisterClinic() {
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl pointer-events-none -translate-y-1/3 translate-x-1/3" />
       <div className="absolute bottom-0 left-0 w-[380px] h-[380px] bg-accent/5 rounded-full blur-3xl pointer-events-none translate-y-1/3 -translate-x-1/3" />
 
-      <div className="relative w-full max-w-xl rounded-3xl border border-border/60 bg-background/90 backdrop-blur-xl shadow-2xl shadow-primary/10 overflow-hidden">
+      <div className="relative w-full max-w-xl lg:max-w-4xl rounded-3xl border border-border/60 bg-background/90 backdrop-blur-xl shadow-2xl shadow-primary/10 overflow-hidden">
 
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
 
@@ -409,18 +409,28 @@ export default function RegisterClinic() {
         </div>
 
         {/* Form body */}
-        <div className="px-6 pt-6 pb-7 space-y-4">
+        <div className="px-6 pt-6 pb-7">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)}>
 
-              {/* ── REQUIRED FIELDS ── clean, no-frills ── */}
-              <div className="flex items-center gap-3">
+              {/* Two-column grid on lg+, single column on mobile */}
+              <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-start">
+
+              {/* ── LEFT COLUMN — required fields ── */}
+              <div className="space-y-4">
+
+              {/* Mobile: centered divider / Desktop: column heading */}
+              <div className="flex items-center gap-3 lg:hidden">
                 <div className="flex-1 h-px bg-border/40" />
                 <div className="text-center">
                   <p className="text-[11px] font-semibold text-foreground/70 tracking-wide">To get started</p>
                   <p className="text-[10px] text-muted-foreground">We only need a few basics</p>
                 </div>
                 <div className="flex-1 h-px bg-border/40" />
+              </div>
+              <div className="hidden lg:block pb-1 border-b border-border/40">
+                <p className="text-sm font-bold text-foreground">To get started</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">We only need a few basics</p>
               </div>
 
               {/* Field group: Clinic name & location */}
@@ -614,99 +624,116 @@ export default function RegisterClinic() {
                 )}
               </div>
 
-              {/* ── VISUAL DIVIDER before optional section ── */}
-              <div className="flex items-center gap-3 pt-2">
-                <div className="flex-1 h-px bg-border/40" />
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/40 border border-border/40">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Optional</span>
+              </div>{/* end left column */}
+
+              {/* ── RIGHT COLUMN — optional boost ── */}
+              <div className="space-y-4 mt-6 lg:mt-0">
+
+                {/* Mobile: centered pill divider / Desktop: column heading */}
+                <div className="flex items-center gap-3 pt-2 lg:hidden">
+                  <div className="flex-1 h-px bg-border/40" />
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/40 border border-border/40">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Optional</span>
+                  </div>
+                  <div className="flex-1 h-px bg-border/40" />
                 </div>
-                <div className="flex-1 h-px bg-border/40" />
-              </div>
+                <div className="hidden lg:block pb-1 border-b border-border/40">
+                  <p className="text-sm font-bold text-foreground">Optional</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Boost your Trust Score &amp; speed up approval</p>
+                </div>
 
-              {/* Optional intro */}
-              <p className="text-xs text-muted-foreground text-center leading-relaxed -mt-1">
-                Want to boost your visibility? These raise your <span className="font-semibold text-foreground">Trust Score</span> shown to patients and help speed up admin approval. You can also add them from your dashboard later.
-              </p>
-
-              {/* ── BOOST CARDS — softer visual ── */}
-              <div className="space-y-2">
-                <BoostCard icon={FileText} title="Medical license & registration cert"
-                  subtitle="Strongest trust documents — +25 pts"
-                  pts="+25" earned={medDocsEarned} testId="boost-card-medical">
-                  <div className="space-y-2">
-                    <DocUpload label="Doctor's medical / MCI license" pts="+15 pts"
-                      value={medicalLicenseUrl} onChange={setMedicalLicenseUrl} testId="upload-medical-license" />
-                    <DocUpload label="Clinic registration certificate" pts="+10 pts"
-                      value={clinicRegCertUrl} onChange={setClinicRegCertUrl} testId="upload-clinic-reg-cert" />
-                    <p className="text-[11px] text-muted-foreground leading-snug">
-                      You can upload these later from your dashboard.
-                    </p>
-                  </div>
-                </BoostCard>
-
-                <BoostCard icon={Link2} title="Google Business Profile"
-                  subtitle="We pull your rating & reviews — +15 pts"
-                  pts="+15" earned={!!googleBusinessUrl} testId="boost-card-google">
-                  <div className="space-y-2">
-                    <FieldRow icon={Link2}>
-                      <Input placeholder="Paste your Google Maps listing URL"
-                        value={googleBusinessUrl} onChange={e => setGoogleBusinessUrl(e.target.value)}
-                        className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
-                        data-testid="input-google-business-url" />
-                    </FieldRow>
-                    <p className="text-[11px] text-muted-foreground leading-snug">
-                      Once linked, we auto-pull your star rating, review count, and recent reviews — visible to patients.
-                    </p>
-                  </div>
-                </BoostCard>
-
-                <BoostCard icon={Receipt} title="GST registration number"
-                  subtitle="For tax invoicing — +10 pts"
-                  pts="+10" earned={!!gstNumber.trim()} testId="boost-card-gst">
-                  <div className="space-y-2">
-                    <FieldRow icon={Receipt}>
-                      <Input placeholder="GSTIN number"
-                        value={gstNumber} onChange={e => setGstNumber(e.target.value.toUpperCase())}
-                        className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm font-mono"
-                        data-testid="input-gst-number" />
-                    </FieldRow>
-                    <p className="text-[11px] text-muted-foreground">Not required unless you want to issue GST-compliant invoices.</p>
-                  </div>
-                </BoostCard>
-              </div>
-
-              {/* ── TRUST SCORE SUMMARY — at the bottom ── */}
-              <TrustSummary score={trustScore} />
-
-              {/* Review notice */}
-              <div className="rounded-xl border border-amber-400/40 bg-amber-500/5 px-4 py-3 space-y-1.5">
-                <p className="text-xs font-semibold text-foreground">Your application is subject to review.</p>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  We'll send our decision to your registered email address. Clinics with a higher Trust Score are typically reviewed and approved faster — the optional fields above make a real difference.
+                {/* Optional intro */}
+                <p className="text-xs text-muted-foreground leading-relaxed lg:text-left text-center">
+                  Want to boost your visibility? These raise your <span className="font-semibold text-foreground">Trust Score</span> shown to patients and help speed up admin approval. You can also add them from your dashboard later.
                 </p>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  This process also ensures that every clinic listed on BookMySlot is verified — so patients can book with confidence, and your listing stands among genuinely trusted providers.
-                </p>
-              </div>
 
-              {/* Submit */}
-              <div className="flex flex-col gap-3 pt-1">
-                <Button type="submit"
-                  className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl disabled:opacity-50"
-                  disabled={isSubmitting || !emailVerified}
-                  data-testid="button-submit-registration">
-                  {isSubmitting
-                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</>
-                    : !emailVerified
-                    ? "Verify your email to continue"
-                    : "Submit Registration"}
-                </Button>
-                <button type="button" onClick={() => setLocation("/getting-started")}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors text-center py-1"
-                  data-testid="button-cancel-registration">
-                  Cancel and go back
-                </button>
-              </div>
+                {/* ── BOOST CARDS ── */}
+                <div className="space-y-2">
+                  <BoostCard icon={FileText} title="Medical license & registration cert"
+                    subtitle="Strongest trust documents — +25 pts"
+                    pts="+25" earned={medDocsEarned} testId="boost-card-medical">
+                    <div className="space-y-2">
+                      <DocUpload label="Doctor's medical / MCI license" pts="+15 pts"
+                        value={medicalLicenseUrl} onChange={setMedicalLicenseUrl} testId="upload-medical-license" />
+                      <DocUpload label="Clinic registration certificate" pts="+10 pts"
+                        value={clinicRegCertUrl} onChange={setClinicRegCertUrl} testId="upload-clinic-reg-cert" />
+                      <p className="text-[11px] text-muted-foreground leading-snug">
+                        You can upload these later from your dashboard.
+                      </p>
+                    </div>
+                  </BoostCard>
+
+                  <BoostCard icon={Link2} title="Google Business Profile"
+                    subtitle="We pull your rating & reviews — +15 pts"
+                    pts="+15" earned={!!googleBusinessUrl} testId="boost-card-google">
+                    <div className="space-y-2">
+                      <FieldRow icon={Link2}>
+                        <Input placeholder="Paste your Google Maps listing URL"
+                          value={googleBusinessUrl} onChange={e => setGoogleBusinessUrl(e.target.value)}
+                          className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
+                          data-testid="input-google-business-url" />
+                      </FieldRow>
+                      <p className="text-[11px] text-muted-foreground leading-snug">
+                        Once linked, we auto-pull your star rating, review count, and recent reviews — visible to patients.
+                      </p>
+                    </div>
+                  </BoostCard>
+
+                  <BoostCard icon={Receipt} title="GST registration number"
+                    subtitle="For tax invoicing — +10 pts"
+                    pts="+10" earned={!!gstNumber.trim()} testId="boost-card-gst">
+                    <div className="space-y-2">
+                      <FieldRow icon={Receipt}>
+                        <Input placeholder="GSTIN number"
+                          value={gstNumber} onChange={e => setGstNumber(e.target.value.toUpperCase())}
+                          className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm font-mono"
+                          data-testid="input-gst-number" />
+                      </FieldRow>
+                      <p className="text-[11px] text-muted-foreground">Not required unless you want to issue GST-compliant invoices.</p>
+                    </div>
+                  </BoostCard>
+                </div>
+
+              </div>{/* end right column */}
+
+              </div>{/* end two-column grid */}
+
+              {/* ── FULL-WIDTH FOOTER — trust score + review notice + submit ── */}
+              <div className="space-y-4 mt-6">
+
+                <TrustSummary score={trustScore} />
+
+                {/* Review notice */}
+                <div className="rounded-xl border border-amber-400/40 bg-amber-500/5 px-4 py-3 space-y-1.5">
+                  <p className="text-xs font-semibold text-foreground">Your application is subject to review.</p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    We'll send our decision to your registered email address. Clinics with a higher Trust Score are typically reviewed and approved faster — the optional fields above make a real difference.
+                  </p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    This process also ensures that every clinic listed on BookMySlot is verified — so patients can book with confidence, and your listing stands among genuinely trusted providers.
+                  </p>
+                </div>
+
+                {/* Submit */}
+                <div className="flex flex-col gap-3 pt-1">
+                  <Button type="submit"
+                    className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl disabled:opacity-50"
+                    disabled={isSubmitting || !emailVerified}
+                    data-testid="button-submit-registration">
+                    {isSubmitting
+                      ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</>
+                      : !emailVerified
+                      ? "Verify your email to continue"
+                      : "Submit Registration"}
+                  </Button>
+                  <button type="button" onClick={() => setLocation("/getting-started")}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors text-center py-1"
+                    data-testid="button-cancel-registration">
+                    Cancel and go back
+                  </button>
+                </div>
+
+              </div>{/* end full-width footer */}
 
             </form>
           </Form>
