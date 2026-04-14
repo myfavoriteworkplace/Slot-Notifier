@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { CalendarPlus, Building2, ArrowRight, CalendarDays, Sparkles, Stethoscope } from "lucide-react";
+import { CalendarPlus, Building2, ArrowRight, CalendarDays, Sparkles, Stethoscope, LogIn, Check } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function GettingStarted() {
@@ -12,7 +12,7 @@ export default function GettingStarted() {
       <div className="absolute top-0 right-0 w-[520px] h-[520px] bg-primary/5 rounded-full blur-3xl pointer-events-none -translate-y-1/3 translate-x-1/3" />
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-accent/5 rounded-full blur-3xl pointer-events-none translate-y-1/3 -translate-x-1/3" />
 
-      <div className="relative w-full max-w-4xl rounded-3xl border border-border/60 bg-background/90 backdrop-blur-xl shadow-2xl shadow-primary/10 overflow-hidden">
+      <div className="relative w-full max-w-5xl rounded-3xl border border-border/60 bg-background/90 backdrop-blur-xl shadow-2xl shadow-primary/10 overflow-hidden">
 
         {/* 3px neon top bar */}
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
@@ -42,8 +42,8 @@ export default function GettingStarted() {
             <h1 className="text-3xl font-extrabold text-white tracking-tight mb-2">
               Welcome to BookMySlot
             </h1>
-            <p className="text-sm text-white/55 max-w-md">
-              Choose how you'd like to get started — book an appointment in seconds, or set up your clinic to manage patients.
+            <p className="text-sm text-white/55 max-w-lg">
+              Choose your path — book a slot at a trusted clinic, bring your practice online, or sign in to your dashboard.
             </p>
           </div>
 
@@ -51,10 +51,10 @@ export default function GettingStarted() {
           <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/40 via-primary/60 to-accent/40" />
         </div>
 
-        {/* Cards grid */}
-        <div className="p-6 sm:p-8 grid md:grid-cols-2 gap-6">
+        {/* Cards grid — 1 col mobile, 2 col md, 3 col lg */}
+        <div className="p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-          {/* Book a Slot card */}
+          {/* ── Card 1: For Patients ── */}
           <div className="rounded-2xl border border-primary/25 bg-background shadow-md shadow-primary/8 overflow-hidden flex flex-col hover:shadow-lg hover:shadow-primary/12 hover:-translate-y-0.5 transition-all duration-300">
             {/* Gradient card header */}
             <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-4 overflow-hidden">
@@ -77,8 +77,17 @@ export default function GettingStarted() {
             {/* Card body */}
             <div className="px-5 py-5 flex flex-col flex-1 gap-4">
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Find a clinic and book your appointment in minutes. No registration required — just pick a slot and you're done.
+                Browse verified dental clinics near you and confirm your slot in seconds. No account needed.
               </p>
+              {/* Trust signals */}
+              <ul className="flex flex-col gap-1.5">
+                {["50+ verified clinics", "No sign-up required", "Instant confirmation"].map((point) => (
+                  <li key={point} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                    {point}
+                  </li>
+                ))}
+              </ul>
               <div className="mt-auto">
                 <Button
                   className="w-full gap-2 group h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
@@ -92,9 +101,8 @@ export default function GettingStarted() {
             </div>
           </div>
 
-          {/* Register Clinic card */}
+          {/* ── Card 2: For Clinics ── */}
           <div className="rounded-2xl border border-primary/25 bg-background shadow-md shadow-primary/8 overflow-hidden flex flex-col hover:shadow-lg hover:shadow-primary/12 hover:-translate-y-0.5 transition-all duration-300">
-            {/* Same gradient intensity as Book a Slot */}
             <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-4 overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.06)_0%,transparent_65%)] pointer-events-none" />
               <div className="relative flex items-center gap-3">
@@ -115,8 +123,17 @@ export default function GettingStarted() {
             {/* Card body */}
             <div className="px-5 py-5 flex flex-col flex-1 gap-4">
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Manage slots, clinical records, inventory, and doctor schedules — all from one dashboard. Set up in under five minutes.
+                Manage bookings, clinical records, doctor schedules, and more — all from one powerful dashboard.
               </p>
+              {/* Trust signals */}
+              <ul className="flex flex-col gap-1.5">
+                {["Free to get started", "5-minute setup", "Full dashboard included"].map((point) => (
+                  <li key={point} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                    {point}
+                  </li>
+                ))}
+              </ul>
               <div className="mt-auto">
                 <Button
                   className="w-full gap-2 group h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
@@ -129,33 +146,55 @@ export default function GettingStarted() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Footer links */}
-        <div className="px-6 sm:px-8 pb-7 flex flex-col items-center gap-2.5">
-          <p className="text-xs text-muted-foreground">
-            Already have a clinic account?{" "}
-            <button
-              className="text-primary font-semibold hover:underline underline-offset-4 transition-colors"
-              onClick={() => setLocation("/clinic-login")}
-              data-testid="link-clinic-signin"
-            >
-              Sign in here
-            </button>
-          </p>
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <Stethoscope className="h-3 w-3 text-muted-foreground/70" />
-            Are you a doctor?{" "}
-            <button
-              className="text-primary font-semibold hover:underline underline-offset-4 transition-colors"
-              onClick={() => setLocation("/clinic-login")}
-              data-testid="link-doctor-signin"
-            >
-              Sign in here →
-            </button>
-          </p>
-        </div>
+          {/* ── Card 3: Existing Users (lighter visual weight) ── */}
+          <div className="rounded-2xl border border-border/70 bg-background shadow-sm overflow-hidden flex flex-col hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 md:col-span-2 lg:col-span-1">
+            {/* Softer header using secondary palette */}
+            <div className="relative bg-secondary/60 dark:bg-secondary/30 border-b border-border/60 px-5 pt-5 pb-4 overflow-hidden">
+              <div className="relative flex items-center gap-3">
+                <div className="relative shrink-0">
+                  <div className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                    <LogIn className="h-5 w-5 text-primary drop-shadow-sm" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-0.5">Already on BookMySlot?</p>
+                  <h2 className="text-lg font-extrabold text-foreground tracking-tight">Sign In</h2>
+                </div>
+              </div>
+            </div>
 
+            {/* Card body */}
+            <div className="px-5 py-5 flex flex-col flex-1 gap-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Access your existing account — manage your clinic, schedule, and patients right where you left off.
+              </p>
+              <div className="mt-auto flex flex-col gap-3">
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 group h-11 font-semibold border-primary/30 text-primary hover:bg-primary/5 hover:border-primary/50 rounded-xl"
+                  onClick={() => setLocation("/clinic-login")}
+                  data-testid="button-clinic-admin-login"
+                >
+                  <Building2 className="h-4 w-4" />
+                  Clinic Admin Login
+                  <ArrowRight className="h-4 w-4 ml-auto group-hover:translate-x-1 transition-transform" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 group h-11 font-semibold border-primary/30 text-primary hover:bg-primary/5 hover:border-primary/50 rounded-xl"
+                  onClick={() => setLocation("/clinic-login")}
+                  data-testid="button-doctor-login"
+                >
+                  <Stethoscope className="h-4 w-4" />
+                  Doctor Login
+                  <ArrowRight className="h-4 w-4 ml-auto group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   );
