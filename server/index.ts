@@ -200,6 +200,21 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='doctors') THEN
             ALTER TABLE clinics ADD COLUMN doctors jsonb DEFAULT '[]';
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='google_business_url') THEN
+            ALTER TABLE clinics ADD COLUMN google_business_url varchar(1000);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='gst_number') THEN
+            ALTER TABLE clinics ADD COLUMN gst_number varchar(50);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='medical_license_url') THEN
+            ALTER TABLE clinics ADD COLUMN medical_license_url varchar(1000);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='clinic_reg_cert_url') THEN
+            ALTER TABLE clinics ADD COLUMN clinic_reg_cert_url varchar(1000);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='trust_score') THEN
+            ALTER TABLE clinics ADD COLUMN trust_score integer DEFAULT 0;
+          END IF;
         END $$;
       `);
       log("clinics columns verified/updated", "system");

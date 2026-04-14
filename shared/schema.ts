@@ -29,6 +29,11 @@ export const clinics = pgTable("clinics", {
   createdAt: timestamp("created_at").defaultNow(),
   latitude: real("latitude"),
   longitude: real("longitude"),
+  googleBusinessUrl: varchar("google_business_url", { length: 1000 }),
+  gstNumber: varchar("gst_number", { length: 50 }),
+  medicalLicenseUrl: varchar("medical_license_url", { length: 1000 }),
+  clinicRegCertUrl: varchar("clinic_reg_cert_url", { length: 1000 }),
+  trustScore: integer("trust_score").default(0),
 });
 
 export const slots = pgTable("slots", {

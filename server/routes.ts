@@ -543,7 +543,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/clinics/register", async (req, res) => {
     try {
-      const { verifiedToken, email, username: _u, passwordHash: _p, ...rest } = req.body;
+      const {
+        verifiedToken, email,
+        username: _u, passwordHash: _p,
+        googleBusinessUrl, gstNumber, medicalLicenseUrl, clinicRegCertUrl,
+        ...rest
+      } = req.body;
 
       if (!verifiedToken || !email) {
         return res.status(401).json({ message: "Email verification is required to register a clinic" });
@@ -563,8 +568,34 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(401).json({ message: "Email verification expired or invalid. Please verify your email and try again." });
       }
 
+      // Compute trust score server-side
+      const trustScore = (() => {
+        let score = 0;
+        if (rest.name) score += 7;
+        if (rest.address || rest.city) score += 7;
+        if (rest.pincode) score += 6;
+        const digits = (rest.phone || "").replace(/\D/g, "");
+        if (digits.length >= 10) score += 30;
+        const isGenericEmail = /gmail\.|yahoo\.|hotmail\.|outlook\.|rediffmail\./.test(email.toLowerCase());
+        score += isGenericEmail ? 10 : 15;
+        if (medicalLicenseUrl) score += 15;
+        if (clinicRegCertUrl) score += 10;
+        if (googleBusinessUrl) score += 15;
+        if (gstNumber) score += 10;
+        return Math.min(score, 100);
+      })();
+
       // Username and password are not set at registration — generated on admin approval
-      const clinic = await storage.createClinic({ ...rest, email, status: "pending", isArchived: false, username: null, passwordHash: null } as any);
+      const clinic = await storage.createClinic({
+        ...rest, email,
+        status: "pending", isArchived: false,
+        username: null, passwordHash: null,
+        googleBusinessUrl: googleBusinessUrl || null,
+        gstNumber: gstNumber || null,
+        medicalLicenseUrl: medicalLicenseUrl || null,
+        clinicRegCertUrl: clinicRegCertUrl || null,
+        trustScore,
+      } as any);
 
       // Consume the token — one use only
       await db.delete(emailOtps).where(eq(emailOtps.id, otpRow.id));
@@ -750,6 +781,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       console.error('[OTP VERIFY ERROR]', err.message);
       res.status(500).json({ message: "Failed to verify code" });
+    }
+  });
+
+  // ── PUBLIC UPLOAD: signed URL for clinic registration docs ─────────────────
+  app.post("/api/public/uploads/signed-url", async (req, res) => {
+    try {
+      const { fileName, contentType, fileSize, folder } = req.body;
+      if (!fileName || !contentType) {
+        return res.status(400).json({ message: "fileName and contentType are required" });
+      }
+      const result = await generateSignedUploadUrl({
+        fileName,
+        fileType: contentType,
+        fileSize: fileSize || 5 * 1024 * 1024,
+        folder: folder || "clinic-docs",
+      });
+      res.json(result);
+    } catch (err: any) {
+      res.status(503).json({ message: err.message || "File upload not available" });
     }
   });
 
