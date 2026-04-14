@@ -6,19 +6,50 @@ import { Link } from "wouter";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { apiRequest } from "@/lib/queryClient";
+import { useTheme } from "next-themes";
 
-const TEAL = "#0FCE8A";
+const TEAL     = "#0FCE8A";
 const TEAL_DIM = "#0A9E6A";
-const BG = "#080D0B";
-const CARD = "#111A16";
-const CARD_HOVER = "#162019";
-const SURFACE = "#0E1512";
-const BORDER = "rgba(15,206,138,.12)";
-const BORDER_H = "rgba(15,206,138,.35)";
-const TEXT = "#E8F5F0";
-const MUTED = "#6B8F7E";
-const GOLD = "#F0C060";
-const RED = "#FF5757";
+const GOLD     = "#F0C060";
+const RED      = "#FF5757";
+
+const DARK_PALETTE = {
+  bg:        "#080D0B",
+  card:      "#111A16",
+  cardHover: "#162019",
+  surface:   "#0E1512",
+  border:    "rgba(15,206,138,.12)",
+  borderH:   "rgba(15,206,138,.35)",
+  text:      "#E8F5F0",
+  muted:     "#6B8F7E",
+  ambientOrb1: "rgba(15,206,138,.10)",
+  ambientOrb2: "rgba(15,206,138,.07)",
+  ambientOrb3: "rgba(240,192,96,.05)",
+  countdownBg: "linear-gradient(135deg, #0E1F17 0%, #091409 100%)",
+  promoClinicBg: "linear-gradient(135deg, #0A2018, #081510)",
+  promoLoyaltyBg: "linear-gradient(135deg, #1A1408, #100D05)",
+  shimmer:   "rgba(255,255,255,.04)",
+  shine:     "rgba(255,255,255,.04)",
+};
+
+const LIGHT_PALETTE = {
+  bg:        "#F5FAF8",
+  card:      "#FFFFFF",
+  cardHover: "#F0FAF5",
+  surface:   "#EFF9F5",
+  border:    "rgba(15,155,110,.10)",
+  borderH:   "rgba(15,155,110,.35)",
+  text:      "#0A1F16",
+  muted:     "#4A7A64",
+  ambientOrb1: "rgba(15,155,110,.07)",
+  ambientOrb2: "rgba(15,155,110,.05)",
+  ambientOrb3: "rgba(240,192,96,.04)",
+  countdownBg: "linear-gradient(135deg, #E8F5EE 0%, #D8EFEA 100%)",
+  promoClinicBg: "linear-gradient(135deg, #E8F5EE, #D4EDE5)",
+  promoLoyaltyBg: "linear-gradient(135deg, #FDF6E3, #FAF0CC)",
+  shimmer:   "rgba(0,0,0,.02)",
+  shine:     "rgba(255,255,255,.6)",
+};
 
 function getVideoType(url: string): "youtube" | "vimeo" | "mp4" | null {
   if (!url) return null;
@@ -99,7 +130,7 @@ function VideoModal({ deal, open, onClose }: { deal: SmileDeal | null; open: boo
   );
 }
 
-function FeaturedCard({ deal, onBookClick }: { deal: SmileDeal; onBookClick: () => void }) {
+function FeaturedCard({ deal, onBookClick, c }: { deal: SmileDeal; onBookClick: () => void; c: typeof DARK_PALETTE }) {
   const [hovered, setHovered] = useState(false);
   const videoType = deal.videoUrl ? getVideoType(deal.videoUrl) : null;
   const embedUrl = deal.videoUrl ? getEmbedUrl(deal.videoUrl) : null;
@@ -116,87 +147,100 @@ function FeaturedCard({ deal, onBookClick }: { deal: SmileDeal; onBookClick: () 
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: CARD,
-        border: `1px solid ${hovered ? BORDER_H : BORDER}`,
+        background: c.card,
+        border: `1px solid ${hovered ? c.borderH : c.border}`,
         borderRadius: 24,
         overflow: "hidden",
         display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        minHeight: 380,
+        gridTemplateColumns: "1fr",
+        minHeight: 320,
         cursor: "pointer",
         transform: hovered ? "translateY(-4px)" : "translateY(0)",
         transition: "border-color .3s, transform .4s cubic-bezier(.16,1,.3,1)",
       }}
+      className="sm:grid-cols-featured"
     >
-      {/* Image side */}
-      <div style={{ position: "relative", overflow: "hidden" }}>
-        {videoType && videoType !== "mp4" && hovered && embedUrl ? (
-          <iframe src={embedUrl} className="w-full h-full" allow="autoplay; fullscreen" style={{ border: "none", pointerEvents: "none", position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-        ) : videoType === "mp4" && deal.videoUrl ? (
-          <video src={deal.videoUrl} autoPlay={hovered} muted loop playsInline className="w-full h-full object-cover" style={{ transition: "transform .7s cubic-bezier(.16,1,.3,1)", transform: hovered ? "scale(1.05)" : "scale(1)" }} />
-        ) : (
-          <img
-            src={deal.imageUrl}
-            alt={deal.title}
-            className="w-full h-full object-cover"
-            style={{ transition: "transform .7s cubic-bezier(.16,1,.3,1)", transform: hovered ? "scale(1.05)" : "scale(1)" }}
-            onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=1200"; }}
-          />
-        )}
-        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, transparent 60%, ${CARD} 100%)` }} />
-        {isExpired && (
-          <div style={{ position: "absolute", top: 16, left: 16, background: `${RED}CC`, color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6 }}>
-            Expired
-          </div>
-        )}
-      </div>
-
-      {/* Content side */}
-      <div style={{ padding: "44px 44px 44px 36px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 18 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", background: `rgba(15,206,138,.12)`, color: TEAL, border: `1px solid ${BORDER_H}` }}>
-            <Star style={{ width: 10, height: 10, fill: TEAL }} /> Featured Offer
-          </span>
-          {(deal as any).subcategory && (
-            <span style={{ padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", background: `rgba(8,13,11,.8)`, color: MUTED, border: `1px solid ${BORDER}` }}>
-              {(deal as any).subcategory}
-            </span>
+      {/* Responsive: stack on mobile, side-by-side on sm+ */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "1fr",
+      }}
+        className="featured-inner"
+      >
+        <style>{`
+          @media (min-width: 640px) {
+            .featured-inner { grid-template-columns: 1fr 1fr !important; }
+          }
+        `}</style>
+        {/* Image side */}
+        <div style={{ position: "relative", overflow: "hidden", minHeight: 240 }}>
+          {videoType && videoType !== "mp4" && hovered && embedUrl ? (
+            <iframe src={embedUrl} className="w-full h-full" allow="autoplay; fullscreen" style={{ border: "none", pointerEvents: "none", position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+          ) : videoType === "mp4" && deal.videoUrl ? (
+            <video src={deal.videoUrl} autoPlay={hovered} muted loop playsInline className="w-full h-full object-cover" style={{ transition: "transform .7s cubic-bezier(.16,1,.3,1)", transform: hovered ? "scale(1.05)" : "scale(1)" }} />
+          ) : (
+            <img
+              src={deal.imageUrl}
+              alt={deal.title}
+              className="w-full h-full object-cover"
+              style={{ transition: "transform .7s cubic-bezier(.16,1,.3,1)", transform: hovered ? "scale(1.05)" : "scale(1)" }}
+              onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=1200"; }}
+            />
+          )}
+          <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, transparent 60%, ${c.card} 100%)` }} />
+          {isExpired && (
+            <div style={{ position: "absolute", top: 16, left: 16, background: `${RED}CC`, color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6 }}>
+              Expired
+            </div>
           )}
         </div>
 
-        <div style={{ fontSize: 30, fontWeight: 700, color: TEXT, lineHeight: 1.2, letterSpacing: "-.02em" }}>{deal.title}</div>
-
-        {deal.description && <div style={{ fontSize: 14, color: MUTED, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.description}</div>}
-
-        {(deal.price || (deal as any).originalPrice) && (
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-            {deal.price && <span style={{ fontSize: 38, fontWeight: 800, color: TEAL, letterSpacing: "-.03em" }}>₹{deal.price}</span>}
-            {(deal as any).originalPrice && <span style={{ fontSize: 17, color: MUTED, textDecoration: "line-through" }}>₹{(deal as any).originalPrice}</span>}
-            {save && save > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: RED, background: `rgba(255,87,87,.1)`, padding: "3px 8px", borderRadius: 4 }}>Save ₹{save.toLocaleString()}</span>}
+        {/* Content side */}
+        <div style={{ padding: "32px 32px 32px 24px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 18 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", background: `rgba(15,206,138,.12)`, color: TEAL, border: `1px solid ${c.borderH}` }}>
+              <Star style={{ width: 10, height: 10, fill: TEAL }} /> Featured Offer
+            </span>
+            {(deal as any).subcategory && (
+              <span style={{ padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", background: c.surface, color: c.muted, border: `1px solid ${c.border}` }}>
+                {(deal as any).subcategory}
+              </span>
+            )}
           </div>
-        )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <Link href={deal.bookingLink}>
-            <button
-              onClick={onBookClick}
-              style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "13px 26px", borderRadius: 12,
-                background: hovered ? TEAL_DIM : TEAL,
-                color: "#050E09", fontWeight: 700, fontSize: 14,
-                border: "none", cursor: "pointer",
-                fontFamily: "'Sora', sans-serif",
-                transition: "background .2s, transform .15s",
-              }}
-            >
-              Book Now
-              <ChevronRight style={{ width: 16, height: 16 }} />
-            </button>
-          </Link>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, color: MUTED, fontSize: 13 }}>
-            <Eye style={{ width: 14, height: 14 }} />
-            {deal.viewCount ?? 0} views
+          <div style={{ fontSize: 26, fontWeight: 700, color: c.text, lineHeight: 1.2, letterSpacing: "-.02em" }}>{deal.title}</div>
+
+          {deal.description && <div style={{ fontSize: 14, color: c.muted, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.description}</div>}
+
+          {(deal.price || (deal as any).originalPrice) && (
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+              {deal.price && <span style={{ fontSize: 36, fontWeight: 800, color: TEAL, letterSpacing: "-.03em" }}>₹{deal.price}</span>}
+              {(deal as any).originalPrice && <span style={{ fontSize: 17, color: c.muted, textDecoration: "line-through" }}>₹{(deal as any).originalPrice}</span>}
+              {save && save > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: RED, background: `rgba(255,87,87,.1)`, padding: "3px 8px", borderRadius: 4 }}>Save ₹{save.toLocaleString()}</span>}
+            </div>
+          )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <Link href={deal.bookingLink}>
+              <button
+                onClick={onBookClick}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "13px 26px", borderRadius: 12,
+                  background: hovered ? TEAL_DIM : TEAL,
+                  color: "#050E09", fontWeight: 700, fontSize: 14,
+                  border: "none", cursor: "pointer",
+                  transition: "background .2s, transform .15s",
+                }}
+              >
+                Book Now
+                <ChevronRight style={{ width: 16, height: 16 }} />
+              </button>
+            </Link>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, color: c.muted, fontSize: 13 }}>
+              <Eye style={{ width: 14, height: 14 }} />
+              {deal.viewCount ?? 0} views
+            </div>
           </div>
         </div>
       </div>
@@ -204,7 +248,7 @@ function FeaturedCard({ deal, onBookClick }: { deal: SmileDeal; onBookClick: () 
   );
 }
 
-function FlashCard({ deal, gridMode }: { deal: SmileDeal; gridMode?: boolean }) {
+function FlashCard({ deal, gridMode, c }: { deal: SmileDeal; gridMode?: boolean; c: typeof DARK_PALETTE }) {
   const [hovered, setHovered] = useState(false);
   const save = (deal as any).originalPrice && deal.price
     ? parseInt((deal as any).originalPrice) - parseInt(deal.price)
@@ -216,8 +260,8 @@ function FlashCard({ deal, gridMode }: { deal: SmileDeal; gridMode?: boolean }) 
         onMouseLeave={() => setHovered(false)}
         style={{
           ...(gridMode ? {} : { flex: "0 0 260px", scrollSnapAlign: "start" }),
-          background: hovered ? `linear-gradient(135deg, rgba(15,206,138,.08) 0%, transparent 60%), ${CARD}` : CARD,
-          border: `1px solid ${hovered ? BORDER_H : BORDER}`,
+          background: hovered ? `linear-gradient(135deg, rgba(15,206,138,.08) 0%, transparent 60%), ${c.card}` : c.card,
+          border: `1px solid ${hovered ? c.borderH : c.border}`,
           borderRadius: 16,
           padding: 20,
           cursor: "pointer",
@@ -229,27 +273,26 @@ function FlashCard({ deal, gridMode }: { deal: SmileDeal; gridMode?: boolean }) 
         }}
       >
         <div style={{ display: "flex", alignItems: "flex-start", gap: gridMode ? 16 : 0, flexDirection: gridMode ? "row" : "column" }}>
-          <div style={{ width: gridMode ? 80 : 48, height: gridMode ? 80 : 48, flexShrink: 0, borderRadius: 12, overflow: "hidden", marginBottom: gridMode ? 0 : 14, background: SURFACE }}>
+          <div style={{ width: gridMode ? 80 : 48, height: gridMode ? 80 : 48, flexShrink: 0, borderRadius: 12, overflow: "hidden", marginBottom: gridMode ? 0 : 14, background: c.surface }}>
             <img src={deal.imageUrl} alt={deal.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=200"; }} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: gridMode ? 15 : 14, fontWeight: 700, color: TEXT, marginBottom: 5 }}>{deal.title}</div>
-            {deal.description && <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5, marginBottom: 12, display: "-webkit-box", WebkitLineClamp: gridMode ? 3 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.description}</div>}
+            <div style={{ fontSize: gridMode ? 15 : 14, fontWeight: 700, color: c.text, marginBottom: 5 }}>{deal.title}</div>
+            {deal.description && <div style={{ fontSize: 12, color: c.muted, lineHeight: 1.5, marginBottom: 12, display: "-webkit-box", WebkitLineClamp: gridMode ? 3 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.description}</div>}
             <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
               {deal.price && <span style={{ fontSize: gridMode ? 22 : 20, fontWeight: 800, color: TEAL }}>₹{deal.price}</span>}
-              {(deal as any).originalPrice && <span style={{ fontSize: 13, color: MUTED, textDecoration: "line-through" }}>₹{(deal as any).originalPrice}</span>}
+              {(deal as any).originalPrice && <span style={{ fontSize: 13, color: c.muted, textDecoration: "line-through" }}>₹{(deal as any).originalPrice}</span>}
               {save && save > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: RED, background: `rgba(255,87,87,.1)`, padding: "2px 6px", borderRadius: 4, marginLeft: 2 }}>-₹{save}</span>}
             </div>
           </div>
         </div>
-        {/* ⚡ badge */}
         <span style={{ position: "absolute", top: 12, right: 12, fontSize: 11, fontWeight: 700, color: GOLD, background: `rgba(240,192,96,.12)`, border: `1px solid rgba(240,192,96,.25)`, padding: "2px 7px", borderRadius: 6 }}>⚡ Flash</span>
       </div>
     </Link>
   );
 }
 
-function PlaceholderCard() {
+function PlaceholderCard({ c }: { c: typeof DARK_PALETTE }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
@@ -258,24 +301,25 @@ function PlaceholderCard() {
       style={{ height: "100%" }}
     >
       <div style={{
-        background: "rgba(17,26,22,0.35)",
-        border: "1px dashed rgba(15,206,138,.1)",
+        background: c.card,
+        border: `1px dashed ${c.border}`,
         borderRadius: 20,
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
         height: "100%",
         minHeight: 300,
+        opacity: 0.5,
       }}>
-        <div style={{ height: 196, background: "rgba(15,206,138,.03)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ fontSize: 40, opacity: 0.2 }}>🦷</span>
+        <div style={{ height: 196, background: c.surface, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: 40, opacity: 0.25 }}>🦷</span>
         </div>
         <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", flex: 1, gap: 10 }}>
-          <div style={{ height: 14, background: "rgba(255,255,255,.04)", borderRadius: 6, width: "65%" }} />
-          <div style={{ height: 11, background: "rgba(255,255,255,.03)", borderRadius: 6, width: "85%" }} />
-          <div style={{ height: 11, background: "rgba(255,255,255,.03)", borderRadius: 6, width: "55%" }} />
-          <div style={{ marginTop: "auto", paddingTop: 12, borderTop: "1px solid rgba(15,206,138,.06)", display: "flex", justifyContent: "center" }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(107,143,126,.35)", letterSpacing: ".1em", textTransform: "uppercase" }}>
+          <div style={{ height: 14, background: c.shimmer, borderRadius: 6, width: "65%" }} />
+          <div style={{ height: 11, background: c.shimmer, borderRadius: 6, width: "85%" }} />
+          <div style={{ height: 11, background: c.shimmer, borderRadius: 6, width: "55%" }} />
+          <div style={{ marginTop: "auto", paddingTop: 12, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "center" }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: c.muted, letterSpacing: ".1em", textTransform: "uppercase", opacity: 0.5 }}>
               More deals coming soon
             </span>
           </div>
@@ -285,7 +329,7 @@ function PlaceholderCard() {
   );
 }
 
-function CountdownCard({ deal }: { deal: SmileDeal }) {
+function CountdownCard({ deal, c }: { deal: SmileDeal; c: typeof DARK_PALETTE }) {
   const timeLeft = useCountdown(deal.expiresAt ? String(deal.expiresAt) : null);
   const [colonVisible, setColonVisible] = useState(true);
   useEffect(() => {
@@ -306,40 +350,40 @@ function CountdownCard({ deal }: { deal: SmileDeal }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
       style={{
-        background: `linear-gradient(135deg, #0E1F17 0%, #091409 100%)`,
-        border: `1px solid rgba(15,206,138,.2)`,
+        background: c.countdownBg,
+        border: `1px solid ${c.borderH}`,
         borderRadius: 20,
-        padding: "36px 40px",
+        padding: "36px 32px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
         flexWrap: "wrap", gap: 24,
         position: "relative", overflow: "hidden",
         marginBottom: 48,
       }}
     >
-      <div style={{ position: "absolute", top: -80, right: -80, width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(15,206,138,.1), transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", top: -80, right: -80, width: 300, height: 300, borderRadius: "50%", background: `radial-gradient(circle, ${c.ambientOrb1}, transparent 70%)`, pointerEvents: "none" }} />
       <div style={{ flex: 1, minWidth: 220 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: RED, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 10 }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: RED, display: "inline-block", animation: "dealpulse 1.2s ease-in-out infinite" }} />
           Limited Time Offer
         </div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, marginBottom: 6, letterSpacing: "-.02em" }}>{deal.title}</div>
-        {deal.description && <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.5 }}>{deal.description}</div>}
+        <div style={{ fontSize: 22, fontWeight: 700, color: c.text, marginBottom: 6, letterSpacing: "-.02em" }}>{deal.title}</div>
+        {deal.description && <div style={{ fontSize: 13, color: c.muted, lineHeight: 1.5 }}>{deal.description}</div>}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         {units.map((unit, i) => (
           <div key={unit.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ textAlign: "center" }}>
-              <span style={{ display: "block", fontSize: 38, fontWeight: 800, color: TEAL, letterSpacing: "-.04em", background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "6px 16px", minWidth: 68, textAlign: "center" }}>
+              <span style={{ display: "block", fontSize: 36, fontWeight: 800, color: TEAL, letterSpacing: "-.04em", background: c.surface, border: `1px solid ${c.border}`, borderRadius: 10, padding: "6px 14px", minWidth: 64, textAlign: "center" }}>
                 {String(unit.value).padStart(2, "0")}
               </span>
-              <div style={{ fontSize: 11, color: MUTED, marginTop: 5, letterSpacing: ".06em" }}>{unit.label}</div>
+              <div style={{ fontSize: 11, color: c.muted, marginTop: 5, letterSpacing: ".06em" }}>{unit.label}</div>
             </div>
-            {i < 2 && <span style={{ fontSize: 30, fontWeight: 700, color: MUTED, marginBottom: 14, opacity: colonVisible ? 1 : 0.2, transition: "opacity .1s" }}>:</span>}
+            {i < 2 && <span style={{ fontSize: 28, fontWeight: 700, color: c.muted, marginBottom: 14, opacity: colonVisible ? 1 : 0.2, transition: "opacity .1s" }}>:</span>}
           </div>
         ))}
       </div>
       <Link href={deal.bookingLink}>
-        <button style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 12, background: TEAL, color: "#050E09", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer", fontFamily: "'Sora', sans-serif" }}>
+        <button style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 12, background: TEAL, color: "#050E09", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}>
           Grab Deal <ChevronRight style={{ width: 16, height: 16 }} />
         </button>
       </Link>
@@ -347,7 +391,7 @@ function CountdownCard({ deal }: { deal: SmileDeal }) {
   );
 }
 
-function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number; onVideoOpen: (d: SmileDeal) => void }) {
+function DealCard({ deal, index, onVideoOpen, c }: { deal: SmileDeal; index: number; onVideoOpen: (d: SmileDeal) => void; c: typeof DARK_PALETTE }) {
   const [hovered, setHovered] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoType = deal.videoUrl ? getVideoType(deal.videoUrl) : null;
@@ -377,21 +421,22 @@ function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number
           onMouseEnter={handleEnter}
           onMouseLeave={handleLeave}
           style={{
-            background: hovered ? CARD_HOVER : CARD,
-            border: `1px solid ${hovered ? BORDER_H : BORDER}`,
+            background: hovered ? c.cardHover : c.card,
+            border: `1px solid ${hovered ? c.borderH : c.border}`,
             borderRadius: 20,
             overflow: "hidden",
             cursor: "pointer",
             transition: "border-color .3s, transform .4s cubic-bezier(.16,1,.3,1), box-shadow .3s",
             transform: hovered ? "translateY(-8px)" : "translateY(0)",
-            boxShadow: hovered ? `0 24px 60px rgba(0,0,0,.5), 0 0 0 1px ${BORDER_H}, inset 0 1px 0 rgba(15,206,138,.08)` : "none",
+            boxShadow: hovered ? `0 24px 60px rgba(0,0,0,.15), 0 0 0 1px ${c.borderH}` : "none",
             display: "flex", flexDirection: "column",
             height: "100%",
             opacity: isExpired ? 0.55 : 1,
+            position: "relative",
           }}
         >
           {/* Shine overlay */}
-          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 20, background: "linear-gradient(135deg, rgba(255,255,255,.04) 0%, transparent 50%)", opacity: hovered ? 1 : 0, transition: "opacity .3s" }} />
+          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 20, background: `linear-gradient(135deg, ${c.shine} 0%, transparent 50%)`, opacity: hovered ? 1 : 0, transition: "opacity .3s" }} />
 
           {/* Media */}
           <div style={{ position: "relative", height: 196, overflow: "hidden" }}>
@@ -424,13 +469,12 @@ function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number
               </>
             )}
 
-            {/* Category badge */}
+            {/* Badges */}
             {(deal as any).subcategory && (
-              <span style={{ position: "absolute", top: 12, left: 12, zIndex: 3, background: "rgba(8,13,11,.8)", backdropFilter: "blur(8px)", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 10, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", padding: "4px 9px", borderRadius: 6 }}>
+              <span style={{ position: "absolute", top: 12, left: 12, zIndex: 3, background: c.card, backdropFilter: "blur(8px)", border: `1px solid ${c.border}`, color: c.muted, fontSize: 10, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", padding: "4px 9px", borderRadius: 6 }}>
                 {(deal as any).subcategory}
               </span>
             )}
-            {/* Sponsored badge — YouTube-style */}
             {(deal as any).category === "Advertisements / Sponsored" && (
               <span style={{ position: "absolute", bottom: 10, left: 10, zIndex: 3, background: "rgba(0,0,0,.55)", backdropFilter: "blur(6px)", color: "rgba(255,255,255,.55)", fontSize: 9, fontWeight: 500, letterSpacing: ".06em", padding: "3px 7px", borderRadius: 4 }}>
                 Sponsored
@@ -444,8 +488,6 @@ function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number
             {isExpired && (
               <span style={{ position: "absolute", top: 12, right: 12, zIndex: 3, background: `${RED}CC`, color: "#fff", fontSize: 10, fontWeight: 700, padding: "4px 9px", borderRadius: 6 }}>Expired</span>
             )}
-
-            {/* Price badge */}
             {deal.price && (
               <div style={{ position: "absolute", top: 12, right: isExpired ? 74 : 12, zIndex: 3, background: TEAL, color: "#050E09", fontSize: 13, fontWeight: 800, letterSpacing: "-.01em", padding: "5px 11px", borderRadius: 8, boxShadow: `0 4px 16px rgba(15,206,138,.4)` }}>
                 ₹{deal.price}
@@ -456,8 +498,8 @@ function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number
           {/* Body */}
           <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", flex: 1, gap: 10 }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: TEXT, letterSpacing: "-.01em", marginBottom: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.title}</div>
-              {deal.description && <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.description}</div>}
+              <div style={{ fontSize: 16, fontWeight: 700, color: c.text, letterSpacing: "-.01em", marginBottom: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.title}</div>
+              {deal.description && <div style={{ fontSize: 12, color: c.muted, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.description}</div>}
             </div>
 
             {save && save > 0 && (
@@ -466,11 +508,11 @@ function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number
               </div>
             )}
 
-            {/* Sponsor contact info for Ad deals */}
+            {/* Sponsor contact info */}
             {(deal as any).category === "Advertisements / Sponsored" && (deal as any).contactInfo && (
-              <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: `1px solid ${BORDER}`, fontSize: 11, color: MUTED, display: "flex", flexDirection: "column", gap: 5 }}>
+              <div style={{ padding: "10px 12px", borderRadius: 10, background: c.surface, border: `1px solid ${c.border}`, fontSize: 11, color: c.muted, display: "flex", flexDirection: "column", gap: 5 }}>
                 {(deal as any).contactInfo.sponsorName && (
-                  <div style={{ fontWeight: 600, color: TEXT, fontSize: 12 }}>{(deal as any).contactInfo.sponsorName}</div>
+                  <div style={{ fontWeight: 600, color: c.text, fontSize: 12 }}>{(deal as any).contactInfo.sponsorName}</div>
                 )}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                   {(deal as any).contactInfo.phone && (
@@ -492,8 +534,8 @@ function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number
               </div>
             )}
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: MUTED }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: `1px solid ${c.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: c.muted }}>
                 <Eye style={{ width: 12, height: 12 }} />
                 {deal.viewCount ?? 0}
               </div>
@@ -505,7 +547,6 @@ function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number
                     background: hovered ? TEAL_DIM : TEAL,
                     color: "#050E09", fontSize: 12, fontWeight: 700,
                     border: "none", cursor: "pointer",
-                    fontFamily: "'Sora', sans-serif",
                     transition: "background .2s, box-shadow .2s",
                     boxShadow: hovered ? `0 4px 16px rgba(15,206,138,.3)` : "none",
                   }}
@@ -523,6 +564,9 @@ function DealCard({ deal, index, onVideoOpen }: { deal: SmileDeal; index: number
 }
 
 export default function SmileDeals() {
+  const { resolvedTheme } = useTheme();
+  const c = resolvedTheme === "dark" ? DARK_PALETTE : LIGHT_PALETTE;
+
   const [activeSubcategory, setActiveSubcategory] = useState("All");
   const [selectedCity, setSelectedCity] = useState("All");
   const [videoModalDeal, setVideoModalDeal] = useState<SmileDeal | null>(null);
@@ -592,42 +636,48 @@ export default function SmileDeals() {
 
   if (isLoading) {
     return (
-      <div style={{ background: BG, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: c.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Loader2 style={{ width: 40, height: 40, color: TEAL, animation: "spin 1s linear infinite" }} />
       </div>
     );
   }
 
   return (
-    <div style={{ background: BG, color: TEXT, minHeight: "100vh", fontFamily: "'Sora', sans-serif", position: "relative", overflow: "hidden" }}>
+    <div style={{ background: c.bg, color: c.text, minHeight: "100vh", position: "relative", overflow: "hidden" }}>
       <style>{`
         @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(40px,60px) scale(1.1); } }
         @keyframes dealpulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.6)} }
         @keyframes dealfadeup { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
         @keyframes dealspin { to { transform: rotate(360deg); } }
+        .deals-content-pad { padding: 0 20px; }
+        @media (min-width: 640px) { .deals-content-pad { padding: 0 48px; } }
+        .deals-hero-pad { padding: 48px 20px 36px; }
+        @media (min-width: 640px) { .deals-hero-pad { padding: 72px 48px 52px; } }
+        .deals-promo-grid { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 80px; }
+        @media (min-width: 640px) { .deals-promo-grid { grid-template-columns: 1fr 1fr; } }
       `}</style>
 
       {/* Ambient orbs */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
-        <div style={{ position: "absolute", width: 600, height: 600, background: "radial-gradient(circle, rgba(15,206,138,.1) 0%, transparent 70%)", top: -200, left: -100, borderRadius: "50%", filter: "blur(90px)", animation: "drift 18s ease-in-out infinite alternate" }} />
-        <div style={{ position: "absolute", width: 500, height: 500, background: "radial-gradient(circle, rgba(15,206,138,.07) 0%, transparent 70%)", bottom: -100, right: -150, borderRadius: "50%", filter: "blur(90px)", animation: "drift 18s ease-in-out infinite alternate", animationDelay: "-6s" }} />
-        <div style={{ position: "absolute", width: 300, height: 300, background: "radial-gradient(circle, rgba(240,192,96,.05) 0%, transparent 70%)", top: "40%", left: "50%", borderRadius: "50%", filter: "blur(90px)", animation: "drift 18s ease-in-out infinite alternate", animationDelay: "-12s" }} />
+        <div style={{ position: "absolute", width: 600, height: 600, background: `radial-gradient(circle, ${c.ambientOrb1} 0%, transparent 70%)`, top: -200, left: -100, borderRadius: "50%", filter: "blur(90px)", animation: "drift 18s ease-in-out infinite alternate" }} />
+        <div style={{ position: "absolute", width: 500, height: 500, background: `radial-gradient(circle, ${c.ambientOrb2} 0%, transparent 70%)`, bottom: -100, right: -150, borderRadius: "50%", filter: "blur(90px)", animation: "drift 18s ease-in-out infinite alternate", animationDelay: "-6s" }} />
+        <div style={{ position: "absolute", width: 300, height: 300, background: `radial-gradient(circle, ${c.ambientOrb3} 0%, transparent 70%)`, top: "40%", left: "50%", borderRadius: "50%", filter: "blur(90px)", animation: "drift 18s ease-in-out infinite alternate", animationDelay: "-12s" }} />
       </div>
 
       <div style={{ position: "relative", zIndex: 2 }}>
         {/* Hero */}
-        <section style={{ padding: "72px 48px 52px", textAlign: "center" }}>
+        <section className="deals-hero-pad" style={{ textAlign: "center" }}>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px", borderRadius: 100, border: `1px solid ${BORDER_H}`, background: "rgba(15,206,138,.08)", fontSize: 12, fontWeight: 600, letterSpacing: ".08em", color: TEAL, textTransform: "uppercase", marginBottom: 28 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px", borderRadius: 100, border: `1px solid ${c.borderH}`, background: `rgba(15,206,138,.08)`, fontSize: 12, fontWeight: 600, letterSpacing: ".08em", color: TEAL, textTransform: "uppercase", marginBottom: 28 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ animation: "dealspin 8s linear infinite" }}>
                 <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
               </svg>
               Exclusive Offers
             </div>
-            <h1 style={{ fontSize: "clamp(48px, 7vw, 88px)", fontWeight: 700, lineHeight: 1.0, letterSpacing: "-.03em", color: "#fff", marginBottom: 20 }}>
+            <h1 style={{ fontSize: "clamp(48px, 7vw, 88px)", fontWeight: 700, lineHeight: 1.0, letterSpacing: "-.03em", color: c.text, marginBottom: 20 }}>
               Smile <span style={{ color: TEAL }}>DEALS</span>
             </h1>
-            <p style={{ fontSize: 16, color: MUTED, maxWidth: 520, margin: "0 auto 40px", lineHeight: 1.7 }}>
+            <p style={{ fontSize: 16, color: c.muted, maxWidth: 520, margin: "0 auto 40px", lineHeight: 1.7 }}>
               Premium dental care packages from our partner clinics — curated, priced lower, and bookable in seconds.
             </p>
 
@@ -635,23 +685,23 @@ export default function SmileDeals() {
             <div style={{ display: "flex", justifyContent: "center", gap: 40, flexWrap: "wrap" }}>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 28, fontWeight: 700, color: TEAL, letterSpacing: "-.02em" }}>{activeCount}</div>
-                <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>Active Deals</div>
+                <div style={{ fontSize: 12, color: c.muted, marginTop: 2 }}>Active Deals</div>
               </div>
               {avgSaving && avgSaving > 0 && (
                 <>
-                  <div style={{ width: 1, background: BORDER }} />
+                  <div style={{ width: 1, background: c.border }} />
                   <div style={{ textAlign: "center" }}>
                     <div style={{ fontSize: 28, fontWeight: 700, color: TEAL, letterSpacing: "-.02em" }}>₹{avgSaving.toLocaleString()}</div>
-                    <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>Avg Saving</div>
+                    <div style={{ fontSize: 12, color: c.muted, marginTop: 2 }}>Avg Saving</div>
                   </div>
                 </>
               )}
               {totalViews > 0 && (
                 <>
-                  <div style={{ width: 1, background: BORDER }} />
+                  <div style={{ width: 1, background: c.border }} />
                   <div style={{ textAlign: "center" }}>
                     <div style={{ fontSize: 28, fontWeight: 700, color: TEAL, letterSpacing: "-.02em" }}>{totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}K` : totalViews}</div>
-                    <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>Total Views</div>
+                    <div style={{ fontSize: 12, color: c.muted, marginTop: 2 }}>Total Views</div>
                   </div>
                 </>
               )}
@@ -659,22 +709,21 @@ export default function SmileDeals() {
           </motion.div>
         </section>
 
-        <div style={{ padding: "0 48px" }}>
+        <div className="deals-content-pad">
           {/* Filter pills — subcategory */}
           {subcategories.length > 1 && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: availableCities.length > 0 ? 16 : 40, alignItems: "center" }}>
-              <span style={{ fontSize: 12, color: MUTED, fontWeight: 500, marginRight: 4 }}>Procedure:</span>
+              <span style={{ fontSize: 12, color: c.muted, fontWeight: 500, marginRight: 4 }}>Procedure:</span>
               {subcategories.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setActiveSubcategory(cat)}
                   style={{
                     padding: "8px 20px", borderRadius: 100, fontSize: 13, fontWeight: 600,
-                    border: `1px solid ${activeSubcategory === cat ? TEAL : BORDER}`,
+                    border: `1px solid ${activeSubcategory === cat ? TEAL : c.border}`,
                     background: activeSubcategory === cat ? TEAL : "transparent",
-                    color: activeSubcategory === cat ? "#050E09" : MUTED,
+                    color: activeSubcategory === cat ? "#050E09" : c.muted,
                     cursor: "pointer", transition: "all .25s", letterSpacing: ".02em",
-                    fontFamily: "'Sora', sans-serif",
                   }}
                 >
                   {cat}
@@ -683,10 +732,10 @@ export default function SmileDeals() {
             </motion.div>
           )}
 
-          {/* City filter pills — dynamic from linked clinics */}
+          {/* City filter pills */}
           {availableCities.length > 0 && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 40, alignItems: "center" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: MUTED, fontWeight: 500, marginRight: 4 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: c.muted, fontWeight: 500, marginRight: 4 }}>
                 <MapPin style={{ width: 12, height: 12 }} /> City:
               </span>
               {["All", ...availableCities].map((city) => (
@@ -695,11 +744,10 @@ export default function SmileDeals() {
                   onClick={() => setSelectedCity(city)}
                   style={{
                     padding: "7px 18px", borderRadius: 100, fontSize: 12, fontWeight: 600,
-                    border: `1px solid ${selectedCity === city ? TEAL : BORDER}`,
+                    border: `1px solid ${selectedCity === city ? TEAL : c.border}`,
                     background: selectedCity === city ? `rgba(15,206,138,.12)` : "transparent",
-                    color: selectedCity === city ? TEAL : MUTED,
+                    color: selectedCity === city ? TEAL : c.muted,
                     cursor: "pointer", transition: "all .25s", letterSpacing: ".02em",
-                    fontFamily: "'Sora', sans-serif",
                     display: "flex", alignItems: "center", gap: 5,
                   }}
                 >
@@ -714,29 +762,29 @@ export default function SmileDeals() {
           <AnimatePresence>
             {featuredDeal && (
               <div style={{ marginBottom: 48 }}>
-                <FeaturedCard deal={featuredDeal} onBookClick={() => trackClick(featuredDeal.id)} />
+                <FeaturedCard deal={featuredDeal} onBookClick={() => trackClick(featuredDeal.id)} c={c} />
               </div>
             )}
           </AnimatePresence>
 
-          {/* Flash Deals — scroll strip for 3+, grid for 1–2 */}
+          {/* Flash Deals */}
           {flashDeals.length > 0 && (
             <div style={{ marginBottom: 52 }}>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-.02em" }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: c.text, letterSpacing: "-.02em" }}>
                   <span style={{ color: GOLD }}>⚡</span> Flash Deals
                 </div>
               </div>
               {flashDeals.length >= 3 ? (
                 <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 12, scrollSnapType: "x mandatory", scrollbarWidth: "none" }}>
                   {flashDeals.map((d) => (
-                    <FlashCard key={d.id} deal={d} />
+                    <FlashCard key={d.id} deal={d} c={c} />
                   ))}
                 </div>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: `repeat(${flashDeals.length}, 1fr)`, gap: 16 }}>
                   {flashDeals.map((d) => (
-                    <FlashCard key={d.id} deal={d} gridMode />
+                    <FlashCard key={d.id} deal={d} gridMode c={c} />
                   ))}
                 </div>
               )}
@@ -744,13 +792,13 @@ export default function SmileDeals() {
           )}
 
           {/* Countdown timer card */}
-          {countdownDeal && <CountdownCard deal={countdownDeal} />}
+          {countdownDeal && <CountdownCard deal={countdownDeal} c={c} />}
 
           {/* Deals grid */}
           {deals.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "80px 0", color: MUTED }}>
+            <div style={{ textAlign: "center", padding: "80px 0", color: c.muted }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🦷</div>
-              <p style={{ fontSize: 18, fontWeight: 600, color: TEXT, marginBottom: 8 }}>No deals yet</p>
+              <p style={{ fontSize: 18, fontWeight: 600, color: c.text, marginBottom: 8 }}>No deals yet</p>
               <p style={{ fontSize: 14 }}>Check back soon for exclusive offers.</p>
             </div>
           ) : (
@@ -767,23 +815,23 @@ export default function SmileDeals() {
                 return (
                   <>
                     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24 }}>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-.02em" }}>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: c.text, letterSpacing: "-.02em" }}>
                         All <span style={{ color: TEAL }}>Deals</span>
                       </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: gridCols, justifyContent: count < 3 ? "center" : "start", gap: 20, marginBottom: 60 }}>
                       {filteredDeals.map((deal, i) => (
-                        <DealCard key={deal.id} deal={deal} index={i} onVideoOpen={(d) => setVideoModalDeal(d)} />
+                        <DealCard key={deal.id} deal={deal} index={i} onVideoOpen={(d) => setVideoModalDeal(d)} c={c} />
                       ))}
                       {Array.from({ length: placeholderCount }).map((_, i) => (
-                        <PlaceholderCard key={`ph-${i}`} />
+                        <PlaceholderCard key={`ph-${i}`} c={c} />
                       ))}
                     </div>
                   </>
                 );
               })()}
               {filteredDeals.length === 0 && (
-                <div style={{ textAlign: "center", padding: "60px 0", color: MUTED }}>
+                <div style={{ textAlign: "center", padding: "60px 0", color: c.muted }}>
                   <p style={{ fontSize: 16 }}>
                     {activeSubcategory !== "All"
                       ? `No ${activeSubcategory} deals right now.`
@@ -797,33 +845,33 @@ export default function SmileDeals() {
           )}
 
           {/* Bottom promo section */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 80 }}>
+          <div className="deals-promo-grid">
             {/* Refer a Clinic */}
             <motion.div
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-              style={{ background: "linear-gradient(135deg, #0A2018, #081510)", border: "1px solid rgba(15,206,138,.2)", borderRadius: 18, padding: 32, position: "relative", overflow: "hidden", cursor: "pointer", transition: "transform .35s cubic-bezier(.16,1,.3,1)" }}
+              style={{ background: c.promoClinicBg, border: `1px solid ${c.borderH}`, borderRadius: 18, padding: 32, position: "relative", overflow: "hidden", cursor: "pointer", transition: "transform .35s cubic-bezier(.16,1,.3,1)" }}
               whileHover={{ y: -6 }}
             >
-              <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(15,206,138,.1), transparent 70%)", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle, ${c.ambientOrb1}, transparent 70%)`, pointerEvents: "none" }} />
               <div style={{ fontSize: 38, marginBottom: 14 }}>🏥</div>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: TEAL, marginBottom: 10 }}>Partner Clinics</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, marginBottom: 8, letterSpacing: "-.01em" }}>Refer a Clinic,<br />Unlock Exclusive Deals</div>
-              <div style={{ fontSize: 14, color: MUTED, lineHeight: 1.6, marginBottom: 20 }}>Know a great dental clinic? Refer them to bookMySlot and unlock exclusive deal access for both of you.</div>
-              <button style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 9, fontSize: 13, fontWeight: 700, background: TEAL, color: "#050E09", border: "none", cursor: "pointer", fontFamily: "'Sora', sans-serif", transition: "transform .15s" }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: c.text, marginBottom: 8, letterSpacing: "-.01em" }}>Refer a Clinic,<br />Unlock Exclusive Deals</div>
+              <div style={{ fontSize: 14, color: c.muted, lineHeight: 1.6, marginBottom: 20 }}>Know a great dental clinic? Refer them to bookMySlot and unlock exclusive deal access for both of you.</div>
+              <button style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 9, fontSize: 13, fontWeight: 700, background: TEAL, color: "#050E09", border: "none", cursor: "pointer", transition: "transform .15s" }}>
                 Refer Now →
               </button>
             </motion.div>
 
-            {/* Loyalty Rewards - Coming Soon */}
+            {/* Loyalty Rewards */}
             <motion.div
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-              style={{ background: "linear-gradient(135deg, #1A1408, #100D05)", border: "1px solid rgba(240,192,96,.15)", borderRadius: 18, padding: 32, position: "relative", overflow: "hidden" }}
+              style={{ background: c.promoLoyaltyBg, border: `1px solid rgba(240,192,96,.25)`, borderRadius: 18, padding: 32, position: "relative", overflow: "hidden" }}
             >
-              <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(240,192,96,.1), transparent 70%)", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle, ${c.ambientOrb3}, transparent 70%)`, pointerEvents: "none" }} />
               <div style={{ fontSize: 38, marginBottom: 14 }}>🎁</div>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: GOLD, marginBottom: 10 }}>Loyalty Rewards</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, marginBottom: 8, letterSpacing: "-.01em" }}>Book 3, Get 1<br />Completely Free</div>
-              <div style={{ fontSize: 14, color: MUTED, lineHeight: 1.6, marginBottom: 20 }}>Book any 3 deals this month and your 4th appointment is on us. No catches, no fine print.</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: c.text, marginBottom: 8, letterSpacing: "-.01em" }}>Book 3, Get 1<br />Completely Free</div>
+              <div style={{ fontSize: 14, color: c.muted, lineHeight: 1.6, marginBottom: 20 }}>Book any 3 deals this month and your 4th appointment is on us. No catches, no fine print.</div>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 9, fontSize: 12, fontWeight: 700, background: "rgba(240,192,96,.12)", color: GOLD, border: "1px solid rgba(240,192,96,.25)" }}>
                 ✦ Coming Soon
               </span>
