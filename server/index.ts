@@ -415,6 +415,9 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='contact_info') THEN
             ALTER TABLE smile_deals ADD COLUMN contact_info JSONB;
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='smile_deals' AND column_name='target_audience') THEN
+            ALTER TABLE smile_deals ADD COLUMN target_audience VARCHAR(20) NOT NULL DEFAULT 'patient';
+          END IF;
         END $$;
       `);
       log("smile_deals columns verified/updated", "system");

@@ -1043,8 +1043,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/smile-deals", async (req, res) => {
     const onlyActive = req.query.active === 'true';
+    const audience = req.query.audience as string | undefined;
     try {
-      const deals = await storage.getSmileDeals(onlyActive);
+      let deals = await storage.getSmileDeals(onlyActive);
+      if (audience && audience !== "all") {
+        deals = deals.filter((d: any) => {
+          const ta = d.targetAudience || "patient";
+          return ta === audience || ta === "both";
+        });
+      }
       res.json(deals);
     } catch (err: any) {
       res.status(500).json({ message: "Failed to fetch deals", error: err.message });

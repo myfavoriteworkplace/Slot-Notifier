@@ -109,6 +109,7 @@ export default function Admin() {
   // Edit deal sheet state
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<SmileDeal | null>(null);
+  const [dealTargetAudience, setDealTargetAudience] = useState<"patient" | "clinic" | "both">("patient");
 
   const DEAL_CATEGORIES = [
     "Clinic Deals",
@@ -122,7 +123,21 @@ export default function Admin() {
     "Premium Highlighted Deals",
   ];
 
+  const CLINIC_DEAL_CATEGORIES = [
+    "Equipment & Supplies",
+    "Lab & Materials",
+    "Practice Software",
+    "Staff Training",
+    "Furniture & Fixtures",
+    "PPE & Disposables",
+    "Sterilisation",
+    "Dental Technology",
+    "Advertisements / Sponsored",
+    "Other (Clinic)",
+  ];
+
   const DEAL_SUBCATEGORIES = ["Cleaning / Scaling", "Whitening", "Braces / Orthodontics", "Implants", "Root Canal", "Extraction", "X-Ray / Imaging", "Consultation", "Gum Treatment", "Cosmetic Dentistry", "Other"];
+  const CLINIC_DEAL_SUBCATEGORIES = ["Handpieces & Drills", "Sterilisers & Autoclaves", "Dental Chairs", "X-Ray & Imaging", "Impression Materials", "Composites & Adhesives", "Endodontic Supplies", "PPE & Gloves", "CAD/CAM Systems", "Practice Management Software", "Staff Training Course", "Other"];
   const CATEGORIES_WITH_PRICE = ["Clinic Deals", "Seasonal / Festival Offers", "Membership / Loyalty Programs", "New Clinic Launch", "Doctor-Specific Offers", "Product Promotions", "Premium Highlighted Deals"];
   const LINK_CONFIG: Record<string, { label: string; placeholder: string }> = {
     "Product Promotions": { label: "Product Link", placeholder: "https://shop.example.com/product" },
@@ -213,7 +228,7 @@ export default function Admin() {
     setDealSubcategory(""); setDealIsFlash(false); setDealStartsAt(undefined);
     setDealExpiresAt(undefined); setDealIsFeatured(false); setDealCategory("");
     setDealClinicId(null); setDealSponsorName(""); setDealSponsorPhone("");
-    setDealSponsorEmail(""); setDealSponsorWebsite("");
+    setDealSponsorEmail(""); setDealSponsorWebsite(""); setDealTargetAudience("patient");
   };
 
   const getDealPayload = () => ({
@@ -234,6 +249,7 @@ export default function Admin() {
     contactInfo: dealCategory === "Advertisements / Sponsored" && (dealSponsorName || dealSponsorPhone || dealSponsorEmail || dealSponsorWebsite)
       ? { sponsorName: dealSponsorName || undefined, phone: dealSponsorPhone || undefined, email: dealSponsorEmail || undefined, website: dealSponsorWebsite || undefined }
       : null,
+    targetAudience: dealTargetAudience,
   });
 
   const handleEditDeal = (deal: SmileDeal) => {
@@ -252,6 +268,7 @@ export default function Admin() {
     setDealIsFeatured(deal.isFeatured || false);
     setDealCategory((deal as any).category || "");
     setDealClinicId((deal as any).clinicId || null);
+    setDealTargetAudience(((deal as any).targetAudience as "patient" | "clinic" | "both") || "patient");
     const ci = (deal as any).contactInfo;
     if (ci) {
       setDealSponsorName(ci.sponsorName || "");
@@ -1456,7 +1473,29 @@ export default function Admin() {
                   {/* Right: Form Fields */}
                   <div className="space-y-4">
 
-                    {/* Category — at top so it drives conditional fields */}
+                    {/* Audience — first field, drives everything below */}
+                    <div className="space-y-2">
+                      <Label htmlFor="deal-audience" className="flex items-center gap-1.5 font-semibold">
+                        Who is this deal for?
+                      </Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(["clinic", "patient", "both"] as const).map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => { setDealTargetAudience(opt); setDealCategory(""); setDealSubcategory(""); }}
+                            className={`h-9 rounded-lg border text-sm font-semibold transition-all ${dealTargetAudience === opt ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:border-primary/50"}`}
+                          >
+                            {opt === "clinic" ? "🏥 Clinics" : opt === "patient" ? "🧑 Patients" : "🔁 Both"}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {dealTargetAudience === "clinic" ? "Shown in the Clinics tab — equipment, supplies, software, training." : dealTargetAudience === "patient" ? "Shown in the Patients tab — appointment offers and discounts." : "Shown in both tabs."}
+                      </p>
+                    </div>
+
+                    {/* Category — driven by audience */}
                     <div className="space-y-2">
                       <Label htmlFor="deal-category" className="flex items-center gap-1.5">
                         <Tag className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1469,16 +1508,17 @@ export default function Admin() {
                         className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
                       >
                         <option value="">Select category</option>
-                        {DEAL_CATEGORIES.map((cat) => (
+                        {(dealTargetAudience === "clinic" ? CLINIC_DEAL_CATEGORIES : DEAL_CATEGORIES).map((cat) => (
                           <option key={cat} value={cat}>{cat}</option>
                         ))}
                       </select>
                     </div>
 
-                    {/* Subcategory */}
+                    {/* Subcategory — driven by audience */}
                     <div className="space-y-2">
                       <Label htmlFor="deal-subcategory" className="flex items-center gap-1.5">
-                        Procedure / Type <span className="text-muted-foreground font-normal text-xs">(filter pill on public page)</span>
+                        {dealTargetAudience === "clinic" ? "Product / Service Type" : "Procedure / Type"}{" "}
+                        <span className="text-muted-foreground font-normal text-xs">(filter pill on public page)</span>
                       </Label>
                       <select
                         id="deal-subcategory"
@@ -1486,8 +1526,8 @@ export default function Admin() {
                         onChange={(e) => setDealSubcategory(e.target.value)}
                         className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
                       >
-                        <option value="">Select procedure type</option>
-                        {DEAL_SUBCATEGORIES.map((s) => (
+                        <option value="">{dealTargetAudience === "clinic" ? "Select product / service type" : "Select procedure type"}</option>
+                        {(dealTargetAudience === "clinic" ? CLINIC_DEAL_SUBCATEGORIES : DEAL_SUBCATEGORIES).map((s) => (
                           <option key={s} value={s}>{s}</option>
                         ))}
                       </select>
@@ -1925,13 +1965,30 @@ export default function Admin() {
               </div>
             </div>
 
+            {/* Audience */}
+            <div className="space-y-2">
+              <Label className="font-semibold">Who is this deal for?</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(["clinic", "patient", "both"] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => { setDealTargetAudience(opt); setDealCategory(""); setDealSubcategory(""); }}
+                    className={`h-9 rounded-lg border text-sm font-semibold transition-all ${dealTargetAudience === opt ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:border-primary/50"}`}
+                  >
+                    {opt === "clinic" ? "🏥 Clinics" : opt === "patient" ? "🧑 Patients" : "🔁 Both"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Category */}
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5"><Tag className="h-3.5 w-3.5 text-muted-foreground" /> Category</Label>
               <select value={dealCategory} onChange={(e) => setDealCategory(e.target.value)}
                 className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground">
                 <option value="">Select category</option>
-                {DEAL_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                {(dealTargetAudience === "clinic" ? CLINIC_DEAL_CATEGORIES : DEAL_CATEGORIES).map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
 
@@ -1956,11 +2013,11 @@ export default function Admin() {
 
             {/* Subcategory */}
             <div className="space-y-2">
-              <Label>Procedure / Type</Label>
+              <Label>{dealTargetAudience === "clinic" ? "Product / Service Type" : "Procedure / Type"}</Label>
               <select value={dealSubcategory} onChange={(e) => setDealSubcategory(e.target.value)}
                 className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground">
-                <option value="">Select procedure type</option>
-                {DEAL_SUBCATEGORIES.map(s => <option key={s} value={s}>{s}</option>)}
+                <option value="">{dealTargetAudience === "clinic" ? "Select product / service type" : "Select procedure type"}</option>
+                {(dealTargetAudience === "clinic" ? CLINIC_DEAL_SUBCATEGORIES : DEAL_SUBCATEGORIES).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
 

@@ -130,7 +130,7 @@ function VideoModal({ deal, open, onClose }: { deal: SmileDeal | null; open: boo
   );
 }
 
-function FeaturedCard({ deal, onBookClick, c }: { deal: SmileDeal; onBookClick: () => void; c: typeof DARK_PALETTE }) {
+function FeaturedCard({ deal, onBookClick, c, isClinic }: { deal: SmileDeal; onBookClick: () => void; c: typeof DARK_PALETTE; isClinic?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const videoType = deal.videoUrl ? getVideoType(deal.videoUrl) : null;
   const embedUrl = deal.videoUrl ? getEmbedUrl(deal.videoUrl) : null;
@@ -221,22 +221,42 @@ function FeaturedCard({ deal, onBookClick, c }: { deal: SmileDeal; onBookClick: 
           )}
 
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <Link href={deal.bookingLink}>
-              <button
+            {isClinic ? (
+              <a
+                href={(deal as any).contactInfo?.website || deal.bookingLink || "#"}
+                target="_blank"
+                rel="noreferrer"
                 onClick={onBookClick}
                 style={{
                   display: "flex", alignItems: "center", gap: 8,
                   padding: "13px 26px", borderRadius: 12,
                   background: hovered ? TEAL_DIM : TEAL,
                   color: "#050E09", fontWeight: 700, fontSize: 14,
-                  border: "none", cursor: "pointer",
+                  textDecoration: "none",
                   transition: "background .2s, transform .15s",
                 }}
               >
-                Book Now
+                {(deal as any).contactInfo?.website ? "Visit Website" : "Contact Supplier"}
                 <ChevronRight style={{ width: 16, height: 16 }} />
-              </button>
-            </Link>
+              </a>
+            ) : (
+              <Link href={deal.bookingLink}>
+                <button
+                  onClick={onBookClick}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "13px 26px", borderRadius: 12,
+                    background: hovered ? TEAL_DIM : TEAL,
+                    color: "#050E09", fontWeight: 700, fontSize: 14,
+                    border: "none", cursor: "pointer",
+                    transition: "background .2s, transform .15s",
+                  }}
+                >
+                  Book Now
+                  <ChevronRight style={{ width: 16, height: 16 }} />
+                </button>
+              </Link>
+            )}
             <div style={{ display: "flex", alignItems: "center", gap: 5, color: c.muted, fontSize: 13 }}>
               <Eye style={{ width: 14, height: 14 }} />
               {deal.viewCount ?? 0} views
@@ -391,7 +411,7 @@ function CountdownCard({ deal, c }: { deal: SmileDeal; c: typeof DARK_PALETTE })
   );
 }
 
-function DealCard({ deal, index, onVideoOpen, c }: { deal: SmileDeal; index: number; onVideoOpen: (d: SmileDeal) => void; c: typeof DARK_PALETTE }) {
+function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; index: number; onVideoOpen: (d: SmileDeal) => void; c: typeof DARK_PALETTE; isClinic?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoType = deal.videoUrl ? getVideoType(deal.videoUrl) : null;
@@ -539,22 +559,42 @@ function DealCard({ deal, index, onVideoOpen, c }: { deal: SmileDeal; index: num
                 <Eye style={{ width: 12, height: 12 }} />
                 {deal.viewCount ?? 0}
               </div>
-              <Link href={deal.bookingLink}>
-                <button
+              {isClinic ? (
+                <a
+                  href={(deal as any).contactInfo?.website || deal.bookingLink || "#"}
+                  target="_blank"
+                  rel="noreferrer"
                   style={{
                     display: "flex", alignItems: "center", gap: 5,
                     padding: "8px 16px", borderRadius: 9,
                     background: hovered ? TEAL_DIM : TEAL,
                     color: "#050E09", fontSize: 12, fontWeight: 700,
-                    border: "none", cursor: "pointer",
+                    textDecoration: "none",
                     transition: "background .2s, box-shadow .2s",
                     boxShadow: hovered ? `0 4px 16px rgba(15,206,138,.3)` : "none",
                   }}
                 >
-                  Book
+                  {(deal as any).contactInfo?.website ? "Visit Website" : (deal as any).contactInfo?.phone ? "Contact Supplier" : "Enquire"}
                   <ExternalLink style={{ width: 11, height: 11 }} />
-                </button>
-              </Link>
+                </a>
+              ) : (
+                <Link href={deal.bookingLink}>
+                  <button
+                    style={{
+                      display: "flex", alignItems: "center", gap: 5,
+                      padding: "8px 16px", borderRadius: 9,
+                      background: hovered ? TEAL_DIM : TEAL,
+                      color: "#050E09", fontSize: 12, fontWeight: 700,
+                      border: "none", cursor: "pointer",
+                      transition: "background .2s, box-shadow .2s",
+                      boxShadow: hovered ? `0 4px 16px rgba(15,206,138,.3)` : "none",
+                    }}
+                  >
+                    Book
+                    <ExternalLink style={{ width: 11, height: 11 }} />
+                  </button>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -567,6 +607,7 @@ export default function SmileDeals() {
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === "dark" ? DARK_PALETTE : LIGHT_PALETTE;
 
+  const [activeTab, setActiveTab] = useState<"clinic" | "patient">("clinic");
   const [activeSubcategory, setActiveSubcategory] = useState("All");
   const [selectedCity, setSelectedCity] = useState("All");
   const [videoModalDeal, setVideoModalDeal] = useState<SmileDeal | null>(null);
@@ -582,8 +623,13 @@ export default function SmileDeals() {
 
   const clinicCityMap = Object.fromEntries(clinics.map(c => [c.id, (c as any).city as string | undefined]));
 
+  const tabDeals = deals.filter((d) => {
+    const ta = (d as any).targetAudience || "patient";
+    return ta === activeTab || ta === "both";
+  });
+
   const availableCities = Array.from(new Set(
-    deals
+    tabDeals
       .filter(d => (d as any).clinicId && clinicCityMap[(d as any).clinicId])
       .map(d => clinicCityMap[(d as any).clinicId] as string)
   )).sort();
@@ -602,11 +648,11 @@ export default function SmileDeals() {
     deals.forEach((d) => trackView(d.id));
   }, [deals, trackView]);
 
-  const featuredDeal = deals.find((d) => d.isFeatured && !(d as any).isFlash);
-  const flashDeals = deals.filter((d) => (d as any).isFlash);
-  const subcategories = ["All", ...Array.from(new Set(deals.map((d) => (d as any).subcategory).filter(Boolean) as string[]))];
+  const featuredDeal = tabDeals.find((d) => d.isFeatured && !(d as any).isFlash);
+  const flashDeals = tabDeals.filter((d) => (d as any).isFlash);
+  const subcategories = ["All", ...Array.from(new Set(tabDeals.map((d) => (d as any).subcategory).filter(Boolean) as string[]))];
 
-  const filteredDeals = deals.filter((d) => {
+  const filteredDeals = tabDeals.filter((d) => {
     if (d.isFeatured) return false;
     if ((d as any).isFlash) return false;
     if (activeSubcategory !== "All" && (d as any).subcategory !== activeSubcategory) return false;
@@ -620,16 +666,16 @@ export default function SmileDeals() {
     return true;
   });
 
-  const countdownDeal = deals.find((d) => {
+  const countdownDeal = tabDeals.find((d) => {
     if (!d.expiresAt) return false;
     if (d.isFeatured || (d as any).isFlash) return false;
     const exp = new Date(d.expiresAt).getTime();
     return exp > Date.now() && exp - Date.now() < 72 * 3600 * 1000;
   });
 
-  const activeCount = deals.filter((d) => !d.expiresAt || new Date(d.expiresAt) > new Date()).length;
-  const totalViews = deals.reduce((sum, d) => sum + (d.viewCount ?? 0), 0);
-  const dealsWithSavings = deals.filter((d) => (d as any).originalPrice && d.price && parseInt((d as any).originalPrice) > parseInt(d.price ?? "0"));
+  const activeCount = tabDeals.filter((d) => !d.expiresAt || new Date(d.expiresAt) > new Date()).length;
+  const totalViews = tabDeals.reduce((sum, d) => sum + (d.viewCount ?? 0), 0);
+  const dealsWithSavings = tabDeals.filter((d) => (d as any).originalPrice && d.price && parseInt((d as any).originalPrice) > parseInt(d.price ?? "0"));
   const avgSaving = dealsWithSavings.length > 0
     ? Math.round(dealsWithSavings.reduce((sum, d) => sum + (parseInt((d as any).originalPrice) - parseInt(d.price ?? "0")), 0) / dealsWithSavings.length)
     : null;
@@ -682,7 +728,7 @@ export default function SmileDeals() {
             </p>
 
             {/* Stats row */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 40, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: 40, flexWrap: "wrap", marginBottom: 40 }}>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 28, fontWeight: 700, color: TEAL, letterSpacing: "-.02em" }}>{activeCount}</div>
                 <div style={{ fontSize: 12, color: c.muted, marginTop: 2 }}>Active Deals</div>
@@ -706,6 +752,32 @@ export default function SmileDeals() {
                 </>
               )}
             </div>
+
+            {/* Tab switcher */}
+            <div style={{ display: "inline-flex", borderRadius: 14, border: `1px solid ${c.border}`, background: c.surface, padding: 4, gap: 4 }}>
+              {([
+                { key: "clinic", label: "🏥 For Clinics", desc: "Equipment, supplies & more" },
+                { key: "patient", label: "🧑 For Patients", desc: "Appointment offers & discounts" },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => { setActiveTab(tab.key); setActiveSubcategory("All"); setSelectedCity("All"); }}
+                  style={{
+                    padding: "10px 24px", borderRadius: 10, fontSize: 14, fontWeight: 700,
+                    border: "none", cursor: "pointer",
+                    background: activeTab === tab.key ? TEAL : "transparent",
+                    color: activeTab === tab.key ? "#050E09" : c.muted,
+                    transition: "all .25s cubic-bezier(.16,1,.3,1)",
+                    boxShadow: activeTab === tab.key ? `0 4px 16px rgba(15,206,138,.3)` : "none",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: 12, color: c.muted, marginTop: 10 }}>
+              {activeTab === "clinic" ? "Deals on dental equipment, supplies, software, and training — for practice owners." : "Curated appointment offers and discounts at partner clinics — for patients."}
+            </p>
           </motion.div>
         </section>
 
@@ -713,7 +785,7 @@ export default function SmileDeals() {
           {/* Filter pills — subcategory */}
           {subcategories.length > 1 && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: availableCities.length > 0 ? 16 : 40, alignItems: "center" }}>
-              <span style={{ fontSize: 12, color: c.muted, fontWeight: 500, marginRight: 4 }}>Procedure:</span>
+              <span style={{ fontSize: 12, color: c.muted, fontWeight: 500, marginRight: 4 }}>{activeTab === "clinic" ? "Type:" : "Procedure:"}</span>
               {subcategories.map((cat) => (
                 <button
                   key={cat}
@@ -762,7 +834,7 @@ export default function SmileDeals() {
           <AnimatePresence>
             {featuredDeal && (
               <div style={{ marginBottom: 48 }}>
-                <FeaturedCard deal={featuredDeal} onBookClick={() => trackClick(featuredDeal.id)} c={c} />
+                <FeaturedCard deal={featuredDeal} onBookClick={() => trackClick(featuredDeal.id)} c={c} isClinic={activeTab === "clinic"} />
               </div>
             )}
           </AnimatePresence>
@@ -795,11 +867,11 @@ export default function SmileDeals() {
           {countdownDeal && <CountdownCard deal={countdownDeal} c={c} />}
 
           {/* Deals grid */}
-          {deals.length === 0 ? (
+          {tabDeals.length === 0 ? (
             <div style={{ textAlign: "center", padding: "80px 0", color: c.muted }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>🦷</div>
-              <p style={{ fontSize: 18, fontWeight: 600, color: c.text, marginBottom: 8 }}>No deals yet</p>
-              <p style={{ fontSize: 14 }}>Check back soon for exclusive offers.</p>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>{activeTab === "clinic" ? "🏥" : "🦷"}</div>
+              <p style={{ fontSize: 18, fontWeight: 600, color: c.text, marginBottom: 8 }}>No {activeTab === "clinic" ? "clinic supplier" : ""} deals yet</p>
+              <p style={{ fontSize: 14 }}>{activeTab === "clinic" ? "Supplier offers for dental practices will appear here." : "Check back soon for exclusive offers."}</p>
             </div>
           ) : (
             <>
@@ -821,7 +893,7 @@ export default function SmileDeals() {
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: gridCols, justifyContent: count < 3 ? "center" : "start", gap: 20, marginBottom: 60 }}>
                       {filteredDeals.map((deal, i) => (
-                        <DealCard key={deal.id} deal={deal} index={i} onVideoOpen={(d) => setVideoModalDeal(d)} c={c} />
+                        <DealCard key={deal.id} deal={deal} index={i} onVideoOpen={(d) => setVideoModalDeal(d)} c={c} isClinic={activeTab === "clinic"} />
                       ))}
                       {Array.from({ length: placeholderCount }).map((_, i) => (
                         <PlaceholderCard key={`ph-${i}`} c={c} />
