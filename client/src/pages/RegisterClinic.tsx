@@ -111,8 +111,8 @@ function TrustSummary({ score }: { score: number }) {
 
 // ─── Doc upload zone ──────────────────────────────────────────────────────────
 
-function DocUpload({ label, pts, value, onChange, testId }: {
-  label: string; pts: string; value: string;
+function DocUpload({ label, value, onChange, testId }: {
+  label: string; value: string;
   onChange: (url: string) => void; testId?: string;
 }) {
   const [uploading, setUploading] = useState(false);
@@ -173,7 +173,7 @@ function DocUpload({ label, pts, value, onChange, testId }: {
         ? <Loader2 className="h-4 w-4 text-primary animate-spin" />
         : <Upload className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />}
       <p className="text-xs text-muted-foreground text-center leading-snug">
-        {uploading ? "Uploading…" : <><span className="font-medium text-foreground">{label}</span><br /><span className="text-[11px]">Drag &amp; drop or click · {pts}</span></>}
+        {uploading ? "Uploading…" : <><span className="font-medium text-foreground">{label}</span><br /><span className="text-[11px]">Drag &amp; drop or click to upload</span></>}
       </p>
     </div>
   );
@@ -181,9 +181,9 @@ function DocUpload({ label, pts, value, onChange, testId }: {
 
 // ─── Optional boost accordion card ───────────────────────────────────────────
 
-function BoostCard({ icon: Icon, title, subtitle, pts, earned, children, testId }: {
+function BoostCard({ icon: Icon, title, subtitle, earned, children, testId }: {
   icon: React.ElementType; title: string; subtitle: string;
-  pts: string; earned: boolean; children: React.ReactNode; testId?: string;
+  earned: boolean; children: React.ReactNode; testId?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -199,13 +199,53 @@ function BoostCard({ icon: Icon, title, subtitle, pts, earned, children, testId 
           <p className="text-[11px] text-muted-foreground">{subtitle}</p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className={`text-[11px] font-bold tabular-nums ${earned ? "text-emerald-500" : "text-muted-foreground/60"}`}>{pts}</span>
           {open ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
         </div>
       </button>
       {open && (
         <div className="px-4 pb-4 pt-0 space-y-2 border-t border-border/30 animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="pt-3">{children}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Locked field wrapper ──────────────────────────────────────────────────────
+
+function LockedField({ locked, nudgeMessage, onLockedClick, children }: {
+  locked: boolean;
+  nudgeMessage: string;
+  onLockedClick: () => void;
+  children: React.ReactNode;
+}) {
+  const [showNudge, setShowNudge] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleClick = () => {
+    if (!locked) return;
+    onLockedClick();
+    setShowNudge(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setShowNudge(false), 2500);
+  };
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  if (!locked) return <>{children}</>;
+
+  return (
+    <div className="relative">
+      <div className="opacity-40 select-none pointer-events-none" aria-disabled="true">
+        {children}
+      </div>
+      <div className="absolute inset-0 cursor-not-allowed z-10" onClick={handleClick} />
+      {showNudge && (
+        <div className="mt-1.5 flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="h-4 w-4 rounded-full bg-amber-400/20 flex items-center justify-center shrink-0">
+            <span className="text-[9px] font-bold text-amber-600">↑</span>
+          </div>
+          <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">{nudgeMessage}</p>
         </div>
       )}
     </div>
@@ -368,6 +408,12 @@ export default function RegisterClinic() {
   const phoneComplete = watchedPhone.replace(/\D/g, "").length >= 10;
   const medDocsEarned = !!(medicalLicenseUrl || clinicRegCertUrl);
 
+  // Sequential unlock gates
+  const nameReady = watchedName.trim().length >= 2;
+  const locationUnlocked = nameReady;
+  const phoneUnlocked = nameReady;
+  const emailUnlocked = phoneComplete;
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 relative overflow-hidden bg-background">
 
@@ -450,70 +496,87 @@ export default function RegisterClinic() {
                   )}
                 />
 
-                <FormField control={form.control} name="address"
+                <LockedField
+                  locked={!locationUnlocked}
+                  nudgeMessage="Enter your clinic name first"
+                  onLockedClick={() => form.setFocus("name")}
+                >
+                  <FormField control={form.control} name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <FieldRow icon={MapPin}>
+                            <Input placeholder="Area / locality" {...field} value={field.value || ""}
+                              className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
+                              data-testid="input-clinic-address" />
+                          </FieldRow>
+                        </FormControl>
+                        <FormMessage className="text-xs pl-1" />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-2 mt-2.5">
+                    <FormField control={form.control} name="city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <FieldRow icon={MapPin}>
+                              <Input placeholder="City" {...field} value={field.value || ""}
+                                className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
+                                data-testid="input-clinic-city" />
+                            </FieldRow>
+                          </FormControl>
+                          <FormMessage className="text-xs pl-1" />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField control={form.control} name="pincode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <FieldRow icon={Hash}>
+                              <Input placeholder="PIN code" {...field} value={field.value || ""}
+                                className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
+                                data-testid="input-clinic-pincode" />
+                            </FieldRow>
+                          </FormControl>
+                          <FormMessage className="text-xs pl-1" />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </LockedField>
+              </div>
+
+              {/* Field: Phone */}
+              <LockedField
+                locked={!phoneUnlocked}
+                nudgeMessage="Enter your clinic name first"
+                onLockedClick={() => form.setFocus("name")}
+              >
+                <FormField control={form.control} name="phone"
                   render={({ field }) => (
                     <FormItem>
                       <FormControl>
-                        <FieldRow icon={MapPin}>
-                          <Input placeholder="Area / locality" {...field} value={field.value || ""}
+                        <FieldRow icon={Phone}>
+                          <Input placeholder="Phone number  (+91 98765 43210)" {...field} value={field.value || ""}
                             className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
-                            data-testid="input-clinic-address" />
+                            data-testid="input-clinic-phone" />
                         </FieldRow>
                       </FormControl>
                       <FormMessage className="text-xs pl-1" />
                     </FormItem>
                   )}
                 />
-
-                <div className="grid grid-cols-2 gap-2">
-                  <FormField control={form.control} name="city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <FieldRow icon={MapPin}>
-                            <Input placeholder="City" {...field} value={field.value || ""}
-                              className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
-                              data-testid="input-clinic-city" />
-                          </FieldRow>
-                        </FormControl>
-                        <FormMessage className="text-xs pl-1" />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField control={form.control} name="pincode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <FieldRow icon={Hash}>
-                            <Input placeholder="PIN code" {...field} value={field.value || ""}
-                              className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
-                              data-testid="input-clinic-pincode" />
-                          </FieldRow>
-                        </FormControl>
-                        <FormMessage className="text-xs pl-1" />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              {/* Field: Phone */}
-              <FormField control={form.control} name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <FieldRow icon={Phone}>
-                        <Input placeholder="Phone number  (+91 98765 43210)" {...field} value={field.value || ""}
-                          className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 rounded-none pl-3 text-sm"
-                          data-testid="input-clinic-phone" />
-                      </FieldRow>
-                    </FormControl>
-                    <FormMessage className="text-xs pl-1" />
-                  </FormItem>
-                )}
-              />
+              </LockedField>
 
               {/* Field: Email + OTP */}
+              <LockedField
+                locked={!emailUnlocked}
+                nudgeMessage="Enter a valid phone number first"
+                onLockedClick={() => form.setFocus("phone")}
+              >
               <div className="space-y-2">
                 <FormField control={form.control} name="email"
                   render={({ field }) => (
@@ -623,6 +686,7 @@ export default function RegisterClinic() {
                   </div>
                 )}
               </div>
+              </LockedField>
 
               </div>{/* end left column */}
 
@@ -650,12 +714,12 @@ export default function RegisterClinic() {
                 {/* ── BOOST CARDS ── */}
                 <div className="space-y-2">
                   <BoostCard icon={FileText} title="Medical license & registration cert"
-                    subtitle="Strongest trust documents — +25 pts"
-                    pts="+25" earned={medDocsEarned} testId="boost-card-medical">
+                    subtitle="Helps verify your clinic's credentials"
+                    earned={medDocsEarned} testId="boost-card-medical">
                     <div className="space-y-2">
-                      <DocUpload label="Doctor's medical / MCI license" pts="+15 pts"
+                      <DocUpload label="Doctor's medical / MCI license"
                         value={medicalLicenseUrl} onChange={setMedicalLicenseUrl} testId="upload-medical-license" />
-                      <DocUpload label="Clinic registration certificate" pts="+10 pts"
+                      <DocUpload label="Clinic registration certificate"
                         value={clinicRegCertUrl} onChange={setClinicRegCertUrl} testId="upload-clinic-reg-cert" />
                       <p className="text-[11px] text-muted-foreground leading-snug">
                         You can upload these later from your dashboard.
@@ -664,8 +728,8 @@ export default function RegisterClinic() {
                   </BoostCard>
 
                   <BoostCard icon={Link2} title="Google Business Profile"
-                    subtitle="We pull your rating & reviews — +15 pts"
-                    pts="+15" earned={!!googleBusinessUrl} testId="boost-card-google">
+                    subtitle="We pull your rating & reviews for patients"
+                    earned={!!googleBusinessUrl} testId="boost-card-google">
                     <div className="space-y-2">
                       <FieldRow icon={Link2}>
                         <Input placeholder="Paste your Google Maps listing URL"
@@ -680,8 +744,8 @@ export default function RegisterClinic() {
                   </BoostCard>
 
                   <BoostCard icon={Receipt} title="GST registration number"
-                    subtitle="For tax invoicing — +10 pts"
-                    pts="+10" earned={!!gstNumber.trim()} testId="boost-card-gst">
+                    subtitle="For clinics that issue tax invoices"
+                    earned={!!gstNumber.trim()} testId="boost-card-gst">
                     <div className="space-y-2">
                       <FieldRow icon={Receipt}>
                         <Input placeholder="GSTIN number"
@@ -701,7 +765,11 @@ export default function RegisterClinic() {
               {/* ── FULL-WIDTH FOOTER — trust score + review notice + submit ── */}
               <div className="space-y-4 mt-6">
 
-                <TrustSummary score={trustScore} />
+                {emailVerified && (
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <TrustSummary score={trustScore} />
+                  </div>
+                )}
 
                 {/* Review notice */}
                 <div className="rounded-xl border border-amber-400/40 bg-amber-500/5 px-4 py-3 space-y-1.5">
