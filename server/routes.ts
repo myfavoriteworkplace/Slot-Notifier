@@ -652,6 +652,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.patch("/api/clinics/:id/reject", isAuthenticated, async (req, res) => {
+    if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Only superusers can reject clinics" });
+    try {
+      const clinicId = parseInt(req.params.id);
+      const existing = await storage.getClinic(clinicId);
+      if (!existing) return res.status(404).json({ message: "Clinic not found" });
+      const clinic = await storage.updateClinic(clinicId, { status: "rejected" });
+      res.json(clinic);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   app.post("/api/uploads/signed-url", isAuthenticated, async (req, res) => {
     try {
       const { fileName, contentType, fileType, fileSize, folder } = req.body;

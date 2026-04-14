@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,26 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
+// ── Clinic verification helpers ───────────────────────────────────────────────
+
+const FREE_EMAIL_PROVIDERS = ['gmail.', 'yahoo.', 'hotmail.', 'outlook.', 'rediffmail.'];
+function isGenericEmailProvider(email: string) {
+  return FREE_EMAIL_PROVIDERS.some(p => email.toLowerCase().includes(p));
+}
+
+function riskFromScore(score: number): { label: string; color: string; barPct: number; barColor: string } {
+  if (score >= 75) return { label: 'Low', color: 'text-emerald-500', barPct: 15, barColor: 'bg-emerald-500' };
+  if (score >= 50) return { label: 'Medium', color: 'text-amber-500', barPct: 50, barColor: 'bg-amber-500' };
+  return { label: 'High', color: 'text-red-500', barPct: 83, barColor: 'bg-red-500' };
+}
+
+function trustBandColor(score: number): string {
+  if (score >= 75) return 'text-emerald-500';
+  if (score >= 50) return 'text-amber-500';
+  if (score >= 25) return 'text-blue-500';
+  return 'text-muted-foreground';
+}
 
 export default function Admin() {
   const { user, loading: authLoading, logout, login, isLoggingIn, loginError } = useAuth();
@@ -361,6 +381,31 @@ export default function Admin() {
       toast({ title: "Clinic approved", description: "Login credentials have been generated and sent to the clinic's email address." });
     }
   });
+
+  const rejectClinicMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('PATCH', `/api/clinics/${id}/reject`);
+      if (!res.ok) throw new Error("Failed to reject clinic");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      toast({ title: "Registration rejected", description: "The clinic has been removed from the pending queue." });
+    }
+  });
+
+  const [expandedReviewIds, setExpandedReviewIds] = useState<Set<number>>(new Set());
+  const toggleReview = (id: number) => {
+    setExpandedReviewIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleFlagForReview = (clinicName: string) => {
+    toast({ title: "Flagged for manual review", description: `${clinicName} has been flagged — it will remain in the pending queue for further review.` });
+  };
 
   const handleAdminLogout = () => {
     logout();
@@ -1041,6 +1086,266 @@ export default function Admin() {
                         </div>
                       </div>
                     </div>
+
+                    {/* ── VERIFICATION REVIEW ACCORDION ─────────────────── */}
+                    {(() => {
+                      const score       = (clinic as any).trustScore || 0;
+                      const email       = clinic.email || '';
+                      const phone       = (clinic.phone || '').replace(/\D/g, '');
+                      const medLicense  = (clinic as any).medicalLicenseUrl || '';
+                      const regCert     = (clinic as any).clinicRegCertUrl || '';
+                      const gstNum      = (clinic as any).gstNumber || '';
+                      const gmb         = (clinic as any).googleBusinessUrl || '';
+                      const freeEmail   = isGenericEmailProvider(email);
+                      const isDuplicate = clinics.some(c =>
+                        c.id !== clinic.id && (
+                          (c.phone && c.phone.replace(/\D/g, '') === phone && phone.length >= 10) ||
+                          (c.email && c.email.toLowerCase() === email.toLowerCase() && email.length > 0)
+                        )
+                      );
+                      const autoChecks = [true, !freeEmail, !isDuplicate, !!gmb];
+                      const passedCount = autoChecks.filter(Boolean).length;
+                      const risk        = riskFromScore(score);
+                      const isExpanded  = expandedReviewIds.has(clinic.id);
+
+                      const alertParts: string[] = [];
+                      if (isDuplicate)          alertParts.push('Duplicate phone or email found — verify before approving');
+                      if (freeEmail)            alertParts.push('Free email domain detected');
+                      if (!medLicense && !regCert) alertParts.push('No documents uploaded');
+                      else if (!medLicense || !regCert) alertParts.push('Documents partially uploaded');
+                      const alertMsg = alertParts.length > 0
+                        ? alertParts.join('. ') + '. Admin review recommended before approval.'
+                        : '';
+
+                      const CheckRow = ({ icon: Icon, iconBg, label, detail, statusLabel, statusColor, statusBg }: {
+                        icon: React.ElementType; iconBg: string; label: string; detail: string;
+                        statusLabel: string; statusColor: string; statusBg: string;
+                      }) => (
+                        <div className="flex items-center gap-3 px-4 py-3">
+                          <div className={`h-6 w-6 rounded-full ${iconBg} flex items-center justify-center shrink-0`}>
+                            <Icon className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-foreground">{label}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{detail}</p>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${statusColor} ${statusBg}`}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                      );
+
+                      const DocRow = ({ label, detail, present, link }: {
+                        label: string; detail: string; present: boolean; link?: string;
+                      }) => (
+                        <div className="flex items-center gap-3 px-4 py-3">
+                          <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 ${present ? 'bg-emerald-500/15' : 'bg-red-500/15'}`}>
+                            {present
+                              ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                              : <XCircle className="h-3.5 w-3.5 text-red-500" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-foreground">{label}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{detail}</p>
+                          </div>
+                          {present && link ? (
+                            <a href={link} target="_blank" rel="noreferrer"
+                              className="text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors flex items-center gap-1">
+                              View <ExternalLink className="h-2.5 w-2.5" />
+                            </a>
+                          ) : (
+                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${present ? 'text-emerald-600 bg-emerald-500/10' : 'text-red-500 bg-red-500/10'}`}>
+                              {present ? 'Uploaded' : 'Missing'}
+                            </span>
+                          )}
+                        </div>
+                      );
+
+                      return (
+                        <>
+                          {/* Toggle button */}
+                          <button
+                            type="button"
+                            onClick={() => toggleReview(clinic.id)}
+                            className="w-full flex items-center justify-between px-5 py-3 border-t border-border/40 bg-muted/20 hover:bg-muted/40 transition-colors"
+                            data-testid={`button-toggle-review-${clinic.id}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Shield className="h-3.5 w-3.5 text-primary" />
+                              <span className="text-xs font-semibold text-foreground">Verification Review</span>
+                              <span className="text-[11px] text-muted-foreground">
+                                · Trust <span className={trustBandColor(score)}>{score}/100</span> · {passedCount}/4 checks · Risk: <span className={risk.color}>{risk.label}</span>
+                              </span>
+                            </div>
+                            {isExpanded
+                              ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                              : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
+                          </button>
+
+                          {/* Expanded panel */}
+                          {isExpanded && (
+                            <div className="border-t border-border/40 p-5 space-y-4 bg-muted/10 animate-in fade-in slide-in-from-top-1 duration-200">
+
+                              {/* Alert banner */}
+                              {alertMsg && (
+                                <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border border-amber-400/40 bg-amber-500/8">
+                                  <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                                  <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">{alertMsg}</p>
+                                </div>
+                              )}
+
+                              {/* Stat tiles */}
+                              <div className="grid grid-cols-3 gap-2">
+                                <div className="rounded-xl border border-border/60 bg-card p-3 text-center">
+                                  <p className={`text-2xl font-extrabold tabular-nums ${trustBandColor(score)}`}>{score}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">Trust score</p>
+                                </div>
+                                <div className="rounded-xl border border-border/60 bg-card p-3 text-center">
+                                  <p className="text-2xl font-extrabold tabular-nums text-foreground">{passedCount}/4</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">Checks passed</p>
+                                </div>
+                                <div className="rounded-xl border border-border/60 bg-card p-3 text-center">
+                                  <p className={`text-2xl font-extrabold ${risk.color}`}>{risk.label}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">Risk level</p>
+                                </div>
+                              </div>
+
+                              {/* Risk bar */}
+                              <div className="space-y-1.5 px-0.5">
+                                <div className="relative h-2 rounded-full bg-gradient-to-r from-emerald-400 via-amber-400 to-red-400 overflow-hidden">
+                                  <div className="absolute inset-0 rounded-full bg-muted/80" style={{ left: `${risk.barPct}%` }} />
+                                </div>
+                                <div className="flex justify-between text-[9px] text-muted-foreground font-medium">
+                                  <span>Low risk</span><span>Medium</span><span>High risk</span>
+                                </div>
+                              </div>
+
+                              {/* Automated checks */}
+                              <div className="rounded-xl border border-border/60 overflow-hidden">
+                                <div className="px-4 py-2.5 bg-muted/40 border-b border-border/40">
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Automated Checks</p>
+                                </div>
+                                <div className="divide-y divide-border/30">
+                                  <CheckRow
+                                    icon={ShieldCheck} iconBg="bg-emerald-500/15"
+                                    label="Email OTP"
+                                    detail={`${email} · verified at registration`}
+                                    statusLabel="Verified" statusColor="text-emerald-600" statusBg="bg-emerald-500/10"
+                                  />
+                                  <CheckRow
+                                    icon={freeEmail ? AlertTriangle : ShieldCheck}
+                                    iconBg={freeEmail ? "bg-amber-400/15" : "bg-emerald-500/15"}
+                                    label="Email domain"
+                                    detail={freeEmail ? `${email} · free provider` : `${email} · professional domain`}
+                                    statusLabel={freeEmail ? "Needs attention" : "Verified"}
+                                    statusColor={freeEmail ? "text-amber-600" : "text-emerald-600"}
+                                    statusBg={freeEmail ? "bg-amber-400/10" : "bg-emerald-500/10"}
+                                  />
+                                  <CheckRow
+                                    icon={isDuplicate ? AlertTriangle : ShieldCheck}
+                                    iconBg={isDuplicate ? "bg-amber-400/15" : "bg-emerald-500/15"}
+                                    label="Duplicate check"
+                                    detail={isDuplicate ? "Another clinic with same phone or email exists" : "No existing clinic with same phone or email"}
+                                    statusLabel={isDuplicate ? "Duplicate found" : "Clear"}
+                                    statusColor={isDuplicate ? "text-amber-600" : "text-emerald-600"}
+                                    statusBg={isDuplicate ? "bg-amber-400/10" : "bg-emerald-500/10"}
+                                  />
+                                  <CheckRow
+                                    icon={gmb ? ShieldCheck : Info}
+                                    iconBg={gmb ? "bg-emerald-500/15" : "bg-muted/40"}
+                                    label="Google Business Profile"
+                                    detail={gmb ? "Profile URL provided" : "No GMB profile linked"}
+                                    statusLabel={gmb ? "Linked" : "Not provided"}
+                                    statusColor={gmb ? "text-emerald-600" : "text-muted-foreground"}
+                                    statusBg={gmb ? "bg-emerald-500/10" : "bg-muted/40"}
+                                  />
+                                  <CheckRow
+                                    icon={Info} iconBg="bg-blue-400/15"
+                                    label="Location validation"
+                                    detail="Manual check required — verify address independently"
+                                    statusLabel="Manual" statusColor="text-blue-500" statusBg="bg-blue-400/10"
+                                  />
+                                  <CheckRow
+                                    icon={Info} iconBg="bg-blue-400/15"
+                                    label="Medical council check"
+                                    detail="Auto-check unavailable — review license document below"
+                                    statusLabel="Manual" statusColor="text-blue-500" statusBg="bg-blue-400/10"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Document review */}
+                              <div className="rounded-xl border border-border/60 overflow-hidden">
+                                <div className="px-4 py-2.5 bg-muted/40 border-b border-border/40">
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Document Review</p>
+                                </div>
+                                <div className="divide-y divide-border/30">
+                                  <DocRow
+                                    label="Doctor's medical license"
+                                    detail={medLicense ? "Uploaded at registration" : "Not uploaded — request before approval"}
+                                    present={!!medLicense}
+                                    link={medLicense || undefined}
+                                  />
+                                  <DocRow
+                                    label="Clinic registration certificate"
+                                    detail={regCert ? "Uploaded at registration" : "Not uploaded — request before approval"}
+                                    present={!!regCert}
+                                    link={regCert || undefined}
+                                  />
+                                  <DocRow
+                                    label="GST registration"
+                                    detail={gstNum ? `GSTIN: ${gstNum}` : "Not provided — optional unless issuing tax invoices"}
+                                    present={!!gstNum}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Admin decision */}
+                              <div className="rounded-xl border border-border/60 overflow-hidden">
+                                <div className="px-4 py-2.5 bg-muted/40 border-b border-border/40">
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Admin Decision</p>
+                                </div>
+                                <div className="p-4 grid grid-cols-3 gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => approveClinicMutation.mutate(clinic.id)}
+                                    disabled={approveClinicMutation.isPending}
+                                    className="h-9 gap-1.5 text-xs"
+                                    data-testid={`button-approve-clinic-${clinic.id}`}
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                    Approve clinic
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleFlagForReview(clinic.name)}
+                                    className="h-9 gap-1.5 text-xs border-amber-400/50 text-amber-600 hover:bg-amber-500/10 dark:text-amber-400"
+                                    data-testid={`button-flag-clinic-${clinic.id}`}
+                                  >
+                                    <Flag className="h-3.5 w-3.5" />
+                                    Flag for review
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => rejectClinicMutation.mutate(clinic.id)}
+                                    disabled={rejectClinicMutation.isPending}
+                                    className="h-9 gap-1.5 text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
+                                    data-testid={`button-reject-clinic-${clinic.id}`}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                    Reject
+                                  </Button>
+                                </div>
+                              </div>
+
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+
                   </div>
                 ))}
                 {pendingClinics.length === 0 && (
