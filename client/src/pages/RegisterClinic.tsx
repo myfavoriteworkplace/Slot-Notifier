@@ -211,6 +211,44 @@ function BoostCard({ icon: Icon, title, subtitle, earned, children, testId }: {
   );
 }
 
+// ─── Step progress bar ────────────────────────────────────────────────────────
+
+function StepProgress({ steps }: {
+  steps: { label: string; done: boolean; active: boolean }[];
+}) {
+  return (
+    <div className="flex items-start w-full pt-1 pb-0.5">
+      {steps.map((step, i) => (
+        <div key={i} className={`flex items-center ${i < steps.length - 1 ? "flex-1" : ""}`}>
+          <div className="flex flex-col items-center gap-1">
+            <div className={`h-6 w-6 rounded-full flex items-center justify-center transition-all duration-300 shrink-0 ${
+              step.done
+                ? "bg-primary text-white shadow-sm shadow-primary/25"
+                : step.active
+                ? "bg-background border-2 border-primary text-primary ring-3 ring-primary/10"
+                : "bg-muted/40 border border-border/50 text-muted-foreground/40"
+            }`}>
+              {step.done
+                ? <CheckCircle2 className="h-3.5 w-3.5" />
+                : <span className="text-[10px] font-bold">{i + 1}</span>}
+            </div>
+            <span className={`text-[9px] font-semibold whitespace-nowrap tracking-wide transition-colors duration-300 ${
+              step.done ? "text-primary" : step.active ? "text-foreground" : "text-muted-foreground/40"
+            }`}>
+              {step.label}
+            </span>
+          </div>
+          {i < steps.length - 1 && (
+            <div className={`flex-1 h-px mx-1.5 mb-4 transition-all duration-500 ${
+              step.done ? "bg-primary/40" : "bg-border/40"
+            }`} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Locked field wrapper ──────────────────────────────────────────────────────
 
 function LockedField({ locked, nudgeMessage, onLockedClick, children }: {
@@ -416,6 +454,14 @@ export default function RegisterClinic() {
   const phoneUnlocked    = nameReady && addressReady;
   const emailUnlocked    = phoneComplete;
 
+  // Progress steps
+  const progressSteps = [
+    { label: "Clinic name", done: nameReady,    active: !nameReady },
+    { label: "Location",    done: nameReady && addressReady, active: nameReady && !addressReady },
+    { label: "Phone",       done: phoneComplete, active: nameReady && addressReady && !phoneComplete },
+    { label: "Verified",    done: emailVerified, active: phoneComplete && !emailVerified },
+  ];
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 relative overflow-hidden bg-background">
 
@@ -480,6 +526,9 @@ export default function RegisterClinic() {
                 <p className="text-sm font-bold text-foreground">To get started</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">We only need a few basics</p>
               </div>
+
+              {/* Step progress */}
+              <StepProgress steps={progressSteps} />
 
               {/* Field group: Clinic name & location */}
               <div className="space-y-2.5">
