@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { CalendarPlus, Building2, ArrowRight, CalendarDays, Sparkles, Stethoscope, LogIn, Check } from "lucide-react";
+import { CalendarPlus, Building2, ArrowRight, CalendarDays, Sparkles, Stethoscope, LogIn, Check, BadgeIndianRupee } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function GettingStarted() {
@@ -134,7 +134,7 @@ export default function GettingStarted() {
                   </li>
                 ))}
               </ul>
-              <div className="mt-auto">
+              <div className="mt-auto flex flex-col gap-2">
                 <Button
                   className="w-full gap-2 group h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
                   onClick={() => setLocation("/register-clinic")}
@@ -142,6 +142,15 @@ export default function GettingStarted() {
                 >
                   Start Registration
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 group h-9 text-sm font-semibold border-primary/25 text-primary hover:bg-primary/5 hover:border-primary/40 rounded-xl"
+                  onClick={() => setLocation("/pricing")}
+                  data-testid="button-view-pricing"
+                >
+                  <BadgeIndianRupee className="h-3.5 w-3.5" />
+                  View Pricing Plans
                 </Button>
               </div>
             </div>

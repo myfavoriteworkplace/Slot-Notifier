@@ -24,6 +24,7 @@ import DoctorPublicProfile from "@/pages/DoctorPublicProfile";
 import GettingStarted from "@/pages/GettingStarted";
 import RegisterClinic from "@/pages/RegisterClinic";
 import ConsentForm from "@/pages/ConsentForm";
+import Pricing from "@/pages/Pricing";
 
 function HealthIndicator() {
   const { isAuthenticated: isUserAuth } = useAuth();
@@ -128,6 +129,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/getting-started" component={GettingStarted} />
+      <Route path="/pricing" component={Pricing} />
       <Route path="/register-clinic" component={RegisterClinic} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/book/:clinicId" component={Book} />
