@@ -13,7 +13,7 @@ import {
   Loader2, Building2, Mail, Phone, MapPin, Hash,
   ArrowLeft, Sparkles, Shield, CheckCircle2,
   ChevronDown, ChevronUp, FileText, Link2, Receipt,
-  Upload, X, Star,
+  Upload, X, Star, Zap, ShieldCheck, ExternalLink, Info,
 } from "lucide-react";
 import { z } from "zod";
 
@@ -306,6 +306,9 @@ export default function RegisterClinic() {
   const [otpError, setOtpError] = useState("");
   const [resendCountdown, setResendCountdown] = useState(0);
 
+  // Plan selection
+  const [selectedPlan, setSelectedPlan] = useState<"starter" | "growth" | "pro" | "">("");
+
   // Optional boost fields (outside RHF — not in InsertClinic)
   const [medicalLicenseUrl, setMedicalLicenseUrl] = useState("");
   const [clinicRegCertUrl, setClinicRegCertUrl] = useState("");
@@ -423,6 +426,10 @@ export default function RegisterClinic() {
       toast({ title: "Email verification required", description: "Please verify your email before submitting.", variant: "destructive" });
       return;
     }
+    if (!selectedPlan) {
+      toast({ title: "Plan selection required", description: "Please choose a subscription plan before submitting.", variant: "destructive" });
+      return;
+    }
     setIsSubmitting(true);
     try {
       await apiRequest("POST", "/api/clinics/register", {
@@ -431,6 +438,7 @@ export default function RegisterClinic() {
         gstNumber: gstNumber || undefined,
         medicalLicenseUrl: medicalLicenseUrl || undefined,
         clinicRegCertUrl: clinicRegCertUrl || undefined,
+        plan: selectedPlan,
       });
       toast({ title: "Registration submitted", description: "We'll review your details and email your login credentials once approved." });
       setLocation("/getting-started");
@@ -819,8 +827,90 @@ export default function RegisterClinic() {
 
               </div>{/* end two-column grid */}
 
-              {/* ── FULL-WIDTH FOOTER — trust score + review notice + submit ── */}
+              {/* ── FULL-WIDTH FOOTER — plan + trust score + review notice + submit ── */}
               <div className="space-y-4 mt-6">
+
+                {/* ── Plan selector ── */}
+                <div className="rounded-2xl border border-primary/20 bg-primary/3 p-4 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <p className="text-sm font-bold text-foreground">Choose your plan <span className="text-destructive">*</span></p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Select a subscription plan to continue</p>
+                    </div>
+                    <a
+                      href="/pricing"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                      data-testid="link-view-pricing"
+                    >
+                      View full plan details
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {([
+                      { id: "starter", icon: Zap, name: "Starter", price: "₹999/mo", annual: "₹9,990/yr", desc: "Up to 30 bookings · 1 doctor · 5% fee" },
+                      { id: "growth", icon: Building2, name: "Growth", price: "₹1,599/mo", annual: "₹15,990/yr", desc: "Up to 150 bookings · 3 doctors · 3% fee", popular: true },
+                      { id: "pro", icon: ShieldCheck, name: "Pro", price: "₹2,999/mo", annual: "₹29,990/yr", desc: "Unlimited · Premium badge · 1.5% fee" },
+                    ] as const).map((plan) => {
+                      const Icon = plan.icon;
+                      const active = selectedPlan === plan.id;
+                      return (
+                        <button
+                          key={plan.id}
+                          type="button"
+                          onClick={() => setSelectedPlan(plan.id)}
+                          data-testid={`plan-select-${plan.id}`}
+                          className={`relative text-left rounded-xl border p-3 transition-all duration-200 ${
+                            active
+                              ? "border-primary bg-primary/8 ring-2 ring-primary/20"
+                              : "border-border/50 bg-background hover:border-primary/40 hover:bg-primary/3"
+                          }`}
+                        >
+                          {(plan as any).popular && (
+                            <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-black uppercase tracking-widest bg-gradient-to-r from-primary to-accent text-white px-2.5 py-0.5 rounded-full">
+                              Popular
+                            </span>
+                          )}
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+                            <span className={`text-sm font-bold ${active ? "text-primary" : "text-foreground"}`}>{plan.name}</span>
+                            {active && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
+                          </div>
+                          <p className={`text-base font-extrabold tracking-tight ${active ? "text-primary" : "text-foreground"}`}>{plan.price}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{plan.annual} annually</p>
+                          <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">{plan.desc}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {!selectedPlan && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <Info className="h-3 w-3 shrink-0" />
+                      Please select a plan to complete your registration
+                    </p>
+                  )}
+                </div>
+
+                {/* ── Payment notice ── */}
+                {selectedPlan && (
+                  <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 flex gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <Info className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-foreground mb-0.5">About payment</p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        No payment is required now. Once our admin reviews and approves your registration, a secure payment link for your selected <span className="font-semibold text-foreground capitalize">{selectedPlan}</span> plan will be sent to your registered email address to activate your account.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {emailVerified && (
                   <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -843,12 +933,14 @@ export default function RegisterClinic() {
                 <div className="flex flex-col gap-3 pt-1">
                   <Button type="submit"
                     className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl disabled:opacity-50"
-                    disabled={isSubmitting || !emailVerified}
+                    disabled={isSubmitting || !emailVerified || !selectedPlan}
                     data-testid="button-submit-registration">
                     {isSubmitting
                       ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</>
                       : !emailVerified
                       ? "Verify your email above to submit"
+                      : !selectedPlan
+                      ? "Select a plan above to submit"
                       : "Submit Registration"}
                   </Button>
                   <button type="button" onClick={() => setLocation("/getting-started")}

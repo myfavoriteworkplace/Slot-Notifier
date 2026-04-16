@@ -34,6 +34,7 @@ export const clinics = pgTable("clinics", {
   medicalLicenseUrl: varchar("medical_license_url", { length: 1000 }),
   clinicRegCertUrl: varchar("clinic_reg_cert_url", { length: 1000 }),
   trustScore: integer("trust_score").default(0),
+  plan: varchar("plan", { length: 20 }).default("starter"),
 });
 
 export const slots = pgTable("slots", {

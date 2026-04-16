@@ -215,6 +215,9 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='trust_score') THEN
             ALTER TABLE clinics ADD COLUMN trust_score integer DEFAULT 0;
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='plan') THEN
+            ALTER TABLE clinics ADD COLUMN plan varchar(20) DEFAULT 'starter';
+          END IF;
         END $$;
       `);
       log("clinics columns verified/updated", "system");
