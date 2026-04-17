@@ -53,6 +53,13 @@ EMAIL_FROM = "alerts@book-my-slot.itsmyfavoriteworkplace.workers.dev"
 VITE_API_URL = ""
 VITE_RAZORPAY_KEY_ID = "rzp_test_SZV9zC0qD6WjHH"
 RAZORPAY_KEY_ID = "rzp_test_SZV9zC0qD6WjHH"
+RAZORPAY_PLAN_ID_STARTER_MONTHLY = "plan_starter_monthly_placeholder"
+RAZORPAY_PLAN_ID_STARTER_ANNUAL = "plan_starter_annual_placeholder"
+RAZORPAY_PLAN_ID_GROWTH_MONTHLY = "plan_growth_monthly_placeholder"
+RAZORPAY_PLAN_ID_GROWTH_ANNUAL = "plan_growth_annual_placeholder"
+RAZORPAY_PLAN_ID_PRO_MONTHLY = "plan_pro_monthly_placeholder"
+RAZORPAY_PLAN_ID_PRO_ANNUAL = "plan_pro_annual_placeholder"
+RAZORPAY_WEBHOOK_SECRET = "webhook_secret_placeholder"
 
 [userenv.development]
 PORT = "5000"
