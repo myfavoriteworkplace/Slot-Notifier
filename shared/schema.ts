@@ -35,6 +35,9 @@ export const clinics = pgTable("clinics", {
   clinicRegCertUrl: varchar("clinic_reg_cert_url", { length: 1000 }),
   trustScore: integer("trust_score").default(0),
   plan: varchar("plan", { length: 20 }).default("starter"),
+  subscriptionStatus: varchar("subscription_status", { length: 20 }).default("unpaid"), // unpaid, active, expired
+  billingCycle: varchar("billing_cycle", { length: 10 }).default("monthly"), // monthly, annual
+  razorpaySubscriptionId: varchar("razorpay_subscription_id", { length: 255 }),
 });
 
 export const slots = pgTable("slots", {
@@ -326,6 +329,27 @@ export const consentTokens = pgTable("consent_tokens", {
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const activationTokens = pgTable("activation_tokens", {
+  id: serial("id").primaryKey(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  plan: varchar("plan", { length: 20 }).notNull(),
+  billingCycle: varchar("billing_cycle", { length: 10 }).notNull(),
+  razorpaySubscriptionId: varchar("razorpay_subscription_id", { length: 255 }),
+  shortUrl: varchar("short_url", { length: 1000 }),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertActivationTokenSchema = createInsertSchema(activationTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ActivationToken = typeof activationTokens.$inferSelect;
+export type InsertActivationToken = z.infer<typeof insertActivationTokenSchema>;
 
 export const emailOtps = pgTable("email_otps", {
   id: serial("id").primaryKey(),

@@ -218,9 +218,35 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='plan') THEN
             ALTER TABLE clinics ADD COLUMN plan varchar(20) DEFAULT 'starter';
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='subscription_status') THEN
+            ALTER TABLE clinics ADD COLUMN subscription_status varchar(20) DEFAULT 'unpaid';
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='billing_cycle') THEN
+            ALTER TABLE clinics ADD COLUMN billing_cycle varchar(10) DEFAULT 'monthly';
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='razorpay_subscription_id') THEN
+            ALTER TABLE clinics ADD COLUMN razorpay_subscription_id varchar(255);
+          END IF;
         END $$;
       `);
       log("clinics columns verified/updated", "system");
+
+      // Create activation_tokens table if not exists
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS activation_tokens (
+          id serial PRIMARY KEY,
+          token varchar(255) NOT NULL UNIQUE,
+          clinic_id integer NOT NULL REFERENCES clinics(id),
+          plan varchar(20) NOT NULL,
+          billing_cycle varchar(10) NOT NULL,
+          razorpay_subscription_id varchar(255),
+          short_url varchar(1000),
+          expires_at timestamp NOT NULL,
+          used boolean NOT NULL DEFAULT false,
+          created_at timestamp DEFAULT now()
+        );
+      `);
+      log("activation_tokens table verified/created", "system");
 
       // Add missing columns to bookings table
       await db.execute(sql`

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { sql, eq, and } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
-import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps } from "@shared/schema";
+import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
@@ -22,6 +22,21 @@ const TEST_EMAIL = 'itsmyfavoriteworkplace@gmail.com';
 const razorpay = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
   ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET })
   : null;
+
+const RAZORPAY_PLAN_IDS: Record<string, Record<string, string | undefined>> = {
+  starter: {
+    monthly: process.env.RAZORPAY_PLAN_ID_STARTER_MONTHLY,
+    annual:  process.env.RAZORPAY_PLAN_ID_STARTER_ANNUAL,
+  },
+  growth: {
+    monthly: process.env.RAZORPAY_PLAN_ID_GROWTH_MONTHLY,
+    annual:  process.env.RAZORPAY_PLAN_ID_GROWTH_ANNUAL,
+  },
+  pro: {
+    monthly: process.env.RAZORPAY_PLAN_ID_PRO_MONTHLY,
+    annual:  process.env.RAZORPAY_PLAN_ID_PRO_ANNUAL,
+  },
+};
 
 function makeGoogleCalLink(title: string, start: Date, location?: string | null): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -485,20 +500,36 @@ async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLi
   }
 }
 
-async function sendClinicApprovalEmail(clinicName: string, clinicEmail: string, username: string, plainPassword: string) {
+async function sendClinicApprovalEmail(
+  clinicName: string,
+  clinicEmail: string,
+  username: string,
+  plainPassword: string,
+  activationUrl?: string,
+  planLabel?: string,
+) {
   if (!resend) {
-    console.log(`[EMAIL MOCK] Clinic approval email for ${clinicEmail} — username: ${username}, password: ${plainPassword}`);
+    console.log(`[EMAIL MOCK] Clinic approval email for ${clinicEmail} — username: ${username}, password: ${plainPassword}${activationUrl ? `, activation: ${activationUrl}` : ''}`);
     return;
   }
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? clinicEmail : TEST_EMAIL;
   const loginUrl = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
+  const activationSection = activationUrl ? `
+    <tr><td style="padding:0 32px 8px">
+      <div style="background:linear-gradient(135deg,#3e34b4 0%,#1ab97c 100%);border-radius:12px;padding:20px 24px;text-align:center">
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.75)">Next Step</p>
+        <p style="margin:0 0 14px;font-size:16px;font-weight:800;color:#fff">Activate Your Subscription${planLabel ? ` — ${planLabel}` : ''}</p>
+        <p style="margin:0 0 16px;font-size:13px;color:rgba(255,255,255,0.85);line-height:1.5">Complete your payment to unlock all dashboard features. Your activation link expires in 7 days.</p>
+        ${actionButton('Activate Now & Pay →', activationUrl, '#ffffff').replace('color:#fff', 'color:#3e34b4')}
+      </div>
+    </td></tr>` : '';
   const html = emailShell(
     'linear-gradient(90deg,#3e34b4 0%,#1ab97c 100%)',
     '🎉 Your Clinic is Approved!',
     `Welcome to BookMySlot, <strong>${clinicName}</strong>`,
-    `<tr><td style="padding:28px 32px 0">
+    `<tr><td style="padding:28px 32px 16px">
       <p style="margin:0 0 12px;font-size:14px;color:#4a4a6a;line-height:1.6">
-        Congratulations! Your clinic registration has been reviewed and approved by our team. You can now log in to your clinic dashboard and start managing appointments.
+        Congratulations! Your clinic registration has been reviewed and approved by our team.
       </p>
       <p style="margin:0 0 20px;font-size:14px;color:#4a4a6a;line-height:1.6">
         Here are your login credentials. We recommend changing your password after your first login.
@@ -516,8 +547,9 @@ async function sendClinicApprovalEmail(clinicName: string, clinicEmail: string, 
           <td style="padding:12px 16px;font-size:14px;font-weight:700;color:#3e34b4;font-family:monospace">${plainPassword}</td>
         </tr>
       </table>
-      <p style="margin:0 0 20px;font-size:12px;color:#9090aa;">Keep this email safe. Do not share your credentials with anyone.</p>
+      <p style="margin:0 0 4px;font-size:12px;color:#9090aa;">Keep this email safe. Do not share your credentials with anyone.</p>
     </td></tr>
+    ${activationSection}
     <tr><td style="padding:8px 32px 28px">
       ${actionButton('Go to Clinic Dashboard →', loginUrl, '#1ab97c')}
     </td></tr>`
@@ -613,6 +645,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const existing = await storage.getClinic(clinicId);
       if (!existing) return res.status(404).json({ message: "Clinic not found" });
 
+      // Resolve plan and billing cycle — admin can override, otherwise use registration choice
+      const plan: string = req.body.plan || existing.plan || "starter";
+      const billingCycle: string = req.body.billingCycle || existing.billingCycle || "monthly";
+
       // Generate a meaningful username from the clinic name
       const base = existing.name
         .toLowerCase()
@@ -639,16 +675,175 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const passwordHash = await bcrypt.hash(plainPassword, 10);
       await storage.updateClinicCredentials(clinicId, username, passwordHash);
 
-      const clinic = await storage.updateClinic(clinicId, { status: "approved" });
+      // Create Razorpay Subscription if plan IDs are configured
+      let razorpaySubId: string | undefined;
+      let shortUrl: string | undefined;
+      const planId = RAZORPAY_PLAN_IDS[plan]?.[billingCycle];
 
-      // Send approval email with credentials
-      if (existing.email) {
-        await sendClinicApprovalEmail(existing.name, existing.email, username, plainPassword);
+      if (razorpay && planId) {
+        try {
+          const sub = await (razorpay as any).subscriptions.create({
+            plan_id: planId,
+            quantity: 1,
+            total_count: billingCycle === "annual" ? 1 : 12,
+            customer_notify: 0,
+            notes: {
+              clinicId: clinicId.toString(),
+              clinicName: existing.name,
+              plan,
+              billingCycle,
+            },
+          });
+          razorpaySubId = sub.id;
+          shortUrl = sub.short_url;
+          console.log(`[RAZORPAY] Subscription created: ${sub.id} for clinic ${clinicId}`);
+        } catch (err: any) {
+          console.error("[RAZORPAY] Failed to create subscription:", err?.error?.description || err?.message);
+        }
+      } else {
+        if (!razorpay) console.log("[RAZORPAY] Not configured — skipping subscription creation");
+        else console.log(`[RAZORPAY] No plan ID for ${plan}/${billingCycle} — skipping subscription`);
       }
 
+      // Generate an activation token (7-day expiry)
+      const token = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await db.insert(activationTokens).values({
+        token,
+        clinicId,
+        plan,
+        billingCycle,
+        razorpaySubscriptionId: razorpaySubId || null,
+        shortUrl: shortUrl || null,
+        expiresAt,
+        used: false,
+      });
+
+      // Update clinic: status, plan, billingCycle, subscriptionStatus, razorpaySubscriptionId
+      const clinic = await storage.updateClinic(clinicId, {
+        status: "approved",
+        plan,
+        billingCycle,
+        subscriptionStatus: "unpaid",
+        razorpaySubscriptionId: razorpaySubId || null,
+      } as any);
+
+      // Send approval email with credentials and activation link
+      const frontendBase = process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in';
+      const activationUrl = `${frontendBase}/activate/${token}`;
+      const planLabels: Record<string, string> = { starter: "Starter", growth: "Growth", pro: "Pro" };
+      const cycleLabels: Record<string, string> = { monthly: "Monthly", annual: "Annual" };
+      const planLabel = `${planLabels[plan] || plan} — ${cycleLabels[billingCycle] || billingCycle}`;
+
+      if (existing.email) {
+        await sendClinicApprovalEmail(existing.name, existing.email, username, plainPassword, activationUrl, planLabel);
+      }
+
+      res.json({ ...clinic, activationToken: token });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // GET /api/activate/:token — public, used by the activation page
+  app.get("/api/activate/:token", async (req, res) => {
+    try {
+      const [row] = await db.select().from(activationTokens)
+        .where(eq(activationTokens.token, req.params.token))
+        .limit(1);
+      if (!row) return res.status(404).json({ message: "Activation link not found" });
+      if (row.used) return res.status(410).json({ message: "This activation link has already been used" });
+      if (new Date() > row.expiresAt) return res.status(410).json({ message: "This activation link has expired" });
+      const clinic = await storage.getClinic(row.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+      const planPrices: Record<string, Record<string, number>> = {
+        starter: { monthly: 999, annual: 9990 },
+        growth:  { monthly: 1599, annual: 15990 },
+        pro:     { monthly: 2999, annual: 29990 },
+      };
+      res.json({
+        clinicName: clinic.name,
+        plan: row.plan,
+        billingCycle: row.billingCycle,
+        price: planPrices[row.plan]?.[row.billingCycle] ?? 999,
+        shortUrl: row.shortUrl,
+        razorpaySubscriptionId: row.razorpaySubscriptionId,
+        razorpayKeyId: process.env.RAZORPAY_KEY_ID || null,
+        expiresAt: row.expiresAt,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/webhooks/razorpay-subscription — Razorpay calls this on payment events
+  app.post("/api/webhooks/razorpay-subscription", async (req, res) => {
+    try {
+      const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+      if (webhookSecret) {
+        const signature = req.headers['x-razorpay-signature'] as string;
+        const body = JSON.stringify(req.body);
+        const expected = crypto.createHmac("sha256", webhookSecret).update(body).digest("hex");
+        if (signature !== expected) {
+          console.warn("[WEBHOOK] Invalid Razorpay signature");
+          return res.status(400).json({ message: "Invalid signature" });
+        }
+      }
+      const event = req.body?.event as string;
+      const subscriptionId = req.body?.payload?.subscription?.entity?.id as string | undefined;
+      console.log(`[WEBHOOK] Razorpay event: ${event}, subscriptionId: ${subscriptionId}`);
+      if ((event === "subscription.charged" || event === "subscription.activated") && subscriptionId) {
+        const [clinic] = await db.select().from(clinics)
+          .where(eq(clinics.razorpaySubscriptionId, subscriptionId))
+          .limit(1);
+        if (clinic) {
+          await storage.updateClinic(clinic.id, { subscriptionStatus: "active" } as any);
+          await db.update(activationTokens)
+            .set({ used: true })
+            .where(eq(activationTokens.razorpaySubscriptionId, subscriptionId));
+          console.log(`[WEBHOOK] Clinic ${clinic.id} subscription activated`);
+        } else {
+          console.warn(`[WEBHOOK] No clinic found for subscription ${subscriptionId}`);
+        }
+      }
+      res.json({ received: true });
+    } catch (err: any) {
+      console.error("[WEBHOOK] Error:", err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // PATCH /api/clinics/:id/mark-paid — admin manual override
+  app.patch("/api/clinics/:id/mark-paid", isAuthenticated, async (req, res) => {
+    if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Only superusers can mark clinics as paid" });
+    try {
+      const clinicId = parseInt(req.params.id);
+      const clinic = await storage.updateClinic(clinicId, { subscriptionStatus: "active" } as any);
+      await db.update(activationTokens)
+        .set({ used: true })
+        .where(and(eq(activationTokens.clinicId, clinicId), eq(activationTokens.used, false)));
       res.json(clinic);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  });
+
+  // GET /api/clinics/:id/activation-link — returns unexpired activation token URL for a clinic
+  app.get("/api/clinics/:id/activation-link", isAuthenticated, async (req, res) => {
+    try {
+      const clinicId = parseInt(req.params.id);
+      const [row] = await db.select().from(activationTokens)
+        .where(and(
+          eq(activationTokens.clinicId, clinicId),
+          eq(activationTokens.used, false),
+          sql`${activationTokens.expiresAt} > NOW()`
+        ))
+        .limit(1);
+      if (!row) return res.json({ url: null });
+      const frontendBase = process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in';
+      res.json({ url: `${frontendBase}/activate/${row.token}` });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
     }
   });
 

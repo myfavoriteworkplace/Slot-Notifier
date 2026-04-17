@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -387,15 +387,30 @@ export default function Admin() {
     }
   });
 
+  const [approvalPlans, setApprovalPlans] = useState<Record<number, string>>({});
+  const [approvalCycles, setApprovalCycles] = useState<Record<number, string>>({});
+
   const approveClinicMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest('PATCH', `/api/clinics/${id}/approve`);
+    mutationFn: async ({ id, plan, billingCycle }: { id: number; plan: string; billingCycle: string }) => {
+      const res = await apiRequest('PATCH', `/api/clinics/${id}/approve`, { plan, billingCycle });
       if (!res.ok) throw new Error("Failed to approve clinic");
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      toast({ title: "Clinic approved", description: "Login credentials have been generated and sent to the clinic's email address." });
+      toast({ title: "Clinic approved", description: "Credentials and payment activation link have been sent to the clinic." });
+    }
+  });
+
+  const markPaidMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('PATCH', `/api/clinics/${id}/mark-paid`);
+      if (!res.ok) throw new Error("Failed to mark as paid");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      toast({ title: "Marked as paid", description: "Clinic subscription is now active." });
     }
   });
 
@@ -757,6 +772,22 @@ export default function Admin() {
                               <CheckCircle2 className="h-2.5 w-2.5" />
                               Active
                             </span>
+                            {(clinic as any).subscriptionStatus === "active" ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-full">
+                                <CreditCard className="h-2.5 w-2.5" />
+                                Subscribed
+                              </span>
+                            ) : (clinic as any).subscriptionStatus === "pending_payment" ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                                <CreditCard className="h-2.5 w-2.5" />
+                                Payment Pending
+                              </span>
+                            ) : null}
+                            {(clinic as any).plan && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted border border-border/60 px-2 py-0.5 rounded-full capitalize">
+                                {(clinic as any).plan}
+                              </span>
+                            )}
                           </div>
 
                           {/* Location row */}
@@ -829,6 +860,19 @@ export default function Admin() {
                             <Key className="h-3.5 w-3.5 mr-1" />
                             Creds
                           </Button>
+                          {(clinic as any).subscriptionStatus !== "active" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs border-blue-400/50 text-blue-600 hover:bg-blue-500/10 dark:text-blue-400"
+                              onClick={() => markPaidMutation.mutate(clinic.id)}
+                              disabled={markPaidMutation.isPending}
+                              data-testid={`button-mark-paid-${clinic.id}`}
+                            >
+                              <CreditCard className="h-3.5 w-3.5" />
+                              Mark Paid
+                            </Button>
+                          )}
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={() => archiveClinicMutation.mutate(clinic.id)}>
                             <Archive className="h-4 w-4" />
                           </Button>
@@ -967,9 +1011,32 @@ export default function Admin() {
 
                         {/* Action buttons */}
                         <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                          <select
+                            value={approvalPlans[clinic.id] ?? (clinic.plan || "starter")}
+                            onChange={e => setApprovalPlans(p => ({ ...p, [clinic.id]: e.target.value }))}
+                            className="h-8 rounded-md border border-border/60 bg-background text-xs px-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                            data-testid={`select-plan-${clinic.id}`}
+                          >
+                            <option value="starter">Starter</option>
+                            <option value="growth">Growth</option>
+                            <option value="pro">Pro</option>
+                          </select>
+                          <select
+                            value={approvalCycles[clinic.id] ?? "monthly"}
+                            onChange={e => setApprovalCycles(p => ({ ...p, [clinic.id]: e.target.value }))}
+                            className="h-8 rounded-md border border-border/60 bg-background text-xs px-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                            data-testid={`select-cycle-${clinic.id}`}
+                          >
+                            <option value="monthly">Monthly</option>
+                            <option value="annual">Annual</option>
+                          </select>
                           <Button
                             size="sm"
-                            onClick={() => approveClinicMutation.mutate(clinic.id)}
+                            onClick={() => approveClinicMutation.mutate({
+                              id: clinic.id,
+                              plan: approvalPlans[clinic.id] ?? (clinic.plan || "starter"),
+                              billingCycle: approvalCycles[clinic.id] ?? "monthly",
+                            })}
                             disabled={approveClinicMutation.isPending}
                             className="h-8 gap-1.5 text-xs"
                           >
@@ -1322,10 +1389,42 @@ export default function Admin() {
                                 <div className="px-4 py-2.5 bg-muted/40 border-b border-border/40">
                                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Admin Decision</p>
                                 </div>
-                                <div className="p-4 grid grid-cols-3 gap-2">
+                                <div className="p-4 space-y-3">
+                                  <div className="flex gap-2">
+                                    <div className="flex-1">
+                                      <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground block mb-1">Plan</label>
+                                      <select
+                                        value={approvalPlans[clinic.id] ?? (clinic.plan || "starter")}
+                                        onChange={e => setApprovalPlans(p => ({ ...p, [clinic.id]: e.target.value }))}
+                                        className="w-full h-8 rounded-md border border-border/60 bg-background text-xs px-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                                        data-testid={`select-plan-expanded-${clinic.id}`}
+                                      >
+                                        <option value="starter">Starter — ₹999/mo</option>
+                                        <option value="growth">Growth — ₹1,599/mo</option>
+                                        <option value="pro">Pro — ₹2,999/mo</option>
+                                      </select>
+                                    </div>
+                                    <div className="flex-1">
+                                      <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground block mb-1">Billing</label>
+                                      <select
+                                        value={approvalCycles[clinic.id] ?? "monthly"}
+                                        onChange={e => setApprovalCycles(p => ({ ...p, [clinic.id]: e.target.value }))}
+                                        className="w-full h-8 rounded-md border border-border/60 bg-background text-xs px-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                                        data-testid={`select-cycle-expanded-${clinic.id}`}
+                                      >
+                                        <option value="monthly">Monthly</option>
+                                        <option value="annual">Annual (2 months free)</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                <div className="grid grid-cols-3 gap-2">
                                   <Button
                                     size="sm"
-                                    onClick={() => approveClinicMutation.mutate(clinic.id)}
+                                    onClick={() => approveClinicMutation.mutate({
+                                      id: clinic.id,
+                                      plan: approvalPlans[clinic.id] ?? (clinic.plan || "starter"),
+                                      billingCycle: approvalCycles[clinic.id] ?? "monthly",
+                                    })}
                                     disabled={approveClinicMutation.isPending}
                                     className="h-9 gap-1.5 text-xs"
                                     data-testid={`button-approve-clinic-${clinic.id}`}
@@ -1354,6 +1453,7 @@ export default function Admin() {
                                     <X className="h-3.5 w-3.5" />
                                     Reject
                                   </Button>
+                                </div>
                                 </div>
                               </div>
 

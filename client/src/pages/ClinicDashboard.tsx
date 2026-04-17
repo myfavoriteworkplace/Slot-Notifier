@@ -15,7 +15,7 @@ import {
   Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X,
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText,
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
-  Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package
+  Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, CreditCard
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -1255,6 +1255,29 @@ export default function ClinicDashboard() {
 
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
+
+      {/* Subscription payment pending banner */}
+      {(clinic as any)?.subscriptionStatus === "pending_payment" && (
+        <div className="mb-5 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-4 py-3.5">
+          <div className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-amber-400/20 flex items-center justify-center">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Subscription payment pending</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+              Your clinic is approved but your subscription is not yet active. Check your email for an activation link to complete payment, or contact support.
+            </p>
+          </div>
+          <a
+            href="mailto:support@bookmyslot.in"
+            className="shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 transition-colors mt-0.5"
+            data-testid="link-subscription-support"
+          >
+            <CreditCard className="h-3.5 w-3.5" />
+            Contact support
+          </a>
+        </div>
+      )}
 
       {/* Page Header */}
       <div className="rounded-2xl overflow-hidden shadow-xl mb-6 sm:mb-8 border border-white/10">
