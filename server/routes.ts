@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sql, eq, and } from "drizzle-orm";
+import { sql, eq, and, gte, lte } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
 import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens } from "@shared/schema";
 import { z } from "zod";
@@ -1293,6 +1293,77 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       console.error('[PUBLIC BOOKING ERROR]', err.message);
       res.status(500).json({ message: "Failed to create booking" });
+    }
+  });
+
+  // ── PUBLIC: Slot booking counts per time slot ────────────────────────────
+  app.post("/api/public/slot-availability", async (req, res) => {
+    try {
+      const { clinicId, slots: requestedSlots } = req.body;
+      if (!clinicId || !Array.isArray(requestedSlots)) {
+        return res.status(400).json({ message: "clinicId and slots array required" });
+      }
+      const clinic = await storage.getClinic(parseInt(clinicId));
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+      const results = await Promise.all(
+        requestedSlots.map(async (s: { slotIndex: number; label: string; startTimeISO: string }) => {
+          const startTime  = new Date(s.startTimeISO);
+          const startWindow = new Date(startTime.getTime() - 60_000);
+          const endWindow   = new Date(startTime.getTime() + 60_000);
+
+          // Look for a clinic-admin-configured slot (isBooked = false) to get maxBookings / isCancelled
+          const [configSlot] = await db.select().from(slots)
+            .where(and(
+              eq(slots.clinicId, clinic.id),
+              eq(slots.isBooked, false),
+              gte(slots.startTime, startWindow),
+              lte(slots.startTime, endWindow),
+            ))
+            .limit(1);
+
+          const max         = configSlot?.maxBookings ?? 3;
+          const isCancelled = configSlot?.isCancelled ?? false;
+          const count       = await storage.countVerifiedBookingsForClinicTime(clinic.id, clinic.name, startTime);
+          const spotsLeft   = Math.max(0, max - count);
+
+          return { slotIndex: s.slotIndex, label: s.label, startTimeISO: s.startTimeISO, count, max, isCancelled, spotsLeft };
+        }),
+      );
+
+      res.json(results);
+    } catch (err: any) {
+      console.error("[SLOT AVAILABILITY ERROR]", err.message);
+      res.status(500).json({ message: "Failed to get slot availability" });
+    }
+  });
+
+  // ── PUBLIC: Doctor leave check for a clinic on a date ────────────────────
+  app.get("/api/public/clinic-availability", async (req, res) => {
+    try {
+      const { clinicId, date } = req.query as { clinicId?: string; date?: string };
+      if (!clinicId || !date) {
+        return res.status(400).json({ message: "clinicId and date required" });
+      }
+      const clinic = await storage.getClinic(parseInt(clinicId));
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+      const clinicDocs = await storage.getClinicDoctors(parseInt(clinicId));
+      if (clinicDocs.length === 0) {
+        // No registered doctors — can't determine leave, don't block
+        return res.json({ hasAnyAvailable: true, totalDoctors: 0, onLeaveCount: 0 });
+      }
+
+      const doctorIds = clinicDocs.map((d: any) => d.id);
+      const leaves    = await storage.getDoctorLeavesOnDate(date, doctorIds);
+      res.json({
+        hasAnyAvailable: leaves.length < clinicDocs.length,
+        totalDoctors:    clinicDocs.length,
+        onLeaveCount:    leaves.length,
+      });
+    } catch (err: any) {
+      console.error("[CLINIC AVAILABILITY ERROR]", err.message);
+      res.status(500).json({ message: "Failed to check clinic availability" });
     }
   });
 

@@ -6,10 +6,10 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CalendarDays, CheckCircle2, Building2, User, Phone, Mail,
   MapPin, Sun, Moon, Clock, Shield, Sparkles, Search, Stethoscope, X, ChevronDown,
-  CreditCard, ClipboardCheck, Info, Lock,
+  CreditCard, ClipboardCheck, Info, Lock, AlertTriangle,
 } from "lucide-react";
 import ClinicInfoSheet from "@/components/ClinicInfoSheet";
-import type { Clinic, Slot } from "@shared/schema";
+import type { Clinic } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -250,7 +250,41 @@ export default function Book(props: { params: { clinicId?: string } }) {
     }
   }, [clinicIdFromUrl, clinics]);
 
-  const { data: slots } = useQuery<Slot[]>({ queryKey: ["/api/slots"] });
+  const selectedClinicId = clinicsData?.find(c => c.name === selectedClinic)?.id;
+  const isRealClinic     = !!selectedClinic && selectedClinic !== "Demo Smile Clinic" && !!selectedClinicId;
+  const availabilityDate = format(selectedDate, "yyyy-MM-dd");
+
+  type SlotAvailRow = {
+    slotIndex: number; label: string; startTimeISO: string;
+    count: number; max: number; isCancelled: boolean; spotsLeft: number;
+  };
+  const { data: slotAvailability, isFetching: slotAvailFetching } = useQuery<SlotAvailRow[]>({
+    queryKey: ["slot-availability", selectedClinic, availabilityDate, slotTimings.map(s => s.id).join(",")],
+    enabled: isRealClinic,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const payload = slotTimings.map((s, i) => {
+        const st = new Date(selectedDate);
+        st.setHours(s.startHour, s.startMinute, 0, 0);
+        return { slotIndex: i, label: s.label, startTimeISO: st.toISOString() };
+      });
+      const res = await apiRequest("POST", "/api/public/slot-availability", { clinicId: selectedClinicId, slots: payload });
+      if (!res.ok) throw new Error("Failed to fetch slot availability");
+      return res.json();
+    },
+  });
+
+  type ClinicAvail = { hasAnyAvailable: boolean; totalDoctors: number; onLeaveCount: number };
+  const { data: clinicAvailability } = useQuery<ClinicAvail>({
+    queryKey: ["clinic-availability", selectedClinic, availabilityDate],
+    enabled: isRealClinic,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/public/clinic-availability?clinicId=${selectedClinicId}&date=${availabilityDate}`);
+      if (!res.ok) throw new Error("Failed to check clinic availability");
+      return res.json();
+    },
+  });
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -875,20 +909,13 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           return current >= max;
                         });
                       } else {
-                        isDayFull = slotTimings.every(slot => {
-                          const slotTime = new Date(date);
-                          slotTime.setHours(slot.startHour, slot.startMinute, 0, 0);
-                          const iso    = slotTime.toISOString();
-                          const slotData = slots?.find(s =>
-                            new Date(s.startTime).toISOString() === iso && s.clinicName === selectedClinic
-                          );
-                          if (slotData?.isCancelled) return true;
-                          const max     = slotData?.maxBookings ?? 3;
-                          const current = slots?.filter(s =>
-                            new Date(s.startTime).toISOString() === iso && s.clinicName === selectedClinic && s.isBooked
-                          ).length || 0;
-                          return current >= max;
-                        });
+                        // For real clinics we only have live availability for the currently selected date.
+                        // Mark that date accurately; other dates stay green (checked in Step 2).
+                        if (isSameDay(date, selectedDate) && slotAvailability) {
+                          isDayFull = slotAvailability.every(s => s.spotsLeft === 0 || s.isCancelled);
+                        } else {
+                          isDayFull = false;
+                        }
                       }
 
                       return (
@@ -1427,7 +1454,31 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       </button>
                     </div>
 
-                    {slotTimings.map(slot => {
+                    {/* ── Doctor on-leave soft warning ── */}
+                    {isRealClinic && clinicAvailability && !clinicAvailability.hasAnyAvailable && (
+                      <div className="flex items-start gap-3 p-3 rounded-xl border border-amber-400/30 bg-amber-500/8 animate-in fade-in duration-300">
+                        <div className="h-8 w-8 rounded-lg bg-amber-500/15 border border-amber-400/25 flex items-center justify-center shrink-0 mt-0.5">
+                          <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-amber-700">All doctors on leave today</p>
+                          <p className="text-[11px] text-amber-600/80 mt-0.5 leading-relaxed">
+                            All {clinicAvailability.totalDoctors} doctor{clinicAvailability.totalDoctors !== 1 ? "s" : ""} at this clinic are on leave on {format(selectedDate, "MMM d")}. You can still book — the clinic will manage your appointment.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Loading shimmer while fetching availability ── */}
+                    {isRealClinic && slotAvailFetching && !slotAvailability && (
+                      <div className="space-y-2">
+                        {[0, 1, 2].map(i => (
+                          <div key={i} className="h-[72px] rounded-2xl border border-border/40 bg-muted/30 animate-pulse" />
+                        ))}
+                      </div>
+                    )}
+
+                    {slotTimings.map((slot, slotIdx) => {
                       const startTime = new Date(selectedDate);
                       startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
                       const iso = startTime.toISOString();
@@ -1450,11 +1501,12 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         ).length;
                         isSlotFull = currentCount >= maxBookings;
                       } else {
-                        const slotData  = slots?.find(s => new Date(s.startTime).toISOString() === iso && s.clinicName === selectedClinic);
-                        maxBookings     = slotData?.maxBookings ?? 3;
-                        isSlotCancelled = slotData?.isCancelled ?? false;
-                        currentCount    = slots?.filter(s => new Date(s.startTime).toISOString() === iso && s.clinicName === selectedClinic && s.isBooked).length || 0;
-                        isSlotFull      = currentCount >= maxBookings;
+                        // Use live data from the public slot-availability API
+                        const avail = slotAvailability?.find(a => a.slotIndex === slotIdx);
+                        maxBookings     = avail?.max ?? 3;
+                        isSlotCancelled = avail?.isCancelled ?? false;
+                        currentCount    = avail?.count ?? 0;
+                        isSlotFull      = avail ? avail.spotsLeft === 0 : false;
                       }
 
                       if (isSlotCancelled) return null;
@@ -1510,8 +1562,37 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       );
                     })}
 
+                    {/* ── ALL SLOTS FULL: inline calendar to change date ── */}
+                    {(() => {
+                      const allSlotsFull = isRealClinic && slotAvailability
+                        ? slotAvailability.every(s => s.spotsLeft === 0 || s.isCancelled)
+                        : false;
+                      if (!allSlotsFull) return null;
+                      return (
+                        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 overflow-hidden animate-in fade-in duration-300">
+                          <div className="flex items-center gap-2 px-4 py-3 border-b border-destructive/15 bg-destructive/8">
+                            <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                            <div>
+                              <p className="text-sm font-bold text-destructive">No slots available on {format(selectedDate, "EEEE, MMM d")}</p>
+                              <p className="text-[11px] text-destructive/70">Pick another date — your details and verification are saved.</p>
+                            </div>
+                          </div>
+                          <div className="flex justify-center p-3">
+                            <Calendar
+                              mode="single"
+                              selected={selectedDate}
+                              onSelect={d => { if (d) { setSelectedDate(d); setSelectedSlot(null); } }}
+                              disabled={d => d < startOfToday()}
+                              initialFocus
+                              className="rounded-xl"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {/* ── TWO BOOKING OPTIONS ──────────────────────── */}
-                    {selectedClinic !== "Demo Smile Clinic" && (
+                    {selectedClinic !== "Demo Smile Clinic" && !(isRealClinic && slotAvailability?.every(s => s.spotsLeft === 0 || s.isCancelled)) && (
                       <div className="mt-3 space-y-2.5">
                         {/* Divider */}
                         <div className="flex items-center gap-2">
