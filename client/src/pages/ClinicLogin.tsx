@@ -19,6 +19,9 @@ import {
   Package,
   FileText,
   AlertCircle,
+  KeyRound,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 import { Link } from "wouter";
 import logoPath from "@assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png";
@@ -33,6 +36,11 @@ export default function ClinicLogin() {
   const [showClinicPassword, setShowClinicPassword] = useState(false);
   const [showDoctorPassword, setShowDoctorPassword] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
+
+  const [forgotModal, setForgotModal] = useState<"clinic" | "doctor" | null>(null);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotStatus, setForgotStatus] = useState<"idle" | "sending" | "sent">("idle");
+  const [forgotError, setForgotError] = useState("");
 
   const { login: clinicLogin, isLoggingIn: isClinicLoggingIn, isAuthenticated: isClinicAuthenticated } = useClinicAuth();
   const { login: doctorLogin, isLoggingIn: isDoctorLoggingIn, isAuthenticated: isDoctorAuthenticated } = useDoctorAuth();
@@ -97,6 +105,41 @@ export default function ClinicLogin() {
     }
   };
 
+  const openForgot = (type: "clinic" | "doctor") => {
+    setForgotEmail("");
+    setForgotStatus("idle");
+    setForgotError("");
+    setForgotModal(type);
+  };
+
+  const closeForgot = () => {
+    setForgotModal(null);
+    setForgotStatus("idle");
+    setForgotEmail("");
+    setForgotError("");
+  };
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotModal) return;
+    setForgotError("");
+    setForgotStatus("sending");
+    try {
+      const endpoint = forgotModal === "clinic"
+        ? "/api/auth/clinic/forgot-password"
+        : "/api/auth/doctor/forgot-password";
+      await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      setForgotStatus("sent");
+    } catch {
+      setForgotError("Unable to connect. Please check your connection.");
+      setForgotStatus("idle");
+    }
+  };
+
   const handleDoctorDemo = async () => {
     setError("");
     setDoctorEmail("demo.doctor@bookmyslot.in");
@@ -137,6 +180,7 @@ export default function ClinicLogin() {
   ];
 
   return (
+    <>
     <div className="flex h-screen overflow-hidden bg-background">
 
       {/* ═══════════════ LEFT PANEL ═══════════════ */}
@@ -351,7 +395,11 @@ export default function ClinicLogin() {
 
               {/* Forgot password */}
               <div className="flex justify-end -mt-1">
-                <span className="text-[12px] font-semibold text-primary cursor-pointer hover:opacity-75 transition-opacity">
+                <span
+                  className="text-[12px] font-semibold text-primary cursor-pointer hover:opacity-75 transition-opacity"
+                  onClick={() => openForgot("clinic")}
+                  data-testid="link-clinic-forgot-password"
+                >
                   Forgot password?
                 </span>
               </div>
@@ -472,7 +520,11 @@ export default function ClinicLogin() {
 
               {/* Forgot password */}
               <div className="flex justify-end -mt-1">
-                <span className="text-[12px] font-semibold text-primary cursor-pointer hover:opacity-75 transition-opacity">
+                <span
+                  className="text-[12px] font-semibold text-primary cursor-pointer hover:opacity-75 transition-opacity"
+                  onClick={() => openForgot("doctor")}
+                  data-testid="link-doctor-forgot-password"
+                >
                   Forgot password?
                 </span>
               </div>
@@ -544,5 +596,99 @@ export default function ClinicLogin() {
         </div>
       </div>
     </div>
+
+    {/* ── FORGOT PASSWORD MODAL ── */}
+    {forgotModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 backdrop-blur-sm"
+        onClick={(e) => { if (e.target === e.currentTarget) closeForgot(); }}
+        data-testid="overlay-forgot-password"
+      >
+        <div className="w-full max-w-sm bg-card rounded-2xl border border-border/60 shadow-2xl p-6 space-y-5 relative">
+
+          {/* Close */}
+          <button
+            type="button"
+            onClick={closeForgot}
+            className="absolute top-4 right-4 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            data-testid="button-close-forgot"
+          >
+            <X className="h-4 w-4" />
+          </button>
+
+          {/* Icon + title */}
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              {forgotStatus === "sent"
+                ? <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                : <KeyRound className="h-5 w-5 text-primary" />}
+            </div>
+            <div>
+              <p className="text-[14px] font-bold text-foreground leading-none mb-0.5">
+                {forgotStatus === "sent" ? "Check your inbox" : "Forgot password?"}
+              </p>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                {forgotModal === "clinic" ? "Clinic account recovery" : "Doctor account recovery"}
+              </p>
+            </div>
+          </div>
+
+          {/* Sent state */}
+          {forgotStatus === "sent" ? (
+            <div className="space-y-4">
+              <p className="text-[13px] text-muted-foreground leading-relaxed">
+                If <strong className="text-foreground">{forgotEmail}</strong> is registered, you'll receive a reset link within a few minutes. Check your spam folder if you don't see it.
+              </p>
+              <Button className="w-full h-10 font-semibold" onClick={closeForgot} data-testid="button-done-forgot">
+                Done
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleForgotSubmit} className="space-y-4">
+              <p className="text-[13px] text-muted-foreground leading-relaxed">
+                Enter your registered email address and we'll send you a link to reset your password.
+              </p>
+
+              {/* Email field */}
+              <div className="flex items-center rounded-xl border border-border/70 bg-background focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
+                <div className="flex items-center justify-center h-10 w-10 shrink-0 border-r border-border/50 bg-muted/40">
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  required
+                  autoFocus
+                  className="flex-1 h-10 bg-transparent border-0 outline-none pl-3 pr-3 text-[13.5px] text-foreground placeholder:text-muted-foreground"
+                  data-testid="input-forgot-email"
+                />
+              </div>
+
+              {/* Error */}
+              {forgotError && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-destructive/8 border border-destructive/20">
+                  <AlertCircle className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" />
+                  <span className="text-[12px] text-destructive leading-snug">{forgotError}</span>
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full h-10 font-semibold"
+                disabled={forgotStatus === "sending"}
+                data-testid="button-send-reset-link"
+              >
+                {forgotStatus === "sending"
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending…</>
+                  : "Send Reset Link"}
+              </Button>
+            </form>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   );
 }

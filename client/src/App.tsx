@@ -26,6 +26,7 @@ import RegisterClinic from "@/pages/RegisterClinic";
 import ConsentForm from "@/pages/ConsentForm";
 import Pricing from "@/pages/Pricing";
 import Activate from "@/pages/Activate";
+import ResetPassword from "@/pages/ResetPassword";
 
 function HealthIndicator() {
   const { isAuthenticated: isUserAuth } = useAuth();
@@ -145,6 +146,7 @@ function Router() {
       <Route path="/doctor/:id" component={DoctorPublicProfile} />
       <Route path="/consent/:token" component={ConsentForm} />
       <Route path="/activate/:token" component={Activate} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -566,6 +566,75 @@ async function sendClinicApprovalEmail(
   }
 }
 
+async function sendPasswordResetEmail(toEmail: string, resetUrl: string, userType: "clinic" | "doctor") {
+  const label = userType === "clinic" ? "Clinic Account" : "Doctor Account";
+  const finalEmail = RESEND_MODE === 'PRODUCTION' ? toEmail : TEST_EMAIL;
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Password reset for ${toEmail}: ${resetUrl}`);
+    return;
+  }
+  const html = emailShell(
+    'linear-gradient(90deg,#3e34b4 0%,#1ab97c 100%)',
+    '🔐 Reset Your Password',
+    `Password reset request for your <strong>${label}</strong>`,
+    `<tr><td style="padding:28px 32px 8px">
+      <p style="margin:0 0 12px;font-size:14px;color:#4a4a6a;line-height:1.6">
+        We received a request to reset the password for your BookMySlot ${label}.
+        Click the button below to choose a new password.
+      </p>
+      <p style="margin:0 0 20px;font-size:13px;color:#9090aa;line-height:1.5">
+        This link expires in <strong>30 minutes</strong>. If you did not request a password reset, you can safely ignore this email — your password will not change.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px">
+      ${actionButton('Reset My Password →', resetUrl, '#3e34b4')}
+    </td></tr>`
+  );
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: finalEmail,
+      subject: `Reset your BookMySlot ${label} password`,
+      html,
+    });
+  } catch (err) {
+    console.error('[EMAIL ERROR] Failed to send password reset email:', err);
+  }
+}
+
+async function sendPasswordChangedEmail(toEmail: string, userType: "clinic" | "doctor") {
+  const label = userType === "clinic" ? "Clinic Account" : "Doctor Account";
+  const finalEmail = RESEND_MODE === 'PRODUCTION' ? toEmail : TEST_EMAIL;
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Password changed confirmation for ${toEmail}`);
+    return;
+  }
+  const html = emailShell(
+    'linear-gradient(90deg,#1ab97c 0%,#3e34b4 100%)',
+    '✅ Password Changed',
+    `Your <strong>${label}</strong> password was updated`,
+    `<tr><td style="padding:28px 32px 28px">
+      <p style="margin:0 0 12px;font-size:14px;color:#4a4a6a;line-height:1.6">
+        Your BookMySlot ${label} password was successfully changed.
+      </p>
+      <p style="margin:0;font-size:13px;color:#9090aa;line-height:1.5">
+        If you did not make this change, please contact support immediately at
+        <a href="mailto:support@bookmyslot.in" style="color:#3e34b4;">support@bookmyslot.in</a>.
+      </p>
+    </td></tr>`
+  );
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: finalEmail,
+      subject: `Your BookMySlot ${label} password was changed`,
+      html,
+    });
+  } catch (err) {
+    console.error('[EMAIL ERROR] Failed to send password changed email:', err);
+  }
+}
+
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   const isAdmin = (req: any, res: any, next: any) => {
     const sess = req.session as any;
@@ -1521,6 +1590,102 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }));
     } catch (error: any) {
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // POST /api/auth/clinic/forgot-password — send reset link to clinic's registered email
+  app.post("/api/auth/clinic/forgot-password", async (req, res) => {
+    const { email } = req.body;
+    // Always respond with neutral message to prevent email enumeration
+    res.json({ message: "If this email is registered, you will receive a reset link shortly." });
+    if (!email) return;
+    try {
+      const [clinic] = await db.select().from(clinics)
+        .where(eq(clinics.email, email.toLowerCase().trim()))
+        .limit(1);
+      if (!clinic || clinic.isArchived || !clinic.passwordHash) return;
+      const rawToken = crypto.randomUUID();
+      const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+      await db.delete(emailOtps).where(
+        and(eq(emailOtps.email, email.toLowerCase().trim()), eq(emailOtps.purpose, "clinic_password_reset"))
+      );
+      await db.insert(emailOtps).values({
+        email: email.toLowerCase().trim(),
+        otpHash: tokenHash,
+        expiresAt,
+        verified: false,
+        purpose: "clinic_password_reset",
+      });
+      const frontendBase = process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in';
+      const resetUrl = `${frontendBase}/reset-password?token=${rawToken}&type=clinic`;
+      await sendPasswordResetEmail(email, resetUrl, "clinic");
+    } catch (err: any) {
+      console.error("[FORGOT PASSWORD] Clinic error:", err.message);
+    }
+  });
+
+  // POST /api/auth/doctor/forgot-password — send reset link to doctor's email
+  app.post("/api/auth/doctor/forgot-password", async (req, res) => {
+    const { email } = req.body;
+    res.json({ message: "If this email is registered, you will receive a reset link shortly." });
+    if (!email) return;
+    try {
+      const doctor = await storage.getDoctorByEmail(email.toLowerCase().trim());
+      if (!doctor || !doctor.passwordHash) return;
+      const rawToken = crypto.randomUUID();
+      const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      await db.delete(emailOtps).where(
+        and(eq(emailOtps.email, email.toLowerCase().trim()), eq(emailOtps.purpose, "doctor_password_reset"))
+      );
+      await db.insert(emailOtps).values({
+        email: email.toLowerCase().trim(),
+        otpHash: tokenHash,
+        expiresAt,
+        verified: false,
+        purpose: "doctor_password_reset",
+      });
+      const frontendBase = process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in';
+      const resetUrl = `${frontendBase}/reset-password?token=${rawToken}&type=doctor`;
+      await sendPasswordResetEmail(email, resetUrl, "doctor");
+    } catch (err: any) {
+      console.error("[FORGOT PASSWORD] Doctor error:", err.message);
+    }
+  });
+
+  // POST /api/auth/reset-password — validate token and set new password
+  app.post("/api/auth/reset-password", async (req, res) => {
+    const { token, type, newPassword } = req.body;
+    if (!token || !type || !newPassword) return res.status(400).json({ message: "Token, type, and new password are required." });
+    if (!["clinic", "doctor"].includes(type)) return res.status(400).json({ message: "Invalid type." });
+    if (newPassword.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters." });
+    try {
+      const purpose = type === "clinic" ? "clinic_password_reset" : "doctor_password_reset";
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      const [row] = await db.select().from(emailOtps)
+        .where(and(eq(emailOtps.otpHash, tokenHash), eq(emailOtps.purpose, purpose), eq(emailOtps.verified, false)))
+        .limit(1);
+      if (!row) return res.status(400).json({ message: "This reset link is invalid or has already been used." });
+      if (new Date() > row.expiresAt) return res.status(410).json({ message: "This reset link has expired. Please request a new one." });
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      if (type === "clinic") {
+        const [clinic] = await db.select().from(clinics)
+          .where(eq(clinics.email, row.email))
+          .limit(1);
+        if (!clinic) return res.status(404).json({ message: "Account not found." });
+        await storage.updateClinic(clinic.id, { passwordHash } as any);
+      } else {
+        const doctor = await storage.getDoctorByEmail(row.email);
+        if (!doctor) return res.status(404).json({ message: "Account not found." });
+        await db.update(doctors).set({ passwordHash }).where(eq(doctors.id, doctor.id));
+      }
+      await db.update(emailOtps).set({ verified: true }).where(eq(emailOtps.id, row.id));
+      await sendPasswordChangedEmail(row.email, type);
+      res.json({ message: "Password updated successfully." });
+    } catch (err: any) {
+      console.error("[RESET PASSWORD] Error:", err.message);
+      res.status(500).json({ message: "Something went wrong. Please try again." });
     }
   });
 
