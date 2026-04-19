@@ -396,120 +396,185 @@ export default function Landing() {
               ))}
             </div>
 
-            {/* Clinic Dashboard Mockup */}
-            <motion.div {...fadeUp(0.1)} style={{ background: "linear-gradient(135deg,#071510,#0D1F16)", borderRadius: 20, border: "1px solid rgba(15,155,110,.2)", overflow: "hidden", position: "relative" }}>
-              <div style={{ position: "absolute", top: -60, right: -60, width: 220, height: 220, borderRadius: "50%", background: "radial-gradient(circle,rgba(15,155,110,.1),transparent 70%)", pointerEvents: "none" }} />
-              {/* App chrome */}
-              <div style={{ background: "rgba(15,155,110,.18)", borderBottom: "1px solid rgba(15,155,110,.15)", padding: "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
-                <div style={{ display: "flex", gap: 5 }}>{[0,1,2].map(i=><div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: i===0?"#ff5f5780":i===1?"#ffbd2e80":"rgba(255,255,255,.18)" }}/>)}</div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.8)", letterSpacing: ".01em" }}>Clinic Dashboard</div>
-                <div style={{ fontSize: 10, color: "#1DB887", fontWeight: 700 }}>● Live</div>
+            {/* Clinic Dashboard Mockup — light-themed, mirrors real ClinicDashboard.tsx */}
+            <motion.div {...fadeUp(0.1)} style={{ borderRadius: 20, overflow: "hidden", boxShadow: "0 20px 70px rgba(10,31,22,.12)", border: "1px solid rgba(15,155,110,.15)" }}>
+
+              {/* Browser chrome bar */}
+              <div style={{ background: "#f3f4f6", borderBottom: "1px solid #e5e7eb", padding: "7px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", gap: 4 }}>{["#ff5f57","#febc2e","#27c840"].map((bg,i)=><div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: bg }}/>)}</div>
+                <div style={{ flex: 1, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 5, padding: "3px 10px", fontSize: 9, color: "#9ca3af" }}>bookmyslot.in/clinic-dashboard</div>
               </div>
 
-              {/* Screen content */}
-              <div style={{ padding: "18px 20px 10px", minHeight: 188, position: "relative", zIndex: 1 }}>
+              {/* App gradient header — matches from-primary/90 via-primary to-accent/80 */}
+              <div style={{ background: "linear-gradient(to right, #085041, #0F9B6E, #1D9E75)", padding: "11px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 26, height: 26, borderRadius: 8, background: "rgba(255,255,255,.2)", border: "2px solid rgba(255,255,255,.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🦷</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#fff" }}>bookMySlot <span style={{ fontWeight: 400, opacity: .6 }}>Dental</span></div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#4ade80", display: "inline-block" }}/>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.8)", letterSpacing: ".06em" }}>LIVE</span>
+                </div>
+                <div style={{ background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.2)", borderRadius: 6, padding: "3px 10px", fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,.7)", backdropFilter: "blur(8px)", marginLeft: 10 }}>Log out</div>
+              </div>
 
-                {clinicStep === 0 && (
-                  <div key="cl-0" style={{ animation: "screenIn .35s ease forwards" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(93,202,165,.65)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Today's Bookings · 3</div>
-                    {[
-                      { name: "Anand K.",  time: "2:00 PM", doc: "Dr. Priya",   status: "Confirmed", c: "#0F9B6E" },
-                      { name: "Meera R.",  time: "3:30 PM", doc: "Unassigned",  status: "Pending",   c: "#F0A050" },
-                      { name: "Ravi S.",   time: "4:00 PM", doc: "Dr. Priya",   status: "Confirmed", c: "#0F9B6E" },
-                    ].map(b => (
-                      <div key={b.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)", marginBottom: 7 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${b.c}28`, color: b.c, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{b.name[0]}</div>
+              {/* Clinic nameplate strip — matches bg-black/25 backdrop-blur-sm */}
+              <div style={{ background: "rgba(8,80,65,.88)", padding: "5px 16px", textAlign: "center" }}>
+                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: ".18em", color: "rgba(255,255,255,.65)", textTransform: "uppercase" }}>[ SUNRISE DENTAL CLINIC ]</span>
+              </div>
+              <div style={{ height: 2, background: "linear-gradient(to right,#1D9E75,#0F9B6E,#1D9E75)", opacity: .45 }}/>
+
+              {/* Two-column layout: sidebar + main content */}
+              <div style={{ display: "flex", background: "#F8F9F7" }}>
+
+                {/* Sidebar — mirrors w-56 rounded-2xl border bg-card with colour-coded nav items */}
+                <div style={{ width: 162, background: "#fff", borderRight: "1px solid #f0f0f0", padding: "10px 7px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 1 }}>
+                  {[
+                    { l: "Bookings",        s: "All appointments",  on: [0,3], cl: "#0F9B6E", bg: "rgba(15,155,110,.08)", bd: "rgba(15,155,110,.2)"  },
+                    { l: "Configure Slots", s: "Capacity & timing", on: [1],   cl: "#3b82f6", bg: "rgba(59,130,246,.08)", bd: "rgba(59,130,246,.2)"  },
+                    { l: "Manage Doctors",  s: "Add or remove",     on: [2],   cl: "#14b8a6", bg: "rgba(20,184,166,.08)", bd: "rgba(20,184,166,.2)"  },
+                    { l: "Clinic Profile",  s: "Edit public page",  on: [],    cl: "#8b5cf6", bg: "rgba(139,92,246,.08)", bd: "rgba(139,92,246,.2)"  },
+                    { l: "Export Data",     s: "Download records",  on: [],    cl: "#f59e0b", bg: "rgba(245,158,11,.08)", bd: "rgba(245,158,11,.2)"  },
+                    { l: "Inventory",       s: "Stock & alerts",    on: [],    cl: "#10b981", bg: "rgba(16,185,129,.08)", bd: "rgba(16,185,129,.2)"  },
+                  ].map(item => {
+                    const active = (item.on as number[]).includes(clinicStep);
+                    return (
+                      <div key={item.l} style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 7px", borderRadius: 9, background: active ? item.bg : "transparent", border: `1px solid ${active ? item.bd : "transparent"}` }}>
+                        <div style={{ width: 24, height: 24, borderRadius: 7, background: active ? item.bg : "rgba(0,0,0,.04)", border: `1px solid ${active ? item.bd : "#e5e7eb"}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ width: 8, height: 8, borderRadius: 2, background: active ? item.cl : "#d1d5db" }}/>
+                        </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(232,245,240,.9)" }}>{b.name}</div>
-                          <div style={{ fontSize: 10, color: "rgba(255,255,255,.32)" }}>{b.time} · {b.doc}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: active ? item.cl : "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.l}</div>
+                          <div style={{ fontSize: 8, color: "#9ca3af", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.s}</div>
                         </div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: b.c, background: `${b.c}18`, border: `1px solid ${b.c}40`, padding: "2px 8px", borderRadius: 6, whiteSpace: "nowrap" }}>{b.status}</div>
+                        {active && <div style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: item.cl, flexShrink: 0 }}/>}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  })}
+                </div>
 
-                {clinicStep === 1 && (
-                  <div key="cl-1" style={{ animation: "screenIn .35s ease forwards" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(93,202,165,.65)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Assign Doctor · #REF-0041</div>
-                    <div style={{ background: "rgba(15,155,110,.08)", border: "1px solid rgba(15,155,110,.18)", borderRadius: 12, padding: "12px 14px", marginBottom: 12 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                        <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(15,155,110,.22)", color: "#1DB887", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>A</div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(232,245,240,.9)" }}>Anand K.</div>
-                          <div style={{ fontSize: 10, color: "rgba(255,255,255,.38)" }}>Today · 2:00 PM · Routine Checkup</div>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 10, color: "rgba(255,255,255,.38)", marginBottom: 6 }}>Assigned to</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(15,155,110,.16)", border: "1px solid rgba(15,155,110,.38)", borderRadius: 8, padding: "8px 12px" }}>
-                        <div style={{ width: 24, height: 24, borderRadius: "50%", background: BRAND, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>P</div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "#1DB887" }}>Dr. Priya Menon</div>
-                          <div style={{ fontSize: 10, color: "rgba(93,202,165,.55)" }}>General Dentistry</div>
-                        </div>
-                        <Check style={{ width: 14, height: 14, color: "#1DB887" }} />
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <div style={{ flex: 1, padding: "8px 0", borderRadius: 8, background: BRAND, color: "#fff", fontSize: 11, fontWeight: 700, textAlign: "center" }}>Save Assignment</div>
-                      <div style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(255,255,255,.06)", color: "rgba(255,255,255,.35)", fontSize: 11, textAlign: "center" }}>Cancel</div>
-                    </div>
-                  </div>
-                )}
+                {/* Main content — changes per screen */}
+                <div style={{ flex: 1, padding: "14px", overflow: "hidden", minHeight: 252 }}>
 
-                {clinicStep === 2 && (
-                  <div key="cl-2" style={{ animation: "screenIn .35s ease forwards" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(93,202,165,.65)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Configure Slots · Tuesday</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7 }}>
+                  {clinicStep === 0 && (
+                    <div key="c0" style={{ animation: "screenIn .35s ease forwards" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: "#111827" }}>Today's Bookings <span style={{ fontSize: 10, fontWeight: 500, color: "#9ca3af" }}>· 3</span></div>
+                        <div style={{ fontSize: 9, color: "#9ca3af" }}>Sun, Apr 19</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 5, marginBottom: 10 }}>
+                        {[{l:"Today",a:true},{l:"Upcoming",a:false},{l:"Past",a:false}].map(f=>(
+                          <div key={f.l} style={{ fontSize: 9, fontWeight: 700, padding: "3px 10px", borderRadius: 100, background: f.a?"#0F9B6E":"transparent", color: f.a?"#fff":"#6b7280", border: `1px solid ${f.a?"#0F9B6E":"#d1d5db"}` }}>{f.l}</div>
+                        ))}
+                      </div>
                       {[
-                        { t: "9:00 AM",  s: "booked" }, { t: "10:00 AM", s: "open" }, { t: "11:00 AM", s: "open" },
-                        { t: "12:00 PM", s: "leave"  }, { t: "2:00 PM",  s: "booked" }, { t: "3:00 PM", s: "open" },
-                        { t: "4:00 PM",  s: "booked" }, { t: "5:00 PM",  s: "open"  }, { t: "6:00 PM",  s: "open" },
-                      ].map(sl => {
-                        const bg = sl.s==="booked" ? "rgba(15,155,110,.22)" : sl.s==="leave" ? "rgba(255,80,80,.08)" : "rgba(255,255,255,.05)";
-                        const bd = sl.s==="booked" ? "1px solid rgba(15,155,110,.4)" : sl.s==="leave" ? "1px solid rgba(255,80,80,.15)" : "1px solid rgba(255,255,255,.09)";
-                        const cl = sl.s==="booked" ? "#1DB887" : sl.s==="leave" ? "rgba(255,110,90,.6)" : "rgba(255,255,255,.35)";
-                        return (
-                          <div key={sl.t} style={{ background: bg, border: bd, borderRadius: 8, padding: "7px 0", textAlign: "center" }}>
-                            <div style={{ fontSize: 10, fontWeight: 600, color: cl }}>{sl.t}</div>
-                            <div style={{ fontSize: 8, color: "rgba(255,255,255,.22)", marginTop: 2, textTransform: "capitalize" }}>{sl.s}</div>
+                        { n:"Anand K.", r:"#REF-0041", t:"2:00 – 4:00 PM", d:"Dr. Priya Menon",  s:"Confirmed", sc:"#0F9B6E" },
+                        { n:"Meera R.", r:"#REF-0042", t:"3:30 – 5:00 PM", d:"Awaiting Doctor",  s:"Pending",   sc:"#f59e0b" },
+                        { n:"Ravi S.",  r:"#REF-0043", t:"4:00 – 5:30 PM", d:"Dr. Priya Menon",  s:"Confirmed", sc:"#0F9B6E" },
+                      ].map(b=>(
+                        <div key={b.n} style={{ position: "relative", display: "flex", alignItems: "center", gap: 9, padding: "9px 11px 9px 14px", borderRadius: 10, background: "#fff", border: "1px solid #f0f0f0", marginBottom: 7, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(to bottom,${b.sc},${b.sc}55)` }}/>
+                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${b.sc}14`, color: b.sc, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{b.n[0]}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "#111827", marginBottom: 1 }}>{b.n} <span style={{ fontSize: 9, fontWeight: 400, color: "#9ca3af" }}>{b.r}</span></div>
+                            <div style={{ fontSize: 9, color: "#9ca3af" }}>{b.t} · {b.d}</div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {clinicStep === 3 && (
-                  <div key="cl-3" style={{ animation: "screenIn .35s ease forwards" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(93,202,165,.65)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Practice Summary · April</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 14 }}>
-                      {[{n:"128",l:"Patients"},{n:"24",l:"This week"},{n:"₹38k",l:"Revenue"}].map(s=>(
-                        <div key={s.l} style={{ background: "rgba(15,155,110,.08)", border: "1px solid rgba(15,155,110,.15)", borderRadius: 10, padding: "10px 6px", textAlign: "center" }}>
-                          <div style={{ fontSize: 16, fontWeight: 800, color: "#1DB887", letterSpacing: "-.02em" }}>{s.n}</div>
-                          <div style={{ fontSize: 9, color: "rgba(255,255,255,.32)", marginTop: 2 }}>{s.l}</div>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: b.sc, background: `${b.sc}12`, border: `1px solid ${b.sc}30`, padding: "2px 8px", borderRadius: 5, flexShrink: 0 }}>{b.s}</div>
                         </div>
                       ))}
                     </div>
-                    <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 28, marginBottom: 10 }}>
-                      {[40,65,45,80,55,90,70].map((h,i)=>(
-                        <div key={i} style={{ flex: 1, height: `${h}%`, borderRadius: 3, background: i===5 ? BRAND : "rgba(15,155,110,.22)" }}/>
-                      ))}
+                  )}
+
+                  {clinicStep === 1 && (
+                    <div key="c1" style={{ animation: "screenIn .35s ease forwards" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", marginBottom: 3 }}>Configure Slots</div>
+                      <div style={{ fontSize: 9, color: "#9ca3af", marginBottom: 11 }}>Tuesday, Apr 22 · 6 slots configured</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7, marginBottom: 12 }}>
+                        {[
+                          {t:"9:00 AM",s:"booked"},{t:"10:00 AM",s:"open"},{t:"11:00 AM",s:"open"},
+                          {t:"2:00 PM",s:"booked"},{t:"3:00 PM",s:"leave"},{t:"4:00 PM",s:"open"},
+                        ].map(sl=>{
+                          const m={booked:{bg:"rgba(15,155,110,.08)",bd:"rgba(15,155,110,.2)",cl:"#0F9B6E",sub:"Booked"},open:{bg:"#f9fafb",bd:"#e5e7eb",cl:"#6b7280",sub:"Open"},leave:{bg:"rgba(239,68,68,.05)",bd:"rgba(239,68,68,.15)",cl:"#ef4444",sub:"Leave"}}[sl.s]||{bg:"",bd:"",cl:"",sub:""};
+                          return (<div key={sl.t} style={{ background: m.bg, border: `1px solid ${m.bd}`, borderRadius: 8, padding: "9px 0", textAlign: "center" }}>
+                            <div style={{ fontSize: 10, fontWeight: 600, color: m.cl }}>{sl.t}</div>
+                            <div style={{ fontSize: 8, color: m.cl, opacity: .6, marginTop: 1 }}>{m.sub}</div>
+                          </div>);
+                        })}
+                      </div>
+                      <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(59,130,246,.06)", border: "1px solid rgba(59,130,246,.15)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ fontSize: 10, color: "#3b82f6", fontWeight: 600 }}>Max bookings per slot: 3</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: "#3b82f6", padding: "3px 10px", borderRadius: 5 }}>Save</div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: 9, color: "rgba(255,255,255,.22)", marginBottom: 12 }}>Bookings · Mon – Sun</div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      {["Export PDF", "Export Excel"].map(label=>(
-                        <div key={label} style={{ flex: 1, padding: "7px 0", borderRadius: 8, background: "rgba(15,155,110,.12)", border: "1px solid rgba(15,155,110,.25)", color: "rgba(93,202,165,.8)", fontSize: 10, fontWeight: 600, textAlign: "center" }}>{label}</div>
+                  )}
+
+                  {clinicStep === 2 && (
+                    <div key="c2" style={{ animation: "screenIn .35s ease forwards" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: "#111827" }}>Manage Doctors</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: "#14b8a6", padding: "3px 10px", borderRadius: 5 }}>+ Invite Doctor</div>
+                      </div>
+                      {[
+                        {n:"Dr. Priya Menon",sp:"General Dentistry",s:"Active",sc:"#0F9B6E"},
+                        {n:"Dr. Arjun Shah", sp:"Orthodontics",     s:"Invited",sc:"#3b82f6"},
+                      ].map(doc=>(
+                        <div key={doc.n} style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 10, background: "#fff", border: "1px solid #f0f0f0", marginBottom: 8, boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                          <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,rgba(15,155,110,.15),rgba(29,158,117,.08))", border: "2px solid rgba(15,155,110,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: "#0F9B6E" }}>{doc.n.split(" ")[1][0]}</span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "#111827" }}>{doc.n}</div>
+                            <div style={{ fontSize: 9, color: "#9ca3af" }}>{doc.sp}</div>
+                          </div>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: doc.sc, background: `${doc.sc}12`, border: `1px solid ${doc.sc}30`, padding: "2px 8px", borderRadius: 5 }}>{doc.s}</div>
+                        </div>
                       ))}
+                      <div style={{ padding: "9px 12px", borderRadius: 10, background: "rgba(20,184,166,.05)", border: "1px solid rgba(20,184,166,.15)", display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: "#14b8a6" }}>Pending invitation</div>
+                          <div style={{ fontSize: 9, color: "#9ca3af" }}>dr.vijay@sunrise.com</div>
+                        </div>
+                        <div style={{ fontSize: 9, fontWeight: 600, color: "#14b8a6" }}>Resend →</div>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {clinicStep === 3 && (
+                    <div key="c3" style={{ animation: "screenIn .35s ease forwards" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", marginBottom: 10 }}>Booking Detail · #REF-0041</div>
+                      <div style={{ position: "relative", padding: "10px 12px 10px 15px", borderRadius: 10, background: "#fff", border: "1px solid #f0f0f0", marginBottom: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(to bottom,#0F9B6E,#0F9B6E55)" }}/>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(15,155,110,.12)", color: "#0F9B6E", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>A</div>
+                          <div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "#111827" }}>Anand K.</div>
+                            <div style={{ fontSize: 9, color: "#9ca3af" }}>Today · 2:00 – 4:00 PM · Routine Checkup</div>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 9, color: "#9ca3af", marginBottom: 5 }}>Assign doctor</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(15,155,110,.07)", border: "1px solid rgba(15,155,110,.25)", borderRadius: 8, padding: "7px 10px" }}>
+                          <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#0F9B6E", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>P</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: "#0F9B6E" }}>Dr. Priya Menon</div>
+                            <div style={{ fontSize: 8, color: "#6b7280" }}>General Dentistry</div>
+                          </div>
+                          <Check style={{ width: 13, height: 13, color: "#0F9B6E", flexShrink: 0 }}/>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 7 }}>
+                        <div style={{ flex: 1, padding: "8px 0", borderRadius: 8, background: "#0F9B6E", color: "#fff", fontSize: 10, fontWeight: 700, textAlign: "center" }}>Save Assignment</div>
+                        <div style={{ padding: "8px 14px", borderRadius: 8, background: "#f3f4f6", color: "#9ca3af", fontSize: 10, textAlign: "center" }}>Cancel</div>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
               </div>
 
-              {/* Screen indicator */}
-              <div style={{ padding: "6px 20px 16px", display: "flex", gap: 6, justifyContent: "center", position: "relative", zIndex: 1 }}>
+              {/* Screen indicators */}
+              <div style={{ padding: "9px 20px 13px", display: "flex", gap: 6, justifyContent: "center", background: "#fff", borderTop: "1px solid #f0f0f0" }}>
                 {[0,1,2,3].map(i=>(
-                  <div key={i} onClick={() => { clinicStepRef.current = i; setClinicStep(i); }} style={{ width: i===clinicStep ? 18 : 5, height: 5, borderRadius: 3, background: i===clinicStep ? BRAND_M : "rgba(255,255,255,.15)", transition: "all .35s", cursor: "pointer" }} />
+                  <div key={i} onClick={()=>{ clinicStepRef.current=i; setClinicStep(i); }} style={{ width: i===clinicStep?18:5, height: 5, borderRadius: 3, background: i===clinicStep?"#0F9B6E":"#d1d5db", transition: "all .35s", cursor: "pointer" }}/>
                 ))}
               </div>
             </motion.div>
@@ -540,108 +605,137 @@ export default function Landing() {
               ))}
             </div>
 
-            {/* Patient Journey Mockup */}
-            <motion.div {...fadeUp(0.1)} style={{ background: `linear-gradient(135deg,${c.card},${c.tL})`, borderRadius: 20, border: `1px solid ${c.bdr2}`, overflow: "hidden", position: "relative" }}>
-              <div style={{ position: "absolute", bottom: -50, left: -50, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle,${c.T}14,transparent 70%)`, pointerEvents: "none" }} />
-              {/* App chrome */}
-              <div style={{ background: c.T, padding: "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
-                <div style={{ display: "flex", gap: 5 }}>{[0,1,2].map(i=><div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: "rgba(255,255,255,.3)" }}/>)}</div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.92)", letterSpacing: ".01em" }}>BookMySlot</div>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,.6)", fontWeight: 600 }}>Patient</div>
+            {/* Patient Journey Mockup — mirrors real Book.tsx page */}
+            <motion.div {...fadeUp(0.1)} style={{ borderRadius: 20, overflow: "hidden", boxShadow: "0 20px 70px rgba(10,31,22,.12)", border: `1px solid ${c.bdr2}` }}>
+
+              {/* Browser chrome bar */}
+              <div style={{ background: "#f3f4f6", borderBottom: "1px solid #e5e7eb", padding: "7px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", gap: 4 }}>{["#ff5f57","#febc2e","#27c840"].map((bg,i)=><div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: bg }}/>)}</div>
+                <div style={{ flex: 1, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 5, padding: "3px 10px", fontSize: 9, color: "#9ca3af" }}>bookmyslot.in/book</div>
               </div>
 
-              {/* Screen content */}
-              <div style={{ padding: "18px 20px 10px", minHeight: 188, position: "relative", zIndex: 1 }}>
+              {/* Dark hero band — matches Book.tsx hero section with grid texture */}
+              <div style={{ background: "#0A1F16", position: "relative", overflow: "hidden", padding: "14px 18px" }}>
+                <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px)", backgroundSize: "18px 18px", pointerEvents: "none" }}/>
+                <div style={{ position: "relative", zIndex: 1 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: ".12em", color: "rgba(255,255,255,.4)", textTransform: "uppercase", marginBottom: 5 }}>BOOKMYSLOT · DENTAL</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", letterSpacing: "-.02em", marginBottom: 9 }}>Book Your <span style={{ color: "#1DB887" }}>Appointment</span></div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {["⏱ 3 time slots daily","✔ Confirmed instantly","○ No account needed"].map(p=>(
+                      <div key={p} style={{ fontSize: 8, fontWeight: 600, color: "rgba(255,255,255,.55)", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", padding: "3px 8px", borderRadius: 20 }}>{p}</div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Light content area — switches per step */}
+              <div style={{ background: c.card, padding: "16px 18px", minHeight: 200 }}>
 
                 {patientStep === 0 && (
-                  <div key="pt-0" style={{ animation: "screenIn .35s ease forwards" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: c.muted, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Find a clinic near you</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, background: c.bg, border: `1px solid ${c.bdr2}`, borderRadius: 10, padding: "8px 14px", marginBottom: 12 }}>
-                      <Search style={{ width: 13, height: 13, color: c.muted, flexShrink: 0 }} />
-                      <div style={{ fontSize: 12, color: c.muted, flex: 1 }}>Dental clinic...</div>
-                      <div style={{ fontSize: 10, color: c.T, fontWeight: 700 }}>Filter</div>
+                  <div key="p0" style={{ animation: "screenIn .35s ease forwards" }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: c.txt, marginBottom: 3 }}>Choose a Clinic</div>
+                    <div style={{ fontSize: 10, color: c.muted, marginBottom: 11 }}>Select from the list or search by location</div>
+                    <div style={{ display: "flex", gap: 6, marginBottom: 11 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "#0F9B6E", padding: "5px 14px", borderRadius: 8, border: "1px solid #0F9B6E" }}>🏥 Select Clinic</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: c.muted, padding: "5px 14px", borderRadius: 8, border: `1px solid ${c.bdr2}` }}>📍 Search by Location</div>
                     </div>
-                    <div style={{ background: c.card, border: `1px solid ${c.bdr2}`, borderRadius: 12, padding: "12px 14px" }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 10, background: c.tL, border: `1px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🦷</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, background: c.bg, border: `1px solid ${c.bdr2}`, borderRadius: 10, padding: "9px 14px", marginBottom: 10 }}>
+                      <div style={{ width: 12, height: 12, borderRadius: 3, background: c.tL, border: `1px solid ${c.bdr2}`, flexShrink: 0 }}/>
+                      <div style={{ fontSize: 12, color: c.muted, flex: 1 }}>Choose a dental clinic</div>
+                      <ChevronDown style={{ width: 13, height: 13, color: c.muted, flexShrink: 0 }}/>
+                    </div>
+                    <div style={{ background: c.card, border: `1px solid ${c.bdr2}`, borderRadius: 11, padding: "11px 12px", boxShadow: `0 2px 8px rgba(15,155,110,.06)` }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 9, marginBottom: 8 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 9, background: c.tL, border: `1px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🦷</div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: c.txt, marginBottom: 2 }}>Sunrise Dental Clinic</div>
-                          <div style={{ fontSize: 10, color: c.muted }}>Koramangala, Bengaluru · 1.2 km</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: c.txt }}>Sunrise Dental Clinic</div>
+                          <div style={{ fontSize: 9, color: c.muted }}>Koramangala · 1.2 km · ⭐ 4.8</div>
                         </div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#F0A050", flexShrink: 0 }}>⭐ 4.8</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "#0F9B6E", padding: "4px 12px", borderRadius: 20, flexShrink: 0 }}>Book →</div>
                       </div>
-                      <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                      <div style={{ display: "flex", gap: 5 }}>
                         {["Cleaning","Braces","Whitening"].map(tag=>(
-                          <div key={tag} style={{ fontSize: 9, fontWeight: 600, color: c.T, background: c.tL, border: `1px solid ${c.bdr2}`, padding: "3px 8px", borderRadius: 6 }}>{tag}</div>
+                          <div key={tag} style={{ fontSize: 8, fontWeight: 600, color: c.T, background: c.tL, border: `1px solid ${c.bdr2}`, padding: "2px 7px", borderRadius: 5 }}>{tag}</div>
                         ))}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div style={{ fontSize: 10, color: c.muted }}>Next slot: Today 3:30 PM</div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: c.T, padding: "4px 12px", borderRadius: 20 }}>Book →</div>
                       </div>
                     </div>
                   </div>
                 )}
 
                 {patientStep === 1 && (
-                  <div key="pt-1" style={{ animation: "screenIn .35s ease forwards" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: c.muted, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 4 }}>Available Slots</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: c.txt2, marginBottom: 12 }}>Tuesday, Apr 22</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7, marginBottom: 12 }}>
+                  <div key="p1" style={{ animation: "screenIn .35s ease forwards" }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: c.txt, marginBottom: 10 }}>Available Slots</div>
+                    {/* Horizontal 5-day date scroller matching Book.tsx */}
+                    <div style={{ display: "flex", gap: 5, marginBottom: 12 }}>
+                      {[{d:"Mon",dt:"21"},{d:"Tue",dt:"22",sel:true},{d:"Wed",dt:"23"},{d:"Thu",dt:"24"},{d:"Fri",dt:"25"}].map(day=>(
+                        <div key={day.d} style={{ flex: 1, padding: "5px 0", borderRadius: 9, textAlign: "center", background: day.sel?"#0F9B6E":c.card, border: `1px solid ${day.sel?"#0F9B6E":c.bdr2}` }}>
+                          <div style={{ fontSize: 8, fontWeight: 600, color: day.sel?"rgba(255,255,255,.7)":c.muted }}>{day.d}</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: day.sel?"#fff":c.txt }}>{day.dt}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Colour-coded slot grid matching getSlotMeta: amber=morning, sky=afternoon, green=evening */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7 }}>
                       {[
-                        { t: "9:00 AM",  s: "booked" }, { t: "10:00 AM", s: "open" }, { t: "11:00 AM", s: "open" },
-                        { t: "2:00 PM",  s: "booked" }, { t: "3:30 PM",  s: "pick"  }, { t: "4:00 PM",  s: "open" },
-                      ].map(sl => {
-                        const bg = sl.s==="pick" ? c.T : sl.s==="booked" ? c.tL : c.card;
-                        const bd = sl.s==="pick" ? `1.5px solid ${c.T}` : `1px solid ${c.bdr2}`;
-                        const cl = sl.s==="pick" ? "#fff" : sl.s==="booked" ? c.muted : c.txt2;
+                        {t:"9:00 AM", hr:9,  s:"full"},
+                        {t:"10:00 AM",hr:10, s:"open"},
+                        {t:"11:00 AM",hr:11, s:"open"},
+                        {t:"2:00 PM", hr:14, s:"full"},
+                        {t:"3:30 PM", hr:15, s:"pick"},
+                        {t:"4:00 PM", hr:16, s:"open"},
+                      ].map(sl=>{
+                        const tc = sl.hr<12?"#f59e0b":sl.hr<16?"#0ea5e9":"#0F9B6E";
+                        const tbg= sl.hr<12?"rgba(245,158,11,.1)":sl.hr<16?"rgba(14,165,233,.1)":"rgba(15,155,110,.1)";
+                        const tbd= sl.hr<12?"rgba(245,158,11,.3)":sl.hr<16?"rgba(14,165,233,.3)":"rgba(15,155,110,.3)";
+                        const sel = sl.s==="pick", full = sl.s==="full";
                         return (
-                          <div key={sl.t} style={{ background: bg, border: bd, borderRadius: 9, padding: "9px 0", textAlign: "center" }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: cl, textDecoration: sl.s==="booked"?"line-through":"none" }}>{sl.t}</div>
-                            <div style={{ fontSize: 8, marginTop: 2, color: sl.s==="pick"?"rgba(255,255,255,.7)":c.muted }}>{sl.s==="booked"?"Full":sl.s==="pick"?"Selected":""}</div>
+                          <div key={sl.t} style={{ padding: "9px 0", borderRadius: 9, textAlign: "center", background: sel?"#0F9B6E":full?c.tL:tbg, border: `1px solid ${sel?"#0F9B6E":full?c.bdr2:tbd}` }}>
+                            <div style={{ fontSize: 10, fontWeight: 600, color: sel?"#fff":full?c.muted:tc, textDecoration: full?"line-through":"none" }}>{sl.t}</div>
+                            <div style={{ fontSize: 8, color: sel?"rgba(255,255,255,.65)":c.muted, marginTop: 1 }}>{sel?"Selected":full?"Full":""}</div>
                           </div>
                         );
                       })}
                     </div>
-                    <div style={{ padding: "8px 0", borderRadius: 8, background: c.T, color: "#fff", fontSize: 11, fontWeight: 700, textAlign: "center" }}>Confirm Slot →</div>
+                    <div style={{ marginTop: 11, padding: "9px 0", borderRadius: 9, background: "#0F9B6E", color: "#fff", fontSize: 11, fontWeight: 700, textAlign: "center" }}>Confirm Slot →</div>
                   </div>
                 )}
 
                 {patientStep === 2 && (
-                  <div key="pt-2" style={{ animation: "screenIn .35s ease forwards", textAlign: "center", paddingTop: 4 }}>
-                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: c.tL, border: `1px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 22 }}>📧</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: c.txt, marginBottom: 6 }}>Verify your email</div>
-                    <div style={{ fontSize: 11, color: c.muted, marginBottom: 16 }}>Code sent to m***@gmail.com</div>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 16 }}>
+                  <div key="p2" style={{ animation: "screenIn .35s ease forwards", textAlign: "center", paddingTop: 8 }}>
+                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: c.tL, border: `2px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 24 }}>📧</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: c.txt, marginBottom: 5 }}>Verify your email</div>
+                    <div style={{ fontSize: 10, color: c.muted, marginBottom: 15 }}>Code sent to m***@gmail.com</div>
+                    <div style={{ display: "flex", gap: 7, justifyContent: "center", marginBottom: 15 }}>
                       {["4","8","3","·","·","·"].map((d,i)=>(
-                        <div key={i} style={{ width: 34, height: 38, borderRadius: 8, border: i<3 ? `1.5px solid ${c.T}` : `1.5px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: i<3 ? c.T : c.muted, background: i<3 ? c.tL : "transparent" }}>{d}</div>
+                        <div key={i} style={{ width: 36, height: 40, borderRadius: 9, border: i<3?`2px solid ${c.T}`:`1.5px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: i<3?c.T:c.muted, background: i<3?c.tL:"transparent" }}>{d}</div>
                       ))}
                     </div>
-                    <div style={{ padding: "8px 0", borderRadius: 8, background: c.T, color: "#fff", fontSize: 11, fontWeight: 700, textAlign: "center" }}>Verify →</div>
+                    <div style={{ padding: "9px 0", borderRadius: 9, background: "#0F9B6E", color: "#fff", fontSize: 11, fontWeight: 700 }}>Verify & Continue →</div>
                   </div>
                 )}
 
                 {patientStep === 3 && (
-                  <div key="pt-3" style={{ animation: "screenIn .35s ease forwards", textAlign: "center", paddingTop: 4 }}>
-                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: c.tL, border: `2px solid ${c.T}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 24 }}>✅</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: c.T, marginBottom: 4 }}>Booking Confirmed!</div>
-                    <div style={{ fontSize: 10, color: c.muted, marginBottom: 14 }}>Reference #REF-0042</div>
-                    <div style={{ background: c.card, border: `1px solid ${c.bdr2}`, borderRadius: 12, padding: "12px 14px", textAlign: "left" }}>
-                      {[{icon:"🏥",text:"Sunrise Dental Clinic"},{icon:"📅",text:"Tue, Apr 22 · 3:30 PM"},{icon:"👩‍⚕️",text:"Dr. Priya Menon"}].map(r=>(
-                        <div key={r.text} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: c.txt2, marginBottom: 6 }}>
-                          <span style={{ fontSize: 12 }}>{r.icon}</span> {r.text}
+                  <div key="p3" style={{ animation: "screenIn .35s ease forwards", textAlign: "center", paddingTop: 6 }}>
+                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(15,155,110,.12)", border: `2px solid #0F9B6E`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px", fontSize: 26 }}>✅</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: "#0F9B6E", marginBottom: 3 }}>Booking Confirmed!</div>
+                    <div style={{ fontSize: 9, fontWeight: 600, color: c.muted, background: c.tL, border: `1px solid ${c.bdr2}`, display: "inline-block", padding: "2px 10px", borderRadius: 20, marginBottom: 12 }}>#REF-0042</div>
+                    <div style={{ background: c.card, border: `1px solid ${c.bdr2}`, borderRadius: 11, padding: "11px 14px", textAlign: "left" }}>
+                      {[{e:"🏥",t:"Sunrise Dental Clinic"},{e:"📅",t:"Tue, Apr 22 · 3:30 PM"},{e:"👩‍⚕️",t:"Dr. Priya Menon"}].map(r=>(
+                        <div key={r.t} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: c.txt2, marginBottom: 6 }}>
+                          <span style={{ fontSize: 12 }}>{r.e}</span>{r.t}
                         </div>
                       ))}
                     </div>
-                    <div style={{ marginTop: 12, fontSize: 11, color: c.T, fontWeight: 600 }}>📩 Reminder sent to your email</div>
+                    <div style={{ marginTop: 10, fontSize: 10, color: c.T, fontWeight: 600 }}>📩 Reminder sent to your email</div>
                   </div>
                 )}
+
               </div>
 
-              {/* Screen indicator */}
-              <div style={{ padding: "6px 20px 16px", display: "flex", gap: 6, justifyContent: "center", position: "relative", zIndex: 1 }}>
+              {/* Screen indicators */}
+              <div style={{ padding: "9px 20px 13px", display: "flex", gap: 6, justifyContent: "center", background: c.card, borderTop: `1px solid ${c.bdr}` }}>
                 {[0,1,2,3].map(i=>(
-                  <div key={i} onClick={() => { patientStepRef.current = i; setPatientStep(i); }} style={{ width: i===patientStep ? 18 : 5, height: 5, borderRadius: 3, background: i===patientStep ? c.T : c.bdr2, transition: "all .35s", cursor: "pointer" }} />
+                  <div key={i} onClick={()=>{ patientStepRef.current=i; setPatientStep(i); }} style={{ width: i===patientStep?18:5, height: 5, borderRadius: 3, background: i===patientStep?"#0F9B6E":c.bdr2, transition: "all .35s", cursor: "pointer" }}/>
                 ))}
               </div>
             </motion.div>
