@@ -500,6 +500,58 @@ async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLi
   }
 }
 
+async function sendRescheduleEmail(
+  customerEmail: string,
+  customerName: string,
+  clinicName: string,
+  oldTime: Date,
+  newTime: Date,
+  clinicPhone?: string | null,
+  bookingId?: number | null,
+) {
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Resend not configured — reschedule email skipped.`);
+    return;
+  }
+  const finalEmail = RESEND_MODE === 'PRODUCTION' ? customerEmail : TEST_EMAIL;
+  const fmtOpts: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+  const formattedOld = oldTime.toLocaleString('en-IN', fmtOpts);
+  const formattedNew = newTime.toLocaleString('en-IN', fmtOpts);
+  const receiptRef = bookingId ? `BMS-${bookingId}` : '—';
+  const calLink = makeGoogleCalLink(`Appointment at ${clinicName}`, newTime);
+  const html = emailShell(
+    'linear-gradient(90deg,#085041 0%,#0F9B6E 100%)',
+    'Appointment Rescheduled',
+    `Your appointment at <strong>${clinicName}</strong> has been moved to a new time.`,
+    `<tr><td style="padding:24px 32px 0">
+      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${customerName}</strong>,</p>
+      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
+        Your appointment has been rescheduled by the clinic. Please see the updated details below. If this does not suit you, please contact the clinic directly.
+      </p>
+      ${detailsTable([
+        { label: 'Previous Time', value: formattedOld },
+        { label: 'New Time', value: `<strong style="color:#085041">${formattedNew}</strong>` },
+        { label: 'Clinic', value: clinicName },
+        ...(clinicPhone ? [{ label: 'Clinic Phone', value: clinicPhone }] : []),
+        { label: 'Reference', value: receiptRef, mono: true },
+      ])}
+    </td></tr>
+    <tr><td style="padding:20px 32px 28px">
+      ${actionButton('Add to Google Calendar', calLink, '#0F9B6E')}
+    </td></tr>`
+  );
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: finalEmail,
+      subject: `Your Appointment Has Been Rescheduled — ${clinicName}`,
+      html,
+    });
+  } catch (error) {
+    console.error('[EMAIL ERROR] Failed to send reschedule email:', error);
+  }
+}
+
 async function sendClinicApprovalEmail(
   clinicName: string,
   clinicEmail: string,
@@ -2049,7 +2101,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const { newSlotId } = req.body;
     if (!newSlotId) return res.status(400).json({ message: "newSlotId is required" });
     try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const oldSlot = await storage.getSlot(booking.slotId);
       const updated = await storage.rescheduleBooking(bookingId, newSlotId);
+      const newSlot = await storage.getSlot(newSlotId);
+      const [clinic] = await db.select().from(clinics).where(eq(clinics.id, sess.clinicId || 0));
+      if (booking.customerEmail && newSlot) {
+        sendRescheduleEmail(
+          booking.customerEmail,
+          booking.customerName,
+          clinic?.name || 'the clinic',
+          oldSlot ? new Date(oldSlot.startTime) : new Date(),
+          new Date(newSlot.startTime),
+          (clinic as any)?.phone ?? null,
+          bookingId,
+        ).catch((err) => console.error('[EMAIL ERROR] Reschedule email failed:', err));
+      }
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });

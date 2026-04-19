@@ -75,7 +75,7 @@ export default function Landing() {
     const iv = setInterval(() => {
       clinicStepRef.current = (clinicStepRef.current + 1) % CLINIC_SCREENS;
       setClinicStep(clinicStepRef.current);
-    }, 2600);
+    }, 3800);
     return () => clearInterval(iv);
   }, []);
 
@@ -417,10 +417,10 @@ export default function Landing() {
               <div style={{ height: 2, background: "linear-gradient(to right,#1D9E75,#0F9B6E,#1D9E75)", opacity: .45 }}/>
 
               {/* Two-column layout: sidebar + main content */}
-              <div style={{ display: "flex", background: "#F8F9F7" }}>
+              <div style={{ display: "flex", background: c.bg }}>
 
                 {/* Sidebar — mirrors w-56 rounded-2xl border bg-card with colour-coded nav items */}
-                <div style={{ width: 162, background: "#fff", borderRight: "1px solid #f0f0f0", padding: "10px 7px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 1 }}>
+                <div style={{ width: 162, background: c.card, borderRight: `1px solid ${c.bdr}`, padding: "10px 7px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 1 }}>
                   {[
                     { l: "Bookings",        s: "All appointments",  on: [0,3], cl: "#0F9B6E", bg: "rgba(15,155,110,.08)", bd: "rgba(15,155,110,.2)"  },
                     { l: "Configure Slots", s: "Capacity & timing", on: [1],   cl: "#3b82f6", bg: "rgba(59,130,246,.08)", bd: "rgba(59,130,246,.2)"  },
@@ -432,12 +432,12 @@ export default function Landing() {
                     const active = (item.on as number[]).includes(clinicStep);
                     return (
                       <div key={item.l} style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 7px", borderRadius: 9, background: active ? item.bg : "transparent", border: `1px solid ${active ? item.bd : "transparent"}` }}>
-                        <div style={{ width: 24, height: 24, borderRadius: 7, background: active ? item.bg : "rgba(0,0,0,.04)", border: `1px solid ${active ? item.bd : "#e5e7eb"}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ width: 24, height: 24, borderRadius: 7, background: active ? item.bg : c.tL, border: `1px solid ${active ? item.bd : c.bdr}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                           <div style={{ width: 8, height: 8, borderRadius: 2, background: active ? item.cl : "#d1d5db" }}/>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: active ? item.cl : "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.l}</div>
-                          <div style={{ fontSize: 8, color: "#9ca3af", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.s}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: active ? item.cl : c.txt, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.l}</div>
+                          <div style={{ fontSize: 8, color: c.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.s}</div>
                         </div>
                         {active && <div style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: item.cl, flexShrink: 0 }}/>}
                       </div>
@@ -449,14 +449,14 @@ export default function Landing() {
                 <div style={{ flex: 1, padding: "14px", overflow: "hidden", minHeight: 252 }}>
 
                   {clinicStep === 0 && (
-                    <div key="c0" style={{ animation: "screenIn .35s ease forwards" }}>
+                    <div key="c0" style={{ animation: "screenInSlow .55s ease forwards" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
                         <div style={{ fontSize: 12, fontWeight: 800, color: "#111827" }}>Today's Bookings <span style={{ fontSize: 10, fontWeight: 500, color: "#9ca3af" }}>· 3</span></div>
                         <div style={{ fontSize: 9, color: "#9ca3af" }}>Sun, Apr 19</div>
                       </div>
                       <div style={{ display: "flex", gap: 5, marginBottom: 10 }}>
                         {[{l:"Today",a:true},{l:"Upcoming",a:false},{l:"Past",a:false}].map(f=>(
-                          <div key={f.l} style={{ fontSize: 9, fontWeight: 700, padding: "3px 10px", borderRadius: 100, background: f.a?"#0F9B6E":"transparent", color: f.a?"#fff":"#6b7280", border: `1px solid ${f.a?"#0F9B6E":"#d1d5db"}` }}>{f.l}</div>
+                          <div key={f.l} style={{ fontSize: 9, fontWeight: 700, padding: "3px 10px", borderRadius: 100, background: f.a?"#0F9B6E":"transparent", color: f.a?"#fff":c.muted, border: `1px solid ${f.a?"#0F9B6E":c.bdr}` }}>{f.l}</div>
                         ))}
                       </div>
                       {[
@@ -464,12 +464,12 @@ export default function Landing() {
                         { n:"Meera R.", r:"#REF-0042", t:"3:30 – 5:00 PM", d:"Awaiting Doctor",  s:"Pending",   sc:"#f59e0b" },
                         { n:"Ravi S.",  r:"#REF-0043", t:"4:00 – 5:30 PM", d:"Dr. Priya Menon",  s:"Confirmed", sc:"#0F9B6E" },
                       ].map(b=>(
-                        <div key={b.n} style={{ position: "relative", display: "flex", alignItems: "center", gap: 9, padding: "9px 11px 9px 14px", borderRadius: 10, background: "#fff", border: "1px solid #f0f0f0", marginBottom: 7, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                        <div key={b.n} style={{ position: "relative", display: "flex", alignItems: "center", gap: 9, padding: "9px 11px 9px 14px", borderRadius: 10, background: c.card, border: `1px solid ${c.bdr}`, marginBottom: 7, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
                           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(to bottom,${b.sc},${b.sc}55)` }}/>
                           <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${b.sc}14`, color: b.sc, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{b.n[0]}</div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: "#111827", marginBottom: 1 }}>{b.n} <span style={{ fontSize: 9, fontWeight: 400, color: "#9ca3af" }}>{b.r}</span></div>
-                            <div style={{ fontSize: 9, color: "#9ca3af" }}>{b.t} · {b.d}</div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: c.txt, marginBottom: 1 }}>{b.n} <span style={{ fontSize: 9, fontWeight: 400, color: "#9ca3af" }}>{b.r}</span></div>
+                            <div style={{ fontSize: 9, color: c.muted }}>{b.t} · {b.d}</div>
                           </div>
                           <div style={{ fontSize: 9, fontWeight: 700, color: b.sc, background: `${b.sc}12`, border: `1px solid ${b.sc}30`, padding: "2px 8px", borderRadius: 5, flexShrink: 0 }}>{b.s}</div>
                         </div>
@@ -478,7 +478,7 @@ export default function Landing() {
                   )}
 
                   {clinicStep === 1 && (
-                    <div key="c1" style={{ animation: "screenIn .35s ease forwards" }}>
+                    <div key="c1" style={{ animation: "screenInSlow .55s ease forwards" }}>
                       <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", marginBottom: 3 }}>Configure Slots</div>
                       <div style={{ fontSize: 9, color: "#9ca3af", marginBottom: 11 }}>Tuesday, Apr 22 · 6 slots configured</div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7, marginBottom: 12 }}>
@@ -486,7 +486,7 @@ export default function Landing() {
                           {t:"9:00 AM",s:"booked"},{t:"10:00 AM",s:"open"},{t:"11:00 AM",s:"open"},
                           {t:"2:00 PM",s:"booked"},{t:"3:00 PM",s:"leave"},{t:"4:00 PM",s:"open"},
                         ].map(sl=>{
-                          const m={booked:{bg:"rgba(15,155,110,.08)",bd:"rgba(15,155,110,.2)",cl:"#0F9B6E",sub:"Booked"},open:{bg:"#f9fafb",bd:"#e5e7eb",cl:"#6b7280",sub:"Open"},leave:{bg:"rgba(239,68,68,.05)",bd:"rgba(239,68,68,.15)",cl:"#ef4444",sub:"Leave"}}[sl.s]||{bg:"",bd:"",cl:"",sub:""};
+                          const m={booked:{bg:"rgba(15,155,110,.08)",bd:"rgba(15,155,110,.2)",cl:"#0F9B6E",sub:"Booked"},open:{bg:c.bg,bd:c.bdr,cl:c.muted,sub:"Open"},leave:{bg:"rgba(239,68,68,.05)",bd:"rgba(239,68,68,.15)",cl:"#ef4444",sub:"Leave"}}[sl.s]||{bg:"",bd:"",cl:"",sub:""};
                           return (<div key={sl.t} style={{ background: m.bg, border: `1px solid ${m.bd}`, borderRadius: 8, padding: "9px 0", textAlign: "center" }}>
                             <div style={{ fontSize: 10, fontWeight: 600, color: m.cl }}>{sl.t}</div>
                             <div style={{ fontSize: 8, color: m.cl, opacity: .6, marginTop: 1 }}>{m.sub}</div>
@@ -501,7 +501,7 @@ export default function Landing() {
                   )}
 
                   {clinicStep === 2 && (
-                    <div key="c2" style={{ animation: "screenIn .35s ease forwards" }}>
+                    <div key="c2" style={{ animation: "screenInSlow .55s ease forwards" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                         <div style={{ fontSize: 12, fontWeight: 800, color: "#111827" }}>Manage Doctors</div>
                         <div style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: "#14b8a6", padding: "3px 10px", borderRadius: 5 }}>+ Invite Doctor</div>
@@ -510,13 +510,13 @@ export default function Landing() {
                         {n:"Dr. Priya Menon",sp:"General Dentistry",s:"Active",sc:"#0F9B6E"},
                         {n:"Dr. Arjun Shah", sp:"Orthodontics",     s:"Invited",sc:"#3b82f6"},
                       ].map(doc=>(
-                        <div key={doc.n} style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 10, background: "#fff", border: "1px solid #f0f0f0", marginBottom: 8, boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                        <div key={doc.n} style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 10, background: c.card, border: `1px solid ${c.bdr}`, marginBottom: 8, boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
                           <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,rgba(15,155,110,.15),rgba(29,158,117,.08))", border: "2px solid rgba(15,155,110,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                             <span style={{ fontSize: 13, fontWeight: 700, color: "#0F9B6E" }}>{doc.n.split(" ")[1][0]}</span>
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: "#111827" }}>{doc.n}</div>
-                            <div style={{ fontSize: 9, color: "#9ca3af" }}>{doc.sp}</div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: c.txt }}>{doc.n}</div>
+                            <div style={{ fontSize: 9, color: c.muted }}>{doc.sp}</div>
                           </div>
                           <div style={{ fontSize: 9, fontWeight: 700, color: doc.sc, background: `${doc.sc}12`, border: `1px solid ${doc.sc}30`, padding: "2px 8px", borderRadius: 5 }}>{doc.s}</div>
                         </div>
@@ -532,9 +532,9 @@ export default function Landing() {
                   )}
 
                   {clinicStep === 3 && (
-                    <div key="c3" style={{ animation: "screenIn .35s ease forwards" }}>
+                    <div key="c3" style={{ animation: "screenInSlow .55s ease forwards" }}>
                       <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", marginBottom: 10 }}>Booking Detail · #REF-0041</div>
-                      <div style={{ position: "relative", padding: "10px 12px 10px 15px", borderRadius: 10, background: "#fff", border: "1px solid #f0f0f0", marginBottom: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                      <div style={{ position: "relative", padding: "10px 12px 10px 15px", borderRadius: 10, background: c.card, border: `1px solid ${c.bdr}`, marginBottom: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
                         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(to bottom,#0F9B6E,#0F9B6E55)" }}/>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                           <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(15,155,110,.12)", color: "#0F9B6E", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>A</div>
@@ -555,7 +555,7 @@ export default function Landing() {
                       </div>
                       <div style={{ display: "flex", gap: 7 }}>
                         <div style={{ flex: 1, padding: "8px 0", borderRadius: 8, background: "#0F9B6E", color: "#fff", fontSize: 10, fontWeight: 700, textAlign: "center" }}>Save Assignment</div>
-                        <div style={{ padding: "8px 14px", borderRadius: 8, background: "#f3f4f6", color: "#9ca3af", fontSize: 10, textAlign: "center" }}>Cancel</div>
+                        <div style={{ padding: "8px 14px", borderRadius: 8, background: c.tL, color: c.muted, fontSize: 10, textAlign: "center" }}>Cancel</div>
                       </div>
                     </div>
                   )}
@@ -564,9 +564,9 @@ export default function Landing() {
               </div>
 
               {/* Screen indicators */}
-              <div style={{ padding: "9px 20px 13px", display: "flex", gap: 6, justifyContent: "center", background: "#fff", borderTop: "1px solid #f0f0f0" }}>
+              <div style={{ padding: "9px 20px 13px", display: "flex", gap: 6, justifyContent: "center", background: c.card, borderTop: `1px solid ${c.bdr}` }}>
                 {[0,1,2,3].map(i=>(
-                  <div key={i} onClick={()=>{ clinicStepRef.current=i; setClinicStep(i); }} style={{ width: i===clinicStep?18:5, height: 5, borderRadius: 3, background: i===clinicStep?"#0F9B6E":"#d1d5db", transition: "all .35s", cursor: "pointer" }}/>
+                  <div key={i} onClick={()=>{ clinicStepRef.current=i; setClinicStep(i); }} style={{ width: i===clinicStep?18:5, height: 5, borderRadius: 3, background: i===clinicStep?"#0F9B6E":c.bdr2, transition: "all .35s", cursor: "pointer" }}/>
                 ))}
               </div>
             </motion.div>
