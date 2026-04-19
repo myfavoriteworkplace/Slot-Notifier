@@ -84,7 +84,7 @@ export default function Landing() {
       const iv = setInterval(() => {
         patientStepRef.current = (patientStepRef.current + 1) % PATIENT_SCREENS;
         setPatientStep(patientStepRef.current);
-      }, 2600);
+      }, 3800);
       return () => clearInterval(iv);
     }, 1300);
     return () => clearTimeout(t);
@@ -129,6 +129,7 @@ export default function Landing() {
         @keyframes wfPulse { 0%,100%{box-shadow:0 0 0 0 rgba(15,155,110,.5)} 60%{box-shadow:0 0 0 8px rgba(15,155,110,0)} }
         @keyframes wfLineGrow { from{width:0} to{width:100%} }
         @keyframes screenIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes screenInSlow { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
         @media (max-width: 900px) {
           .lnd-hero          { grid-template-columns: 1fr !important; min-height: auto !important; padding: 40px 24px 60px !important; }
@@ -624,7 +625,7 @@ export default function Landing() {
               <div style={{ background: c.card, padding: "16px 18px", minHeight: 200 }}>
 
                 {patientStep === 0 && (
-                  <div key="p0" style={{ animation: "screenIn .35s ease forwards" }}>
+                  <div key="p0" style={{ animation: "screenInSlow .55s ease forwards" }}>
                     <div style={{ fontSize: 12, fontWeight: 800, color: c.txt, marginBottom: 3 }}>Choose a Clinic</div>
                     <div style={{ fontSize: 10, color: c.muted, marginBottom: 11 }}>Select from the list or search by location</div>
                     <div style={{ display: "flex", gap: 6, marginBottom: 11 }}>
@@ -655,7 +656,7 @@ export default function Landing() {
                 )}
 
                 {patientStep === 1 && (
-                  <div key="p1" style={{ animation: "screenIn .35s ease forwards" }}>
+                  <div key="p1" style={{ animation: "screenInSlow .55s ease forwards" }}>
                     <div style={{ fontSize: 12, fontWeight: 800, color: c.txt, marginBottom: 10 }}>Available Slots</div>
                     {/* Horizontal 5-day date scroller matching Book.tsx */}
                     <div style={{ display: "flex", gap: 5, marginBottom: 12 }}>
@@ -693,7 +694,7 @@ export default function Landing() {
                 )}
 
                 {patientStep === 2 && (
-                  <div key="p2" style={{ animation: "screenIn .35s ease forwards", textAlign: "center", paddingTop: 8 }}>
+                  <div key="p2" style={{ animation: "screenInSlow .55s ease forwards", textAlign: "center", paddingTop: 8 }}>
                     <div style={{ width: 52, height: 52, borderRadius: "50%", background: c.tL, border: `2px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", }}><Mail style={{ width: 24, height: 24, color: c.T }} /></div>
                     <div style={{ fontSize: 14, fontWeight: 800, color: c.txt, marginBottom: 5 }}>Verify your email</div>
                     <div style={{ fontSize: 10, color: c.muted, marginBottom: 15 }}>Code sent to m***@gmail.com</div>
@@ -707,7 +708,7 @@ export default function Landing() {
                 )}
 
                 {patientStep === 3 && (
-                  <div key="p3" style={{ animation: "screenIn .35s ease forwards", textAlign: "center", paddingTop: 6 }}>
+                  <div key="p3" style={{ animation: "screenInSlow .55s ease forwards", textAlign: "center", paddingTop: 6 }}>
                     <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(15,155,110,.12)", border: `2px solid #0F9B6E`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}><Check style={{ width: 26, height: 26, color: "#0F9B6E" }} /></div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: "#0F9B6E", marginBottom: 3 }}>Booking Confirmed!</div>
                     <div style={{ fontSize: 9, fontWeight: 600, color: c.muted, background: c.tL, border: `1px solid ${c.bdr2}`, display: "inline-block", padding: "2px 10px", borderRadius: 20, marginBottom: 12 }}>#REF-0042</div>
