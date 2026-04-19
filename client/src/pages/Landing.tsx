@@ -1,8 +1,8 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
-import { ArrowRight, Clock, Shield, Users, Star, Download, UserCheck, Check, ChevronDown, FileText, Search } from "lucide-react";
+import { ArrowRight, Clock, Shield, Users, Star, Download, UserCheck, Check, ChevronDown, FileText, Search, Building2, MapPin, CalendarDays, Mail, User } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 
@@ -399,23 +399,14 @@ export default function Landing() {
             {/* Clinic Dashboard Mockup — light-themed, mirrors real ClinicDashboard.tsx */}
             <motion.div {...fadeUp(0.1)} style={{ borderRadius: 20, overflow: "hidden", boxShadow: "0 20px 70px rgba(10,31,22,.12)", border: "1px solid rgba(15,155,110,.15)" }}>
 
-              {/* Browser chrome bar */}
-              <div style={{ background: "#f3f4f6", borderBottom: "1px solid #e5e7eb", padding: "7px 12px", display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ display: "flex", gap: 4 }}>{["#ff5f57","#febc2e","#27c840"].map((bg,i)=><div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: bg }}/>)}</div>
-                <div style={{ flex: 1, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 5, padding: "3px 10px", fontSize: 9, color: "#9ca3af" }}>bookmyslot.in/clinic-dashboard</div>
-              </div>
-
-              {/* App gradient header — matches from-primary/90 via-primary to-accent/80 */}
-              <div style={{ background: "linear-gradient(to right, #085041, #0F9B6E, #1D9E75)", padding: "11px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 26, height: 26, borderRadius: 8, background: "rgba(255,255,255,.2)", border: "2px solid rgba(255,255,255,.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🦷</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "#fff" }}>bookMySlot <span style={{ fontWeight: 400, opacity: .6 }}>Dental</span></div>
-                </div>
+              {/* Title bar — same style as Doctor Portal hero card */}
+              <div style={{ background: c.T, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", gap: 5 }}>{[0,1,2].map(i=><div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(255,255,255,.3)" }}/>)}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,.9)" }}>Clinic Dashboard</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#4ade80", display: "inline-block" }}/>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.8)", letterSpacing: ".06em" }}>LIVE</span>
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,.55)", fontWeight: 600, letterSpacing: ".06em" }}>LIVE</span>
                 </div>
-                <div style={{ background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.2)", borderRadius: 6, padding: "3px 10px", fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,.7)", backdropFilter: "blur(8px)", marginLeft: 10 }}>Log out</div>
               </div>
 
               {/* Clinic nameplate strip — matches bg-black/25 backdrop-blur-sm */}
@@ -608,10 +599,11 @@ export default function Landing() {
             {/* Patient Journey Mockup — mirrors real Book.tsx page */}
             <motion.div {...fadeUp(0.1)} style={{ borderRadius: 20, overflow: "hidden", boxShadow: "0 20px 70px rgba(10,31,22,.12)", border: `1px solid ${c.bdr2}` }}>
 
-              {/* Browser chrome bar */}
-              <div style={{ background: "#f3f4f6", borderBottom: "1px solid #e5e7eb", padding: "7px 12px", display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ display: "flex", gap: 4 }}>{["#ff5f57","#febc2e","#27c840"].map((bg,i)=><div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: bg }}/>)}</div>
-                <div style={{ flex: 1, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 5, padding: "3px 10px", fontSize: 9, color: "#9ca3af" }}>bookmyslot.in/book</div>
+              {/* Title bar — matches Doctor Portal style */}
+              <div style={{ background: c.T, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", gap: 5 }}>{[0,1,2].map(i=><div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(255,255,255,.3)" }}/>)}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,.9)" }}>Patient Booking</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,.55)" }}>bookmyslot.in</div>
               </div>
 
               {/* Dark hero band — matches Book.tsx hero section with grid texture */}
@@ -621,7 +613,7 @@ export default function Landing() {
                   <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: ".12em", color: "rgba(255,255,255,.4)", textTransform: "uppercase", marginBottom: 5 }}>BOOKMYSLOT · DENTAL</div>
                   <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", letterSpacing: "-.02em", marginBottom: 9 }}>Book Your <span style={{ color: "#1DB887" }}>Appointment</span></div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {["⏱ 3 time slots daily","✔ Confirmed instantly","○ No account needed"].map(p=>(
+                    {["· 3 time slots daily","· Confirmed instantly","· No account needed"].map(p=>(
                       <div key={p} style={{ fontSize: 8, fontWeight: 600, color: "rgba(255,255,255,.55)", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", padding: "3px 8px", borderRadius: 20 }}>{p}</div>
                     ))}
                   </div>
@@ -636,8 +628,8 @@ export default function Landing() {
                     <div style={{ fontSize: 12, fontWeight: 800, color: c.txt, marginBottom: 3 }}>Choose a Clinic</div>
                     <div style={{ fontSize: 10, color: c.muted, marginBottom: 11 }}>Select from the list or search by location</div>
                     <div style={{ display: "flex", gap: 6, marginBottom: 11 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "#0F9B6E", padding: "5px 14px", borderRadius: 8, border: "1px solid #0F9B6E" }}>🏥 Select Clinic</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: c.muted, padding: "5px 14px", borderRadius: 8, border: `1px solid ${c.bdr2}` }}>📍 Search by Location</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "#0F9B6E", padding: "5px 14px", borderRadius: 8, border: "1px solid #0F9B6E", display: "flex", alignItems: "center", gap: 4 }}><Building2 style={{ width: 10, height: 10 }}/> Select Clinic</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: c.muted, padding: "5px 14px", borderRadius: 8, border: `1px solid ${c.bdr2}`, display: "flex", alignItems: "center", gap: 4 }}><MapPin style={{ width: 10, height: 10 }}/> Search by Location</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, background: c.bg, border: `1px solid ${c.bdr2}`, borderRadius: 10, padding: "9px 14px", marginBottom: 10 }}>
                       <div style={{ width: 12, height: 12, borderRadius: 3, background: c.tL, border: `1px solid ${c.bdr2}`, flexShrink: 0 }}/>
@@ -646,7 +638,7 @@ export default function Landing() {
                     </div>
                     <div style={{ background: c.card, border: `1px solid ${c.bdr2}`, borderRadius: 11, padding: "11px 12px", boxShadow: `0 2px 8px rgba(15,155,110,.06)` }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 9, marginBottom: 8 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 9, background: c.tL, border: `1px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🦷</div>
+                        <div style={{ width: 36, height: 36, borderRadius: 9, background: c.tL, border: `1px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Building2 style={{ width: 16, height: 16, color: "#0F9B6E" }}/></div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 12, fontWeight: 700, color: c.txt }}>Sunrise Dental Clinic</div>
                           <div style={{ fontSize: 9, color: c.muted }}>Koramangala · 1.2 km · ⭐ 4.8</div>
@@ -702,7 +694,7 @@ export default function Landing() {
 
                 {patientStep === 2 && (
                   <div key="p2" style={{ animation: "screenIn .35s ease forwards", textAlign: "center", paddingTop: 8 }}>
-                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: c.tL, border: `2px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: 24 }}>📧</div>
+                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: c.tL, border: `2px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", }}><Mail style={{ width: 24, height: 24, color: c.T }} /></div>
                     <div style={{ fontSize: 14, fontWeight: 800, color: c.txt, marginBottom: 5 }}>Verify your email</div>
                     <div style={{ fontSize: 10, color: c.muted, marginBottom: 15 }}>Code sent to m***@gmail.com</div>
                     <div style={{ display: "flex", gap: 7, justifyContent: "center", marginBottom: 15 }}>
@@ -716,17 +708,21 @@ export default function Landing() {
 
                 {patientStep === 3 && (
                   <div key="p3" style={{ animation: "screenIn .35s ease forwards", textAlign: "center", paddingTop: 6 }}>
-                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(15,155,110,.12)", border: `2px solid #0F9B6E`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px", fontSize: 26 }}>✅</div>
+                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(15,155,110,.12)", border: `2px solid #0F9B6E`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}><Check style={{ width: 26, height: 26, color: "#0F9B6E" }} /></div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: "#0F9B6E", marginBottom: 3 }}>Booking Confirmed!</div>
                     <div style={{ fontSize: 9, fontWeight: 600, color: c.muted, background: c.tL, border: `1px solid ${c.bdr2}`, display: "inline-block", padding: "2px 10px", borderRadius: 20, marginBottom: 12 }}>#REF-0042</div>
                     <div style={{ background: c.card, border: `1px solid ${c.bdr2}`, borderRadius: 11, padding: "11px 14px", textAlign: "left" }}>
-                      {[{e:"🏥",t:"Sunrise Dental Clinic"},{e:"📅",t:"Tue, Apr 22 · 3:30 PM"},{e:"👩‍⚕️",t:"Dr. Priya Menon"}].map(r=>(
+                      {([
+                        {icon:<Building2 style={{ width: 12, height: 12, color: BRAND, flexShrink: 0 }} />, t:"Sunrise Dental Clinic"},
+                        {icon:<CalendarDays style={{ width: 12, height: 12, color: BRAND, flexShrink: 0 }} />, t:"Tue, Apr 22 · 3:30 PM"},
+                        {icon:<User style={{ width: 12, height: 12, color: BRAND, flexShrink: 0 }} />, t:"Dr. Priya Menon"},
+                      ] as {icon: React.ReactNode, t: string}[]).map(r=>(
                         <div key={r.t} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: c.txt2, marginBottom: 6 }}>
-                          <span style={{ fontSize: 12 }}>{r.e}</span>{r.t}
+                          {r.icon}{r.t}
                         </div>
                       ))}
                     </div>
-                    <div style={{ marginTop: 10, fontSize: 10, color: c.T, fontWeight: 600 }}>📩 Reminder sent to your email</div>
+                    <div style={{ marginTop: 10, fontSize: 10, color: c.T, fontWeight: 600 }}><Mail style={{ width: 10, height: 10, display: "inline", marginRight: 4 }} />Reminder sent to your email</div>
                   </div>
                 )}
 

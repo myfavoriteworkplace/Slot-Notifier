@@ -75,6 +75,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [paymentLoading, setPaymentLoading]     = useState(false);
   const [bookingPath, setBookingPath]           = useState<"pay" | "pending" | null>(null);
   const [isClinicSheetOpen, setIsClinicSheetOpen] = useState(false);
+  const [infoClinic, setInfoClinic] = useState<Clinic | null>(null);
   const razorpayScriptRef = useRef(false);
   const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
@@ -787,30 +788,42 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         filteredClinics.map(clinic => {
                           const isSelected = selectedClinic === clinic.name;
                           return (
-                            <button
+                            <div
                               key={clinic.id}
-                              onClick={() => setSelectedClinic(clinic.name)}
-                              className={`w-full flex items-center gap-3 px-3 py-3 text-left transition-all hover:bg-primary/5 border-b border-border/30 last:border-0 ${
+                              className={`flex items-center gap-3 px-3 py-3 border-b border-border/30 last:border-0 ${
                                 isSelected ? "bg-primary/8 border-l-2 border-l-primary pl-[10px]" : ""
                               }`}
-                              data-testid={`clinic-search-result-${clinic.id}`}
                             >
-                              <div className={`h-9 w-9 rounded-xl shrink-0 flex items-center justify-center text-sm font-black text-white ${
-                                isSelected
-                                  ? "bg-gradient-to-br from-primary to-accent"
-                                  : "bg-gradient-to-br from-primary/60 to-accent/60"
-                              }`}>
-                                {clinic.name.charAt(0)}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-semibold truncate ${isSelected ? "text-primary" : ""}`}>{clinic.name}</p>
-                                <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                                  {clinic.doctorName && <><Stethoscope className="h-2.5 w-2.5 shrink-0" />Dr. {clinic.doctorName} · </>}
-                                  {[(clinic as any).city, clinic.address].filter(Boolean).join(", ")}
-                                </p>
-                              </div>
-                              {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
-                            </button>
+                              <button
+                                onClick={() => setSelectedClinic(clinic.name)}
+                                className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-primary/5 transition-all rounded-lg -mx-1 px-1 py-0.5"
+                                data-testid={`clinic-search-result-${clinic.id}`}
+                              >
+                                <div className={`h-9 w-9 rounded-xl shrink-0 flex items-center justify-center text-sm font-black text-white ${
+                                  isSelected
+                                    ? "bg-gradient-to-br from-primary to-accent"
+                                    : "bg-gradient-to-br from-primary/60 to-accent/60"
+                                }`}>
+                                  {clinic.name.charAt(0)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-sm font-semibold truncate ${isSelected ? "text-primary" : ""}`}>{clinic.name}</p>
+                                  <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                    {clinic.doctorName && <><Stethoscope className="h-2.5 w-2.5 shrink-0" />Dr. {clinic.doctorName} · </>}
+                                    {[(clinic as any).city, clinic.address].filter(Boolean).join(", ")}
+                                  </p>
+                                </div>
+                                {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setInfoClinic(clinic); setIsClinicSheetOpen(true); }}
+                                className="h-7 w-7 shrink-0 rounded-lg bg-primary/8 hover:bg-primary/15 flex items-center justify-center text-primary/60 hover:text-primary transition-all border border-primary/15 hover:border-primary/30"
+                                title="View clinic details"
+                                data-testid={`button-clinic-info-${clinic.id}`}
+                              >
+                                <Info className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           );
                         })
                       )}
@@ -851,12 +864,12 @@ export default function Book(props: { params: { clinicId?: string } }) {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={() => setIsClinicSheetOpen(true)}
-                    className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-white/10 hover:bg-white/25 text-white/70 hover:text-white text-[11px] font-semibold transition-all border border-white/15 hover:border-white/30"
+                    onClick={() => { setInfoClinic(selectedClinicObj ?? null); setIsClinicSheetOpen(true); }}
+                    className="flex items-center gap-1.5 h-8 px-3 rounded-xl bg-white/15 hover:bg-white/30 text-white/90 hover:text-white text-[11px] font-bold transition-all border border-white/25 hover:border-white/45 shadow-sm"
                     data-testid="button-view-clinic-details"
                   >
-                    <Info className="h-3 w-3" />
-                    <span className="hidden sm:inline">Clinic Info</span>
+                    <Info className="h-3.5 w-3.5" />
+                    <span>About Clinic</span>
                   </button>
                   {!clinicIdFromUrl && (
                     <button
@@ -1667,10 +1680,10 @@ export default function Book(props: { params: { clinicId?: string } }) {
       </Dialog>
 
       <ClinicInfoSheet
-        clinic={selectedClinicObj as any ?? null}
+        clinic={(infoClinic ?? selectedClinicObj) as any ?? null}
         open={isClinicSheetOpen}
-        onOpenChange={setIsClinicSheetOpen}
-        onContinueBooking={() => setIsClinicSheetOpen(false)}
+        onOpenChange={(open) => { setIsClinicSheetOpen(open); if (!open) setInfoClinic(null); }}
+        onContinueBooking={() => { setIsClinicSheetOpen(false); setInfoClinic(null); }}
       />
     </div>
   );
