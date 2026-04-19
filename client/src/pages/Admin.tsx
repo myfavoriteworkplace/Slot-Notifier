@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
+import { SiFacebook, SiInstagram, SiLinkedin, SiWhatsapp } from "react-icons/si";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -107,6 +108,11 @@ export default function Admin() {
   const [dealSponsorPhone, setDealSponsorPhone] = useState("");
   const [dealSponsorEmail, setDealSponsorEmail] = useState("");
   const [dealSponsorWebsite, setDealSponsorWebsite] = useState("");
+  // Ad-specific social links
+  const [dealAdFacebook, setDealAdFacebook] = useState("");
+  const [dealAdInstagram, setDealAdInstagram] = useState("");
+  const [dealAdLinkedin, setDealAdLinkedin] = useState("");
+  const [dealAdWhatsapp, setDealAdWhatsapp] = useState("");
 
   // Edit deal sheet state
   const [editSheetOpen, setEditSheetOpen] = useState(false);
@@ -234,6 +240,7 @@ export default function Admin() {
     setDealExpiresAt(undefined); setDealIsFeatured(false); setDealCategory("");
     setDealClinicId(null); setDealSponsorName(""); setDealSponsorPhone("");
     setDealSponsorEmail(""); setDealSponsorWebsite("");
+    setDealAdFacebook(""); setDealAdInstagram(""); setDealAdLinkedin(""); setDealAdWhatsapp("");
     setDealTargetAudience(dealCreatorTab === "ad" ? "clinic" : "patient");
   };
 
@@ -252,9 +259,20 @@ export default function Admin() {
     isFeatured: dealIsFeatured,
     category: dealCategory || null,
     clinicId: dealClinicId || null,
-    contactInfo: dealCategory === "Advertisements / Sponsored" && (dealSponsorName || dealSponsorPhone || dealSponsorEmail || dealSponsorWebsite)
-      ? { sponsorName: dealSponsorName || undefined, phone: dealSponsorPhone || undefined, email: dealSponsorEmail || undefined, website: dealSponsorWebsite || undefined }
-      : null,
+    contactInfo: dealTargetAudience === "clinic"
+      ? {
+          sponsorName: dealSponsorName || undefined,
+          phone: dealSponsorPhone || undefined,
+          email: dealSponsorEmail || undefined,
+          website: dealSponsorWebsite || undefined,
+          facebookUrl: dealAdFacebook || undefined,
+          instagramUrl: dealAdInstagram || undefined,
+          linkedinUrl: dealAdLinkedin || undefined,
+          whatsappNumber: dealAdWhatsapp || undefined,
+        }
+      : dealCategory === "Sponsored / Featured Slots" && (dealSponsorName || dealSponsorPhone || dealSponsorEmail || dealSponsorWebsite)
+        ? { sponsorName: dealSponsorName || undefined, phone: dealSponsorPhone || undefined, email: dealSponsorEmail || undefined, website: dealSponsorWebsite || undefined }
+        : null,
     targetAudience: dealTargetAudience,
   });
 
@@ -283,8 +301,13 @@ export default function Admin() {
       setDealSponsorPhone(ci.phone || "");
       setDealSponsorEmail(ci.email || "");
       setDealSponsorWebsite(ci.website || "");
+      setDealAdFacebook(ci.facebookUrl || "");
+      setDealAdInstagram(ci.instagramUrl || "");
+      setDealAdLinkedin(ci.linkedinUrl || "");
+      setDealAdWhatsapp(ci.whatsappNumber || "");
     } else {
       setDealSponsorName(""); setDealSponsorPhone(""); setDealSponsorEmail(""); setDealSponsorWebsite("");
+      setDealAdFacebook(""); setDealAdInstagram(""); setDealAdLinkedin(""); setDealAdWhatsapp("");
     }
     setEditingDeal(deal);
     setEditSheetOpen(true);
@@ -1686,8 +1709,53 @@ export default function Admin() {
                       <Textarea id="deal-desc" value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} placeholder="Enter details..." className="resize-none h-[72px]" />
                     </div>
 
-                    {/* Sponsor contact info — only for Sponsored / Featured Slots */}
-                    {dealCategory === "Sponsored / Featured Slots" && (
+                    {/* Contact & Social Links — always shown for Ads */}
+                    {dealCreatorTab === "ad" && (
+                      <div className="p-3 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-3">
+                        <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                          <Globe className="h-3.5 w-3.5" /> Contact & Social Links
+                          <span className="font-normal text-muted-foreground">(shown on ad card)</span>
+                        </p>
+                        <Input placeholder="Company / Brand name" value={dealSponsorName} onChange={(e) => setDealSponsorName(e.target.value)} className="h-8 text-sm" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="relative">
+                            <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input placeholder="Phone" value={dealSponsorPhone} onChange={(e) => setDealSponsorPhone(e.target.value)} className="pl-8 h-8 text-sm" />
+                          </div>
+                          <div className="relative">
+                            <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input placeholder="Email" value={dealSponsorEmail} onChange={(e) => setDealSponsorEmail(e.target.value)} className="pl-8 h-8 text-sm" />
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <Globe className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input placeholder="Website URL (https://...)" value={dealSponsorWebsite} onChange={(e) => setDealSponsorWebsite(e.target.value)} className="pl-8 h-8 text-sm" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="relative">
+                            <SiFacebook className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#1877F2]" />
+                            <Input placeholder="Facebook page URL" value={dealAdFacebook} onChange={(e) => setDealAdFacebook(e.target.value)} className="pl-8 h-8 text-sm" />
+                          </div>
+                          <div className="relative">
+                            <SiInstagram className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#E1306C]" />
+                            <Input placeholder="Instagram profile URL" value={dealAdInstagram} onChange={(e) => setDealAdInstagram(e.target.value)} className="pl-8 h-8 text-sm" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="relative">
+                            <SiLinkedin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#0A66C2]" />
+                            <Input placeholder="LinkedIn company URL" value={dealAdLinkedin} onChange={(e) => setDealAdLinkedin(e.target.value)} className="pl-8 h-8 text-sm" />
+                          </div>
+                          <div className="relative">
+                            <SiWhatsapp className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#25D366]" />
+                            <Input placeholder="WhatsApp number (with +91)" value={dealAdWhatsapp} onChange={(e) => setDealAdWhatsapp(e.target.value)} className="pl-8 h-8 text-sm" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sponsor contact info — only for Deals with Sponsored / Featured Slots */}
+                    {dealCreatorTab === "deal" && dealCategory === "Sponsored / Featured Slots" && (
                       <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 space-y-3">
                         <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                           <Megaphone className="h-3.5 w-3.5" /> Sponsor Contact Info <span className="font-normal text-muted-foreground">(shown on deal card)</span>
@@ -1825,12 +1893,63 @@ export default function Admin() {
                   </div>
                 </div>
 
-                {/* Live Preview */}
-                {dealTitle && (
-                  <div className="mt-6 pt-6 border-t border-border/50">
-                    <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide flex items-center gap-1.5">
-                      <Eye className="h-3 w-3" /> Live Preview
-                    </p>
+                {/* Live Preview — always visible */}
+                <div className="mt-6 pt-6 border-t border-border/50">
+                  <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide flex items-center gap-1.5">
+                    <Eye className="h-3 w-3" /> Live Preview
+                  </p>
+                  {!dealTitle ? (
+                    <div className="max-w-sm rounded-2xl border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center py-10 gap-2">
+                      <Eye className="h-6 w-6 text-muted-foreground/40" />
+                      <p className="text-xs text-muted-foreground">Start filling the form to see a preview</p>
+                    </div>
+                  ) : dealCreatorTab === "ad" ? (
+                    /* Ad Preview — B2B card */
+                    <div className="max-w-sm rounded-2xl overflow-hidden border bg-card shadow-md">
+                      <div className="relative aspect-video overflow-hidden bg-muted">
+                        <img
+                          src={dealImageUrl || "https://images.unsplash.com/photo-1629909615184-74f495363b67?auto=format&fit=crop&q=80&w=800"}
+                          alt={dealTitle}
+                          className="w-full h-full object-cover"
+                        />
+                        {dealIsFeatured && (
+                          <span className="absolute top-2 left-2 inline-flex items-center gap-1 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            <Star className="h-2.5 w-2.5 fill-white" /> Featured
+                          </span>
+                        )}
+                        <span className="absolute top-2 right-2 inline-flex items-center gap-1 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          🏥 Ad
+                        </span>
+                        {dealCategory && (
+                          <span className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">{dealCategory}</span>
+                        )}
+                      </div>
+                      <div className="p-4 space-y-2">
+                        {dealSponsorName && <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{dealSponsorName}</p>}
+                        <h3 className="font-bold text-sm leading-snug">{dealTitle}</h3>
+                        {dealDescription && <p className="text-xs text-muted-foreground line-clamp-2">{dealDescription}</p>}
+                        {dealPrice && showPrice && (
+                          <p className="text-sm font-bold text-primary">
+                            ₹{dealPrice}
+                            {dealOriginalPrice && <span className="ml-2 text-xs font-normal text-muted-foreground line-through">₹{dealOriginalPrice}</span>}
+                          </p>
+                        )}
+                        {/* Social links preview */}
+                        {(dealSponsorWebsite || dealAdFacebook || dealAdInstagram || dealAdLinkedin || dealAdWhatsapp || dealSponsorPhone || dealSponsorEmail) && (
+                          <div className="pt-2 border-t border-border/50 flex items-center gap-2 flex-wrap">
+                            {dealSponsorWebsite && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-muted hover:bg-primary/10 transition-colors"><Globe className="h-3.5 w-3.5 text-muted-foreground" /></span>}
+                            {dealSponsorPhone && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-muted hover:bg-primary/10 transition-colors"><Phone className="h-3.5 w-3.5 text-muted-foreground" /></span>}
+                            {dealSponsorEmail && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-muted hover:bg-primary/10 transition-colors"><Mail className="h-3.5 w-3.5 text-muted-foreground" /></span>}
+                            {dealAdFacebook && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#1877F2]/10 hover:bg-[#1877F2]/20 transition-colors"><SiFacebook className="h-3.5 w-3.5 text-[#1877F2]" /></span>}
+                            {dealAdInstagram && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#E1306C]/10 hover:bg-[#E1306C]/20 transition-colors"><SiInstagram className="h-3.5 w-3.5 text-[#E1306C]" /></span>}
+                            {dealAdLinkedin && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 transition-colors"><SiLinkedin className="h-3.5 w-3.5 text-[#0A66C2]" /></span>}
+                            {dealAdWhatsapp && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors"><SiWhatsapp className="h-3.5 w-3.5 text-[#25D366]" /></span>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Deal Preview — patient card */
                     <div className="max-w-sm rounded-2xl overflow-hidden border bg-card shadow-md">
                       <div className="relative aspect-video overflow-hidden bg-muted">
                         <img
@@ -1844,7 +1963,7 @@ export default function Admin() {
                           </span>
                         )}
                         {dealCategory && (
-                          <span className="absolute top-2 left-2 mt-5 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full">{dealCategory}</span>
+                          <span className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">{dealCategory}</span>
                         )}
                         {dealPrice && showPrice && (
                           <span className="absolute top-2 right-2 bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-lg">₹{dealPrice}</span>
@@ -1853,6 +1972,9 @@ export default function Admin() {
                       <div className="p-4 space-y-1.5">
                         <h3 className="font-bold text-sm leading-snug">{dealTitle}</h3>
                         {dealDescription && <p className="text-xs text-muted-foreground line-clamp-2">{dealDescription}</p>}
+                        {dealOriginalPrice && showPrice && (
+                          <p className="text-[11px] text-muted-foreground line-through">₹{dealOriginalPrice}</p>
+                        )}
                         {(dealStartsAt || dealExpiresAt) && (
                           <div className="flex items-center gap-1 text-[11px] text-muted-foreground pt-0.5">
                             <CalendarDays className="h-3 w-3" />
@@ -1861,10 +1983,17 @@ export default function Admin() {
                             {dealExpiresAt && <span>Until {format(dealExpiresAt, "d MMM")}</span>}
                           </div>
                         )}
+                        {dealBookingLink && (
+                          <div className="pt-1">
+                            <span className="inline-flex items-center gap-1 text-[11px] text-primary font-medium">
+                              <ExternalLink className="h-3 w-3" /> Book Now
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -2162,8 +2291,52 @@ export default function Admin() {
               <Textarea value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} className="resize-none h-[72px]" />
             </div>
 
-            {/* Sponsor contact info */}
-            {dealCategory === "Sponsored / Featured Slots" && (
+            {/* Contact & Social Links — always shown for Ads */}
+            {dealTargetAudience === "clinic" && (
+              <div className="p-3 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-3">
+                <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5" /> Contact & Social Links
+                </p>
+                <Input placeholder="Company / Brand name" value={dealSponsorName} onChange={(e) => setDealSponsorName(e.target.value)} className="h-8 text-sm" />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input placeholder="Phone" value={dealSponsorPhone} onChange={(e) => setDealSponsorPhone(e.target.value)} className="pl-8 h-8 text-sm" />
+                  </div>
+                  <div className="relative">
+                    <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input placeholder="Email" value={dealSponsorEmail} onChange={(e) => setDealSponsorEmail(e.target.value)} className="pl-8 h-8 text-sm" />
+                  </div>
+                </div>
+                <div className="relative">
+                  <Globe className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input placeholder="Website URL (https://...)" value={dealSponsorWebsite} onChange={(e) => setDealSponsorWebsite(e.target.value)} className="pl-8 h-8 text-sm" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <SiFacebook className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#1877F2]" />
+                    <Input placeholder="Facebook page URL" value={dealAdFacebook} onChange={(e) => setDealAdFacebook(e.target.value)} className="pl-8 h-8 text-sm" />
+                  </div>
+                  <div className="relative">
+                    <SiInstagram className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#E1306C]" />
+                    <Input placeholder="Instagram profile URL" value={dealAdInstagram} onChange={(e) => setDealAdInstagram(e.target.value)} className="pl-8 h-8 text-sm" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <SiLinkedin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#0A66C2]" />
+                    <Input placeholder="LinkedIn company URL" value={dealAdLinkedin} onChange={(e) => setDealAdLinkedin(e.target.value)} className="pl-8 h-8 text-sm" />
+                  </div>
+                  <div className="relative">
+                    <SiWhatsapp className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#25D366]" />
+                    <Input placeholder="WhatsApp number (+91...)" value={dealAdWhatsapp} onChange={(e) => setDealAdWhatsapp(e.target.value)} className="pl-8 h-8 text-sm" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sponsor contact info — Deals with Sponsored / Featured Slots only */}
+            {dealTargetAudience === "patient" && dealCategory === "Sponsored / Featured Slots" && (
               <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 space-y-3">
                 <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                   <Megaphone className="h-3.5 w-3.5" /> Sponsor Contact Info
