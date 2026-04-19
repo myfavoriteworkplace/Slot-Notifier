@@ -82,6 +82,8 @@ export default function Admin() {
   const [editPassword, setEditPassword] = useState("");
 
   // Smile Deals state
+  const [dealCreatorTab, setDealCreatorTab] = useState<"deal" | "ad">("deal");
+  const [dealListTab, setDealListTab] = useState<"deal" | "ad">("deal");
   const [dealTitle, setDealTitle] = useState("");
   const [dealDescription, setDealDescription] = useState("");
   const [dealImageUrl, setDealImageUrl] = useState("");
@@ -109,40 +111,43 @@ export default function Admin() {
   // Edit deal sheet state
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<SmileDeal | null>(null);
-  const [dealTargetAudience, setDealTargetAudience] = useState<"patient" | "clinic" | "both">("patient");
+  const [dealTargetAudience, setDealTargetAudience] = useState<"patient" | "clinic">("patient");
 
+  // Deals → targeted at patients
   const DEAL_CATEGORIES = [
-    "Clinic Deals",
-    "Seasonal / Festival Offers",
-    "Advertisements / Sponsored",
-    "Membership / Loyalty Programs",
+    "Treatment Offers",
+    "Smile Packages",
+    "Seasonal & Festival Offers",
+    "Membership & Loyalty Plans",
     "New Clinic Launch",
-    "Doctor-Specific Offers",
-    "Community / Awareness",
-    "Product Promotions",
-    "Premium Highlighted Deals",
+    "Free Consultation",
+    "Paediatric Dentistry",
+    "Sponsored / Featured Slots",
   ];
 
+  // Ads → targeted at clinics (B2B)
   const CLINIC_DEAL_CATEGORIES = [
-    "Equipment & Supplies",
-    "Lab & Materials",
-    "Practice Software",
-    "Staff Training",
-    "Furniture & Fixtures",
-    "PPE & Disposables",
-    "Sterilisation",
+    "Dental Materials & Consumables",
+    "Equipment & Instruments",
+    "Imaging & Diagnostics",
+    "Lab & Prosthetics Services",
     "Dental Technology",
-    "Advertisements / Sponsored",
-    "Other (Clinic)",
+    "Practice Management Software",
+    "PPE & Infection Control",
+    "Continuing Education & Training",
+    "Clinic Setup & Furniture",
+    "Finance & Leasing",
+    "Sponsored / Featured Slots",
   ];
 
-  const DEAL_SUBCATEGORIES = ["Cleaning / Scaling", "Whitening", "Braces / Orthodontics", "Implants", "Root Canal", "Extraction", "X-Ray / Imaging", "Consultation", "Gum Treatment", "Cosmetic Dentistry", "Other"];
-  const CLINIC_DEAL_SUBCATEGORIES = ["Handpieces & Drills", "Sterilisers & Autoclaves", "Dental Chairs", "X-Ray & Imaging", "Impression Materials", "Composites & Adhesives", "Endodontic Supplies", "PPE & Gloves", "CAD/CAM Systems", "Practice Management Software", "Staff Training Course", "Other"];
-  const CATEGORIES_WITH_PRICE = ["Clinic Deals", "Seasonal / Festival Offers", "Membership / Loyalty Programs", "New Clinic Launch", "Doctor-Specific Offers", "Product Promotions", "Premium Highlighted Deals"];
+  const DEAL_SUBCATEGORIES = ["Scaling & Cleaning", "Teeth Whitening", "Braces / Orthodontics", "Dental Implants", "Root Canal Treatment", "Extraction", "X-Ray / Imaging", "Consultation", "Gum Treatment", "Cosmetic Dentistry", "Smile Makeover", "Paediatric Care", "Other"];
+  const CLINIC_DEAL_SUBCATEGORIES = ["Composites & Adhesives", "Impression Materials", "Cements & Liners", "Endodontic Supplies", "Handpieces & Drills", "Dental Chairs", "Sterilisers & Autoclaves", "Intraoral Cameras", "X-Ray & CBCT Units", "CAD/CAM Systems", "3D Printers", "Crowns & Bridges", "Clear Aligners", "Dentures", "PMS & Billing Software", "Scheduling Tools", "PPE & Gloves", "Disinfectants & Pouches", "CPD Courses", "Webinars & Certifications", "Clinic Cabinetry", "Reception Furniture", "Equipment EMI Plans", "Practice Loans", "Other"];
+  const CATEGORIES_WITH_PRICE = ["Treatment Offers", "Smile Packages", "Seasonal & Festival Offers", "Membership & Loyalty Plans", "New Clinic Launch", "Free Consultation", "Paediatric Dentistry", "Dental Materials & Consumables", "Equipment & Instruments", "Lab & Prosthetics Services", "Finance & Leasing"];
   const LINK_CONFIG: Record<string, { label: string; placeholder: string }> = {
-    "Product Promotions": { label: "Product Link", placeholder: "https://shop.example.com/product" },
-    "Advertisements / Sponsored": { label: "Ad Target URL", placeholder: "https://sponsor-website.com" },
-    "Community / Awareness": { label: "Campaign Link", placeholder: "https://campaign-page.com" },
+    "Sponsored / Featured Slots": { label: "Sponsor / Ad URL", placeholder: "https://sponsor-website.com" },
+    "Finance & Leasing": { label: "Apply / Learn More Link", placeholder: "https://finance-provider.com" },
+    "Continuing Education & Training": { label: "Course / Registration Link", placeholder: "https://course-provider.com" },
+    "Practice Management Software": { label: "Product / Demo Link", placeholder: "https://software-product.com" },
   };
   const showPrice = !dealCategory || CATEGORIES_WITH_PRICE.includes(dealCategory);
   const linkConfig = dealCategory ? (LINK_CONFIG[dealCategory] || { label: "Booking Link", placeholder: "/book/clinic-name" }) : { label: "Link", placeholder: "Select a category first" };
@@ -228,7 +233,8 @@ export default function Admin() {
     setDealSubcategory(""); setDealIsFlash(false); setDealStartsAt(undefined);
     setDealExpiresAt(undefined); setDealIsFeatured(false); setDealCategory("");
     setDealClinicId(null); setDealSponsorName(""); setDealSponsorPhone("");
-    setDealSponsorEmail(""); setDealSponsorWebsite(""); setDealTargetAudience("patient");
+    setDealSponsorEmail(""); setDealSponsorWebsite("");
+    setDealTargetAudience(dealCreatorTab === "ad" ? "clinic" : "patient");
   };
 
   const getDealPayload = () => ({
@@ -268,7 +274,9 @@ export default function Admin() {
     setDealIsFeatured(deal.isFeatured || false);
     setDealCategory((deal as any).category || "");
     setDealClinicId((deal as any).clinicId || null);
-    setDealTargetAudience(((deal as any).targetAudience as "patient" | "clinic" | "both") || "patient");
+    const audience = ((deal as any).targetAudience as string) === "clinic" ? "clinic" : "patient";
+    setDealTargetAudience(audience);
+    setDealCreatorTab(audience === "clinic" ? "ad" : "deal");
     const ci = (deal as any).contactInfo;
     if (ci) {
       setDealSponsorName(ci.sponsorName || "");
@@ -1508,14 +1516,36 @@ export default function Admin() {
 
             {/* Deal Creator Panel */}
             <Card className="overflow-hidden shadow-md border-0">
-              <div className="bg-gradient-to-r from-primary to-accent px-6 py-4 flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <Sparkles className="h-5 w-5 text-white" />
+              <div className="bg-gradient-to-r from-primary to-accent px-6 py-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <Sparkles className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-white font-semibold text-lg leading-tight">Deals & Ads</h2>
+                    <p className="text-white/70 text-sm">Create patient-facing deals or clinic-facing ads</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-white font-semibold text-lg leading-tight">Create a New Deal</h2>
-                  <p className="text-white/70 text-sm">Add a promotional offer to the Smile Deals page</p>
+                {/* Type selector tabs */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setDealCreatorTab("deal"); setDealTargetAudience("patient"); setDealCategory(""); setDealSubcategory(""); }}
+                    className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all border ${dealCreatorTab === "deal" ? "bg-white text-primary border-white shadow-sm" : "bg-white/10 text-white border-white/20 hover:bg-white/20"}`}
+                  >
+                    🧑 Deal <span className="font-normal opacity-75 text-xs">for Patients</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDealCreatorTab("ad"); setDealTargetAudience("clinic"); setDealCategory(""); setDealSubcategory(""); }}
+                    className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all border ${dealCreatorTab === "ad" ? "bg-white text-primary border-white shadow-sm" : "bg-white/10 text-white border-white/20 hover:bg-white/20"}`}
+                  >
+                    🏥 Ad <span className="font-normal opacity-75 text-xs">for Clinics</span>
+                  </button>
                 </div>
+                <p className="text-white/60 text-xs mt-2">
+                  {dealCreatorTab === "deal" ? "Deals are shown on the public Smile Deals page — visible to patients browsing for offers." : "Ads are shown in the clinic-facing section — visible to dental professionals and practice owners."}
+                </p>
               </div>
               <CardContent className="p-6">
                 <div className="grid gap-6 lg:grid-cols-2">
@@ -1573,29 +1603,7 @@ export default function Admin() {
                   {/* Right: Form Fields */}
                   <div className="space-y-4">
 
-                    {/* Audience — first field, drives everything below */}
-                    <div className="space-y-2">
-                      <Label htmlFor="deal-audience" className="flex items-center gap-1.5 font-semibold">
-                        Who is this deal for?
-                      </Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {(["clinic", "patient", "both"] as const).map((opt) => (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => { setDealTargetAudience(opt); setDealCategory(""); setDealSubcategory(""); }}
-                            className={`h-9 rounded-lg border text-sm font-semibold transition-all ${dealTargetAudience === opt ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:border-primary/50"}`}
-                          >
-                            {opt === "clinic" ? "🏥 Clinics" : opt === "patient" ? "🧑 Patients" : "🔁 Both"}
-                          </button>
-                        ))}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        {dealTargetAudience === "clinic" ? "Shown in the Clinics tab — equipment, supplies, software, training." : dealTargetAudience === "patient" ? "Shown in the Patients tab — appointment offers and discounts." : "Shown in both tabs."}
-                      </p>
-                    </div>
-
-                    {/* Category — driven by audience */}
+                    {/* Category — driven by type tab */}
                     <div className="space-y-2">
                       <Label htmlFor="deal-category" className="flex items-center gap-1.5">
                         <Tag className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1633,11 +1641,11 @@ export default function Admin() {
                       </select>
                     </div>
 
-                    {/* Clinic selector — only for Clinic Deals */}
-                    {dealCategory === "Clinic Deals" && (
+                    {/* Clinic selector — for patient-facing deals */}
+                    {dealCreatorTab === "deal" && (
                       <div className="space-y-2 p-3 rounded-xl border border-primary/20 bg-primary/5">
                         <Label htmlFor="deal-clinic" className="flex items-center gap-1.5 text-xs font-semibold text-primary">
-                          <Building2 className="h-3.5 w-3.5" /> Select Clinic <span className="text-destructive">*</span>
+                          <Building2 className="h-3.5 w-3.5" /> Link to Clinic <span className="text-muted-foreground font-normal">(optional — auto-fills booking link)</span>
                         </Label>
                         <select
                           id="deal-clinic"
@@ -1678,8 +1686,8 @@ export default function Admin() {
                       <Textarea id="deal-desc" value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} placeholder="Enter details..." className="resize-none h-[72px]" />
                     </div>
 
-                    {/* Sponsor contact info — only for Advertisements / Sponsored */}
-                    {dealCategory === "Advertisements / Sponsored" && (
+                    {/* Sponsor contact info — only for Sponsored / Featured Slots */}
+                    {dealCategory === "Sponsored / Featured Slots" && (
                       <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 space-y-3">
                         <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                           <Megaphone className="h-3.5 w-3.5" /> Sponsor Contact Info <span className="font-normal text-muted-foreground">(shown on deal card)</span>
@@ -1812,7 +1820,7 @@ export default function Admin() {
                       disabled={createDealMutation.isPending || !dealTitle}
                     >
                       {createDealMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                      Publish Deal
+                      {dealCreatorTab === "ad" ? "Publish Ad" : "Publish Deal"}
                     </Button>
                   </div>
                 </div>
@@ -1860,22 +1868,39 @@ export default function Admin() {
               </CardContent>
             </Card>
 
-            {/* Running Deals */}
+            {/* Running Deals & Ads */}
             <Card className="shadow-md border-0">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Megaphone className="h-5 w-5 text-primary" />
-                    Running Deals
+                    {dealListTab === "deal" ? "Running Deals" : "Running Ads"}
                   </CardTitle>
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    {smileDeals.filter(d => d.isActive).length} Active
+                    {smileDeals.filter(d => d.isActive && (dealListTab === "ad" ? d.targetAudience === "clinic" : d.targetAudience !== "clinic")).length} Active
                   </span>
+                </div>
+                {/* List tab switcher */}
+                <div className="flex gap-1 mt-2 p-1 bg-muted rounded-lg w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setDealListTab("deal")}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${dealListTab === "deal" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    🧑 Deals ({smileDeals.filter(d => d.targetAudience !== "clinic").length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDealListTab("ad")}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${dealListTab === "ad" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    🏥 Ads ({smileDeals.filter(d => d.targetAudience === "clinic").length})
+                  </button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {smileDeals.map((deal) => (
+                {smileDeals.filter(d => dealListTab === "ad" ? d.targetAudience === "clinic" : d.targetAudience !== "clinic").map((deal) => (
                   <div
                     key={deal.id}
                     className={`flex gap-4 p-4 rounded-xl border transition-all hover:shadow-md ${
@@ -1983,13 +2008,17 @@ export default function Admin() {
                     </div>
                   </div>
                 ))}
-                {smileDeals.length === 0 && (
+                {smileDeals.filter(d => dealListTab === "ad" ? d.targetAudience === "clinic" : d.targetAudience !== "clinic").length === 0 && (
                   <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                     <div className="p-4 bg-muted/50 rounded-full">
                       <Megaphone className="h-8 w-8 text-muted-foreground/50" />
                     </div>
-                    <p className="font-medium text-muted-foreground">No deals configured yet</p>
-                    <p className="text-xs text-muted-foreground/70">Create your first deal using the form above</p>
+                    <p className="font-medium text-muted-foreground">
+                      {dealListTab === "ad" ? "No ads published yet" : "No deals published yet"}
+                    </p>
+                    <p className="text-xs text-muted-foreground/70">
+                      {dealListTab === "ad" ? "Switch to the Ad tab above and publish your first clinic-facing ad" : "Switch to the Deal tab above and publish your first patient-facing deal"}
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -2067,16 +2096,16 @@ export default function Admin() {
 
             {/* Audience */}
             <div className="space-y-2">
-              <Label className="font-semibold">Who is this deal for?</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {(["clinic", "patient", "both"] as const).map((opt) => (
+              <Label className="font-semibold">Type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["patient", "clinic"] as const).map((opt) => (
                   <button
                     key={opt}
                     type="button"
                     onClick={() => { setDealTargetAudience(opt); setDealCategory(""); setDealSubcategory(""); }}
                     className={`h-9 rounded-lg border text-sm font-semibold transition-all ${dealTargetAudience === opt ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:border-primary/50"}`}
                   >
-                    {opt === "clinic" ? "🏥 Clinics" : opt === "patient" ? "🧑 Patients" : "🔁 Both"}
+                    {opt === "clinic" ? "🏥 Ad — for Clinics" : "🧑 Deal — for Patients"}
                   </button>
                 ))}
               </div>
@@ -2093,10 +2122,10 @@ export default function Admin() {
             </div>
 
             {/* Clinic selector */}
-            {dealCategory === "Clinic Deals" && (
+            {dealTargetAudience === "patient" && (
               <div className="space-y-2 p-3 rounded-xl border border-primary/20 bg-primary/5">
                 <Label className="flex items-center gap-1.5 text-xs font-semibold text-primary">
-                  <Building2 className="h-3.5 w-3.5" /> Clinic
+                  <Building2 className="h-3.5 w-3.5" /> Link to Clinic <span className="text-muted-foreground font-normal">(optional)</span>
                 </Label>
                 <select value={dealClinicId ?? ""} onChange={(e) => {
                   const id = Number(e.target.value);
@@ -2134,7 +2163,7 @@ export default function Admin() {
             </div>
 
             {/* Sponsor contact info */}
-            {dealCategory === "Advertisements / Sponsored" && (
+            {dealCategory === "Sponsored / Featured Slots" && (
               <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 space-y-3">
                 <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                   <Megaphone className="h-3.5 w-3.5" /> Sponsor Contact Info
