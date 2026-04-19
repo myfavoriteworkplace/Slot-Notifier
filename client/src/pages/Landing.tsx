@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { ArrowRight, Clock, Shield, Users, Star, Download, UserCheck, Check, ChevronDown, FileText } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 
@@ -55,6 +55,23 @@ const patientFeatures = [
   { icon: Shield, title: "Secure & Private",        desc: "Patient data is encrypted and protected. Privacy-first design, end to end." },
 ];
 
+const CLINIC_STEPS = [
+  { emoji: "🏥", title: "Register Clinic",      desc: "Add details, logo & location" },
+  { emoji: "👥", title: "Invite Doctors",        desc: "Email invites, assign roles" },
+  { emoji: "📅", title: "Configure Slots",       desc: "Availability, leave & holidays" },
+  { emoji: "👤", title: "Manage Patients",       desc: "Records, history & notes" },
+  { emoji: "📦", title: "Track Inventory",       desc: "Stock levels & low-stock alerts" },
+  { emoji: "📊", title: "Handle Bookings",       desc: "Approve, reschedule & export" },
+];
+
+const PATIENT_STEPS = [
+  { emoji: "🔍", title: "Discover",             desc: "Browse verified clinics & deals" },
+  { emoji: "📅", title: "Pick a Date",          desc: "Select an open slot in real time" },
+  { emoji: "✅", title: "Confirm",              desc: "One-click appointment booking" },
+  { emoji: "📧", title: "Email OTP",            desc: "Verify your identity securely" },
+  { emoji: "🔔", title: "Get Reminded",         desc: "Confirmation + reminder sent" },
+];
+
 export default function Landing() {
   const { isAuthenticated, user } = useAuth();
   const { isAuthenticated: isClinicAuthenticated } = useClinicAuth();
@@ -63,6 +80,29 @@ export default function Landing() {
   const c = resolvedTheme === "dark" ? DARK : LIGHT;
 
   const [toastVisible, setToastVisible] = useState(false);
+  const [clinicStep, setClinicStep] = useState(0);
+  const [patientStep, setPatientStep] = useState(0);
+  const clinicStepRef = useRef(0);
+  const patientStepRef = useRef(0);
+
+  useEffect(() => {
+    const iv = setInterval(() => {
+      clinicStepRef.current = (clinicStepRef.current + 1) % CLINIC_STEPS.length;
+      setClinicStep(clinicStepRef.current);
+    }, 1800);
+    return () => clearInterval(iv);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const iv = setInterval(() => {
+        patientStepRef.current = (patientStepRef.current + 1) % PATIENT_STEPS.length;
+        setPatientStep(patientStepRef.current);
+      }, 1800);
+      return () => clearInterval(iv);
+    }, 900);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     if (isClinicAuthenticated) setLocation("/clinic-dashboard");
@@ -100,6 +140,9 @@ export default function Landing() {
         @keyframes lndBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
         .lnd-scroll-arrow { animation: lndBounce 1.8s ease-in-out infinite; }
 
+        @keyframes wfPulse { 0%,100%{box-shadow:0 0 0 0 rgba(15,155,110,.5)} 60%{box-shadow:0 0 0 8px rgba(15,155,110,0)} }
+        @keyframes wfLineGrow { from{width:0} to{width:100%} }
+
         @media (max-width: 900px) {
           .lnd-hero          { grid-template-columns: 1fr !important; min-height: auto !important; padding: 40px 24px 60px !important; }
           .lnd-float-badge-1 { right: -8px  !important; top: 12px    !important; }
@@ -113,6 +156,8 @@ export default function Landing() {
           .lnd-section       { padding-left: 24px !important; padding-right: 24px !important; }
           .lnd-footer        { padding: 18px 24px !important; }
           .lnd-deals-inner   { grid-template-columns: 1fr !important; }
+          .lnd-wf-steps      { flex-wrap: wrap !important; }
+          .lnd-wf-connector  { display: none !important; }
         }
         @media (max-width: 540px) {
           .lnd-hero          { padding: 24px 18px 48px !important; }
@@ -128,6 +173,8 @@ export default function Landing() {
           .lnd-footer        { flex-direction: column !important; text-align: center !important; gap: 6px !important; padding: 18px !important; }
           .lnd-trust-divider { display: none !important; }
           .lnd-deals-inner   { grid-template-columns: 1fr !important; }
+          .lnd-wf-steps      { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
+          .lnd-wf-step       { flex-direction: row !important; text-align: left !important; gap: 12px !important; width: 100% !important; }
         }
       `}</style>
 
@@ -346,7 +393,7 @@ export default function Landing() {
               </span>
               <div style={{ height: 1, flex: 1, background: c.bdr }} />
             </div>
-            <div className="lnd-feat-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
+            <div className="lnd-feat-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 20 }}>
               {clinicFeatures.map((f, i) => (
                 <motion.div key={f.title} {...fadeUp(i * 0.07)}
                   style={{ background: c.card, border: `1px solid ${c.bdr}`, borderRadius: 20, padding: "24px 22px 26px", transition: "all .3s cubic-bezier(.16,1,.3,1)", cursor: "default" }}
@@ -361,6 +408,61 @@ export default function Landing() {
                 </motion.div>
               ))}
             </div>
+
+            {/* Clinic Workflow Strip */}
+            <motion.div {...fadeUp(0.1)} style={{ background: "linear-gradient(135deg,#071510,#0D1F16)", borderRadius: 20, padding: "28px 28px 24px", border: "1px solid rgba(15,155,110,.2)", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: -60, right: -60, width: 220, height: 220, borderRadius: "50%", background: "radial-gradient(circle,rgba(15,155,110,.12),transparent 70%)", pointerEvents: "none" }} />
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "rgba(93,202,165,.7)", marginBottom: 20, position: "relative", zIndex: 1 }}>
+                🔄 Clinic admin workflow — how it flows
+              </div>
+              <div className="lnd-wf-steps" style={{ display: "flex", alignItems: "flex-start", gap: 0, position: "relative", zIndex: 1 }}>
+                {CLINIC_STEPS.map((step, i) => {
+                  const isActive = clinicStep === i;
+                  const isPast = i < clinicStep;
+                  return (
+                    <div key={step.title} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+                      {/* Step pill */}
+                      <div
+                        className="lnd-wf-step"
+                        style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 10, flex: 1, padding: "0 4px", cursor: "default", transition: "all .4s" }}
+                        onClick={() => { clinicStepRef.current = i; setClinicStep(i); }}
+                      >
+                        <div style={{
+                          width: 48, height: 48, borderRadius: "50%", flexShrink: 0,
+                          background: isActive ? BRAND : isPast ? "rgba(15,155,110,.25)" : "rgba(255,255,255,.06)",
+                          border: isActive ? `2px solid ${BRAND_M}` : isPast ? "2px solid rgba(15,155,110,.4)" : "1.5px solid rgba(255,255,255,.1)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 20,
+                          animation: isActive ? "wfPulse 1.2s ease-out" : "none",
+                          boxShadow: isActive ? `0 0 0 0 rgba(15,155,110,.5), 0 6px 24px rgba(15,155,110,.35)` : "none",
+                          transition: "all .4s cubic-bezier(.16,1,.3,1)",
+                        }}>
+                          {step.emoji}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: isActive ? "#E8F5F0" : isPast ? "rgba(232,245,240,.55)" : "rgba(255,255,255,.3)", letterSpacing: "-.01em", marginBottom: 3, transition: "color .4s" }}>{step.title}</div>
+                          <div style={{ fontSize: 10.5, color: isActive ? "rgba(93,202,165,.9)" : "rgba(255,255,255,.2)", lineHeight: 1.5, transition: "color .4s" }}>{step.desc}</div>
+                        </div>
+                      </div>
+                      {/* Connector */}
+                      {i < CLINIC_STEPS.length - 1 && (
+                        <div className="lnd-wf-connector" style={{ width: 28, flexShrink: 0, height: 2, borderRadius: 2, background: isPast || isActive ? "rgba(15,155,110,.5)" : "rgba(255,255,255,.08)", position: "relative", top: -14, transition: "background .4s", margin: "0 2px" }}>
+                          {(isPast || isActive) && (
+                            <div style={{ position: "absolute", inset: 0, borderRadius: 2, background: BRAND_M, animation: "wfLineGrow .4s ease forwards" }} />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Step counter */}
+              <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+                {CLINIC_STEPS.map((_, i) => (
+                  <div key={i} onClick={() => { clinicStepRef.current = i; setClinicStep(i); }} style={{ width: i === clinicStep ? 18 : 5, height: 5, borderRadius: 3, background: i === clinicStep ? BRAND_M : "rgba(255,255,255,.15)", transition: "all .35s", cursor: "pointer" }} />
+                ))}
+              </div>
+            </motion.div>
           </div>
 
           {/* For your patients */}
@@ -372,7 +474,7 @@ export default function Landing() {
               </span>
               <div style={{ height: 1, flex: 1, background: c.bdr }} />
             </div>
-            <div className="lnd-feat-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+            <div className="lnd-feat-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 20 }}>
               {patientFeatures.map((f, i) => (
                 <motion.div key={f.title} {...fadeUp(i * 0.07)}
                   style={{ background: c.card, border: `1px solid ${c.bdr}`, borderRadius: 20, padding: "24px 22px 26px", transition: "all .3s cubic-bezier(.16,1,.3,1)", cursor: "default" }}
@@ -387,6 +489,61 @@ export default function Landing() {
                 </motion.div>
               ))}
             </div>
+
+            {/* Patient Workflow Strip */}
+            <motion.div {...fadeUp(0.1)} style={{ background: `linear-gradient(135deg,${c.card},${c.tL})`, borderRadius: 20, padding: "28px 28px 24px", border: `1px solid ${c.bdr2}`, position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", bottom: -50, left: -50, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle,${c.T}18,transparent 70%)`, pointerEvents: "none" }} />
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: c.T, marginBottom: 20, position: "relative", zIndex: 1 }}>
+                🧑 Patient journey — from discovery to confirmed
+              </div>
+              <div className="lnd-wf-steps" style={{ display: "flex", alignItems: "flex-start", gap: 0, position: "relative", zIndex: 1 }}>
+                {PATIENT_STEPS.map((step, i) => {
+                  const isActive = patientStep === i;
+                  const isPast = i < patientStep;
+                  return (
+                    <div key={step.title} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+                      {/* Step pill */}
+                      <div
+                        className="lnd-wf-step"
+                        style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 10, flex: 1, padding: "0 4px", cursor: "default", transition: "all .4s" }}
+                        onClick={() => { patientStepRef.current = i; setPatientStep(i); }}
+                      >
+                        <div style={{
+                          width: 52, height: 52, borderRadius: "50%", flexShrink: 0,
+                          background: isActive ? c.T : isPast ? c.tL : "transparent",
+                          border: isActive ? `2px solid ${c.T}` : isPast ? `2px solid ${c.bdr2}` : `1.5px solid ${c.bdr}`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 22,
+                          animation: isActive ? "wfPulse 1.2s ease-out" : "none",
+                          boxShadow: isActive ? `0 0 0 0 ${c.T}80, 0 6px 24px ${c.T}40` : "none",
+                          transition: "all .4s cubic-bezier(.16,1,.3,1)",
+                        }}>
+                          {step.emoji}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: isActive ? c.T : isPast ? c.txt2 : c.muted, letterSpacing: "-.01em", marginBottom: 3, transition: "color .4s" }}>{step.title}</div>
+                          <div style={{ fontSize: 10.5, color: isActive ? c.txt2 : "transparent", lineHeight: 1.5, transition: "color .4s" }}>{step.desc}</div>
+                        </div>
+                      </div>
+                      {/* Connector */}
+                      {i < PATIENT_STEPS.length - 1 && (
+                        <div className="lnd-wf-connector" style={{ width: 32, flexShrink: 0, height: 2, borderRadius: 2, background: isPast || isActive ? c.bdr2 : c.bdr, position: "relative", top: -14, transition: "background .4s", margin: "0 2px" }}>
+                          {(isPast || isActive) && (
+                            <div style={{ position: "absolute", inset: 0, borderRadius: 2, background: c.T, animation: "wfLineGrow .4s ease forwards" }} />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Step counter */}
+              <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+                {PATIENT_STEPS.map((_, i) => (
+                  <div key={i} onClick={() => { patientStepRef.current = i; setPatientStep(i); }} style={{ width: i === patientStep ? 18 : 5, height: 5, borderRadius: 3, background: i === patientStep ? c.T : c.bdr2, transition: "all .35s", cursor: "pointer" }} />
+                ))}
+              </div>
+            </motion.div>
           </div>
         </section>
 
