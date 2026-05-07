@@ -1,0 +1,32 @@
+500: self-signed certificate in certificate chain
+[ERROR DETAILS] Method: GET, Path: /api/auth/user
+[ERROR STACK] Error: self-signed certificate in certificate chain
+    at /Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async n._asyncQuery (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/dist/index.cjs:70:30025)
+[ERROR] 2026-05-07T18:42:11.101Z - 500: self-signed certificate in certificate chain
+[ERROR DETAILS] Method: GET, Path: /api/auth/clinic/me
+[ERROR STACK] Error: self-signed certificate in certificate chain
+    at /Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async n._asyncQuery (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/dist/index.cjs:70:30025)
+[ERROR] 2026-05-07T18:42:11.139Z - 500: self-signed certificate in certificate chain
+[ERROR DETAILS] Method: GET, Path: /api/auth/doctor/me
+[ERROR STACK] Error: self-signed certificate in certificate chain
+    at /Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async n._asyncQuery (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/dist/index.cjs:70:30025)
+12:12:11 AM [express] GET /api/health 500 in 348ms :: {"status":"error","message":"self-signed certificate in certificate chain","backend":true,"database":false}
+Error: self-signed certificate in certificate chain
+    at /Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async n._asyncQuery (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/dist/index.cjs:70:30025)
+Error: self-signed certificate in certificate chain
+    at /Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async n._asyncQuery (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/dist/index.cjs:70:30025)
+Error: self-signed certificate in certificate chain
+    at /Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async n._asyncQuery (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/dist/index.cjs:70:30025)
+12:12:12 AM [express] GET /api/health/database 500 in 267ms :: {"status":"error","message":"self-signed certificate in certificate chain","database":false}
