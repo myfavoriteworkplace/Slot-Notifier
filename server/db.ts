@@ -17,9 +17,15 @@ const connectionString = process.env.DATABASE_URL.includes("sslmode=")
   ? process.env.DATABASE_URL
   : process.env.DATABASE_URL + (process.env.DATABASE_URL.includes("?") ? "&" : "?") + "sslmode=require";
 
+const sslRequired =
+  process.env.DATABASE_URL?.includes("supabase.co") ||
+  process.env.DATABASE_URL?.includes("sslmode=require");
+
 export const pool = new Pool({
   connectionString,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  ssl: sslRequired || process.env.NODE_ENV === "production"
+    ? { rejectUnauthorized: false }
+    : false,
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
