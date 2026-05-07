@@ -13,22 +13,23 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-const connectionString = process.env.DATABASE_URL.includes("sslmode=")
-  ? process.env.DATABASE_URL
-  : process.env.DATABASE_URL + (process.env.DATABASE_URL.includes("?") ? "&" : "?") + "sslmode=require";
+// Strip sslmode from the connection string entirely.
+// pg v8+ parses sslmode=require from the URL and internally sets
+// rejectUnauthorized:true, which silently overrides the Pool ssl config.
+// Removing it here lets the Pool ssl object below be the single source of truth.
+const connectionString = process.env.DATABASE_URL
+  .replace(/([?&])sslmode=[^&]*/g, "$1")  // remove sslmode=... param
+  .replace(/[?&]$/, "");                   // clean up trailing ? or &
 
-// Enable SSL with cert relaxation whenever the connection string requires it
-// (we always append sslmode=require above) or when running against a known
-// remote provider such as Supabase or AWS RDS.
-const needsSsl =
-  connectionString.includes("sslmode=require") ||
-  connectionString.includes("supabase.co") ||
-  connectionString.includes("amazonaws.com") ||
-  process.env.NODE_ENV === "production";
+// Use SSL (without cert verification) for any remote database.
+// Local Postgres instances (localhost / 127.0.0.1) don't need SSL.
+const isLocalDb =
+  connectionString.includes("localhost") ||
+  connectionString.includes("127.0.0.1");
 
 export const pool = new Pool({
   connectionString,
-  ssl: needsSsl ? { rejectUnauthorized: false } : false,
+  ssl: isLocalDb ? false : { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
