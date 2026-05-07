@@ -17,15 +17,18 @@ const connectionString = process.env.DATABASE_URL.includes("sslmode=")
   ? process.env.DATABASE_URL
   : process.env.DATABASE_URL + (process.env.DATABASE_URL.includes("?") ? "&" : "?") + "sslmode=require";
 
-const sslRequired =
-  process.env.DATABASE_URL?.includes("supabase.co") ||
-  process.env.DATABASE_URL?.includes("sslmode=require");
+// Enable SSL with cert relaxation whenever the connection string requires it
+// (we always append sslmode=require above) or when running against a known
+// remote provider such as Supabase or AWS RDS.
+const needsSsl =
+  connectionString.includes("sslmode=require") ||
+  connectionString.includes("supabase.co") ||
+  connectionString.includes("amazonaws.com") ||
+  process.env.NODE_ENV === "production";
 
 export const pool = new Pool({
   connectionString,
-  ssl: sslRequired || process.env.NODE_ENV === "production"
-    ? { rejectUnauthorized: false }
-    : false,
+  ssl: needsSsl ? { rejectUnauthorized: false } : false,
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
