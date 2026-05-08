@@ -50,11 +50,18 @@ These must all be set in your **Render Web Service (backend)** under Environment
 
 This is the full address and password for your PostgreSQL database. Think of it like a complete home address — it tells the app exactly where the database lives and how to get in.
 
+> **Updated (May 2026):** The database has been migrated from Render PostgreSQL to **Supabase**. The value to use on Render is now the Supabase connection pooler URL — not a Render database URL. See full details in [`docs/supabase-database-setup.md`](./supabase-database-setup.md).
+
 ```
-DATABASE_URL=postgresql://username:password@host.render.com:5432/database_name
+DATABASE_URL=postgresql://postgres.PROJECT_ID:PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres
 ```
 
-Where to get it: Go to your Render **PostgreSQL** service → click **Connect** → copy the **External Database URL**.
+**Why the pooler URL and not the direct Supabase URL?**
+Render's servers cannot make outbound IPv6 connections. Supabase's direct connection hostname resolves to an IPv6 address in the Singapore region, which causes an immediate `ENETUNREACH` error on Render. The pooler hostname always resolves to an IPv4 address that Render can reach.
+
+Where to get it: Log into [supabase.com](https://supabase.com) → your project → **Project Settings → Database → Connection string** → select the **Connection pooler** tab → copy the **Transaction mode** URL (port `6543`).
+
+> If your password contains special characters (e.g. `@`), encode them in the URL: `@` → `%40`. See `docs/supabase-database-setup.md` Section 4 for the full encoding table.
 
 What breaks if missing: The entire app fails to start. Nothing works.
 
@@ -400,7 +407,7 @@ These are variables where, if you forget to set them in Render, the app doesn't 
 Use this before launching or after any major change. Tick each one off in your Render dashboard.
 
 **Backend (Web Service → Environment):**
-- [ ] `DATABASE_URL` — set to Render PostgreSQL external URL
+- [ ] `DATABASE_URL` — set to Supabase **pooler URL** (port `6543`) — see `docs/supabase-database-setup.md`
 - [ ] `SESSION_SECRET` — set to a strong random string (min 32 characters)
 - [ ] `NODE_ENV` — set to `production`
 - [ ] `PORT` — set to `10000`
