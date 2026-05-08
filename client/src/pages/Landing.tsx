@@ -918,13 +918,16 @@ export default function Landing() {
             <div className="lnd-deals-inner" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 48, alignItems: "center", position: "relative", zIndex: 1 }}>
               <div>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: BRAND_M, marginBottom: 16, padding: "4px 14px", borderRadius: 100, background: "rgba(15,155,110,.12)", border: "1px solid rgba(15,155,110,.25)" }}>
-                  ✦ Smile Deals — Exclusive to BookMySlot
+                  ✦ Dental Marketplace · Powered by BookMySlot
                 </div>
                 <h2 style={{ fontSize: "clamp(22px,2.8vw,34px)", fontWeight: 800, color: "#fff", letterSpacing: "-.03em", lineHeight: 1.2, marginBottom: 14 }}>
-                  Give patients a reason to choose your clinic
+                  Reach India's dental network — clinics and patients, one platform
                 </h2>
-                <p style={{ fontSize: 14, color: "rgba(255,255,255,.48)", lineHeight: 1.72, maxWidth: 480, marginBottom: 28 }}>
-                  Post exclusive dental packages directly on BookMySlot. Patients discover your offers, book instantly, and you fill seats that would otherwise go empty — no ad spend required.
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,.48)", lineHeight: 1.72, maxWidth: 500, marginBottom: 10 }}>
+                  <span style={{ color: "rgba(255,255,255,.75)", fontWeight: 600 }}>For suppliers & labs:</span> advertise equipment, materials, prosthetics, and services directly to verified clinic owners on the platform they use every day.
+                </p>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,.48)", lineHeight: 1.72, maxWidth: 500, marginBottom: 28 }}>
+                  <span style={{ color: "rgba(255,255,255,.75)", fontWeight: 600 }}>For clinics:</span> post patient offers and fill empty slots — no ad spend required.
                 </p>
                 <Link href="/deals">
                   <button
@@ -933,28 +936,25 @@ export default function Landing() {
                     onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = BRAND_M; el.style.color = "#051209"; el.style.transform = "translateY(0)"; }}
                     data-testid="button-browse-deals"
                   >
-                    Browse Smile Deals <ArrowRight style={{ width: 15, height: 15 }} />
+                    Explore the Marketplace <ArrowRight style={{ width: 15, height: 15 }} />
                   </button>
                 </Link>
               </div>
 
-              {/* Mini deal card previews */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 230 }}>
+              {/* Mini deal card previews — B2B supplier examples */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 240 }}>
                 {[
-                  { emoji: "🦷", title: "Full Checkup",       price: "₹299",   original: "₹799",   tag: "⚡ Flash"  },
-                  { emoji: "✨", title: "Teeth Whitening",    price: "₹1,499", original: "₹3,000", tag: "Featured" },
-                  { emoji: "🛡️", title: "Cavity Shield Pack", price: "₹499",   original: "₹1,200", tag: "⚡ Flash"  },
+                  { emoji: "🦾", title: "Dental Chair Demo",      label: "Equipment",  tag: "B2B Offer",  accent: "#5DA8E0" },
+                  { emoji: "🧪", title: "Composite Kit Bundle",   label: "Materials",  tag: "Bulk Deal",  accent: BRAND_M   },
+                  { emoji: "👑", title: "Lab Crown — ₹850/unit",  label: "Prosthetics",tag: "Lab Deal",   accent: "#C084FC" },
                 ].map((deal, i) => (
                   <div key={deal.title} style={{ background: "rgba(15,30,22,.8)", border: "1px solid rgba(15,155,110,.2)", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12, backdropFilter: "blur(8px)", animation: `lndFloat ${4+i}s ease-in-out ${i*0.8}s infinite` }}>
                     <span style={{ fontSize: 18, flexShrink: 0 }}>{deal.emoji}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: "#E8F5F0", marginBottom: 2 }}>{deal.title}</div>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                        <span style={{ fontSize: 14, fontWeight: 800, color: BRAND_M }}>{deal.price}</span>
-                        <span style={{ fontSize: 11, color: "rgba(255,255,255,.3)", textDecoration: "line-through" }}>{deal.original}</span>
-                      </div>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,.4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em" }}>{deal.label}</div>
                     </div>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: "#F0C060", background: "rgba(240,192,96,.1)", border: "1px solid rgba(240,192,96,.2)", padding: "2px 7px", borderRadius: 5, flexShrink: 0 }}>{deal.tag}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: deal.accent, background: `${deal.accent}18`, border: `1px solid ${deal.accent}35`, padding: "2px 7px", borderRadius: 5, flexShrink: 0, whiteSpace: "nowrap" }}>{deal.tag}</span>
                   </div>
                 ))}
               </div>
