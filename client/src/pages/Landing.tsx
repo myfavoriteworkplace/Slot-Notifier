@@ -217,31 +217,48 @@ export default function Landing() {
             <motion.div {...fadeUp(0.22)} style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 36 }}>
 
               {/* Primary CTAs */}
-              <div className="lnd-cta-btns" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <Link href="/book">
-                  <button
-                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "13px 26px", borderRadius: 100, background: c.T, color: "#fff", fontSize: 14, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: "none", cursor: "pointer", boxShadow: `0 4px 20px rgba(15,155,110,.3)`, transition: "all .25s", letterSpacing: ".01em" }}
-                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.T_D; el.style.transform = "translateY(-2px)"; el.style.boxShadow = `0 8px 28px rgba(15,155,110,.4)`; }}
-                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.T; el.style.transform = "translateY(0)"; el.style.boxShadow = `0 4px 20px rgba(15,155,110,.3)`; }}
-                    data-testid="button-book-appointment"
-                  >
-                    <CalendarDays style={{ width: 15, height: 15 }} />
-                    Book an Appointment
-                    <ArrowRight style={{ width: 14, height: 14 }} />
-                  </button>
-                </Link>
+              <div className="lnd-cta-btns" style={{ display: "flex", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
 
-                <Link href="/register-clinic">
-                  <button
-                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 100, background: "transparent", color: c.T, fontSize: 14, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: `2px solid ${c.bdr2}`, cursor: "pointer", transition: "all .25s", letterSpacing: ".01em" }}
-                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.tL; el.style.borderColor = c.T; el.style.transform = "translateY(-2px)"; }}
-                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "transparent"; el.style.borderColor = c.bdr2; el.style.transform = "translateY(0)"; }}
-                    data-testid="button-register-clinic"
-                  >
-                    <Building2 style={{ width: 15, height: 15 }} />
-                    Register Your Clinic
-                  </button>
-                </Link>
+                {/* Patient CTA */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: c.T, fontFamily: "'Sora',sans-serif", paddingLeft: 4 }}>
+                    For patients
+                  </span>
+                  <Link href="/book">
+                    <button
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "13px 26px", borderRadius: 100, background: c.T, color: "#fff", fontSize: 14, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: "none", cursor: "pointer", boxShadow: `0 4px 20px rgba(15,155,110,.3)`, transition: "all .25s", letterSpacing: ".01em" }}
+                      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.T_D; el.style.transform = "translateY(-2px)"; el.style.boxShadow = `0 8px 28px rgba(15,155,110,.4)`; }}
+                      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.T; el.style.transform = "translateY(0)"; el.style.boxShadow = `0 4px 20px rgba(15,155,110,.3)`; }}
+                      data-testid="button-book-appointment"
+                    >
+                      <CalendarDays style={{ width: 15, height: 15 }} />
+                      Book a Slot
+                      <ArrowRight style={{ width: 14, height: 14 }} />
+                    </button>
+                  </Link>
+                  <span style={{ fontSize: 11, color: c.muted, fontFamily: "'Sora',sans-serif", paddingLeft: 4 }}>
+                    No account needed · Free · Confirmed in seconds
+                  </span>
+                </div>
+
+                {/* Owner CTA */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingTop: 1 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: c.muted, fontFamily: "'Sora',sans-serif", paddingLeft: 4 }}>
+                    For clinic owners
+                  </span>
+                  <Link href="/register-clinic">
+                    <button
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 100, background: "transparent", color: c.T, fontSize: 14, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: `2px solid ${c.bdr2}`, cursor: "pointer", transition: "all .25s", letterSpacing: ".01em" }}
+                      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.tL; el.style.borderColor = c.T; el.style.transform = "translateY(-2px)"; }}
+                      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "transparent"; el.style.borderColor = c.bdr2; el.style.transform = "translateY(0)"; }}
+                      data-testid="button-register-clinic"
+                    >
+                      <Building2 style={{ width: 15, height: 15 }} />
+                      Register Your Clinic
+                    </button>
+                  </Link>
+                </div>
+
               </div>
 
               {/* Secondary row — existing users + anchor */}
