@@ -457,7 +457,7 @@ export default function Landing() {
                   Register once and get a complete clinic portal — bookings, doctors, slots, and patient records, all in one place.
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 11, marginBottom: 32 }}>
-                  {["Free to register — no setup fees", "Ready to accept bookings in minutes", "Manage doctors, slots & records easily"].map(item => (
+                  {["Register free — plans from ₹999/month", "Ready to accept bookings in minutes", "Manage doctors, slots & records easily"].map(item => (
                     <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: "rgba(255,255,255,.8)" }}>
                       <div style={{ width: 19, height: 19, borderRadius: "50%", background: "rgba(15,155,110,.2)", border: "1.5px solid rgba(15,155,110,.45)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         <Check style={{ width: 9, height: 9, color: "#1DB887", strokeWidth: 3 }} />
@@ -485,6 +485,18 @@ export default function Landing() {
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,.5)"; }}
                     >
                       Already registered? Sign in →
+                    </span>
+                  </Link>
+                </div>
+                <div style={{ marginTop: 16 }}>
+                  <Link href="/pricing">
+                    <span
+                      style={{ fontSize: 12.5, color: "rgba(29,158,117,.75)", fontWeight: 600, cursor: "pointer", transition: "color .2s", letterSpacing: ".01em", display: "inline-flex", alignItems: "center", gap: 5 }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#1DB887"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(29,158,117,.75)"; }}
+                      data-testid="link-see-pricing"
+                    >
+                      See our pricing plans →
                     </span>
                   </Link>
                 </div>
