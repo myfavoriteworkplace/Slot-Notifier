@@ -146,6 +146,8 @@ export default function Landing() {
           .lnd-deals-inner   { grid-template-columns: 1fr !important; }
           .lnd-wf-steps      { flex-wrap: wrap !important; }
           .lnd-wf-connector  { display: none !important; }
+          .lnd-clinic-card   { grid-template-columns: 1fr !important; padding: 32px 28px !important; }
+          .lnd-clinic-anim   { display: none !important; }
           .lnd-patient-card  { grid-template-columns: 1fr !important; padding: 32px 28px !important; }
           .lnd-patient-anim  { display: none !important; }
         }
@@ -165,6 +167,7 @@ export default function Landing() {
           .lnd-deals-inner   { grid-template-columns: 1fr !important; }
           .lnd-wf-steps      { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
           .lnd-wf-step       { flex-direction: row !important; text-align: left !important; gap: 12px !important; width: 100% !important; }
+          .lnd-clinic-card   { padding: 28px 18px !important; border-radius: 18px !important; }
           .lnd-patient-card  { padding: 28px 18px !important; border-radius: 18px !important; }
         }
       `}</style>
@@ -436,179 +439,233 @@ export default function Landing() {
               ))}
             </div>
 
-            {/* Clinic Dashboard Mockup — light-themed, mirrors real ClinicDashboard.tsx */}
-            <motion.div {...fadeUp(0.1)} style={{ borderRadius: 20, overflow: "hidden", boxShadow: "0 20px 70px rgba(10,31,22,.12)", border: "1px solid rgba(15,155,110,.15)" }}>
+            {/* Clinic section — two-column dark green card */}
+            <motion.div {...fadeUp(0.1)} className="lnd-clinic-card" style={{ borderRadius: 24, background: "linear-gradient(135deg,#081A10 0%,#0D2A1C 55%,#0A3D28 100%)", padding: "44px 48px", position: "relative", overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 410px", gap: 44, alignItems: "center" }}>
 
-              {/* Title bar — same style as Doctor Portal hero card */}
-              <div style={{ background: c.T, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", gap: 5 }}>{[0,1,2].map(i=><div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(255,255,255,.3)" }}/>)}</div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,.9)" }}>Clinic Dashboard</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#4ade80", display: "inline-block" }}/>
-                  <span style={{ fontSize: 11, color: "rgba(255,255,255,.55)", fontWeight: 600, letterSpacing: ".06em" }}>LIVE</span>
+              {/* Decorative orbs */}
+              <div style={{ position: "absolute", top: -80, left: 220, width: 340, height: 340, borderRadius: "50%", background: "rgba(15,155,110,.07)", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", bottom: -60, right: 380, width: 220, height: 220, borderRadius: "50%", background: "rgba(15,155,110,.05)", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", top: "50%", left: -30, width: 180, height: 180, borderRadius: "50%", background: "rgba(0,0,0,.15)", pointerEvents: "none", transform: "translateY(-50%)" }} />
+
+              {/* Left: copy */}
+              <div style={{ position: "relative", zIndex: 1 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".16em", textTransform: "uppercase", color: "rgba(29,158,117,.85)", marginBottom: 16 }}>For Your Clinic</div>
+                <h3 style={{ fontSize: "clamp(26px,2.6vw,38px)", fontWeight: 800, color: "#fff", letterSpacing: "-.03em", lineHeight: 1.1, marginBottom: 14 }}>
+                  Manage your dental<br/>practice online
+                </h3>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,.52)", lineHeight: 1.72, maxWidth: 380, marginBottom: 24 }}>
+                  Register once and get a complete clinic portal — bookings, doctors, slots, and patient records, all in one place.
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 11, marginBottom: 32 }}>
+                  {["Free to register — no setup fees", "Ready to accept bookings in minutes", "Manage doctors, slots & records easily"].map(item => (
+                    <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: "rgba(255,255,255,.8)" }}>
+                      <div style={{ width: 19, height: 19, borderRadius: "50%", background: "rgba(15,155,110,.2)", border: "1.5px solid rgba(15,155,110,.45)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <Check style={{ width: 9, height: 9, color: "#1DB887", strokeWidth: 3 }} />
+                      </div>
+                      {item}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+                  <Link href="/register-clinic">
+                    <button
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", borderRadius: 100, background: "#0F9B6E", color: "#fff", fontSize: 13.5, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: "none", cursor: "pointer", boxShadow: "0 4px 18px rgba(15,155,110,.4)", transition: "all .25s", letterSpacing: ".01em" }}
+                      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.background = "#1DB887"; el.style.boxShadow = "0 8px 28px rgba(15,155,110,.5)"; }}
+                      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(0)"; el.style.background = "#0F9B6E"; el.style.boxShadow = "0 4px 18px rgba(15,155,110,.4)"; }}
+                      data-testid="button-register-clinic-card"
+                    >
+                      <Building2 style={{ width: 14, height: 14 }} />
+                      Register Your Clinic
+                    </button>
+                  </Link>
+                  <Link href="/clinic-login">
+                    <span
+                      style={{ fontSize: 13, color: "rgba(255,255,255,.5)", fontWeight: 600, cursor: "pointer", transition: "color .2s", letterSpacing: ".01em" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,.9)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,.5)"; }}
+                    >
+                      Already registered? Sign in →
+                    </span>
+                  </Link>
                 </div>
               </div>
 
-              {/* Clinic nameplate strip — matches bg-black/25 backdrop-blur-sm */}
-              <div style={{ background: "rgba(8,80,65,.88)", padding: "5px 16px", textAlign: "center" }}>
-                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: ".18em", color: "rgba(255,255,255,.65)", textTransform: "uppercase" }}>[ SUNRISE DENTAL CLINIC ]</span>
-              </div>
-              <div style={{ height: 2, background: "linear-gradient(to right,#1D9E75,#0F9B6E,#1D9E75)", opacity: .45 }}/>
+              {/* Right: constrained clinic dashboard */}
+              <div className="lnd-clinic-anim" style={{ position: "relative", zIndex: 1 }}>
+                <div style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 20px 50px rgba(0,0,0,.45)", border: "1px solid rgba(15,155,110,.2)" }}>
 
-              {/* Two-column layout: sidebar + main content */}
-              <div style={{ display: "flex", background: c.bg }}>
+                  {/* Title bar */}
+                  <div style={{ background: "#0F9B6E", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", gap: 4 }}>{[0,1,2].map(i=><div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: "rgba(255,255,255,.3)" }}/>)}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.9)" }}>Clinic Dashboard</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                      <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#4ade80", display: "inline-block" }}/>
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,.55)", fontWeight: 600, letterSpacing: ".06em" }}>LIVE</span>
+                    </div>
+                  </div>
 
-                {/* Sidebar — mirrors w-56 rounded-2xl border bg-card with colour-coded nav items */}
-                <div style={{ width: 162, background: c.card, borderRight: `1px solid ${c.bdr}`, padding: "10px 7px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 1 }}>
-                  {[
-                    { l: "Bookings",        s: "All appointments",  on: [0,3], cl: "#0F9B6E", bg: "rgba(15,155,110,.08)", bd: "rgba(15,155,110,.2)"  },
-                    { l: "Configure Slots", s: "Capacity & timing", on: [1],   cl: "#3b82f6", bg: "rgba(59,130,246,.08)", bd: "rgba(59,130,246,.2)"  },
-                    { l: "Manage Doctors",  s: "Add or remove",     on: [2],   cl: "#14b8a6", bg: "rgba(20,184,166,.08)", bd: "rgba(20,184,166,.2)"  },
-                    { l: "Clinic Profile",  s: "Edit public page",  on: [],    cl: "#8b5cf6", bg: "rgba(139,92,246,.08)", bd: "rgba(139,92,246,.2)"  },
-                    { l: "Export Data",     s: "Download records",  on: [],    cl: "#f59e0b", bg: "rgba(245,158,11,.08)", bd: "rgba(245,158,11,.2)"  },
-                    { l: "Inventory",       s: "Stock & alerts",    on: [],    cl: "#10b981", bg: "rgba(16,185,129,.08)", bd: "rgba(16,185,129,.2)"  },
-                  ].map(item => {
-                    const active = (item.on as number[]).includes(clinicStep);
-                    return (
-                      <div key={item.l} style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 7px", borderRadius: 9, background: active ? item.bg : "transparent", border: `1px solid ${active ? item.bd : "transparent"}` }}>
-                        <div style={{ width: 24, height: 24, borderRadius: 7, background: active ? item.bg : c.tL, border: `1px solid ${active ? item.bd : c.bdr}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <div style={{ width: 8, height: 8, borderRadius: 2, background: active ? item.cl : "#d1d5db" }}/>
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: active ? item.cl : c.txt, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.l}</div>
-                          <div style={{ fontSize: 8, color: c.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.s}</div>
-                        </div>
-                        {active && <div style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: item.cl, flexShrink: 0 }}/>}
-                      </div>
-                    );
-                  })}
-                </div>
+                  {/* Nameplate strip */}
+                  <div style={{ background: "rgba(8,80,65,.92)", padding: "4px 14px", textAlign: "center" }}>
+                    <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: ".18em", color: "rgba(255,255,255,.65)", textTransform: "uppercase" }}>[ SUNRISE DENTAL CLINIC ]</span>
+                  </div>
+                  <div style={{ height: 2, background: "linear-gradient(to right,#1D9E75,#0F9B6E,#1D9E75)", opacity: .45 }}/>
 
-                {/* Main content — changes per screen */}
-                <div style={{ flex: 1, padding: "14px", overflow: "hidden", minHeight: 252 }}>
+                  {/* Two-column: sidebar (120px) + main content */}
+                  <div style={{ display: "flex", background: c.bg }}>
 
-                  {clinicStep === 0 && (
-                    <div key="c0" style={{ animation: "screenInSlow .55s ease forwards" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: "#111827" }}>Today's Bookings <span style={{ fontSize: 10, fontWeight: 500, color: "#9ca3af" }}>· 3</span></div>
-                        <div style={{ fontSize: 9, color: "#9ca3af" }}>Sun, Apr 19</div>
-                      </div>
-                      <div style={{ display: "flex", gap: 5, marginBottom: 10 }}>
-                        {[{l:"Today",a:true},{l:"Upcoming",a:false},{l:"Past",a:false}].map(f=>(
-                          <div key={f.l} style={{ fontSize: 9, fontWeight: 700, padding: "3px 10px", borderRadius: 100, background: f.a?"#0F9B6E":"transparent", color: f.a?"#fff":c.muted, border: `1px solid ${f.a?"#0F9B6E":c.bdr}` }}>{f.l}</div>
-                        ))}
-                      </div>
+                    {/* Sidebar — 120px */}
+                    <div style={{ width: 120, background: c.card, borderRight: `1px solid ${c.bdr}`, padding: "8px 5px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 1 }}>
                       {[
-                        { n:"Anand K.", r:"#REF-0041", t:"2:00 – 4:00 PM", d:"Dr. Priya Menon",  s:"Confirmed", sc:"#0F9B6E" },
-                        { n:"Meera R.", r:"#REF-0042", t:"3:30 – 5:00 PM", d:"Awaiting Doctor",  s:"Pending",   sc:"#f59e0b" },
-                        { n:"Ravi S.",  r:"#REF-0043", t:"4:00 – 5:30 PM", d:"Dr. Priya Menon",  s:"Confirmed", sc:"#0F9B6E" },
-                      ].map(b=>(
-                        <div key={b.n} style={{ position: "relative", display: "flex", alignItems: "center", gap: 9, padding: "9px 11px 9px 14px", borderRadius: 10, background: c.card, border: `1px solid ${c.bdr}`, marginBottom: 7, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(to bottom,${b.sc},${b.sc}55)` }}/>
-                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${b.sc}14`, color: b.sc, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{b.n[0]}</div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: c.txt, marginBottom: 1 }}>{b.n} <span style={{ fontSize: 9, fontWeight: 400, color: "#9ca3af" }}>{b.r}</span></div>
-                            <div style={{ fontSize: 9, color: c.muted }}>{b.t} · {b.d}</div>
+                        { l: "Bookings",  s: "All appointments",  on: [0,3], cl: "#0F9B6E", bg: "rgba(15,155,110,.08)", bd: "rgba(15,155,110,.2)"  },
+                        { l: "Slots",     s: "Capacity & timing", on: [1],   cl: "#3b82f6", bg: "rgba(59,130,246,.08)", bd: "rgba(59,130,246,.2)"  },
+                        { l: "Doctors",   s: "Add or remove",     on: [2],   cl: "#14b8a6", bg: "rgba(20,184,166,.08)", bd: "rgba(20,184,166,.2)"  },
+                        { l: "Profile",   s: "Edit public page",  on: [],    cl: "#8b5cf6", bg: "rgba(139,92,246,.08)", bd: "rgba(139,92,246,.2)"  },
+                        { l: "Export",    s: "Download records",  on: [],    cl: "#f59e0b", bg: "rgba(245,158,11,.08)", bd: "rgba(245,158,11,.2)"  },
+                        { l: "Inventory", s: "Stock & alerts",    on: [],    cl: "#10b981", bg: "rgba(16,185,129,.08)", bd: "rgba(16,185,129,.2)"  },
+                      ].map(item => {
+                        const active = (item.on as number[]).includes(clinicStep);
+                        return (
+                          <div key={item.l} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 5px", borderRadius: 8, background: active ? item.bg : "transparent", border: `1px solid ${active ? item.bd : "transparent"}` }}>
+                            <div style={{ width: 20, height: 20, borderRadius: 6, background: active ? item.bg : c.tL, border: `1px solid ${active ? item.bd : c.bdr}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <div style={{ width: 6, height: 6, borderRadius: 2, background: active ? item.cl : "#d1d5db" }}/>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, color: active ? item.cl : c.txt, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.l}</div>
+                            </div>
+                            {active && <div style={{ width: 4, height: 4, borderRadius: "50%", background: item.cl, flexShrink: 0 }}/>}
                           </div>
-                          <div style={{ fontSize: 9, fontWeight: 700, color: b.sc, background: `${b.sc}12`, border: `1px solid ${b.sc}30`, padding: "2px 8px", borderRadius: 5, flexShrink: 0 }}>{b.s}</div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
-                  )}
 
-                  {clinicStep === 1 && (
-                    <div key="c1" style={{ animation: "screenInSlow .55s ease forwards" }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", marginBottom: 3 }}>Configure Slots</div>
-                      <div style={{ fontSize: 9, color: "#9ca3af", marginBottom: 11 }}>Tuesday, Apr 22 · 6 slots configured</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7, marginBottom: 12 }}>
-                        {[
-                          {t:"9:00 AM",s:"booked"},{t:"10:00 AM",s:"open"},{t:"11:00 AM",s:"open"},
-                          {t:"2:00 PM",s:"booked"},{t:"3:00 PM",s:"leave"},{t:"4:00 PM",s:"open"},
-                        ].map(sl=>{
-                          const m={booked:{bg:"rgba(15,155,110,.08)",bd:"rgba(15,155,110,.2)",cl:"#0F9B6E",sub:"Booked"},open:{bg:c.bg,bd:c.bdr,cl:c.muted,sub:"Open"},leave:{bg:"rgba(239,68,68,.05)",bd:"rgba(239,68,68,.15)",cl:"#ef4444",sub:"Leave"}}[sl.s]||{bg:"",bd:"",cl:"",sub:""};
-                          return (<div key={sl.t} style={{ background: m.bg, border: `1px solid ${m.bd}`, borderRadius: 8, padding: "9px 0", textAlign: "center" }}>
-                            <div style={{ fontSize: 10, fontWeight: 600, color: m.cl }}>{sl.t}</div>
-                            <div style={{ fontSize: 8, color: m.cl, opacity: .6, marginTop: 1 }}>{m.sub}</div>
-                          </div>);
-                        })}
-                      </div>
-                      <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(59,130,246,.06)", border: "1px solid rgba(59,130,246,.15)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div style={{ fontSize: 10, color: "#3b82f6", fontWeight: 600 }}>Max bookings per slot: 3</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: "#3b82f6", padding: "3px 10px", borderRadius: 5 }}>Save</div>
-                      </div>
-                    </div>
-                  )}
+                    {/* Main content — same 4 steps, tighter padding */}
+                    <div style={{ flex: 1, padding: "11px", overflow: "hidden", minHeight: 215 }}>
 
-                  {clinicStep === 2 && (
-                    <div key="c2" style={{ animation: "screenInSlow .55s ease forwards" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: "#111827" }}>Manage Doctors</div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: "#14b8a6", padding: "3px 10px", borderRadius: 5 }}>+ Invite Doctor</div>
-                      </div>
-                      {[
-                        {n:"Dr. Priya Menon",sp:"General Dentistry",s:"Active",sc:"#0F9B6E"},
-                        {n:"Dr. Arjun Shah", sp:"Orthodontics",     s:"Invited",sc:"#3b82f6"},
-                      ].map(doc=>(
-                        <div key={doc.n} style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 10, background: c.card, border: `1px solid ${c.bdr}`, marginBottom: 8, boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                          <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,rgba(15,155,110,.15),rgba(29,158,117,.08))", border: "2px solid rgba(15,155,110,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: "#0F9B6E" }}>{doc.n.split(" ")[1][0]}</span>
+                      {clinicStep === 0 && (
+                        <div key="c0" style={{ animation: "screenInSlow .55s ease forwards" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: "#111827" }}>Today's Bookings <span style={{ fontSize: 9, fontWeight: 500, color: "#9ca3af" }}>· 3</span></div>
+                            <div style={{ fontSize: 8, color: "#9ca3af" }}>Apr 19</div>
                           </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: c.txt }}>{doc.n}</div>
-                            <div style={{ fontSize: 9, color: c.muted }}>{doc.sp}</div>
+                          <div style={{ display: "flex", gap: 4, marginBottom: 9 }}>
+                            {[{l:"Today",a:true},{l:"Upcoming",a:false},{l:"Past",a:false}].map(f=>(
+                              <div key={f.l} style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 100, background: f.a?"#0F9B6E":"transparent", color: f.a?"#fff":c.muted, border: `1px solid ${f.a?"#0F9B6E":c.bdr}` }}>{f.l}</div>
+                            ))}
                           </div>
-                          <div style={{ fontSize: 9, fontWeight: 700, color: doc.sc, background: `${doc.sc}12`, border: `1px solid ${doc.sc}30`, padding: "2px 8px", borderRadius: 5 }}>{doc.s}</div>
+                          {[
+                            { n:"Anand K.", r:"#REF-0041", t:"2:00–4:00 PM", d:"Dr. Priya Menon",  s:"Confirmed", sc:"#0F9B6E" },
+                            { n:"Meera R.", r:"#REF-0042", t:"3:30–5:00 PM", d:"Awaiting Doctor",  s:"Pending",   sc:"#f59e0b" },
+                            { n:"Ravi S.",  r:"#REF-0043", t:"4:00–5:30 PM", d:"Dr. Priya Menon",  s:"Confirmed", sc:"#0F9B6E" },
+                          ].map(b=>(
+                            <div key={b.n} style={{ position: "relative", display: "flex", alignItems: "center", gap: 7, padding: "7px 9px 7px 12px", borderRadius: 9, background: c.card, border: `1px solid ${c.bdr}`, marginBottom: 6, overflow: "hidden" }}>
+                              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(to bottom,${b.sc},${b.sc}55)` }}/>
+                              <div style={{ width: 24, height: 24, borderRadius: "50%", background: `${b.sc}14`, color: b.sc, fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{b.n[0]}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: c.txt }}>{b.n} <span style={{ fontSize: 8, fontWeight: 400, color: "#9ca3af" }}>{b.r}</span></div>
+                                <div style={{ fontSize: 8, color: c.muted }}>{b.t} · {b.d}</div>
+                              </div>
+                              <div style={{ fontSize: 8, fontWeight: 700, color: b.sc, background: `${b.sc}12`, border: `1px solid ${b.sc}30`, padding: "2px 6px", borderRadius: 4, flexShrink: 0 }}>{b.s}</div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                      <div style={{ padding: "9px 12px", borderRadius: 10, background: "rgba(20,184,166,.05)", border: "1px solid rgba(20,184,166,.15)", display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 10, fontWeight: 600, color: "#14b8a6" }}>Pending invitation</div>
-                          <div style={{ fontSize: 9, color: "#9ca3af" }}>dr.vijay@sunrise.com</div>
-                        </div>
-                        <div style={{ fontSize: 9, fontWeight: 600, color: "#14b8a6" }}>Resend →</div>
-                      </div>
-                    </div>
-                  )}
+                      )}
 
-                  {clinicStep === 3 && (
-                    <div key="c3" style={{ animation: "screenInSlow .55s ease forwards" }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", marginBottom: 10 }}>Booking Detail · #REF-0041</div>
-                      <div style={{ position: "relative", padding: "10px 12px 10px 15px", borderRadius: 10, background: c.card, border: `1px solid ${c.bdr}`, marginBottom: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(to bottom,#0F9B6E,#0F9B6E55)" }}/>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(15,155,110,.12)", color: "#0F9B6E", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>A</div>
-                          <div>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: "#111827" }}>Anand K.</div>
-                            <div style={{ fontSize: 9, color: "#9ca3af" }}>Today · 2:00 – 4:00 PM · Routine Checkup</div>
+                      {clinicStep === 1 && (
+                        <div key="c1" style={{ animation: "screenInSlow .55s ease forwards" }}>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: "#111827", marginBottom: 2 }}>Configure Slots</div>
+                          <div style={{ fontSize: 8, color: "#9ca3af", marginBottom: 10 }}>Tuesday, Apr 22 · 6 slots</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6, marginBottom: 10 }}>
+                            {[
+                              {t:"9:00 AM",s:"booked"},{t:"10:00 AM",s:"open"},{t:"11:00 AM",s:"open"},
+                              {t:"2:00 PM",s:"booked"},{t:"3:00 PM",s:"leave"},{t:"4:00 PM",s:"open"},
+                            ].map(sl=>{
+                              const m={booked:{bg:"rgba(15,155,110,.08)",bd:"rgba(15,155,110,.2)",cl:"#0F9B6E",sub:"Booked"},open:{bg:c.bg,bd:c.bdr,cl:c.muted,sub:"Open"},leave:{bg:"rgba(239,68,68,.05)",bd:"rgba(239,68,68,.15)",cl:"#ef4444",sub:"Leave"}}[sl.s]||{bg:"",bd:"",cl:"",sub:""};
+                              return (<div key={sl.t} style={{ background: m.bg, border: `1px solid ${m.bd}`, borderRadius: 7, padding: "8px 0", textAlign: "center" }}>
+                                <div style={{ fontSize: 9, fontWeight: 600, color: m.cl }}>{sl.t}</div>
+                                <div style={{ fontSize: 7.5, color: m.cl, opacity: .6, marginTop: 1 }}>{m.sub}</div>
+                              </div>);
+                            })}
+                          </div>
+                          <div style={{ padding: "7px 10px", borderRadius: 7, background: "rgba(59,130,246,.06)", border: "1px solid rgba(59,130,246,.15)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <div style={{ fontSize: 9, color: "#3b82f6", fontWeight: 600 }}>Max per slot: 3</div>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: "#fff", background: "#3b82f6", padding: "2px 8px", borderRadius: 4 }}>Save</div>
                           </div>
                         </div>
-                        <div style={{ fontSize: 9, color: "#9ca3af", marginBottom: 5 }}>Assign doctor</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(15,155,110,.07)", border: "1px solid rgba(15,155,110,.25)", borderRadius: 8, padding: "7px 10px" }}>
-                          <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#0F9B6E", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>P</div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: "#0F9B6E" }}>Dr. Priya Menon</div>
-                            <div style={{ fontSize: 8, color: "#6b7280" }}>General Dentistry</div>
+                      )}
+
+                      {clinicStep === 2 && (
+                        <div key="c2" style={{ animation: "screenInSlow .55s ease forwards" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: "#111827" }}>Manage Doctors</div>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: "#fff", background: "#14b8a6", padding: "2px 8px", borderRadius: 4 }}>+ Invite</div>
                           </div>
-                          <Check style={{ width: 13, height: 13, color: "#0F9B6E", flexShrink: 0 }}/>
+                          {[
+                            {n:"Dr. Priya Menon",sp:"General Dentistry",s:"Active",sc:"#0F9B6E"},
+                            {n:"Dr. Arjun Shah", sp:"Orthodontics",     s:"Invited",sc:"#3b82f6"},
+                          ].map(doc=>(
+                            <div key={doc.n} style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 10px", borderRadius: 9, background: c.card, border: `1px solid ${c.bdr}`, marginBottom: 7 }}>
+                              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg,rgba(15,155,110,.15),rgba(29,158,117,.08))", border: "2px solid rgba(15,155,110,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: "#0F9B6E" }}>{doc.n.split(" ")[1][0]}</span>
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 9.5, fontWeight: 700, color: c.txt }}>{doc.n}</div>
+                                <div style={{ fontSize: 8, color: c.muted }}>{doc.sp}</div>
+                              </div>
+                              <div style={{ fontSize: 8, fontWeight: 700, color: doc.sc, background: `${doc.sc}12`, border: `1px solid ${doc.sc}30`, padding: "2px 6px", borderRadius: 4 }}>{doc.s}</div>
+                            </div>
+                          ))}
+                          <div style={{ padding: "7px 10px", borderRadius: 9, background: "rgba(20,184,166,.05)", border: "1px solid rgba(20,184,166,.15)", display: "flex", alignItems: "center", gap: 6 }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 9, fontWeight: 600, color: "#14b8a6" }}>Pending invitation</div>
+                              <div style={{ fontSize: 8, color: "#9ca3af" }}>dr.vijay@sunrise.com</div>
+                            </div>
+                            <div style={{ fontSize: 8, fontWeight: 600, color: "#14b8a6" }}>Resend →</div>
+                          </div>
                         </div>
-                      </div>
-                      <div style={{ display: "flex", gap: 7 }}>
-                        <div style={{ flex: 1, padding: "8px 0", borderRadius: 8, background: "#0F9B6E", color: "#fff", fontSize: 10, fontWeight: 700, textAlign: "center" }}>Save Assignment</div>
-                        <div style={{ padding: "8px 14px", borderRadius: 8, background: c.tL, color: c.muted, fontSize: 10, textAlign: "center" }}>Cancel</div>
-                      </div>
+                      )}
+
+                      {clinicStep === 3 && (
+                        <div key="c3" style={{ animation: "screenInSlow .55s ease forwards" }}>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: "#111827", marginBottom: 8 }}>Booking Detail · #REF-0041</div>
+                          <div style={{ position: "relative", padding: "8px 10px 8px 13px", borderRadius: 9, background: c.card, border: `1px solid ${c.bdr}`, marginBottom: 8, overflow: "hidden" }}>
+                            <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(to bottom,#0F9B6E,#0F9B6E55)" }}/>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7 }}>
+                              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "rgba(15,155,110,.12)", color: "#0F9B6E", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>A</div>
+                              <div>
+                                <div style={{ fontSize: 9.5, fontWeight: 700, color: "#111827" }}>Anand K.</div>
+                                <div style={{ fontSize: 8, color: "#9ca3af" }}>Today · 2:00–4:00 PM · Routine Checkup</div>
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 8, color: "#9ca3af", marginBottom: 4 }}>Assign doctor</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(15,155,110,.07)", border: "1px solid rgba(15,155,110,.25)", borderRadius: 7, padding: "6px 8px" }}>
+                              <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#0F9B6E", color: "#fff", fontSize: 8, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>P</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 9, fontWeight: 600, color: "#0F9B6E" }}>Dr. Priya Menon</div>
+                              </div>
+                              <Check style={{ width: 11, height: 11, color: "#0F9B6E", flexShrink: 0 }}/>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <div style={{ flex: 1, padding: "7px 0", borderRadius: 7, background: "#0F9B6E", color: "#fff", fontSize: 9, fontWeight: 700, textAlign: "center" }}>Save Assignment</div>
+                            <div style={{ padding: "7px 12px", borderRadius: 7, background: c.tL, color: c.muted, fontSize: 9, textAlign: "center" }}>Cancel</div>
+                          </div>
+                        </div>
+                      )}
+
                     </div>
-                  )}
+                  </div>
+
+                  {/* Screen indicators */}
+                  <div style={{ padding: "8px 14px 11px", display: "flex", gap: 5, justifyContent: "center", background: c.card, borderTop: `1px solid ${c.bdr}` }}>
+                    {[0,1,2,3].map(i=>(
+                      <div key={i} onClick={()=>{ clinicStepRef.current=i; setClinicStep(i); }} style={{ width: i===clinicStep?16:5, height: 5, borderRadius: 3, background: i===clinicStep?"#0F9B6E":c.bdr2, transition: "all .35s", cursor: "pointer" }}/>
+                    ))}
+                  </div>
 
                 </div>
-              </div>
+              </div>{/* lnd-clinic-anim */}
 
-              {/* Screen indicators */}
-              <div style={{ padding: "9px 20px 13px", display: "flex", gap: 6, justifyContent: "center", background: c.card, borderTop: `1px solid ${c.bdr}` }}>
-                {[0,1,2,3].map(i=>(
-                  <div key={i} onClick={()=>{ clinicStepRef.current=i; setClinicStep(i); }} style={{ width: i===clinicStep?18:5, height: 5, borderRadius: 3, background: i===clinicStep?"#0F9B6E":c.bdr2, transition: "all .35s", cursor: "pointer" }}/>
-                ))}
-              </div>
-            </motion.div>
+            </motion.div>{/* clinic card */}
           </div>
 
           {/* For your patients */}
