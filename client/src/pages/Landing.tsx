@@ -146,6 +146,8 @@ export default function Landing() {
           .lnd-deals-inner   { grid-template-columns: 1fr !important; }
           .lnd-wf-steps      { flex-wrap: wrap !important; }
           .lnd-wf-connector  { display: none !important; }
+          .lnd-patient-card  { grid-template-columns: 1fr !important; padding: 32px 28px !important; }
+          .lnd-patient-anim  { display: none !important; }
         }
         @media (max-width: 540px) {
           .lnd-hero          { padding: 24px 18px 48px !important; }
@@ -163,6 +165,7 @@ export default function Landing() {
           .lnd-deals-inner   { grid-template-columns: 1fr !important; }
           .lnd-wf-steps      { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
           .lnd-wf-step       { flex-direction: row !important; text-align: left !important; gap: 12px !important; width: 100% !important; }
+          .lnd-patient-card  { padding: 28px 18px !important; border-radius: 18px !important; }
         }
       `}</style>
 
@@ -633,32 +636,73 @@ export default function Landing() {
               ))}
             </div>
 
-            {/* Patient Journey Mockup — mirrors real Book.tsx page */}
-            <motion.div {...fadeUp(0.1)} style={{ borderRadius: 20, overflow: "hidden", boxShadow: "0 20px 70px rgba(10,31,22,.12)", border: `1px solid ${c.bdr2}` }}>
+            {/* Patient section — two-column green card */}
+            <motion.div {...fadeUp(0.1)} className="lnd-patient-card" style={{ borderRadius: 24, background: "linear-gradient(135deg,#0A7A56 0%,#0F9B6E 60%,#1aad7a 100%)", padding: "44px 48px", position: "relative", overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 330px", gap: 44, alignItems: "center" }}>
 
-              {/* Title bar — matches Doctor Portal style */}
-              <div style={{ background: c.T, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", gap: 5 }}>{[0,1,2].map(i=><div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(255,255,255,.3)" }}/>)}</div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,.9)" }}>Patient Booking</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,.55)" }}>bookmyslot.in</div>
-              </div>
+              {/* Decorative orbs */}
+              <div style={{ position: "absolute", top: -80, right: 260, width: 340, height: 340, borderRadius: "50%", background: "rgba(255,255,255,.05)", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", bottom: -60, left: -30, width: 220, height: 220, borderRadius: "50%", background: "rgba(255,255,255,.04)", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", top: "50%", right: 20, width: 180, height: 180, borderRadius: "50%", background: "rgba(0,0,0,.06)", pointerEvents: "none", transform: "translateY(-50%)" }} />
 
-              {/* Dark hero band — matches Book.tsx hero section with grid texture */}
-              <div style={{ background: "#0A1F16", position: "relative", overflow: "hidden", padding: "14px 18px" }}>
-                <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px)", backgroundSize: "18px 18px", pointerEvents: "none" }}/>
-                <div style={{ position: "relative", zIndex: 1 }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: ".12em", color: "rgba(255,255,255,.4)", textTransform: "uppercase", marginBottom: 5 }}>BOOKMYSLOT · DENTAL</div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", letterSpacing: "-.02em", marginBottom: 9 }}>Book Your <span style={{ color: "#1DB887" }}>Appointment</span></div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {["· 3 time slots daily","· Confirmed instantly","· No account needed"].map(p=>(
-                      <div key={p} style={{ fontSize: 8, fontWeight: 600, color: "rgba(255,255,255,.55)", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", padding: "3px 8px", borderRadius: 20 }}>{p}</div>
-                    ))}
-                  </div>
+              {/* Left: copy */}
+              <div style={{ position: "relative", zIndex: 1 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".16em", textTransform: "uppercase", color: "rgba(255,255,255,.6)", marginBottom: 16 }}>For Patients</div>
+                <h3 style={{ fontSize: "clamp(26px,2.6vw,38px)", fontWeight: 800, color: "#fff", letterSpacing: "-.03em", lineHeight: 1.1, marginBottom: 14 }}>
+                  Book a dental<br/>appointment
+                </h3>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,.65)", lineHeight: 1.72, maxWidth: 380, marginBottom: 24 }}>
+                  Find a verified clinic near you, pick a slot, and get confirmed instantly. No account needed.
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 11, marginBottom: 30 }}>
+                  {["50+ verified clinics across Kerala", "No sign-up — just email verification", "Instant WhatsApp confirmation"].map(item => (
+                    <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: "rgba(255,255,255,.85)" }}>
+                      <div style={{ width: 19, height: 19, borderRadius: "50%", background: "rgba(255,255,255,.15)", border: "1.5px solid rgba(255,255,255,.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <Check style={{ width: 9, height: 9, color: "#fff", strokeWidth: 3 }} />
+                      </div>
+                      {item}
+                    </div>
+                  ))}
                 </div>
+                <Link href="/book">
+                  <button
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", borderRadius: 100, background: "#fff", color: "#085041", fontSize: 13.5, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: "none", cursor: "pointer", boxShadow: "0 4px 18px rgba(0,0,0,.18)", transition: "all .25s", letterSpacing: ".01em" }}
+                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.boxShadow = "0 8px 28px rgba(0,0,0,.24)"; }}
+                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(0)"; el.style.boxShadow = "0 4px 18px rgba(0,0,0,.18)"; }}
+                    data-testid="button-find-clinics"
+                  >
+                    <CalendarDays style={{ width: 14, height: 14 }} />
+                    Find clinics near me
+                  </button>
+                </Link>
               </div>
 
-              {/* Light content area — switches per step */}
-              <div style={{ background: c.card, padding: "16px 18px", minHeight: 200 }}>
+              {/* Right: constrained animation card */}
+              <div className="lnd-patient-anim" style={{ position: "relative", zIndex: 1 }}>
+                <div style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 20px 50px rgba(0,0,0,.28)", border: "1px solid rgba(255,255,255,.18)" }}>
+
+                  {/* Title bar */}
+                  <div style={{ background: "rgba(8,80,65,.95)", padding: "11px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", gap: 4 }}>{[0,1,2].map(i=><div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: "rgba(255,255,255,.3)" }}/>)}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.9)" }}>Patient Booking</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)" }}>bookmyslot.in</div>
+                  </div>
+
+                  {/* Dark hero band */}
+                  <div style={{ background: "#0A1F16", position: "relative", overflow: "hidden", padding: "11px 15px" }}>
+                    <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px)", backgroundSize: "18px 18px", pointerEvents: "none" }}/>
+                    <div style={{ position: "relative", zIndex: 1 }}>
+                      <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: ".12em", color: "rgba(255,255,255,.4)", textTransform: "uppercase", marginBottom: 4 }}>BOOKMYSLOT · DENTAL</div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", letterSpacing: "-.02em", marginBottom: 7 }}>Book Your <span style={{ color: "#1DB887" }}>Appointment</span></div>
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                        {["· 3 slots daily","· Confirmed instantly","· No account"].map(p=>(
+                          <div key={p} style={{ fontSize: 7.5, fontWeight: 600, color: "rgba(255,255,255,.55)", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", padding: "2px 7px", borderRadius: 20 }}>{p}</div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Animated content area */}
+                  <div style={{ background: c.card, padding: "14px 15px", minHeight: 185 }}>
 
                 {patientStep === 0 && (
                   <div key="p0" style={{ animation: "screenInSlow .55s ease forwards" }}>
@@ -763,15 +807,19 @@ export default function Landing() {
                   </div>
                 )}
 
-              </div>
+                  </div>
 
-              {/* Screen indicators */}
-              <div style={{ padding: "9px 20px 13px", display: "flex", gap: 6, justifyContent: "center", background: c.card, borderTop: `1px solid ${c.bdr}` }}>
-                {[0,1,2,3].map(i=>(
-                  <div key={i} onClick={()=>{ patientStepRef.current=i; setPatientStep(i); }} style={{ width: i===patientStep?18:5, height: 5, borderRadius: 3, background: i===patientStep?"#0F9B6E":c.bdr2, transition: "all .35s", cursor: "pointer" }}/>
-                ))}
-              </div>
-            </motion.div>
+                  {/* Screen indicators */}
+                  <div style={{ padding: "8px 15px 11px", display: "flex", gap: 5, justifyContent: "center", background: c.card, borderTop: `1px solid ${c.bdr}` }}>
+                    {[0,1,2,3].map(i=>(
+                      <div key={i} onClick={()=>{ patientStepRef.current=i; setPatientStep(i); }} style={{ width: i===patientStep?16:5, height: 5, borderRadius: 3, background: i===patientStep?"#0F9B6E":c.bdr2, transition: "all .35s", cursor: "pointer" }}/>
+                    ))}
+                  </div>
+
+                </div>{/* inner animation card */}
+              </div>{/* lnd-patient-anim column */}
+
+            </motion.div>{/* green card */}
           </div>
         </section>
 
