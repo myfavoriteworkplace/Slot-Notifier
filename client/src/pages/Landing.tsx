@@ -208,25 +208,61 @@ export default function Landing() {
               ))}
             </motion.div>
 
-            <motion.div {...fadeUp(0.22)} className="lnd-hero-actions" style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 36 }}>
-              <Link href="/getting-started">
-                <button
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 100, background: c.T, color: "#fff", fontSize: 14, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: "none", cursor: "pointer", boxShadow: `0 4px 20px rgba(15,155,110,.3)`, transition: "all .25s", letterSpacing: ".01em" }}
-                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.T_D; el.style.transform = "translateY(-2px)"; el.style.boxShadow = `0 8px 28px rgba(15,155,110,.4)`; }}
-                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.T; el.style.transform = "translateY(0)"; el.style.boxShadow = `0 4px 20px rgba(15,155,110,.3)`; }}
-                  data-testid="button-get-started"
+            <motion.div {...fadeUp(0.22)} style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 36 }}>
+
+              {/* Primary CTAs */}
+              <div className="lnd-cta-btns" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <Link href="/book">
+                  <button
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "13px 26px", borderRadius: 100, background: c.T, color: "#fff", fontSize: 14, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: "none", cursor: "pointer", boxShadow: `0 4px 20px rgba(15,155,110,.3)`, transition: "all .25s", letterSpacing: ".01em" }}
+                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.T_D; el.style.transform = "translateY(-2px)"; el.style.boxShadow = `0 8px 28px rgba(15,155,110,.4)`; }}
+                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.T; el.style.transform = "translateY(0)"; el.style.boxShadow = `0 4px 20px rgba(15,155,110,.3)`; }}
+                    data-testid="button-book-appointment"
+                  >
+                    <CalendarDays style={{ width: 15, height: 15 }} />
+                    Book an Appointment
+                    <ArrowRight style={{ width: 14, height: 14 }} />
+                  </button>
+                </Link>
+
+                <Link href="/register-clinic">
+                  <button
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 100, background: "transparent", color: c.T, fontSize: 14, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: `2px solid ${c.bdr2}`, cursor: "pointer", transition: "all .25s", letterSpacing: ".01em" }}
+                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.tL; el.style.borderColor = c.T; el.style.transform = "translateY(-2px)"; }}
+                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "transparent"; el.style.borderColor = c.bdr2; el.style.transform = "translateY(0)"; }}
+                    data-testid="button-register-clinic"
+                  >
+                    <Building2 style={{ width: 15, height: 15 }} />
+                    Register Your Clinic
+                  </button>
+                </Link>
+              </div>
+
+              {/* Secondary row — existing users + anchor */}
+              <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+                <Link href="/clinic-login">
+                  <span
+                    style={{ fontSize: 13, color: c.muted, fontFamily: "'Sora',sans-serif", cursor: "pointer", transition: "color .2s" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = c.T; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = c.muted; }}
+                    data-testid="link-sign-in"
+                  >
+                    Already registered?{" "}
+                    <span style={{ color: c.T, fontWeight: 600 }}>Sign in →</span>
+                  </span>
+                </Link>
+                <span style={{ width: 1, height: 13, background: c.bdr2, display: "inline-block" }} />
+                <a
+                  href="#how-it-works"
+                  style={{ fontSize: 13, color: c.muted, fontFamily: "'Sora',sans-serif", cursor: "pointer", textDecoration: "none", transition: "color .2s" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = c.T; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = c.muted; }}
+                  data-testid="link-see-how-it-works"
                 >
-                  Get Started Free <ArrowRight style={{ width: 16, height: 16 }} />
-                </button>
-              </Link>
-              <a href="#how-it-works"
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "13px 22px", borderRadius: 100, background: "transparent", color: c.txt2, fontSize: 14, fontWeight: 600, fontFamily: "'Sora',sans-serif", border: `1.5px solid ${c.bdr2}`, cursor: "pointer", textDecoration: "none", transition: "all .25s" }}
-                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.tL; el.style.color = c.T; el.style.borderColor = c.T; }}
-                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "transparent"; el.style.color = c.txt2; el.style.borderColor = c.bdr2; }}
-                data-testid="link-see-how-it-works"
-              >
-                See how it works
-              </a>
+                  See how it works
+                </a>
+              </div>
+
             </motion.div>
 
             <motion.div {...fadeUp(0.3)} style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
