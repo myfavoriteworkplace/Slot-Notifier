@@ -293,10 +293,15 @@ export default function ClinicLogin() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 overflow-y-auto bg-[hsl(var(--background))] relative">
 
         {/* Back link */}
-        <Link href="/" className="absolute top-6 left-6 flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground hover:text-primary transition-colors" data-testid="link-back-home">
+        <button
+          type="button"
+          onClick={() => window.history.length > 1 ? window.history.back() : setLocation("/")}
+          className="absolute top-6 left-6 flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground hover:text-primary transition-colors"
+          data-testid="button-back"
+        >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Back to home
-        </Link>
+          Back
+        </button>
 
         <div className="w-full max-w-[380px]">
 

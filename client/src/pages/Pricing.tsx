@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Check, X, Zap, Building2, ShieldCheck, ArrowRight, Sparkles } from "lucide-react";
+import { Check, X, Zap, Building2, ShieldCheck, ArrowRight, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const PLANS = [
@@ -107,6 +107,17 @@ export default function Pricing() {
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-accent/5 rounded-full blur-3xl pointer-events-none translate-y-1/3 -translate-x-1/3" />
 
       <div className="relative max-w-5xl mx-auto">
+
+        {/* Back button */}
+        <button
+          type="button"
+          onClick={() => window.history.length > 1 ? window.history.back() : setLocation("/getting-started")}
+          className="flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground hover:text-primary transition-colors mb-8"
+          data-testid="button-back"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back
+        </button>
 
         {/* Header */}
         <div className="text-center mb-12">
@@ -278,14 +289,6 @@ export default function Pricing() {
             >
               Register Your Clinic
               <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2 font-semibold border-primary/30 text-primary hover:bg-primary/5 rounded-xl h-11 px-8"
-              onClick={() => setLocation("/getting-started")}
-              data-testid="button-back-getting-started"
-            >
-              Back to Getting Started
             </Button>
           </div>
         </div>

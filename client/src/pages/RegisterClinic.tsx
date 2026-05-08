@@ -485,9 +485,9 @@ export default function RegisterClinic() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
           <Building2 className="absolute right-5 top-1/2 -translate-y-1/2 h-32 w-32 text-white opacity-[0.06] pointer-events-none select-none" />
 
-          <button type="button" onClick={() => setLocation("/getting-started")}
+          <button type="button" onClick={() => window.history.length > 1 ? window.history.back() : setLocation("/")}
             className="absolute top-4 left-4 flex items-center gap-1 text-white/60 hover:text-white text-[11px] font-medium transition-colors"
-            data-testid="link-back-getting-started">
+            data-testid="button-back">
             <ArrowLeft className="h-3 w-3" />Back
           </button>
 
@@ -943,7 +943,7 @@ export default function RegisterClinic() {
                       ? "Select a plan above to submit"
                       : "Submit Registration"}
                   </Button>
-                  <button type="button" onClick={() => setLocation("/getting-started")}
+                  <button type="button" onClick={() => window.history.length > 1 ? window.history.back() : setLocation("/")}
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors text-center py-1"
                     data-testid="button-cancel-registration">
                     Cancel and go back
