@@ -3,6 +3,18 @@
 
 ---
 
+> ### Database Migration Notice — May 2026
+> The BookMySlot database was originally a **Render PostgreSQL** instance. In May 2026, it was migrated to **Supabase PostgreSQL** (free-tier, Singapore region) because Render's free PostgreSQL databases are permanently deleted after 90 days of inactivity.
+>
+> **What this means for this document:**
+> - The `DATABASE_URL` environment variable no longer points to a Render database URL.
+> - It now points to the **Supabase connection pooler** URL (see the `DATABASE_URL` section below).
+> - Everything else in this document (sessions, emails, Razorpay, Twilio, R2) is unchanged.
+>
+> For the full technical details of the Supabase setup, SSL configuration, and connection options, see [`docs/supabase-database-setup.md`](./supabase-database-setup.md).
+
+---
+
 ## What is an Environment Variable?
 
 Think of environment variables like **settings on the back of a machine** — they tell the app how to behave without you having to open and rewrite the code every time.
