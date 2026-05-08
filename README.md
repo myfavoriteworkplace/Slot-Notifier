@@ -1,116 +1,106 @@
-# BookMySlot - Dental Clinic Appointment Booking System
+# BookMySlot — Dental Clinic Appointment Booking System
 
-A robust, full-stack appointment booking application designed for dental clinics. It features role-based access control, real-time notifications, and supports both Replit native and external cloud deployments.
-
----
-
-## 🏗 System Architecture
-
-The application follows a modern full-stack architecture designed for scalability and ease of deployment.
-
-### 1. Frontend (Client-Side)
-- **Framework**: React 18 with TypeScript.
-- **Styling**: Tailwind CSS + shadcn/ui (Radix UI primitives).
-- **State Management**: TanStack Query (v5) for efficient server state synchronization and caching.
-- **Routing**: `wouter` for lightweight, hook-based client-side routing.
-- **Build Tool**: Vite, providing fast HMR (Hot Module Replacement) during development.
-
-### 2. Backend (Server-Side)
-- **Runtime**: Node.js with Express.js.
-- **Language**: TypeScript (using `tsx` for execution).
-- **ORM**: Drizzle ORM for type-safe database interactions.
-- **Authentication**:
-  - **Replit Mode**: Uses Replit OIDC for seamless, zero-config auth.
-  - **External Mode**: Uses Passport.js with a Local Strategy (email/password) based on environment variables.
-- **Middleware**: Custom logging, error handling, and session management (using `express-session`).
-
-### 3. Database & Storage
-- **Database**: PostgreSQL (works with Neon, Supabase, or local PG).
-- **Schema Management**: Drizzle Kit handles migrations and schema "push" operations.
-- **Persistence**: Managed through an `IStorage` interface (`server/storage.ts`), making it easy to swap storage backends.
+A full-stack appointment booking application for dental clinics. Features role-based access control (admin, clinic, doctor, patient), real-time notifications, WhatsApp messaging, payment integration, and a public Smile Deals gallery.
 
 ---
 
-## 🔄 Core Workflows
+## System Architecture
 
-### 🛠 Development Workflow
-1. **Schema Changes**: Modify `shared/schema.ts`.
-2. **Database Update**: Run `npm run db:push` to sync the database.
-3. **Execution**: `npm run dev` starts both Vite and Express. Vite proxies API requests to Express, creating a unified development experience.
+### Frontend
+- **Framework**: React 18 with TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui (Radix UI)
+- **State**: TanStack Query v5
+- **Routing**: `wouter`
+- **Build**: Vite
 
-### 🔐 Authentication Flow
-1. **Replit Environment**:
-   - App detects `REPL_ID`.
-   - Uses Replit OIDC via `@replit/oidc`.
-   - Users claim "Superuser" status on the first login to the `/admin` dashboard.
-2. **Standalone Environment (Render/Local)**:
-   - App detects `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
-   - Switches to Passport Local strategy.
-   - Admin manages clinics; clinics log in with credentials set by the Admin.
-   - **Important**: For Render, ensure both variables are set in the dashboard to enable this mode.
+### Backend
+- **Runtime**: Node.js + Express.js (TypeScript)
+- **ORM**: Drizzle ORM
+- **Auth**: Passport.js (email/password on Render) or Replit OIDC (on Replit)
+- **Sessions**: `express-session` with PostgreSQL session store
 
----
-
-## 🚀 Deployment Guide
-
-### A. Replit Deployment (Easiest)
-Replit handles the infrastructure, database, and auth automatically.
-1. Click the **Deploy** button in the Replit sidebar.
-2. The system automatically provisions a PostgreSQL database and sets `DATABASE_URL`.
-3. Replit OIDC handles auth automatically.
-4. Your app is live at `https://[project-name].[username].replit.app`.
-
-### B. Render Deployment (Professional)
-Deployment on Render is split into three parts: Database, Backend, and Frontend.
-
-#### 1. Provision PostgreSQL
-- New > PostgreSQL.
-- Name: `bookmyslot-db`.
-- Copy the **Internal Database URL** for the backend and **External Database URL** for local migration.
-
-#### 2. Deploy Backend (Web Service)
-- **Build Command**: `npm install && npm run db:push && npx tsx script/build-standalone.ts`
-- **Start Command**: `node dist-backend/server.cjs`
-- **Required Env Vars**:
-  - `DATABASE_URL`: Your Internal DB URL.
-  - `SESSION_SECRET`: A long random string.
-  - `ADMIN_EMAIL`: Your login email.
-  - `ADMIN_PASSWORD`: Your login password.
-  - `FRONTEND_URL`: `https://your-app.onrender.com` (CORS setup).
-  - `NODE_ENV`: `production`.
-
-#### 3. Deploy Frontend (Static Site)
-- **Build Command**: `npm install && npm run build`
-- **Publish Directory**: `dist/public`
-- **Required Env Vars**:
-  - `VITE_API_URL`: `https://your-backend-service.onrender.com`.
+### Database
+- **PostgreSQL** hosted on **Supabase** (migrated from Render PostgreSQL, May 2026)
+- Schema managed via Drizzle Kit
+- See [`docs/supabase-database-setup.md`](./docs/supabase-database-setup.md)
 
 ---
 
-## 💻 Local Development & Production Setup
+## Quick Start (Local Development)
 
-For a deep dive into running the app locally in a production-like environment (similar to Render), including **Docker** setup for the database, please refer to our dedicated guide:
+For the full guide see **[`docs/local-development-setup.md`](./docs/local-development-setup.md)**.
 
-👉 **[LOCAL_DEPLOYMENT.md](./LOCAL_DEPLOYMENT.md)**
+```bash
+# 1. Install dependencies
+npm install
 
-### Quick Start (Dev Mode)
-1. **Prerequisites**: Node.js v20+, PostgreSQL.
-2. **Setup**: `npm install`
-3. **Database**: Run `npm run db:push`
-4. **Run**: `npm run dev` (Access at `http://localhost:5000`)
+# 2. Copy environment template and fill in your values
+cp .env.example .env
+
+# 3. Push schema to database
+NODE_TLS_REJECT_UNAUTHORIZED=0 npm run db:push
+
+# 4. Run in development mode (hot reload)
+npm run dev
+```
+
+Or to run the compiled production build locally:
+```bash
+npm run build
+node dist/index.cjs
+```
 
 ---
 
-## 🧪 Troubleshooting
+## Authentication
 
-| Issue | Solution |
-|-------|----------|
-| `tsx not found` | Run `npm install` again. |
-| `DATABASE_URL` error | Ensure your `.env` is correct and PG is running. |
-| `bcrypt` build error | We use `bcryptjs` now to avoid native build issues. |
-| 401 Unauthorized | Check if you are logged in or if your session secret changed. |
+### On Replit
+Replit OIDC handles auth automatically. No configuration needed.
+
+### On Render / Local
+Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables. The app switches to Passport Local strategy automatically when these are present.
 
 ---
 
-## 📜 License
-MIT
+## Deployment
+
+### Render (Production)
+The app is deployed on Render with a custom domain:
+
+| Service | URL |
+|---|---|
+| Frontend | `https://bookmyslot.dental.mossaic.in` |
+| Backend API | `https://api.bookmyslot.dental.mossaic.in` |
+
+- **Build command**: `npm install && npm run build`
+- **Start command**: `node dist/index.cjs`
+- **Database**: Supabase PostgreSQL via connection pooler (port `6543`)
+
+Full environment variable reference: [`docs/render-environment-setup.md`](./docs/render-environment-setup.md)
+
+---
+
+## Documentation Index
+
+| Document | What it covers |
+|---|---|
+| [`docs/local-development-setup.md`](./docs/local-development-setup.md) | Running the app locally — all modes, env setup, troubleshooting |
+| [`docs/supabase-database-setup.md`](./docs/supabase-database-setup.md) | Supabase setup, SSL configuration, connection pooler, migration from Render |
+| [`docs/render-environment-setup.md`](./docs/render-environment-setup.md) | All environment variables for Render production deployment |
+| [`docs/domain-migration.md`](./docs/domain-migration.md) | Custom domain setup, DNS records, CORS configuration |
+| [`docs/resend-email-production-setup.md`](./docs/resend-email-production-setup.md) | Email setup — sandbox to production via Resend |
+| [`docs/payment-and-subscription-guide.md`](./docs/payment-and-subscription-guide.md) | Razorpay subscription plans, clinic billing, admin approval flow |
+| [`docs/demo-guide.md`](./docs/demo-guide.md) | Demo accounts, pre-loaded data, what to explore |
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `DATABASE_URL must be set` | Ensure `.env` exists in the project root |
+| `SELF_SIGNED_CERT_IN_CHAIN` during db:push | Run with `NODE_TLS_REJECT_UNAUTHORIZED=0 npm run db:push` |
+| `ENETUNREACH` on Render | Use Supabase pooler URL (port `6543`) in Render env vars |
+| CORS error | Ensure `FRONTEND_URL` in `.env` matches the URL you open in the browser |
+| Admin login fails | Check `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` |
+| `tsx not found` | Run `npm install` again |
