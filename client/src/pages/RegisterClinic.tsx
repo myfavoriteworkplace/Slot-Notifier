@@ -21,8 +21,8 @@ import { z } from "zod";
 
 function FieldRow({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <div className="flex items-center rounded-xl border border-border/60 bg-background focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
-      <div className="flex items-center justify-center h-10 w-10 shrink-0 border-r border-border/40 bg-muted/30">
+    <div className="flex items-center rounded-xl border border-border/70 bg-card focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
+      <div className="flex items-center justify-center h-10 w-10 shrink-0 border-r border-border/50 bg-muted/40">
         <Icon className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
       {children}
@@ -831,84 +831,94 @@ export default function RegisterClinic() {
               <div className="space-y-4 mt-6">
 
                 {/* ── Plan selector ── */}
-                <div className="rounded-2xl border border-primary/20 bg-primary/3 p-4 space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div>
+                {!emailVerified ? (
+                  /* Teaser — locked until email is verified */
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 flex items-center gap-4" data-testid="plan-section-locked">
+                    <div className="h-9 w-9 rounded-xl border border-border/60 bg-card flex items-center justify-center shrink-0">
+                      <Zap className="h-4 w-4 text-muted-foreground/60" />
+                    </div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-foreground">Choose your plan <span className="text-destructive">*</span></p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">Select a subscription plan to continue</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Unlocks after email verification · No payment until admin approval</p>
                     </div>
-                    <a
-                      href="/pricing"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                      data-testid="link-view-pricing"
-                    >
-                      View full plan details
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {([
-                      { id: "starter", icon: Zap, name: "Starter", price: "₹999/mo", annual: "₹9,990/yr", desc: "Up to 30 bookings · 1 doctor · 5% fee" },
-                      { id: "growth", icon: Building2, name: "Growth", price: "₹1,599/mo", annual: "₹15,990/yr", desc: "Up to 150 bookings · 3 doctors · 3% fee", popular: true },
-                      { id: "pro", icon: ShieldCheck, name: "Pro", price: "₹2,999/mo", annual: "₹29,990/yr", desc: "Unlimited · Premium badge · 1.5% fee" },
-                    ] as const).map((plan) => {
-                      const Icon = plan.icon;
-                      const active = selectedPlan === plan.id;
-                      return (
-                        <button
-                          key={plan.id}
-                          type="button"
-                          onClick={() => setSelectedPlan(plan.id)}
-                          data-testid={`plan-select-${plan.id}`}
-                          className={`relative text-left rounded-xl border p-3 transition-all duration-200 ${
-                            active
-                              ? "border-primary bg-primary/8 ring-2 ring-primary/20"
-                              : "border-border/50 bg-background hover:border-primary/40 hover:bg-primary/3"
-                          }`}
-                        >
-                          {(plan as any).popular && (
-                            <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-black uppercase tracking-widest bg-gradient-to-r from-primary to-accent text-white px-2.5 py-0.5 rounded-full">
-                              Popular
-                            </span>
-                          )}
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                              <Icon className="h-3.5 w-3.5" />
-                            </div>
-                            <span className={`text-sm font-bold ${active ? "text-primary" : "text-foreground"}`}>{plan.name}</span>
-                            {active && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
-                          </div>
-                          <p className={`text-base font-extrabold tracking-tight ${active ? "text-primary" : "text-foreground"}`}>{plan.price}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">{plan.annual} annually</p>
-                          <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">{plan.desc}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {!selectedPlan && (
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                      <Info className="h-3 w-3 shrink-0" />
-                      Please select a plan to complete your registration
-                    </p>
-                  )}
-                </div>
-
-                {/* ── Payment notice ── */}
-                {selectedPlan && (
-                  <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 flex gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
-                      <Info className="h-4 w-4 text-primary" />
+                    <div className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 border border-border/50 rounded-lg px-2.5 py-1">
+                      Step 5
                     </div>
-                    <div>
-                      <p className="text-xs font-semibold text-foreground mb-0.5">About payment</p>
+                  </div>
+                ) : (
+                  /* Full plan selector — revealed after email verified */
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-400 rounded-2xl border border-primary/20 bg-primary/3 p-4 space-y-3" data-testid="plan-section-unlocked">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">Choose your plan <span className="text-destructive">*</span></p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">Select a subscription plan to continue</p>
+                      </div>
+                      <a
+                        href="/pricing"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        data-testid="link-view-pricing"
+                      >
+                        View full plan details
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+
+                    {/* Payment reassurance — always visible before plan selection */}
+                    <div className="flex items-start gap-2.5 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        No payment is required now. Once our admin reviews and approves your registration, a secure payment link for your selected <span className="font-semibold text-foreground capitalize">{selectedPlan}</span> plan will be sent to your registered email address to activate your account.
+                        <span className="font-semibold text-foreground">No payment now.</span> Once our admin approves your registration, a secure payment link for your chosen plan will be sent to your email to activate your account.
                       </p>
                     </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {([
+                        { id: "starter", icon: Zap, name: "Starter", price: "₹999/mo", annual: "₹9,990/yr", desc: "Up to 30 bookings · 1 doctor · 5% fee" },
+                        { id: "growth", icon: Building2, name: "Growth", price: "₹1,599/mo", annual: "₹15,990/yr", desc: "Up to 150 bookings · 3 doctors · 3% fee", popular: true },
+                        { id: "pro", icon: ShieldCheck, name: "Pro", price: "₹2,999/mo", annual: "₹29,990/yr", desc: "Unlimited · Premium badge · 1.5% fee" },
+                      ] as const).map((plan) => {
+                        const Icon = plan.icon;
+                        const active = selectedPlan === plan.id;
+                        return (
+                          <button
+                            key={plan.id}
+                            type="button"
+                            onClick={() => setSelectedPlan(plan.id)}
+                            data-testid={`plan-select-${plan.id}`}
+                            className={`relative text-left rounded-xl border p-3 transition-all duration-200 ${
+                              active
+                                ? "border-primary bg-primary/8 ring-2 ring-primary/20"
+                                : "border-border/60 bg-card hover:border-primary/40 hover:bg-primary/3"
+                            }`}
+                          >
+                            {(plan as any).popular && (
+                              <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-black uppercase tracking-widest bg-gradient-to-r from-primary to-accent text-white px-2.5 py-0.5 rounded-full">
+                                Popular
+                              </span>
+                            )}
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                                <Icon className="h-3.5 w-3.5" />
+                              </div>
+                              <span className={`text-sm font-bold ${active ? "text-primary" : "text-foreground"}`}>{plan.name}</span>
+                              {active && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
+                            </div>
+                            <p className={`text-base font-extrabold tracking-tight ${active ? "text-primary" : "text-foreground"}`}>{plan.price}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{plan.annual} annually</p>
+                            <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">{plan.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {!selectedPlan && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                        <Info className="h-3 w-3 shrink-0" />
+                        Please select a plan to complete your registration
+                      </p>
+                    )}
                   </div>
                 )}
 
