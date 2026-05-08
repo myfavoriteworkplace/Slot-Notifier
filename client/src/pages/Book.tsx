@@ -592,16 +592,16 @@ export default function Book(props: { params: { clinicId?: string } }) {
             <CalendarDays className="h-3 w-3" /> BookMySlot
           </p>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight mb-2">
-            Book Your <span className="text-primary">Appointment</span>
+            Book a <span className="text-primary">Dental Appointment</span>
           </h1>
           <p className="text-white/50 text-sm sm:text-base mb-7 max-w-md">
-            Choose a clinic, pick a date, and confirm instantly — no account required.
+            Find a verified clinic near you, pick a slot, and get confirmed instantly. No account needed.
           </p>
           <div className="flex flex-wrap gap-2">
             {[
-              { Icon: Clock,    label: "3 time slots daily"  },
-              { Icon: Sparkles, label: "Confirmed instantly" },
-              { Icon: Shield,   label: "No account needed"   },
+              { Icon: MapPin,    label: "50+ verified clinics across Kerala" },
+              { Icon: Shield,   label: "No sign-up — just email verification" },
+              { Icon: Sparkles, label: "Instant WhatsApp confirmation"        },
             ].map(({ Icon, label }) => (
               <div key={label} className="flex items-center gap-1.5 bg-white/[0.06] border border-white/[0.1] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white/70 backdrop-blur-sm">
                 <Icon className="h-3 w-3" />
@@ -625,7 +625,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-base font-bold tracking-tight">Choose a Clinic</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Select from the list or search by location</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Find a verified dental clinic near you by name, area, or city</p>
               </div>
               {selectedClinic && (
                 <button
@@ -640,8 +640,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
             {/* ── Mode toggle pill switcher ── */}
             <div className="flex gap-1.5 p-1 bg-muted/40 border border-border/50 rounded-xl mb-4 w-fit">
               {([
-                { id: "select", Icon: Building2, label: "Select Clinic"       },
-                { id: "search", Icon: MapPin,    label: "Search by Location"  },
+                { id: "select", Icon: Building2, label: "All Clinics"          },
+                { id: "search", Icon: MapPin,    label: "Search by Name / Area" },
               ] as const).map(({ id, Icon, label }) => (
                 <button
                   key={id}
@@ -707,7 +707,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     <div className="absolute top-full left-0 right-0 z-20 mt-2 rounded-xl border border-border/60 bg-card shadow-xl shadow-black/10 overflow-hidden">
                       <div className="px-3 py-2 border-b border-border/40 bg-muted/30">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          {clinics.length} clinic{clinics.length !== 1 ? "s" : ""} available
+                          {clinics.length} verified clinic{clinics.length !== 1 ? "s" : ""}
                         </p>
                       </div>
                       <div className="max-h-72 overflow-y-auto">
@@ -778,8 +778,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       <Search className="h-5 w-5 text-primary/60" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-foreground/80">Search for a clinic</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Type a clinic name, city, pincode, or area to find nearby clinics</p>
+                      <p className="text-sm font-semibold text-foreground/80">Find your clinic</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Type a name, area, or pincode to find verified clinics near you</p>
                     </div>
                   </div>
                 )}
@@ -1032,7 +1032,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
             {/* Hint */}
             <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1.5">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50" />
-              Tap a date to view available slots and book your appointment
+              Tap any date to see available time slots
             </p>
           </div>
         )}
@@ -1253,7 +1253,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           <div className="flex items-center gap-2 px-1">
                             <Shield className="h-3.5 w-3.5 text-primary/60 shrink-0" />
                             <p className="text-[11px] text-muted-foreground">
-                              Email verification is required to view available slots
+                              We'll verify your email before showing available slots — takes 30 seconds
                             </p>
                           </div>
                         )}
