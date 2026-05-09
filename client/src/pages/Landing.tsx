@@ -723,7 +723,7 @@ export default function Landing() {
             </div>
 
             {/* Patient section — two-column green card */}
-            <motion.div {...fadeUp(0.1)} className="lnd-patient-card" style={{ borderRadius: 24, background: "linear-gradient(135deg,#0A7A56 0%,#0F9B6E 60%,#1aad7a 100%)", padding: "44px 48px", position: "relative", overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 410px", gap: 44, alignItems: "center" }}>
+            <motion.div {...fadeUp(0.1)} className="lnd-patient-card" style={{ borderRadius: 24, background: "linear-gradient(135deg,#0A7A56 0%,#0F9B6E 60%,#1aad7a 100%)", padding: "44px 48px", position: "relative", overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 410px", gap: 44, alignItems: "flex-start" }}>
 
               {/* Decorative orbs */}
               <div style={{ position: "absolute", top: -80, right: 260, width: 340, height: 340, borderRadius: "50%", background: "rgba(255,255,255,.05)", pointerEvents: "none" }} />
@@ -780,7 +780,7 @@ export default function Landing() {
                   <div style={{ height: 2, background: "linear-gradient(to right,#1D9E75,#0F9B6E,#1D9E75)", opacity: .45 }}/>
 
                   {/* Animated content area */}
-                  <div style={{ background: c.card, padding: "14px 15px", minHeight: 215 }}>
+                  <div style={{ background: c.card, padding: "14px 15px", height: 232, overflow: "hidden" }}>
 
                 {patientStep === 0 && (
                   <div key="p0" style={{ animation: "screenInSlow .55s ease forwards" }}>
