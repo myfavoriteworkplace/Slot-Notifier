@@ -540,7 +540,7 @@ export default function Landing() {
                   <div style={{ height: 2, background: "linear-gradient(to right,#1D9E75,#0F9B6E,#1D9E75)", opacity: .45 }}/>
 
                   {/* Two-column: sidebar (120px) + main content */}
-                  <div style={{ display: "flex", background: c.bg }}>
+                  <div style={{ display: "flex", background: c.card }}>
 
                     {/* Sidebar — 120px */}
                     <div style={{ width: 120, background: c.card, borderRight: `1px solid ${c.bdr}`, padding: "8px 5px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 1 }}>
@@ -723,7 +723,7 @@ export default function Landing() {
             </div>
 
             {/* Patient section — two-column green card */}
-            <motion.div {...fadeUp(0.1)} className="lnd-patient-card" style={{ borderRadius: 24, background: "linear-gradient(135deg,#0A7A56 0%,#0F9B6E 60%,#1aad7a 100%)", padding: "44px 48px", position: "relative", overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 330px", gap: 44, alignItems: "center" }}>
+            <motion.div {...fadeUp(0.1)} className="lnd-patient-card" style={{ borderRadius: 24, background: "linear-gradient(135deg,#0A7A56 0%,#0F9B6E 60%,#1aad7a 100%)", padding: "44px 48px", position: "relative", overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 410px", gap: 44, alignItems: "center" }}>
 
               {/* Decorative orbs */}
               <div style={{ position: "absolute", top: -80, right: 260, width: 340, height: 340, borderRadius: "50%", background: "rgba(255,255,255,.05)", pointerEvents: "none" }} />
@@ -764,31 +764,23 @@ export default function Landing() {
 
               {/* Right: constrained animation card */}
               <div className="lnd-patient-anim" style={{ position: "relative", zIndex: 1 }}>
-                <div style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 20px 50px rgba(0,0,0,.28)", border: "1px solid rgba(255,255,255,.18)" }}>
+                <div style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 20px 50px rgba(0,0,0,.45)", border: "1px solid rgba(15,155,110,.2)" }}>
 
                   {/* Title bar */}
-                  <div style={{ background: "rgba(8,80,65,.95)", padding: "11px 15px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ background: "#0F9B6E", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div style={{ display: "flex", gap: 4 }}>{[0,1,2].map(i=><div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: "rgba(255,255,255,.3)" }}/>)}</div>
                     <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.9)" }}>Patient Booking</div>
                     <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)" }}>bookmyslot.in</div>
                   </div>
 
-                  {/* Dark hero band */}
-                  <div style={{ background: "#0A1F16", position: "relative", overflow: "hidden", padding: "11px 15px" }}>
-                    <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px)", backgroundSize: "18px 18px", pointerEvents: "none" }}/>
-                    <div style={{ position: "relative", zIndex: 1 }}>
-                      <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: ".12em", color: "rgba(255,255,255,.4)", textTransform: "uppercase", marginBottom: 4 }}>BOOKMYSLOT · DENTAL</div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", letterSpacing: "-.02em", marginBottom: 7 }}>Book Your <span style={{ color: "#1DB887" }}>Appointment</span></div>
-                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                        {["· 3 slots daily","· Confirmed instantly","· No account"].map(p=>(
-                          <div key={p} style={{ fontSize: 7.5, fontWeight: 600, color: "rgba(255,255,255,.55)", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", padding: "2px 7px", borderRadius: 20 }}>{p}</div>
-                        ))}
-                      </div>
-                    </div>
+                  {/* Nameplate strip — matches clinic frame */}
+                  <div style={{ background: "rgba(8,80,65,.92)", padding: "4px 14px", textAlign: "center" }}>
+                    <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: ".18em", color: "rgba(255,255,255,.65)", textTransform: "uppercase" }}>[ BOOKMYSLOT · DENTAL ]</span>
                   </div>
+                  <div style={{ height: 2, background: "linear-gradient(to right,#1D9E75,#0F9B6E,#1D9E75)", opacity: .45 }}/>
 
                   {/* Animated content area */}
-                  <div style={{ background: c.card, padding: "14px 15px", minHeight: 185 }}>
+                  <div style={{ background: c.card, padding: "14px 15px", minHeight: 215 }}>
 
                 {patientStep === 0 && (
                   <div key="p0" style={{ animation: "screenInSlow .55s ease forwards" }}>
