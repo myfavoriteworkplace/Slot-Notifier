@@ -84,7 +84,7 @@ export default function Landing() {
       const iv = setInterval(() => {
         patientStepRef.current = (patientStepRef.current + 1) % PATIENT_SCREENS;
         setPatientStep(patientStepRef.current);
-      }, 3800);
+      }, 4800);
       return () => clearInterval(iv);
     }, 1300);
     return () => clearTimeout(t);
