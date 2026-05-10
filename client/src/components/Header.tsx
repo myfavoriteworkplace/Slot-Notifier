@@ -47,6 +47,7 @@ export function Header() {
     backend: boolean | null;
     database: boolean | null;
   }>({ backend: null, database: null });
+  const [adminHovered, setAdminHovered] = useState(false);
 
   useEffect(() => {
     if (location === "/") {
@@ -277,20 +278,6 @@ export function Header() {
           </Button>
         </Link>
 
-        {/* Admin — subtle text link, not a competing button */}
-        <Link href="/admin">
-          <span
-            className={`hidden sm:flex items-center gap-1 text-xs px-1.5 py-1 rounded transition-colors ${
-              location === "/admin"
-                ? "text-foreground font-semibold"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            data-testid="link-admin"
-          >
-            <Shield className="h-3.5 w-3.5" />
-            Admin
-          </span>
-        </Link>
       </div>
     );
   };
@@ -385,6 +372,49 @@ export function Header() {
 
             {/* Thin vertical separator */}
             <div className="w-px h-5 bg-border/60" />
+
+            {/* Stealth admin — shield + keyhole, no label */}
+            <TooltipProvider delayDuration={400}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/admin">
+                    <button
+                      className="h-8 w-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                      data-testid="button-admin-stealth"
+                      onMouseEnter={() => setAdminHovered(true)}
+                      onMouseLeave={() => setAdminHovered(false)}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        {/* Shield */}
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        {/* Keyhole — outline circle + tapered slot, fades in on hover */}
+                        <g style={{
+                          opacity: adminHovered ? 1 : 0,
+                          transform: adminHovered ? "scale(1)" : "scale(0.6)",
+                          transformOrigin: "12px 12px",
+                          transition: "opacity 0.25s ease, transform 0.25s ease",
+                        }}>
+                          <circle cx="12" cy="10" r="2" strokeWidth="1.4" />
+                          <path d="M10.8 11.8 L10 16 L14 16 L13.2 11.8 Z" strokeWidth="1.2" strokeLinejoin="round" />
+                        </g>
+                      </svg>
+                    </button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  System Administrator Login
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             {/* Single-click theme toggle — extreme right, tooltip shows next action */}
             <TooltipProvider delayDuration={300}>
