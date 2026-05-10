@@ -639,13 +639,12 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
 // ── GetListedForm ──────────────────────────────────────────────────────────
 const SUPPLIER_CATEGORIES = ["Equipment & Chairs", "Consumables", "Orthodontics", "Imaging & Radiology", "Software", "Sterilisation", "Training & CPD", "Lab Services", "Other"];
 
-type ListingStep = "idle" | "otp-sent" | "verified" | "submitted";
+type ListingStep = "idle" | "otp-sent" | "submitted";
 
 function GetListedForm({ c }: { c: Palette }) {
   const [step, setStep] = useState<ListingStep>("idle");
   const [email, setEmail]           = useState("");
   const [otpCode, setOtpCode]       = useState("");
-  const [verifiedToken, setVerifiedToken] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone]           = useState("");
   const [category, setCategory]     = useState("");
@@ -661,57 +660,64 @@ function GetListedForm({ c }: { c: Palette }) {
     return () => clearTimeout(t);
   }, [countdown]);
 
-  async function sendOtp() {
+  async function handleVerifyAndSubmit() {
     setError("");
-    if (!email || !/\S+@\S+\.\S+/.test(email)) { setError("Please enter a valid email address."); return; }
+    if (!companyName.trim()) { setError("Company name is required."); return; }
+    if (!phone.trim()) { setError("Phone number is required."); return; }
+    if (!category) { setError("Please select a category."); return; }
+    if (!email || !/\S+@\S+\.\S+/.test(email)) { setError("Please enter a valid business email."); return; }
     setLoading(true);
     try {
       const r = await fetch("/api/public/otp/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, purpose: "supplier-listing" }) });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.message || "Failed to send code");
+      if (!r.ok) throw new Error(data.message || "Failed to send verification code");
       setStep("otp-sent");
       setCountdown(60);
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
   }
 
-  async function verifyOtp() {
+  async function resendOtp() {
     setError("");
-    if (otpCode.length !== 6) { setError("Please enter the 6-digit code."); return; }
     setLoading(true);
     try {
-      const r = await fetch("/api/public/otp/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, code: otpCode, purpose: "supplier-listing" }) });
+      const r = await fetch("/api/public/otp/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, purpose: "supplier-listing" }) });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.message || "Invalid code");
-      setVerifiedToken(data.verifiedToken);
-      setStep("verified");
+      if (!r.ok) throw new Error(data.message || "Failed to send code");
+      setCountdown(60);
+      setOtpCode("");
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
   }
 
-  async function submit() {
+  async function confirmAndSubmit() {
     setError("");
-    if (!companyName.trim()) { setError("Company name is required."); return; }
-    if (!phone.trim()) { setError("Phone number is required."); return; }
-    if (!category) { setError("Please select a category."); return; }
+    if (otpCode.length !== 6) { setError("Please enter the 6-digit code."); return; }
     setLoading(true);
     try {
-      const r = await fetch("/api/public/supplier-listing-request/submit", {
+      const vr = await fetch("/api/public/otp/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, code: otpCode, purpose: "supplier-listing" }) });
+      const vdata = await vr.json();
+      if (!vr.ok) throw new Error(vdata.message || "Invalid or expired code");
+      const verifiedToken = vdata.verifiedToken;
+      const sr = await fetch("/api/public/supplier-listing-request/submit", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ verifiedToken, companyName, email, phone, category, description, website }),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.message || "Submission failed");
+      const sdata = await sr.json();
+      if (!sr.ok) throw new Error(sdata.message || "Submission failed");
       setStep("submitted");
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
   }
+
+  const locked = step === "otp-sent";
 
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "11px 14px", borderRadius: 10, fontSize: 14, color: c.txt,
     background: c.surface, border: `1.5px solid ${c.bdr}`, outline: "none",
     transition: "border-color .2s", boxSizing: "border-box",
   };
+  const lockedStyle: React.CSSProperties = { ...inputStyle, opacity: 0.5, cursor: "not-allowed" };
   const focusStyle = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     { e.currentTarget.style.borderColor = c.T; };
   const blurStyle = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -757,125 +763,94 @@ function GetListedForm({ c }: { c: Palette }) {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-            {/* Step label */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              {(["1 Verify email", "2 Your details"] as const).map((label, i) => {
-                const active = i === 0 ? step !== "verified" : step === "verified";
-                const done   = i === 0 && step === "verified";
-                return (
-                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {i > 0 && <div style={{ width: 20, height: 1, background: c.bdr }} />}
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".06em", color: done ? c.T : active ? c.txt : c.muted }}>
-                      {done ? "✓" : ""} {label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+            {/* ── All detail fields (always visible, locked after OTP sent) ── */}
+            <input type="text" placeholder="Company / brand name *" value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              onFocus={focusStyle} onBlur={blurStyle}
+              disabled={locked} style={locked ? lockedStyle : inputStyle} />
 
-            {/* ── Step 1: Email + OTP ── */}
-            {step !== "verified" && (
-              <>
-                {/* Email row */}
-                <div style={{ display: "flex", gap: 8 }}>
+            <input type="tel" placeholder="Phone number (+91) *" value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onFocus={focusStyle} onBlur={blurStyle}
+              disabled={locked} style={locked ? lockedStyle : inputStyle} />
+
+            <select value={category} onChange={(e) => setCategory(e.target.value)}
+              onFocus={focusStyle} onBlur={blurStyle} disabled={locked}
+              style={{ ...(locked ? lockedStyle : inputStyle), appearance: "none", WebkitAppearance: "none", color: category ? c.txt : c.muted }}>
+              <option value="" disabled>Product / service category *</option>
+              {SUPPLIER_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+            </select>
+
+            <textarea placeholder="Brief description of your products or services (optional)"
+              value={description} onChange={(e) => setDescription(e.target.value)}
+              onFocus={focusStyle as any} onBlur={blurStyle as any} rows={3}
+              disabled={locked}
+              style={{ ...(locked ? lockedStyle : inputStyle), resize: "vertical", fontFamily: "inherit" } as any} />
+
+            <input type="url" placeholder="Website URL (optional)" value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              onFocus={focusStyle} onBlur={blurStyle}
+              disabled={locked} style={locked ? lockedStyle : inputStyle} />
+
+            {/* ── Email field — at bottom, framed as verification trigger ── */}
+            <div style={{ borderTop: `1px solid ${c.bdr}`, paddingTop: 14, marginTop: 2 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: c.muted, marginBottom: 8, letterSpacing: ".04em" }}>
+                {locked ? `Verification code sent to ${email}` : "Enter your business email to submit"}
+              </div>
+              <input
+                type="email" placeholder="Business email *" value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onFocus={focusStyle} onBlur={blurStyle}
+                disabled={locked} style={locked ? lockedStyle : inputStyle}
+              />
+
+              {/* OTP input — slides in after send */}
+              {step === "otp-sent" && (
+                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} style={{ marginTop: 10 }}>
                   <input
-                    type="email" placeholder="Business email" value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    type="text" inputMode="numeric" maxLength={6}
+                    placeholder="6-digit verification code"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
                     onFocus={focusStyle} onBlur={blurStyle}
-                    disabled={step === "otp-sent"}
-                    style={{ ...inputStyle, flex: 1, opacity: step === "otp-sent" ? 0.7 : 1 }}
+                    style={{ ...inputStyle, letterSpacing: ".2em", fontSize: 18, textAlign: "center" }}
                   />
-                  <button
-                    onClick={step === "otp-sent" ? undefined : sendOtp}
-                    disabled={loading || (step === "otp-sent" && countdown > 0)}
-                    style={{
-                      padding: "11px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700,
-                      border: "none", cursor: loading ? "wait" : "pointer", whiteSpace: "nowrap",
-                      background: step === "otp-sent" && countdown > 0 ? c.surface : c.T,
-                      color: step === "otp-sent" && countdown > 0 ? c.muted : "#fff",
-                      transition: "background .2s", flexShrink: 0,
-                    }}
-                  >
-                    {loading && step === "idle" ? "Sending…"
-                     : step === "otp-sent" && countdown > 0 ? `Resend (${countdown}s)`
-                     : step === "otp-sent" ? "Resend code"
-                     : "Send code"}
-                  </button>
-                </div>
-
-                {/* OTP input */}
-                {step === "otp-sent" && (
-                  <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} style={{ display: "flex", gap: 8 }}>
-                    <input
-                      type="text" inputMode="numeric" maxLength={6}
-                      placeholder="6-digit code" value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                      onFocus={focusStyle} onBlur={blurStyle}
-                      style={{ ...inputStyle, flex: 1, letterSpacing: ".2em", fontSize: 18, textAlign: "center" }}
-                    />
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 12, color: c.muted }}>Didn't get it?</span>
                     <button
-                      onClick={verifyOtp} disabled={loading}
-                      style={{ padding: "11px 18px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer", background: c.T, color: "#fff", flexShrink: 0 }}
+                      onClick={resendOtp}
+                      disabled={loading || countdown > 0}
+                      style={{ fontSize: 12, fontWeight: 700, color: countdown > 0 ? c.muted : c.T, background: "none", border: "none", cursor: countdown > 0 ? "default" : "pointer", padding: 0 }}
                     >
-                      {loading ? "Verifying…" : "Verify →"}
+                      {countdown > 0 ? `Resend in ${countdown}s` : "Resend code"}
                     </button>
-                  </motion.div>
-                )}
-                {step === "otp-sent" && (
-                  <div style={{ fontSize: 12, color: c.muted }}>A 6-digit code was sent to <strong>{email}</strong>. Check your inbox.</div>
-                )}
-              </>
-            )}
-
-            {/* ── Step 2: Details form ── */}
-            {step === "verified" && (
-              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {/* Verified email badge */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 10, background: c.tL, border: `1px solid ${c.bdr2}` }}>
-                  <CheckCircle2 style={{ width: 15, height: 15, color: c.T, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: c.T, fontWeight: 600 }}>{email}</span>
-                  <span style={{ fontSize: 11, color: c.T, opacity: .7, marginLeft: "auto" }}>verified</span>
-                </div>
-
-                <input type="text" placeholder="Company / brand name *" value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  onFocus={focusStyle} onBlur={blurStyle} style={inputStyle} />
-
-                <input type="tel" placeholder="Phone number (+91) *" value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  onFocus={focusStyle} onBlur={blurStyle} style={inputStyle} />
-
-                <select value={category} onChange={(e) => setCategory(e.target.value)}
-                  onFocus={focusStyle} onBlur={blurStyle}
-                  style={{ ...inputStyle, appearance: "none", WebkitAppearance: "none", color: category ? c.txt : c.muted }}>
-                  <option value="" disabled>Product / service category *</option>
-                  {SUPPLIER_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                </select>
-
-                <textarea placeholder="Brief description of your products or services (optional)"
-                  value={description} onChange={(e) => setDescription(e.target.value)}
-                  onFocus={focusStyle as any} onBlur={blurStyle as any} rows={3}
-                  style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" } as any} />
-
-                <input type="url" placeholder="Website URL (optional)" value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  onFocus={focusStyle} onBlur={blurStyle} style={inputStyle} />
-
-                <button
-                  onClick={submit} disabled={loading}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, border: "none", cursor: loading ? "wait" : "pointer", background: c.T, color: "#fff", transition: "opacity .2s", opacity: loading ? .7 : 1, marginTop: 4 }}
-                >
-                  {loading ? <><Loader2 style={{ width: 15, height: 15, animation: "spin 1s linear infinite" }} /> Submitting…</> : "+ Submit listing request"}
-                </button>
-                <div style={{ fontSize: 11, color: c.muted, textAlign: "center" }}>Standard listing is free. We'll review and confirm within 2 working days.</div>
-              </motion.div>
-            )}
+                  </div>
+                </motion.div>
+              )}
+            </div>
 
             {/* Error */}
             {error && (
-              <div style={{ fontSize: 13, color: "#e53e3e", background: "rgba(229,62,62,.07)", border: "1px solid rgba(229,62,62,.2)", borderRadius: 8, padding: "9px 14px" }}>
+              <div style={{ fontSize: 13, color: "#e05252", padding: "8px 12px", borderRadius: 8, background: "rgba(224,82,82,.08)", border: "1px solid rgba(224,82,82,.2)" }}>
                 {error}
               </div>
+            )}
+
+            {/* Submit button */}
+            {step === "idle" ? (
+              <button
+                onClick={handleVerifyAndSubmit} disabled={loading}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, border: "none", cursor: loading ? "wait" : "pointer", background: c.T, color: "#fff", transition: "opacity .2s", opacity: loading ? .7 : 1, marginTop: 4 }}
+              >
+                {loading ? <><Loader2 style={{ width: 15, height: 15, animation: "spin 1s linear infinite" }} /> Sending code…</> : "Verify business email to submit →"}
+              </button>
+            ) : (
+              <button
+                onClick={confirmAndSubmit} disabled={loading}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, border: "none", cursor: loading ? "wait" : "pointer", background: c.T, color: "#fff", transition: "opacity .2s", opacity: loading ? .7 : 1, marginTop: 4 }}
+              >
+                {loading ? <><Loader2 style={{ width: 15, height: 15, animation: "spin 1s linear infinite" }} /> Submitting…</> : "Confirm & Submit request →"}
+              </button>
             )}
           </div>
         )}
