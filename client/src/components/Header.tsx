@@ -379,7 +379,7 @@ export function Header() {
                 data-testid="tab-smile-deals"
               >
                 <Sparkles className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">Smile Deals</span>
+                <span className="hidden sm:inline">Dental Marketplace</span>
               </Button>
             </Link>
 
