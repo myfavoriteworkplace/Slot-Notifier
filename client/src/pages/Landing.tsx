@@ -440,24 +440,8 @@ export default function Landing() {
               </span>
               <div style={{ height: 1, flex: 1, background: c.bdr }} />
             </div>
-            <div className="lnd-feat-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 20 }}>
-              {clinicFeatures.map((f, i) => (
-                <motion.div key={f.title} {...fadeUp(i * 0.07)}
-                  style={{ background: c.card, border: `1px solid ${c.bdr}`, borderRadius: 20, padding: "24px 22px 26px", transition: "all .3s cubic-bezier(.16,1,.3,1)", cursor: "default" }}
-                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = c.bdr2; el.style.transform = "translateY(-5px)"; el.style.boxShadow = "0 20px 50px rgba(15,155,110,.1)"; }}
-                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = c.bdr; el.style.transform = "translateY(0)"; el.style.boxShadow = "none"; }}
-                >
-                  <div style={{ width: 44, height: 44, borderRadius: 13, background: c.tL, border: `1px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
-                    <f.icon style={{ width: 20, height: 20, color: c.T }} />
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: c.txt, marginBottom: 7, letterSpacing: "-.01em" }}>{f.title}</div>
-                  <div style={{ fontSize: 12.5, color: c.muted, lineHeight: 1.65 }}>{f.desc}</div>
-                </motion.div>
-              ))}
-            </div>
-
             {/* Clinic section — two-column dark green card */}
-            <motion.div {...fadeUp(0.1)} className="lnd-clinic-card" style={{ borderRadius: 24, background: "linear-gradient(135deg,#081A10 0%,#0D2A1C 55%,#0A3D28 100%)", padding: "44px 48px", position: "relative", overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 410px", gap: 44, alignItems: "center" }}>
+            <motion.div {...fadeUp(0.1)} className="lnd-clinic-card" style={{ borderRadius: 24, background: "linear-gradient(135deg,#081A10 0%,#0D2A1C 55%,#0A3D28 100%)", padding: "44px 48px", position: "relative", overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 410px", gap: 44, alignItems: "center", marginBottom: 20 }}>
 
               {/* Decorative orbs */}
               <div style={{ position: "absolute", top: -80, left: 220, width: 340, height: 340, borderRadius: "50%", background: "rgba(15,155,110,.07)", pointerEvents: "none" }} />
@@ -695,6 +679,22 @@ export default function Landing() {
               </div>{/* lnd-clinic-anim */}
 
             </motion.div>{/* clinic card */}
+
+            <div className="lnd-feat-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
+              {clinicFeatures.map((f, i) => (
+                <motion.div key={f.title} {...fadeUp(i * 0.07)}
+                  style={{ background: c.card, border: `1px solid ${c.bdr}`, borderRadius: 20, padding: "24px 22px 26px", transition: "all .3s cubic-bezier(.16,1,.3,1)", cursor: "default" }}
+                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = c.bdr2; el.style.transform = "translateY(-5px)"; el.style.boxShadow = "0 20px 50px rgba(15,155,110,.1)"; }}
+                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = c.bdr; el.style.transform = "translateY(0)"; el.style.boxShadow = "none"; }}
+                >
+                  <div style={{ width: 44, height: 44, borderRadius: 13, background: c.tL, border: `1px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+                    <f.icon style={{ width: 20, height: 20, color: c.T }} />
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: c.txt, marginBottom: 7, letterSpacing: "-.01em" }}>{f.title}</div>
+                  <div style={{ fontSize: 12.5, color: c.muted, lineHeight: 1.65 }}>{f.desc}</div>
+                </motion.div>
+              ))}
+            </div>
           </div>
 
           {/* For your patients */}
