@@ -570,6 +570,247 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
   );
 }
 
+// ── GetListedForm ──────────────────────────────────────────────────────────
+const SUPPLIER_CATEGORIES = ["Equipment & Chairs", "Consumables", "Orthodontics", "Imaging & Radiology", "Software", "Sterilisation", "Training & CPD", "Lab Services", "Other"];
+
+type ListingStep = "idle" | "otp-sent" | "verified" | "submitted";
+
+function GetListedForm({ c }: { c: Palette }) {
+  const [step, setStep] = useState<ListingStep>("idle");
+  const [email, setEmail]           = useState("");
+  const [otpCode, setOtpCode]       = useState("");
+  const [verifiedToken, setVerifiedToken] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [phone, setPhone]           = useState("");
+  const [category, setCategory]     = useState("");
+  const [description, setDescription] = useState("");
+  const [website, setWebsite]       = useState("");
+  const [error, setError]           = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [countdown, setCountdown]   = useState(0);
+
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const t = setTimeout(() => setCountdown((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
+
+  async function sendOtp() {
+    setError("");
+    if (!email || !/\S+@\S+\.\S+/.test(email)) { setError("Please enter a valid email address."); return; }
+    setLoading(true);
+    try {
+      const r = await fetch("/api/public/otp/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, purpose: "supplier-listing" }) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.message || "Failed to send code");
+      setStep("otp-sent");
+      setCountdown(60);
+    } catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  async function verifyOtp() {
+    setError("");
+    if (otpCode.length !== 6) { setError("Please enter the 6-digit code."); return; }
+    setLoading(true);
+    try {
+      const r = await fetch("/api/public/otp/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, code: otpCode, purpose: "supplier-listing" }) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.message || "Invalid code");
+      setVerifiedToken(data.verifiedToken);
+      setStep("verified");
+    } catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  async function submit() {
+    setError("");
+    if (!companyName.trim()) { setError("Company name is required."); return; }
+    if (!phone.trim()) { setError("Phone number is required."); return; }
+    if (!category) { setError("Please select a category."); return; }
+    setLoading(true);
+    try {
+      const r = await fetch("/api/public/supplier-listing-request/submit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verifiedToken, companyName, email, phone, category, description, website }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.message || "Submission failed");
+      setStep("submitted");
+    } catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "11px 14px", borderRadius: 10, fontSize: 14, color: c.txt,
+    background: c.surface, border: `1.5px solid ${c.bdr}`, outline: "none",
+    transition: "border-color .2s", boxSizing: "border-box",
+  };
+  const focusStyle = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    { e.currentTarget.style.borderColor = c.T; };
+  const blurStyle = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    { e.currentTarget.style.borderColor = c.bdr; };
+
+  return (
+    <motion.div
+      id="get-listed-form"
+      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+      style={{ background: c.card, border: `1px solid ${c.bdr}`, borderRadius: 18, overflow: "hidden", boxShadow: `0 2px 12px rgba(0,0,0,.05)` }}
+    >
+      {/* Dark header */}
+      <div style={{ background: `linear-gradient(135deg,#085041 0%,#0F9B6E 100%)`, padding: "28px 28px 24px", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, borderRadius: "50%", background: "rgba(255,255,255,.06)", pointerEvents: "none" }} />
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "rgba(255,255,255,.6)", marginBottom: 8 }}>For Suppliers</div>
+        <div style={{ fontSize: 21, fontWeight: 800, color: "#fff", lineHeight: 1.2, letterSpacing: "-.01em", marginBottom: 6 }}>
+          List your product.<br /><span style={{ color: "#7FDDBB" }}>Reach every clinic.</span>
+        </div>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,.65)", lineHeight: 1.6 }}>
+          Get your supplies, equipment, or services in front of 50+ verified clinic owners on bookMySlot.
+        </div>
+      </div>
+
+      {/* Form body */}
+      <div style={{ padding: "24px 28px 28px" }}>
+        {step === "submitted" ? (
+          <motion.div initial={{ opacity: 0, scale: .95 }} animate={{ opacity: 1, scale: 1 }} style={{ textAlign: "center", padding: "20px 0" }}>
+            <div style={{ width: 52, height: 52, borderRadius: "50%", background: c.tL, border: `2px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+              <CheckCircle2 style={{ width: 26, height: 26, color: c.T }} />
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: c.txt, marginBottom: 8 }}>Request submitted!</div>
+            <div style={{ fontSize: 13, color: c.muted, lineHeight: 1.6, maxWidth: 300, margin: "0 auto" }}>
+              We'll review your listing and get back to you at <strong>{email}</strong> within 2 working days.
+            </div>
+          </motion.div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+            {/* Step label */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              {(["1 Verify email", "2 Your details"] as const).map((label, i) => {
+                const active = i === 0 ? step !== "verified" : step === "verified";
+                const done   = i === 0 && step === "verified";
+                return (
+                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {i > 0 && <div style={{ width: 20, height: 1, background: c.bdr }} />}
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".06em", color: done ? c.T : active ? c.txt : c.muted }}>
+                      {done ? "✓" : ""} {label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Step 1: Email + OTP ── */}
+            {step !== "verified" && (
+              <>
+                {/* Email row */}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="email" placeholder="Business email" value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onFocus={focusStyle} onBlur={blurStyle}
+                    disabled={step === "otp-sent"}
+                    style={{ ...inputStyle, flex: 1, opacity: step === "otp-sent" ? 0.7 : 1 }}
+                  />
+                  <button
+                    onClick={step === "otp-sent" ? undefined : sendOtp}
+                    disabled={loading || (step === "otp-sent" && countdown > 0)}
+                    style={{
+                      padding: "11px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700,
+                      border: "none", cursor: loading ? "wait" : "pointer", whiteSpace: "nowrap",
+                      background: step === "otp-sent" && countdown > 0 ? c.surface : c.T,
+                      color: step === "otp-sent" && countdown > 0 ? c.muted : "#fff",
+                      transition: "background .2s", flexShrink: 0,
+                    }}
+                  >
+                    {loading && step === "idle" ? "Sending…"
+                     : step === "otp-sent" && countdown > 0 ? `Resend (${countdown}s)`
+                     : step === "otp-sent" ? "Resend code"
+                     : "Send code"}
+                  </button>
+                </div>
+
+                {/* OTP input */}
+                {step === "otp-sent" && (
+                  <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="text" inputMode="numeric" maxLength={6}
+                      placeholder="6-digit code" value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                      onFocus={focusStyle} onBlur={blurStyle}
+                      style={{ ...inputStyle, flex: 1, letterSpacing: ".2em", fontSize: 18, textAlign: "center" }}
+                    />
+                    <button
+                      onClick={verifyOtp} disabled={loading}
+                      style={{ padding: "11px 18px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer", background: c.T, color: "#fff", flexShrink: 0 }}
+                    >
+                      {loading ? "Verifying…" : "Verify →"}
+                    </button>
+                  </motion.div>
+                )}
+                {step === "otp-sent" && (
+                  <div style={{ fontSize: 12, color: c.muted }}>A 6-digit code was sent to <strong>{email}</strong>. Check your inbox.</div>
+                )}
+              </>
+            )}
+
+            {/* ── Step 2: Details form ── */}
+            {step === "verified" && (
+              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {/* Verified email badge */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 10, background: c.tL, border: `1px solid ${c.bdr2}` }}>
+                  <CheckCircle2 style={{ width: 15, height: 15, color: c.T, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: c.T, fontWeight: 600 }}>{email}</span>
+                  <span style={{ fontSize: 11, color: c.T, opacity: .7, marginLeft: "auto" }}>verified</span>
+                </div>
+
+                <input type="text" placeholder="Company / brand name *" value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  onFocus={focusStyle} onBlur={blurStyle} style={inputStyle} />
+
+                <input type="tel" placeholder="Phone number (+91) *" value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  onFocus={focusStyle} onBlur={blurStyle} style={inputStyle} />
+
+                <select value={category} onChange={(e) => setCategory(e.target.value)}
+                  onFocus={focusStyle} onBlur={blurStyle}
+                  style={{ ...inputStyle, appearance: "none", WebkitAppearance: "none", color: category ? c.txt : c.muted }}>
+                  <option value="" disabled>Product / service category *</option>
+                  {SUPPLIER_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+
+                <textarea placeholder="Brief description of your products or services (optional)"
+                  value={description} onChange={(e) => setDescription(e.target.value)}
+                  onFocus={focusStyle as any} onBlur={blurStyle as any} rows={3}
+                  style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" } as any} />
+
+                <input type="url" placeholder="Website URL (optional)" value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  onFocus={focusStyle} onBlur={blurStyle} style={inputStyle} />
+
+                <button
+                  onClick={submit} disabled={loading}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, border: "none", cursor: loading ? "wait" : "pointer", background: c.T, color: "#fff", transition: "opacity .2s", opacity: loading ? .7 : 1, marginTop: 4 }}
+                >
+                  {loading ? <><Loader2 style={{ width: 15, height: 15, animation: "spin 1s linear infinite" }} /> Submitting…</> : "+ Submit listing request"}
+                </button>
+                <div style={{ fontSize: 11, color: c.muted, textAlign: "center" }}>Standard listing is free. We'll review and confirm within 2 working days.</div>
+              </motion.div>
+            )}
+
+            {/* Error */}
+            {error && (
+              <div style={{ fontSize: 13, color: "#e53e3e", background: "rgba(229,62,62,.07)", border: "1px solid rgba(229,62,62,.2)", borderRadius: 8, padding: "9px 14px" }}>
+                {error}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function SmileDeals() {
   const { resolvedTheme } = useTheme();
@@ -960,13 +1201,13 @@ export default function SmileDeals() {
                     ))}
                   </div>
                   <p style={{ fontSize: 13, color: c.muted }}>Are you a dental supplier?</p>
-                  <a
-                    href="mailto:hello@bookmyslot.in?subject=List my product on Smile Deals"
-                    style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", borderRadius: 100, background: c.T, color: "#fff", fontSize: 14, fontWeight: 700, textDecoration: "none", boxShadow: `0 4px 18px rgba(15,155,110,.25)` }}
+                  <button
+                    onClick={() => document.getElementById("get-listed-form")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", borderRadius: 100, background: c.T, color: "#fff", fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer", boxShadow: `0 4px 18px rgba(15,155,110,.25)` }}
                   >
                     <Mail style={{ width: 14, height: 14 }} />
                     Get Listed →
-                  </a>
+                  </button>
                 </div>
               </motion.div>
             ) : (
@@ -1024,25 +1265,8 @@ export default function SmileDeals() {
           <div className="deals-promo">
             {activeTab === "clinic" ? (
               <>
-                {/* Get Listed */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                  style={{ background: `linear-gradient(135deg,#085041 0%,#0F9B6E 100%)`, border: `1px solid ${c.bdr2}`, borderRadius: 18, padding: 32, position: "relative", overflow: "hidden", cursor: "pointer" }}
-                  whileHover={{ y: -6 }}
-                >
-                  <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,.05)", pointerEvents: "none" }} />
-                  <div style={{ fontSize: 38, marginBottom: 14 }}>📦</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "rgba(255,255,255,.65)", marginBottom: 10 }}>For Suppliers</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 8, letterSpacing: "-.01em" }}>List Your Product,<br />Reach 50+ Clinics</div>
-                  <div style={{ fontSize: 14, color: "rgba(255,255,255,.65)", lineHeight: 1.6, marginBottom: 20 }}>Are you a dental supplier, equipment vendor, or training provider? Get listed on bookMySlot and reach verified dental practices across Kerala.</div>
-                  <a
-                    href="mailto:hello@bookmyslot.in?subject=List my product on Smile Deals"
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 9, fontSize: 13, fontWeight: 700, background: "#fff", color: "#085041", textDecoration: "none", transition: "opacity .15s" }}
-                  >
-                    <Mail style={{ width: 13, height: 13 }} />
-                    Get Listed →
-                  </a>
-                </motion.div>
+                {/* Get Listed — form */}
+                <GetListedForm c={c} />
 
                 {/* Verified suppliers placeholder */}
                 <motion.div

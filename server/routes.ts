@@ -1113,6 +1113,98 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── PUBLIC: supplier listing request ──────────────────────────────────────
+  app.post("/api/public/supplier-listing-request/submit", async (req, res) => {
+    try {
+      const { verifiedToken, companyName, email, phone, category, description, website } = req.body;
+      if (!verifiedToken || !companyName || !email || !phone || !category) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      const normalizedEmail = email.toLowerCase().trim();
+
+      // Validate that the token belongs to a verified OTP for this email + purpose
+      const [otpRow] = await db.select().from(emailOtps).where(
+        and(
+          eq(emailOtps.email, normalizedEmail),
+          eq(emailOtps.purpose, "supplier-listing"),
+          eq(emailOtps.verified, true),
+          eq(emailOtps.verifiedToken, verifiedToken),
+        )
+      ).limit(1);
+
+      if (!otpRow) {
+        return res.status(400).json({ message: "Email verification expired or invalid. Please verify your email again." });
+      }
+
+      const adminEmail = process.env.ADMIN_EMAIL || TEST_EMAIL;
+      const finalAdminEmail = RESEND_MODE === 'PRODUCTION' ? adminEmail : TEST_EMAIL;
+      const finalSupplierEmail = RESEND_MODE === 'PRODUCTION' ? normalizedEmail : TEST_EMAIL;
+      const submittedAt = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+
+      const adminHtml = `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f9f9f7;padding:32px 24px;border-radius:12px">
+          <div style="background:linear-gradient(135deg,#085041,#0F9B6E);border-radius:10px;padding:24px 28px;margin-bottom:24px">
+            <div style="color:rgba(255,255,255,.7);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">BookMySlot — Supplier Marketplace</div>
+            <div style="color:#fff;font-size:22px;font-weight:700;letter-spacing:-.01em">New Listing Request</div>
+          </div>
+          <table style="width:100%;border-collapse:collapse">
+            ${[
+              ['Company / Brand', companyName],
+              ['Business Email', `${normalizedEmail} <span style="color:#0F9B6E;font-weight:700;font-size:11px">✓ Verified</span>`],
+              ['Phone', phone],
+              ['Category', category],
+              ...(description ? [['Description', description]] : []),
+              ...(website ? [['Website', `<a href="${website}" style="color:#0F9B6E">${website}</a>`]] : []),
+              ['Submitted At', submittedAt],
+            ].map(([label, value]) => `
+              <tr>
+                <td style="padding:10px 0;border-bottom:1px solid #eee;color:#666;font-size:13px;font-weight:600;width:38%;vertical-align:top">${label}</td>
+                <td style="padding:10px 0;border-bottom:1px solid #eee;color:#111;font-size:14px;vertical-align:top">${value}</td>
+              </tr>`).join('')}
+          </table>
+          <div style="margin-top:24px;padding:14px 18px;background:#E1F5EE;border-radius:8px;border-left:3px solid #0F9B6E;font-size:13px;color:#085041">
+            Log in to the admin panel to approve, create a deal, or contact this supplier.
+          </div>
+        </div>`;
+
+      const supplierHtml = `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f9f9f7;padding:32px 24px;border-radius:12px">
+          <div style="background:linear-gradient(135deg,#085041,#0F9B6E);border-radius:10px;padding:24px 28px;margin-bottom:24px">
+            <div style="color:rgba(255,255,255,.7);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">BookMySlot Dental Marketplace</div>
+            <div style="color:#fff;font-size:22px;font-weight:700;letter-spacing:-.01em">We've received your request!</div>
+          </div>
+          <p style="font-size:15px;color:#333;line-height:1.7">Hi <strong>${companyName}</strong>,</p>
+          <p style="font-size:14px;color:#555;line-height:1.7">Thank you for applying to list on <strong>BookMySlot Smile Deals</strong>. Our team will review your request and get back to you within <strong>2 working days</strong>.</p>
+          <div style="background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:20px 24px;margin:20px 0">
+            <div style="font-size:12px;font-weight:700;color:#0F9B6E;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Your submission details</div>
+            ${[
+              ['Company', companyName],
+              ['Category', category],
+              ...(website ? [['Website', website]] : []),
+            ].map(([l, v]) => `<div style="display:flex;gap:12px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px"><span style="color:#888;min-width:90px">${l}</span><span style="color:#111;font-weight:600">${v}</span></div>`).join('')}
+          </div>
+          <p style="font-size:13px;color:#888;line-height:1.6">If you have questions in the meantime, reply to this email or write to <a href="mailto:hello@bookmyslot.in" style="color:#0F9B6E">hello@bookmyslot.in</a>.</p>
+        </div>`;
+
+      if (resend) {
+        await Promise.allSettled([
+          resend.emails.send({ from: EMAIL_FROM, to: finalAdminEmail, subject: `New Supplier Listing Request — ${companyName}`, html: adminHtml }),
+          resend.emails.send({ from: EMAIL_FROM, to: finalSupplierEmail, subject: "We received your listing request — BookMySlot", html: supplierHtml }),
+        ]);
+      } else {
+        console.log(`[SUPPLIER LISTING DEV] Request from ${companyName} <${normalizedEmail}>, category: ${category}`);
+      }
+
+      // Clean up the used OTP
+      await db.delete(emailOtps).where(eq(emailOtps.id, otpRow.id));
+
+      res.json({ success: true, message: "Listing request submitted successfully" });
+    } catch (err: any) {
+      console.error('[SUPPLIER LISTING ERROR]', err.message);
+      res.status(500).json({ message: "Failed to submit listing request" });
+    }
+  });
+
   // ── PUBLIC UPLOAD: signed URL for clinic registration docs ─────────────────
   app.post("/api/public/uploads/signed-url", async (req, res) => {
     try {
