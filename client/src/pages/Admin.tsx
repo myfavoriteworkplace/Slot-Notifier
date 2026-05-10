@@ -45,13 +45,15 @@ function trustBandColor(score: number): string {
 }
 
 export default function Admin() {
-  const { user, loading: authLoading, logout, login, isLoggingIn, loginError } = useAuth();
+  const { user, loading: authLoading, logout, login, isLoggingIn, loginError, verifyOtp, isVerifyingOtp, verifyOtpError } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [loginStep, setLoginStep] = useState<"credentials" | "otp">("credentials");
+  const [loginOtp, setLoginOtp] = useState("");
   
   // Create clinic state
   const [newClinicName, setNewClinicName] = useState("");
@@ -480,7 +482,34 @@ export default function Admin() {
       toast({ title: "Please fill in all fields", variant: "destructive" });
       return;
     }
-    login({ email: loginEmail, password: loginPassword });
+    login(
+      { email: loginEmail, password: loginPassword },
+      {
+        onSuccess: (data: any) => {
+          if (data?.step === "otp_required") {
+            setLoginStep("otp");
+            setLoginOtp("");
+            toast({ title: "OTP sent", description: "Check your admin email for the 6-digit code." });
+          }
+        },
+        onError: (err: any) => {
+          toast({ title: err?.message || "Invalid credentials", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginOtp.length !== 6) {
+      toast({ title: "Enter the 6-digit code from your email", variant: "destructive" });
+      return;
+    }
+    verifyOtp(loginOtp, {
+      onError: (err: any) => {
+        toast({ title: err?.message || "Invalid OTP", variant: "destructive" });
+      },
+    });
   };
 
   useEffect(() => {
@@ -502,64 +531,132 @@ export default function Admin() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-primary/5 to-transparent px-4">
         <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl mb-2">Admin Login</CardTitle>
-            <CardDescription>Enter your credentials to access the admin panel</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleAdminLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" data-testid="label-email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="admin@example.com"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  disabled={isLoggingIn}
-                  data-testid="input-admin-email"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" data-testid="label-password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showLoginPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    disabled={isLoggingIn}
-                    data-testid="input-admin-password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowLoginPassword(!showLoginPassword)}
-                    disabled={isLoggingIn}
-                  >
-                    {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+
+          {/* ── Step 1: Credentials ── */}
+          {loginStep === "credentials" && (
+            <>
+              <CardHeader className="text-center">
+                <div className="flex justify-center mb-3">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+                    <Shield className="h-5 w-5 text-primary" />
+                  </div>
+                </div>
+                <CardTitle className="text-2xl mb-1">System Admin Login</CardTitle>
+                <CardDescription>Enter your credentials — a one-time code will be sent to your email</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleAdminLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" data-testid="label-email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="admin@example.com"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      disabled={isLoggingIn}
+                      data-testid="input-admin-email"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password" data-testid="label-password">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showLoginPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        disabled={isLoggingIn}
+                        data-testid="input-admin-password"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        disabled={isLoggingIn}
+                      >
+                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                  {loginError && (
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive">
+                      {(loginError as any)?.message || "Login failed. Please try again."}
+                    </div>
+                  )}
+                  <Button type="submit" className="w-full" disabled={isLoggingIn} data-testid="button-admin-login">
+                    {isLoggingIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Shield className="mr-2 h-4 w-4" />}
+                    {isLoggingIn ? "Sending OTP…" : "Continue"}
                   </Button>
+                </form>
+              </CardContent>
+              <CardFooter className="justify-center">
+                <Button variant="ghost" size="sm" onClick={() => setLocation("/")} data-testid="button-back-home">
+                  Back to Home
+                </Button>
+              </CardFooter>
+            </>
+          )}
+
+          {/* ── Step 2: OTP ── */}
+          {loginStep === "otp" && (
+            <>
+              <CardHeader className="text-center">
+                <div className="flex justify-center mb-3">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+                    <Mail className="h-5 w-5 text-primary" />
+                  </div>
                 </div>
-              </div>
-              {loginError && (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive">
-                  {(loginError as any)?.message || "Login failed. Please try again."}
-                </div>
-              )}
-              <Button type="submit" className="w-full" disabled={isLoggingIn} data-testid="button-admin-login">
-                {isLoggingIn && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign In
-              </Button>
-            </form>
-          </CardContent>
-          <CardFooter className="justify-center">
-            <Button variant="ghost" size="sm" onClick={() => setLocation("/")} data-testid="button-back-home">
-              Back to Home
-            </Button>
-          </CardFooter>
+                <CardTitle className="text-2xl mb-1">Check your email</CardTitle>
+                <CardDescription>
+                  We sent a 6-digit code to your admin email address. It expires in 10 minutes.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleVerifyOtp} className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="otp" data-testid="label-otp">One-time code</Label>
+                    <Input
+                      id="otp"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="000000"
+                      value={loginOtp}
+                      onChange={(e) => setLoginOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      disabled={isVerifyingOtp}
+                      className="text-center text-2xl font-bold tracking-[0.4em] h-14"
+                      data-testid="input-admin-otp"
+                      autoFocus
+                    />
+                  </div>
+                  {verifyOtpError && (
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive">
+                      {(verifyOtpError as any)?.message || "Invalid code. Please try again."}
+                    </div>
+                  )}
+                  <Button type="submit" className="w-full" disabled={isVerifyingOtp || loginOtp.length !== 6} data-testid="button-admin-verify-otp">
+                    {isVerifyingOtp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isVerifyingOtp ? "Verifying…" : "Verify & Sign In"}
+                  </Button>
+                </form>
+              </CardContent>
+              <CardFooter className="flex-col gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setLoginStep("credentials"); setLoginOtp(""); }}
+                  data-testid="button-back-to-credentials"
+                >
+                  ← Use a different account
+                </Button>
+              </CardFooter>
+            </>
+          )}
+
         </Card>
       </div>
     );

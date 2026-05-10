@@ -35,7 +35,7 @@ async function logout(): Promise<void> {
   window.location.href = "/";
 }
 
-async function adminLogin(email: string, password: string): Promise<User> {
+async function adminLogin(email: string, password: string): Promise<{ step?: string }> {
   const url = "/api/auth/admin/login";
   const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
   
@@ -49,6 +49,24 @@ async function adminLogin(email: string, password: string): Promise<User> {
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.message || 'Login failed');
+  }
+  return response.json();
+}
+
+async function adminVerifyOtp(otp: string): Promise<User> {
+  const url = "/api/auth/admin/verify-otp";
+  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+
+  const response = await fetch(fullUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ otp }),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.message || 'OTP verification failed');
   }
   const data = await response.json();
   return data.user;
@@ -71,14 +89,15 @@ export function useAuth() {
   });
 
   const loginMutation = useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) => 
+    mutationFn: ({ email, password }: { email: string; password: string }) =>
       adminLogin(email, password),
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: (otp: string) => adminVerifyOtp(otp),
     onSuccess: (user) => {
       queryClient.setQueryData(["/api/auth/user"], user);
-      // Skip query invalidation for demo super admin to prevent 404/login loop
-      if (user?.email !== "demo_super_admin@bookmyslot.com") {
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     },
   });
 
@@ -91,5 +110,8 @@ export function useAuth() {
     login: loginMutation.mutate,
     loginError: loginMutation.error,
     isLoggingIn: loginMutation.isPending,
+    verifyOtp: verifyOtpMutation.mutate,
+    verifyOtpError: verifyOtpMutation.error,
+    isVerifyingOtp: verifyOtpMutation.isPending,
   };
 }

@@ -687,6 +687,9 @@ async function sendPasswordChangedEmail(toEmail: string, userType: "clinic" | "d
   }
 }
 
+// In-memory admin OTP store — single admin, one active OTP at a time
+let adminOtpStore: { otp: string; expiresAt: number } | null = null;
+
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   const isAdmin = (req: any, res: any, next: any) => {
     const sess = req.session as any;
@@ -1666,14 +1669,65 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/auth/admin/login", async (req, res) => {
     const { email, password } = req.body;
     if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-      const sess = req.session as any;
-      sess.adminLoggedIn = true;
-      sess.role = 'superuser';
-      sess.adminEmail = email;
-      req.session.save(() => res.json({ message: "Login successful", user: { email, role: 'superuser', firstName: 'Super', lastName: 'Admin' } }));
-      return;
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      adminOtpStore = { otp, expiresAt: Date.now() + 10 * 60 * 1000 };
+
+      const adminEmail = process.env.ADMIN_EMAIL || TEST_EMAIL;
+      const finalEmail = RESEND_MODE === 'PRODUCTION' ? adminEmail : TEST_EMAIL;
+
+      if (resend) {
+        try {
+          await resend.emails.send({
+            from: EMAIL_FROM,
+            to: finalEmail,
+            subject: `BookMySlot Admin — Your Login OTP`,
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px;">
+                <div style="text-align:center;margin-bottom:24px;">
+                  <div style="display:inline-block;background:#0F9B6E;border-radius:10px;padding:10px 16px;">
+                    <span style="color:#fff;font-size:15px;font-weight:700;letter-spacing:.04em;">bookMySlot</span>
+                  </div>
+                </div>
+                <h2 style="font-size:20px;font-weight:700;color:#0A1F16;margin:0 0 8px;">Admin Login Verification</h2>
+                <p style="font-size:14px;color:#6b7280;margin:0 0 24px;">Use the code below to complete your login. It expires in <strong>10 minutes</strong>.</p>
+                <div style="background:#fff;border:2px solid #0F9B6E;border-radius:10px;padding:24px;text-align:center;margin-bottom:24px;">
+                  <div style="font-size:38px;font-weight:800;letter-spacing:10px;color:#0F9B6E;">${otp}</div>
+                </div>
+                <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">If you did not request this, your password may be compromised. Please change it immediately.</p>
+              </div>`,
+          });
+        } catch (err) {
+          console.error('[ADMIN 2FA] Failed to send OTP email:', err);
+        }
+      } else {
+        console.log(`[ADMIN 2FA DEV] OTP for admin login: ${otp}`);
+      }
+
+      return res.json({ step: "otp_required" });
     }
     res.status(401).json({ message: "Invalid credentials" });
+  });
+
+  app.post("/api/auth/admin/verify-otp", (req, res) => {
+    const { otp } = req.body;
+    if (!adminOtpStore) {
+      return res.status(400).json({ message: "No OTP pending. Please start login again." });
+    }
+    if (Date.now() > adminOtpStore.expiresAt) {
+      adminOtpStore = null;
+      return res.status(400).json({ message: "OTP has expired. Please start login again." });
+    }
+    if (otp !== adminOtpStore.otp) {
+      return res.status(401).json({ message: "Incorrect OTP. Please try again." });
+    }
+    adminOtpStore = null;
+    const sess = req.session as any;
+    sess.adminLoggedIn = true;
+    sess.role = 'superuser';
+    sess.adminEmail = process.env.ADMIN_EMAIL;
+    req.session.save(() =>
+      res.json({ message: "Login successful", user: { email: process.env.ADMIN_EMAIL, role: 'superuser', firstName: 'Super', lastName: 'Admin' } })
+    );
   });
 
   app.post("/api/auth/admin/logout", (req, res) => {
