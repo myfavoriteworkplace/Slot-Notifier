@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { SmileDeal, Clinic } from "@shared/schema";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Loader2, Play, Eye, Star, ChevronRight, Maximize2, ExternalLink, Phone, Mail, Globe, MapPin, Building2, CheckCircle2 } from "lucide-react";
+import { Loader2, Play, Eye, Star, ChevronRight, Maximize2, ExternalLink, Phone, Mail, Globe, MapPin, Building2, CheckCircle2, Search, X } from "lucide-react";
 import { Link } from "wouter";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -578,8 +578,10 @@ export default function SmileDeals() {
   const [activeTab, setActiveTab] = useState<"clinic" | "patient">("clinic");
   const [activeSubcategory, setActiveSubcategory] = useState("All");
   const [selectedCity, setSelectedCity] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
   const [videoModalDeal, setVideoModalDeal] = useState<SmileDeal | null>(null);
   const trackingRef = useRef(new Set<number>());
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const { data: deals = [], isLoading } = useQuery<SmileDeal[]>({
     queryKey: ["/api/smile-deals?active=true"],
@@ -636,6 +638,8 @@ export default function SmileDeals() {
   const flashDeals    = tabDeals.filter((d) => (d as any).isFlash);
   const subcategories = ["All", ...Array.from(new Set(tabDeals.map((d) => (d as any).subcategory).filter(Boolean) as string[]))];
 
+  const q = searchQuery.trim().toLowerCase();
+
   const filteredDeals = tabDeals.filter((d) => {
     if (d.isFeatured) return false;
     if ((d as any).isFlash) return false;
@@ -646,6 +650,16 @@ export default function SmileDeals() {
         const city = clinicCityMap[clinicId];
         if (city !== selectedCity) return false;
       }
+    }
+    if (q) {
+      const haystack = [
+        d.title,
+        d.description,
+        (d as any).subcategory,
+        (d as any).category,
+        (d as any).contactInfo?.sponsorName,
+      ].filter(Boolean).join(" ").toLowerCase();
+      if (!haystack.includes(q)) return false;
     }
     return true;
   });
@@ -696,91 +710,99 @@ export default function SmileDeals() {
 
       <div style={{ position: "relative", zIndex: 2 }}>
 
-        {/* ── Hero ─────────────────────────────────────────────────────── */}
-        <section className="deals-hero" style={{ textAlign: "center" }}>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+        {/* ── Compact hero ─────────────────────────────────────────────── */}
+        <section style={{ padding: "32px 20px 0" }}>
+          <style>{`@media (min-width: 640px) { .deals-hero-inner { padding: 0 28px; } }`}</style>
+          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
 
-            {/* Eyebrow badge */}
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px", borderRadius: 100, border: `1px solid ${c.bdr2}`, background: c.tL, fontSize: 12, fontWeight: 600, letterSpacing: ".08em", color: c.T, textTransform: "uppercase", marginBottom: 28 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ animation: "dealspin 8s linear infinite" }}>
-                <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
-              </svg>
-              {activeTab === "clinic" ? "Supplier Marketplace" : "Exclusive Offers"}
-            </div>
-
-            {/* Headline — per tab */}
-            {activeTab === "clinic" ? (
-              <h1 style={{ fontSize: "clamp(38px,6vw,72px)", fontWeight: 800, lineHeight: 1.0, letterSpacing: "-.03em", color: c.txt, marginBottom: 18 }}>
-                Dental supplies,{" "}
-                <span style={{ color: c.T }}>equipment</span>
-                <br />& services — in one place.
+            {/* Headline + inline stats */}
+            <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: "8px 20px", marginBottom: 18 }}>
+              <h1 style={{ fontSize: "clamp(20px,3vw,28px)", fontWeight: 800, letterSpacing: "-.02em", color: c.txt, margin: 0 }}>
+                {activeTab === "clinic"
+                  ? <><span style={{ color: c.T }}>Dental Marketplace</span> — supplies, equipment & services</>
+                  : <>Smile <span style={{ color: c.T }}>DEALS</span> — exclusive dental offers</>}
               </h1>
-            ) : (
-              <h1 style={{ fontSize: "clamp(48px,7vw,88px)", fontWeight: 700, lineHeight: 1.0, letterSpacing: "-.03em", color: c.txt, marginBottom: 20 }}>
-                Smile <span style={{ color: c.T }}>DEALS</span>
-              </h1>
-            )}
-
-            {/* Subtitle — per tab */}
-            <p style={{ fontSize: 16, color: c.muted, maxWidth: 520, margin: "0 auto 40px", lineHeight: 1.7 }}>
-              {activeTab === "clinic"
-                ? "Browse verified suppliers and exclusive offers for dental practice owners — equipment, consumables, software, and training."
-                : "Premium dental care packages from our partner clinics — curated, priced lower, and bookable in seconds."}
-            </p>
-
-            {/* Stats row */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 40, flexWrap: "wrap", marginBottom: 40 }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 28, fontWeight: 700, color: c.T, letterSpacing: "-.02em" }}>{activeCount}</div>
-                <div style={{ fontSize: 12, color: c.muted, marginTop: 2 }}>{activeTab === "clinic" ? "Active Listings" : "Active Deals"}</div>
+              {/* Inline stat chips */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: c.T, background: c.tL, border: `1px solid ${c.bdr2}`, borderRadius: 20, padding: "3px 10px" }}>
+                  {activeCount} {activeTab === "clinic" ? "listings" : "deals"}
+                </span>
+                {avgSaving && avgSaving > 0 && (
+                  <span style={{ fontSize: 12, fontWeight: 600, color: c.muted, background: c.surface, border: `1px solid ${c.bdr}`, borderRadius: 20, padding: "3px 10px" }}>
+                    Avg save ₹{avgSaving.toLocaleString()}
+                  </span>
+                )}
+                {totalViews > 0 && (
+                  <span style={{ fontSize: 12, fontWeight: 600, color: c.muted, background: c.surface, border: `1px solid ${c.bdr}`, borderRadius: 20, padding: "3px 10px" }}>
+                    {totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}K` : totalViews} views
+                  </span>
+                )}
               </div>
-              {avgSaving && avgSaving > 0 && (
-                <>
-                  <div style={{ width: 1, background: c.bdr }} />
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: c.T, letterSpacing: "-.02em" }}>₹{avgSaving.toLocaleString()}</div>
-                    <div style={{ fontSize: 12, color: c.muted, marginTop: 2 }}>Avg Saving</div>
-                  </div>
-                </>
-              )}
-              {totalViews > 0 && (
-                <>
-                  <div style={{ width: 1, background: c.bdr }} />
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: c.T, letterSpacing: "-.02em" }}>{totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}K` : totalViews}</div>
-                    <div style={{ fontSize: 12, color: c.muted, marginTop: 2 }}>Total Views</div>
-                  </div>
-                </>
-              )}
             </div>
 
-            {/* Tab switcher */}
-            <div style={{ display: "inline-flex", borderRadius: 14, border: `1px solid ${c.bdr}`, background: c.surface, padding: 4, gap: 4 }}>
-              {([
-                { key: "clinic",  label: "🏥 For Clinics",   desc: "Equipment, supplies & more" },
-                { key: "patient", label: "🧑 For Patients",   desc: "Appointment offers & discounts" },
-              ] as const).map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => { setActiveTab(tab.key); setActiveSubcategory("All"); setSelectedCity("All"); }}
+            {/* Search + tab switcher toolbar */}
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
+
+              {/* Search input */}
+              <div style={{ flex: "1 1 260px", position: "relative", minWidth: 200 }}>
+                <Search style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: c.muted, pointerEvents: "none" }} />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={activeTab === "clinic" ? "Search products, suppliers..." : "Search deals, procedures..."}
                   style={{
-                    padding: "10px 24px", borderRadius: 10, fontSize: 14, fontWeight: 700,
-                    border: "none", cursor: "pointer",
-                    background: activeTab === tab.key ? c.T : "transparent",
-                    color: activeTab === tab.key ? "#fff" : c.muted,
-                    transition: "all .25s cubic-bezier(.16,1,.3,1)",
-                    boxShadow: activeTab === tab.key ? `0 4px 16px rgba(15,155,110,.25)` : "none",
+                    width: "100%",
+                    padding: "11px 40px 11px 40px",
+                    borderRadius: 12,
+                    border: `1.5px solid ${searchQuery ? c.bdr2 : c.bdr}`,
+                    background: c.card,
+                    color: c.txt,
+                    fontSize: 14,
+                    outline: "none",
+                    transition: "border-color .2s",
+                    boxSizing: "border-box",
+                    boxShadow: searchQuery ? `0 0 0 3px rgba(15,155,110,.08)` : "none",
                   }}
-                >
-                  {tab.label}
-                </button>
-              ))}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = c.T; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = searchQuery ? c.bdr2 : c.bdr; }}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => { setSearchQuery(""); searchRef.current?.focus(); }}
+                    style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", color: c.muted }}
+                  >
+                    <X style={{ width: 15, height: 15 }} />
+                  </button>
+                )}
+              </div>
+
+              {/* Tab switcher */}
+              <div style={{ display: "inline-flex", borderRadius: 12, border: `1px solid ${c.bdr}`, background: c.surface, padding: 3, gap: 3, flexShrink: 0 }}>
+                {([
+                  { key: "clinic",  label: "🏥 For Clinics" },
+                  { key: "patient", label: "🧑 For Patients" },
+                ] as const).map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => { setActiveTab(tab.key); setActiveSubcategory("All"); setSelectedCity("All"); setSearchQuery(""); }}
+                    style={{
+                      padding: "9px 20px", borderRadius: 9, fontSize: 13, fontWeight: 700,
+                      border: "none", cursor: "pointer",
+                      background: activeTab === tab.key ? c.T : "transparent",
+                      color: activeTab === tab.key ? "#fff" : c.muted,
+                      transition: "all .25s cubic-bezier(.16,1,.3,1)",
+                      boxShadow: activeTab === tab.key ? `0 3px 12px rgba(15,155,110,.25)` : "none",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
             </div>
-            <p style={{ fontSize: 12, color: c.muted, marginTop: 10 }}>
-              {activeTab === "clinic"
-                ? "Deals on dental equipment, supplies, software, and training — for practice owners."
-                : "Curated appointment offers and discounts at partner clinics — for patients."}
-            </p>
 
           </motion.div>
         </section>
