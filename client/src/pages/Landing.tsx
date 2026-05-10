@@ -903,6 +903,13 @@ export default function Landing() {
 
         {/* ══ SMILE DEALS CALLOUT ══════════════════════════════════════════════ */}
         <section className="lnd-section" style={{ padding: "0 64px 60px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+            <div style={{ height: 1, flex: 1, background: c.bdr }} />
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: c.T, padding: "4px 16px", borderRadius: 100, background: c.tL, border: `1px solid ${c.bdr2}`, flexShrink: 0 }}>
+              Dental Marketplace
+            </span>
+            <div style={{ height: 1, flex: 1, background: c.bdr }} />
+          </div>
           <div style={{ background: "linear-gradient(135deg,#0A2018,#0D1F16)", borderRadius: 28, padding: "48px 56px", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: -80, right: -80, width: 360, height: 360, borderRadius: "50%", background: "radial-gradient(circle,rgba(15,155,110,.18),transparent 70%)", pointerEvents: "none" }} />
             <div style={{ position: "absolute", bottom: -60, left: -40, width: 240, height: 240, borderRadius: "50%", background: "radial-gradient(circle,rgba(15,155,110,.08),transparent 70%)", pointerEvents: "none" }} />
