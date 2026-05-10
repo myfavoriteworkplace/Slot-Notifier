@@ -415,6 +415,38 @@ export default function Landing() {
           </motion.div>
         </section>
 
+        {/* ══ HOW IT WORKS ═════════════════════════════════════════════════════ */}
+        <section id="how-it-works" className="lnd-section" style={{ padding: "0 64px 90px" }}>
+          <div className="lnd-how-inner" style={{ background: "linear-gradient(135deg,#0A2018,#0D1F16)", borderRadius: 28, padding: "60px 56px", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: -100, right: -100, width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle,rgba(15,155,110,.15),transparent 70%)", pointerEvents: "none" }} />
+            <div style={{ position: "absolute", bottom: -80, left: -60, width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle,rgba(15,155,110,.08),transparent 70%)", pointerEvents: "none" }} />
+
+            <motion.div {...fadeUp(0)} style={{ textAlign: "center", marginBottom: 48, position: "relative", zIndex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "rgba(93,202,165,.8)", marginBottom: 12 }}>Simple by design</div>
+              <h2 style={{ fontSize: "clamp(26px,3vw,36px)", fontWeight: 800, color: "#fff", letterSpacing: "-.03em" }}>Up and running in three steps</h2>
+            </motion.div>
+
+            <div className="lnd-steps" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 0, position: "relative", zIndex: 1 }}>
+              <div style={{ position: "absolute", top: 28, left: "calc(16.5% + 16px)", right: "calc(16.5% + 16px)", height: 1, background: "rgba(255,255,255,.08)" }} />
+              {[
+                { n: "1", title: "Register your clinic",   desc: "Create an account, add clinic details, and invite your doctors — takes under five minutes." },
+                { n: "2", title: "Set up availability",    desc: "Doctors configure their slots. The system handles conflicts and double-bookings automatically." },
+                { n: "3", title: "Patients start booking", desc: "Share your clinic link. Patients book, confirm, and get reminders — all without a phone call." },
+              ].map((step, i) => (
+                <motion.div key={step.n} {...fadeUp(i * 0.1)} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "0 24px" }}>
+                  <div
+                    style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(15,155,110,.18)", border: "1px solid rgba(15,155,110,.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: "rgba(93,202,165,.9)", marginBottom: 18, position: "relative", zIndex: 1, transition: "all .3s", cursor: "default" }}
+                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = BRAND; el.style.color = "#fff"; el.style.borderColor = BRAND; }}
+                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(15,155,110,.18)"; el.style.color = "rgba(93,202,165,.9)"; el.style.borderColor = "rgba(15,155,110,.3)"; }}
+                  >{step.n}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{step.title}</div>
+                  <div style={{ fontSize: 13, color: "rgba(255,255,255,.45)", lineHeight: 1.65 }}>{step.desc}</div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ══ FEATURES ═════════════════════════════════════════════════════════ */}
         <section id="features" className="lnd-section" style={{ padding: "80px 64px 60px" }}>
           <motion.div {...fadeUp(0)} style={{ textAlign: "center", marginBottom: 52 }}>
@@ -959,73 +991,6 @@ export default function Landing() {
               </div>
             </div>
           </div>
-        </section>
-
-        {/* ══ HOW IT WORKS ═════════════════════════════════════════════════════ */}
-        <section id="how-it-works" className="lnd-section" style={{ padding: "0 64px 90px" }}>
-          <div className="lnd-how-inner" style={{ background: "linear-gradient(135deg,#0A2018,#0D1F16)", borderRadius: 28, padding: "60px 56px", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: -100, right: -100, width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle,rgba(15,155,110,.15),transparent 70%)", pointerEvents: "none" }} />
-            <div style={{ position: "absolute", bottom: -80, left: -60, width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle,rgba(15,155,110,.08),transparent 70%)", pointerEvents: "none" }} />
-
-            <motion.div {...fadeUp(0)} style={{ textAlign: "center", marginBottom: 48, position: "relative", zIndex: 1 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "rgba(93,202,165,.8)", marginBottom: 12 }}>Simple by design</div>
-              <h2 style={{ fontSize: "clamp(26px,3vw,36px)", fontWeight: 800, color: "#fff", letterSpacing: "-.03em" }}>Up and running in three steps</h2>
-            </motion.div>
-
-            <div className="lnd-steps" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 0, position: "relative", zIndex: 1 }}>
-              <div style={{ position: "absolute", top: 28, left: "calc(16.5% + 16px)", right: "calc(16.5% + 16px)", height: 1, background: "rgba(255,255,255,.08)" }} />
-              {[
-                { n: "1", title: "Register your clinic",   desc: "Create an account, add clinic details, and invite your doctors — takes under five minutes." },
-                { n: "2", title: "Set up availability",    desc: "Doctors configure their slots. The system handles conflicts and double-bookings automatically." },
-                { n: "3", title: "Patients start booking", desc: "Share your clinic link. Patients book, confirm, and get reminders — all without a phone call." },
-              ].map((step, i) => (
-                <motion.div key={step.n} {...fadeUp(i * 0.1)} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "0 24px" }}>
-                  <div
-                    style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(15,155,110,.18)", border: "1px solid rgba(15,155,110,.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: "rgba(93,202,165,.9)", marginBottom: 18, position: "relative", zIndex: 1, transition: "all .3s", cursor: "default" }}
-                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = BRAND; el.style.color = "#fff"; el.style.borderColor = BRAND; }}
-                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(15,155,110,.18)"; el.style.color = "rgba(93,202,165,.9)"; el.style.borderColor = "rgba(15,155,110,.3)"; }}
-                  >{step.n}</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{step.title}</div>
-                  <div style={{ fontSize: 13, color: "rgba(255,255,255,.45)", lineHeight: 1.65 }}>{step.desc}</div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ══ CTA ══════════════════════════════════════════════════════════════ */}
-        <section className="lnd-section" style={{ padding: "0 64px 90px" }}>
-          <motion.div {...fadeUp(0)} className="lnd-cta-inner" style={{ background: c.card, border: `1px solid ${c.bdr2}`, borderRadius: 24, padding: "60px 48px", textAlign: "center", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 0%,rgba(15,155,110,.05) 0%,transparent 65%)", pointerEvents: "none" }} />
-            <h2 style={{ fontSize: "clamp(26px,3.5vw,38px)", fontWeight: 800, color: c.txt, letterSpacing: "-.03em", marginBottom: 14, position: "relative", zIndex: 1 }}>
-              Ready to simplify your<br /><span style={{ color: c.T }}>clinic scheduling?</span>
-            </h2>
-            <p style={{ fontSize: 15, color: c.muted, lineHeight: 1.65, maxWidth: 420, margin: "0 auto 32px", position: "relative", zIndex: 1 }}>
-              Join clinics already using BookMySlot to save time, reduce no-shows, and serve more patients every day.
-            </p>
-            <div className="lnd-cta-btns" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, flexWrap: "wrap", position: "relative", zIndex: 1 }}>
-              <Link href="/getting-started">
-                <button
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 36px", borderRadius: 100, background: c.T, color: "#fff", fontSize: 15, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: "none", cursor: "pointer", boxShadow: `0 4px 20px rgba(15,155,110,.3)`, transition: "all .25s" }}
-                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.T_D; el.style.transform = "translateY(-2px)"; el.style.boxShadow = `0 8px 28px rgba(15,155,110,.4)`; }}
-                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.T; el.style.transform = "translateY(0)"; el.style.boxShadow = `0 4px 20px rgba(15,155,110,.3)`; }}
-                  data-testid="button-cta-get-started"
-                >
-                  Get Started Free <ArrowRight style={{ width: 16, height: 16 }} />
-                </button>
-              </Link>
-              <Link href="/book">
-                <button
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 28px", borderRadius: 100, background: "transparent", color: c.txt2, fontSize: 15, fontWeight: 600, fontFamily: "'Sora',sans-serif", border: `1.5px solid ${c.bdr2}`, cursor: "pointer", transition: "all .25s" }}
-                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = c.tL; el.style.color = c.T; el.style.borderColor = c.T; }}
-                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "transparent"; el.style.color = c.txt2; el.style.borderColor = c.bdr2; }}
-                  data-testid="button-cta-book-slot"
-                >
-                  Book a slot instead
-                </button>
-              </Link>
-            </div>
-          </motion.div>
         </section>
 
         {/* ══ FOOTER ═══════════════════════════════════════════════════════════ */}
