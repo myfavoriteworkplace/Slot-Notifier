@@ -721,7 +721,7 @@ function GetListedForm({ c }: { c: Palette }) {
     <motion.div
       id="get-listed-form"
       initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-      style={{ background: c.card, border: `1px solid ${c.bdr}`, borderRadius: 18, overflow: "hidden", boxShadow: `0 2px 12px rgba(0,0,0,.05)` }}
+      style={{ background: c.card, border: `1px solid ${c.bdr}`, borderRadius: 18, overflow: "hidden", boxShadow: `0 2px 12px rgba(0,0,0,.05)`, gridColumn: "1 / -1" }}
     >
       {/* Dark header */}
       <div style={{ background: `linear-gradient(135deg,#085041 0%,#0F9B6E 100%)`, padding: "28px 28px 24px", position: "relative", overflow: "hidden" }}>
@@ -730,8 +730,15 @@ function GetListedForm({ c }: { c: Palette }) {
         <div style={{ fontSize: 21, fontWeight: 800, color: "#fff", lineHeight: 1.2, letterSpacing: "-.01em", marginBottom: 6 }}>
           List your product.<br /><span style={{ color: "#7FDDBB" }}>Reach every clinic.</span>
         </div>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,.65)", lineHeight: 1.6 }}>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,.65)", lineHeight: 1.6, marginBottom: 16 }}>
           Get your supplies, equipment, or services in front of 50+ verified clinic owners on bookMySlot.
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+          {["Reviewed within 2 days", "Reach 50+ verified clinics", "Verified badge on your listing"].map((t) => (
+            <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#7FDDBB", background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 20, padding: "4px 12px" }}>
+              <span style={{ fontWeight: 700 }}>✓</span> {t}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -1331,22 +1338,6 @@ export default function SmileDeals() {
               <>
                 {/* Get Listed — form */}
                 <GetListedForm c={c} />
-
-                {/* Verified suppliers placeholder */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-                  style={{ background: c.card, border: `1px solid ${c.bdr}`, borderRadius: 18, padding: 32, position: "relative", overflow: "hidden", boxShadow: `0 2px 12px rgba(0,0,0,.04)` }}
-                >
-                  <div style={{ fontSize: 38, marginBottom: 14 }}>✅</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: c.T, marginBottom: 10 }}>Verified Suppliers</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: c.txt, marginBottom: 8, letterSpacing: "-.01em" }}>Only Vetted,<br />Trusted Suppliers</div>
-                  <div style={{ fontSize: 14, color: c.muted, lineHeight: 1.6, marginBottom: 20 }}>Every supplier listed on Smile Deals goes through a verification process. Clinic owners can contact and transact with confidence.</div>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    {["Equipment", "Consumables", "Software", "Training"].map(tag => (
-                      <span key={tag} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: c.tL, color: c.T, border: `1px solid ${c.bdr2}` }}>{tag}</span>
-                    ))}
-                  </div>
-                </motion.div>
               </>
             ) : (
               <>
