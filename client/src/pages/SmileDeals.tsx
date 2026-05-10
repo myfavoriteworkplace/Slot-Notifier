@@ -881,8 +881,6 @@ export default function SmileDeals() {
   const q = searchQuery.trim().toLowerCase();
 
   const filteredDeals = tabDeals.filter((d) => {
-    if (d.isFeatured) return false;
-    if ((d as any).isFlash) return false;
     if (activeSubcategory !== "All" && (d as any).subcategory !== activeSubcategory) return false;
     if (selectedCity !== "All") {
       const clinicId = (d as any).clinicId;
