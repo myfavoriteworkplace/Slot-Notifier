@@ -397,9 +397,34 @@ function CountdownCard({ deal, c }: { deal: SmileDeal; c: Palette }) {
   );
 }
 
+// ── DealCard helpers ────────────────────────────────────────────────────────
+function getCategoryColor(subcategory?: string | null, category?: string | null): string {
+  const key = (subcategory || category || "").toLowerCase();
+  if (key.includes("software") || key.includes("imaging") || key.includes("radiology")) return "#2563EB";
+  if (key.includes("orthodont")) return "#1D4ED8";
+  if (key.includes("steril")) return "#0E6E51";
+  if (key.includes("lab") || key.includes("crown") || key.includes("bridge")) return "#991B1B";
+  if (key.includes("consumable") || key.includes("supply")) return "#D97706";
+  if (key.includes("training") || key.includes("cpd")) return "#7C3AED";
+  return "#0F9B6E";
+}
+
+function getDealInitials(deal: SmileDeal): string {
+  const name = (deal as any).contactInfo?.sponsorName || (deal as any).clinicName || deal.title || "";
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "SD";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+function getDealSupplierName(deal: SmileDeal): string | null {
+  return (deal as any).contactInfo?.sponsorName || (deal as any).clinicName || null;
+}
+
 // ── DealCard ───────────────────────────────────────────────────────────────
 function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; index: number; onVideoOpen: (d: SmileDeal) => void; c: Palette; isClinic?: boolean }) {
   const [hovered, setHovered] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoType = deal.videoUrl ? getVideoType(deal.videoUrl) : null;
   const embedUrl = (deal.videoUrl && videoType && videoType !== "mp4") ? getEmbedUrl(deal.videoUrl) : null;
@@ -407,6 +432,10 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
   const save = (deal as any).originalPrice && deal.price
     ? parseInt((deal as any).originalPrice) - parseInt(deal.price)
     : null;
+  const avatarColor = getCategoryColor((deal as any).subcategory, (deal as any).category);
+  const initials = getDealInitials(deal);
+  const supplierName = getDealSupplierName(deal);
+  const showPlaceholder = imgError || !deal.imageUrl;
 
   function handleEnter() {
     setHovered(true);
@@ -424,11 +453,11 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
       style={{
         background: hovered ? c.cardHover : c.card,
         border: `1px solid ${hovered ? c.bdr2 : c.bdr}`,
-        borderRadius: 20,
+        borderRadius: 16,
         overflow: "hidden",
         cursor: "pointer",
         transition: "border-color .3s, transform .35s cubic-bezier(.16,1,.3,1), box-shadow .3s",
-        transform: hovered ? "translateY(-6px)" : "translateY(0)",
+        transform: hovered ? "translateY(-4px)" : "translateY(0)",
         boxShadow: hovered ? `0 16px 40px rgba(15,155,110,.10)` : `0 1px 4px rgba(0,0,0,.04)`,
         display: "flex", flexDirection: "column",
         height: "100%",
@@ -436,21 +465,35 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
         position: "relative",
       }}
     >
+      {/* Hover top-accent line */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 2, zIndex: 4,
+        background: `linear-gradient(90deg, ${c.T}, ${c.T_D})`,
+        opacity: hovered ? 1 : 0,
+        transition: "opacity .25s",
+        pointerEvents: "none",
+      }} />
+
       {/* Shine overlay — patient tab only */}
       {!isClinic && (
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 20, background: `linear-gradient(135deg,${c.shine} 0%,transparent 50%)`, opacity: hovered ? 1 : 0, transition: "opacity .3s" }} />
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 16, background: `linear-gradient(135deg,${c.shine} 0%,transparent 50%)`, opacity: hovered ? 1 : 0, transition: "opacity .3s" }} />
       )}
 
-      {/* Supplier strip — clinic tab: above image */}
-      {isClinic && <SupplierStrip deal={deal} c={c} />}
-
-      {/* Media */}
-      <div style={{ position: "relative", height: 180, overflow: "hidden", flexShrink: 0 }}>
-        <img
-          src={deal.imageUrl} alt={deal.title}
-          style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(.92)", transition: "transform .6s cubic-bezier(.16,1,.3,1), opacity .5s", transform: hovered && !isClinic && videoType ? "scale(1)" : hovered ? "scale(1.06)" : "scale(1)", opacity: hovered && !isClinic && videoType ? 0 : 1 }}
-          onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800"; }}
-        />
+      {/* Media — 130px */}
+      <div style={{ position: "relative", height: 130, overflow: "hidden", flexShrink: 0, background: showPlaceholder ? c.tL : "transparent" }}>
+        {showPlaceholder ? (
+          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg viewBox="0 0 48 48" fill="none" width={40} height={40} style={{ opacity: 0.3, color: c.T }}>
+              <path d="M24 6C17.4 6 12 11.4 12 18c0 4.2 2.1 7.9 5.4 10.2L15 42h18l-2.4-13.8C33.9 25.9 36 22.2 36 18c0-6.6-5.4-12-12-12z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        ) : (
+          <img
+            src={deal.imageUrl} alt={deal.title}
+            style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(.92)", transition: "transform .6s cubic-bezier(.16,1,.3,1), opacity .5s", transform: hovered && !isClinic && videoType ? "scale(1)" : hovered ? "scale(1.06)" : "scale(1)", opacity: hovered && !isClinic && videoType ? 0 : 1 }}
+            onError={() => setImgError(true)}
+          />
+        )}
         {!isClinic && videoType === "mp4" && deal.videoUrl && (
           <video ref={videoRef} src={deal.videoUrl} muted loop playsInline style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: hovered ? 1 : 0, transition: "opacity .5s" }} />
         )}
@@ -462,42 +505,66 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
             </button>
           </div>
         )}
-
-        {/* Subcategory badge */}
+        {/* Subcategory badge — bottom-left */}
         {(deal as any).subcategory && (
-          <span style={{ position: "absolute", top: 10, left: 10, zIndex: 3, background: "rgba(0,0,0,.45)", backdropFilter: "blur(8px)", color: "rgba(255,255,255,.9)", fontSize: 10, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", padding: "3px 8px", borderRadius: 5 }}>
+          <span style={{ position: "absolute", bottom: 7, left: 7, zIndex: 3, background: "rgba(255,255,255,.92)", color: "#1a2e24", fontSize: 9, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", padding: "3px 8px", borderRadius: 5 }}>
             {(deal as any).subcategory}
           </span>
         )}
         {deal.isFeatured && (
-          <span style={{ position: "absolute", top: 10, left: (deal as any).subcategory ? 108 : 10, zIndex: 3, display: "inline-flex", alignItems: "center", gap: 3, background: c.T, color: "#fff", fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 9999 }}>
-            <Star style={{ width: 8, height: 8, fill: "#fff" }} /> Featured
+          <span style={{ position: "absolute", top: 8, left: 8, zIndex: 3, display: "inline-flex", alignItems: "center", gap: 3, background: GOLD, color: "#5a3800", fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 9999 }}>
+            <Star style={{ width: 8, height: 8, fill: "#5a3800" }} /> Featured
+          </span>
+        )}
+        {(deal as any).isFlash && (
+          <span style={{ position: "absolute", top: 8, right: 8, zIndex: 3, display: "inline-flex", alignItems: "center", gap: 3, background: RED, color: "#fff", fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 9999 }}>
+            ⚡ Flash
           </span>
         )}
         {isExpired && (
-          <span style={{ position: "absolute", top: 10, right: 10, zIndex: 3, background: `${RED}CC`, color: "#fff", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5 }}>Expired</span>
+          <span style={{ position: "absolute", top: 8, right: 8, zIndex: 3, background: `${RED}CC`, color: "#fff", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5 }}>Expired</span>
         )}
         {deal.price && !isClinic && (
-          <div style={{ position: "absolute", bottom: 10, right: 10, zIndex: 3, background: c.T, color: "#fff", fontSize: 13, fontWeight: 800, padding: "4px 10px", borderRadius: 7 }}>
+          <div style={{ position: "absolute", bottom: 8, right: 8, zIndex: 3, background: c.T, color: "#fff", fontSize: 13, fontWeight: 800, padding: "4px 10px", borderRadius: 7 }}>
             ₹{deal.price}
           </div>
         )}
       </div>
 
       {/* Body */}
-      <div style={{ padding: "16px 18px 18px", display: "flex", flexDirection: "column", flex: 1, gap: 9 }}>
+      <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", flex: 1, gap: 8 }}>
+
+        {/* Supplier avatar row — clinic tab */}
+        {isClinic && (
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <div style={{ width: 24, height: 24, borderRadius: 6, background: avatarColor, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", letterSpacing: ".02em" }}>{initials}</span>
+            </div>
+            {supplierName ? (
+              <span style={{ fontSize: 11, fontWeight: 500, color: c.muted, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{supplierName}</span>
+            ) : (
+              <span style={{ flex: 1 }} />
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 3, background: c.tL, border: `1px solid ${c.bdr2}`, borderRadius: 20, padding: "2px 7px", flexShrink: 0 }}>
+              <CheckCircle2 style={{ width: 8, height: 8, color: c.T }} />
+              <span style={{ fontSize: 9, fontWeight: 700, color: c.T, letterSpacing: ".04em" }}>Verified</span>
+            </div>
+          </div>
+        )}
+
+        {/* Title + description */}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: c.txt, letterSpacing: "-.01em", marginBottom: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.title}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: c.txt, letterSpacing: "-.01em", marginBottom: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.title}</div>
           {deal.description && (
             <div style={{ fontSize: 12, color: c.muted, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deal.description}</div>
           )}
         </div>
 
-        {/* Price row — clinic tab shows price here */}
+        {/* Price row — clinic tab */}
         {isClinic && (deal.price || (deal as any).originalPrice) && (
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            {deal.price && <span style={{ fontSize: 20, fontWeight: 800, color: c.T, letterSpacing: "-.02em" }}>₹{deal.price}</span>}
-            {(deal as any).originalPrice && <span style={{ fontSize: 13, color: c.muted, textDecoration: "line-through" }}>₹{(deal as any).originalPrice}</span>}
+            {deal.price && <span style={{ fontSize: 18, fontWeight: 800, color: c.T, letterSpacing: "-.02em" }}>₹{deal.price}</span>}
+            {(deal as any).originalPrice && <span style={{ fontSize: 12, color: c.muted, textDecoration: "line-through" }}>₹{(deal as any).originalPrice}</span>}
           </div>
         )}
 
@@ -509,7 +576,7 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
 
         {/* Clinic contact links */}
         {isClinic && (deal as any).contactInfo && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, paddingTop: 4 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, paddingTop: 2 }}>
             {(deal as any).contactInfo.phone && (
               <a href={`tel:${(deal as any).contactInfo.phone}`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: c.T, textDecoration: "none" }}>
                 <Phone style={{ width: 10, height: 10 }} />{(deal as any).contactInfo.phone}
@@ -529,7 +596,7 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
         )}
 
         {/* Footer */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: `1px solid ${c.bdr}` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, marginTop: "auto", borderTop: `1px solid ${c.bdr}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: c.muted }}>
             <Eye style={{ width: 12, height: 12 }} />
             {deal.viewCount ?? 0}
@@ -538,7 +605,7 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
             <a
               href={(deal as any).contactInfo?.website || deal.bookingLink || "#"}
               target="_blank" rel="noreferrer"
-              style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 16px", borderRadius: 9, background: hovered ? c.T_D : c.T, color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", transition: "background .2s" }}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 8, background: hovered ? c.T_D : c.T, color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none", transition: "background .2s" }}
             >
               {(deal as any).contactInfo?.website ? "Visit" : (deal as any).contactInfo?.phone ? "Contact" : "Enquire"}
               <ExternalLink style={{ width: 11, height: 11 }} />
@@ -546,7 +613,7 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
           ) : (
             <Link href={deal.bookingLink}>
               <button
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 16px", borderRadius: 9, background: hovered ? c.T_D : c.T, color: "#fff", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", transition: "background .2s" }}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 8, background: hovered ? c.T_D : c.T, color: "#fff", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", transition: "background .2s" }}
               >
                 Book <ExternalLink style={{ width: 11, height: 11 }} />
               </button>
