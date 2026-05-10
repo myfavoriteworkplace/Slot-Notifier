@@ -267,8 +267,9 @@ export function Header() {
       <div className="flex items-center gap-2">
         <Link href="/clinic-login">
           <Button
+            variant={location === "/clinic-login" ? "default" : "ghost"}
             size="sm"
-            className="gap-2 h-8 px-3 text-primary-foreground font-semibold text-xs bg-primary hover:bg-primary/90"
+            className={`gap-2 h-8 px-3 text-xs font-semibold ${location === "/clinic-login" ? "" : "text-muted-foreground hover:text-foreground"}`}
             data-testid="button-clinic-portal"
           >
             <Building2 className="h-3.5 w-3.5" />
