@@ -160,8 +160,10 @@ function SupplierStrip({ deal, c }: { deal: SmileDeal; c: Palette }) {
 }
 
 // ── FeaturedCard ──────────────────────────────────────────────────────────
-function FeaturedCard({ deal, onBookClick, c, isClinic }: { deal: SmileDeal; onBookClick: () => void; c: Palette; isClinic?: boolean }) {
+function FeaturedCard({ deal, onBookClick, c, isClinic, onHoverChange }: { deal: SmileDeal; onBookClick: () => void; c: Palette; isClinic?: boolean; onHoverChange?: (h: boolean) => void }) {
   const [hovered, setHovered] = useState(false);
+  function handleEnter() { setHovered(true); onHoverChange?.(true); }
+  function handleLeave() { setHovered(false); onHoverChange?.(false); }
   const videoType = deal.videoUrl ? getVideoType(deal.videoUrl) : null;
   const embedUrl = deal.videoUrl ? getEmbedUrl(deal.videoUrl) : null;
   const isExpired = deal.expiresAt ? new Date(deal.expiresAt) <= new Date() : false;
@@ -174,8 +176,8 @@ function FeaturedCard({ deal, onBookClick, c, isClinic }: { deal: SmileDeal; onB
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
       style={{
         background: c.card,
         border: `1px solid ${hovered ? c.bdr2 : c.bdr}`,
@@ -614,7 +616,23 @@ export default function SmileDeals() {
     deals.forEach((d) => trackView(d.id));
   }, [deals, trackView]);
 
-  const featuredDeal  = tabDeals.find((d) => d.isFeatured && !(d as any).isFlash);
+  const featuredDeals = tabDeals.filter((d) => d.isFeatured && !(d as any).isFlash);
+  const [featuredIndex, setFeaturedIndex] = useState(0);
+  const featuredPaused = useRef(false);
+
+  useEffect(() => {
+    setFeaturedIndex(0);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (featuredDeals.length <= 1) return;
+    const id = setInterval(() => {
+      if (!featuredPaused.current) {
+        setFeaturedIndex((i) => (i + 1) % featuredDeals.length);
+      }
+    }, 5000);
+    return () => clearInterval(id);
+  }, [featuredDeals.length, activeTab]);
   const flashDeals    = tabDeals.filter((d) => (d as any).isFlash);
   const subcategories = ["All", ...Array.from(new Set(tabDeals.map((d) => (d as any).subcategory).filter(Boolean) as string[]))];
 
@@ -822,14 +840,59 @@ export default function SmileDeals() {
             </motion.div>
           )}
 
-          {/* Featured card */}
-          <AnimatePresence>
-            {featuredDeal && (
-              <div style={{ marginBottom: 48 }}>
-                <FeaturedCard deal={featuredDeal} onBookClick={() => trackClick(featuredDeal.id)} c={c} isClinic={activeTab === "clinic"} />
+          {/* Featured cards carousel */}
+          {featuredDeals.length > 0 && (
+            <div style={{ marginBottom: 48 }}>
+              <div style={{ position: "relative" }}>
+                <AnimatePresence mode="wait">
+                  {(() => {
+                    const safeIdx = featuredIndex % featuredDeals.length;
+                    const deal = featuredDeals[safeIdx];
+                    return (
+                      <motion.div
+                        key={deal.id}
+                        initial={{ opacity: 0, x: 40 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -40 }}
+                        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                      >
+                        <FeaturedCard
+                          deal={deal}
+                          onBookClick={() => trackClick(deal.id)}
+                          c={c}
+                          isClinic={activeTab === "clinic"}
+                          onHoverChange={(h) => { featuredPaused.current = h; }}
+                        />
+                      </motion.div>
+                    );
+                  })()}
+                </AnimatePresence>
+
+                {/* Dot indicators — only when more than one featured deal */}
+                {featuredDeals.length > 1 && (
+                  <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 16 }}>
+                    {featuredDeals.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => { setFeaturedIndex(i); featuredPaused.current = false; }}
+                        style={{
+                          width: i === featuredIndex % featuredDeals.length ? 24 : 8,
+                          height: 8,
+                          borderRadius: 4,
+                          border: "none",
+                          cursor: "pointer",
+                          padding: 0,
+                          background: i === featuredIndex % featuredDeals.length ? c.T : c.bdr2,
+                          transition: "width .3s cubic-bezier(.16,1,.3,1), background .3s",
+                        }}
+                        aria-label={`Go to featured deal ${i + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </AnimatePresence>
+            </div>
+          )}
 
           {/* Flash / Limited-Time strip */}
           {flashDeals.length > 0 && (
