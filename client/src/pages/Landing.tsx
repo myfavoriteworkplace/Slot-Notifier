@@ -126,6 +126,7 @@ export default function Landing() {
         @keyframes lndBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
         .lnd-scroll-arrow { animation: lndBounce 1.8s ease-in-out infinite; }
 
+        .lnd-swipe-hint     { display: none; }
         @keyframes wfPulse { 0%,100%{box-shadow:0 0 0 0 rgba(15,155,110,.5)} 60%{box-shadow:0 0 0 8px rgba(15,155,110,0)} }
         @keyframes wfLineGrow { from{width:0} to{width:100%} }
         @keyframes screenIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
@@ -156,8 +157,13 @@ export default function Landing() {
           .lnd-hero-actions  { flex-direction: column !important; align-items: stretch !important; }
           .lnd-hero-actions > * { width: 100% !important; justify-content: center !important; }
           .lnd-float-badge   { display: none !important; }
-          .lnd-feat-4        { grid-template-columns: 1fr !important; }
-          .lnd-feat-3        { grid-template-columns: 1fr !important; }
+          .lnd-feat-4        { display: flex !important; flex-direction: row !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; gap: 12px !important; padding-bottom: 14px !important; -webkit-overflow-scrolling: touch !important; scrollbar-width: none !important; }
+          .lnd-feat-4::-webkit-scrollbar { display: none !important; }
+          .lnd-feat-4 > *    { flex: 0 0 82% !important; scroll-snap-align: start !important; }
+          .lnd-feat-3        { display: flex !important; flex-direction: row !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; gap: 12px !important; padding-bottom: 14px !important; -webkit-overflow-scrolling: touch !important; scrollbar-width: none !important; }
+          .lnd-feat-3::-webkit-scrollbar { display: none !important; }
+          .lnd-feat-3 > *    { flex: 0 0 82% !important; scroll-snap-align: start !important; }
+          .lnd-swipe-hint    { display: flex !important; }
           .lnd-how-inner     { border-radius: 16px !important; padding: 32px 18px !important; }
           .lnd-cta-inner     { border-radius: 16px !important; padding: 32px 18px !important; }
           .lnd-cta-btns      { flex-direction: column !important; align-items: stretch !important; }
@@ -727,6 +733,10 @@ export default function Landing() {
                 </motion.div>
               ))}
             </div>
+            <div className="lnd-swipe-hint" style={{ alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10, fontSize: 11, color: c.muted }}>
+              <span>Swipe to see more</span>
+              <ArrowRight style={{ width: 12, height: 12 }} />
+            </div>
           </div>
 
           {/* For your patients */}
@@ -929,6 +939,10 @@ export default function Landing() {
                   <div style={{ fontSize: 12.5, color: c.muted, lineHeight: 1.65 }}>{f.desc}</div>
                 </motion.div>
               ))}
+            </div>
+            <div className="lnd-swipe-hint" style={{ alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10, fontSize: 11, color: c.muted }}>
+              <span>Swipe to see more</span>
+              <ArrowRight style={{ width: 12, height: 12 }} />
             </div>
           </div>
         </section>
