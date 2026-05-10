@@ -91,6 +91,18 @@ export function Header() {
   const unreadCount = notifications.filter((n) => !n.read).length;
   const isSuperUser = isAuthenticated && user?.role === "superuser";
 
+  const bookHref =
+    location.startsWith("/book/") && !location.endsWith("/null")
+      ? location
+      : location === "/about" || location === "/clinic-login"
+      ? (() => {
+          const id =
+            new URLSearchParams(window.location.search).get("clinicId") ||
+            sessionStorage.getItem("lastClinicId");
+          return id && id !== "null" ? `/book/${id}` : "/book";
+        })()
+      : "/book";
+
   const tabs = [
     ...(isClinicAuthenticated
       ? [{ href: "/clinic-dashboard", label: "Clinic Dashboard", icon: LayoutDashboard }]
@@ -98,26 +110,6 @@ export function Header() {
     ...(isDoctorAuthenticated
       ? [{ href: "/doctor-dashboard", label: "Doctor Portal", icon: Stethoscope }]
       : []),
-    ...(!isClinicAuthenticated && !isDoctorAuthenticated
-      ? [
-          {
-            href:
-              location.startsWith("/book/") && !location.endsWith("/null")
-                ? location
-                : location === "/about" || location === "/clinic-login"
-                ? (() => {
-                    const id =
-                      new URLSearchParams(window.location.search).get("clinicId") ||
-                      sessionStorage.getItem("lastClinicId");
-                    return id && id !== "null" ? `/book/${id}` : "/book";
-                  })()
-                : "/book",
-            label: "Book a Slot",
-            icon: CalendarPlus,
-          },
-        ]
-      : []),
-    { href: "/deals", label: "Smile Deals", icon: Sparkles },
     ...(!isClinicAuthenticated &&
     !isDoctorAuthenticated &&
     (location.startsWith("/book/") || location === "/about" || location === "/clinic-login")
@@ -328,6 +320,21 @@ export function Header() {
             </div>
           </Link>
 
+          {/* ── Book a Slot — pinned left, next to logo ── */}
+          {!isClinicAuthenticated && !isDoctorAuthenticated && (
+            <Link href={bookHref}>
+              <Button
+                variant={location.startsWith("/book") ? "default" : "ghost"}
+                size="sm"
+                className={`gap-2 h-9 px-3 ${location.startsWith("/book") ? "" : "text-muted-foreground hover:text-foreground"}`}
+                data-testid="tab-book-a-slot"
+              >
+                <CalendarPlus className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Book a Slot</span>
+              </Button>
+            </Link>
+          )}
+
           {/* ── Nav tabs — flex-1 centered, fixed min-width per tab ── */}
           <nav className="flex-1 flex items-center justify-center gap-1">
             {tabs.map((tab) => {
@@ -356,11 +363,24 @@ export function Header() {
             })}
           </nav>
 
-          {/* ── Right utility bar: [auth] [separator] [theme toggle] ── */}
+          {/* ── Right utility bar: [auth] [smile deals] [separator] [theme toggle] ── */}
           <div className="flex items-center gap-3 shrink-0">
 
             {/* Auth block */}
             {renderAuthBlock()}
+
+            {/* Smile Deals — pinned right, after Clinic Portal */}
+            <Link href="/deals">
+              <Button
+                variant={location === "/deals" ? "default" : "ghost"}
+                size="sm"
+                className={`gap-2 h-9 px-3 ${location === "/deals" ? "" : "text-muted-foreground hover:text-foreground"}`}
+                data-testid="tab-smile-deals"
+              >
+                <Sparkles className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Smile Deals</span>
+              </Button>
+            </Link>
 
             {/* Thin vertical separator */}
             <div className="w-px h-5 bg-border/60" />
