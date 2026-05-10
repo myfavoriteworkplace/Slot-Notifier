@@ -193,16 +193,15 @@ function FeaturedCard({ deal, onBookClick, c, isClinic, onHoverChange }: { deal:
       <div className="featured-inner" style={{ display: "grid", gridTemplateColumns: "1fr" }}>
         <style>{`@media (min-width: 640px) { .featured-inner { grid-template-columns: 1fr 1fr !important; } }`}</style>
         {/* Image side */}
-        <div style={{ position: "relative", overflow: "hidden", minHeight: 240 }}>
+        <div style={{ position: "relative", overflow: "hidden", height: 360 }}>
           {videoType && videoType !== "mp4" && hovered && embedUrl ? (
-            <iframe src={embedUrl} className="w-full h-full" allow="autoplay; fullscreen" style={{ border: "none", pointerEvents: "none", position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+            <iframe src={embedUrl} allow="autoplay; fullscreen" style={{ border: "none", pointerEvents: "none", position: "absolute", inset: 0, width: "100%", height: "100%" }} />
           ) : videoType === "mp4" && deal.videoUrl ? (
-            <video src={deal.videoUrl} autoPlay={hovered} muted loop playsInline className="w-full h-full object-cover" style={{ transition: "transform .7s cubic-bezier(.16,1,.3,1)", transform: hovered ? "scale(1.05)" : "scale(1)" }} />
+            <video src={deal.videoUrl} autoPlay={hovered} muted loop playsInline style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transition: "transform .7s cubic-bezier(.16,1,.3,1)", transform: hovered ? "scale(1.05)" : "scale(1)" }} />
           ) : (
             <img
               src={deal.imageUrl} alt={deal.title}
-              className="w-full h-full object-cover"
-              style={{ transition: "transform .7s cubic-bezier(.16,1,.3,1)", transform: hovered ? "scale(1.05)" : "scale(1)" }}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transition: "transform .7s cubic-bezier(.16,1,.3,1)", transform: hovered ? "scale(1.05)" : "scale(1)" }}
               onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=1200"; }}
             />
           )}
