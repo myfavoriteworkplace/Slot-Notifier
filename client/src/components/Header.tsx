@@ -16,6 +16,7 @@ import {
   Stethoscope,
   Sun,
   Moon,
+  ChevronDown,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/queryClient";
 import { useTheme } from "next-themes";
@@ -23,6 +24,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -175,29 +177,58 @@ export function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Avatar + name */}
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              <span className="text-[11px] font-bold text-primary">
-                {user?.firstName?.charAt(0)}
-              </span>
-            </div>
-            <div className="hidden sm:block text-left leading-none">
-              <p className="text-sm font-medium leading-none">
-                {user?.firstName} {user?.lastName}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-[3px] capitalize">{user?.role}</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => logout()}
-            className="h-8 px-2.5 flex items-center gap-1.5 rounded-md text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-colors"
-            data-testid="button-logout"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
+          {/* Superuser avatar dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex items-center gap-2 h-8 px-2 rounded-md hover:bg-muted/60 transition-colors"
+                data-testid="button-superuser-menu"
+              >
+                <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <span className="text-[11px] font-bold text-primary">
+                    {user?.firstName?.charAt(0)}
+                  </span>
+                </div>
+                <div className="hidden sm:block text-left leading-none">
+                  <p className="text-sm font-medium leading-none">
+                    {user?.firstName} {user?.lastName}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-[3px] capitalize">{user?.role}</p>
+                </div>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem asChild>
+                <Link href="/admin" className="flex items-center gap-2 cursor-pointer">
+                  <LayoutDashboard className="h-4 w-4 text-primary" />
+                  <span className="font-medium">Admin Dashboard</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/book" className="flex items-center gap-2 cursor-pointer text-muted-foreground">
+                  <CalendarPlus className="h-4 w-4" />
+                  <span>Book a Slot</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/deals" className="flex items-center gap-2 cursor-pointer text-muted-foreground">
+                  <Sparkles className="h-4 w-4" />
+                  <span>Dental Marketplace</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => logout()}
+                className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       );
     }
@@ -309,7 +340,7 @@ export function Header() {
           </Link>
 
           {/* ── Book a Slot — pinned left, next to logo ── */}
-          {!isClinicAuthenticated && !isDoctorAuthenticated && (
+          {!isClinicAuthenticated && !isDoctorAuthenticated && !isSuperUser && (
             <Link href={bookHref}>
               <Button
                 variant={location.startsWith("/book") ? "default" : "ghost"}
@@ -357,24 +388,26 @@ export function Header() {
             {/* Auth block */}
             {renderAuthBlock()}
 
-            {/* Smile Deals — pinned right, after Clinic Portal */}
-            <Link href="/deals">
-              <Button
-                variant={location === "/deals" ? "default" : "ghost"}
-                size="sm"
-                className={`gap-2 h-9 px-3 ${location === "/deals" ? "" : "text-muted-foreground hover:text-foreground"}`}
-                data-testid="tab-smile-deals"
-              >
-                <Sparkles className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">Dental Marketplace</span>
-              </Button>
-            </Link>
+            {/* Smile Deals — pinned right, after Clinic Portal — hidden for superuser */}
+            {!isSuperUser && (
+              <Link href="/deals">
+                <Button
+                  variant={location === "/deals" ? "default" : "ghost"}
+                  size="sm"
+                  className={`gap-2 h-9 px-3 ${location === "/deals" ? "" : "text-muted-foreground hover:text-foreground"}`}
+                  data-testid="tab-smile-deals"
+                >
+                  <Sparkles className="h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline">Dental Marketplace</span>
+                </Button>
+              </Link>
+            )}
 
             {/* Thin vertical separator */}
             <div className="w-px h-5 bg-border/60" />
 
-            {/* Stealth admin — shield + keyhole, no label */}
-            <TooltipProvider delayDuration={400}>
+            {/* Stealth admin — shield + keyhole, no label — hidden once superuser is logged in */}
+            {!isSuperUser && <TooltipProvider delayDuration={400}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link href="/admin">
@@ -414,7 +447,7 @@ export function Header() {
                   System Administrator Login
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider>}
 
             {/* Single-click theme toggle — extreme right, tooltip shows next action */}
             <TooltipProvider delayDuration={300}>
