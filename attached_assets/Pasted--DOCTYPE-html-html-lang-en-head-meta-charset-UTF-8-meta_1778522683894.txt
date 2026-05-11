@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{CLINIC_NAME}} - Your Family Dental Home</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+:root { --primary:#1E3A2F; --accent:#34C759; --warm:#F8EDE3; }
+body { font-family:'Inter',sans-serif; color:#2C2C2C; }
+h1,h2 { font-family:'Playfair Display',serif; }
+.hero { background: linear-gradient(rgba(30,58,47,0.85),rgba(30,58,47,0.9)), url('https://picsum.photos/id/1015/2000/1200') center/cover; min-height:100vh; color:white; display:flex; align-items:center; text-align:center; }
+.btn { background:var(--accent); color:white; padding:16px 36px; border-radius:50px; font-weight:600; text-decoration:none; }
+.card { background:white; border-radius:20px; padding:32px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
+.grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px,1fr)); gap:24px; max-width:1200px; margin:auto; }
+</style>
+</head>
+<body>
+
+<nav style="position:fixed;top:0;width:100%;background:white;z-index:1000;box-shadow:0 4px 15px rgba(0,0,0,0.1);padding:18px 5%;">
+  <div style="max-width:1280px;margin:auto;display:flex;justify-content:space-between;align-items:center;">
+    <h2 style="color:var(--primary);font-size:28px;">{{CLINIC_NAME}}</h2>
+    <div>
+      <a href="#about" style="margin:0 18px;color:#333;text-decoration:none;">About</a>
+      <a href="#services" style="margin:0 18px;color:#333;text-decoration:none;">Services</a>
+      <a href="#doctors" style="margin:0 18px;color:#333;text-decoration:none;">Team</a>
+      <a href="#contact" style="margin:0 18px;color:#333;text-decoration:none;">Contact</a>
+      <a href="{{BOOKING_URL}}" class="btn">Book Now</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div style="max-width:800px;margin:auto;padding:0 20px;">
+    <h1 style="font-size:clamp(42px,7vw,62px);line-height:1.1;">Caring for Your Smile Like Family</h1>
+    <p style="font-size:22px;margin:25px 0;">{{CLINIC_HERO_DESCRIPTION}}</p>
+    <a href="{{BOOKING_URL}}" class="btn">Book Appointment Online</a>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section id="about" class="section" style="background:var(--warm);padding:100px 5%;">
+  <div style="max-width:1200px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center;">
+    <div>
+      <h2 style="font-size:42px;margin-bottom:24px;">Our Story</h2>
+      <p style="font-size:18px;line-height:1.8;">{{CLINIC_ABOUT_DESCRIPTION}}</p>
+    </div>
+    <img src="https://picsum.photos/id/201/800/600" style="border-radius:20px;width:100%;" alt="Clinic">
+  </div>
+</section>
+
+<!-- SERVICES, DOCTORS, TESTIMONIALS, CONTACT sections follow the same pattern as Template 1 but with warmer styling -->
+
+<footer style="background:var(--primary);color:white;padding:80px 5% 40px;text-align:center;">
+  <p style="font-size:18px;">{{CLINIC_NAME}} • {{CLINIC_CITY}}</p>
+  <p>© 2026 All Rights Reserved • DISHA Compliant</p>
+</footer>
+
+</body>
+</html>
