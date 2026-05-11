@@ -85,7 +85,7 @@ export default function ClinicAbout(props: { params?: { slug?: string } }) {
     );
   }
 
-  const bookingHref = finalClinicId ? `/book/${finalClinicId}` : "/book";
+  const bookingHref = clinic.id ? `/book/${clinic.id}` : "/book";
   const cfg = clinic.websiteConfig;
 
   /* ── Themed experience ── */
