@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -30,26 +31,32 @@ type PublicClinic = Omit<Clinic, "passwordHash" | "registeredBy"> & {
   websiteConfig?: ClinicWebsiteConfig | null;
 };
 
-export default function ClinicAbout() {
+export default function ClinicAbout(props: { params?: { slug?: string } }) {
   const [location] = useLocation();
-  const params = new URLSearchParams(window.location.search);
-  const clinicIdFromUrl =
-    params.get("clinicId") ||
-    (location.startsWith("/book/") ? location.split("/").pop() : null) ||
-    sessionStorage.getItem("lastClinicId");
 
-  const finalClinicId = clinicIdFromUrl === "null" ? null : clinicIdFromUrl;
+  // Priority: slug from /clinic/:slug route > ?clinicId= query param > sessionStorage fallback
+  const slug = props.params?.slug;
+  const legacyId =
+    new URLSearchParams(window.location.search).get("clinicId") ||
+    sessionStorage.getItem("lastClinicId");
+  const identifier = slug || (legacyId !== "null" ? legacyId : null);
 
   const { data: clinic, isLoading } = useQuery<PublicClinic>({
-    queryKey: ["/api/clinics", finalClinicId, "public"],
+    queryKey: ["/api/clinics", identifier, "public"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE_URL}/api/clinics/${finalClinicId}/public`);
+      const res = await fetch(`${API_BASE_URL}/api/clinics/${identifier}/public`);
       if (!res.ok) throw new Error("Clinic not found");
       return res.json();
     },
-    enabled: !!finalClinicId,
+    enabled: !!identifier,
     retry: false,
   });
+
+  // Keep sessionStorage in sync so the Header can build book/about links
+  useEffect(() => {
+    if (clinic?.id) sessionStorage.setItem("lastClinicId", String(clinic.id));
+    if ((clinic as any)?.username) sessionStorage.setItem("lastClinicSlug", (clinic as any).username);
+  }, [clinic]);
 
   if (isLoading) {
     return (

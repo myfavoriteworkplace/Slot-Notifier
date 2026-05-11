@@ -59,6 +59,9 @@ export function Header() {
     if (location.startsWith("/book/")) {
       const id = location.split("/").pop();
       if (id && id !== "book") sessionStorage.setItem("lastClinicId", id);
+    } else if (location.startsWith("/clinic/")) {
+      const slug = location.split("/")[2];
+      if (slug) sessionStorage.setItem("lastClinicSlug", slug);
     } else {
       const clinicId = new URLSearchParams(window.location.search).get("clinicId");
       if (clinicId) sessionStorage.setItem("lastClinicId", clinicId);
@@ -97,7 +100,7 @@ export function Header() {
   const bookHref =
     location.startsWith("/book/") && !location.endsWith("/null")
       ? location
-      : location === "/about" || location === "/clinic-login"
+      : location === "/about" || location.startsWith("/clinic/") || location === "/clinic-login"
       ? (() => {
           const id =
             new URLSearchParams(window.location.search).get("clinicId") ||
@@ -115,8 +118,14 @@ export function Header() {
       : []),
     ...(!isClinicAuthenticated &&
     !isDoctorAuthenticated &&
-    (location.startsWith("/book/") || location === "/about" || location === "/clinic-login")
+    (location.startsWith("/book/") || location === "/about" || location.startsWith("/clinic/") || location === "/clinic-login")
       ? (() => {
+          if (location.startsWith("/clinic/")) {
+            const slug = location.split("/")[2];
+            return slug ? [{ href: `/clinic/${slug}`, label: "About", icon: Building2 }] : [];
+          }
+          const slug = sessionStorage.getItem("lastClinicSlug");
+          if (slug) return [{ href: `/clinic/${slug}`, label: "About", icon: Building2 }];
           const clinicId =
             location.startsWith("/book/") && !location.endsWith("/null")
               ? location.split("/").pop()

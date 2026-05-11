@@ -139,6 +139,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/clinic-login" component={ClinicLogin} />
       <Route path="/clinic-dashboard" component={ClinicDashboard} />
+      <Route path="/clinic/:slug" component={ClinicAbout} />
       <Route path="/about" component={ClinicAbout} />
       <Route path="/setup-password" component={SetupPassword} />
       <Route path="/deals" component={SmileDeals} />

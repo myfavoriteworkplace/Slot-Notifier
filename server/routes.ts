@@ -2514,9 +2514,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/clinics/:id/public", async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) return res.status(400).json({ message: "Invalid clinic ID" });
-      const clinic = await storage.getClinic(id);
+      const raw = req.params.id;
+      const numericId = parseInt(raw);
+      const clinic = isNaN(numericId)
+        ? await storage.getClinicByUsername(raw)
+        : await storage.getClinic(numericId);
       if (!clinic || clinic.isArchived) return res.status(404).json({ message: "Clinic not found" });
       const { passwordHash, registeredBy, ...publicFields } = clinic;
       res.json(publicFields);

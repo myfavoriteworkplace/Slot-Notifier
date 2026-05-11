@@ -130,7 +130,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     saveMutation.mutate(config);
   };
 
-  const previewUrl = clinic?.id ? `/about?clinicId=${clinic.id}` : null;
+  const previewUrl = clinic?.username ? `/clinic/${clinic.username}` : clinic?.id ? `/about?clinicId=${clinic.id}` : null;
 
   const toggle = (s: Section) => setOpenSection(prev => prev === s ? "theme" : s);
 

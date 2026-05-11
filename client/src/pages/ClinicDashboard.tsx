@@ -137,7 +137,7 @@ export default function ClinicDashboard() {
     if (!clinic?.id) return;
     const url = type === 'booking'
       ? `${window.location.origin}/book/${clinic.id}`
-      : `${window.location.origin}/about?clinicId=${clinic.id}`;
+      : `${window.location.origin}/clinic/${clinic.username || clinic.id}`;
     navigator.clipboard.writeText(url);
     setCopiedUrlType(type);
     toast({ title: type === 'booking' ? "Booking URL copied" : "About URL copied" });
@@ -1542,7 +1542,7 @@ export default function ClinicDashboard() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">About URL</p>
-                    <p className="text-[10px] text-foreground truncate font-mono mt-0.5">/about?clinicId={clinic?.id}</p>
+                    <p className="text-[10px] text-foreground truncate font-mono mt-0.5">/clinic/{clinic?.username || clinic?.id}</p>
                   </div>
                   <button
                     onClick={() => copyClinicUrl('about')}
@@ -3260,7 +3260,7 @@ export default function ClinicDashboard() {
                     </div>
                   </div>
                   <a
-                    href={`/about?clinicId=${clinic?.id}`}
+                    href={`/clinic/${clinic?.username || clinic?.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     data-testid="link-preview-about"
