@@ -13,6 +13,8 @@ import { API_BASE_URL } from "@/lib/queryClient";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { ThemeClassic, ThemeWarm, ThemeModern } from "@/components/clinic-themes/ClinicThemes";
+import type { ClinicWebsiteConfig } from "@shared/schema";
 
 const PIN_ICON = L.divIcon({
   html: `<div style="width:32px;height:40px;display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.4))">
@@ -24,7 +26,9 @@ const PIN_ICON = L.divIcon({
   iconAnchor: [16, 40],
 });
 
-type PublicClinic = Omit<Clinic, "passwordHash" | "registeredBy">;
+type PublicClinic = Omit<Clinic, "passwordHash" | "registeredBy"> & {
+  websiteConfig?: ClinicWebsiteConfig | null;
+};
 
 export default function ClinicAbout() {
   const [location] = useLocation();
@@ -74,19 +78,43 @@ export default function ClinicAbout() {
     );
   }
 
+  const bookingHref = finalClinicId ? `/book/${finalClinicId}` : "/book";
+  const cfg = clinic.websiteConfig;
+
+  /* ── Themed experience ── */
+  if (cfg?.theme) {
+    const themeClinic = {
+      id: clinic.id,
+      name: clinic.name,
+      address: clinic.address,
+      city: clinic.city,
+      phone: clinic.phone,
+      email: clinic.email,
+      website: clinic.website,
+      logoUrl: clinic.logoUrl,
+      latitude: (clinic as any).latitude,
+      longitude: (clinic as any).longitude,
+      doctors: clinic.doctors as any,
+      doctorName: clinic.doctorName,
+      doctorSpecialization: clinic.doctorSpecialization,
+      doctorDegree: clinic.doctorDegree,
+    };
+    if (cfg.theme === "warm") return <ThemeWarm clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} />;
+    if (cfg.theme === "modern") return <ThemeModern clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} />;
+    return <ThemeClassic clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} />;
+  }
+
+  /* ── Default layout (no theme configured) ── */
   const doctors =
     clinic.doctors && Array.isArray(clinic.doctors) && clinic.doctors.length > 0
       ? (clinic.doctors as { name: string; specialization: string; degree: string; imageUrl?: string | null }[])
       : null;
-
-  const bookingHref = finalClinicId ? `/book/${finalClinicId}` : "/book";
 
   return (
     <div className="min-h-screen bg-background">
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <div className="relative isolate overflow-hidden">
-        {/* Background blob — mirrors Landing page */}
         <div
           aria-hidden="true"
           className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80"
@@ -101,7 +129,6 @@ export default function ClinicAbout() {
         </div>
 
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-10 pb-14 sm:pt-14 sm:pb-20">
-          {/* Back button */}
           <Link href={bookingHref}>
             <Button
               variant="ghost"
@@ -114,10 +141,13 @@ export default function ClinicAbout() {
             </Button>
           </Link>
 
-          {/* Clinic identity */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-6 animate-fade-in-up">
             <div className="h-20 w-20 shrink-0 rounded-2xl bg-primary/10 ring-1 ring-primary/20 flex items-center justify-center text-primary shadow-inner">
-              <Building2 className="h-10 w-10" />
+              {clinic.logoUrl ? (
+                <img src={clinic.logoUrl} alt={clinic.name} className="h-full w-full object-cover rounded-2xl" />
+              ) : (
+                <Building2 className="h-10 w-10" />
+              )}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-3 mb-2">
@@ -149,7 +179,6 @@ export default function ClinicAbout() {
         {/* Info cards row */}
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 animate-fade-in-up delay-100">
 
-          {/* Contact */}
           <Card className="bg-card border shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden">
             <CardContent className="p-7">
               <div className="flex items-center gap-3 mb-5">
@@ -180,7 +209,6 @@ export default function ClinicAbout() {
             </CardContent>
           </Card>
 
-          {/* Location */}
           <Card className="bg-card border shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden">
             <CardContent className="p-7">
               <div className="flex items-center gap-3 mb-5">
@@ -200,7 +228,6 @@ export default function ClinicAbout() {
             </CardContent>
           </Card>
 
-          {/* Web */}
           <Card className="bg-card border shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden sm:col-span-2 lg:col-span-1">
             <CardContent className="p-7">
               <div className="flex items-center gap-3 mb-5">
@@ -230,7 +257,7 @@ export default function ClinicAbout() {
           </Card>
         </div>
 
-        {/* ── Map ──────────────────────────────────────────────── */}
+        {/* Map */}
         {(clinic as any).latitude && (clinic as any).longitude && (
           <Card className="mt-5 bg-card border shadow-sm rounded-2xl overflow-hidden animate-fade-in-up delay-150">
             <CardContent className="p-0">
@@ -279,7 +306,7 @@ export default function ClinicAbout() {
           </Card>
         )}
 
-        {/* ── Doctors ──────────────────────────────────────────── */}
+        {/* Doctors */}
         {(doctors || clinic.doctorName) && (
           <Card className="mt-5 bg-card border shadow-sm rounded-2xl overflow-hidden animate-fade-in-up delay-200">
             <CardContent className="p-7 sm:p-8">
@@ -343,7 +370,7 @@ export default function ClinicAbout() {
           </Card>
         )}
 
-        {/* ── Typical Hours ─────────────────────────────────────── */}
+        {/* Typical Hours */}
         <Card className="mt-5 bg-card border shadow-sm rounded-2xl overflow-hidden animate-fade-in-up delay-200">
           <CardContent className="p-7 sm:p-8">
             <div className="flex items-center gap-3 mb-2">
@@ -387,9 +414,8 @@ export default function ClinicAbout() {
           </CardContent>
         </Card>
 
-        {/* ── Book CTA ──────────────────────────────────────────── */}
+        {/* Book CTA */}
         <div className="mt-8 relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/10 via-accent/5 to-background border border-primary/15 p-8 sm:p-10 animate-fade-in-up delay-300">
-          {/* Decorative circles */}
           <div aria-hidden="true" className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-primary/10 blur-2xl" />
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-accent/10 blur-2xl" />
 

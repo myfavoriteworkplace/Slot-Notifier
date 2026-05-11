@@ -4,6 +4,7 @@ import ExportDataPanel from "@/components/ExportDataPanel";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import { InventoryPanel } from "@/components/InventoryPanel";
+import WebsiteConfigPanel from "@/components/WebsiteConfigPanel";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
@@ -159,7 +160,7 @@ export default function ClinicDashboard() {
 
   // Booking form state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory'>('bookings');
+  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'website'>('bookings');
 
   const [profilePhone, setProfilePhone] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -1488,6 +1489,21 @@ export default function ClinicDashboard() {
                   <p className="text-[10px] text-muted-foreground">Stock, assets & alerts</p>
                 </div>
                 {activePanel === 'inventory' && <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />}
+              </button>
+
+              <button
+                onClick={() => setActivePanel('website')}
+                data-testid="nav-website"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'website' ? 'bg-sky-500/10 border border-sky-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'website' ? 'bg-sky-500/10 border-sky-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Globe className={`h-4 w-4 ${activePanel === 'website' ? 'text-sky-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'website' ? 'text-sky-700 dark:text-sky-400' : 'text-foreground'}`}>Clinic Website</p>
+                  <p className="text-[10px] text-muted-foreground">Theme & content</p>
+                </div>
+                {activePanel === 'website' && <div className="h-1.5 w-1.5 rounded-full bg-sky-500 shrink-0" />}
               </button>
 
             </div>
@@ -3756,6 +3772,13 @@ export default function ClinicDashboard() {
           {/* INVENTORY PANEL */}
           {activePanel === 'inventory' && (
             <InventoryPanel clinicId={clinic.id} />
+          )}
+
+          {/* WEBSITE PANEL */}
+          {activePanel === 'website' && (
+            <div className="p-6 sm:p-8">
+              <WebsiteConfigPanel clinic={clinic} />
+            </div>
           )}
 
         </div>

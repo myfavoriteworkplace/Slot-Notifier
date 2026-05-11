@@ -1762,6 +1762,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.patch("/api/auth/clinic/website-config", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      const clinic = await storage.updateClinic(sess.clinicId, { websiteConfig: req.body } as any);
+      res.json(clinic);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.patch("/api/auth/clinic/me", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });

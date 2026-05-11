@@ -7,6 +7,23 @@ import { relations, sql } from "drizzle-orm";
 // Export auth models so they are picked up
 export * from "./models/auth";
 
+export type ClinicWebsiteConfig = {
+  theme: "classic" | "warm" | "modern";
+  taglineL1?: string;
+  taglineL2?: string;
+  heroDescription?: string;
+  aboutDescription?: string;
+  vision?: string;
+  values?: string;
+  heroImageUrl?: string;
+  gallery?: { url: string; caption: string }[];
+  services?: { name: string; description: string }[];
+  testimonials?: { quote: string; patientName: string; rating: number }[];
+  hours?: { day: string; open: string; close: string; closed: boolean }[];
+  socialLinks?: { instagram?: string; facebook?: string; youtube?: string };
+  showMap?: boolean;
+};
+
 export const clinics = pgTable("clinics", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -38,6 +55,7 @@ export const clinics = pgTable("clinics", {
   subscriptionStatus: varchar("subscription_status", { length: 20 }).default("unpaid"), // unpaid, active, expired
   billingCycle: varchar("billing_cycle", { length: 10 }).default("monthly"), // monthly, annual
   razorpaySubscriptionId: varchar("razorpay_subscription_id", { length: 255 }),
+  websiteConfig: jsonb("website_config").$type<ClinicWebsiteConfig>(),
 });
 
 export const slots = pgTable("slots", {

@@ -228,6 +228,16 @@ export async function ensureSessionTable() {
     console.error("[DATABASE] Error adding clinic extended columns:", err.message);
   }
 
+  // Clinic website config column
+  try {
+    await pool.query(`
+      ALTER TABLE IF EXISTS "clinics" ADD COLUMN IF NOT EXISTS "website_config" jsonb;
+    `);
+    console.log("[DATABASE] Clinic website_config column ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error adding website_config column:", err.message);
+  }
+
   // slots table
   try {
     await pool.query(`
