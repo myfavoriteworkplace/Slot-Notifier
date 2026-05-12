@@ -305,7 +305,10 @@ function ServicesCarousel({ services, sectionId, titleLabel, title, bg, cardBg, 
                     <span className="text-[#0F9B6E] font-bold text-lg">✦</span>
                   </div>
                 ) : null}
-                <h3 className={`font-bold ${titleColor} mb-2`}>{s.name}</h3>
+                <h3
+                  className={`font-bold ${titleColor} mb-2`}
+                  style={serif ? { fontFamily: "'Playfair Display', Georgia, serif" } : { fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}
+                >{s.name}</h3>
                 <p className={`${textColor} text-sm leading-relaxed`}>{s.description}</p>
               </div>
             </div>
@@ -408,7 +411,10 @@ function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, bor
                 )}
               </div>
               <div className="p-4">
-                <h3 className={`font-bold ${titleColor} mb-1 text-sm`}>{doc.name}</h3>
+                <h3
+                className={`font-bold ${titleColor} mb-1 text-sm`}
+                style={serif ? { fontFamily: "'Playfair Display', Georgia, serif" } : { fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}
+              >{doc.name}</h3>
                 <p className="text-[#0F9B6E] text-xs font-semibold mb-2">{doc.specialization}</p>
                 {doc.degree && (
                   <span className={`text-xs px-2 py-1 rounded-full ${cardBg} border ${border} text-gray-500`}>
@@ -426,10 +432,11 @@ function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, bor
 
 /* ─── NEW: Gallery carousel ────────────────────────────── */
 
-function GallerySection({ gallery, bg, titleColor }: {
+function GallerySection({ gallery, bg, titleColor, serif }: {
   gallery: { url: string; caption?: string }[];
   bg: string;
   titleColor: string;
+  serif?: boolean;
 }) {
   const [page, setPage] = useState(0);
   const ipp = 3;
@@ -440,7 +447,10 @@ function GallerySection({ gallery, bg, titleColor }: {
     <section className={`px-6 py-20 ${bg}`}>
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-10">
-          <h2 className={`text-3xl font-bold ${titleColor}`}>Our Clinic</h2>
+          <h2
+          className={`text-3xl font-bold ${titleColor}`}
+          style={serif ? { fontFamily: "'Playfair Display', Georgia, serif" } : { fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}
+        >Our Clinic</h2>
           {pages > 1 && (
             <div className="flex gap-2">
               <button
@@ -491,12 +501,13 @@ function GallerySection({ gallery, bg, titleColor }: {
 
 /* ─── NEW: Rich multi-column footer ───────────────────── */
 
-function RichFooter({ clinic, cfg, bookingHref, darkBg, accentSuffix }: {
+function RichFooter({ clinic, cfg, bookingHref, darkBg, accentSuffix, serif }: {
   clinic: ThemeClinic;
   cfg: ClinicWebsiteConfig;
   bookingHref: string;
   darkBg: string;
   accentSuffix: string;
+  serif?: boolean;
 }) {
   const about = cfg.aboutDescription
     ? cfg.aboutDescription.slice(0, 120) + (cfg.aboutDescription.length > 120 ? "…" : "")
@@ -516,7 +527,10 @@ function RichFooter({ clinic, cfg, bookingHref, darkBg, accentSuffix }: {
                   {clinic.name.charAt(0)}
                 </div>
               )}
-              <span className="font-bold text-lg text-white">{clinic.name}</span>
+              <span
+                className="font-bold text-lg text-white"
+                style={serif ? { fontFamily: "'Playfair Display', Georgia, serif" } : { fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}
+              >{clinic.name}</span>
             </div>
             <p className="text-white/50 text-sm leading-relaxed mb-5">{about}</p>
             <SocialLinks links={cfg.socialLinks} light />
@@ -608,7 +622,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
   const features = cfg.features?.length ? cfg.features : DEFAULT_FEATURES;
 
   return (
-    <div className="min-h-screen bg-[#F4F8F6] font-sans" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div className="min-h-screen bg-[#F4F8F6] font-sans" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* Mini-nav */}
       <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#DCE9E3] px-6 py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -768,6 +782,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
           gallery={gallery}
           bg="bg-[#0A3D2E]"
           titleColor="text-white"
+          serif
         />
       )}
 
@@ -813,7 +828,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
         </div>
       </section>
 
-      <RichFooter clinic={clinic} cfg={cfg} bookingHref={bookingHref} darkBg="bg-[#08281f]" accentSuffix="" />
+      <RichFooter clinic={clinic} cfg={cfg} bookingHref={bookingHref} darkBg="bg-[#08281f]" accentSuffix="" serif />
     </div>
   );
 }
@@ -998,6 +1013,7 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
           gallery={gallery}
           bg="bg-[#1E3A2F]"
           titleColor="text-white"
+          serif
         />
       )}
 
@@ -1051,7 +1067,7 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
         </div>
       </section>
 
-      <RichFooter clinic={clinic} cfg={cfg} bookingHref={bookingHref} darkBg="bg-[#0D2B22]" accentSuffix="-w" />
+      <RichFooter clinic={clinic} cfg={cfg} bookingHref={bookingHref} darkBg="bg-[#0D2B22]" accentSuffix="-w" serif />
     </div>
   );
 }
