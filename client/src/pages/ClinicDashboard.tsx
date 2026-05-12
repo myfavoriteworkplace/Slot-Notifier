@@ -1,3 +1,4 @@
+import QRCode from "react-qr-code";
 import { ImageUpload } from "@/components/ImageUpload";
 import MapLocationPicker from "@/components/MapLocationPicker";
 import ExportDataPanel from "@/components/ExportDataPanel";
@@ -1509,57 +1510,52 @@ export default function ClinicDashboard() {
             </div>
           </div>
 
-          {/* Share Links Card */}
-          <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden mt-3">
-            <div className="px-3 pt-3 pb-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Share Your Clinic</p>
-            </div>
-            <div className="px-2 pb-2 space-y-1.5">
-
-              {/* Booking URL */}
-              <div className="rounded-xl border border-border/50 bg-muted/30 px-2.5 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Book URL</p>
-                    <p className="text-[10px] text-foreground truncate font-mono mt-0.5">/book/{clinic?.id}</p>
+          {/* Scan & Share Card */}
+          {clinic && (
+            <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden mt-3">
+              <div className="px-3 pt-3 pb-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Scan &amp; Share</p>
+              </div>
+              <div className="px-3 pb-3 flex flex-col items-center gap-3">
+                {/* QR Code */}
+                <div className="relative rounded-2xl overflow-hidden bg-white p-3 border border-border/40 shadow-inner w-full flex items-center justify-center">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 pointer-events-none rounded-2xl" />
+                  <QRCode
+                    value={`${window.location.origin}/clinic/${clinic.username || clinic.id}`}
+                    size={120}
+                    level="M"
+                    fgColor="#085041"
+                    bgColor="#ffffff"
+                    style={{ display: "block" }}
+                  />
+                </div>
+                {/* Label */}
+                <p className="text-[9px] text-muted-foreground text-center leading-relaxed">
+                  Patients scan to visit your clinic page
+                </p>
+                {/* URL row */}
+                <div className="w-full rounded-xl border border-border/50 bg-muted/30 px-2.5 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Clinic Page URL</p>
+                      <p className="text-[10px] text-foreground truncate font-mono mt-0.5">/clinic/{clinic.username || clinic.id}</p>
+                    </div>
+                    <button
+                      onClick={() => copyClinicUrl('about')}
+                      data-testid="button-copy-about-url"
+                      title="Copy clinic page URL"
+                      className={`h-7 w-7 rounded-lg border flex items-center justify-center shrink-0 transition-all duration-200
+                        ${copiedUrlType === 'about'
+                          ? 'bg-primary/10 border-primary/30 text-primary'
+                          : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}
+                    >
+                      {copiedUrlType === 'about' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => copyClinicUrl('booking')}
-                    data-testid="button-copy-booking-url"
-                    title="Copy booking URL"
-                    className={`h-7 w-7 rounded-lg border flex items-center justify-center shrink-0 transition-all duration-200
-                      ${copiedUrlType === 'booking'
-                        ? 'bg-primary/10 border-primary/30 text-primary'
-                        : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}
-                  >
-                    {copiedUrlType === 'booking' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  </button>
                 </div>
               </div>
-
-              {/* About URL */}
-              <div className="rounded-xl border border-border/50 bg-muted/30 px-2.5 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">About URL</p>
-                    <p className="text-[10px] text-foreground truncate font-mono mt-0.5">/clinic/{clinic?.username || clinic?.id}</p>
-                  </div>
-                  <button
-                    onClick={() => copyClinicUrl('about')}
-                    data-testid="button-copy-about-url"
-                    title="Copy about URL"
-                    className={`h-7 w-7 rounded-lg border flex items-center justify-center shrink-0 transition-all duration-200
-                      ${copiedUrlType === 'about'
-                        ? 'bg-primary/10 border-primary/30 text-primary'
-                        : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}
-                  >
-                    {copiedUrlType === 'about' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  </button>
-                </div>
-              </div>
-
             </div>
-          </div>
+          )}
 
         </div>
         {/* ===== END LEFT SIDEBAR NAV ===== */}
