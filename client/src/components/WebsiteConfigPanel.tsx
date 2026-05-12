@@ -11,7 +11,8 @@ import { ImageUpload } from "@/components/ImageUpload";
 import {
   Globe, Palette, Image, Layers, Star, Clock, Share2,
   Plus, Trash2, ChevronDown, ChevronUp, ExternalLink, Save, Eye,
-  BarChart2, Sparkles,
+  BarChart2, Sparkles, Instagram, Facebook, Youtube,
+  Users, ChevronRight, Layout,
 } from "lucide-react";
 import type { ClinicWebsiteConfig } from "@shared/schema";
 
@@ -57,6 +58,11 @@ const FEATURE_ICON_OPTIONS = [
   { value: "check", label: "✅ Quality Assured" },
 ];
 
+const FEATURE_EMOJI: Record<string, string> = {
+  users: "👥", stethoscope: "🩺", heart: "❤️", shield: "🛡️",
+  award: "🏆", zap: "⚡", activity: "📈", check: "✅",
+};
+
 type Section = "theme" | "hero" | "about" | "features" | "stats" | "services" | "gallery" | "testimonials" | "hours" | "social";
 
 export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) {
@@ -99,7 +105,8 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     existing.socialLinks ?? {}
   );
   const [showMap, setShowMap] = useState(existing.showMap !== false);
-  const [openSection, setOpenSection] = useState<Section>("theme");
+  const [openSection, setOpenSection] = useState<Section>("hero");
+  const [mapOpen, setMapOpen] = useState(true);
 
   useEffect(() => {
     const e: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: "classic" };
@@ -166,9 +173,86 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   };
 
   const previewUrl = clinic?.username ? `/clinic/${clinic.username}` : clinic?.id ? `/about?clinicId=${clinic.id}` : null;
+  const toggle = (s: Section) => setOpenSection(prev => prev === s ? "hero" : s);
 
-  const toggle = (s: Section) => setOpenSection(prev => prev === s ? "theme" : s);
+  /* ── Derived status helpers ───────────────────────── */
+  const liveServices = services.filter(s => s.name);
+  const liveGallery = gallery.filter(g => g.url);
+  const liveTestimonials = testimonials.filter(t => t.quote && t.patientName);
+  const liveStats = stats.filter(s => s.value && s.label);
+  const liveFeatures = features.filter(f => f.title);
+  const socialCount = [socialLinks.instagram, socialLinks.facebook, socialLinks.youtube].filter(Boolean).length;
 
+  const themeLabel = THEME_OPTIONS.find(t => t.id === theme)?.label ?? "Classic";
+
+  /* ── Section status rows for the structure map ───── */
+  const MAP_ROWS: {
+    id: Section | "doctors" | "footer";
+    icon: React.ElementType;
+    label: string;
+    status: string;
+    dot: "green" | "gray" | "amber";
+    editable: boolean;
+    accent: string;
+  }[] = [
+    {
+      id: "hero", icon: Image, label: "Hero Section",
+      status: taglineL1 ? `"${taglineL1.slice(0, 22)}${taglineL1.length > 22 ? "…" : ""}"` : "Using default tagline",
+      dot: taglineL1 ? "green" : "gray", editable: true, accent: "bg-[#085041]",
+    },
+    {
+      id: "about", icon: Layers, label: "About & Values",
+      status: aboutDescription ? "Story configured" : "Using default copy",
+      dot: aboutDescription ? "green" : "gray", editable: true, accent: "bg-blue-400",
+    },
+    {
+      id: "features", icon: Sparkles, label: "Why Choose Us",
+      status: `${liveFeatures.length} feature${liveFeatures.length !== 1 ? "s" : ""} shown`,
+      dot: "green", editable: true, accent: "bg-violet-400",
+    },
+    {
+      id: "stats", icon: BarChart2, label: "Stats Bar",
+      status: liveStats.length > 0 ? `${liveStats.length} stat${liveStats.length !== 1 ? "s" : ""} showing` : "Hidden — add stats to show",
+      dot: liveStats.length > 0 ? "green" : "amber", editable: true, accent: "bg-amber-500",
+    },
+    {
+      id: "services", icon: Layers, label: "Services",
+      status: `${liveServices.length} service${liveServices.length !== 1 ? "s" : ""}`,
+      dot: liveServices.length > 0 ? "green" : "gray", editable: true, accent: "bg-teal-500",
+    },
+    {
+      id: "doctors", icon: Users, label: "Doctors",
+      status: "Auto-pulled from clinic profile",
+      dot: "green", editable: false, accent: "bg-sky-400",
+    },
+    {
+      id: "gallery", icon: Image, label: "Photo Gallery",
+      status: liveGallery.length > 0 ? `${liveGallery.length} photo${liveGallery.length !== 1 ? "s" : ""}` : "Hidden — upload photos to show",
+      dot: liveGallery.length > 0 ? "green" : "amber", editable: true, accent: "bg-rose-400",
+    },
+    {
+      id: "testimonials", icon: Star, label: "Patient Reviews",
+      status: liveTestimonials.length > 0 ? `${liveTestimonials.length} review${liveTestimonials.length !== 1 ? "s" : ""}` : "Hidden — add reviews to show",
+      dot: liveTestimonials.length > 0 ? "green" : "amber", editable: true, accent: "bg-amber-400",
+    },
+    {
+      id: "hours", icon: Clock, label: "Clinic Hours",
+      status: hours.length > 0 ? `${hours.length} time slot${hours.length !== 1 ? "s" : ""}` : "Using default hours",
+      dot: "green", editable: true, accent: "bg-slate-400",
+    },
+    {
+      id: "social", icon: Share2, label: "Social Links",
+      status: socialCount > 0 ? `${socialCount} link${socialCount !== 1 ? "s" : ""} set` : "No links added",
+      dot: socialCount > 0 ? "green" : "gray", editable: true, accent: "bg-pink-400",
+    },
+    {
+      id: "footer", icon: Globe, label: "Footer",
+      status: "Auto-generated from clinic data",
+      dot: "green", editable: false, accent: "bg-[#08281f]",
+    },
+  ];
+
+  /* ── Section header accordion button ─────────────── */
   const SectionHeader = ({ id, icon: Icon, label, badge }: { id: Section; icon: any; label: string; badge?: string }) => (
     <button
       onClick={() => toggle(id)}
@@ -188,9 +272,26 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     </button>
   );
 
+  /* ── Preview wrapper ──────────────────────────────── */
+  const PreviewShell = ({ children, label = "Live Preview" }: { children: React.ReactNode; label?: string }) => (
+    <div className="mb-5 rounded-xl overflow-hidden border border-border/50 shadow-sm">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/40 border-b border-border/40">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+          <Eye className="h-3 w-3" />{label}
+        </span>
+        <span className="text-[10px] text-muted-foreground/70 italic">updates as you type</span>
+      </div>
+      {children}
+    </div>
+  );
+
+  /* ════════════════════════════════════════════════════
+     RENDER
+  ════════════════════════════════════════════════════ */
   return (
     <div className="space-y-5">
-      {/* Header row */}
+
+      {/* ── Top header ── */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2">
@@ -224,7 +325,103 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         </div>
       </div>
 
-      {/* ── Section 1: Theme picker ── */}
+      {/* ══════════════════════════════════════════════
+          WEBSITE STRUCTURE MAP
+      ══════════════════════════════════════════════ */}
+      <div className="rounded-2xl border border-border/60 overflow-hidden shadow-sm">
+        {/* Map header */}
+        <button
+          onClick={() => setMapOpen(p => !p)}
+          className="w-full flex items-center justify-between px-5 py-3.5 bg-muted/40 hover:bg-muted/60 transition-colors border-b border-border/50"
+          data-testid="button-toggle-site-map"
+        >
+          <div className="flex items-center gap-2.5">
+            <Layout className="h-4 w-4 text-primary" />
+            <span className="font-semibold text-sm text-foreground">Website Structure</span>
+            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              {themeLabel} theme · {liveServices.length} services · {liveGallery.length} photos
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {previewUrl && (
+              <a
+                href={previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="text-[10px] text-primary font-semibold flex items-center gap-1 hover:underline"
+              >
+                Open live page <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+            )}
+            {mapOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </div>
+        </button>
+
+        {/* Map rows */}
+        {mapOpen && (
+          <div className="divide-y divide-border/30 bg-background">
+            {MAP_ROWS.map((row) => {
+              const Icon = row.icon;
+              const isActive = openSection === row.id;
+              const dotCls =
+                row.dot === "green" ? "bg-emerald-500" :
+                row.dot === "amber" ? "bg-amber-400" :
+                "bg-muted-foreground/30";
+
+              if (!row.editable) {
+                return (
+                  <div
+                    key={row.id}
+                    className="flex items-center gap-3 px-4 py-2.5 opacity-60"
+                  >
+                    <div className={`w-0.5 h-6 rounded-full shrink-0 ${row.accent}`} />
+                    <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0">
+                      <Icon className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground leading-none">{row.label}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{row.status}</p>
+                    </div>
+                    <div className={`h-2 w-2 rounded-full shrink-0 ${dotCls}`} />
+                    <span className="text-[9px] text-muted-foreground italic shrink-0">auto</span>
+                  </div>
+                );
+              }
+
+              return (
+                <button
+                  key={row.id}
+                  onClick={() => setOpenSection(row.id as Section)}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 transition-all text-left group ${
+                    isActive
+                      ? "bg-primary/5 border-l-2 border-primary"
+                      : "hover:bg-muted/40 border-l-2 border-transparent"
+                  }`}
+                  data-testid={`map-row-${row.id}`}
+                >
+                  <div className={`w-0.5 h-6 rounded-full shrink-0 ${row.accent} ${isActive ? "opacity-100" : "opacity-50 group-hover:opacity-80"}`} />
+                  <div className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-primary/10" : "bg-muted"}`}>
+                    <Icon className={`h-3 w-3 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-semibold leading-none ${isActive ? "text-primary" : "text-foreground"}`}>{row.label}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{row.status}</p>
+                  </div>
+                  <div className={`h-2 w-2 rounded-full shrink-0 ${dotCls}`} />
+                  <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition-all ${isActive ? "text-primary" : "text-muted-foreground/40 group-hover:text-muted-foreground"}`} />
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          SECTION EDITORS
+      ══════════════════════════════════════════════ */}
+
+      {/* ── Theme picker ── */}
       <div className="space-y-3">
         <SectionHeader id="theme" icon={Palette} label="Choose Theme" />
         {openSection === "theme" && (
@@ -257,11 +454,39 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         )}
       </div>
 
-      {/* ── Section 2: Hero ── */}
+      {/* ── Hero Section ── */}
       <div className="space-y-3">
         <SectionHeader id="hero" icon={Image} label="Hero Section" />
         {openSection === "hero" && (
           <div className="px-1 space-y-5">
+            {/* Hero preview */}
+            <PreviewShell>
+              <div className="bg-[#0A3D2E] p-4 flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white/50 text-[9px] uppercase tracking-widest mb-1.5">{clinic?.city || "Dental Care"}</p>
+                  <p className="text-white text-sm font-bold leading-snug" style={{ fontFamily: "Georgia, serif" }}>
+                    {taglineL1 || "Your Smile,"}
+                  </p>
+                  <p className="text-[#6DCFAC] text-sm font-bold leading-snug mb-2" style={{ fontFamily: "Georgia, serif" }}>
+                    {taglineL2 || "Our Passion."}
+                  </p>
+                  <p className="text-white/50 text-[10px] leading-relaxed line-clamp-2 max-w-xs">
+                    {heroDescription || `At ${clinic?.name || "your clinic"}, we combine modern dentistry with compassionate care.`}
+                  </p>
+                  <div className="mt-2.5 inline-block bg-[#0F9B6E] text-white text-[9px] font-bold px-3 py-1 rounded-full">
+                    Book Appointment
+                  </div>
+                </div>
+                {heroImageUrl ? (
+                  <img src={heroImageUrl} alt="" className="h-20 w-28 object-cover rounded-xl shrink-0 shadow-md" />
+                ) : (
+                  <div className="h-20 w-28 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                    <span className="text-3xl opacity-20">🦷</span>
+                  </div>
+                )}
+              </div>
+            </PreviewShell>
+
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Tagline Line 1</Label>
@@ -279,22 +504,36 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Hero / Clinic Photo</Label>
               <p className="text-xs text-muted-foreground mb-2">Used as the background (Warm theme) or side image (Classic & Modern themes).</p>
-              <ImageUpload
-                currentImageUrl={heroImageUrl || null}
-                onUploadComplete={(url) => setHeroImageUrl(url)}
-                folder="clinic-photos"
-                label="Upload Clinic Photo"
-              />
+              <ImageUpload currentImageUrl={heroImageUrl || null} onUploadComplete={(url) => setHeroImageUrl(url)} folder="clinic-photos" label="Upload Clinic Photo" />
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Section 3: About ── */}
+      {/* ── About & Values ── */}
       <div className="space-y-3">
         <SectionHeader id="about" icon={Layers} label="About & Values" />
         {openSection === "about" && (
           <div className="px-1 space-y-4">
+            {/* About preview */}
+            <PreviewShell>
+              <div className="p-4 bg-white space-y-3">
+                <p className="text-[10px] text-gray-600 leading-relaxed line-clamp-3">
+                  {aboutDescription || `At ${clinic?.name || "your clinic"}, we believe great dental care is about more than just teeth — it's about building trust and creating lasting relationships.`}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-lg bg-[#F4F8F6] border border-[#DCE9E3]">
+                    <p className="text-[9px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-1">Our Vision</p>
+                    <p className="text-[10px] text-gray-500 line-clamp-2 leading-relaxed">{vision || "Add your vision statement…"}</p>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-[#F4F8F6] border border-[#DCE9E3]">
+                    <p className="text-[9px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-1">Our Values</p>
+                    <p className="text-[10px] text-gray-500 line-clamp-2 leading-relaxed">{values || "Add your values…"}</p>
+                  </div>
+                </div>
+              </div>
+            </PreviewShell>
+
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">About / Our Story</Label>
               <Textarea value={aboutDescription} onChange={e => setAboutDescription(e.target.value)} placeholder="Tell patients about your clinic, your background, and what makes you different..." rows={4} className="rounded-xl resize-none" data-testid="input-about-description" />
@@ -308,26 +547,43 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               <Textarea value={values} onChange={e => setValues(e.target.value)} placeholder="e.g. Patient-first · Pain-free dentistry · Transparency · Continuous excellence." rows={2} className="rounded-xl resize-none" data-testid="input-values" />
             </div>
             <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-border/50">
-              <input
-                type="checkbox"
-                id="show-map"
-                checked={showMap}
-                onChange={e => setShowMap(e.target.checked)}
-                className="h-4 w-4 accent-primary"
-                data-testid="checkbox-show-map"
-              />
+              <input type="checkbox" id="show-map" checked={showMap} onChange={e => setShowMap(e.target.checked)} className="h-4 w-4 accent-primary" data-testid="checkbox-show-map" />
               <Label htmlFor="show-map" className="text-sm font-medium cursor-pointer">Show interactive map on your clinic page</Label>
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Section 4: Why Choose Us (Features) ── */}
+      {/* ── Why Choose Us ── */}
       <div className="space-y-3">
         <SectionHeader id="features" icon={Sparkles} label="Why Choose Us" badge="New" />
         {openSection === "features" && (
           <div className="px-1 space-y-4">
-            <p className="text-xs text-muted-foreground">Up to 4 reasons shown as icon cards with a side photo. Shown on every theme.</p>
+            <p className="text-xs text-muted-foreground">Up to 4 reasons shown as icon cards with a side photo. Always visible on every theme.</p>
+
+            {/* Features preview */}
+            <PreviewShell>
+              <div className="p-4 bg-[#F4F8F6] flex gap-4 items-center">
+                <div className="flex-1 grid grid-cols-2 gap-2">
+                  {features.slice(0, 4).map((f, i) => (
+                    <div key={i} className="bg-white rounded-xl p-2.5 border border-[#DCE9E3] flex flex-col items-center text-center gap-1.5">
+                      <div className="h-8 w-8 rounded-full bg-[#0F9B6E]/10 border border-[#0F9B6E]/20 flex items-center justify-center text-sm">
+                        {FEATURE_EMOJI[f.icon] || "✦"}
+                      </div>
+                      <p className="text-[9px] font-semibold text-[#0A3D2E] leading-tight line-clamp-2">{f.title || "Feature title…"}</p>
+                    </div>
+                  ))}
+                </div>
+                {(featuresImageUrl || heroImageUrl) ? (
+                  <img src={featuresImageUrl || heroImageUrl} alt="" className="h-28 w-28 object-cover rounded-xl shrink-0 shadow" />
+                ) : (
+                  <div className="h-28 w-28 rounded-xl bg-white border-2 border-dashed border-[#DCE9E3] flex items-center justify-center shrink-0">
+                    <span className="text-3xl opacity-25">🏥</span>
+                  </div>
+                )}
+              </div>
+            </PreviewShell>
+
             {features.map((f, i) => (
               <div key={i} className="flex items-center gap-3">
                 <select
@@ -345,337 +601,328 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   className="rounded-xl"
                   data-testid={`input-feature-title-${i}`}
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 shrink-0"
-                  onClick={() => setFeatures(prev => prev.filter((_, j) => j !== i))}
-                  data-testid={`button-remove-feature-${i}`}
-                >
+                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 shrink-0" onClick={() => setFeatures(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-feature-${i}`}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             ))}
             {features.length < 4 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl gap-2"
-                onClick={() => setFeatures(prev => [...prev, { icon: "check", title: "" }])}
-                data-testid="button-add-feature"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Feature
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setFeatures(prev => [...prev, { icon: "check", title: "" }])} data-testid="button-add-feature">
+                <Plus className="h-3.5 w-3.5" />Add Feature
               </Button>
             )}
             <div className="pt-2 border-t border-border/40">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Side Photo (optional)</Label>
-              <p className="text-xs text-muted-foreground mb-2">Shown next to the feature grid. Falls back to the Hero photo if not set.</p>
-              <ImageUpload
-                currentImageUrl={featuresImageUrl || null}
-                onUploadComplete={(url) => setFeaturesImageUrl(url)}
-                folder="clinic-photos"
-                label="Upload Features Section Photo"
-              />
+              <p className="text-xs text-muted-foreground mb-2">Shown next to the feature grid. Falls back to Hero photo if not set.</p>
+              <ImageUpload currentImageUrl={featuresImageUrl || null} onUploadComplete={(url) => setFeaturesImageUrl(url)} folder="clinic-photos" label="Upload Features Section Photo" />
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Section 5: Stats bar ── */}
+      {/* ── Stats Bar ── */}
       <div className="space-y-3">
         <SectionHeader id="stats" icon={BarChart2} label="Stats & Numbers" badge="New" />
         {openSection === "stats" && (
           <div className="px-1 space-y-3">
-            <p className="text-xs text-muted-foreground">Show your clinic's achievements — e.g. "2800+ Dental Fillings". Only shown when you add stats here.</p>
+            <p className="text-xs text-muted-foreground">Your clinic's achievements — e.g. "2800+ Dental Fillings". This section is <strong>only shown</strong> when you add at least one stat.</p>
+
+            {/* Stats preview */}
+            {liveStats.length > 0 ? (
+              <PreviewShell>
+                <div className="bg-[#0A3D2E] px-4 py-5 grid grid-cols-4 gap-3">
+                  {liveStats.map((s, i) => (
+                    <div key={i} className="text-center">
+                      <div className="h-9 w-9 rounded-full bg-[#0F9B6E] mx-auto mb-2 flex items-center justify-center">
+                        <div className="h-3.5 w-3.5 rounded-full bg-white/30" />
+                      </div>
+                      <p className="text-white text-xs font-black leading-none">{s.value || "—"}</p>
+                      <p className="text-white/55 text-[9px] mt-0.5 leading-tight">{s.label || "Label"}</p>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 4 - liveStats.length) }).map((_, i) => (
+                    <div key={`empty-${i}`} className="text-center opacity-20">
+                      <div className="h-9 w-9 rounded-full bg-white/10 mx-auto mb-2" />
+                      <div className="h-2 w-8 bg-white/20 rounded mx-auto mb-1" />
+                      <div className="h-1.5 w-12 bg-white/10 rounded mx-auto" />
+                    </div>
+                  ))}
+                </div>
+              </PreviewShell>
+            ) : (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/80 flex items-start gap-2.5">
+                <span className="text-amber-500 mt-0.5">⚠</span>
+                <p className="text-xs text-amber-700">Stats section is <strong>hidden</strong> on your page. Add at least one stat below to make it visible.</p>
+              </div>
+            )}
+
             {stats.map((s, i) => (
               <div key={i} className="grid grid-cols-[1fr_2fr_auto] gap-3 items-center">
-                <Input
-                  value={s.value}
-                  onChange={e => setStats(prev => prev.map((x, j) => j === i ? { ...x, value: e.target.value } : x))}
-                  placeholder="e.g. 2800+"
-                  className="rounded-xl font-bold"
-                  data-testid={`input-stat-value-${i}`}
-                />
-                <Input
-                  value={s.label}
-                  onChange={e => setStats(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
-                  placeholder="e.g. Dental Fillings Completed"
-                  className="rounded-xl"
-                  data-testid={`input-stat-label-${i}`}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 shrink-0"
-                  onClick={() => setStats(prev => prev.filter((_, j) => j !== i))}
-                  data-testid={`button-remove-stat-${i}`}
-                >
+                <Input value={s.value} onChange={e => setStats(prev => prev.map((x, j) => j === i ? { ...x, value: e.target.value } : x))} placeholder="e.g. 2800+" className="rounded-xl font-bold" data-testid={`input-stat-value-${i}`} />
+                <Input value={s.label} onChange={e => setStats(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} placeholder="e.g. Dental Fillings Completed" className="rounded-xl" data-testid={`input-stat-label-${i}`} />
+                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 shrink-0" onClick={() => setStats(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-stat-${i}`}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             ))}
             {stats.length < 4 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl gap-2"
-                onClick={() => setStats(prev => [...prev, { value: "", label: "" }])}
-                data-testid="button-add-stat"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Stat
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setStats(prev => [...prev, { value: "", label: "" }])} data-testid="button-add-stat">
+                <Plus className="h-3.5 w-3.5" />Add Stat
               </Button>
             )}
           </div>
         )}
       </div>
 
-      {/* ── Section 6: Services ── */}
+      {/* ── Services ── */}
       <div className="space-y-3">
         <SectionHeader id="services" icon={Layers} label="Services" />
         {openSection === "services" && (
           <div className="px-1 space-y-4">
             <p className="text-xs text-muted-foreground">Add a photo to each service to show image cards in the carousel. Without photos, cards show with an icon instead.</p>
+
+            {/* Services preview */}
+            <PreviewShell>
+              <div className="p-3 bg-white">
+                {liveServices.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-3 gap-2">
+                      {liveServices.slice(0, 3).map((s, i) => (
+                        <div key={i} className="rounded-lg bg-[#F4F8F6] border border-[#DCE9E3] overflow-hidden">
+                          {s.imageUrl ? (
+                            <img src={s.imageUrl} alt="" className="w-full h-12 object-cover" />
+                          ) : (
+                            <div className="w-full h-1 bg-[#0F9B6E]" />
+                          )}
+                          <div className="p-2">
+                            <p className="text-[9px] font-bold text-[#0A3D2E] leading-tight line-clamp-2">{s.name}</p>
+                            {s.description && <p className="text-[8px] text-gray-500 mt-0.5 line-clamp-1">{s.description}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {liveServices.length > 3 && (
+                      <p className="text-[10px] text-muted-foreground mt-2 text-center">+{liveServices.length - 3} more · use arrows on live page</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground text-center py-3">Add services below to see them here</p>
+                )}
+              </div>
+            </PreviewShell>
+
             {services.map((s, i) => (
               <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-muted-foreground">Service {i + 1}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10"
-                    onClick={() => setServices(prev => prev.filter((_, j) => j !== i))}
-                    data-testid={`button-remove-service-${i}`}
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setServices(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-service-${i}`}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
-                  <Input
-                    value={s.name}
-                    onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
-                    placeholder="Service name"
-                    className="rounded-xl"
-                    data-testid={`input-service-name-${i}`}
-                  />
-                  <Input
-                    value={s.description}
-                    onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))}
-                    placeholder="Short description"
-                    className="rounded-xl"
-                    data-testid={`input-service-desc-${i}`}
-                  />
+                  <Input value={s.name} onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="Service name" className="rounded-xl" data-testid={`input-service-name-${i}`} />
+                  <Input value={s.description} onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Short description" className="rounded-xl" data-testid={`input-service-desc-${i}`} />
                 </div>
                 <div>
                   <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Service Photo (optional)</Label>
-                  <ImageUpload
-                    currentImageUrl={s.imageUrl || null}
-                    onUploadComplete={(url) => setServices(prev => prev.map((x, j) => j === i ? { ...x, imageUrl: url } : x))}
-                    folder="clinic-photos"
-                    label="Add service photo"
-                  />
+                  <ImageUpload currentImageUrl={s.imageUrl || null} onUploadComplete={(url) => setServices(prev => prev.map((x, j) => j === i ? { ...x, imageUrl: url } : x))} folder="clinic-photos" label="Add service photo" />
                 </div>
               </div>
             ))}
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-xl gap-2"
-              onClick={() => setServices(prev => [...prev, { name: "", description: "" }])}
-              data-testid="button-add-service"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Service
+            <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setServices(prev => [...prev, { name: "", description: "" }])} data-testid="button-add-service">
+              <Plus className="h-3.5 w-3.5" />Add Service
             </Button>
           </div>
         )}
       </div>
 
-      {/* ── Section 7: Gallery ── */}
+      {/* ── Gallery ── */}
       <div className="space-y-3">
         <SectionHeader id="gallery" icon={Image} label="Photo Gallery" />
         {openSection === "gallery" && (
           <div className="px-1 space-y-4">
-            <p className="text-xs text-muted-foreground">Upload up to 6 clinic photos. Shown as a carousel on your website.</p>
+            <p className="text-xs text-muted-foreground">Upload up to 6 clinic photos. Gallery section is <strong>hidden</strong> until at least one photo is added.</p>
+
+            {/* Gallery preview */}
+            {liveGallery.length > 0 ? (
+              <PreviewShell>
+                <div className="p-3 bg-[#0A3D2E]">
+                  <div className="grid grid-cols-3 gap-2">
+                    {liveGallery.slice(0, 3).map((g, i) => (
+                      <div key={i} className="rounded-xl overflow-hidden aspect-video shadow">
+                        <img src={g.url} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                  {liveGallery.length > 3 && (
+                    <p className="text-[10px] text-white/50 mt-2 text-center">+{liveGallery.length - 3} more · use arrows on live page</p>
+                  )}
+                </div>
+              </PreviewShell>
+            ) : (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/80 flex items-start gap-2.5">
+                <span className="text-amber-500 mt-0.5">⚠</span>
+                <p className="text-xs text-amber-700">Gallery section is <strong>hidden</strong> on your page. Upload at least one photo below to make it visible.</p>
+              </div>
+            )}
+
             {gallery.map((g, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div className="flex-1">
-                  <ImageUpload
-                    currentImageUrl={g.url || null}
-                    onUploadComplete={(url) => setGallery(prev => prev.map((x, j) => j === i ? { ...x, url } : x))}
-                    folder="clinic-photos"
-                    label={`Photo ${i + 1}`}
-                  />
+                  <ImageUpload currentImageUrl={g.url || null} onUploadComplete={(url) => setGallery(prev => prev.map((x, j) => j === i ? { ...x, url } : x))} folder="clinic-photos" label={`Photo ${i + 1}`} />
                 </div>
                 <div className="flex-1">
-                  <Input
-                    value={g.caption}
-                    onChange={e => setGallery(prev => prev.map((x, j) => j === i ? { ...x, caption: e.target.value } : x))}
-                    placeholder="Caption (optional)"
-                    className="rounded-xl"
-                    data-testid={`input-gallery-caption-${i}`}
-                  />
+                  <Input value={g.caption} onChange={e => setGallery(prev => prev.map((x, j) => j === i ? { ...x, caption: e.target.value } : x))} placeholder="Caption (optional)" className="rounded-xl" data-testid={`input-gallery-caption-${i}`} />
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 shrink-0 mt-1"
-                  onClick={() => setGallery(prev => prev.filter((_, j) => j !== i))}
-                  data-testid={`button-remove-gallery-${i}`}
-                >
+                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 shrink-0 mt-1" onClick={() => setGallery(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-gallery-${i}`}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             ))}
             {gallery.length < 6 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl gap-2"
-                onClick={() => setGallery(prev => [...prev, { url: "", caption: "" }])}
-                data-testid="button-add-gallery"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Photo
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setGallery(prev => [...prev, { url: "", caption: "" }])} data-testid="button-add-gallery">
+                <Plus className="h-3.5 w-3.5" />Add Photo
               </Button>
             )}
           </div>
         )}
       </div>
 
-      {/* ── Section 8: Testimonials ── */}
+      {/* ── Testimonials ── */}
       <div className="space-y-3">
         <SectionHeader id="testimonials" icon={Star} label="Patient Testimonials" />
         {openSection === "testimonials" && (
           <div className="px-1 space-y-4">
+            {/* Testimonials preview */}
+            {liveTestimonials.length > 0 ? (
+              <PreviewShell>
+                <div className="p-3 bg-white">
+                  <div className="p-3 rounded-xl bg-[#F4F8F6] border border-[#DCE9E3]">
+                    <div className="flex gap-0.5 mb-1.5">
+                      {[1,2,3,4,5].map(i => (
+                        <span key={i} className={`text-[11px] ${i <= liveTestimonials[0].rating ? "text-amber-400" : "text-gray-200"}`}>★</span>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-gray-600 italic line-clamp-2 leading-relaxed">"{liveTestimonials[0].quote}"</p>
+                    <p className="text-[9px] font-bold text-[#0A3D2E] mt-1.5">— {liveTestimonials[0].patientName}</p>
+                  </div>
+                  {liveTestimonials.length > 1 && (
+                    <p className="text-[10px] text-muted-foreground mt-2 text-center">+{liveTestimonials.length - 1} more review{liveTestimonials.length > 2 ? "s" : ""}</p>
+                  )}
+                </div>
+              </PreviewShell>
+            ) : (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/80 flex items-start gap-2.5">
+                <span className="text-amber-500 mt-0.5">⚠</span>
+                <p className="text-xs text-amber-700">Testimonials section is <strong>hidden</strong> on your page. Add at least one review below to make it visible.</p>
+              </div>
+            )}
+
             {testimonials.map((t, i) => (
               <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-muted-foreground">Testimonial {i + 1}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10"
-                    onClick={() => setTestimonials(prev => prev.filter((_, j) => j !== i))}
-                    data-testid={`button-remove-testimonial-${i}`}
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setTestimonials(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-testimonial-${i}`}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-                <Textarea
-                  value={t.quote}
-                  onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, quote: e.target.value } : x))}
-                  placeholder="Patient quote..."
-                  rows={2}
-                  className="rounded-xl resize-none"
-                  data-testid={`input-testimonial-quote-${i}`}
-                />
+                <Textarea value={t.quote} onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, quote: e.target.value } : x))} placeholder="Patient quote..." rows={2} className="rounded-xl resize-none" data-testid={`input-testimonial-quote-${i}`} />
                 <div className="flex gap-3">
-                  <Input
-                    value={t.patientName}
-                    onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, patientName: e.target.value } : x))}
-                    placeholder="Patient first name"
-                    className="rounded-xl"
-                    data-testid={`input-testimonial-name-${i}`}
-                  />
-                  <select
-                    value={t.rating}
-                    onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, rating: Number(e.target.value) } : x))}
-                    className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
-                    data-testid={`select-testimonial-rating-${i}`}
-                  >
+                  <Input value={t.patientName} onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, patientName: e.target.value } : x))} placeholder="Patient first name" className="rounded-xl" data-testid={`input-testimonial-name-${i}`} />
+                  <select value={t.rating} onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, rating: Number(e.target.value) } : x))} className="rounded-xl border border-input bg-background px-3 py-2 text-sm" data-testid={`select-testimonial-rating-${i}`}>
                     {[5, 4, 3, 2, 1].map(r => <option key={r} value={r}>{"★".repeat(r)} {r}/5</option>)}
                   </select>
                 </div>
               </div>
             ))}
             {testimonials.length < 5 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl gap-2"
-                onClick={() => setTestimonials(prev => [...prev, { quote: "", patientName: "", rating: 5 }])}
-                data-testid="button-add-testimonial"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Testimonial
+              <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setTestimonials(prev => [...prev, { quote: "", patientName: "", rating: 5 }])} data-testid="button-add-testimonial">
+                <Plus className="h-3.5 w-3.5" />Add Testimonial
               </Button>
             )}
           </div>
         )}
       </div>
 
-      {/* ── Section 9: Hours ── */}
+      {/* ── Hours ── */}
       <div className="space-y-3">
         <SectionHeader id="hours" icon={Clock} label="Clinic Hours" />
         {openSection === "hours" && (
           <div className="px-1 space-y-3">
+            {/* Hours preview */}
+            <PreviewShell>
+              <div className="p-3 bg-white">
+                <div className="divide-y divide-gray-50">
+                  {hours.slice(0, 4).map((h, i) => (
+                    <div key={i} className="flex justify-between items-center py-1.5">
+                      <span className="text-[10px] font-semibold text-gray-700">{h.day || "—"}</span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${h.closed ? "bg-red-50 text-red-500" : "bg-[#0F9B6E]/10 text-[#0F9B6E]"}`}>
+                        {h.closed ? "Closed" : h.open && h.close ? `${h.open} – ${h.close}` : "—"}
+                      </span>
+                    </div>
+                  ))}
+                  {hours.length > 4 && <p className="text-[9px] text-muted-foreground pt-1 text-center">+{hours.length - 4} more rows</p>}
+                </div>
+              </div>
+            </PreviewShell>
+
             {hours.map((h, i) => (
               <div key={i} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center">
-                <Input
-                  value={h.day}
-                  onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, day: e.target.value } : x))}
-                  placeholder="e.g. Mon – Fri"
-                  className="rounded-xl"
-                  data-testid={`input-hours-day-${i}`}
-                />
-                <Input
-                  value={h.open}
-                  onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, open: e.target.value } : x))}
-                  placeholder="9:00 AM"
-                  className="rounded-xl w-28"
-                  disabled={h.closed}
-                  data-testid={`input-hours-open-${i}`}
-                />
-                <Input
-                  value={h.close}
-                  onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, close: e.target.value } : x))}
-                  placeholder="7:00 PM"
-                  className="rounded-xl w-28"
-                  disabled={h.closed}
-                  data-testid={`input-hours-close-${i}`}
-                />
+                <Input value={h.day} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, day: e.target.value } : x))} placeholder="e.g. Mon – Fri" className="rounded-xl" data-testid={`input-hours-day-${i}`} />
+                <Input value={h.open} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, open: e.target.value } : x))} placeholder="9:00 AM" className="rounded-xl w-28" disabled={h.closed} data-testid={`input-hours-open-${i}`} />
+                <Input value={h.close} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, close: e.target.value } : x))} placeholder="7:00 PM" className="rounded-xl w-28" disabled={h.closed} data-testid={`input-hours-close-${i}`} />
                 <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    checked={h.closed}
-                    onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, closed: e.target.checked } : x))}
-                    className="accent-primary"
-                    data-testid={`checkbox-hours-closed-${i}`}
-                  />
+                  <input type="checkbox" checked={h.closed} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, closed: e.target.checked } : x))} className="accent-primary" data-testid={`checkbox-hours-closed-${i}`} />
                   Closed
                 </label>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-xl text-destructive hover:bg-destructive/10 shrink-0"
-                  onClick={() => setHours(prev => prev.filter((_, j) => j !== i))}
-                  data-testid={`button-remove-hours-${i}`}
-                >
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-destructive hover:bg-destructive/10 shrink-0" onClick={() => setHours(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-hours-${i}`}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
             ))}
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-xl gap-2"
-              onClick={() => setHours(prev => [...prev, { day: "", open: "", close: "", closed: false }])}
-              data-testid="button-add-hours"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Row
+            <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setHours(prev => [...prev, { day: "", open: "", close: "", closed: false }])} data-testid="button-add-hours">
+              <Plus className="h-3.5 w-3.5" />Add Row
             </Button>
           </div>
         )}
       </div>
 
-      {/* ── Section 10: Social links ── */}
+      {/* ── Social Links ── */}
       <div className="space-y-3">
         <SectionHeader id="social" icon={Share2} label="Social Links" />
         {openSection === "social" && (
           <div className="px-1 space-y-4">
+            {/* Social preview */}
+            <PreviewShell>
+              <div className="p-3 bg-white">
+                {socialCount > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {socialLinks.instagram && (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200/70">
+                        <Instagram className="h-3 w-3 text-purple-600" />
+                        <span className="text-[9px] text-purple-700 font-semibold">Instagram</span>
+                      </div>
+                    )}
+                    {socialLinks.facebook && (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200/70">
+                        <Facebook className="h-3 w-3 text-blue-600" />
+                        <span className="text-[9px] text-blue-700 font-semibold">Facebook</span>
+                      </div>
+                    )}
+                    {socialLinks.youtube && (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200/70">
+                        <Youtube className="h-3 w-3 text-red-600" />
+                        <span className="text-[9px] text-red-700 font-semibold">YouTube</span>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-muted-foreground self-center ml-1">Shown in footer</p>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground text-center py-2">No social links added — icons won't appear in footer</p>
+                )}
+              </div>
+            </PreviewShell>
+
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Instagram URL</Label>
               <Input value={socialLinks.instagram ?? ""} onChange={e => setSocialLinks(p => ({ ...p, instagram: e.target.value }))} placeholder="https://instagram.com/yourclinic" className="rounded-xl" data-testid="input-social-instagram" />
@@ -692,14 +939,9 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         )}
       </div>
 
-      {/* Save bar */}
+      {/* ── Save bar ── */}
       <div className="pt-4 border-t border-border/50 flex justify-end">
-        <Button
-          onClick={handleSave}
-          disabled={saveMutation.isPending}
-          className="gap-2 rounded-xl px-8"
-          data-testid="button-save-website-bottom"
-        >
+        <Button onClick={handleSave} disabled={saveMutation.isPending} className="gap-2 rounded-xl px-8" data-testid="button-save-website-bottom">
           <Save className="h-4 w-4" />
           {saveMutation.isPending ? "Saving…" : "Save Website"}
         </Button>
