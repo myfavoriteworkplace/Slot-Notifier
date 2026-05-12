@@ -927,14 +927,14 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
 
             {/* Mini preview strip */}
             <div className="h-44 shrink-0 border-b border-border/40 overflow-hidden">
-              <PreviewPane />
+              {PreviewPane()}
             </div>
 
             {/* Edit form area */}
             {activeRow?.editable ? (
               <div className="flex-1 flex flex-col overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-5">
-                  <EditorPane />
+                  {EditorPane()}
                 </div>
                 {/* Sticky save bar */}
                 <div className="shrink-0 border-t border-border/40 bg-background/95 backdrop-blur-sm px-5 py-3 flex items-center justify-between">
