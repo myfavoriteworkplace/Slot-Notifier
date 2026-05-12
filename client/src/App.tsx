@@ -1,4 +1,4 @@
-import { Switch, Route, Link, useLocation } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient, API_BASE_URL } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -6,8 +6,7 @@ import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/comp
 import { ThemeProvider } from "next-themes";
 import { Header } from "@/components/Header";
 import { useState, useEffect } from "react";
-import { Server, Database, ShieldCheck, CalendarPlus } from "lucide-react";
-import logoPath from "@assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png";
+import { Server, Database, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import NotFound from "@/pages/not-found";
@@ -154,64 +153,6 @@ function Router() {
   );
 }
 
-/* ── Minimal bar shown on standalone clinic profile pages ── */
-function ClinicMinimalBar() {
-  const [location] = useLocation();
-  const [bookHref, setBookHref] = useState("/book");
-
-  useEffect(() => {
-    const id = sessionStorage.getItem("lastClinicId");
-    if (id && id !== "null") {
-      setBookHref(`/book/${id}`);
-    } else {
-      setBookHref("/book");
-    }
-  }, [location]);
-
-  return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-md">
-      <div className="w-full px-4 sm:px-6">
-        <div className="flex h-16 items-center justify-between">
-
-          {/* Logo */}
-          <Link
-            href="/"
-            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
-            data-testid="link-home-minimal"
-          >
-            <img src={logoPath} alt="bookMySlot logo" className="h-8 w-8 rounded-xl object-cover" />
-            <div className="hidden sm:flex flex-col leading-none">
-              <span
-                className="text-[15px] font-bold tracking-tight"
-                style={{ fontFamily: "'Sora', sans-serif", letterSpacing: "-.02em" }}
-              >
-                book<span style={{ color: "#0F9B6E" }}>My</span>Slot
-              </span>
-              <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-primary/60 mt-[2px]">
-                Dental
-              </span>
-            </div>
-          </Link>
-
-          {/* Book Appointment CTA */}
-          <Link href={bookHref}>
-            <button
-              className="flex items-center gap-2 h-9 px-4 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
-              style={{ background: "#0F9B6E", boxShadow: "0 2px 10px rgba(15,155,110,.3)" }}
-              data-testid="button-book-appointment-minimal"
-            >
-              <CalendarPlus className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">Book Appointment</span>
-              <span className="sm:hidden">Book</span>
-            </button>
-          </Link>
-
-        </div>
-      </div>
-    </header>
-  );
-}
-
 function AppLayout() {
   const [location] = useLocation();
   const isClinicAboutPage = location.startsWith("/clinic/") || location === "/about";
@@ -227,7 +168,7 @@ function AppLayout() {
         aria-hidden="true"
         className="fixed -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-accent/10 blur-3xl pointer-events-none z-0"
       />
-      {isClinicAboutPage ? <ClinicMinimalBar /> : <Header />}
+      {!isClinicAboutPage && <Header />}
       <main className="relative z-10">
         <Router />
       </main>

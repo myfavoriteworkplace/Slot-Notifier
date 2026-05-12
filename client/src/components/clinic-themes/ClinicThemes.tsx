@@ -153,7 +153,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
   return (
     <div className="min-h-screen bg-[#F4F8F6] font-sans" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       {/* Mini-nav */}
-      <nav className="sticky top-16 z-40 bg-white/95 backdrop-blur-md border-b border-[#DCE9E3] px-6 py-3">
+      <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#DCE9E3] px-6 py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             {clinic.logoUrl && <img src={clinic.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />}
@@ -366,7 +366,7 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* Mini-nav */}
-      <nav className="sticky top-16 z-40 bg-white shadow-sm px-6 py-4">
+      <nav className="sticky top-0 z-40 bg-white shadow-sm px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             {clinic.logoUrl && <img src={clinic.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />}
@@ -594,7 +594,7 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
   return (
     <div className="min-h-screen bg-[#F8FAFC]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* Mini-nav */}
-      <nav className="sticky top-16 z-40 bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
+      <nav className="sticky top-0 z-40 bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             {clinic.logoUrl && <img src={clinic.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />}
