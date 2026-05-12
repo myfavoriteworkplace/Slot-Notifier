@@ -11,6 +11,7 @@ import { ImageUpload } from "@/components/ImageUpload";
 import {
   Globe, Palette, Image, Layers, Star, Clock, Share2,
   Plus, Trash2, ChevronDown, ChevronUp, ExternalLink, Save, Eye,
+  BarChart2, Sparkles,
 } from "lucide-react";
 import type { ClinicWebsiteConfig } from "@shared/schema";
 
@@ -45,7 +46,18 @@ const DEFAULT_HOURS = [
   { day: "Sunday", open: "", close: "", closed: true },
 ];
 
-type Section = "theme" | "hero" | "about" | "services" | "gallery" | "testimonials" | "hours" | "social";
+const FEATURE_ICON_OPTIONS = [
+  { value: "users", label: "👥 Expert Team" },
+  { value: "stethoscope", label: "🩺 Medical Care" },
+  { value: "heart", label: "❤️ Patient Comfort" },
+  { value: "shield", label: "🛡️ Safety & Trust" },
+  { value: "award", label: "🏆 Award Winning" },
+  { value: "zap", label: "⚡ Advanced Technology" },
+  { value: "activity", label: "📈 Excellence" },
+  { value: "check", label: "✅ Quality Assured" },
+];
+
+type Section = "theme" | "hero" | "about" | "features" | "stats" | "services" | "gallery" | "testimonials" | "hours" | "social";
 
 export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) {
   const { toast } = useToast();
@@ -59,7 +71,19 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   const [aboutDescription, setAboutDescription] = useState(existing.aboutDescription ?? "");
   const [vision, setVision] = useState(existing.vision ?? "");
   const [values, setValues] = useState(existing.values ?? "");
-  const [services, setServices] = useState<{ name: string; description: string }[]>(
+  const [features, setFeatures] = useState<{ icon: string; title: string }[]>(
+    existing.features?.length ? existing.features : [
+      { icon: "users", title: "Expert and Passionate Team" },
+      { icon: "stethoscope", title: "Comprehensive Dental Care Services" },
+      { icon: "heart", title: "Focus on Patient Comfort and Confidence" },
+      { icon: "zap", title: "Advanced Technology and Continuous Learning" },
+    ]
+  );
+  const [featuresImageUrl, setFeaturesImageUrl] = useState(existing.featuresImageUrl ?? "");
+  const [stats, setStats] = useState<{ value: string; label: string }[]>(
+    existing.stats?.length ? existing.stats : []
+  );
+  const [services, setServices] = useState<{ name: string; description: string; imageUrl?: string }[]>(
     existing.services?.length ? existing.services : [{ name: "", description: "" }]
   );
   const [gallery, setGallery] = useState<{ url: string; caption: string }[]>(
@@ -87,6 +111,14 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     setAboutDescription(e.aboutDescription ?? "");
     setVision(e.vision ?? "");
     setValues(e.values ?? "");
+    setFeatures(e.features?.length ? e.features : [
+      { icon: "users", title: "Expert and Passionate Team" },
+      { icon: "stethoscope", title: "Comprehensive Dental Care Services" },
+      { icon: "heart", title: "Focus on Patient Comfort and Confidence" },
+      { icon: "zap", title: "Advanced Technology and Continuous Learning" },
+    ]);
+    setFeaturesImageUrl(e.featuresImageUrl ?? "");
+    setStats(e.stats?.length ? e.stats : []);
     setServices(e.services?.length ? e.services : [{ name: "", description: "" }]);
     setGallery(e.gallery?.length ? e.gallery : []);
     setTestimonials(e.testimonials?.length ? e.testimonials : []);
@@ -120,6 +152,9 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       aboutDescription: aboutDescription || undefined,
       vision: vision || undefined,
       values: values || undefined,
+      features: features.filter(f => f.title),
+      featuresImageUrl: featuresImageUrl || undefined,
+      stats: stats.filter(s => s.value && s.label),
       services: services.filter(s => s.name),
       gallery: gallery.filter(g => g.url),
       testimonials: testimonials.filter(t => t.quote && t.patientName),
@@ -134,7 +169,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
 
   const toggle = (s: Section) => setOpenSection(prev => prev === s ? "theme" : s);
 
-  const SectionHeader = ({ id, icon: Icon, label }: { id: Section; icon: any; label: string }) => (
+  const SectionHeader = ({ id, icon: Icon, label, badge }: { id: Section; icon: any; label: string; badge?: string }) => (
     <button
       onClick={() => toggle(id)}
       className={`w-full flex items-center justify-between px-5 py-4 rounded-xl border transition-all text-left ${
@@ -147,6 +182,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           <Icon className={`h-4 w-4 ${openSection === id ? "text-primary" : "text-muted-foreground"}`} />
         </div>
         <span className={`font-semibold text-sm ${openSection === id ? "text-primary" : "text-foreground"}`}>{label}</span>
+        {badge && <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{badge}</span>}
       </div>
       {openSection === id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
     </button>
@@ -202,14 +238,12 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 }`}
                 data-testid={`theme-option-${t.id}`}
               >
-                {/* Thumbnail */}
                 <div className={`h-28 w-full ${t.preview} flex items-end p-3`}>
                   <div className="bg-white/10 rounded-lg px-3 py-1.5 backdrop-blur-sm">
                     <div className="h-2 w-16 bg-white/60 rounded mb-1.5" />
                     <div className="h-1.5 w-10 bg-white/40 rounded" />
                   </div>
                 </div>
-                {/* Info */}
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="font-bold text-sm">{t.label}</span>
@@ -244,7 +278,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             </div>
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Hero / Clinic Photo</Label>
-              <p className="text-xs text-muted-foreground mb-2">Used as the background (Warm theme) or side image (Classic theme). Also shown in the Modern theme.</p>
+              <p className="text-xs text-muted-foreground mb-2">Used as the background (Warm theme) or side image (Classic & Modern themes).</p>
               <ImageUpload
                 currentImageUrl={heroImageUrl || null}
                 onUploadComplete={(url) => setHeroImageUrl(url)}
@@ -288,36 +322,160 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         )}
       </div>
 
-      {/* ── Section 4: Services ── */}
+      {/* ── Section 4: Why Choose Us (Features) ── */}
       <div className="space-y-3">
-        <SectionHeader id="services" icon={Layers} label="Services" />
-        {openSection === "services" && (
-          <div className="px-1 space-y-3">
-            {services.map((s, i) => (
-              <div key={i} className="grid sm:grid-cols-[1fr_1.5fr_auto] gap-3 items-start">
+        <SectionHeader id="features" icon={Sparkles} label="Why Choose Us" badge="New" />
+        {openSection === "features" && (
+          <div className="px-1 space-y-4">
+            <p className="text-xs text-muted-foreground">Up to 4 reasons shown as icon cards with a side photo. Shown on every theme.</p>
+            {features.map((f, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <select
+                  value={f.icon}
+                  onChange={e => setFeatures(prev => prev.map((x, j) => j === i ? { ...x, icon: e.target.value } : x))}
+                  className="rounded-xl border border-input bg-background px-3 py-2 text-sm w-52 shrink-0"
+                  data-testid={`select-feature-icon-${i}`}
+                >
+                  {FEATURE_ICON_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
                 <Input
-                  value={s.name}
-                  onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
-                  placeholder="Service name"
+                  value={f.title}
+                  onChange={e => setFeatures(prev => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))}
+                  placeholder="e.g. Expert and Passionate Team"
                   className="rounded-xl"
-                  data-testid={`input-service-name-${i}`}
-                />
-                <Input
-                  value={s.description}
-                  onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))}
-                  placeholder="Short description"
-                  className="rounded-xl"
-                  data-testid={`input-service-desc-${i}`}
+                  data-testid={`input-feature-title-${i}`}
                 />
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 shrink-0"
-                  onClick={() => setServices(prev => prev.filter((_, j) => j !== i))}
-                  data-testid={`button-remove-service-${i}`}
+                  onClick={() => setFeatures(prev => prev.filter((_, j) => j !== i))}
+                  data-testid={`button-remove-feature-${i}`}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
+              </div>
+            ))}
+            {features.length < 4 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl gap-2"
+                onClick={() => setFeatures(prev => [...prev, { icon: "check", title: "" }])}
+                data-testid="button-add-feature"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Feature
+              </Button>
+            )}
+            <div className="pt-2 border-t border-border/40">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Side Photo (optional)</Label>
+              <p className="text-xs text-muted-foreground mb-2">Shown next to the feature grid. Falls back to the Hero photo if not set.</p>
+              <ImageUpload
+                currentImageUrl={featuresImageUrl || null}
+                onUploadComplete={(url) => setFeaturesImageUrl(url)}
+                folder="clinic-photos"
+                label="Upload Features Section Photo"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Section 5: Stats bar ── */}
+      <div className="space-y-3">
+        <SectionHeader id="stats" icon={BarChart2} label="Stats & Numbers" badge="New" />
+        {openSection === "stats" && (
+          <div className="px-1 space-y-3">
+            <p className="text-xs text-muted-foreground">Show your clinic's achievements — e.g. "2800+ Dental Fillings". Only shown when you add stats here.</p>
+            {stats.map((s, i) => (
+              <div key={i} className="grid grid-cols-[1fr_2fr_auto] gap-3 items-center">
+                <Input
+                  value={s.value}
+                  onChange={e => setStats(prev => prev.map((x, j) => j === i ? { ...x, value: e.target.value } : x))}
+                  placeholder="e.g. 2800+"
+                  className="rounded-xl font-bold"
+                  data-testid={`input-stat-value-${i}`}
+                />
+                <Input
+                  value={s.label}
+                  onChange={e => setStats(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                  placeholder="e.g. Dental Fillings Completed"
+                  className="rounded-xl"
+                  data-testid={`input-stat-label-${i}`}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 shrink-0"
+                  onClick={() => setStats(prev => prev.filter((_, j) => j !== i))}
+                  data-testid={`button-remove-stat-${i}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            {stats.length < 4 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl gap-2"
+                onClick={() => setStats(prev => [...prev, { value: "", label: "" }])}
+                data-testid="button-add-stat"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Stat
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Section 6: Services ── */}
+      <div className="space-y-3">
+        <SectionHeader id="services" icon={Layers} label="Services" />
+        {openSection === "services" && (
+          <div className="px-1 space-y-4">
+            <p className="text-xs text-muted-foreground">Add a photo to each service to show image cards in the carousel. Without photos, cards show with an icon instead.</p>
+            {services.map((s, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">Service {i + 1}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10"
+                    onClick={() => setServices(prev => prev.filter((_, j) => j !== i))}
+                    data-testid={`button-remove-service-${i}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Input
+                    value={s.name}
+                    onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                    placeholder="Service name"
+                    className="rounded-xl"
+                    data-testid={`input-service-name-${i}`}
+                  />
+                  <Input
+                    value={s.description}
+                    onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))}
+                    placeholder="Short description"
+                    className="rounded-xl"
+                    data-testid={`input-service-desc-${i}`}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Service Photo (optional)</Label>
+                  <ImageUpload
+                    currentImageUrl={s.imageUrl || null}
+                    onUploadComplete={(url) => setServices(prev => prev.map((x, j) => j === i ? { ...x, imageUrl: url } : x))}
+                    folder="clinic-photos"
+                    label="Add service photo"
+                  />
+                </div>
               </div>
             ))}
             <Button
@@ -334,12 +492,12 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         )}
       </div>
 
-      {/* ── Section 5: Gallery ── */}
+      {/* ── Section 7: Gallery ── */}
       <div className="space-y-3">
         <SectionHeader id="gallery" icon={Image} label="Photo Gallery" />
         {openSection === "gallery" && (
           <div className="px-1 space-y-4">
-            <p className="text-xs text-muted-foreground">Upload up to 6 clinic photos. These appear as a gallery grid on your website.</p>
+            <p className="text-xs text-muted-foreground">Upload up to 6 clinic photos. Shown as a carousel on your website.</p>
             {gallery.map((g, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div className="flex-1">
@@ -386,7 +544,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         )}
       </div>
 
-      {/* ── Section 6: Testimonials ── */}
+      {/* ── Section 8: Testimonials ── */}
       <div className="space-y-3">
         <SectionHeader id="testimonials" icon={Star} label="Patient Testimonials" />
         {openSection === "testimonials" && (
@@ -448,7 +606,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         )}
       </div>
 
-      {/* ── Section 7: Hours ── */}
+      {/* ── Section 9: Hours ── */}
       <div className="space-y-3">
         <SectionHeader id="hours" icon={Clock} label="Clinic Hours" />
         {openSection === "hours" && (
@@ -513,7 +671,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         )}
       </div>
 
-      {/* ── Section 8: Social links ── */}
+      {/* ── Section 10: Social links ── */}
       <div className="space-y-3">
         <SectionHeader id="social" icon={Share2} label="Social Links" />
         {openSection === "social" && (

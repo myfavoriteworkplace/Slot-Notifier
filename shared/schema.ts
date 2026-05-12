@@ -17,11 +17,14 @@ export type ClinicWebsiteConfig = {
   values?: string;
   heroImageUrl?: string;
   gallery?: { url: string; caption: string }[];
-  services?: { name: string; description: string }[];
+  services?: { name: string; description: string; imageUrl?: string }[];
   testimonials?: { quote: string; patientName: string; rating: number }[];
   hours?: { day: string; open: string; close: string; closed: boolean }[];
   socialLinks?: { instagram?: string; facebook?: string; youtube?: string };
   showMap?: boolean;
+  stats?: { value: string; label: string }[];
+  features?: { icon: string; title: string }[];
+  featuresImageUrl?: string;
 };
 
 export const clinics = pgTable("clinics", {

@@ -1,9 +1,15 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { ClinicWebsiteConfig } from "@shared/schema";
-import { Star, Phone, Mail, MapPin, Globe, Clock, Navigation, Instagram, Facebook, Youtube, ExternalLink } from "lucide-react";
+import {
+  Star, Phone, Mail, MapPin, Globe, Clock, Navigation,
+  Instagram, Facebook, Youtube, ExternalLink,
+  ChevronLeft, ChevronRight,
+  Users2, ShieldCheck, Heart, Award, Activity, Zap, Stethoscope, CheckCircle2,
+} from "lucide-react";
 
 const PIN_ICON = L.divIcon({
   html: `<div style="width:32px;height:40px;display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.4))"><div style="width:28px;height:28px;background:#0F9B6E;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25)"></div><div style="width:4px;height:12px;background:#0F9B6E;border-radius:0 0 2px 2px;margin-top:-2px"></div></div>`,
@@ -50,39 +56,33 @@ const DEFAULT_HOURS = [
   { day: "Sunday", open: "", close: "", closed: true },
 ];
 
+const DEFAULT_FEATURES = [
+  { icon: "users", title: "Expert and Passionate Team" },
+  { icon: "stethoscope", title: "Comprehensive Dental Care Services" },
+  { icon: "heart", title: "Focus on Patient Comfort and Confidence" },
+  { icon: "zap", title: "Advanced Technology and Continuous Learning" },
+];
+
+const STAT_ICONS = [Stethoscope, Users2, Award, Heart];
+
+const FEATURE_ICON_MAP: Record<string, React.ElementType> = {
+  users: Users2,
+  shield: ShieldCheck,
+  heart: Heart,
+  award: Award,
+  activity: Activity,
+  zap: Zap,
+  stethoscope: Stethoscope,
+  check: CheckCircle2,
+};
+
+/* ─── Shared helpers ───────────────────────────────────── */
+
 function StarRating({ rating }: { rating: number }) {
   return (
     <div className="flex gap-0.5">
       {[1, 2, 3, 4, 5].map((i) => (
         <Star key={i} className={`h-3.5 w-3.5 ${i <= rating ? "fill-amber-400 text-amber-400" : "text-gray-300"}`} />
-      ))}
-    </div>
-  );
-}
-
-function DoctorsGrid({ clinic }: { clinic: ThemeClinic }) {
-  const doctors =
-    clinic.doctors && Array.isArray(clinic.doctors) && clinic.doctors.length > 0
-      ? clinic.doctors
-      : clinic.doctorName
-      ? [{ name: clinic.doctorName, specialization: clinic.doctorSpecialization ?? "", degree: clinic.doctorDegree ?? "", imageUrl: null }]
-      : null;
-  if (!doctors) return null;
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      {doctors.map((doc, i) => (
-        <div key={i} className="flex flex-col items-center text-center p-6 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-          <div className="h-20 w-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center mb-4 overflow-hidden">
-            {doc.imageUrl ? (
-              <img src={doc.imageUrl} alt={doc.name} className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-2xl font-bold text-primary">{doc.name.replace(/^Dr\.\s*/i, "").charAt(0)}</span>
-            )}
-          </div>
-          <h3 className="font-bold text-lg mb-1">{doc.name}</h3>
-          <p className="text-primary text-sm font-semibold mb-2">{doc.specialization}</p>
-          <span className="text-xs px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary font-medium">{doc.degree}</span>
-        </div>
       ))}
     </div>
   );
@@ -117,26 +117,482 @@ function MapSection({ clinic, cfg }: { clinic: ThemeClinic; cfg: ClinicWebsiteCo
   );
 }
 
-function SocialLinks({ links }: { links?: ClinicWebsiteConfig["socialLinks"] }) {
+function SocialLinks({ links, light }: { links?: ClinicWebsiteConfig["socialLinks"]; light?: boolean }) {
   if (!links) return null;
+  const cls = `hover:opacity-70 transition-opacity ${light ? "text-white" : ""}`;
   return (
     <div className="flex items-center gap-4">
       {links.instagram && (
-        <a href={links.instagram} target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity">
+        <a href={links.instagram} target="_blank" rel="noopener noreferrer" className={cls}>
           <Instagram className="h-5 w-5" />
         </a>
       )}
       {links.facebook && (
-        <a href={links.facebook} target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity">
+        <a href={links.facebook} target="_blank" rel="noopener noreferrer" className={cls}>
           <Facebook className="h-5 w-5" />
         </a>
       )}
       {links.youtube && (
-        <a href={links.youtube} target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity">
+        <a href={links.youtube} target="_blank" rel="noopener noreferrer" className={cls}>
           <Youtube className="h-5 w-5" />
         </a>
       )}
     </div>
+  );
+}
+
+/* ─── NEW: Stats bar ───────────────────────────────────── */
+
+function StatsBar({ stats, bg, numColor, labelColor }: {
+  stats: { value: string; label: string }[];
+  bg: string;
+  numColor: string;
+  labelColor: string;
+}) {
+  return (
+    <section className={`px-6 py-16 ${bg}`}>
+      <div className="max-w-6xl mx-auto">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+          {stats.map((s, i) => {
+            const Icon = STAT_ICONS[i % STAT_ICONS.length];
+            return (
+              <div key={i} className="text-center">
+                <div className="h-16 w-16 rounded-full bg-[#0F9B6E] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#0F9B6E]/30">
+                  <Icon className="h-7 w-7 text-white" />
+                </div>
+                <p className={`text-4xl font-black ${numColor} mb-1`}>{s.value}</p>
+                <p className={`text-sm font-semibold ${labelColor} mt-1`}>{s.label}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── NEW: Why Choose Us ───────────────────────────────── */
+
+function WhyChooseUs({ features, imageUrl, bg, cardBg, border, titleColor, accentColor, serif }: {
+  features: { icon: string; title: string }[];
+  imageUrl?: string;
+  bg: string;
+  cardBg: string;
+  border: string;
+  titleColor: string;
+  accentColor: string;
+  serif?: boolean;
+}) {
+  return (
+    <section className={`px-6 py-20 ${bg}`}>
+      <div className="max-w-6xl mx-auto">
+        <div className="grid lg:grid-cols-2 gap-14 items-center">
+          <div>
+            <p className={`text-sm font-bold uppercase tracking-widest ${accentColor} mb-3`}>Why Choose Us</p>
+            <h2
+              className={`text-3xl font-bold ${titleColor} mb-8`}
+              style={serif
+                ? { fontFamily: "'Playfair Display', Georgia, serif" }
+                : { fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em", fontWeight: 900 }}
+            >
+              Our Commitment to You
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              {features.map((f, i) => {
+                const Icon = FEATURE_ICON_MAP[f.icon] ?? Heart;
+                return (
+                  <div key={i} className={`flex flex-col items-center text-center p-5 rounded-2xl ${cardBg} border ${border}`}>
+                    <div className="h-14 w-14 rounded-full bg-[#0F9B6E]/10 border-2 border-[#0F9B6E]/20 flex items-center justify-center mb-3">
+                      <Icon className="h-6 w-6 text-[#0F9B6E]" />
+                    </div>
+                    <p className={`font-semibold text-sm ${titleColor} leading-snug`}>{f.title}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            {imageUrl ? (
+              <img src={imageUrl} alt="Clinic" className="rounded-2xl w-full h-[420px] object-cover shadow-xl" />
+            ) : (
+              <div className={`rounded-2xl w-full h-[420px] ${cardBg} border-2 border-dashed ${border} flex items-center justify-center`}>
+                <div className={`text-center ${titleColor} opacity-30`}>
+                  <div className="text-6xl mb-3">🏥</div>
+                  <p className="text-sm font-medium">Add a clinic photo in the website builder</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── NEW: Services carousel ───────────────────────────── */
+
+function ServicesCarousel({ services, sectionId, titleLabel, title, bg, cardBg, border, titleColor, accentColor, textColor, serif, numStyle }: {
+  services: { name: string; description: string; imageUrl?: string }[];
+  sectionId: string;
+  titleLabel?: string;
+  title: string;
+  bg: string;
+  cardBg: string;
+  border: string;
+  titleColor: string;
+  accentColor: string;
+  textColor: string;
+  serif?: boolean;
+  numStyle?: boolean;
+}) {
+  const [page, setPage] = useState(0);
+  const ipp = 3;
+  const pages = Math.ceil(services.length / ipp);
+  const visible = services.slice(page * ipp, (page + 1) * ipp);
+  const hasImages = services.some(s => s.imageUrl);
+
+  return (
+    <section id={sectionId} className={`px-6 py-20 ${bg}`}>
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-end justify-between mb-12">
+          <div>
+            {titleLabel && (
+              <p className={`text-sm font-bold uppercase tracking-widest ${accentColor} mb-2`}>{titleLabel}</p>
+            )}
+            <h2
+              className={`text-4xl font-bold ${titleColor}`}
+              style={serif
+                ? { fontFamily: "'Playfair Display', Georgia, serif" }
+                : { fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em", fontWeight: 900 }}
+            >
+              {title}
+            </h2>
+          </div>
+          {pages > 1 && (
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className={`h-10 w-10 rounded-xl border ${border} flex items-center justify-center ${titleColor} hover:bg-[#0F9B6E] hover:text-white hover:border-[#0F9B6E] transition-all disabled:opacity-30`}
+                data-testid="button-services-prev"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(pages - 1, p + 1))}
+                disabled={page === pages - 1}
+                className={`h-10 w-10 rounded-xl border ${border} flex items-center justify-center ${titleColor} hover:bg-[#0F9B6E] hover:text-white hover:border-[#0F9B6E] transition-all disabled:opacity-30`}
+                data-testid="button-services-next"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {visible.map((s, i) => (
+            <div key={`${page}-${i}`} className={`rounded-2xl ${cardBg} border ${border} overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all duration-300`}>
+              {s.imageUrl ? (
+                <img src={s.imageUrl} alt={s.name} className="w-full h-44 object-cover" />
+              ) : (
+                <div className="w-full h-1.5 bg-[#0F9B6E]" />
+              )}
+              <div className="p-6">
+                {numStyle && !s.imageUrl ? (
+                  <p className={`text-3xl font-black ${accentColor} mb-3`}>0{(page * ipp) + i + 1}</p>
+                ) : !s.imageUrl ? (
+                  <div className="h-9 w-9 rounded-xl bg-[#0F9B6E]/10 flex items-center justify-center mb-4">
+                    <span className="text-[#0F9B6E] font-bold text-lg">✦</span>
+                  </div>
+                ) : null}
+                <h3 className={`font-bold ${titleColor} mb-2`}>{s.name}</h3>
+                <p className={`${textColor} text-sm leading-relaxed`}>{s.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        {pages > 1 && (
+          <div className="flex justify-center gap-2 mt-8">
+            {Array.from({ length: pages }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i)}
+                className={`h-2 rounded-full transition-all ${i === page ? "w-8 bg-[#0F9B6E]" : "w-2 bg-gray-300"}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ─── NEW: Doctors carousel ────────────────────────────── */
+
+function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, border, titleColor, accentColor, serif }: {
+  clinic: ThemeClinic;
+  sectionId: string;
+  titleLabel?: string;
+  title: string;
+  bg: string;
+  cardBg: string;
+  border: string;
+  titleColor: string;
+  accentColor: string;
+  serif?: boolean;
+}) {
+  const doctors =
+    clinic.doctors && Array.isArray(clinic.doctors) && clinic.doctors.length > 0
+      ? clinic.doctors
+      : clinic.doctorName
+      ? [{ name: clinic.doctorName, specialization: clinic.doctorSpecialization ?? "", degree: clinic.doctorDegree ?? "", imageUrl: null }]
+      : null;
+
+  const [page, setPage] = useState(0);
+  const ipp = 4;
+  const pages = doctors ? Math.ceil(doctors.length / ipp) : 0;
+  const visible = doctors ? doctors.slice(page * ipp, (page + 1) * ipp) : [];
+
+  if (!doctors) return null;
+
+  return (
+    <section id={sectionId} className={`px-6 py-20 ${bg}`}>
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-end justify-between mb-12">
+          <div className="flex-1 text-center">
+            {titleLabel && (
+              <p className={`text-sm font-bold uppercase tracking-widest ${accentColor} mb-2`}>{titleLabel}</p>
+            )}
+            <h2
+              className={`text-4xl font-bold ${titleColor}`}
+              style={serif
+                ? { fontFamily: "'Playfair Display', Georgia, serif" }
+                : { fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em", fontWeight: 900 }}
+            >
+              {title}
+            </h2>
+          </div>
+          {pages > 1 && (
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className={`h-10 w-10 rounded-xl border ${border} flex items-center justify-center ${titleColor} hover:bg-[#0F9B6E] hover:text-white hover:border-[#0F9B6E] transition-all disabled:opacity-30`}
+                data-testid="button-doctors-prev"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(pages - 1, p + 1))}
+                disabled={page === pages - 1}
+                className={`h-10 w-10 rounded-xl border ${border} flex items-center justify-center ${titleColor} hover:bg-[#0F9B6E] hover:text-white hover:border-[#0F9B6E] transition-all disabled:opacity-30`}
+                data-testid="button-doctors-next"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          {visible.map((doc, i) => (
+            <div key={`${page}-${i}`} className={`${cardBg} rounded-2xl border ${border} overflow-hidden text-center hover:-translate-y-1 hover:shadow-lg transition-all`}>
+              <div className="h-52 bg-gray-100 flex items-center justify-center overflow-hidden">
+                {doc.imageUrl ? (
+                  <img src={doc.imageUrl} alt={doc.name} className="w-full h-full object-cover object-top" />
+                ) : (
+                  <div className="h-20 w-20 rounded-full bg-[#0F9B6E]/10 border-2 border-[#0F9B6E]/20 flex items-center justify-center">
+                    <span className="text-3xl font-bold text-[#0F9B6E]">
+                      {doc.name.replace(/^Dr\.\s*/i, "").charAt(0)}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="p-4">
+                <h3 className={`font-bold ${titleColor} mb-1 text-sm`}>{doc.name}</h3>
+                <p className="text-[#0F9B6E] text-xs font-semibold mb-2">{doc.specialization}</p>
+                {doc.degree && (
+                  <span className={`text-xs px-2 py-1 rounded-full ${cardBg} border ${border} text-gray-500`}>
+                    {doc.degree}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── NEW: Gallery carousel ────────────────────────────── */
+
+function GallerySection({ gallery, bg, titleColor }: {
+  gallery: { url: string; caption?: string }[];
+  bg: string;
+  titleColor: string;
+}) {
+  const [page, setPage] = useState(0);
+  const ipp = 3;
+  const pages = Math.ceil(gallery.length / ipp);
+  const visible = gallery.slice(page * ipp, (page + 1) * ipp);
+
+  return (
+    <section className={`px-6 py-20 ${bg}`}>
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-10">
+          <h2 className={`text-3xl font-bold ${titleColor}`}>Our Clinic</h2>
+          {pages > 1 && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="h-9 w-9 rounded-lg bg-white/15 border border-white/25 flex items-center justify-center text-white hover:bg-white/25 transition-all disabled:opacity-30"
+                data-testid="button-gallery-prev"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(pages - 1, p + 1))}
+                disabled={page === pages - 1}
+                className="h-9 w-9 rounded-lg bg-white/15 border border-white/25 flex items-center justify-center text-white hover:bg-white/25 transition-all disabled:opacity-30"
+                data-testid="button-gallery-next"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {visible.map((img, i) => (
+            <div key={`${page}-${i}`} className="rounded-2xl overflow-hidden aspect-video shadow-md">
+              <img
+                src={img.url}
+                alt={img.caption || `Gallery ${(page * ipp) + i + 1}`}
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              />
+            </div>
+          ))}
+        </div>
+        {pages > 1 && (
+          <div className="flex justify-center gap-2 mt-8">
+            {Array.from({ length: pages }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i)}
+                className={`h-2 rounded-full transition-all ${i === page ? "w-8 bg-[#0F9B6E]" : "w-2 bg-white/30"}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ─── NEW: Rich multi-column footer ───────────────────── */
+
+function RichFooter({ clinic, cfg, bookingHref, darkBg, accentSuffix }: {
+  clinic: ThemeClinic;
+  cfg: ClinicWebsiteConfig;
+  bookingHref: string;
+  darkBg: string;
+  accentSuffix: string;
+}) {
+  const about = cfg.aboutDescription
+    ? cfg.aboutDescription.slice(0, 120) + (cfg.aboutDescription.length > 120 ? "…" : "")
+    : `${clinic.name} — providing quality dental care with a patient-first approach.`;
+
+  return (
+    <footer className={`${darkBg} text-white`}>
+      <div className="max-w-6xl mx-auto px-6 pt-16 pb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-12 pb-12 border-b border-white/10">
+          {/* Brand column */}
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              {clinic.logoUrl ? (
+                <img src={clinic.logoUrl} alt={clinic.name} className="h-10 w-10 rounded-xl object-cover" />
+              ) : (
+                <div className="h-10 w-10 rounded-xl bg-[#0F9B6E] flex items-center justify-center font-bold text-lg">
+                  {clinic.name.charAt(0)}
+                </div>
+              )}
+              <span className="font-bold text-lg text-white">{clinic.name}</span>
+            </div>
+            <p className="text-white/50 text-sm leading-relaxed mb-5">{about}</p>
+            <SocialLinks links={cfg.socialLinks} light />
+          </div>
+
+          {/* Quick links column */}
+          <div>
+            <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-5">Quick Links</h4>
+            <ul className="space-y-3">
+              {[
+                { label: "About Us", href: `#theme-about${accentSuffix}` },
+                { label: "Our Services", href: `#theme-services${accentSuffix}` },
+                { label: "Our Doctors", href: `#theme-doctors${accentSuffix}` },
+                { label: "Contact", href: `#theme-contact${accentSuffix}` },
+              ].map(l => (
+                <li key={l.label}>
+                  <a href={l.href} className="text-white/50 hover:text-[#0F9B6E] text-sm transition-colors flex items-center gap-2">
+                    <span className="text-[#0F9B6E]">›</span>{l.label}
+                  </a>
+                </li>
+              ))}
+              <li>
+                <Link href={bookingHref}>
+                  <span className="text-[#0F9B6E] font-semibold text-sm hover:underline cursor-pointer flex items-center gap-2">
+                    <span>›</span>Book Appointment
+                  </span>
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Contact column */}
+          <div>
+            <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-5">Contact Us</h4>
+            <div className="space-y-3">
+              {clinic.address && (
+                <div className="flex items-start gap-3 text-white/50 text-sm">
+                  <MapPin className="h-4 w-4 text-[#0F9B6E] shrink-0 mt-0.5" />
+                  <span>{clinic.address}{clinic.city ? `, ${clinic.city}` : ""}</span>
+                </div>
+              )}
+              {clinic.phone && (
+                <a href={`tel:${clinic.phone}`} className="flex items-center gap-3 text-white/50 text-sm hover:text-white transition-colors">
+                  <Phone className="h-4 w-4 text-[#0F9B6E] shrink-0" />
+                  {clinic.phone}
+                </a>
+              )}
+              {clinic.email && (
+                <div className="flex items-center gap-3 text-white/50 text-sm">
+                  <Mail className="h-4 w-4 text-[#0F9B6E] shrink-0" />
+                  {clinic.email}
+                </div>
+              )}
+              {clinic.website && (
+                <a href={clinic.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-white/50 text-sm hover:text-white transition-colors">
+                  <Globe className="h-4 w-4 text-[#0F9B6E] shrink-0" />
+                  {clinic.website}
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-white/30 text-xs">
+            © {new Date().getFullYear()} {clinic.name}{clinic.city ? ` · ${clinic.city}` : ""}
+          </p>
+          <p className="text-white/30 text-xs">
+            Powered by{" "}
+            <span className="text-[#0F9B6E] font-semibold">bookMySlot</span>
+            {" "}· Dental Booking Platform
+          </p>
+        </div>
+      </div>
+    </footer>
   );
 }
 
@@ -149,6 +605,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
   const hours = cfg.hours?.length ? cfg.hours : DEFAULT_HOURS;
   const testimonials = cfg.testimonials;
   const gallery = cfg.gallery?.filter(g => g.url);
+  const features = cfg.features?.length ? cfg.features : DEFAULT_FEATURES;
 
   return (
     <div className="min-h-screen bg-[#F4F8F6] font-sans" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
@@ -236,49 +693,54 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
         </div>
       </section>
 
-      {/* Gallery */}
-      {gallery && gallery.length > 0 && (
-        <section className="px-6 py-16 bg-[#F4F8F6]">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-[#0A3D2E] text-center mb-10" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Our Clinic</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {gallery.map((img, i) => (
-                <div key={i} className="rounded-xl overflow-hidden aspect-video">
-                  <img src={img.url} alt={img.caption || `Gallery ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
-                  {img.caption && <p className="text-center text-xs text-gray-500 mt-1">{img.caption}</p>}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+      {/* Why Choose Us */}
+      <WhyChooseUs
+        features={features}
+        imageUrl={cfg.featuresImageUrl || cfg.heroImageUrl}
+        bg="bg-[#F4F8F6]"
+        cardBg="bg-white"
+        border="border-[#DCE9E3]"
+        titleColor="text-[#0A3D2E]"
+        accentColor="text-[#0F9B6E]"
+        serif
+      />
+
+      {/* Stats bar — only if clinic has configured stats */}
+      {cfg.stats && cfg.stats.length > 0 && (
+        <StatsBar
+          stats={cfg.stats}
+          bg="bg-[#0A3D2E]"
+          numColor="text-white"
+          labelColor="text-white/70"
+        />
       )}
 
-      {/* Services */}
-      <section id="theme-services" className="px-6 py-20 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-[#0A3D2E] mb-4" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Our Services</h2>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {services.map((s, i) => (
-              <div key={i} className="p-6 rounded-2xl border border-[#DCE9E3] hover:-translate-y-2 hover:shadow-lg transition-all duration-300">
-                <h3 className="font-bold text-[#0A3D2E] mb-2">{s.name}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{s.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Services carousel */}
+      <ServicesCarousel
+        services={services}
+        sectionId="theme-services"
+        title="Our Services"
+        bg="bg-white"
+        cardBg="bg-[#F4F8F6]"
+        border="border-[#DCE9E3]"
+        titleColor="text-[#0A3D2E]"
+        accentColor="text-[#0F9B6E]"
+        textColor="text-gray-600"
+        serif
+      />
 
-      {/* Doctors */}
-      <section id="theme-doctors" className="px-6 py-20 bg-[#F4F8F6]">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-[#0A3D2E] mb-4" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Meet Our Doctors</h2>
-          </div>
-          <DoctorsGrid clinic={clinic} />
-        </div>
-      </section>
+      {/* Doctors carousel */}
+      <DoctorsCarousel
+        clinic={clinic}
+        sectionId="theme-doctors"
+        title="Meet Our Doctors"
+        bg="bg-[#F4F8F6]"
+        cardBg="bg-white"
+        border="border-[#DCE9E3]"
+        titleColor="text-[#0A3D2E]"
+        accentColor="text-[#0F9B6E]"
+        serif
+      />
 
       {/* Testimonials */}
       {testimonials && testimonials.length > 0 && (
@@ -298,6 +760,15 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
             </div>
           </div>
         </section>
+      )}
+
+      {/* Gallery carousel */}
+      {gallery && gallery.length > 0 && (
+        <GallerySection
+          gallery={gallery}
+          bg="bg-[#0A3D2E]"
+          titleColor="text-white"
+        />
       )}
 
       {/* Hours + Map */}
@@ -342,13 +813,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-[#08281f] text-white/50 text-center py-8 px-6">
-        <div className="flex items-center justify-center gap-4 mb-3">
-          <SocialLinks links={cfg.socialLinks} />
-        </div>
-        <p className="text-sm">© {new Date().getFullYear()} {clinic.name} · Powered by <span className="text-[#0F9B6E] font-semibold">bookMySlot</span></p>
-      </footer>
+      <RichFooter clinic={clinic} cfg={cfg} bookingHref={bookingHref} darkBg="bg-[#08281f]" accentSuffix="" />
     </div>
   );
 }
@@ -362,6 +827,7 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
   const hours = cfg.hours?.length ? cfg.hours : DEFAULT_HOURS;
   const testimonials = cfg.testimonials;
   const gallery = cfg.gallery?.filter(g => g.url);
+  const features = cfg.features?.length ? cfg.features : DEFAULT_FEATURES;
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -457,51 +923,54 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
         </div>
       </section>
 
-      {/* Gallery */}
-      {gallery && gallery.length > 0 && (
-        <section className="px-6 py-16 bg-white">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-[#1E3A2F] text-center mb-10" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Our Clinic</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {gallery.map((img, i) => (
-                <div key={i} className="rounded-2xl overflow-hidden aspect-video">
-                  <img src={img.url} alt={img.caption || `Gallery ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+      {/* Why Choose Us */}
+      <WhyChooseUs
+        features={features}
+        imageUrl={cfg.featuresImageUrl || cfg.heroImageUrl}
+        bg="bg-white"
+        cardBg="bg-[#F8EDE3]"
+        border="border-[#E8D5C4]"
+        titleColor="text-[#1E3A2F]"
+        accentColor="text-[#0F9B6E]"
+        serif
+      />
+
+      {/* Stats bar */}
+      {cfg.stats && cfg.stats.length > 0 && (
+        <StatsBar
+          stats={cfg.stats}
+          bg="bg-[#1E3A2F]"
+          numColor="text-white"
+          labelColor="text-white/70"
+        />
       )}
 
       {/* Services */}
-      <section id="theme-services-w" className="px-6 py-20 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-[#1E3A2F] mb-4" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>What We Offer</h2>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {services.map((s, i) => (
-              <div key={i} className="p-6 rounded-2xl shadow-md hover:shadow-xl transition-shadow bg-white border border-gray-100">
-                <div className="h-10 w-10 rounded-xl bg-[#0F9B6E]/10 flex items-center justify-center mb-4">
-                  <span className="text-[#0F9B6E] text-lg">✦</span>
-                </div>
-                <h3 className="font-bold text-[#1E3A2F] mb-2">{s.name}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{s.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <ServicesCarousel
+        services={services}
+        sectionId="theme-services-w"
+        title="What We Offer"
+        bg="bg-white"
+        cardBg="bg-white"
+        border="border-gray-100"
+        titleColor="text-[#1E3A2F]"
+        accentColor="text-[#0F9B6E]"
+        textColor="text-gray-600"
+        serif
+      />
 
       {/* Doctors */}
-      <section id="theme-doctors-w" className="px-6 py-20 bg-[#F8EDE3]">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-[#1E3A2F] mb-4" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Our Team</h2>
-          </div>
-          <DoctorsGrid clinic={clinic} />
-        </div>
-      </section>
+      <DoctorsCarousel
+        clinic={clinic}
+        sectionId="theme-doctors-w"
+        title="Our Team"
+        bg="bg-[#F8EDE3]"
+        cardBg="bg-white"
+        border="border-[#E8D5C4]"
+        titleColor="text-[#1E3A2F]"
+        accentColor="text-[#0F9B6E]"
+        serif
+      />
 
       {/* Testimonials */}
       {testimonials && testimonials.length > 0 && (
@@ -521,6 +990,15 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
             </div>
           </div>
         </section>
+      )}
+
+      {/* Gallery carousel */}
+      {gallery && gallery.length > 0 && (
+        <GallerySection
+          gallery={gallery}
+          bg="bg-[#1E3A2F]"
+          titleColor="text-white"
+        />
       )}
 
       {/* Hours + Map */}
@@ -560,7 +1038,7 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
                 {clinic.email && <div className="flex items-center gap-3"><Mail className="h-4 w-4 text-[#0F9B6E] shrink-0" />{clinic.email}</div>}
                 {clinic.website && <a href={clinic.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 hover:text-white transition-colors"><ExternalLink className="h-4 w-4 text-[#0F9B6E] shrink-0" />{clinic.website}</a>}
               </div>
-              <div className="mt-6"><SocialLinks links={cfg.socialLinks} /></div>
+              <div className="mt-6"><SocialLinks links={cfg.socialLinks} light /></div>
             </div>
             <div className="text-center lg:text-right">
               <Link href={bookingHref}>
@@ -573,10 +1051,7 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-[#0D2B22] text-white/40 text-center py-6 px-6">
-        <p className="text-sm">© {new Date().getFullYear()} {clinic.name} · {clinic.city} · Powered by <span className="text-[#0F9B6E] font-semibold">bookMySlot</span></p>
-      </footer>
+      <RichFooter clinic={clinic} cfg={cfg} bookingHref={bookingHref} darkBg="bg-[#0D2B22]" accentSuffix="-w" />
     </div>
   );
 }
@@ -590,6 +1065,7 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
   const hours = cfg.hours?.length ? cfg.hours : DEFAULT_HOURS;
   const testimonials = cfg.testimonials;
   const gallery = cfg.gallery?.filter(g => g.url);
+  const features = cfg.features?.length ? cfg.features : DEFAULT_FEATURES;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -703,41 +1179,54 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
         </div>
       </section>
 
+      {/* Why Choose Us */}
+      <WhyChooseUs
+        features={features}
+        imageUrl={cfg.featuresImageUrl || cfg.heroImageUrl}
+        bg="bg-[#F8FAFC]"
+        cardBg="bg-white"
+        border="border-gray-100"
+        titleColor="text-[#0F172A]"
+        accentColor="text-[#0F9B6E]"
+      />
+
+      {/* Stats bar */}
+      {cfg.stats && cfg.stats.length > 0 && (
+        <StatsBar
+          stats={cfg.stats}
+          bg="bg-[#0F172A]"
+          numColor="text-white"
+          labelColor="text-white/60"
+        />
+      )}
+
       {/* Services */}
-      <section id="theme-services-m" className="px-6 py-20 bg-[#F8FAFC]">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <span className="text-[#0F9B6E] font-bold text-sm uppercase tracking-widest">What We Do</span>
-            <h2 className="text-4xl font-black text-[#0F172A] mt-2" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}>
-              Our Services
-            </h2>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {services.map((s, i) => (
-              <div key={i} className="p-6 rounded-2xl bg-white border border-gray-100 shadow-sm hover:scale-[1.02] hover:shadow-lg transition-all duration-300">
-                <div className="h-10 w-10 rounded-xl bg-[#0F9B6E]/10 flex items-center justify-center mb-4">
-                  <span className="text-[#0F9B6E] font-black">0{i + 1}</span>
-                </div>
-                <h3 className="font-bold text-[#0F172A] mb-2" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>{s.name}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{s.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <ServicesCarousel
+        services={services}
+        sectionId="theme-services-m"
+        titleLabel="What We Do"
+        title="Our Services"
+        bg="bg-[#F8FAFC]"
+        cardBg="bg-white"
+        border="border-gray-100"
+        titleColor="text-[#0F172A]"
+        accentColor="text-[#0F9B6E]"
+        textColor="text-gray-500"
+        numStyle
+      />
 
       {/* Doctors */}
-      <section id="theme-doctors-m" className="px-6 py-20 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <span className="text-[#0F9B6E] font-bold text-sm uppercase tracking-widest">Our Experts</span>
-            <h2 className="text-4xl font-black text-[#0F172A] mt-2" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}>
-              Meet the Team
-            </h2>
-          </div>
-          <DoctorsGrid clinic={clinic} />
-        </div>
-      </section>
+      <DoctorsCarousel
+        clinic={clinic}
+        sectionId="theme-doctors-m"
+        titleLabel="Our Experts"
+        title="Meet the Team"
+        bg="bg-white"
+        cardBg="bg-[#F8FAFC]"
+        border="border-gray-100"
+        titleColor="text-[#0F172A]"
+        accentColor="text-[#0F9B6E]"
+      />
 
       {/* Testimonials */}
       {testimonials && testimonials.length > 0 && (
@@ -760,6 +1249,15 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
             </div>
           </div>
         </section>
+      )}
+
+      {/* Gallery carousel */}
+      {gallery && gallery.length > 0 && (
+        <GallerySection
+          gallery={gallery}
+          bg="bg-[#0F172A]"
+          titleColor="text-white"
+        />
       )}
 
       {/* Hours + Map */}
@@ -796,7 +1294,7 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
             {clinic.phone && <a href={`tel:${clinic.phone}`} className="flex items-center gap-2 hover:text-white transition-colors"><Phone className="h-4 w-4 text-[#0F9B6E]" />{clinic.phone}</a>}
             {clinic.email && <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-[#0F9B6E]" />{clinic.email}</div>}
           </div>
-          <div className="flex justify-center mb-8"><SocialLinks links={cfg.socialLinks} /></div>
+          <div className="flex justify-center mb-8"><SocialLinks links={cfg.socialLinks} light /></div>
           <Link href={bookingHref}>
             <button className="bg-[#0F9B6E] text-white px-12 py-4 rounded-full font-bold text-lg hover:bg-[#1A9E75] transition-all hover:-translate-y-1 shadow-lg shadow-[#0F9B6E]/25">
               Book Your Visit
@@ -805,10 +1303,7 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-[#080D14] text-white/30 text-center py-6 px-6">
-        <p className="text-sm">© {new Date().getFullYear()} {clinic.name} · {clinic.city} · Powered by <span className="text-[#0F9B6E] font-semibold">bookMySlot</span></p>
-      </footer>
+      <RichFooter clinic={clinic} cfg={cfg} bookingHref={bookingHref} darkBg="bg-[#080D14]" accentSuffix="-m" />
     </div>
   );
 }
