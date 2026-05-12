@@ -12,7 +12,7 @@ import {
   Globe, Palette, Image, Layers, Star, Clock, Share2,
   Plus, Trash2, ChevronDown, ChevronUp, ExternalLink, Save, Eye,
   BarChart2, Sparkles, Instagram, Facebook, Youtube,
-  Users, ChevronRight, Layout,
+  Users, ChevronRight, Layout, MousePointerClick,
 } from "lucide-react";
 import type { ClinicWebsiteConfig } from "@shared/schema";
 
@@ -182,10 +182,9 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   const liveStats = stats.filter(s => s.value && s.label);
   const liveFeatures = features.filter(f => f.title);
   const socialCount = [socialLinks.instagram, socialLinks.facebook, socialLinks.youtube].filter(Boolean).length;
-
   const themeLabel = THEME_OPTIONS.find(t => t.id === theme)?.label ?? "Classic";
 
-  /* ── Section status rows for the structure map ───── */
+  /* ── Map rows config ──────────────────────────────── */
   const MAP_ROWS: {
     id: Section | "doctors" | "footer";
     icon: React.ElementType;
@@ -197,7 +196,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   }[] = [
     {
       id: "hero", icon: Image, label: "Hero Section",
-      status: taglineL1 ? `"${taglineL1.slice(0, 22)}${taglineL1.length > 22 ? "…" : ""}"` : "Using default tagline",
+      status: taglineL1 ? `"${taglineL1.slice(0, 24)}${taglineL1.length > 24 ? "…" : ""}"` : "Using default tagline",
       dot: taglineL1 ? "green" : "gray", editable: true, accent: "bg-[#085041]",
     },
     {
@@ -217,7 +216,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     },
     {
       id: "services", icon: Layers, label: "Services",
-      status: `${liveServices.length} service${liveServices.length !== 1 ? "s" : ""}`,
+      status: liveServices.length > 0 ? `${liveServices.length} service${liveServices.length !== 1 ? "s" : ""}` : "No services added",
       dot: liveServices.length > 0 ? "green" : "gray", editable: true, accent: "bg-teal-500",
     },
     {
@@ -237,7 +236,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     },
     {
       id: "hours", icon: Clock, label: "Clinic Hours",
-      status: hours.length > 0 ? `${hours.length} time slot${hours.length !== 1 ? "s" : ""}` : "Using default hours",
+      status: `${hours.length} time slot${hours.length !== 1 ? "s" : ""}`,
       dot: "green", editable: true, accent: "bg-slate-400",
     },
     {
@@ -251,6 +250,320 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       dot: "green", editable: false, accent: "bg-[#08281f]",
     },
   ];
+
+  /* ── Centralised preview renderer (right pane) ────── */
+  const activeRow = MAP_ROWS.find(r => r.id === openSection);
+
+  const PreviewPane = () => {
+    switch (openSection) {
+      case "theme":
+        return (
+          <div className="p-5 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Theme options</p>
+            {THEME_OPTIONS.map(t => (
+              <div key={t.id} className={`rounded-xl overflow-hidden border-2 transition-all ${theme === t.id ? "border-primary shadow-md" : "border-border/40"}`}>
+                <div className={`h-14 w-full ${t.preview} flex items-end p-2`}>
+                  <div className="bg-white/10 rounded px-2 py-1 backdrop-blur-sm flex gap-1">
+                    <div className="h-1.5 w-10 bg-white/60 rounded" />
+                    <div className="h-1.5 w-6 bg-white/40 rounded" />
+                  </div>
+                </div>
+                <div className="px-3 py-2 flex items-center justify-between bg-background">
+                  <span className="text-xs font-bold">{t.label}</span>
+                  {theme === t.id && <span className="text-[10px] text-primary font-semibold">Active</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+
+      case "hero":
+        return (
+          <div className="h-full flex flex-col">
+            <div className="bg-[#0A3D2E] flex-1 p-5 flex flex-col justify-between min-h-[200px]">
+              <div>
+                <p className="text-white/40 text-[9px] uppercase tracking-widest mb-2">{clinic?.city || "Dental Care"}</p>
+                <p className="text-white font-bold leading-tight text-base" style={{ fontFamily: "Georgia, serif" }}>
+                  {taglineL1 || "Your Smile,"}
+                </p>
+                <p className="text-[#6DCFAC] font-bold leading-tight text-base mb-3" style={{ fontFamily: "Georgia, serif" }}>
+                  {taglineL2 || "Our Passion."}
+                </p>
+                <p className="text-white/50 text-[11px] leading-relaxed line-clamp-3">
+                  {heroDescription || `At ${clinic?.name || "your clinic"}, we combine modern dentistry with compassionate care to give you and your family the best experience.`}
+                </p>
+              </div>
+              <div className="flex items-center justify-between mt-4">
+                <div className="inline-block bg-[#0F9B6E] text-white text-[10px] font-bold px-4 py-1.5 rounded-full">
+                  Book Appointment
+                </div>
+                {heroImageUrl ? (
+                  <img src={heroImageUrl} alt="" className="h-16 w-20 object-cover rounded-xl shadow-lg" />
+                ) : (
+                  <div className="h-16 w-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+                    <span className="text-2xl opacity-20">🦷</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            {!taglineL1 && (
+              <div className="px-4 py-2.5 bg-muted/40 border-t border-border/40">
+                <p className="text-[10px] text-muted-foreground">Showing defaults — set your tagline below to personalise.</p>
+              </div>
+            )}
+          </div>
+        );
+
+      case "about":
+        return (
+          <div className="p-5 space-y-3 bg-white h-full">
+            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-1">About your clinic</p>
+            <p className="text-[11px] text-gray-700 leading-relaxed line-clamp-4">
+              {aboutDescription || `At ${clinic?.name || "your clinic"}, we believe great dental care is about more than just teeth — it's about building trust and creating lasting relationships with every patient.`}
+            </p>
+            <div className="grid grid-cols-1 gap-2.5 pt-1">
+              <div className="p-3 rounded-xl bg-[#F4F8F6] border border-[#DCE9E3]">
+                <p className="text-[9px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-1.5">Our Vision</p>
+                <p className="text-[11px] text-gray-600 leading-relaxed line-clamp-3">
+                  {vision || "Add your vision statement to inspire patients with your long-term goals…"}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-[#F4F8F6] border border-[#DCE9E3]">
+                <p className="text-[9px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-1.5">Our Values</p>
+                <p className="text-[11px] text-gray-600 leading-relaxed line-clamp-3">
+                  {values || "Add the values that guide every interaction at your practice…"}
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "features":
+        return (
+          <div className="p-5 bg-[#F4F8F6] h-full">
+            <p className="text-[9px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-3">Why Choose Us</p>
+            <div className="grid grid-cols-2 gap-2.5 mb-4">
+              {features.slice(0, 4).map((f, i) => (
+                <div key={i} className="bg-white rounded-xl p-3 border border-[#DCE9E3] flex flex-col items-center text-center gap-2">
+                  <div className="h-9 w-9 rounded-full bg-[#0F9B6E]/10 border border-[#0F9B6E]/20 flex items-center justify-center text-base">
+                    {FEATURE_EMOJI[f.icon] || "✦"}
+                  </div>
+                  <p className="text-[10px] font-semibold text-[#0A3D2E] leading-tight">
+                    {f.title || "Feature title…"}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {(featuresImageUrl || heroImageUrl) && (
+              <img
+                src={featuresImageUrl || heroImageUrl}
+                alt=""
+                className="w-full h-20 object-cover rounded-xl shadow-sm"
+              />
+            )}
+          </div>
+        );
+
+      case "stats":
+        if (liveStats.length === 0) {
+          return (
+            <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
+                <BarChart2 className="h-6 w-6 text-amber-500" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">Stats section is hidden</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                This section only appears when you add at least one stat. Use the form below to add numbers like "2800+ Dental Fillings".
+              </p>
+            </div>
+          );
+        }
+        return (
+          <div className="h-full bg-[#0A3D2E] p-5">
+            <p className="text-white/40 text-[9px] uppercase tracking-widest mb-4">Our Achievements</p>
+            <div className="grid grid-cols-2 gap-3">
+              {liveStats.map((s, i) => (
+                <div key={i} className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
+                  <div className="h-8 w-8 rounded-full bg-[#0F9B6E] mx-auto mb-2 flex items-center justify-center">
+                    <div className="h-3 w-3 rounded-full bg-white/30" />
+                  </div>
+                  <p className="text-white font-black text-sm leading-none">{s.value}</p>
+                  <p className="text-white/50 text-[10px] mt-1 leading-tight">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case "services":
+        if (liveServices.length === 0) {
+          return (
+            <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-teal-100 flex items-center justify-center">
+                <Layers className="h-6 w-6 text-teal-500" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">No services added yet</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Add your dental services below. They appear as a carousel on your clinic page.
+              </p>
+            </div>
+          );
+        }
+        return (
+          <div className="p-5 bg-white h-full">
+            <p className="text-[9px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-3">Our Services</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              {liveServices.slice(0, 4).map((s, i) => (
+                <div key={i} className="rounded-xl bg-[#F4F8F6] border border-[#DCE9E3] overflow-hidden">
+                  {s.imageUrl ? (
+                    <img src={s.imageUrl} alt="" className="w-full h-16 object-cover" />
+                  ) : (
+                    <div className="w-full h-1.5 bg-[#0F9B6E]" />
+                  )}
+                  <div className="p-2.5">
+                    <p className="text-[10px] font-bold text-[#0A3D2E] leading-tight line-clamp-2">{s.name}</p>
+                    {s.description && (
+                      <p className="text-[9px] text-gray-500 mt-0.5 line-clamp-1">{s.description}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {liveServices.length > 4 && (
+              <p className="text-[10px] text-muted-foreground mt-2.5 text-center">
+                +{liveServices.length - 4} more · carousel arrows on live page
+              </p>
+            )}
+          </div>
+        );
+
+      case "gallery":
+        if (liveGallery.length === 0) {
+          return (
+            <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-rose-100 flex items-center justify-center">
+                <Image className="h-6 w-6 text-rose-400" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">Gallery section is hidden</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Upload clinic photos below. The gallery appears on your page once you add at least one photo.
+              </p>
+            </div>
+          );
+        }
+        return (
+          <div className="bg-[#0A3D2E] h-full p-5">
+            <p className="text-white/40 text-[9px] uppercase tracking-widest mb-3">Photo Gallery</p>
+            <div className="grid grid-cols-2 gap-2">
+              {liveGallery.slice(0, 4).map((g, i) => (
+                <div key={i} className="rounded-xl overflow-hidden aspect-video shadow-md">
+                  <img src={g.url} alt={g.caption || ""} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+            {liveGallery.length > 4 && (
+              <p className="text-white/40 text-[10px] mt-2.5 text-center">+{liveGallery.length - 4} more photos</p>
+            )}
+          </div>
+        );
+
+      case "testimonials":
+        if (liveTestimonials.length === 0) {
+          return (
+            <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
+                <Star className="h-6 w-6 text-amber-500" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">Reviews section is hidden</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Patient testimonials build trust. Add at least one review below to make this section visible.
+              </p>
+            </div>
+          );
+        }
+        return (
+          <div className="p-5 bg-white h-full space-y-2.5">
+            <p className="text-[9px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-3">Patient Reviews</p>
+            {liveTestimonials.slice(0, 2).map((t, i) => (
+              <div key={i} className="p-3 rounded-xl bg-[#F4F8F6] border border-[#DCE9E3]">
+                <div className="flex gap-0.5 mb-1.5">
+                  {[1,2,3,4,5].map(n => (
+                    <span key={n} className={`text-xs ${n <= t.rating ? "text-amber-400" : "text-gray-200"}`}>★</span>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-600 italic leading-relaxed line-clamp-2">"{t.quote}"</p>
+                <p className="text-[10px] font-bold text-[#0A3D2E] mt-1.5">— {t.patientName}</p>
+              </div>
+            ))}
+            {liveTestimonials.length > 2 && (
+              <p className="text-[10px] text-muted-foreground text-center">+{liveTestimonials.length - 2} more</p>
+            )}
+          </div>
+        );
+
+      case "hours":
+        return (
+          <div className="p-5 bg-white h-full">
+            <p className="text-[9px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-3">Clinic Hours</p>
+            <div className="divide-y divide-gray-50 rounded-xl border border-[#DCE9E3] overflow-hidden">
+              {hours.map((h, i) => (
+                <div key={i} className="flex justify-between items-center px-3 py-2.5 bg-[#F4F8F6]">
+                  <span className="text-[11px] font-semibold text-gray-700">{h.day || "—"}</span>
+                  <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${h.closed ? "bg-red-50 text-red-500" : "bg-[#0F9B6E]/10 text-[#0F9B6E]"}`}>
+                    {h.closed ? "Closed" : h.open && h.close ? `${h.open} – ${h.close}` : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case "social":
+        return (
+          <div className="p-5 bg-white h-full">
+            <p className="text-[9px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-4">Social Links</p>
+            {socialCount > 0 ? (
+              <div className="flex flex-col gap-2.5">
+                {socialLinks.instagram && (
+                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200/70">
+                    <Instagram className="h-4 w-4 text-purple-600 shrink-0" />
+                    <span className="text-[11px] text-purple-700 font-semibold truncate">{socialLinks.instagram}</span>
+                  </div>
+                )}
+                {socialLinks.facebook && (
+                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-blue-50 border border-blue-200/70">
+                    <Facebook className="h-4 w-4 text-blue-600 shrink-0" />
+                    <span className="text-[11px] text-blue-700 font-semibold truncate">{socialLinks.facebook}</span>
+                  </div>
+                )}
+                {socialLinks.youtube && (
+                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200/70">
+                    <Youtube className="h-4 w-4 text-red-600 shrink-0" />
+                    <span className="text-[11px] text-red-700 font-semibold truncate">{socialLinks.youtube}</span>
+                  </div>
+                )}
+                <p className="text-[10px] text-muted-foreground mt-1">These icons appear in the footer of your clinic page.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
+                  <Share2 className="h-5 w-5 text-pink-400" />
+                </div>
+                <p className="text-xs text-muted-foreground">No social links added yet.<br />Add URLs below to show icons in the footer.</p>
+              </div>
+            )}
+          </div>
+        );
+
+      default:
+        return (
+          <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
+            <MousePointerClick className="h-8 w-8 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">Select a section on the left to see its preview here.</p>
+          </div>
+        );
+    }
+  };
 
   /* ── Section header accordion button ─────────────── */
   const SectionHeader = ({ id, icon: Icon, label, badge }: { id: Section; icon: any; label: string; badge?: string }) => (
@@ -270,19 +583,6 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       </div>
       {openSection === id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
     </button>
-  );
-
-  /* ── Preview wrapper ──────────────────────────────── */
-  const PreviewShell = ({ children, label = "Live Preview" }: { children: React.ReactNode; label?: string }) => (
-    <div className="mb-5 rounded-xl overflow-hidden border border-border/50 shadow-sm">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/40 border-b border-border/40">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-          <Eye className="h-3 w-3" />{label}
-        </span>
-        <span className="text-[10px] text-muted-foreground/70 italic">updates as you type</span>
-      </div>
-      {children}
-    </div>
   );
 
   /* ════════════════════════════════════════════════════
@@ -326,10 +626,11 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       </div>
 
       {/* ══════════════════════════════════════════════
-          WEBSITE STRUCTURE MAP
+          WEBSITE STRUCTURE MAP  (2-pane)
       ══════════════════════════════════════════════ */}
       <div className="rounded-2xl border border-border/60 overflow-hidden shadow-sm">
-        {/* Map header */}
+
+        {/* Map header bar */}
         <button
           onClick={() => setMapOpen(p => !p)}
           className="w-full flex items-center justify-between px-5 py-3.5 bg-muted/40 hover:bg-muted/60 transition-colors border-b border-border/50"
@@ -342,7 +643,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               {themeLabel} theme · {liveServices.length} services · {liveGallery.length} photos
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {previewUrl && (
               <a
                 href={previewUrl}
@@ -358,67 +659,87 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
         </button>
 
-        {/* Map rows */}
+        {/* 2-pane body */}
         {mapOpen && (
-          <div className="divide-y divide-border/30 bg-background">
-            {MAP_ROWS.map((row) => {
-              const Icon = row.icon;
-              const isActive = openSection === row.id;
-              const dotCls =
-                row.dot === "green" ? "bg-emerald-500" :
-                row.dot === "amber" ? "bg-amber-400" :
-                "bg-muted-foreground/30";
+          <div className="flex bg-background" style={{ minHeight: 380 }}>
 
-              if (!row.editable) {
+            {/* ── Left: section list ── */}
+            <div className="w-52 shrink-0 border-r border-border/40 divide-y divide-border/30 overflow-y-auto">
+              {MAP_ROWS.map((row) => {
+                const Icon = row.icon;
+                const isActive = openSection === row.id;
+                const dotCls =
+                  row.dot === "green" ? "bg-emerald-500" :
+                  row.dot === "amber" ? "bg-amber-400" :
+                  "bg-muted-foreground/25";
+
+                if (!row.editable) {
+                  return (
+                    <div
+                      key={row.id}
+                      className="flex items-center gap-2.5 px-3 py-2.5 opacity-50"
+                    >
+                      <div className={`w-0.5 h-5 rounded-full shrink-0 ${row.accent}`} />
+                      <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
+                        <Icon className="h-2.5 w-2.5 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-medium text-foreground leading-none truncate">{row.label}</p>
+                        <p className="text-[9px] text-muted-foreground mt-0.5 italic">auto</p>
+                      </div>
+                      <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />
+                    </div>
+                  );
+                }
+
                 return (
-                  <div
+                  <button
                     key={row.id}
-                    className="flex items-center gap-3 px-4 py-2.5 opacity-60"
+                    onClick={() => setOpenSection(row.id as Section)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-all group ${
+                      isActive
+                        ? "bg-primary/8 border-l-2 border-primary"
+                        : "hover:bg-muted/50 border-l-2 border-transparent"
+                    }`}
+                    data-testid={`map-row-${row.id}`}
                   >
-                    <div className={`w-0.5 h-6 rounded-full shrink-0 ${row.accent}`} />
-                    <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0">
-                      <Icon className="h-3 w-3 text-muted-foreground" />
+                    <div className={`w-0.5 h-5 rounded-full shrink-0 ${row.accent} ${isActive ? "opacity-100" : "opacity-40 group-hover:opacity-70"}`} />
+                    <div className={`h-5 w-5 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-primary/10" : "bg-muted"}`}>
+                      <Icon className={`h-2.5 w-2.5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-foreground leading-none">{row.label}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{row.status}</p>
+                      <p className={`text-[11px] font-semibold leading-none truncate ${isActive ? "text-primary" : "text-foreground"}`}>{row.label}</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5 truncate">{row.status}</p>
                     </div>
-                    <div className={`h-2 w-2 rounded-full shrink-0 ${dotCls}`} />
-                    <span className="text-[9px] text-muted-foreground italic shrink-0">auto</span>
-                  </div>
+                    <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />
+                  </button>
                 );
-              }
+              })}
+            </div>
 
-              return (
-                <button
-                  key={row.id}
-                  onClick={() => setOpenSection(row.id as Section)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 transition-all text-left group ${
-                    isActive
-                      ? "bg-primary/5 border-l-2 border-primary"
-                      : "hover:bg-muted/40 border-l-2 border-transparent"
-                  }`}
-                  data-testid={`map-row-${row.id}`}
-                >
-                  <div className={`w-0.5 h-6 rounded-full shrink-0 ${row.accent} ${isActive ? "opacity-100" : "opacity-50 group-hover:opacity-80"}`} />
-                  <div className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-primary/10" : "bg-muted"}`}>
-                    <Icon className={`h-3 w-3 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-xs font-semibold leading-none ${isActive ? "text-primary" : "text-foreground"}`}>{row.label}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{row.status}</p>
-                  </div>
-                  <div className={`h-2 w-2 rounded-full shrink-0 ${dotCls}`} />
-                  <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition-all ${isActive ? "text-primary" : "text-muted-foreground/40 group-hover:text-muted-foreground"}`} />
-                </button>
-              );
-            })}
+            {/* ── Right: live preview pane ── */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Preview pane header */}
+              <div className="flex items-center justify-between px-4 py-2 border-b border-border/40 bg-muted/20 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-3 w-3 text-primary" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    {activeRow?.label ?? "Preview"}
+                  </span>
+                </div>
+                <span className="text-[10px] text-muted-foreground/60 italic">updates as you type</span>
+              </div>
+              {/* Preview content */}
+              <div className="flex-1 overflow-y-auto">
+                <PreviewPane />
+              </div>
+            </div>
           </div>
         )}
       </div>
 
       {/* ══════════════════════════════════════════════
-          SECTION EDITORS
+          SECTION EDITORS  (form fields only)
       ══════════════════════════════════════════════ */}
 
       {/* ── Theme picker ── */}
@@ -459,34 +780,6 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         <SectionHeader id="hero" icon={Image} label="Hero Section" />
         {openSection === "hero" && (
           <div className="px-1 space-y-5">
-            {/* Hero preview */}
-            <PreviewShell>
-              <div className="bg-[#0A3D2E] p-4 flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-white/50 text-[9px] uppercase tracking-widest mb-1.5">{clinic?.city || "Dental Care"}</p>
-                  <p className="text-white text-sm font-bold leading-snug" style={{ fontFamily: "Georgia, serif" }}>
-                    {taglineL1 || "Your Smile,"}
-                  </p>
-                  <p className="text-[#6DCFAC] text-sm font-bold leading-snug mb-2" style={{ fontFamily: "Georgia, serif" }}>
-                    {taglineL2 || "Our Passion."}
-                  </p>
-                  <p className="text-white/50 text-[10px] leading-relaxed line-clamp-2 max-w-xs">
-                    {heroDescription || `At ${clinic?.name || "your clinic"}, we combine modern dentistry with compassionate care.`}
-                  </p>
-                  <div className="mt-2.5 inline-block bg-[#0F9B6E] text-white text-[9px] font-bold px-3 py-1 rounded-full">
-                    Book Appointment
-                  </div>
-                </div>
-                {heroImageUrl ? (
-                  <img src={heroImageUrl} alt="" className="h-20 w-28 object-cover rounded-xl shrink-0 shadow-md" />
-                ) : (
-                  <div className="h-20 w-28 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                    <span className="text-3xl opacity-20">🦷</span>
-                  </div>
-                )}
-              </div>
-            </PreviewShell>
-
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Tagline Line 1</Label>
@@ -515,25 +808,6 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         <SectionHeader id="about" icon={Layers} label="About & Values" />
         {openSection === "about" && (
           <div className="px-1 space-y-4">
-            {/* About preview */}
-            <PreviewShell>
-              <div className="p-4 bg-white space-y-3">
-                <p className="text-[10px] text-gray-600 leading-relaxed line-clamp-3">
-                  {aboutDescription || `At ${clinic?.name || "your clinic"}, we believe great dental care is about more than just teeth — it's about building trust and creating lasting relationships.`}
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-2.5 rounded-lg bg-[#F4F8F6] border border-[#DCE9E3]">
-                    <p className="text-[9px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-1">Our Vision</p>
-                    <p className="text-[10px] text-gray-500 line-clamp-2 leading-relaxed">{vision || "Add your vision statement…"}</p>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-[#F4F8F6] border border-[#DCE9E3]">
-                    <p className="text-[9px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-1">Our Values</p>
-                    <p className="text-[10px] text-gray-500 line-clamp-2 leading-relaxed">{values || "Add your values…"}</p>
-                  </div>
-                </div>
-              </div>
-            </PreviewShell>
-
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">About / Our Story</Label>
               <Textarea value={aboutDescription} onChange={e => setAboutDescription(e.target.value)} placeholder="Tell patients about your clinic, your background, and what makes you different..." rows={4} className="rounded-xl resize-none" data-testid="input-about-description" />
@@ -560,30 +834,6 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         {openSection === "features" && (
           <div className="px-1 space-y-4">
             <p className="text-xs text-muted-foreground">Up to 4 reasons shown as icon cards with a side photo. Always visible on every theme.</p>
-
-            {/* Features preview */}
-            <PreviewShell>
-              <div className="p-4 bg-[#F4F8F6] flex gap-4 items-center">
-                <div className="flex-1 grid grid-cols-2 gap-2">
-                  {features.slice(0, 4).map((f, i) => (
-                    <div key={i} className="bg-white rounded-xl p-2.5 border border-[#DCE9E3] flex flex-col items-center text-center gap-1.5">
-                      <div className="h-8 w-8 rounded-full bg-[#0F9B6E]/10 border border-[#0F9B6E]/20 flex items-center justify-center text-sm">
-                        {FEATURE_EMOJI[f.icon] || "✦"}
-                      </div>
-                      <p className="text-[9px] font-semibold text-[#0A3D2E] leading-tight line-clamp-2">{f.title || "Feature title…"}</p>
-                    </div>
-                  ))}
-                </div>
-                {(featuresImageUrl || heroImageUrl) ? (
-                  <img src={featuresImageUrl || heroImageUrl} alt="" className="h-28 w-28 object-cover rounded-xl shrink-0 shadow" />
-                ) : (
-                  <div className="h-28 w-28 rounded-xl bg-white border-2 border-dashed border-[#DCE9E3] flex items-center justify-center shrink-0">
-                    <span className="text-3xl opacity-25">🏥</span>
-                  </div>
-                )}
-              </div>
-            </PreviewShell>
-
             {features.map((f, i) => (
               <div key={i} className="flex items-center gap-3">
                 <select
@@ -626,36 +876,6 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         {openSection === "stats" && (
           <div className="px-1 space-y-3">
             <p className="text-xs text-muted-foreground">Your clinic's achievements — e.g. "2800+ Dental Fillings". This section is <strong>only shown</strong> when you add at least one stat.</p>
-
-            {/* Stats preview */}
-            {liveStats.length > 0 ? (
-              <PreviewShell>
-                <div className="bg-[#0A3D2E] px-4 py-5 grid grid-cols-4 gap-3">
-                  {liveStats.map((s, i) => (
-                    <div key={i} className="text-center">
-                      <div className="h-9 w-9 rounded-full bg-[#0F9B6E] mx-auto mb-2 flex items-center justify-center">
-                        <div className="h-3.5 w-3.5 rounded-full bg-white/30" />
-                      </div>
-                      <p className="text-white text-xs font-black leading-none">{s.value || "—"}</p>
-                      <p className="text-white/55 text-[9px] mt-0.5 leading-tight">{s.label || "Label"}</p>
-                    </div>
-                  ))}
-                  {Array.from({ length: Math.max(0, 4 - liveStats.length) }).map((_, i) => (
-                    <div key={`empty-${i}`} className="text-center opacity-20">
-                      <div className="h-9 w-9 rounded-full bg-white/10 mx-auto mb-2" />
-                      <div className="h-2 w-8 bg-white/20 rounded mx-auto mb-1" />
-                      <div className="h-1.5 w-12 bg-white/10 rounded mx-auto" />
-                    </div>
-                  ))}
-                </div>
-              </PreviewShell>
-            ) : (
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/80 flex items-start gap-2.5">
-                <span className="text-amber-500 mt-0.5">⚠</span>
-                <p className="text-xs text-amber-700">Stats section is <strong>hidden</strong> on your page. Add at least one stat below to make it visible.</p>
-              </div>
-            )}
-
             {stats.map((s, i) => (
               <div key={i} className="grid grid-cols-[1fr_2fr_auto] gap-3 items-center">
                 <Input value={s.value} onChange={e => setStats(prev => prev.map((x, j) => j === i ? { ...x, value: e.target.value } : x))} placeholder="e.g. 2800+" className="rounded-xl font-bold" data-testid={`input-stat-value-${i}`} />
@@ -679,38 +899,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         <SectionHeader id="services" icon={Layers} label="Services" />
         {openSection === "services" && (
           <div className="px-1 space-y-4">
-            <p className="text-xs text-muted-foreground">Add a photo to each service to show image cards in the carousel. Without photos, cards show with an icon instead.</p>
-
-            {/* Services preview */}
-            <PreviewShell>
-              <div className="p-3 bg-white">
-                {liveServices.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-3 gap-2">
-                      {liveServices.slice(0, 3).map((s, i) => (
-                        <div key={i} className="rounded-lg bg-[#F4F8F6] border border-[#DCE9E3] overflow-hidden">
-                          {s.imageUrl ? (
-                            <img src={s.imageUrl} alt="" className="w-full h-12 object-cover" />
-                          ) : (
-                            <div className="w-full h-1 bg-[#0F9B6E]" />
-                          )}
-                          <div className="p-2">
-                            <p className="text-[9px] font-bold text-[#0A3D2E] leading-tight line-clamp-2">{s.name}</p>
-                            {s.description && <p className="text-[8px] text-gray-500 mt-0.5 line-clamp-1">{s.description}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {liveServices.length > 3 && (
-                      <p className="text-[10px] text-muted-foreground mt-2 text-center">+{liveServices.length - 3} more · use arrows on live page</p>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-[10px] text-muted-foreground text-center py-3">Add services below to see them here</p>
-                )}
-              </div>
-            </PreviewShell>
-
+            <p className="text-xs text-muted-foreground">Add a photo to each service to show image cards in the carousel. Without photos, cards show with a colour accent instead.</p>
             {services.map((s, i) => (
               <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
                 <div className="flex items-center justify-between">
@@ -742,30 +931,6 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         {openSection === "gallery" && (
           <div className="px-1 space-y-4">
             <p className="text-xs text-muted-foreground">Upload up to 6 clinic photos. Gallery section is <strong>hidden</strong> until at least one photo is added.</p>
-
-            {/* Gallery preview */}
-            {liveGallery.length > 0 ? (
-              <PreviewShell>
-                <div className="p-3 bg-[#0A3D2E]">
-                  <div className="grid grid-cols-3 gap-2">
-                    {liveGallery.slice(0, 3).map((g, i) => (
-                      <div key={i} className="rounded-xl overflow-hidden aspect-video shadow">
-                        <img src={g.url} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    ))}
-                  </div>
-                  {liveGallery.length > 3 && (
-                    <p className="text-[10px] text-white/50 mt-2 text-center">+{liveGallery.length - 3} more · use arrows on live page</p>
-                  )}
-                </div>
-              </PreviewShell>
-            ) : (
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/80 flex items-start gap-2.5">
-                <span className="text-amber-500 mt-0.5">⚠</span>
-                <p className="text-xs text-amber-700">Gallery section is <strong>hidden</strong> on your page. Upload at least one photo below to make it visible.</p>
-              </div>
-            )}
-
             {gallery.map((g, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div className="flex-1">
@@ -793,31 +958,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         <SectionHeader id="testimonials" icon={Star} label="Patient Testimonials" />
         {openSection === "testimonials" && (
           <div className="px-1 space-y-4">
-            {/* Testimonials preview */}
-            {liveTestimonials.length > 0 ? (
-              <PreviewShell>
-                <div className="p-3 bg-white">
-                  <div className="p-3 rounded-xl bg-[#F4F8F6] border border-[#DCE9E3]">
-                    <div className="flex gap-0.5 mb-1.5">
-                      {[1,2,3,4,5].map(i => (
-                        <span key={i} className={`text-[11px] ${i <= liveTestimonials[0].rating ? "text-amber-400" : "text-gray-200"}`}>★</span>
-                      ))}
-                    </div>
-                    <p className="text-[10px] text-gray-600 italic line-clamp-2 leading-relaxed">"{liveTestimonials[0].quote}"</p>
-                    <p className="text-[9px] font-bold text-[#0A3D2E] mt-1.5">— {liveTestimonials[0].patientName}</p>
-                  </div>
-                  {liveTestimonials.length > 1 && (
-                    <p className="text-[10px] text-muted-foreground mt-2 text-center">+{liveTestimonials.length - 1} more review{liveTestimonials.length > 2 ? "s" : ""}</p>
-                  )}
-                </div>
-              </PreviewShell>
-            ) : (
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/80 flex items-start gap-2.5">
-                <span className="text-amber-500 mt-0.5">⚠</span>
-                <p className="text-xs text-amber-700">Testimonials section is <strong>hidden</strong> on your page. Add at least one review below to make it visible.</p>
-              </div>
-            )}
-
+            <p className="text-xs text-muted-foreground">Testimonials section is <strong>hidden</strong> until you add at least one review.</p>
             {testimonials.map((t, i) => (
               <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-3">
                 <div className="flex items-center justify-between">
@@ -849,23 +990,6 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         <SectionHeader id="hours" icon={Clock} label="Clinic Hours" />
         {openSection === "hours" && (
           <div className="px-1 space-y-3">
-            {/* Hours preview */}
-            <PreviewShell>
-              <div className="p-3 bg-white">
-                <div className="divide-y divide-gray-50">
-                  {hours.slice(0, 4).map((h, i) => (
-                    <div key={i} className="flex justify-between items-center py-1.5">
-                      <span className="text-[10px] font-semibold text-gray-700">{h.day || "—"}</span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${h.closed ? "bg-red-50 text-red-500" : "bg-[#0F9B6E]/10 text-[#0F9B6E]"}`}>
-                        {h.closed ? "Closed" : h.open && h.close ? `${h.open} – ${h.close}` : "—"}
-                      </span>
-                    </div>
-                  ))}
-                  {hours.length > 4 && <p className="text-[9px] text-muted-foreground pt-1 text-center">+{hours.length - 4} more rows</p>}
-                </div>
-              </div>
-            </PreviewShell>
-
             {hours.map((h, i) => (
               <div key={i} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center">
                 <Input value={h.day} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, day: e.target.value } : x))} placeholder="e.g. Mon – Fri" className="rounded-xl" data-testid={`input-hours-day-${i}`} />
@@ -892,37 +1016,6 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         <SectionHeader id="social" icon={Share2} label="Social Links" />
         {openSection === "social" && (
           <div className="px-1 space-y-4">
-            {/* Social preview */}
-            <PreviewShell>
-              <div className="p-3 bg-white">
-                {socialCount > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {socialLinks.instagram && (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200/70">
-                        <Instagram className="h-3 w-3 text-purple-600" />
-                        <span className="text-[9px] text-purple-700 font-semibold">Instagram</span>
-                      </div>
-                    )}
-                    {socialLinks.facebook && (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200/70">
-                        <Facebook className="h-3 w-3 text-blue-600" />
-                        <span className="text-[9px] text-blue-700 font-semibold">Facebook</span>
-                      </div>
-                    )}
-                    {socialLinks.youtube && (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200/70">
-                        <Youtube className="h-3 w-3 text-red-600" />
-                        <span className="text-[9px] text-red-700 font-semibold">YouTube</span>
-                      </div>
-                    )}
-                    <p className="text-[10px] text-muted-foreground self-center ml-1">Shown in footer</p>
-                  </div>
-                ) : (
-                  <p className="text-[10px] text-muted-foreground text-center py-2">No social links added — icons won't appear in footer</p>
-                )}
-              </div>
-            </PreviewShell>
-
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Instagram URL</Label>
               <Input value={socialLinks.instagram ?? ""} onChange={e => setSocialLinks(p => ({ ...p, instagram: e.target.value }))} placeholder="https://instagram.com/yourclinic" className="rounded-xl" data-testid="input-social-instagram" />
