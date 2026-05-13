@@ -10,9 +10,11 @@ interface ImageUploadProps {
   onImageUploaded: (url: string) => void;
   folder: "doctors" | "clinics" | "users";
   fallbackText?: string;
+  allowedTypes?: string[];
+  maxSizeKb?: number;
 }
 
-export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackText = "?" }: ImageUploadProps) {
+export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackText = "?", allowedTypes, maxSizeKb }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -22,22 +24,29 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const validTypes = ["image/jpeg", "image/png", "image/webp"];
+    const validTypes = allowedTypes ?? ["image/jpeg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
-      toast({ 
-        title: "Invalid file type", 
-        description: "Please upload a JPG, PNG, or WebP image",
-        variant: "destructive" 
+      const typeLabels: Record<string, string> = {
+        "image/jpeg": "JPG", "image/png": "PNG", "image/webp": "WebP", "image/svg+xml": "SVG",
+      };
+      const allowed = validTypes.map(t => typeLabels[t] ?? t).join(", ");
+      toast({
+        title: "Invalid file type",
+        description: `Only ${allowed} files are accepted here.`,
+        variant: "destructive",
       });
       return;
     }
 
-    const maxSize = 2 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast({ 
-        title: "File too large", 
-        description: "Maximum file size is 2MB",
-        variant: "destructive" 
+    const maxBytes = (maxSizeKb ?? 2048) * 1024;
+    if (file.size > maxBytes) {
+      const label = (maxSizeKb ?? 2048) >= 1024
+        ? `${((maxSizeKb ?? 2048) / 1024).toFixed(0)} MB`
+        : `${maxSizeKb ?? 2048} KB`;
+      toast({
+        title: "File too large",
+        description: `Maximum allowed size is ${label}. Please resize or compress the image.`,
+        variant: "destructive",
       });
       return;
     }
@@ -141,7 +150,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={(allowedTypes ?? ["image/jpeg", "image/png", "image/webp"]).join(",")}
         className="hidden"
         onChange={handleFileSelect}
         data-testid="input-file-upload"

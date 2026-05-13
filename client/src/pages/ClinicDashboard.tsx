@@ -1303,7 +1303,13 @@ export default function ClinicDashboard() {
                     onImageUploaded={(url: string) => updateLogoMutation.mutate(url)}
                     folder="clinics"
                     fallbackText={clinic?.name || "Clinic"}
+                    allowedTypes={["image/png", "image/jpeg"]}
+                    maxSizeKb={500}
                   />
+                </div>
+                {/* Logo spec hint */}
+                <div className="absolute -bottom-5 left-0 right-0 text-center">
+                  <span className="text-[9px] font-medium text-white/40 whitespace-nowrap">PNG · JPG · max 500 KB</span>
                 </div>
               </div>
 

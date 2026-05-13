@@ -701,7 +701,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
       <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#DCE9E3] px-6 py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {clinic.logoUrl && <img src={clinic.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />}
+            {clinic.logoUrl && <img src={clinic.logoUrl} alt={clinic.name} className="h-9 w-auto max-w-[140px] object-contain" />}
             <span className="text-[#0A3D2E] font-bold text-lg" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>{clinic.name}</span>
           </div>
           <div className="hidden sm:flex items-center gap-6 text-sm text-gray-600">
@@ -919,7 +919,7 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
       <nav className="sticky top-0 z-40 bg-white shadow-sm px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {clinic.logoUrl && <img src={clinic.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />}
+            {clinic.logoUrl && <img src={clinic.logoUrl} alt={clinic.name} className="h-9 w-auto max-w-[140px] object-contain" />}
             <span className="text-[#1E3A2F] font-bold text-xl" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>{clinic.name}</span>
           </div>
           <div className="hidden sm:flex items-center gap-6 text-sm text-gray-600">
@@ -1174,7 +1174,7 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
       <nav className="sticky top-0 z-40 bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {clinic.logoUrl && <img src={clinic.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />}
+            {clinic.logoUrl && <img src={clinic.logoUrl} alt={clinic.name} className="h-9 w-auto max-w-[140px] object-contain" />}
             <span className="text-[#0F172A] font-bold text-xl tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}>{clinic.name}</span>
           </div>
           <div className="hidden sm:flex items-center gap-6 text-sm text-gray-500">
