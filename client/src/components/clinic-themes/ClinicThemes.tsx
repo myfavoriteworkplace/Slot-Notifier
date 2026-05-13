@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
+import defaultHeroImg from "@assets/WhatsApp_Image_2026-05-13_at_9.00.41_PM_1778687930285.jpeg";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -736,16 +737,11 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
               </Link>
             </div>
             <div className="hidden lg:block">
-              {cfg.heroImageUrl ? (
-                <img src={cfg.heroImageUrl} alt="Clinic" className="rounded-2xl w-full h-80 object-cover shadow-2xl" />
-              ) : (
-                <div className="rounded-2xl w-full h-80 bg-white/5 border border-white/10 flex items-center justify-center">
-                  <div className="text-center text-white/40">
-                    <div className="text-6xl mb-3">🦷</div>
-                    <p className="text-sm">Clinic Image</p>
-                  </div>
-                </div>
-              )}
+              <img
+                src={cfg.heroImageUrl || defaultHeroImg}
+                alt="Clinic"
+                className="rounded-2xl w-full h-[420px] object-cover shadow-2xl ring-1 ring-white/10"
+              />
             </div>
           </div>
         </div>
@@ -933,29 +929,45 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
         </div>
       </nav>
 
-      {/* Hero — full-width bg photo */}
-      <section
-        className="relative min-h-[90vh] flex items-center justify-center text-white text-center px-6"
-        style={{
-          background: cfg.heroImageUrl
-            ? `linear-gradient(rgba(30,58,47,0.82), rgba(30,58,47,0.88)), url(${cfg.heroImageUrl}) center/cover`
-            : "linear-gradient(135deg, #085041 0%, #0F9B6E 100%)",
-        }}
-      >
-        <div className="max-w-3xl">
-          <p className="text-[#6DCFAC] font-semibold tracking-widest text-sm uppercase mb-4">{clinic.city || "Dental Care"}</p>
-          <h1 className="text-5xl lg:text-7xl font-bold leading-tight mb-6" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-            {cfg.taglineL1 || "Caring for Your Smile"}<br />
-            <span className="text-[#6DCFAC]">{cfg.taglineL2 || "Like Family"}</span>
-          </h1>
-          <p className="text-white/80 text-xl max-w-xl mx-auto mb-10 leading-relaxed">
-            {cfg.heroDescription || `Welcome to ${clinic.name} — where every patient is treated with the warmth of family and the expertise of modern dentistry.`}
-          </p>
-          <Link href={bookingHref}>
-            <button className="bg-[#0F9B6E] text-white px-10 py-4 rounded-full font-bold text-lg hover:bg-[#1A9E75] transition-all hover:-translate-y-1 shadow-2xl shadow-black/30">
-              Book Appointment Online
-            </button>
-          </Link>
+      {/* Hero — split layout, warm cream background */}
+      <section className="bg-[#FDF6EE] px-6 py-24 relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-[#0F9B6E]/5 blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-72 h-72 rounded-full bg-amber-100/80 blur-3xl" />
+        </div>
+        <div className="max-w-6xl mx-auto relative">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <p className="text-[#0F9B6E] font-semibold tracking-widest text-sm uppercase mb-4">
+                {clinic.city || "Dental Care"}
+              </p>
+              <h1
+                className="text-5xl lg:text-6xl font-bold leading-tight mb-6 text-[#1E3A2F]"
+                style={{ fontFamily: "'Bricolage Grotesque', 'Inter', system-ui, sans-serif" }}
+              >
+                {cfg.taglineL1 || "Caring for Your Smile"}<br />
+                <span className="text-[#0F9B6E]">{cfg.taglineL2 || "Like Family"}</span>
+              </h1>
+              <p className="text-gray-600 text-lg max-w-md mb-8 leading-relaxed">
+                {cfg.heroDescription || `Welcome to ${clinic.name} — where every patient is treated with the warmth of family and the expertise of modern dentistry.`}
+              </p>
+              <Link href={bookingHref}>
+                <button className="bg-[#0F9B6E] text-white px-10 py-4 rounded-full font-bold text-lg hover:bg-[#1A9E75] transition-all hover:-translate-y-1 shadow-lg shadow-[#0F9B6E]/20">
+                  Book Appointment Online
+                </button>
+              </Link>
+            </div>
+            <div className="hidden lg:flex items-center justify-center">
+              <div className="relative w-full max-w-lg">
+                <div className="absolute inset-0 rounded-3xl bg-amber-200/50 translate-x-4 translate-y-4" />
+                <img
+                  src={cfg.heroImageUrl || defaultHeroImg}
+                  alt="Clinic"
+                  className="relative rounded-3xl w-full h-[420px] object-cover shadow-xl rotate-1"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1172,41 +1184,54 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
         </div>
       </nav>
 
-      {/* Hero — dark with large typography */}
-      <section className="bg-[#0F172A] text-white px-6 py-32 text-center relative overflow-hidden">
+      {/* Hero — dark split layout */}
+      <section className="bg-[#0F172A] text-white px-6 py-24 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 h-64 w-64 rounded-full bg-[#0F9B6E]/10 blur-3xl" />
-          <div className="absolute bottom-1/4 right-1/4 h-48 w-48 rounded-full bg-[#0F9B6E]/8 blur-2xl" />
+          <div className="absolute top-1/4 left-0 h-80 w-80 rounded-full bg-[#0F9B6E]/10 blur-3xl" />
+          <div className="absolute bottom-1/4 right-0 h-64 w-64 rounded-full bg-[#0F9B6E]/8 blur-2xl" />
         </div>
-        <div className="max-w-5xl mx-auto relative">
-          {clinic.city && <span className="inline-block px-4 py-1.5 rounded-full border border-[#0F9B6E]/30 text-[#0F9B6E] text-sm font-semibold tracking-widest uppercase mb-8">{clinic.city}</span>}
-          <h1
-            className="font-black leading-none mb-8"
-            style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.03em", fontSize: "clamp(3rem, 8vw, 5.5rem)" }}
-          >
-            {cfg.taglineL1 || "Advanced Dental"}<br />
-            <span className="text-[#0F9B6E]">{cfg.taglineL2 || "Care, Redefined."}</span>
-          </h1>
-          <p className="text-white/70 text-xl max-w-2xl mx-auto mb-12 leading-relaxed">
-            {cfg.heroDescription || `${clinic.name} offers cutting-edge dental treatments in a modern, comfortable environment. Precision, technology, and care — all in one place.`}
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href={bookingHref}>
-              <button className="bg-[#0F9B6E] text-white px-10 py-4 rounded-full font-bold text-lg hover:bg-[#1A9E75] transition-all hover:-translate-y-1 shadow-lg shadow-[#0F9B6E]/25">
-                Book Your Visit
-              </button>
-            </Link>
-            <a href="#theme-about-m">
-              <button className="border border-white/20 text-white px-10 py-4 rounded-full font-semibold text-lg hover:bg-white/10 transition-all">
-                Learn More
-              </button>
-            </a>
-          </div>
-          {cfg.heroImageUrl && (
-            <div className="mt-16">
-              <img src={cfg.heroImageUrl} alt="Clinic" className="w-full max-w-4xl mx-auto rounded-2xl object-cover h-80 shadow-2xl" />
+        <div className="max-w-6xl mx-auto relative">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              {clinic.city && (
+                <span className="inline-block px-4 py-1.5 rounded-full border border-[#0F9B6E]/30 text-[#0F9B6E] text-sm font-semibold tracking-widest uppercase mb-8">
+                  {clinic.city}
+                </span>
+              )}
+              <h1
+                className="font-black leading-none mb-8 text-white"
+                style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.03em", fontSize: "clamp(2.8rem, 5vw, 4.5rem)" }}
+              >
+                {cfg.taglineL1 || "Advanced Dental"}<br />
+                <span className="text-[#0F9B6E]">{cfg.taglineL2 || "Care, Redefined."}</span>
+              </h1>
+              <p className="text-white/70 text-lg max-w-md mb-10 leading-relaxed">
+                {cfg.heroDescription || `${clinic.name} offers cutting-edge dental treatments in a modern, comfortable environment. Precision, technology, and care — all in one place.`}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link href={bookingHref}>
+                  <button className="bg-[#0F9B6E] text-white px-10 py-4 rounded-full font-bold text-lg hover:bg-[#1A9E75] transition-all hover:-translate-y-1 shadow-lg shadow-[#0F9B6E]/25">
+                    Book Your Visit
+                  </button>
+                </Link>
+                <a href="#theme-about-m">
+                  <button className="border border-white/20 text-white px-10 py-4 rounded-full font-semibold text-lg hover:bg-white/10 transition-all">
+                    Learn More
+                  </button>
+                </a>
+              </div>
             </div>
-          )}
+            <div className="hidden lg:block">
+              <div className="relative">
+                <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-[#0F9B6E]/30 via-[#0F9B6E]/10 to-transparent blur-lg" />
+                <img
+                  src={cfg.heroImageUrl || defaultHeroImg}
+                  alt="Clinic"
+                  className="relative rounded-2xl w-full h-[420px] object-cover ring-1 ring-[#0F9B6E]/30 shadow-2xl"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
