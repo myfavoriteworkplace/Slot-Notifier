@@ -84,6 +84,120 @@ const FEATURE_ICON_MAP: Record<string, React.ElementType> = {
   check: CheckCircle2,
 };
 
+/* ─── Placeholder SVG components ──────────────────────── */
+
+/** Clinic interior line-art — replaces the 🏥 emoji placeholder */
+function ClinicPhotoPlaceholder({ cardBg, border }: { cardBg: string; border: string }) {
+  return (
+    <div className={`rounded-2xl w-full h-[420px] relative overflow-hidden border-2 border-dashed ${border} ${cardBg} flex flex-col items-center justify-center`}>
+      {/* Line-art dental clinic scene */}
+      <svg
+        viewBox="0 0 380 260"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-[85%] h-[85%] opacity-[0.38]"
+        aria-label="Clinic photo placeholder"
+      >
+        {/* Floor line */}
+        <line x1="18" y1="245" x2="362" y2="245" stroke="#0F9B6E" strokeWidth="1.5" strokeLinecap="round" />
+
+        {/* Left wall — window */}
+        <rect x="28" y="52" width="58" height="82" rx="3" stroke="#0F9B6E" strokeWidth="1.5" />
+        <line x1="57" y1="52" x2="57" y2="134" stroke="#0F9B6E" strokeWidth="1" strokeOpacity="0.55" />
+        <line x1="28" y1="93" x2="86" y2="93" stroke="#0F9B6E" strokeWidth="1" strokeOpacity="0.55" />
+
+        {/* Wall plant */}
+        <line x1="82" y1="245" x2="82" y2="212" stroke="#0F9B6E" strokeWidth="1.5" strokeLinecap="round" />
+        <ellipse cx="82" cy="201" rx="14" ry="16" stroke="#0F9B6E" strokeWidth="1.5" />
+        <ellipse cx="72" cy="211" rx="10" ry="12" stroke="#0F9B6E" strokeWidth="1.5" strokeOpacity="0.5" />
+
+        {/* ── DENTAL CHAIR ── */}
+        {/* Hydraulic base */}
+        <rect x="172" y="218" width="58" height="27" rx="4" stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.06" />
+        {/* Seat */}
+        <rect x="118" y="180" width="166" height="40" rx="9" stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.06" />
+        {/* Seatback */}
+        <rect x="152" y="92" width="80" height="91" rx="9" stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.06" />
+        {/* Headrest */}
+        <rect x="164" y="72" width="56" height="24" rx="9" stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.08" />
+        {/* Left armrest */}
+        <rect x="118" y="172" width="22" height="50" rx="5" stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.06" />
+        {/* Right armrest */}
+        <rect x="262" y="172" width="22" height="50" rx="5" stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.06" />
+        {/* Footrest */}
+        <path d="M118 215 L98 215 L98 231 L118 231" stroke="#0F9B6E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+
+        {/* ── OVERHEAD LAMP ── */}
+        <rect x="295" y="16" width="52" height="9" rx="3" stroke="#0F9B6E" strokeWidth="1.5" />
+        <path d="M321 25 L321 82 L279 102" stroke="#0F9B6E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <ellipse cx="267" cy="108" rx="21" ry="13" stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.08" />
+        <ellipse cx="267" cy="108" rx="9" ry="5.5" stroke="#0F9B6E" strokeWidth="1" strokeOpacity="0.5" />
+
+        {/* ── EQUIPMENT TRAY ── */}
+        <path d="M118 200 L93 200 L93 186" stroke="#0F9B6E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="78" y="175" width="30" height="13" rx="3" stroke="#0F9B6E" strokeWidth="1.5" />
+
+        {/* ── WALL CABINET (right) ── */}
+        <rect x="316" y="148" width="50" height="92" rx="4" stroke="#0F9B6E" strokeWidth="1.5" />
+        <line x1="316" y1="194" x2="366" y2="194" stroke="#0F9B6E" strokeWidth="1" strokeOpacity="0.55" />
+        <circle cx="341" cy="193" r="3.5" stroke="#0F9B6E" strokeWidth="1.5" />
+
+        {/* Medical cross accent */}
+        <path d="M344 68 L344 84 M336 76 L352 76" stroke="#0F9B6E" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.45" />
+      </svg>
+
+      {/* Prompt caption */}
+      <p className="absolute bottom-5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0F9B6E] opacity-40 select-none">
+        Add clinic photo
+      </p>
+
+      {/* Subtle shimmer */}
+      <div className="absolute inset-0 animate-pulse bg-[#0F9B6E]/[0.015] rounded-2xl pointer-events-none" />
+    </div>
+  );
+}
+
+/** Doctor white-coat silhouette — replaces the letter-initial grey circle */
+function DoctorAvatarPlaceholder() {
+  return (
+    <div className="w-full h-full bg-gradient-to-b from-[#0F9B6E]/10 to-[#0F9B6E]/5 flex items-end justify-center overflow-hidden">
+      <svg
+        viewBox="0 0 160 172"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-36"
+        aria-label="Doctor placeholder"
+      >
+        {/* Head */}
+        <circle cx="80" cy="52" r="30" stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.08" />
+
+        {/* Neck */}
+        <path d="M70 80 L70 94 Q80 98 90 94 L90 80" stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.06" strokeLinejoin="round" />
+
+        {/* White coat body */}
+        <path d="M2 172 L2 142 C2 122 28 110 52 106 L63 126 L80 131 L97 126 L108 106 C132 110 158 122 158 142 L158 172 Z"
+          stroke="#0F9B6E" strokeWidth="1.5" fill="#0F9B6E" fillOpacity="0.07" strokeLinejoin="round" />
+
+        {/* Coat collar / lapels */}
+        <path d="M63 126 L70 148 L80 152 L90 148 L97 126"
+          stroke="#0F9B6E" strokeWidth="1.5" fill="none" strokeLinejoin="round" />
+
+        {/* Stethoscope — left drape */}
+        <path d="M62 120 C54 130 50 143 55 155 C59 164 68 166 76 162"
+          stroke="#0F9B6E" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+        {/* Stethoscope chest piece */}
+        <circle cx="76" cy="162" r="5" stroke="#0F9B6E" strokeWidth="1.5" />
+
+        {/* Breast pocket */}
+        <rect x="104" y="134" width="22" height="15" rx="2" stroke="#0F9B6E" strokeWidth="1" strokeOpacity="0.5" />
+        {/* Pen in pocket */}
+        <line x1="110" y1="134" x2="110" y2="149" stroke="#0F9B6E" strokeWidth="1" strokeOpacity="0.45" strokeLinecap="round" />
+        <line x1="116" y1="134" x2="116" y2="149" stroke="#0F9B6E" strokeWidth="1" strokeOpacity="0.35" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
+
 /* ─── Shared helpers ───────────────────────────────────── */
 
 function StarRating({ rating }: { rating: number }) {
@@ -223,12 +337,7 @@ function WhyChooseUs({ features, imageUrl, bg, cardBg, border, titleColor, accen
             {imageUrl ? (
               <img src={imageUrl} alt="Clinic" className="rounded-2xl w-full h-[420px] object-cover shadow-xl" />
             ) : (
-              <div className={`rounded-2xl w-full h-[420px] ${cardBg} border-2 border-dashed ${border} flex items-center justify-center`}>
-                <div className={`text-center ${titleColor} opacity-30`}>
-                  <div className="text-6xl mb-3">🏥</div>
-                  <p className="text-sm font-medium">Add a clinic photo in the website builder</p>
-                </div>
-              </div>
+              <ClinicPhotoPlaceholder cardBg={cardBg} border={border} />
             )}
           </div>
         </div>
@@ -461,15 +570,11 @@ function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, bor
         <div className={`${containerCls} transition-all duration-300 ease-in-out ${slideCls}`}>
           {visible.map((doc, i) => (
             <div key={`${page}-${i}`} className={`${cardBg} rounded-2xl border ${border} overflow-hidden text-center hover:-translate-y-1 hover:shadow-lg transition-all ${cardWidthCls}`}>
-              <div className="h-52 bg-gray-100 flex items-center justify-center overflow-hidden">
+              <div className="h-52 overflow-hidden">
                 {doc.imageUrl ? (
                   <img src={doc.imageUrl} alt={doc.name} className="w-full h-full object-cover object-top" />
                 ) : (
-                  <div className="h-20 w-20 rounded-full bg-[#0F9B6E]/10 border-2 border-[#0F9B6E]/20 flex items-center justify-center">
-                    <span className="text-3xl font-bold text-[#0F9B6E]">
-                      {doc.name.replace(/^Dr\.\s*/i, "").charAt(0)}
-                    </span>
-                  </div>
+                  <DoctorAvatarPlaceholder />
                 )}
               </div>
               <div className="p-4">
