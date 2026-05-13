@@ -52,6 +52,23 @@ export default function ClinicAbout(props: { params?: { slug?: string } }) {
     retry: false,
   });
 
+  // Detect if the logged-in clinic is the owner of this page
+  const { data: clinicSession } = useQuery<{ id: number } | null>({
+    queryKey: ["/api/auth/clinic/me"],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/clinic/me`, { credentials: "include" });
+        if (!res.ok) return null;
+        return res.json();
+      } catch {
+        return null;
+      }
+    },
+    retry: false,
+    staleTime: 60_000,
+  });
+  const isOwner = !!(clinicSession && clinic && (clinicSession as any).id === clinic.id);
+
   // Keep sessionStorage in sync so the Header can build book/about links
   useEffect(() => {
     if (clinic?.id) sessionStorage.setItem("lastClinicId", String(clinic.id));
@@ -106,9 +123,9 @@ export default function ClinicAbout(props: { params?: { slug?: string } }) {
       doctorSpecialization: clinic.doctorSpecialization,
       doctorDegree: clinic.doctorDegree,
     };
-    if (cfg.theme === "warm") return <ThemeWarm clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} />;
-    if (cfg.theme === "modern") return <ThemeModern clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} />;
-    return <ThemeClassic clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} />;
+    if (cfg.theme === "warm") return <ThemeWarm clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} isOwner={isOwner} />;
+    if (cfg.theme === "modern") return <ThemeModern clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} isOwner={isOwner} />;
+    return <ThemeClassic clinic={themeClinic} cfg={cfg} bookingHref={bookingHref} isOwner={isOwner} />;
   }
 
   /* ── Default layout (no theme configured) ── */

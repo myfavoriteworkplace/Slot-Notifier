@@ -40,6 +40,7 @@ interface ThemeProps {
   clinic: ThemeClinic;
   cfg: ClinicWebsiteConfig;
   bookingHref: string;
+  isOwner?: boolean;
 }
 
 const DEFAULT_SERVICES = [
@@ -87,9 +88,14 @@ const FEATURE_ICON_MAP: Record<string, React.ElementType> = {
 /* ─── Placeholder SVG components ──────────────────────── */
 
 /** Clinic interior line-art — replaces the 🏥 emoji placeholder */
-function ClinicPhotoPlaceholder({ cardBg, border }: { cardBg: string; border: string }) {
+function ClinicPhotoPlaceholder({ cardBg, border, height = "h-[420px]", isOwner = false }: {
+  cardBg: string;
+  border: string;
+  height?: string;
+  isOwner?: boolean;
+}) {
   return (
-    <div className={`rounded-2xl w-full h-[420px] relative overflow-hidden border-2 border-dashed ${border} ${cardBg} flex flex-col items-center justify-center`}>
+    <div className={`rounded-2xl w-full ${height} relative overflow-hidden border-2 border-dashed ${border} ${cardBg} flex flex-col items-center justify-center`}>
       {/* Line-art dental clinic scene */}
       <svg
         viewBox="0 0 380 260"
@@ -146,10 +152,16 @@ function ClinicPhotoPlaceholder({ cardBg, border }: { cardBg: string; border: st
         <path d="M344 68 L344 84 M336 76 L352 76" stroke="#0F9B6E" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.45" />
       </svg>
 
-      {/* Prompt caption */}
-      <p className="absolute bottom-5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0F9B6E] opacity-40 select-none">
-        Add clinic photo
-      </p>
+      {/* Admin-only hint badge */}
+      {isOwner && (
+        <div
+          className="absolute top-3 right-3 flex items-center gap-1 bg-[#0F9B6E] text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md cursor-default select-none z-10"
+          title="Upload a clinic photo from your dashboard → Website → Clinic Photo"
+        >
+          <span>ℹ</span>
+          <span>Add photo</span>
+        </div>
+      )}
 
       {/* Subtle shimmer */}
       <div className="absolute inset-0 animate-pulse bg-[#0F9B6E]/[0.015] rounded-2xl pointer-events-none" />
@@ -295,7 +307,7 @@ function StatsBar({ stats, bg, numColor, labelColor }: {
 
 /* ─── NEW: Why Choose Us ───────────────────────────────── */
 
-function WhyChooseUs({ features, imageUrl, bg, cardBg, border, titleColor, accentColor, serif }: {
+function WhyChooseUs({ features, imageUrl, bg, cardBg, border, titleColor, accentColor, serif, isOwner }: {
   features: { icon: string; title: string }[];
   imageUrl?: string;
   bg: string;
@@ -304,6 +316,7 @@ function WhyChooseUs({ features, imageUrl, bg, cardBg, border, titleColor, accen
   titleColor: string;
   accentColor: string;
   serif?: boolean;
+  isOwner?: boolean;
 }) {
   return (
     <section className={`px-6 py-20 ${bg}`}>
@@ -337,7 +350,7 @@ function WhyChooseUs({ features, imageUrl, bg, cardBg, border, titleColor, accen
             {imageUrl ? (
               <img src={imageUrl} alt="Clinic" className="rounded-2xl w-full h-[420px] object-cover shadow-xl" />
             ) : (
-              <ClinicPhotoPlaceholder cardBg={cardBg} border={border} />
+              <ClinicPhotoPlaceholder cardBg={cardBg} border={border} isOwner={isOwner} />
             )}
           </div>
         </div>
@@ -793,7 +806,7 @@ function RichFooter({ clinic, cfg, bookingHref, darkBg, accentSuffix, serif }: {
    THEME 1 — CLASSIC
    Playfair serif headings · deep forest green · elegant cards
 ══════════════════════════════════════════════════════════ */
-export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
+export function ThemeClassic({ clinic, cfg, bookingHref, isOwner = false }: ThemeProps) {
   const services = cfg.services?.length ? cfg.services : DEFAULT_SERVICES;
   const hours = cfg.hours?.length ? cfg.hours : DEFAULT_HOURS;
   const testimonials = cfg.testimonials;
@@ -919,6 +932,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
         titleColor="text-[#0A3D2E]"
         accentColor="text-[#0F9B6E]"
         serif
+        isOwner={isOwner}
       />
 
       {/* Stats bar */}
@@ -1037,7 +1051,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
    THEME 2 — WARM
    Background photo hero · warm tones · family clinic feel
 ══════════════════════════════════════════════════════════ */
-export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
+export function ThemeWarm({ clinic, cfg, bookingHref, isOwner = false }: ThemeProps) {
   const services = cfg.services?.length ? cfg.services : DEFAULT_SERVICES;
   const hours = cfg.hours?.length ? cfg.hours : DEFAULT_HOURS;
   const testimonials = cfg.testimonials;
@@ -1170,12 +1184,7 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
               {cfg.heroImageUrl ? (
                 <img src={cfg.heroImageUrl} alt="Clinic" className="rounded-2xl w-full h-96 object-cover shadow-xl" />
               ) : (
-                <div className="rounded-2xl w-full h-96 bg-[#1E3A2F]/10 border-2 border-dashed border-[#1E3A2F]/20 flex items-center justify-center">
-                  <div className="text-center text-[#1E3A2F]/40">
-                    <div className="text-5xl mb-3">🏥</div>
-                    <p className="text-sm font-medium">Add a clinic photo</p>
-                  </div>
-                </div>
+                <ClinicPhotoPlaceholder cardBg="bg-[#1E3A2F]/10" border="border-[#1E3A2F]/20" height="h-96" isOwner={isOwner} />
               )}
             </div>
           </div>
@@ -1192,6 +1201,7 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
         titleColor="text-[#1E3A2F]"
         accentColor="text-[#0F9B6E]"
         serif
+        isOwner={isOwner}
       />
 
       {/* Stats bar */}
@@ -1318,7 +1328,7 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
    THEME 3 — MODERN
    Space Grotesk · dark hero · teal accent · bold typography
 ══════════════════════════════════════════════════════════ */
-export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
+export function ThemeModern({ clinic, cfg, bookingHref, isOwner = false }: ThemeProps) {
   const services = cfg.services?.length ? cfg.services : DEFAULT_SERVICES;
   const hours = cfg.hours?.length ? cfg.hours : DEFAULT_HOURS;
   const testimonials = cfg.testimonials;
@@ -1464,12 +1474,7 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-2xl w-full h-80 bg-[#0F172A]/5 border-2 border-dashed border-[#0F172A]/10 flex items-center justify-center">
-                  <div className="text-center text-[#0F172A]/30">
-                    <div className="text-5xl mb-3">🦷</div>
-                    <p className="text-sm font-medium">Add clinic photos</p>
-                  </div>
-                </div>
+                <ClinicPhotoPlaceholder cardBg="bg-[#0F172A]/5" border="border-[#0F172A]/10" height="h-80" isOwner={isOwner} />
               )}
             </div>
           </div>
@@ -1485,6 +1490,7 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
         border="border-gray-100"
         titleColor="text-[#0F172A]"
         accentColor="text-[#0F9B6E]"
+        isOwner={isOwner}
       />
 
       {/* Stats bar */}
