@@ -727,13 +727,15 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
         <div className="max-w-6xl mx-auto relative">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <p className="text-[#6DCFAC] tracking-[0.2em] text-sm font-semibold uppercase mb-4">
-                {clinic.city ? `${clinic.city} · ` : ""}Advanced Dental Care
-              </p>
-              <h1 className="text-5xl lg:text-6xl font-bold leading-tight mb-6" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>
+              <h1 className="text-5xl lg:text-6xl font-bold leading-tight mb-3" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>
                 {cfg.taglineL1 || "Your Smile,"}<br />
                 <span className="text-[#6DCFAC]">{cfg.taglineL2 || "Our Passion."}</span>
               </h1>
+              {(clinic.name || clinic.city) && (
+                <p className="text-white/50 text-sm font-medium tracking-wide mb-6">
+                  {[clinic.name, clinic.city].filter(Boolean).join(" · ")}
+                </p>
+              )}
               <p className="text-white/80 text-lg max-w-md mb-8 leading-relaxed">
                 {cfg.heroDescription || `At ${clinic.name}, we combine modern dentistry with compassionate care to give you the smile you deserve.`}
               </p>
@@ -943,16 +945,18 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
         <div className="max-w-6xl mx-auto relative">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <p className="text-[#0F9B6E] font-semibold tracking-widest text-sm uppercase mb-4">
-                {clinic.city || "Dental Care"}
-              </p>
               <h1
-                className="text-5xl lg:text-6xl font-bold leading-tight mb-6 text-[#1E3A2F]"
+                className="text-5xl lg:text-6xl font-bold leading-tight mb-3 text-[#1E3A2F]"
                 style={{ fontFamily: "'Bricolage Grotesque', 'Inter', system-ui, sans-serif" }}
               >
                 {cfg.taglineL1 || "Caring for Your Smile"}<br />
                 <span className="text-[#0F9B6E]">{cfg.taglineL2 || "Like Family"}</span>
               </h1>
+              {(clinic.name || clinic.city) && (
+                <p className="text-[#1E3A2F]/50 text-sm font-medium tracking-wide mb-6">
+                  {[clinic.name, clinic.city].filter(Boolean).join(" · ")}
+                </p>
+              )}
               <p className="text-gray-600 text-lg max-w-md mb-8 leading-relaxed">
                 {cfg.heroDescription || `Welcome to ${clinic.name} — where every patient is treated with the warmth of family and the expertise of modern dentistry.`}
               </p>
@@ -1196,18 +1200,18 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
         <div className="max-w-6xl mx-auto relative">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              {clinic.city && (
-                <span className="inline-block px-4 py-1.5 rounded-full border border-[#0F9B6E]/30 text-[#0F9B6E] text-sm font-semibold tracking-widest uppercase mb-8">
-                  {clinic.city}
-                </span>
-              )}
               <h1
-                className="font-black leading-none mb-8 text-white"
+                className="font-black leading-none mb-3 text-white"
                 style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.03em", fontSize: "clamp(2.8rem, 5vw, 4.5rem)" }}
               >
                 {cfg.taglineL1 || "Advanced Dental"}<br />
                 <span className="text-[#0F9B6E]">{cfg.taglineL2 || "Care, Redefined."}</span>
               </h1>
+              {(clinic.name || clinic.city) && (
+                <p className="text-white/40 text-sm font-medium tracking-wide mb-8">
+                  {[clinic.name, clinic.city].filter(Boolean).join(" · ")}
+                </p>
+              )}
               <p className="text-white/70 text-lg max-w-md mb-10 leading-relaxed">
                 {cfg.heroDescription || `${clinic.name} offers cutting-edge dental treatments in a modern, comfortable environment. Precision, technology, and care — all in one place.`}
               </p>
