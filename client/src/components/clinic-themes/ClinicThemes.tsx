@@ -8,7 +8,7 @@ import type { ClinicWebsiteConfig } from "@shared/schema";
 import {
   Star, Phone, Mail, MapPin, Globe, Clock, Navigation,
   Instagram, Facebook, Youtube, ExternalLink,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Menu, X,
   Users2, ShieldCheck, Heart, Award, Activity, Zap, Stethoscope, CheckCircle2,
 } from "lucide-react";
 
@@ -205,7 +205,7 @@ function WhyChooseUs({ features, imageUrl, bg, cardBg, border, titleColor, accen
             >
               Our Commitment to You
             </h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {features.map((f, i) => {
                 const Icon = FEATURE_ICON_MAP[f.icon] ?? Heart;
                 return (
@@ -409,7 +409,7 @@ function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, bor
     : count <= 3
     ? "flex justify-center flex-wrap gap-5"
     : "grid grid-cols-2 lg:grid-cols-4 gap-5";
-  const cardWidthCls = count <= 3 ? "w-64" : "";
+  const cardWidthCls = count <= 3 ? "w-full sm:w-64" : "";
 
   const slideCls = exiting
     ? exitDir === 'left'
@@ -694,15 +694,16 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
   const testimonials = cfg.testimonials;
   const gallery = cfg.gallery?.filter(g => g.url);
   const features = cfg.features?.length ? cfg.features : DEFAULT_FEATURES;
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#F4F8F6] font-sans" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* Mini-nav */}
-      <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#DCE9E3] px-6 py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {clinic.logoUrl && <img src={clinic.logoUrl} alt={clinic.name} className="h-9 w-auto max-w-[140px] object-contain" />}
-            <span className="text-[#0A3D2E] font-bold text-lg" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>{clinic.name}</span>
+      <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#DCE9E3]">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            {clinic.logoUrl && <img src={clinic.logoUrl} alt={clinic.name} className="h-9 w-auto max-w-[120px] object-contain shrink-0" />}
+            <span className="text-[#0A3D2E] font-bold text-lg truncate" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>{clinic.name}</span>
           </div>
           <div className="hidden sm:flex items-center gap-6 text-sm text-gray-600">
             <a href="#theme-about" className="hover:text-[#0A3D2E] transition-colors">About</a>
@@ -710,12 +711,37 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
             <a href="#theme-doctors" className="hover:text-[#0A3D2E] transition-colors">Doctors</a>
             <a href="#theme-contact" className="hover:text-[#0A3D2E] transition-colors">Contact</a>
           </div>
-          <Link href={bookingHref}>
-            <button className="bg-[#0F9B6E] text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-[#085041] transition-colors shadow-sm" data-testid="button-theme-book">
-              Book Appointment
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href={bookingHref}>
+              <button className="bg-[#0F9B6E] text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-[#085041] transition-colors shadow-sm" data-testid="button-theme-book">
+                Book Now
+              </button>
+            </Link>
+            <button
+              onClick={() => setMobileMenuOpen(m => !m)}
+              className="sm:hidden p-2 rounded-lg text-[#0A3D2E] hover:bg-[#F4F8F6] transition-colors"
+              data-testid="button-mobile-menu-classic"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-          </Link>
+          </div>
         </div>
+        {mobileMenuOpen && (
+          <div className="sm:hidden border-t border-[#DCE9E3] bg-white/95 backdrop-blur-md">
+            <div className="px-6 py-2 flex flex-col">
+              {[
+                { label: "About", href: "#theme-about" },
+                { label: "Services", href: "#theme-services" },
+                { label: "Doctors", href: "#theme-doctors" },
+                { label: "Contact", href: "#theme-contact" },
+              ].map(l => (
+                <a key={l.label} href={l.href} onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-medium text-gray-700 hover:text-[#0A3D2E] border-b border-[#DCE9E3] last:border-0 transition-colors">
+                  {l.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero */}
@@ -727,7 +753,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
         <div className="max-w-6xl mx-auto relative">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h1 className="text-5xl lg:text-6xl font-bold leading-tight mb-3" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-3" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>
                 {cfg.taglineL1 || "Your Smile,"}<br />
                 <span className="text-[#6DCFAC]">{cfg.taglineL2 || "Our Passion."}</span>
               </h1>
@@ -882,7 +908,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
       {/* Contact */}
       <section id="theme-contact" className="px-6 py-20 bg-[#0A3D2E] text-white">
         <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-4xl font-bold mb-6" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Visit Us</h2>
+          <h2 className="text-4xl font-bold mb-6 text-white" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Visit Us</h2>
           <div className="flex flex-wrap justify-center gap-8 text-white/80 mb-8">
             {clinic.address && <div className="flex items-center gap-2"><MapPin className="h-4 w-4" />{clinic.address}{clinic.city ? `, ${clinic.city}` : ""}</div>}
             {clinic.phone && <a href={`tel:${clinic.phone}`} className="flex items-center gap-2 hover:text-white transition-colors"><Phone className="h-4 w-4" />{clinic.phone}</a>}
@@ -912,15 +938,16 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
   const testimonials = cfg.testimonials;
   const gallery = cfg.gallery?.filter(g => g.url);
   const features = cfg.features?.length ? cfg.features : DEFAULT_FEATURES;
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* Mini-nav */}
-      <nav className="sticky top-0 z-40 bg-white shadow-sm px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {clinic.logoUrl && <img src={clinic.logoUrl} alt={clinic.name} className="h-9 w-auto max-w-[140px] object-contain" />}
-            <span className="text-[#1E3A2F] font-bold text-xl" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>{clinic.name}</span>
+      <nav className="sticky top-0 z-40 bg-white shadow-sm">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            {clinic.logoUrl && <img src={clinic.logoUrl} alt={clinic.name} className="h-9 w-auto max-w-[120px] object-contain shrink-0" />}
+            <span className="text-[#1E3A2F] font-bold text-xl truncate" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>{clinic.name}</span>
           </div>
           <div className="hidden sm:flex items-center gap-6 text-sm text-gray-600">
             <a href="#theme-about-w" className="hover:text-[#1E3A2F] transition-colors">About</a>
@@ -928,12 +955,37 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
             <a href="#theme-doctors-w" className="hover:text-[#1E3A2F] transition-colors">Team</a>
             <a href="#theme-contact-w" className="hover:text-[#1E3A2F] transition-colors">Contact</a>
           </div>
-          <Link href={bookingHref}>
-            <button className="bg-[#0F9B6E] text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-[#085041] transition-colors shadow-sm" data-testid="button-theme-warm-book">
-              Book Now
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href={bookingHref}>
+              <button className="bg-[#0F9B6E] text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-[#085041] transition-colors shadow-sm" data-testid="button-theme-warm-book">
+                Book Now
+              </button>
+            </Link>
+            <button
+              onClick={() => setMobileMenuOpen(m => !m)}
+              className="sm:hidden p-2 rounded-lg text-[#1E3A2F] hover:bg-[#F8EDE3] transition-colors"
+              data-testid="button-mobile-menu-warm"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-          </Link>
+          </div>
         </div>
+        {mobileMenuOpen && (
+          <div className="sm:hidden border-t border-gray-100 bg-white">
+            <div className="px-6 py-2 flex flex-col">
+              {[
+                { label: "About", href: "#theme-about-w" },
+                { label: "Services", href: "#theme-services-w" },
+                { label: "Team", href: "#theme-doctors-w" },
+                { label: "Contact", href: "#theme-contact-w" },
+              ].map(l => (
+                <a key={l.label} href={l.href} onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-medium text-gray-700 hover:text-[#1E3A2F] border-b border-gray-100 last:border-0 transition-colors">
+                  {l.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero — split layout, warm cream background */}
@@ -946,7 +998,7 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <h1
-                className="text-5xl lg:text-6xl font-bold leading-tight mb-3 text-[#1E3A2F]"
+                className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-3 text-[#1E3A2F]"
                 style={{ fontFamily: "'Bricolage Grotesque', 'Inter', system-ui, sans-serif" }}
               >
                 {cfg.taglineL1 || "Caring for Your Smile"}<br />
@@ -1167,15 +1219,16 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
   const testimonials = cfg.testimonials;
   const gallery = cfg.gallery?.filter(g => g.url);
   const features = cfg.features?.length ? cfg.features : DEFAULT_FEATURES;
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* Mini-nav */}
-      <nav className="sticky top-0 z-40 bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {clinic.logoUrl && <img src={clinic.logoUrl} alt={clinic.name} className="h-9 w-auto max-w-[140px] object-contain" />}
-            <span className="text-[#0F172A] font-bold text-xl tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}>{clinic.name}</span>
+      <nav className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            {clinic.logoUrl && <img src={clinic.logoUrl} alt={clinic.name} className="h-9 w-auto max-w-[120px] object-contain shrink-0" />}
+            <span className="text-[#0F172A] font-bold text-xl truncate" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}>{clinic.name}</span>
           </div>
           <div className="hidden sm:flex items-center gap-6 text-sm text-gray-500">
             <a href="#theme-about-m" className="hover:text-[#0F172A] transition-colors">About</a>
@@ -1183,12 +1236,37 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
             <a href="#theme-doctors-m" className="hover:text-[#0F172A] transition-colors">Team</a>
             <a href="#theme-contact-m" className="hover:text-[#0F172A] transition-colors">Contact</a>
           </div>
-          <Link href={bookingHref}>
-            <button className="bg-[#0F9B6E] text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-[#085041] transition-colors shadow-sm" data-testid="button-theme-modern-book">
-              Book Now
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href={bookingHref}>
+              <button className="bg-[#0F9B6E] text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-[#085041] transition-colors shadow-sm" data-testid="button-theme-modern-book">
+                Book Now
+              </button>
+            </Link>
+            <button
+              onClick={() => setMobileMenuOpen(m => !m)}
+              className="sm:hidden p-2 rounded-lg text-[#0F172A] hover:bg-gray-100 transition-colors"
+              data-testid="button-mobile-menu-modern"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-          </Link>
+          </div>
         </div>
+        {mobileMenuOpen && (
+          <div className="sm:hidden border-t border-gray-100 bg-white">
+            <div className="px-6 py-2 flex flex-col">
+              {[
+                { label: "About", href: "#theme-about-m" },
+                { label: "Services", href: "#theme-services-m" },
+                { label: "Team", href: "#theme-doctors-m" },
+                { label: "Contact", href: "#theme-contact-m" },
+              ].map(l => (
+                <a key={l.label} href={l.href} onClick={() => setMobileMenuOpen(false)} className="py-3 text-sm font-medium text-gray-600 hover:text-[#0F172A] border-b border-gray-100 last:border-0 transition-colors">
+                  {l.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero — dark split layout */}
@@ -1346,7 +1424,7 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12">
               <span className="text-[#0F9B6E] font-bold text-sm uppercase tracking-widest">Patient Reviews</span>
-              <h2 className="text-4xl font-black mt-2" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}>
+              <h2 className="text-4xl font-black mt-2 text-white" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}>
                 What They Say
               </h2>
             </div>
@@ -1400,7 +1478,7 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
       {/* Contact */}
       <section id="theme-contact-m" className="px-6 py-20 bg-[#0F172A] text-white">
         <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-5xl font-black mb-6" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}>{clinic.name}</h2>
+          <h2 className="text-5xl font-black mb-6 text-white" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}>{clinic.name}</h2>
           <div className="flex flex-wrap justify-center gap-8 text-white/60 mb-10">
             {clinic.address && <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-[#0F9B6E]" />{clinic.address}{clinic.city ? `, ${clinic.city}` : ""}</div>}
             {clinic.phone && <a href={`tel:${clinic.phone}`} className="flex items-center gap-2 hover:text-white transition-colors"><Phone className="h-4 w-4 text-[#0F9B6E]" />{clinic.phone}</a>}
