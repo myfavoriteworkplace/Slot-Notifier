@@ -21,15 +21,20 @@ const connectionString = process.env.DATABASE_URL
   .replace(/([?&])sslmode=[^&]*/g, "$1")  // remove sslmode=... param
   .replace(/[?&]$/, "");                   // clean up trailing ? or &
 
-// Use SSL (without cert verification) for any remote database.
-// Local Postgres instances (localhost / 127.0.0.1) don't need SSL.
+// Use SSL only for known remote cloud databases.
+// Replit's internal postgres, localhost, and socket connections don't support SSL.
 const isLocalDb =
   connectionString.includes("localhost") ||
-  connectionString.includes("127.0.0.1");
+  connectionString.includes("127.0.0.1") ||
+  connectionString.includes("/var/run") ||
+  !connectionString.includes(".");          // no dots = internal/socket host
+
+// Also honour the standard PGSSLMODE=disable env var
+const sslDisabled = process.env.PGSSLMODE === "disable" || process.env.NODE_ENV === "development";
 
 export const pool = new Pool({
   connectionString,
-  ssl: isLocalDb ? false : { rejectUnauthorized: false },
+  ssl: (isLocalDb || sslDisabled) ? false : { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
