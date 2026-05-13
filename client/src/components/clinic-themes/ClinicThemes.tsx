@@ -64,7 +64,14 @@ const DEFAULT_FEATURES = [
   { icon: "zap", title: "Advanced Technology and Continuous Learning" },
 ];
 
-const STAT_ICONS = [Stethoscope, Users2, Award, Heart];
+const DEFAULT_STATS = [
+  { value: "5,000+", label: "Happy Patients" },
+  { value: "3,000+", label: "Procedures Done" },
+  { value: "15+",    label: "Years of Excellence" },
+  { value: "98%",    label: "Satisfaction Rate" },
+];
+
+const STAT_ICONS = [Users2, Stethoscope, Award, Heart];
 
 const FEATURE_ICON_MAP: Record<string, React.ElementType> = {
   users: Users2,
@@ -723,7 +730,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
               <p className="text-[#6DCFAC] tracking-[0.2em] text-sm font-semibold uppercase mb-4">
                 {clinic.city ? `${clinic.city} · ` : ""}Advanced Dental Care
               </p>
-              <h1 className="text-5xl lg:text-6xl font-bold leading-tight mb-6" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+              <h1 className="text-5xl lg:text-6xl font-bold leading-tight mb-6" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>
                 {cfg.taglineL1 || "Your Smile,"}<br />
                 <span className="text-[#6DCFAC]">{cfg.taglineL2 || "Our Passion."}</span>
               </h1>
@@ -781,15 +788,13 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
         serif
       />
 
-      {/* Stats bar — only if clinic has configured stats */}
-      {cfg.stats && cfg.stats.length > 0 && (
-        <StatsBar
-          stats={cfg.stats}
-          bg="bg-[#0A3D2E]"
-          numColor="text-white"
-          labelColor="text-white/70"
-        />
-      )}
+      {/* Stats bar */}
+      <StatsBar
+        stats={cfg.stats?.length ? cfg.stats : DEFAULT_STATS}
+        bg="bg-[#0A3D2E]"
+        numColor="text-white"
+        labelColor="text-white/70"
+      />
 
       {/* Services carousel */}
       <ServicesCarousel
@@ -1029,14 +1034,12 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
       />
 
       {/* Stats bar */}
-      {cfg.stats && cfg.stats.length > 0 && (
-        <StatsBar
-          stats={cfg.stats}
-          bg="bg-[#1E3A2F]"
-          numColor="text-white"
-          labelColor="text-white/70"
-        />
-      )}
+      <StatsBar
+        stats={cfg.stats?.length ? cfg.stats : DEFAULT_STATS}
+        bg="bg-[#1E3A2F]"
+        numColor="text-white"
+        labelColor="text-white/70"
+      />
 
       {/* Services */}
       <ServicesCarousel
@@ -1298,14 +1301,12 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
       />
 
       {/* Stats bar */}
-      {cfg.stats && cfg.stats.length > 0 && (
-        <StatsBar
-          stats={cfg.stats}
-          bg="bg-[#0F172A]"
-          numColor="text-white"
-          labelColor="text-white/60"
-        />
-      )}
+      <StatsBar
+        stats={cfg.stats?.length ? cfg.stats : DEFAULT_STATS}
+        bg="bg-[#0F172A]"
+        numColor="text-white"
+        labelColor="text-white/60"
+      />
 
       {/* Services */}
       <ServicesCarousel
