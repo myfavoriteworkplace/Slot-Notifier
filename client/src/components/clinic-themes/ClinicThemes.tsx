@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
@@ -352,15 +352,70 @@ function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, bor
       : null;
 
   const [page, setPage] = useState(0);
+  const [exiting, setExiting] = useState(false);
+  const [exitDir, setExitDir] = useState<'left' | 'right'>('left');
+  const [paused, setPaused] = useState(false);
+  const pendingPage = useRef<number | null>(null);
+
   const ipp = 4;
   const pages = doctors ? Math.ceil(doctors.length / ipp) : 0;
   const visible = doctors ? doctors.slice(page * ipp, (page + 1) * ipp) : [];
+  const multiPage = pages > 1;
+
+  const changePage = (next: number, dir: 'left' | 'right' = 'left') => {
+    if (exiting) return;
+    setExitDir(dir);
+    setExiting(true);
+    pendingPage.current = next;
+  };
+
+  useEffect(() => {
+    if (!exiting) return;
+    const t = setTimeout(() => {
+      if (pendingPage.current !== null) setPage(pendingPage.current);
+      setExiting(false);
+      pendingPage.current = null;
+    }, 280);
+    return () => clearTimeout(t);
+  }, [exiting]);
+
+  useEffect(() => {
+    if (!multiPage || paused) return;
+    const id = setInterval(() => {
+      setPage(p => {
+        const next = (p + 1) % pages;
+        setExitDir('left');
+        setExiting(true);
+        pendingPage.current = next;
+        return p;
+      });
+    }, 3500);
+    return () => clearInterval(id);
+  }, [multiPage, pages, paused]);
 
   if (!doctors) return null;
 
+  const count = visible.length;
+  const containerCls = count === 1
+    ? "flex justify-center"
+    : count <= 3
+    ? "flex justify-center flex-wrap gap-5"
+    : "grid grid-cols-2 lg:grid-cols-4 gap-5";
+  const cardWidthCls = count <= 3 ? "w-64" : "";
+
+  const slideCls = exiting
+    ? exitDir === 'left'
+      ? "opacity-0 -translate-x-6"
+      : "opacity-0 translate-x-6"
+    : "opacity-100 translate-x-0";
+
   return (
     <section id={sectionId} className={`px-6 py-20 ${bg}`}>
-      <div className="max-w-6xl mx-auto">
+      <div
+        className="max-w-6xl mx-auto"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
         <div className="flex items-end justify-between mb-12">
           <div className="flex-1 text-center">
             {titleLabel && (
@@ -375,20 +430,18 @@ function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, bor
               {title}
             </h2>
           </div>
-          {pages > 1 && (
+          {multiPage && (
             <div className="flex gap-2 shrink-0">
               <button
-                onClick={() => setPage(p => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className={`h-10 w-10 rounded-xl border ${border} flex items-center justify-center ${titleColor} hover:bg-[#0F9B6E] hover:text-white hover:border-[#0F9B6E] transition-all disabled:opacity-30`}
+                onClick={() => changePage((page - 1 + pages) % pages, 'right')}
+                className={`h-10 w-10 rounded-xl border ${border} flex items-center justify-center ${titleColor} hover:bg-[#0F9B6E] hover:text-white hover:border-[#0F9B6E] transition-all`}
                 data-testid="button-doctors-prev"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <button
-                onClick={() => setPage(p => Math.min(pages - 1, p + 1))}
-                disabled={page === pages - 1}
-                className={`h-10 w-10 rounded-xl border ${border} flex items-center justify-center ${titleColor} hover:bg-[#0F9B6E] hover:text-white hover:border-[#0F9B6E] transition-all disabled:opacity-30`}
+                onClick={() => changePage((page + 1) % pages, 'left')}
+                className={`h-10 w-10 rounded-xl border ${border} flex items-center justify-center ${titleColor} hover:bg-[#0F9B6E] hover:text-white hover:border-[#0F9B6E] transition-all`}
                 data-testid="button-doctors-next"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -396,9 +449,10 @@ function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, bor
             </div>
           )}
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+
+        <div className={`${containerCls} transition-all duration-300 ease-in-out ${slideCls}`}>
           {visible.map((doc, i) => (
-            <div key={`${page}-${i}`} className={`${cardBg} rounded-2xl border ${border} overflow-hidden text-center hover:-translate-y-1 hover:shadow-lg transition-all`}>
+            <div key={`${page}-${i}`} className={`${cardBg} rounded-2xl border ${border} overflow-hidden text-center hover:-translate-y-1 hover:shadow-lg transition-all ${cardWidthCls}`}>
               <div className="h-52 bg-gray-100 flex items-center justify-center overflow-hidden">
                 {doc.imageUrl ? (
                   <img src={doc.imageUrl} alt={doc.name} className="w-full h-full object-cover object-top" />
@@ -412,9 +466,9 @@ function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, bor
               </div>
               <div className="p-4">
                 <h3
-                className={`font-bold ${titleColor} mb-1 text-sm`}
-                style={serif ? { fontFamily: "'Playfair Display', Georgia, serif" } : { fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}
-              >{doc.name}</h3>
+                  className={`font-bold ${titleColor} mb-1 text-sm`}
+                  style={serif ? { fontFamily: "'Playfair Display', Georgia, serif" } : { fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}
+                >{doc.name}</h3>
                 <p className="text-[#0F9B6E] text-xs font-semibold mb-2">{doc.specialization}</p>
                 {doc.degree && (
                   <span className={`text-xs px-2 py-1 rounded-full ${cardBg} border ${border} text-gray-500`}>
@@ -425,6 +479,18 @@ function DoctorsCarousel({ clinic, sectionId, titleLabel, title, bg, cardBg, bor
             </div>
           ))}
         </div>
+
+        {multiPage && (
+          <div className="flex justify-center gap-2 mt-8">
+            {Array.from({ length: pages }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => changePage(i, i > page ? 'left' : 'right')}
+                className={`h-2 rounded-full transition-all duration-300 ${i === page ? "w-8 bg-[#0F9B6E]" : "w-2 bg-gray-300 hover:bg-gray-400"}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -747,7 +813,7 @@ export function ThemeClassic({ clinic, cfg, bookingHref }: ThemeProps) {
       <DoctorsCarousel
         clinic={clinic}
         sectionId="theme-doctors"
-        title="Meet Our Doctors"
+        title="Our Team of Experts"
         bg="bg-[#F4F8F6]"
         cardBg="bg-white"
         border="border-[#DCE9E3]"
@@ -978,7 +1044,7 @@ export function ThemeWarm({ clinic, cfg, bookingHref }: ThemeProps) {
       <DoctorsCarousel
         clinic={clinic}
         sectionId="theme-doctors-w"
-        title="Our Team"
+        title="Our Team of Experts"
         bg="bg-[#F8EDE3]"
         cardBg="bg-white"
         border="border-[#E8D5C4]"
@@ -1236,7 +1302,7 @@ export function ThemeModern({ clinic, cfg, bookingHref }: ThemeProps) {
         clinic={clinic}
         sectionId="theme-doctors-m"
         titleLabel="Our Experts"
-        title="Meet the Team"
+        title="Our Team of Experts"
         bg="bg-white"
         cardBg="bg-[#F8FAFC]"
         border="border-gray-100"
