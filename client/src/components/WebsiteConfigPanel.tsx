@@ -86,8 +86,14 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     ]
   );
   const [featuresImageUrl, setFeaturesImageUrl] = useState(existing.featuresImageUrl ?? "");
+  const DEFAULT_STATS_PREFILL = [
+    { value: "2800+", label: "Dental Fillings" },
+    { value: "1200+", label: "Tooth Extraction" },
+    { value: "3K+",   label: "Root Canal" },
+    { value: "2100+", label: "Implants Placed" },
+  ];
   const [stats, setStats] = useState<{ value: string; label: string }[]>(
-    existing.stats?.length ? existing.stats : []
+    existing.stats?.length ? existing.stats : DEFAULT_STATS_PREFILL
   );
   const [services, setServices] = useState<{ name: string; description: string; imageUrl?: string }[]>(
     existing.services?.length ? existing.services : [{ name: "", description: "" }]
@@ -124,7 +130,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       { icon: "zap", title: "Advanced Technology and Continuous Learning" },
     ]);
     setFeaturesImageUrl(e.featuresImageUrl ?? "");
-    setStats(e.stats?.length ? e.stats : []);
+    setStats(e.stats?.length ? e.stats : DEFAULT_STATS_PREFILL);
     setServices(e.services?.length ? e.services : [{ name: "", description: "" }]);
     setGallery(e.gallery?.length ? e.gallery : []);
     setTestimonials(e.testimonials?.length ? e.testimonials : []);
@@ -640,7 +646,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       case "stats":
         return (
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">Your clinic's achievements — e.g. "2800+ Dental Fillings". This section is <strong>only shown</strong> when you add at least one stat.</p>
+            <p className="text-xs text-muted-foreground">Your clinic's achievements. These defaults are pre-filled — edit the numbers and labels to match your own, or delete any you don't need.</p>
             {stats.map((s, i) => (
               <div key={i} className="grid grid-cols-[1fr_2fr_auto] gap-3 items-center">
                 <Input value={s.value} onChange={e => setStats(prev => prev.map((x, j) => j === i ? { ...x, value: e.target.value } : x))} placeholder="e.g. 2800+" className="rounded-xl font-bold" data-testid={`input-stat-value-${i}`} />

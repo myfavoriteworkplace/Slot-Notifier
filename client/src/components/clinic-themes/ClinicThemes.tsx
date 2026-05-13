@@ -65,10 +65,10 @@ const DEFAULT_FEATURES = [
 ];
 
 const DEFAULT_STATS = [
-  { value: "5,000+", label: "Happy Patients" },
-  { value: "3,000+", label: "Procedures Done" },
-  { value: "15+",    label: "Years of Excellence" },
-  { value: "98%",    label: "Satisfaction Rate" },
+  { value: "2800+", label: "Dental Fillings" },
+  { value: "1200+", label: "Tooth Extraction" },
+  { value: "3K+",   label: "Root Canal" },
+  { value: "2100+", label: "Implants Placed" },
 ];
 
 const STAT_ICONS = [Users2, Stethoscope, Award, Heart];
