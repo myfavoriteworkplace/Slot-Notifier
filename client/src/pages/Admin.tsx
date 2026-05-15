@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard } from "lucide-react";
+import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -103,6 +103,10 @@ export default function Admin() {
   const [dealCategory, setDealCategory] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Login activity filters
+  const [loginRoleFilter, setLoginRoleFilter] = useState<"all" | "owner" | "doctor" | "superuser">("all");
+  const [loginResultFilter, setLoginResultFilter] = useState<"all" | "success" | "failed">("all");
 
   // New deal fields
   const [dealClinicId, setDealClinicId] = useState<number | null>(null);
@@ -317,6 +321,12 @@ export default function Admin() {
 
   const { data: clinics = [], isLoading: clinicsLoading } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics'],
+  });
+
+  const { data: loginEventsRaw = [], isLoading: loginEventsLoading, refetch: refetchLoginEvents } = useQuery<any[]>({
+    queryKey: ['/api/auth/admin/login-events'],
+    enabled: !!user,
+    refetchInterval: false,
   });
 
   const createClinicMutation = useMutation({
@@ -857,7 +867,7 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue="active" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="active" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             Active ({activeClinics.length})
@@ -873,6 +883,10 @@ export default function Admin() {
           <TabsTrigger value="smile-deals" className="flex items-center gap-2">
             <Megaphone className="h-4 w-4" />
             Smile Deals
+          </TabsTrigger>
+          <TabsTrigger value="login-activity" className="flex items-center gap-2" data-testid="tab-login-activity">
+            <Activity className="h-4 w-4" />
+            Login Activity
           </TabsTrigger>
         </TabsList>
 
@@ -2251,6 +2265,181 @@ export default function Admin() {
             </Card>
 
           </div>
+        </TabsContent>
+
+        {/* ── Login Activity Tab ───────────────────────────────────────────────── */}
+        <TabsContent value="login-activity">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Activity className="h-4 w-4 text-primary" />
+                    Login Activity
+                  </CardTitle>
+                  <CardDescription className="mt-0.5">
+                    Every sign-in attempt across all roles — successful and failed.
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => refetchLoginEvents()} data-testid="button-refresh-login-events">
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                  Refresh
+                </Button>
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-wrap gap-2 pt-3">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium mr-1">Role:</div>
+                {(["all", "owner", "doctor", "superuser"] as const).map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setLoginRoleFilter(r)}
+                    data-testid={`filter-role-${r}`}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      loginRoleFilter === r
+                        ? "bg-primary text-white border-primary"
+                        : "bg-background border-border text-muted-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    {r === "all" ? "All roles" : r === "owner" ? "Clinic" : r === "doctor" ? "Doctor" : "Superuser"}
+                  </button>
+                ))}
+                <div className="w-px h-5 bg-border self-center mx-1" />
+                <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium mr-1">Result:</div>
+                {(["all", "success", "failed"] as const).map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setLoginResultFilter(r)}
+                    data-testid={`filter-result-${r}`}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      loginResultFilter === r
+                        ? r === "failed" ? "bg-red-500 text-white border-red-500" : "bg-primary text-white border-primary"
+                        : "bg-background border-border text-muted-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    {r === "all" ? "All" : r === "success" ? "✓ Success" : "✗ Failed"}
+                  </button>
+                ))}
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              {loginEventsLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (() => {
+                const filtered = loginEventsRaw.filter(e => {
+                  if (loginRoleFilter !== "all" && e.role !== loginRoleFilter) return false;
+                  if (loginResultFilter === "success" && !e.success) return false;
+                  if (loginResultFilter === "failed" && e.success) return false;
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                      <Activity className="h-10 w-10 text-muted-foreground/20 mb-3" />
+                      <p className="text-sm font-medium text-muted-foreground">No events match this filter</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">Try changing the role or result filters above</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border/50 bg-muted/30">
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Result</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Role</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Identifier</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">IP Address</th>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                            <span className="flex items-center gap-1"><MonitorSmartphone className="h-3 w-3" /> Device</span>
+                          </th>
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">When</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((event: any, i: number) => {
+                          const ua: string = event.userAgent || "";
+                          const isMobile = /mobile|android|iphone|ipad/i.test(ua);
+                          const browser =
+                            /edg\//i.test(ua) ? "Edge" :
+                            /opr\//i.test(ua) ? "Opera" :
+                            /chrome/i.test(ua) ? "Chrome" :
+                            /safari/i.test(ua) ? "Safari" :
+                            /firefox/i.test(ua) ? "Firefox" : "Other";
+                          const os =
+                            /windows/i.test(ua) ? "Windows" :
+                            /mac os/i.test(ua) ? "macOS" :
+                            /linux/i.test(ua) ? "Linux" :
+                            /android/i.test(ua) ? "Android" :
+                            /ios|iphone|ipad/i.test(ua) ? "iOS" : "";
+                          const deviceLabel = [browser, os].filter(Boolean).join(" · ") || "Unknown";
+
+                          const when = event.createdAt ? new Date(event.createdAt) : null;
+                          const timeStr = when ? when.toLocaleString("en-IN", {
+                            day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true
+                          }) : "—";
+
+                          const roleBadge: Record<string, string> = {
+                            owner:     "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+                            doctor:    "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+                            superuser: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+                          };
+
+                          return (
+                            <tr
+                              key={event.id ?? i}
+                              data-testid={`row-login-event-${event.id ?? i}`}
+                              className={`border-b border-border/30 transition-colors hover:bg-muted/20 ${!event.success ? "bg-red-500/3" : ""}`}
+                            >
+                              <td className="px-4 py-3">
+                                {event.success ? (
+                                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium text-xs">
+                                    <CheckCircle2 className="h-3.5 w-3.5" /> Success
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-red-500 font-medium text-xs">
+                                    <XCircle className="h-3.5 w-3.5" /> Failed
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${roleBadge[event.role] ?? "bg-muted text-muted-foreground"}`}>
+                                  {event.role === "owner" ? "Clinic" : event.role === "doctor" ? "Doctor" : "Superuser"}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 font-medium text-foreground max-w-[180px] truncate" title={event.identifier}>
+                                {event.identifier}
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
+                                {event.ipAddress || "—"}
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground text-xs max-w-[180px] truncate" title={ua}>
+                                <span className="flex items-center gap-1">
+                                  {isMobile ? <MonitorSmartphone className="h-3 w-3 shrink-0" /> : <MonitorSmartphone className="h-3 w-3 shrink-0 opacity-40" />}
+                                  {deviceLabel}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">
+                                {timeStr}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    <p className="text-[11px] text-muted-foreground/50 px-4 py-3 border-t border-border/30">
+                      Showing {filtered.length} of {loginEventsRaw.length} total events (last 200)
+                    </p>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
