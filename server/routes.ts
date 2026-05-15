@@ -1720,11 +1720,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!clinic || clinic.isArchived) return res.status(401).json({ message: "Invalid credentials" });
       const isMatch = await bcrypt.compare(password, clinic.passwordHash || "");
       if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
-      const sess = req.session as any;
-      sess.adminLoggedIn = true;
-      sess.clinicId = clinic.id;
-      sess.role = 'owner';
-      req.session.save(() => res.json({ message: "Login successful", user: { id: clinic.id, name: clinic.name, role: 'owner' } }));
+      req.session.regenerate((err) => {
+        if (err) return res.status(500).json({ message: "Session error" });
+        const sess = req.session as any;
+        sess.adminLoggedIn = true;
+        sess.clinicId = clinic.id;
+        sess.role = 'owner';
+        req.session.save(() => res.json({ message: "Login successful", user: { id: clinic.id, name: clinic.name, role: 'owner' } }));
+      });
     } catch (error: any) {
       res.status(500).json({ message: "Internal server error" });
     }
@@ -1785,13 +1788,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(401).json({ message: "Incorrect OTP. Please try again." });
     }
     adminOtpStore = null;
-    const sess = req.session as any;
-    sess.adminLoggedIn = true;
-    sess.role = 'superuser';
-    sess.adminEmail = process.env.ADMIN_EMAIL;
-    req.session.save(() =>
-      res.json({ message: "Login successful", user: { email: process.env.ADMIN_EMAIL, role: 'superuser', firstName: 'Super', lastName: 'Admin' } })
-    );
+    req.session.regenerate((err) => {
+      if (err) return res.status(500).json({ message: "Session error" });
+      const sess = req.session as any;
+      sess.adminLoggedIn = true;
+      sess.role = 'superuser';
+      sess.adminEmail = process.env.ADMIN_EMAIL;
+      req.session.save(() =>
+        res.json({ message: "Login successful", user: { email: process.env.ADMIN_EMAIL, role: 'superuser', firstName: 'Super', lastName: 'Admin' } })
+      );
+    });
   });
 
   app.post("/api/auth/admin/logout", (req, res) => {
@@ -1816,7 +1822,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/auth/clinic/me", async (req, res) => {
     const sess = req.session as any;
-    if (!sess?.adminLoggedIn || !sess.clinicId) return res.json(null);
+    if (!sess?.adminLoggedIn || !sess.clinicId || sess.role !== 'owner') return res.json(null);
     try {
       const clinic = await storage.getClinic(sess.clinicId);
       if (!clinic) return res.status(404).json({ message: "Clinic not found" });
@@ -1949,20 +1955,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!clinicResults.length) return res.status(403).json({ message: "Doctor is not linked to any clinic" });
       const clinic = clinicResults[0].clinic;
       const isDefaultPassword = (doctor as any).isTemporaryPassword ?? await bcrypt.compare("demo123", doctor.passwordHash || "");
-      const sess = req.session as any;
-      sess.doctorLoggedIn = true;
-      sess.role = 'doctor';
-      sess.doctorEmail = doctor.email;
-      sess.doctorId = doctor.id;
-      req.session.save(() => res.json({
-        email: doctor.email,
-        name: doctor.name,
-        specialization: doctor.specialization,
-        clinicId: clinic.id,
-        clinicName: clinic.name,
-        logoUrl: clinic.logoUrl ?? null,
-        isDefaultPassword,
-      }));
+      req.session.regenerate((err) => {
+        if (err) return res.status(500).json({ message: "Session error" });
+        const sess = req.session as any;
+        sess.doctorLoggedIn = true;
+        sess.role = 'doctor';
+        sess.doctorEmail = doctor.email;
+        sess.doctorId = doctor.id;
+        req.session.save(() => res.json({
+          email: doctor.email,
+          name: doctor.name,
+          specialization: doctor.specialization,
+          clinicId: clinic.id,
+          clinicName: clinic.name,
+          logoUrl: clinic.logoUrl ?? null,
+          isDefaultPassword,
+        }));
+      });
     } catch (error: any) {
       res.status(500).json({ message: "Internal server error" });
     }
