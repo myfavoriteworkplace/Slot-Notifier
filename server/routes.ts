@@ -91,6 +91,15 @@ function actionButton(label: string, href: string, color = '#3e34b4'): string {
   return `<a href="${href}" style="display:inline-block;padding:12px 28px;background:${color};color:#fff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px">${label}</a>`;
 }
 
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = 'Bms@';
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 function sendOtpEmail(code: string): string {
   return emailShell(
     '#3e34b4',
@@ -497,6 +506,54 @@ async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLi
     });
   } catch (error) {
     console.error('[EMAIL ERROR] Failed to send doctor invite email:', error);
+  }
+}
+
+async function sendDoctorWelcomeEmail(email: string, doctorName: string, clinicName: string, tempPassword: string) {
+  const loginUrl = process.env.FRONTEND_URL
+    ? `${process.env.FRONTEND_URL}/clinic-login`
+    : `https://${process.env.REPLIT_DEV_DOMAIN || 'bookmyslot.dental'}/clinic-login`;
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Doctor welcome: ${email} — Login: ${email}, Password: ${tempPassword}`);
+    return;
+  }
+  const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
+  const html = emailShell(
+    'linear-gradient(90deg,#059669 0%,#10b981 100%)',
+    'Welcome to BookMySlot',
+    `You've been added as a doctor at <strong>${clinicName}</strong>`,
+    `<tr><td style="padding:24px 32px 0">
+      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi Dr. ${doctorName},</p>
+      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
+        You've been added to <strong>${clinicName}</strong> on BookMySlot. Use the credentials below to sign in to your Doctor Portal.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0;margin-bottom:20px">
+        <tr style="border-bottom:1px solid #bbf7d0">
+          <td style="padding:10px 16px;font-size:13px;color:#6b6f8c;width:150px">Login ID (Email)</td>
+          <td style="padding:10px 16px;font-size:13px;font-weight:700;color:#1e1c3c;font-family:monospace">${email}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 16px;font-size:13px;color:#6b6f8c">Temporary Password</td>
+          <td style="padding:10px 16px;font-size:14px;font-weight:800;color:#059669;font-family:monospace;letter-spacing:1px">${tempPassword}</td>
+        </tr>
+      </table>
+      <p style="margin:0 0 20px;font-size:13px;color:#9090aa;line-height:1.6">
+        ⚠&nbsp; Please change your password after your first login for security.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 32px 28px">
+      ${actionButton('Sign In to Doctor Portal →', loginUrl, '#059669')}
+    </td></tr>`
+  );
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: finalEmail,
+      subject: `Welcome to ${clinicName} — Your Doctor Portal credentials`,
+      html,
+    });
+  } catch (error) {
+    console.error('[EMAIL ERROR] Failed to send doctor welcome email:', error);
   }
 }
 
@@ -1003,10 +1060,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const clinicId = parseInt(req.params.id);
     const { name, email, specialization, degree } = req.body;
     try {
-      const defaultPasswordHash = await bcrypt.hash("demo123", 10);
+      const clinic = await storage.getClinic(clinicId);
       let doctor = await storage.getDoctorByEmail(email);
+      let isNewDoctor = false;
       if (!doctor) {
-        doctor = await storage.createDoctor({ name, email, passwordHash: defaultPasswordHash, specialization: specialization || null, degree: degree || null, imageUrl: null });
+        const tempPassword = generateTempPassword();
+        const passwordHash = await bcrypt.hash(tempPassword, 10);
+        doctor = await storage.createDoctor({ name, email, passwordHash, isTemporaryPassword: true, specialization: specialization || null, degree: degree || null, imageUrl: null } as any);
+        isNewDoctor = true;
+        if (clinic) {
+          sendDoctorWelcomeEmail(email, name, clinic.name, tempPassword).catch(() => {});
+        }
       }
       await storage.linkDoctorToClinic(clinicId, doctor.id);
       res.status(201).json(doctor);
@@ -1804,10 +1868,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const newDoctorEntry = { name, specialization, degree, email: email || null, imageUrl: imageUrl || null };
       const updatedClinic = await storage.updateClinic(sess.clinicId, { doctors: [...existingDoctors, newDoctorEntry] });
       if (email) {
-        const defaultPasswordHash = await bcrypt.hash("demo123", 10);
         let doctorRecord = await storage.getDoctorByEmail(email);
         if (!doctorRecord) {
-          doctorRecord = await storage.createDoctor({ name, email, passwordHash: defaultPasswordHash, specialization: specialization || null, degree: degree || null, imageUrl: imageUrl || null });
+          const tempPassword = generateTempPassword();
+          const passwordHash = await bcrypt.hash(tempPassword, 10);
+          doctorRecord = await storage.createDoctor({ name, email, passwordHash, isTemporaryPassword: true, specialization: specialization || null, degree: degree || null, imageUrl: imageUrl || null } as any);
+          sendDoctorWelcomeEmail(email, name, clinic.name, tempPassword).catch(() => {});
         }
         const existingLinks = await storage.getClinicDoctors(sess.clinicId);
         const alreadyLinked = existingLinks.some(d => d.id === doctorRecord!.id);
@@ -1816,6 +1882,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
       res.status(201).json(updatedClinic);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/auth/clinic/linked-doctors", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      const linked = await storage.getClinicDoctors(sess.clinicId);
+      res.json(linked.map(d => ({ id: d.id, name: d.name, email: d.email })));
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/auth/clinic/doctors/:doctorId/reset-password", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    const doctorId = parseInt(req.params.doctorId);
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 8) return res.status(400).json({ message: "New password must be at least 8 characters." });
+    try {
+      const linked = await storage.getClinicDoctors(sess.clinicId);
+      const isLinked = linked.some(d => d.id === doctorId);
+      if (!isLinked) return res.status(403).json({ message: "This doctor is not linked to your clinic." });
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      await db.update(doctors).set({ passwordHash, isTemporaryPassword: true }).where(eq(doctors.id, doctorId));
+      res.json({ message: "Password reset successfully." });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -1853,7 +1948,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .where(eq(clinicDoctors.doctorId, doctor.id));
       if (!clinicResults.length) return res.status(403).json({ message: "Doctor is not linked to any clinic" });
       const clinic = clinicResults[0].clinic;
-      const isDefaultPassword = await bcrypt.compare("demo123", doctor.passwordHash || "");
+      const isDefaultPassword = (doctor as any).isTemporaryPassword ?? await bcrypt.compare("demo123", doctor.passwordHash || "");
       const sess = req.session as any;
       sess.doctorLoggedIn = true;
       sess.role = 'doctor';
@@ -1983,7 +2078,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .where(eq(clinicDoctors.doctorId, doctor.id));
       if (!clinicResults.length) return res.status(403).json({ message: "Doctor is not linked to any clinic" });
       const clinic = clinicResults[0].clinic;
-      const isDefaultPassword = await bcrypt.compare("demo123", doctor.passwordHash || "");
+      const isDefaultPassword = (doctor as any).isTemporaryPassword ?? await bcrypt.compare("demo123", doctor.passwordHash || "");
       res.json({
         id: doctor.id,
         email: doctor.email,
@@ -2004,6 +2099,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.clearCookie('connect.sid', { path: '/' });
       res.json({ message: "Logout successful" });
     });
+  });
+
+  app.post("/api/auth/doctor/change-password", async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== 'doctor' || !sess.doctorEmail) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    if (!newPassword || newPassword.length < 8) return res.status(400).json({ message: "New password must be at least 8 characters." });
+    if (newPassword !== confirmPassword) return res.status(400).json({ message: "Passwords do not match." });
+    try {
+      const doctor = await storage.getDoctorByEmail(sess.doctorEmail);
+      if (!doctor) return res.status(404).json({ message: "Doctor not found." });
+      const isTemp = (doctor as any).isTemporaryPassword ?? await bcrypt.compare("demo123", doctor.passwordHash || "");
+      if (!isTemp && currentPassword) {
+        const valid = await bcrypt.compare(currentPassword, doctor.passwordHash || "");
+        if (!valid) return res.status(401).json({ message: "Current password is incorrect." });
+      } else if (!isTemp && !currentPassword) {
+        return res.status(400).json({ message: "Current password is required." });
+      }
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      await db.update(doctors).set({ passwordHash, isTemporaryPassword: false }).where(eq(doctors.id, doctor.id));
+      res.json({ message: "Password changed successfully." });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   app.get("/api/auth/clinic/bookings", isAuthenticated, async (req, res) => {

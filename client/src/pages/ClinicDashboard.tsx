@@ -54,7 +54,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import type { Slot, Booking } from "@shared/schema";
-import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload } from "lucide-react";
+import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload, KeyRound } from "lucide-react";
 
 interface SlotTiming {
   id: string;
@@ -214,12 +214,31 @@ export default function ClinicDashboard() {
   const [newDoctorEmail, setNewDoctorEmail] = useState("");
   const [newDoctorImageUrl, setNewDoctorImageUrl] = useState<string | null>(null);
 
+  // Reset Doctor Password state
+  const [resetPwdOpen, setResetPwdOpen] = useState(false);
+  const [resetPwdDoctorId, setResetPwdDoctorId] = useState<number | null>(null);
+  const [resetPwdDoctorName, setResetPwdDoctorName] = useState("");
+  const [resetPwdDoctorEmail, setResetPwdDoctorEmail] = useState("");
+  const [resetPwdNew, setResetPwdNew] = useState("");
+  const [resetPwdConfirm, setResetPwdConfirm] = useState("");
+
   // Fetch clinic doctors
   const { data: clinicData, refetch: refetchClinicData } = useQuery<{ doctors: { name: string; specialization: string; degree: string; email?: string; imageUrl?: string | null }[] }>({
     queryKey: ['/api/auth/clinic/me'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/auth/clinic/me');
       if (!res.ok) throw new Error('Failed to fetch clinic');
+      return res.json();
+    },
+    enabled: isAuthenticated,
+  });
+
+  // Fetch real linked doctor accounts (for reset password key icon)
+  const { data: linkedDoctors = [] } = useQuery<{ id: number; name: string; email: string }[]>({
+    queryKey: ['/api/auth/clinic/linked-doctors'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/auth/clinic/linked-doctors');
+      if (!res.ok) return [];
       return res.json();
     },
     enabled: isAuthenticated,
@@ -239,11 +258,26 @@ export default function ClinicDashboard() {
       setNewDoctorDegree("");
       setNewDoctorEmail("");
       setNewDoctorImageUrl(null);
-      toast({ title: "Doctor added successfully" });
+      toast({ title: "Doctor added successfully", description: "A welcome email with login credentials has been sent." });
     },
     onError: (error: any) => {
       toast({ title: "Failed to add doctor", description: error.message, variant: "destructive" });
     },
+  });
+
+  const resetDoctorPasswordMutation = useMutation({
+    mutationFn: async ({ doctorId, newPassword }: { doctorId: number; newPassword: string }) => {
+      const res = await apiRequest('POST', `/api/auth/clinic/doctors/${doctorId}/reset-password`, { newPassword });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Password reset", description: "The doctor's password has been updated." });
+      setResetPwdOpen(false);
+      setResetPwdNew("");
+      setResetPwdConfirm("");
+    },
+    onError: (e: any) => toast({ title: "Failed to reset password", description: e.message, variant: "destructive" }),
   });
 
   const removeDoctorMutation = useMutation({
@@ -3095,13 +3129,43 @@ export default function ClinicDashboard() {
                                 )}
                               </div>
 
-                              {/* Remove button */}
+                              {/* Action buttons */}
+                              <div className="flex items-center gap-1 shrink-0">
+                              {(() => {
+                                const linked = linkedDoctors.find(d => d.email === doctor.email);
+                                if (!linked) return null;
+                                return (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 transition-colors"
+                                          onClick={() => {
+                                            setResetPwdDoctorId(linked.id);
+                                            setResetPwdDoctorName(linked.name);
+                                            setResetPwdDoctorEmail(linked.email);
+                                            setResetPwdNew("");
+                                            setResetPwdConfirm("");
+                                            setResetPwdOpen(true);
+                                          }}
+                                          data-testid={`button-reset-password-${index}`}
+                                        >
+                                          <KeyRound className="h-4 w-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Reset password</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                );
+                              })()}
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                                     data-testid={`button-remove-doctor-${index}`}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -3127,6 +3191,7 @@ export default function ClinicDashboard() {
                               </AlertDialog>
                             </div>
                           </div>
+                        </div>
                         ))}
                       </div>
                     </div>
@@ -4026,6 +4091,63 @@ export default function ClinicDashboard() {
             <Button onClick={generatePDF} className="gap-2">
               <Download className="h-4 w-4" />
               Generate Receipt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Doctor Password Dialog */}
+      <Dialog open={resetPwdOpen} onOpenChange={(open) => { setResetPwdOpen(open); if (!open) { setResetPwdNew(""); setResetPwdConfirm(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-amber-600" />
+              Reset Doctor Password
+            </DialogTitle>
+            <DialogDescription>
+              Set a new password for <span className="font-semibold">{resetPwdDoctorName}</span>
+              {resetPwdDoctorEmail && <span className="text-muted-foreground"> ({resetPwdDoctorEmail})</span>}.
+              They will be prompted to change it on next login.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="reset-pwd-new">New Password</Label>
+              <Input
+                id="reset-pwd-new"
+                type="password"
+                placeholder="Enter new password"
+                value={resetPwdNew}
+                onChange={e => setResetPwdNew(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="reset-pwd-confirm">Confirm Password</Label>
+              <Input
+                id="reset-pwd-confirm"
+                type="password"
+                placeholder="Confirm new password"
+                value={resetPwdConfirm}
+                onChange={e => setResetPwdConfirm(e.target.value)}
+              />
+              {resetPwdConfirm && resetPwdNew !== resetPwdConfirm && (
+                <p className="text-xs text-destructive">Passwords do not match</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setResetPwdOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (resetPwdDoctorId && resetPwdNew && resetPwdNew === resetPwdConfirm) {
+                  resetDoctorPasswordMutation.mutate({ doctorId: resetPwdDoctorId, newPassword: resetPwdNew });
+                }
+              }}
+              disabled={!resetPwdNew || resetPwdNew !== resetPwdConfirm || resetDoctorPasswordMutation.isPending}
+              className="gap-2"
+            >
+              {resetDoctorPasswordMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+              Reset Password
             </Button>
           </DialogFooter>
         </DialogContent>

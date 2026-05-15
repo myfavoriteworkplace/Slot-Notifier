@@ -13,11 +13,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Loader2, LogOut, Stethoscope, Building2, Calendar, ShieldAlert, Clock,
   ClipboardList, CheckCircle2, AlertCircle, Hash, CalendarDays, TrendingUp, ArrowRight,
   Info, X, Filter, BadgeCheck, RotateCcw, User, Award, BookOpen, Plus, Pencil, Trash2,
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
-  Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical
+  Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -96,6 +100,11 @@ export default function DoctorDashboard() {
   const caseBeforeInputRef = useRef<HTMLInputElement>(null);
   const caseAfterInputRef = useRef<HTMLInputElement>(null);
 
+  const [changePwdOpen, setChangePwdOpen] = useState(false);
+  const [changePwdCurrent, setChangePwdCurrent] = useState("");
+  const [changePwdNew, setChangePwdNew] = useState("");
+  const [changePwdConfirm, setChangePwdConfirm] = useState("");
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) setLocation("/clinic-login");
   }, [isLoading, isAuthenticated, setLocation]);
@@ -141,6 +150,23 @@ export default function DoctorDashboard() {
 
   const [leavePickerDate, setLeavePickerDate] = useState<Date | undefined>(undefined);
   const [leaveReason, setLeaveReason] = useState("");
+
+  const changePwdMutation = useMutation({
+    mutationFn: async (data: { currentPassword?: string; newPassword: string; confirmPassword: string }) => {
+      const res = await apiRequest("POST", "/api/auth/doctor/change-password", data);
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Password changed", description: "Your password has been updated successfully." });
+      setChangePwdOpen(false);
+      setChangePwdCurrent("");
+      setChangePwdNew("");
+      setChangePwdConfirm("");
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/doctor/me"] });
+    },
+    onError: (e: any) => toast({ title: "Failed to change password", description: e.message, variant: "destructive" }),
+  });
 
   const addLeaveMutation = useMutation({
     mutationFn: (data: { leaveDate: string; reason?: string }) =>
@@ -365,11 +391,18 @@ export default function DoctorDashboard() {
   return (
     <div className="min-h-screen bg-muted/30">
 
-      {/* Default password warning */}
+      {/* Temporary password warning */}
       {(doctor as any).isDefaultPassword && (
-        <div className="bg-gradient-to-r from-amber-500/90 via-yellow-500/90 to-amber-500/90 text-white px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-2">
+        <div className="bg-gradient-to-r from-amber-500/90 via-yellow-500/90 to-amber-500/90 text-white px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-2 flex-wrap">
           <ShieldAlert className="h-4 w-4 shrink-0" />
-          You are using the default password. For security, please reset via email.
+          <span>You are using a temporary password. Please change it to keep your account secure.</span>
+          <button
+            onClick={() => setChangePwdOpen(true)}
+            className="ml-2 inline-flex items-center gap-1 bg-white/20 hover:bg-white/30 border border-white/40 text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors"
+          >
+            <KeyRound className="h-3 w-3" />
+            Change Password →
+          </button>
         </div>
       )}
 
@@ -1219,6 +1252,74 @@ export default function DoctorDashboard() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Change Password Dialog */}
+      <Dialog open={changePwdOpen} onOpenChange={setChangePwdOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-amber-500" />
+              Change Password
+            </DialogTitle>
+            <DialogDescription>
+              {(doctor as any).isDefaultPassword
+                ? "You're using a temporary password. Set a new secure password below."
+                : "Enter your current password and choose a new one."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {!(doctor as any).isDefaultPassword && (
+              <div className="space-y-1.5">
+                <Label htmlFor="cp-current">Current Password</Label>
+                <Input
+                  id="cp-current"
+                  type="password"
+                  placeholder="Your current password"
+                  value={changePwdCurrent}
+                  onChange={e => setChangePwdCurrent(e.target.value)}
+                />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="cp-new">New Password</Label>
+              <Input
+                id="cp-new"
+                type="password"
+                placeholder="Minimum 8 characters"
+                value={changePwdNew}
+                onChange={e => setChangePwdNew(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cp-confirm">Confirm New Password</Label>
+              <Input
+                id="cp-confirm"
+                type="password"
+                placeholder="Repeat new password"
+                value={changePwdConfirm}
+                onChange={e => setChangePwdConfirm(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChangePwdOpen(false)} disabled={changePwdMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => changePwdMutation.mutate({
+                currentPassword: changePwdCurrent || undefined,
+                newPassword: changePwdNew,
+                confirmPassword: changePwdConfirm,
+              })}
+              disabled={changePwdMutation.isPending || !changePwdNew || !changePwdConfirm}
+              className="bg-primary text-white"
+            >
+              {changePwdMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+              Update Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
