@@ -802,6 +802,93 @@ function RichFooter({ clinic, cfg, bookingHref, darkBg, accentSuffix, serif }: {
   );
 }
 
+/* ─── TestimonialsCarousel ─────────────────────────────── */
+
+function TestimonialsCarousel({
+  testimonials, bg, heading, eyebrow, headingColor, quoteColor,
+  textColor, nameColor, dividerColor, avatarBg, dotActive, dotInactive, serif,
+}: {
+  testimonials: NonNullable<ClinicWebsiteConfig["testimonials"]>;
+  bg: string;
+  heading: string;
+  eyebrow?: string;
+  headingColor: string;
+  quoteColor: string;
+  textColor: string;
+  nameColor: string;
+  dividerColor: string;
+  avatarBg: string;
+  dotActive: string;
+  dotInactive: string;
+  serif?: boolean;
+}) {
+  const [current, setCurrent] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  const goTo = (idx: number) => {
+    setVisible(false);
+    setTimeout(() => { setCurrent(idx); setVisible(true); }, 220);
+  };
+
+  useEffect(() => {
+    if (testimonials.length <= 1) return;
+    const id = setInterval(() => goTo((current + 1) % testimonials.length), 5500);
+    return () => clearInterval(id);
+  }, [current, testimonials.length]);
+
+  const t = testimonials[current];
+  const initials = (t.patientName?.trim()[0] ?? "P").toUpperCase();
+
+  return (
+    <section className={`px-6 py-20 ${bg}`}>
+      <div className="max-w-2xl mx-auto text-center">
+        {eyebrow && (
+          <p className={`text-sm font-bold uppercase tracking-widest ${quoteColor} mb-2`}>{eyebrow}</p>
+        )}
+        <h2
+          className={`text-3xl font-bold ${headingColor} mb-14`}
+          style={serif
+            ? { fontFamily: "'Playfair Display', Georgia, serif" }
+            : { fontFamily: "'Space Grotesk', system-ui, sans-serif", fontWeight: 900, letterSpacing: "-0.02em" }}
+        >
+          {heading}
+        </h2>
+
+        <div className={`transition-opacity duration-200 ${visible ? "opacity-100" : "opacity-0"}`}>
+          {/* Initials avatar */}
+          <div className={`w-16 h-16 rounded-full ${avatarBg} flex items-center justify-center mx-auto mb-5 shadow-md`}>
+            <span className="text-white text-xl font-bold select-none">{initials}</span>
+          </div>
+
+          {/* Decorative open-quote */}
+          <div className={`text-6xl font-serif leading-none ${quoteColor} mb-3 select-none`} aria-hidden="true">"</div>
+
+          {/* Review text */}
+          <p className={`text-base sm:text-lg leading-relaxed ${textColor} mb-8`}>{t.quote}</p>
+
+          {/* Divider + name */}
+          <div className={`w-10 h-0.5 ${dividerColor} mx-auto mb-4 rounded-full`} />
+          <p className={`font-bold ${nameColor}`}>{t.patientName}</p>
+        </div>
+
+        {/* Dot navigation */}
+        {testimonials.length > 1 && (
+          <div className="flex justify-center gap-2 mt-10">
+            {testimonials.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => goTo(i)}
+                aria-label={`Review ${i + 1}`}
+                className={`rounded-full transition-all duration-300 ${i === current ? `w-5 h-2 ${dotActive}` : `w-2 h-2 ${dotInactive}`}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════
    THEME 1 — CLASSIC
    Playfair serif headings · deep forest green · elegant cards
@@ -972,22 +1059,20 @@ export function ThemeClassic({ clinic, cfg, bookingHref, isOwner = false }: Them
 
       {/* Testimonials */}
       {testimonials && testimonials.length > 0 && (
-        <section className="px-6 py-20 bg-white">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold text-[#0A3D2E] mb-4" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>What Our Patients Say</h2>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {testimonials.map((t, i) => (
-                <div key={i} className="p-6 rounded-2xl border border-[#DCE9E3]">
-                  <StarRating rating={t.rating} />
-                  <p className="text-gray-700 mt-3 mb-4 italic leading-relaxed">"{t.quote}"</p>
-                  <p className="text-sm font-semibold text-[#0A3D2E]">— {t.patientName}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        <TestimonialsCarousel
+          testimonials={testimonials}
+          bg="bg-white"
+          heading="What Our Patients Say"
+          headingColor="text-[#0A3D2E]"
+          quoteColor="text-[#0F9B6E]"
+          textColor="text-gray-600"
+          nameColor="text-[#0A3D2E]"
+          dividerColor="bg-[#0F9B6E]"
+          avatarBg="bg-[#0F9B6E]"
+          dotActive="bg-[#0F9B6E]"
+          dotInactive="bg-[#DCE9E3]"
+          serif
+        />
       )}
 
       {/* Gallery carousel */}
@@ -1241,22 +1326,20 @@ export function ThemeWarm({ clinic, cfg, bookingHref, isOwner = false }: ThemePr
 
       {/* Testimonials */}
       {testimonials && testimonials.length > 0 && (
-        <section className="px-6 py-20 bg-white">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold text-[#1E3A2F] mb-4" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Patient Stories</h2>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {testimonials.map((t, i) => (
-                <div key={i} className="p-7 rounded-2xl bg-[#F8EDE3] border border-[#E8D5C4]">
-                  <StarRating rating={t.rating} />
-                  <p className="text-gray-700 mt-4 mb-5 italic leading-relaxed">"{t.quote}"</p>
-                  <p className="text-sm font-bold text-[#1E3A2F]">— {t.patientName}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        <TestimonialsCarousel
+          testimonials={testimonials}
+          bg="bg-[#FAFAF8]"
+          heading="Patient Stories"
+          headingColor="text-[#1E3A2F]"
+          quoteColor="text-[#0F9B6E]"
+          textColor="text-gray-600"
+          nameColor="text-[#1E3A2F]"
+          dividerColor="bg-[#0F9B6E]"
+          avatarBg="bg-[#0F9B6E]"
+          dotActive="bg-[#0F9B6E]"
+          dotInactive="bg-[#E8D5C4]"
+          serif
+        />
       )}
 
       {/* Gallery carousel */}
@@ -1531,25 +1614,20 @@ export function ThemeModern({ clinic, cfg, bookingHref, isOwner = false }: Theme
 
       {/* Testimonials */}
       {testimonials && testimonials.length > 0 && (
-        <section className="px-6 py-20 bg-[#0F172A] text-white">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-12">
-              <span className="text-[#0F9B6E] font-bold text-sm uppercase tracking-widest">Patient Reviews</span>
-              <h2 className="text-4xl font-black mt-2 text-white" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", letterSpacing: "-0.02em" }}>
-                What They Say
-              </h2>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {testimonials.map((t, i) => (
-                <div key={i} className="p-6 rounded-2xl bg-white/5 border border-white/10">
-                  <StarRating rating={t.rating} />
-                  <p className="text-white/80 mt-4 mb-5 leading-relaxed italic">"{t.quote}"</p>
-                  <p className="text-sm font-bold text-[#0F9B6E]">— {t.patientName}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        <TestimonialsCarousel
+          testimonials={testimonials}
+          bg="bg-[#0F172A]"
+          heading="What They Say"
+          eyebrow="Patient Reviews"
+          headingColor="text-white"
+          quoteColor="text-[#0F9B6E]"
+          textColor="text-white/75"
+          nameColor="text-white"
+          dividerColor="bg-[#0F9B6E]"
+          avatarBg="bg-[#0F9B6E]"
+          dotActive="bg-[#0F9B6E]"
+          dotInactive="bg-white/20"
+        />
       )}
 
       {/* Gallery carousel */}
