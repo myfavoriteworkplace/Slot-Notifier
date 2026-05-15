@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import QRCode from "react-qr-code";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import { useDoctorAuth } from "@/hooks/use-doctor-auth";
@@ -71,6 +72,8 @@ export default function DoctorDashboard() {
   const [profImageUrl, setProfImageUrl] = useState("");
   const [profYearsExp, setProfYearsExp] = useState<string>("");
   const [profLanguages, setProfLanguages] = useState<string[]>([]);
+  const [profUsername, setProfUsername] = useState("");
+  const [profileUrlCopied, setProfileUrlCopied] = useState(false);
   const [profUploading, setProfUploading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,6 +112,10 @@ export default function DoctorDashboard() {
     if (!isLoading && !isAuthenticated) setLocation("/clinic-login");
   }, [isLoading, isAuthenticated, setLocation]);
 
+  function slugify(name: string) {
+    return "dr-" + name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  }
+
   useEffect(() => {
     if (doctor) {
       setProfName((doctor as any).name || "");
@@ -120,6 +127,7 @@ export default function DoctorDashboard() {
       setProfImageUrl((doctor as any).imageUrl || "");
       setProfYearsExp((doctor as any).yearsOfExperience != null ? String((doctor as any).yearsOfExperience) : "");
       setProfLanguages(Array.isArray((doctor as any).languages) ? (doctor as any).languages : []);
+      setProfUsername((doctor as any).username || "");
     }
   }, [doctor]);
 
@@ -947,6 +955,37 @@ export default function DoctorDashboard() {
                       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Professional Bio</Label>
                       <Textarea data-testid="input-prof-bio" value={profBio} onChange={e => setProfBio(e.target.value)} placeholder="Brief professional summary visible on your public profile..." className="resize-none h-24" />
                     </div>
+                    {/* Profile Handle */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                        <LinkIcon className="h-3 w-3" />Profile Handle
+                      </Label>
+                      <div className="flex gap-2 items-center">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono select-none">/doctor/</span>
+                          <Input
+                            data-testid="input-prof-username"
+                            value={profUsername}
+                            onChange={e => setProfUsername(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                            placeholder="dr-your-name"
+                            className="pl-[70px] font-mono text-sm"
+                          />
+                        </div>
+                        {!profUsername && profName && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0 text-xs border-primary/30 text-primary hover:bg-primary/5"
+                            onClick={() => setProfUsername(slugify(profName))}
+                            data-testid="button-suggest-username"
+                          >
+                            Suggest
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">This becomes your shareable URL. Only lowercase letters, numbers, and hyphens. Leave blank to use your numeric ID.</p>
+                    </div>
                     {/* Out of Office / Leave Management */}
                     <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5 overflow-hidden">
                       <div className="px-4 py-2.5 bg-amber-100/60 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20 flex items-center gap-2">
@@ -1033,17 +1072,74 @@ export default function DoctorDashboard() {
                     {/* Actions */}
                     <div className="flex gap-3">
                       <Button className="flex-1 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-semibold shadow-md shadow-primary/20"
-                        onClick={() => updateProfileMutation.mutate({ name: profName, specialization: profSpecialization, degree: profDegree, college: profCollege, bio: profBio, phone: profPhone, imageUrl: profImageUrl, yearsOfExperience: profYearsExp !== "" ? parseInt(profYearsExp, 10) : null, languages: profLanguages })}
+                        onClick={() => updateProfileMutation.mutate({ name: profName, specialization: profSpecialization, degree: profDegree, college: profCollege, bio: profBio, phone: profPhone, imageUrl: profImageUrl, yearsOfExperience: profYearsExp !== "" ? parseInt(profYearsExp, 10) : null, languages: profLanguages, username: profUsername.trim() || null })}
                         disabled={updateProfileMutation.isPending}
                         data-testid="button-save-profile"
                       >
                         {updateProfileMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                         Save Profile
                       </Button>
-                      <Button variant="outline" className="border-primary/30 text-primary hover:bg-primary/5" onClick={() => window.open(`/doctor/${(doctor as any).id}`, "_blank")} data-testid="button-preview-profile">
+                      <Button variant="outline" className="border-primary/30 text-primary hover:bg-primary/5" onClick={() => window.open(`/doctor/${(doctor as any).username || (doctor as any).id}`, "_blank")} data-testid="button-preview-profile">
                         <Eye className="h-4 w-4 mr-2" />Preview
                       </Button>
                     </div>
+
+                    {/* QR / Share Card */}
+                    {doctor && (
+                      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                        <div className="px-4 pt-4 pb-1.5 flex items-center gap-2">
+                          <Share2 className="h-3.5 w-3.5 text-primary/70" />
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Scan &amp; Share Profile</p>
+                        </div>
+                        <div className="px-4 pb-4 flex flex-col sm:flex-row gap-4 items-center">
+                          {/* QR Code */}
+                          <div className="relative rounded-2xl overflow-hidden bg-white p-3 border border-border/40 shadow-inner shrink-0 flex items-center justify-center">
+                            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 pointer-events-none rounded-2xl" />
+                            <QRCode
+                              value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
+                              size={110}
+                              level="M"
+                              fgColor="#085041"
+                              bgColor="#ffffff"
+                              style={{ display: "block" }}
+                            />
+                          </div>
+                          {/* URL info */}
+                          <div className="flex-1 w-full space-y-2">
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">Patients can scan this QR or open the link below to view your public profile.</p>
+                            <div className="w-full rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Profile URL</p>
+                                  <p className="text-[11px] text-foreground truncate font-mono mt-0.5">
+                                    /doctor/{(doctor as any).username || (doctor as any).id}
+                                  </p>
+                                </div>
+                                <button
+                                  data-testid="button-copy-profile-url"
+                                  title="Copy profile URL"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`);
+                                    setProfileUrlCopied(true);
+                                    setTimeout(() => setProfileUrlCopied(false), 2000);
+                                  }}
+                                  className={`h-7 w-7 rounded-lg border flex items-center justify-center shrink-0 transition-all duration-200
+                                    ${profileUrlCopied
+                                      ? 'bg-primary/10 border-primary/30 text-primary'
+                                      : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}
+                                >
+                                  {profileUrlCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                                </button>
+                              </div>
+                            </div>
+                            {!(doctor as any).username && (
+                              <p className="text-[10px] text-amber-600 dark:text-amber-400">Set a Profile Handle above to get a memorable URL instead of a number.</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 </div>
               </div>

@@ -2994,10 +2994,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // ── Public Doctor Profile (no auth) ──
+  // ── Public Doctor Profile (no auth) — supports /doctor/:id or /doctor/:username ──
   app.get("/api/public/doctor/:id", async (req, res) => {
     try {
-      const d = await storage.getDoctorById(Number(req.params.id));
+      const param = req.params.id;
+      const isNumeric = /^\d+$/.test(param);
+      const d = isNumeric
+        ? await storage.getDoctorById(Number(param))
+        : await storage.getDoctorByUsername(param);
       if (!d) return res.status(404).json({ message: "Doctor not found" });
       const certs = await storage.getCertificationsByDoctor(d.id);
       const cases = await storage.getCasesByDoctor(d.id);

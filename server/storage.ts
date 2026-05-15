@@ -103,6 +103,7 @@ export interface IStorage {
   // Doctor Profile
   updateDoctorProfile(id: number, updates: Partial<Doctor>): Promise<Doctor>;
   getDoctorById(id: number): Promise<Doctor | null>;
+  getDoctorByUsername(username: string): Promise<Doctor | null>;
 
   // Doctor Certifications
   getCertificationsByDoctor(doctorId: number): Promise<DoctorCertification[]>;
@@ -732,10 +733,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateDoctorProfile(id: number, updates: Partial<Doctor>): Promise<Doctor> {
-    const allowed = { name: updates.name, specialization: updates.specialization, degree: updates.degree, college: (updates as any).college, bio: (updates as any).bio, phone: (updates as any).phone, imageUrl: updates.imageUrl, yearsOfExperience: (updates as any).yearsOfExperience, languages: (updates as any).languages };
+    const allowed = { name: updates.name, specialization: updates.specialization, degree: updates.degree, college: (updates as any).college, bio: (updates as any).bio, phone: (updates as any).phone, imageUrl: updates.imageUrl, yearsOfExperience: (updates as any).yearsOfExperience, languages: (updates as any).languages, username: (updates as any).username ?? null };
     const clean = Object.fromEntries(Object.entries(allowed).filter(([, v]) => v !== undefined));
     const [updated] = await db.update(doctors).set(clean).where(eq(doctors.id, id)).returning();
     return updated;
+  }
+
+  async getDoctorByUsername(username: string): Promise<Doctor | null> {
+    const [doc] = await db.select().from(doctors).where(eq(doctors.username, username)).limit(1);
+    return doc ?? null;
   }
 
   // Doctor Certifications

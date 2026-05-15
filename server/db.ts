@@ -402,4 +402,14 @@ export async function ensureSessionTable() {
   } catch (err: any) {
     console.error("[DATABASE] Error ensuring doctor_cases table:", err.message);
   }
+
+  // doctors.username column
+  try {
+    await pool.query(`
+      ALTER TABLE IF EXISTS "doctors" ADD COLUMN IF NOT EXISTS "username" varchar(100) UNIQUE;
+    `);
+    console.log("[DATABASE] doctors.username column ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error ensuring doctors.username column:", err.message);
+  }
 }

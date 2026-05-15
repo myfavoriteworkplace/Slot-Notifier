@@ -133,6 +133,7 @@ export const doctors = pgTable("doctors", {
   email: varchar("email", { length: 255 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   isTemporaryPassword: boolean("is_temporary_password").default(true).notNull(),
+  username: varchar("username", { length: 100 }).unique(),
   specialization: varchar("specialization", { length: 255 }),
   degree: varchar("degree", { length: 255 }),
   college: varchar("college", { length: 255 }),
