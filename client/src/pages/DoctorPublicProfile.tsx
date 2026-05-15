@@ -112,65 +112,64 @@ export default function DoctorPublicProfile() {
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: TEAL, marginBottom: 6 }}>Doctor Profile</p>
             <h1 style={{ fontSize: 32, fontWeight: 900, letterSpacing: "-0.02em", marginBottom: 8, lineHeight: 1.1 }}>Dr. {doctor.name}</h1>
 
+            {/* Specialization + Degree badges — always shown */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-              {doctor.specialization && (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: TEAL, background: `${TEAL}18`, border: `1px solid ${TEAL}33`, borderRadius: 100, padding: "4px 12px" }}>
-                  <Stethoscope style={{ width: 11, height: 11 }} />{doctor.specialization}
-                </span>
-              )}
-              {doctor.degree && (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: MUTED, background: "rgba(255,255,255,.05)", border: `1px solid ${BORDER}`, borderRadius: 100, padding: "4px 12px" }}>
-                  <GraduationCap style={{ width: 11, height: 11 }} />{doctor.degree}
-                </span>
-              )}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: doctor.specialization ? TEAL : "rgba(232,245,240,0.2)", background: doctor.specialization ? `${TEAL}18` : "rgba(255,255,255,.03)", border: `1px ${doctor.specialization ? "solid" : "dashed"} ${doctor.specialization ? `${TEAL}33` : "rgba(232,245,240,0.12)"}`, borderRadius: 100, padding: "4px 12px", fontStyle: doctor.specialization ? "normal" : "italic" }}>
+                <Stethoscope style={{ width: 11, height: 11 }} />{doctor.specialization || "Specialization not set"}
+              </span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: doctor.degree ? MUTED : "rgba(232,245,240,0.2)", background: "rgba(255,255,255,.05)", border: `1px ${doctor.degree ? "solid" : "dashed"} ${doctor.degree ? BORDER : "rgba(232,245,240,0.12)"}`, borderRadius: 100, padding: "4px 12px", fontStyle: doctor.degree ? "normal" : "italic" }}>
+                <GraduationCap style={{ width: 11, height: 11 }} />{doctor.degree || "Degree not set"}
+              </span>
             </div>
 
-            {doctor.college && (
-              <p style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: MUTED, marginBottom: 8 }}>
-                <Building2 style={{ width: 13, height: 13 }} />{doctor.college}
-              </p>
-            )}
+            {/* College — always shown */}
+            <p style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: doctor.college ? MUTED : "rgba(232,245,240,0.2)", marginBottom: 8, fontStyle: doctor.college ? "normal" : "italic" }}>
+              <Building2 style={{ width: 13, height: 13 }} />{doctor.college || "University / College not specified"}
+            </p>
+
+            {/* Phone — only shown if filled */}
             {doctor.phone && (
               <a href={`tel:${doctor.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: TEAL, textDecoration: "none", marginRight: 16 }}>
                 <Phone style={{ width: 13, height: 13 }} />{doctor.phone}
               </a>
             )}
 
-            {/* Years of experience + languages row */}
-            {((doctor as any).yearsOfExperience != null || (Array.isArray((doctor as any).languages) && (doctor as any).languages.length > 0)) && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
-                {(doctor as any).yearsOfExperience != null && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: TEAL, background: `${TEAL}18`, border: `1px solid ${TEAL}33`, borderRadius: 100, padding: "4px 12px" }}>
-                    <TrendingUp style={{ width: 11, height: 11 }} />{(doctor as any).yearsOfExperience} yrs experience
-                  </span>
-                )}
-                {Array.isArray((doctor as any).languages) && (doctor as any).languages.map((lang: string) => (
-                  <span key={lang} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: MUTED, background: "rgba(255,255,255,.05)", border: `1px solid ${BORDER}`, borderRadius: 100, padding: "4px 12px" }}>
-                    <Globe style={{ width: 11, height: 11 }} />{lang}
-                  </span>
-                ))}
-              </div>
-            )}
+            {/* Years of experience + languages — always shown */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: (doctor as any).yearsOfExperience != null ? TEAL : "rgba(232,245,240,0.2)", background: (doctor as any).yearsOfExperience != null ? `${TEAL}18` : "rgba(255,255,255,.03)", border: `1px ${(doctor as any).yearsOfExperience != null ? "solid" : "dashed"} ${(doctor as any).yearsOfExperience != null ? `${TEAL}33` : "rgba(232,245,240,0.12)"}`, borderRadius: 100, padding: "4px 12px", fontStyle: (doctor as any).yearsOfExperience != null ? "normal" : "italic" }}>
+                <TrendingUp style={{ width: 11, height: 11 }} />{(doctor as any).yearsOfExperience != null ? `${(doctor as any).yearsOfExperience} yrs experience` : "Experience not set"}
+              </span>
+              {Array.isArray((doctor as any).languages) && (doctor as any).languages.length > 0 ? (doctor as any).languages.map((lang: string) => (
+                <span key={lang} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: MUTED, background: "rgba(255,255,255,.05)", border: `1px solid ${BORDER}`, borderRadius: 100, padding: "4px 12px" }}>
+                  <Globe style={{ width: 11, height: 11 }} />{lang}
+                </span>
+              )) : (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "rgba(232,245,240,0.2)", background: "rgba(255,255,255,.03)", border: "1px dashed rgba(232,245,240,0.12)", borderRadius: 100, padding: "4px 12px", fontStyle: "italic" }}>
+                  <Globe style={{ width: 11, height: 11 }} />Languages not specified
+                </span>
+              )}
+            </div>
 
-            {doctor.bio && (
-              <p style={{ fontSize: 14, color: MUTED, lineHeight: 1.65, marginTop: 16, maxWidth: 520 }}>{doctor.bio}</p>
-            )}
+            {/* Bio — always shown */}
+            <p style={{ fontSize: 14, lineHeight: 1.65, marginTop: 16, maxWidth: 520, color: doctor.bio ? MUTED : "rgba(232,245,240,0.2)", fontStyle: doctor.bio ? "normal" : "italic" }}>
+              {doctor.bio || "Professional bio not added yet."}
+            </p>
           </div>
         </div>
       </section>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 48px 80px" }}>
 
-        {/* Certifications */}
-        {certifications.length > 0 && (
-          <section style={{ marginBottom: 56 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, ${TEAL}, #0A9E6A)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Award style={{ width: 16, height: 16, color: "#050E09" }} />
-              </div>
-              <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.01em" }}>Certifications & Achievements</h2>
+        {/* Certifications — always shown */}
+        <section style={{ marginBottom: 56 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, ${TEAL}, #0A9E6A)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Award style={{ width: 16, height: 16, color: "#050E09" }} />
             </div>
+            <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.01em" }}>Certifications & Achievements</h2>
+          </div>
 
+          {certifications.length > 0 ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
               {certifications.map((cert) => (
                 <div key={cert.id} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 20, overflow: "hidden" }}>
@@ -180,7 +179,7 @@ export default function DoctorPublicProfile() {
                   <div style={{ padding: 20 }}>
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 24, height: 24, borderRadius: 7, background: `linear-gradient(135deg, ${TEAL}44, #0A9E6A33)`, display: "flex", alignItems: "center", justifyContent: "center", shrink: 0 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: 7, background: `linear-gradient(135deg, ${TEAL}44, #0A9E6A33)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                           <Star style={{ width: 12, height: 12, color: TEAL }} />
                         </div>
                         <p style={{ fontWeight: 700, fontSize: 14 }}>{cert.title}</p>
@@ -195,19 +194,27 @@ export default function DoctorPublicProfile() {
                 </div>
               ))}
             </div>
-          </section>
-        )}
-
-        {/* Case Studies */}
-        {cases.length > 0 && (
-          <section>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, #7C3AED, #4F46E5)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <BookOpen style={{ width: 16, height: 16, color: "#fff" }} />
+          ) : (
+            <div style={{ background: CARD, border: `1px dashed ${BORDER}`, borderRadius: 20, padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: `${TEAL}10`, border: `1px dashed ${TEAL}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Award style={{ width: 20, height: 20, color: `${TEAL}55` }} />
               </div>
-              <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.01em" }}>Case Studies</h2>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "rgba(232,245,240,0.25)" }}>Certifications & achievements will appear here</p>
+              <p style={{ fontSize: 12, color: "rgba(232,245,240,0.15)", fontStyle: "italic" }}>This doctor hasn't added any certifications yet</p>
             </div>
+          )}
+        </section>
 
+        {/* Case Studies — always shown */}
+        <section>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, #7C3AED, #4F46E5)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <BookOpen style={{ width: 16, height: 16, color: "#fff" }} />
+            </div>
+            <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.01em" }}>Case Studies</h2>
+          </div>
+
+          {cases.length > 0 ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
               {cases.map((c) => {
                 const media: string[] = c.mediaUrls || [];
@@ -251,14 +258,16 @@ export default function DoctorPublicProfile() {
                 );
               })}
             </div>
-          </section>
-        )}
-
-        {certifications.length === 0 && cases.length === 0 && (
-          <div style={{ textAlign: "center", padding: "60px 0", color: MUTED, fontSize: 14 }}>
-            This doctor hasn't added certifications or case studies yet.
-          </div>
-        )}
+          ) : (
+            <div style={{ background: CARD, border: "1px dashed rgba(124,58,237,0.2)", borderRadius: 20, padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(124,58,237,0.08)", border: "1px dashed rgba(124,58,237,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <BookOpen style={{ width: 20, height: 20, color: "rgba(167,139,250,0.4)" }} />
+              </div>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "rgba(232,245,240,0.25)" }}>Clinical case studies will appear here</p>
+              <p style={{ fontSize: 12, color: "rgba(232,245,240,0.15)", fontStyle: "italic" }}>This doctor hasn't published any case studies yet</p>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

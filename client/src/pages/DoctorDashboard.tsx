@@ -837,18 +837,36 @@ export default function DoctorDashboard() {
                 <div className="rounded-2xl border border-border/50 bg-background shadow-sm overflow-hidden">
                   <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-4 overflow-hidden">
                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
-                    <div className="relative flex items-center gap-3">
-                      <div className="relative shrink-0">
+                    <div className="relative flex items-start gap-3">
+                      <div className="relative shrink-0 mt-0.5">
                         <div className="absolute -inset-1.5 rounded-2xl bg-gradient-to-br from-accent/40 to-primary/30 blur-md" />
                         <Avatar className="relative h-14 w-14 rounded-2xl border-2 border-white/20 ring-1 ring-white/10">
                           <AvatarImage src={profImageUrl || undefined} />
                           <AvatarFallback className="rounded-2xl bg-white/15 text-white font-bold text-xl">{profName?.charAt(0) || "?"}</AvatarFallback>
                         </Avatar>
                       </div>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 mb-0.5">Doctor Profile</p>
                         <h2 className="text-lg font-extrabold text-white leading-tight">{profName || "Your Name"}</h2>
-                        <p className="text-xs text-white/55">{profSpecialization || "Specialization"} · {profDegree || "Degree"}</p>
+                        <p className="text-xs text-white/55 mb-2">{profSpecialization || "Specialization"} · {profDegree || "Degree"}</p>
+                        {/* Secondary info row — college, experience, languages */}
+                        <div className="flex flex-wrap gap-1.5 mb-1.5">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${profCollege ? "bg-white/15 text-white/80" : "bg-white/5 text-white/25 border border-white/10 border-dashed italic"}`}>
+                            {profCollege || "College / University"}
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${profYearsExp ? "bg-white/15 text-white/80" : "bg-white/5 text-white/25 border border-white/10 border-dashed italic"}`}>
+                            {profYearsExp ? `${profYearsExp} yrs experience` : "Years of experience"}
+                          </span>
+                          {profLanguages.length > 0 ? profLanguages.map(lang => (
+                            <span key={lang} className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-white/15 text-white/80">{lang}</span>
+                          )) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-white/5 text-white/25 border border-white/10 border-dashed italic">Languages spoken</span>
+                          )}
+                        </div>
+                        {/* Bio preview */}
+                        <p className={`text-[10px] leading-relaxed line-clamp-2 ${profBio ? "text-white/50" : "text-white/20 italic"}`}>
+                          {profBio || "No professional bio added yet — describe your expertise and approach for patients to see."}
+                        </p>
                       </div>
                     </div>
                     {/* Completeness */}
