@@ -550,6 +550,21 @@ export type InsertStockTransaction = z.infer<typeof insertStockTransactionSchema
 export type StockAlert = typeof stockAlerts.$inferSelect;
 export type InsertStockAlert = z.infer<typeof insertStockAlertSchema>;
 
+// ─── Login audit log ─────────────────────────────────────────────────────────
+
+export const loginEvents = pgTable("login_events", {
+  id:         serial("id").primaryKey(),
+  role:       varchar("role", { length: 20 }).notNull(),
+  identifier: varchar("identifier", { length: 255 }).notNull(),
+  ipAddress:  varchar("ip_address", { length: 64 }),
+  userAgent:  text("user_agent"),
+  success:    boolean("success").notNull().default(true),
+  createdAt:  timestamp("created_at").defaultNow(),
+});
+
+export type LoginEvent = typeof loginEvents.$inferSelect;
+export type InsertLoginEvent = typeof loginEvents.$inferInsert;
+
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface ClinicSession {

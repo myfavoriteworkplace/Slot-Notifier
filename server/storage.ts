@@ -1,7 +1,7 @@
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
   doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, clinicalRecords,
-  inventoryCategories, inventoryItems, stockTransactions, stockAlerts,
+  inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -22,11 +22,16 @@ import {
   type InventoryItem, type InsertInventoryItem,
   type StockTransaction, type InsertStockTransaction,
   type StockAlert, type InsertStockAlert,
+  type LoginEvent, type InsertLoginEvent,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns } from "drizzle-orm";
 
 export interface IStorage {
+  // Login audit
+  createLoginEvent(data: InsertLoginEvent): Promise<LoginEvent>;
+  getLoginEvents(limit?: number): Promise<LoginEvent[]>;
+
   // Users
   hasSuperuser(): Promise<boolean>;
   setUserRole(userId: string, role: string): Promise<void>;
@@ -1024,6 +1029,15 @@ export class DatabaseStorage implements IStorage {
     await db.update(stockAlerts)
       .set({ isDismissed: true })
       .where(and(eq(stockAlerts.id, id), eq(stockAlerts.clinicId, clinicId)));
+  }
+
+  async createLoginEvent(data: InsertLoginEvent): Promise<LoginEvent> {
+    const [event] = await db.insert(loginEvents).values(data).returning();
+    return event;
+  }
+
+  async getLoginEvents(limit = 200): Promise<LoginEvent[]> {
+    return db.select().from(loginEvents).orderBy(desc(loginEvents.createdAt)).limit(limit);
   }
 }
 

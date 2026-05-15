@@ -412,4 +412,23 @@ export async function ensureSessionTable() {
   } catch (err: any) {
     console.error("[DATABASE] Error ensuring doctors.username column:", err.message);
   }
+
+  // login_events audit table
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS login_events (
+        id          SERIAL PRIMARY KEY,
+        role        varchar(20)  NOT NULL,
+        identifier  varchar(255) NOT NULL,
+        ip_address  varchar(64),
+        user_agent  text,
+        success     boolean NOT NULL DEFAULT true,
+        created_at  timestamp DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS login_events_created_at_idx ON login_events (created_at DESC);
+    `);
+    console.log("[DATABASE] login_events table ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error ensuring login_events table:", err.message);
+  }
 }

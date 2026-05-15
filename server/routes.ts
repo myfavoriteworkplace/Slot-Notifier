@@ -1715,17 +1715,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/auth/clinic/login", async (req, res) => {
     const { username, password } = req.body;
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+    const ua = req.headers["user-agent"] || null;
     try {
       const clinic = await storage.getClinicByUsername(username);
-      if (!clinic || clinic.isArchived) return res.status(401).json({ message: "Invalid credentials" });
+      if (!clinic || clinic.isArchived) {
+        storage.createLoginEvent({ role: "owner", identifier: username || "unknown", ipAddress: ip, userAgent: ua, success: false }).catch(() => {});
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
       const isMatch = await bcrypt.compare(password, clinic.passwordHash || "");
-      if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+      if (!isMatch) {
+        storage.createLoginEvent({ role: "owner", identifier: username, ipAddress: ip, userAgent: ua, success: false }).catch(() => {});
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
       req.session.regenerate((err) => {
         if (err) return res.status(500).json({ message: "Session error" });
         const sess = req.session as any;
         sess.adminLoggedIn = true;
         sess.clinicId = clinic.id;
         sess.role = 'owner';
+        storage.createLoginEvent({ role: "owner", identifier: clinic.name, ipAddress: ip, userAgent: ua, success: true }).catch(() => {});
         req.session.save(() => res.json({ message: "Login successful", user: { id: clinic.id, name: clinic.name, role: 'owner' } }));
       });
     } catch (error: any) {
@@ -1788,12 +1797,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(401).json({ message: "Incorrect OTP. Please try again." });
     }
     adminOtpStore = null;
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+    const ua = req.headers["user-agent"] || null;
     req.session.regenerate((err) => {
       if (err) return res.status(500).json({ message: "Session error" });
       const sess = req.session as any;
       sess.adminLoggedIn = true;
       sess.role = 'superuser';
       sess.adminEmail = process.env.ADMIN_EMAIL;
+      storage.createLoginEvent({ role: "superuser", identifier: process.env.ADMIN_EMAIL || "superuser", ipAddress: ip, userAgent: ua, success: true }).catch(() => {});
       req.session.save(() =>
         res.json({ message: "Login successful", user: { email: process.env.ADMIN_EMAIL, role: 'superuser', firstName: 'Super', lastName: 'Admin' } })
       );
@@ -1805,6 +1817,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.clearCookie('connect.sid', { path: '/' });
       res.json({ message: "Logout successful" });
     });
+  });
+
+  app.get("/api/auth/admin/login-events", async (req, res) => {
+    const sess = req.session as any;
+    if (!sess?.adminLoggedIn || sess.role !== 'superuser') {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 200, 500);
+      const events = await storage.getLoginEvents(limit);
+      res.json(events);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   app.get("/api/auth/user", (req, res) => {
@@ -1943,11 +1969,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/auth/doctor/login", async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+    const ua = req.headers["user-agent"] || null;
     try {
       const doctor = await storage.getDoctorByEmail(email);
-      if (!doctor) return res.status(401).json({ message: "Invalid credentials" });
+      if (!doctor) {
+        storage.createLoginEvent({ role: "doctor", identifier: email, ipAddress: ip, userAgent: ua, success: false }).catch(() => {});
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
       const isMatch = await bcrypt.compare(password, doctor.passwordHash || "");
-      if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+      if (!isMatch) {
+        storage.createLoginEvent({ role: "doctor", identifier: email, ipAddress: ip, userAgent: ua, success: false }).catch(() => {});
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
       const clinicResults = await db.select({ clinic: clinics })
         .from(clinics)
         .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
@@ -1962,6 +1996,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         sess.role = 'doctor';
         sess.doctorEmail = doctor.email;
         sess.doctorId = doctor.id;
+        storage.createLoginEvent({ role: "doctor", identifier: doctor.email, ipAddress: ip, userAgent: ua, success: true }).catch(() => {});
         req.session.save(() => res.json({
           email: doctor.email,
           name: doctor.name,
