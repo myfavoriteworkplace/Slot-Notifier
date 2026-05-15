@@ -1,3 +1,4 @@
+const doctorHeroImg = "/doctor-hero.png";
 import { useAuth } from "@/hooks/use-auth";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { ArrowRight, Clock, Shield, Users, Star, Download, UserCheck, Check, ChevronDown, FileText, Search, Building2, MapPin, CalendarDays, Mail, User } from "lucide-react";
@@ -134,6 +135,7 @@ export default function Landing() {
 
         @media (max-width: 900px) {
           .lnd-hero          { grid-template-columns: 1fr !important; min-height: auto !important; padding: 40px 24px 60px !important; }
+          .lnd-doctor-hero   { display: none !important; }
           .lnd-float-badge-1 { right: -8px  !important; top: 12px    !important; }
           .lnd-float-badge-2 { left:  -8px  !important; bottom: 40px !important; }
           .lnd-feat-4        { grid-template-columns: 1fr 1fr !important; }
@@ -187,7 +189,30 @@ export default function Landing() {
       <div style={{ position: "relative", zIndex: 2 }}>
 
         {/* ══ HERO ═════════════════════════════════════════════════════════════ */}
-        <section className="lnd-hero" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", alignItems: "center", minHeight: "100vh", padding: "60px max(48px,4vw) 60px", gap: 48 }}>
+        <section className="lnd-hero" style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr", alignItems: "center", minHeight: "100vh", padding: "60px max(48px,4vw) 60px", gap: 48 }}>
+
+          {/* Doctor hero image — centred in the gap, hidden on mobile */}
+          <div
+            className="lnd-doctor-hero"
+            style={{ position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", height: "92%", pointerEvents: "none", userSelect: "none", zIndex: 0 }}
+          >
+            <img
+              src={doctorHeroImg}
+              alt=""
+              aria-hidden="true"
+              style={{
+                height: "100%",
+                width: "auto",
+                maxWidth: "none",
+                objectFit: "contain",
+                objectPosition: "top center",
+                WebkitMaskImage: "linear-gradient(to bottom, black 60%, transparent 100%), linear-gradient(to right, transparent 8%, black 36%)",
+                WebkitMaskComposite: "source-in",
+                maskImage: "linear-gradient(to bottom, black 60%, transparent 100%), linear-gradient(to right, transparent 8%, black 36%)",
+                maskComposite: "intersect",
+              }}
+            />
+          </div>
 
           {/* Left copy */}
           <div>
