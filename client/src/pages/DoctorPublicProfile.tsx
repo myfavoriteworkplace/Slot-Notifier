@@ -1,15 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
-import { Loader2, Stethoscope, GraduationCap, Building2, Phone, Mail, Award, BookOpen, Star, Tag, Play, ExternalLink, ChevronLeft, TrendingUp, Globe } from "lucide-react";
+import { Loader2, Stethoscope, GraduationCap, Building2, Phone, Award, BookOpen, Star, Play, ChevronLeft, TrendingUp, Globe } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
-
-const TEAL = "#0FCE8A";
-const BG = "#080D0B";
-const CARD = "#0E1612";
-const BORDER = "rgba(15,206,138,0.12)";
-const TEXT = "#E8F5F0";
-const MUTED = "rgba(232,245,240,0.45)";
 
 function isVideo(url: string) {
   return /\.(mp4|webm|ogg|mov)$/i.test(url) || url.includes("youtube.com") || url.includes("youtu.be") || url.includes("vimeo.com");
@@ -18,16 +11,16 @@ function isVideo(url: string) {
 function MediaThumb({ url, onClick }: { url: string; onClick: () => void }) {
   if (isVideo(url)) {
     return (
-      <div onClick={onClick} style={{ position: "relative", borderRadius: 12, overflow: "hidden", background: "rgba(0,0,0,.5)", border: `1px solid ${BORDER}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", aspectRatio: "16/9" }}>
-        <div style={{ position: "absolute", inset: 0, background: "rgba(15,206,138,.06)" }} />
-        <Play style={{ width: 32, height: 32, color: TEAL }} />
-        <span style={{ position: "absolute", bottom: 8, left: 8, fontSize: 10, color: MUTED, background: "rgba(0,0,0,.6)", borderRadius: 4, padding: "2px 6px" }}>Video</span>
+      <div onClick={onClick} className="relative rounded-xl overflow-hidden bg-black/50 border border-border cursor-pointer flex items-center justify-center aspect-video">
+        <div className="absolute inset-0 bg-primary/5" />
+        <Play className="w-8 h-8 text-primary relative z-10" />
+        <span className="absolute bottom-2 left-2 text-[10px] text-muted-foreground bg-black/60 rounded px-1.5 py-0.5">Video</span>
       </div>
     );
   }
   return (
-    <div onClick={onClick} style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${BORDER}`, cursor: "pointer", aspectRatio: "16/9" }}>
-      <img src={url} alt="Case" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+    <div onClick={onClick} className="rounded-xl overflow-hidden border border-border cursor-pointer aspect-video">
+      <img src={url} alt="Case" className="w-full h-full object-cover block" />
     </div>
   );
 }
@@ -42,18 +35,18 @@ export default function DoctorPublicProfile() {
 
   if (isLoading) {
     return (
-      <div style={{ minHeight: "100vh", background: BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Loader2 style={{ width: 36, height: 36, color: TEAL, animation: "spin 1s linear infinite" }} />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-9 h-9 text-primary animate-spin" />
       </div>
     );
   }
 
   if (isError || !data) {
     return (
-      <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
-        <p style={{ color: TEXT, fontSize: 18, fontWeight: 700 }}>Doctor not found</p>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <p className="text-lg font-bold text-foreground">Doctor not found</p>
         <Link href="/">
-          <button style={{ color: TEAL, fontSize: 13, border: `1px solid ${BORDER}`, borderRadius: 8, padding: "8px 20px", background: "transparent", cursor: "pointer" }}>
+          <button className="text-primary text-sm border border-border rounded-lg px-5 py-2 bg-transparent cursor-pointer hover:bg-primary/5 transition-colors">
             ← Back to Home
           </button>
         </Link>
@@ -65,191 +58,234 @@ export default function DoctorPublicProfile() {
   const initials = doctor.name?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() || "DR";
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, fontFamily: "'Sora', sans-serif", color: TEXT }}>
+    <div className="min-h-screen bg-background text-foreground">
       {/* Lightbox */}
       {lightboxUrl && (
-        <div onClick={() => setLightboxUrl(null)} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div onClick={() => setLightboxUrl(null)} className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-6">
           {isVideo(lightboxUrl) ? (
-            <video src={lightboxUrl} controls autoPlay style={{ maxWidth: "90vw", maxHeight: "85vh", borderRadius: 16 }} />
+            <video src={lightboxUrl} controls autoPlay className="max-w-[90vw] max-h-[85vh] rounded-2xl" />
           ) : (
-            <img src={lightboxUrl} alt="" style={{ maxWidth: "90vw", maxHeight: "85vh", borderRadius: 16, objectFit: "contain" }} />
+            <img src={lightboxUrl} alt="" className="max-w-[90vw] max-h-[85vh] rounded-2xl object-contain" />
           )}
         </div>
       )}
 
-      {/* Top neon bar */}
-      <div style={{ height: 3, background: `linear-gradient(90deg, ${TEAL}, #0A9E6A, ${TEAL})` }} />
+      {/* Top accent bar */}
+      <div className="h-[3px] bg-gradient-to-r from-primary via-accent to-primary" />
 
       {/* Back link */}
-      <div style={{ padding: "16px 48px 0" }}>
+      <div className="px-8 sm:px-12 pt-4">
         <Link href="/">
-          <button style={{ display: "flex", alignItems: "center", gap: 6, color: MUTED, fontSize: 12, background: "transparent", border: "none", cursor: "pointer", fontFamily: "'Sora', sans-serif" }}>
-            <ChevronLeft style={{ width: 14, height: 14 }} />Back
+          <button className="flex items-center gap-1.5 text-muted-foreground text-xs bg-transparent border-none cursor-pointer hover:text-foreground transition-colors">
+            <ChevronLeft className="w-3.5 h-3.5" />Back
           </button>
         </Link>
       </div>
 
       {/* Hero */}
-      <section style={{ padding: "48px 48px 40px", maxWidth: 900, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 32, flexWrap: "wrap" }}>
+      <section className="max-w-4xl mx-auto px-8 sm:px-12 pt-10 pb-8">
+        <div className="flex items-start gap-8 flex-wrap">
+
           {/* Avatar */}
-          <div style={{ position: "relative", flexShrink: 0 }}>
-            <div style={{ position: "absolute", inset: -4, borderRadius: "50%", background: `radial-gradient(circle, ${TEAL}55, transparent 70%)`, filter: "blur(12px)" }} />
+          <div className="relative shrink-0">
+            <div className="absolute -inset-1 rounded-full bg-primary/20 blur-xl pointer-events-none" />
             {doctor.imageUrl ? (
-              <img src={doctor.imageUrl} alt={doctor.name} style={{ position: "relative", width: 120, height: 120, borderRadius: "50%", objectFit: "cover", border: `2px solid ${TEAL}55` }} />
+              <img
+                src={doctor.imageUrl}
+                alt={doctor.name}
+                className="relative w-[120px] h-[120px] rounded-full object-cover border-2 border-primary/30"
+              />
             ) : (
-              <div style={{ position: "relative", width: 120, height: 120, borderRadius: "50%", background: `linear-gradient(135deg, ${TEAL}33, #0A9E6A22)`, border: `2px solid ${TEAL}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, fontWeight: 800, color: TEAL }}>
+              <div className="relative w-[120px] h-[120px] rounded-full bg-primary/15 border-2 border-primary/30 flex items-center justify-center text-4xl font-extrabold text-primary">
                 {initials}
               </div>
             )}
-            <div style={{ position: "absolute", bottom: 4, right: 4, width: 28, height: 28, borderRadius: "50%", background: TEAL, display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${BG}` }}>
-              <Stethoscope style={{ width: 14, height: 14, color: "#050E09" }} />
+            <div className="absolute bottom-1 right-1 w-7 h-7 rounded-full bg-primary flex items-center justify-center border-2 border-background">
+              <Stethoscope className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
           </div>
 
           {/* Info */}
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: TEAL, marginBottom: 6 }}>Doctor Profile</p>
-            <h1 style={{ fontSize: 32, fontWeight: 900, letterSpacing: "-0.02em", marginBottom: 8, lineHeight: 1.1 }}>Dr. {doctor.name}</h1>
+          <div className="flex-1 min-w-[200px]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary mb-1.5">Doctor Profile</p>
+            <h1 className="text-3xl font-black tracking-tight leading-tight text-foreground mb-2">Dr. {doctor.name}</h1>
 
-            {/* Specialization + Degree badges — always shown */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: doctor.specialization ? TEAL : "rgba(232,245,240,0.2)", background: doctor.specialization ? `${TEAL}18` : "rgba(255,255,255,.03)", border: `1px ${doctor.specialization ? "solid" : "dashed"} ${doctor.specialization ? `${TEAL}33` : "rgba(232,245,240,0.12)"}`, borderRadius: 100, padding: "4px 12px", fontStyle: doctor.specialization ? "normal" : "italic" }}>
-                <Stethoscope style={{ width: 11, height: 11 }} />{doctor.specialization || "Specialization not set"}
+            {/* Specialization + Degree — always shown */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1 border ${
+                doctor.specialization
+                  ? "text-primary bg-primary/10 border-primary/25"
+                  : "text-foreground/25 bg-foreground/[0.03] border-dashed border-foreground/10 italic"
+              }`}>
+                <Stethoscope className="w-[11px] h-[11px] shrink-0" />
+                {doctor.specialization || "Specialization not set"}
               </span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: doctor.degree ? MUTED : "rgba(232,245,240,0.2)", background: "rgba(255,255,255,.05)", border: `1px ${doctor.degree ? "solid" : "dashed"} ${doctor.degree ? BORDER : "rgba(232,245,240,0.12)"}`, borderRadius: 100, padding: "4px 12px", fontStyle: doctor.degree ? "normal" : "italic" }}>
-                <GraduationCap style={{ width: 11, height: 11 }} />{doctor.degree || "Degree not set"}
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1 border ${
+                doctor.degree
+                  ? "text-muted-foreground bg-foreground/5 border-border"
+                  : "text-foreground/25 bg-foreground/[0.03] border-dashed border-foreground/10 italic"
+              }`}>
+                <GraduationCap className="w-[11px] h-[11px] shrink-0" />
+                {doctor.degree || "Degree not set"}
               </span>
             </div>
 
             {/* College — always shown */}
-            <p style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: doctor.college ? MUTED : "rgba(232,245,240,0.2)", marginBottom: 8, fontStyle: doctor.college ? "normal" : "italic" }}>
-              <Building2 style={{ width: 13, height: 13 }} />{doctor.college || "University / College not specified"}
+            <p className={`flex items-center gap-1.5 text-sm mb-2 ${
+              doctor.college ? "text-muted-foreground" : "text-foreground/25 italic"
+            }`}>
+              <Building2 className="w-[13px] h-[13px] shrink-0" />
+              {doctor.college || "University / College not specified"}
             </p>
 
-            {/* Phone — only shown if filled */}
+            {/* Phone — only if filled */}
             {doctor.phone && (
-              <a href={`tel:${doctor.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: TEAL, textDecoration: "none", marginRight: 16 }}>
-                <Phone style={{ width: 13, height: 13 }} />{doctor.phone}
+              <a href={`tel:${doctor.phone}`} className="inline-flex items-center gap-1.5 text-sm text-primary no-underline mr-4 hover:underline">
+                <Phone className="w-[13px] h-[13px]" />{doctor.phone}
               </a>
             )}
 
-            {/* Years of experience + languages — always shown */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: (doctor as any).yearsOfExperience != null ? TEAL : "rgba(232,245,240,0.2)", background: (doctor as any).yearsOfExperience != null ? `${TEAL}18` : "rgba(255,255,255,.03)", border: `1px ${(doctor as any).yearsOfExperience != null ? "solid" : "dashed"} ${(doctor as any).yearsOfExperience != null ? `${TEAL}33` : "rgba(232,245,240,0.12)"}`, borderRadius: 100, padding: "4px 12px", fontStyle: (doctor as any).yearsOfExperience != null ? "normal" : "italic" }}>
-                <TrendingUp style={{ width: 11, height: 11 }} />{(doctor as any).yearsOfExperience != null ? `${(doctor as any).yearsOfExperience} yrs experience` : "Experience not set"}
+            {/* Experience + Languages — always shown */}
+            <div className="flex flex-wrap gap-2 mt-3">
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1 border ${
+                (doctor as any).yearsOfExperience != null
+                  ? "text-primary bg-primary/10 border-primary/25"
+                  : "text-foreground/25 bg-foreground/[0.03] border-dashed border-foreground/10 italic"
+              }`}>
+                <TrendingUp className="w-[11px] h-[11px] shrink-0" />
+                {(doctor as any).yearsOfExperience != null
+                  ? `${(doctor as any).yearsOfExperience} yrs experience`
+                  : "Experience not set"}
               </span>
-              {Array.isArray((doctor as any).languages) && (doctor as any).languages.length > 0 ? (doctor as any).languages.map((lang: string) => (
-                <span key={lang} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: MUTED, background: "rgba(255,255,255,.05)", border: `1px solid ${BORDER}`, borderRadius: 100, padding: "4px 12px" }}>
-                  <Globe style={{ width: 11, height: 11 }} />{lang}
-                </span>
-              )) : (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "rgba(232,245,240,0.2)", background: "rgba(255,255,255,.03)", border: "1px dashed rgba(232,245,240,0.12)", borderRadius: 100, padding: "4px 12px", fontStyle: "italic" }}>
-                  <Globe style={{ width: 11, height: 11 }} />Languages not specified
+              {Array.isArray((doctor as any).languages) && (doctor as any).languages.length > 0 ? (
+                (doctor as any).languages.map((lang: string) => (
+                  <span key={lang} className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1 text-muted-foreground bg-foreground/5 border border-border">
+                    <Globe className="w-[11px] h-[11px]" />{lang}
+                  </span>
+                ))
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1 text-foreground/25 bg-foreground/[0.03] border border-dashed border-foreground/10 italic">
+                  <Globe className="w-[11px] h-[11px]" />Languages not specified
                 </span>
               )}
             </div>
 
             {/* Bio — always shown */}
-            <p style={{ fontSize: 14, lineHeight: 1.65, marginTop: 16, maxWidth: 520, color: doctor.bio ? MUTED : "rgba(232,245,240,0.2)", fontStyle: doctor.bio ? "normal" : "italic" }}>
+            <p className={`text-sm leading-relaxed mt-4 max-w-lg ${
+              doctor.bio ? "text-muted-foreground" : "text-foreground/25 italic"
+            }`}>
               {doctor.bio || "Professional bio not added yet."}
             </p>
           </div>
         </div>
       </section>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 48px 80px" }}>
+      <div className="max-w-4xl mx-auto px-8 sm:px-12 pb-20 space-y-14">
 
-        {/* Certifications — always shown */}
-        <section style={{ marginBottom: 56 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, ${TEAL}, #0A9E6A)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Award style={{ width: 16, height: 16, color: "#050E09" }} />
+        {/* Certifications */}
+        <section>
+          <div className="flex items-center gap-2.5 mb-6">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
+              <Award className="w-4 h-4 text-primary-foreground" />
             </div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.01em" }}>Certifications & Achievements</h2>
+            <h2 className="text-xl font-extrabold tracking-tight text-foreground">Certifications & Achievements</h2>
           </div>
 
           {certifications.length > 0 ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
+            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
               {certifications.map((cert) => (
-                <div key={cert.id} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 20, overflow: "hidden" }}>
+                <div key={cert.id} className="bg-card border border-border rounded-2xl overflow-hidden">
                   {cert.imageUrl && (
-                    <img src={cert.imageUrl} alt={cert.title} style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block" }} />
+                    <img src={cert.imageUrl} alt={cert.title} className="w-full aspect-video object-cover block" />
                   )}
-                  <div style={{ padding: 20 }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 24, height: 24, borderRadius: 7, background: `linear-gradient(135deg, ${TEAL}44, #0A9E6A33)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <Star style={{ width: 12, height: 12, color: TEAL }} />
+                  <div className="p-5">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                          <Star className="w-3 h-3 text-primary" />
                         </div>
-                        <p style={{ fontWeight: 700, fontSize: 14 }}>{cert.title}</p>
+                        <p className="font-bold text-sm text-foreground">{cert.title}</p>
                       </div>
                       {cert.year && (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: TEAL, background: `${TEAL}18`, border: `1px solid ${TEAL}33`, borderRadius: 100, padding: "2px 8px", whiteSpace: "nowrap" }}>{cert.year}</span>
+                        <span className="text-[11px] font-bold text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-0.5 whitespace-nowrap shrink-0">
+                          {cert.year}
+                        </span>
                       )}
                     </div>
-                    {cert.issuer && <p style={{ fontSize: 12, color: MUTED, display: "flex", alignItems: "center", gap: 4 }}><Building2 style={{ width: 11, height: 11 }} />{cert.issuer}</p>}
-                    {cert.description && <p style={{ fontSize: 12, color: MUTED, marginTop: 8, lineHeight: 1.55 }}>{cert.description}</p>}
+                    {cert.issuer && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Building2 className="w-[11px] h-[11px] shrink-0" />{cert.issuer}
+                      </p>
+                    )}
+                    {cert.description && (
+                      <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{cert.description}</p>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ background: CARD, border: `1px dashed ${BORDER}`, borderRadius: 20, padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: `${TEAL}10`, border: `1px dashed ${TEAL}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Award style={{ width: 20, height: 20, color: `${TEAL}55` }} />
+            <div className="bg-card border border-dashed border-border rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
+              <div className="w-10 h-10 rounded-xl bg-primary/5 border border-dashed border-primary/20 flex items-center justify-center">
+                <Award className="w-5 h-5 text-primary/30" />
               </div>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "rgba(232,245,240,0.25)" }}>Certifications & achievements will appear here</p>
-              <p style={{ fontSize: 12, color: "rgba(232,245,240,0.15)", fontStyle: "italic" }}>This doctor hasn't added any certifications yet</p>
+              <p className="text-sm font-bold text-foreground/30">Certifications & achievements will appear here</p>
+              <p className="text-xs text-muted-foreground/50 italic">This doctor hasn't added any certifications yet</p>
             </div>
           )}
         </section>
 
-        {/* Case Studies — always shown */}
+        {/* Case Studies */}
         <section>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, #7C3AED, #4F46E5)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <BookOpen style={{ width: 16, height: 16, color: "#fff" }} />
+          <div className="flex items-center gap-2.5 mb-6">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-500 flex items-center justify-center shrink-0">
+              <BookOpen className="w-4 h-4 text-white" />
             </div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.01em" }}>Case Studies</h2>
+            <h2 className="text-xl font-extrabold tracking-tight text-foreground">Case Studies</h2>
           </div>
 
           {cases.length > 0 ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
+            <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
               {cases.map((c) => {
                 const media: string[] = c.mediaUrls || [];
                 const tags: string[] = c.tags || [];
                 const hasAnyMedia = media[0] || media[1];
                 return (
-                  <div key={c.id} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 20, overflow: "hidden" }}>
+                  <div key={c.id} className="bg-card border border-border rounded-2xl overflow-hidden">
                     {hasAnyMedia && (
-                      <div style={{ padding: 12, background: "rgba(0,0,0,.3)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div className="p-3 bg-black/10 dark:bg-black/30 grid grid-cols-2 gap-2">
                         {(["Before", "After"] as const).map((label, i) =>
                           media[i] ? (
-                            <div key={i} style={{ position: "relative" }}>
+                            <div key={i} className="relative">
                               <MediaThumb url={media[i]} onClick={() => setLightboxUrl(media[i])} />
-                              <span style={{ position: "absolute", top: 6, left: 6, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#fff", background: "rgba(0,0,0,.65)", backdropFilter: "blur(4px)", borderRadius: 5, padding: "2px 7px" }}>{label}</span>
+                              <span className="absolute top-1.5 left-1.5 text-[9px] font-bold uppercase tracking-wider text-white bg-black/65 backdrop-blur-sm rounded px-1.5 py-0.5">
+                                {label}
+                              </span>
                             </div>
                           ) : (
-                            <div key={i} style={{ aspectRatio: "16/9", borderRadius: 12, border: `1px dashed ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, opacity: 0.5 }}>{label}</span>
+                            <div key={i} className="aspect-video rounded-xl border border-dashed border-border flex items-center justify-center">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/50">{label}</span>
                             </div>
                           )
                         )}
                       </div>
                     )}
-                    <div style={{ padding: 20 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                        <div style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(124,58,237,.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <BookOpen style={{ width: 12, height: 12, color: "#A78BFA" }} />
+                    <div className="p-5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-6 h-6 rounded-lg bg-violet-500/20 flex items-center justify-center shrink-0">
+                          <BookOpen className="w-3 h-3 text-violet-500 dark:text-violet-400" />
                         </div>
-                        <p style={{ fontWeight: 700, fontSize: 14 }}>{c.title}</p>
+                        <p className="font-bold text-sm text-foreground">{c.title}</p>
                       </div>
-                      {c.description && <p style={{ fontSize: 12, color: MUTED, lineHeight: 1.6, marginBottom: tags.length ? 12 : 0 }}>{c.description}</p>}
+                      {c.description && (
+                        <p className="text-xs text-muted-foreground leading-relaxed mb-3">{c.description}</p>
+                      )}
                       {tags.length > 0 && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        <div className="flex flex-wrap gap-1.5">
                           {tags.map((tag: string, i: number) => (
-                            <span key={i} style={{ fontSize: 10, fontWeight: 600, color: TEAL, background: `${TEAL}18`, border: `1px solid ${TEAL}22`, borderRadius: 100, padding: "2px 8px" }}>{tag}</span>
+                            <span key={i} className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/15 rounded-full px-2 py-0.5">
+                              {tag}
+                            </span>
                           ))}
                         </div>
                       )}
@@ -259,15 +295,16 @@ export default function DoctorPublicProfile() {
               })}
             </div>
           ) : (
-            <div style={{ background: CARD, border: "1px dashed rgba(124,58,237,0.2)", borderRadius: 20, padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(124,58,237,0.08)", border: "1px dashed rgba(124,58,237,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <BookOpen style={{ width: 20, height: 20, color: "rgba(167,139,250,0.4)" }} />
+            <div className="bg-card border border-dashed border-violet-500/25 rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
+              <div className="w-10 h-10 rounded-xl bg-violet-500/5 border border-dashed border-violet-500/20 flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-violet-400/40" />
               </div>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "rgba(232,245,240,0.25)" }}>Clinical case studies will appear here</p>
-              <p style={{ fontSize: 12, color: "rgba(232,245,240,0.15)", fontStyle: "italic" }}>This doctor hasn't published any case studies yet</p>
+              <p className="text-sm font-bold text-foreground/30">Clinical case studies will appear here</p>
+              <p className="text-xs text-muted-foreground/50 italic">This doctor hasn't published any case studies yet</p>
             </div>
           )}
         </section>
+
       </div>
     </div>
   );
