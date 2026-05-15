@@ -347,7 +347,7 @@ export default function DoctorDashboard() {
 
   function copyProfileLink() {
     if (!doctor) return;
-    const url = `${window.location.origin}/doctor/${(doctor as any).id}`;
+    const url = `${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`;
     navigator.clipboard.writeText(url).then(() => {
       setLinkCopied(true);
       toast({ title: "Link copied!", description: url });
@@ -515,19 +515,49 @@ export default function DoctorDashboard() {
             })}
           </div>
 
-          {/* Share profile */}
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3">
-            <p className="text-xs font-semibold text-primary mb-1.5">Share your profile</p>
-            <p className="text-[10px] text-muted-foreground truncate mb-2">{window.location.origin}/doctor/{(doctor as any).id}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={copyProfileLink}
-              className="w-full h-8 text-xs border-primary/30 text-primary hover:bg-primary/10"
-              data-testid="button-share-profile"
-            >
-              {linkCopied ? <><Check className="h-3 w-3 mr-1.5" />Copied!</> : <><Copy className="h-3 w-3 mr-1.5" />Copy Link</>}
-            </Button>
+          {/* Scan & Share */}
+          <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+            <div className="px-3 pt-3 pb-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Scan &amp; Share</p>
+            </div>
+            <div className="px-3 pb-3 flex flex-col items-center gap-3">
+              {/* QR Code */}
+              <div className="relative rounded-2xl overflow-hidden bg-white p-3 border border-border/40 shadow-inner w-full flex items-center justify-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 pointer-events-none rounded-2xl" />
+                <QRCode
+                  value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
+                  size={120}
+                  level="M"
+                  fgColor="#085041"
+                  bgColor="#ffffff"
+                  style={{ display: "block" }}
+                />
+              </div>
+              {/* Label */}
+              <p className="text-[9px] text-muted-foreground text-center leading-relaxed">
+                Patients scan to view your profile
+              </p>
+              {/* URL row */}
+              <div className="w-full rounded-xl border border-border/50 bg-muted/30 px-2.5 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Profile URL</p>
+                    <p className="text-[10px] text-foreground truncate font-mono mt-0.5">/doctor/{(doctor as any).username || (doctor as any).id}</p>
+                  </div>
+                  <button
+                    onClick={copyProfileLink}
+                    data-testid="button-share-profile"
+                    title="Copy profile URL"
+                    className={`h-7 w-7 rounded-lg border flex items-center justify-center shrink-0 transition-all duration-200
+                      ${linkCopied
+                        ? 'bg-primary/10 border-primary/30 text-primary'
+                        : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}
+                  >
+                    {linkCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </aside>
 
