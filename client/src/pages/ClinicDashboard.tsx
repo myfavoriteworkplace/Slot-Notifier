@@ -4120,12 +4120,69 @@ export default function ClinicDashboard() {
             const pendingAmt   = allBills.filter(b => b.paymentStatus === 'pending').reduce((s, b) => s + (b.total ?? 0), 0);
             const paidCount    = allBills.filter(b => b.paymentStatus === 'paid').length;
 
+            const exportAccountsCSV = (rows: PatientBill[]) => {
+              const escape = (val: string | null | undefined) => {
+                const s = (val ?? "").replace(/"/g, '""');
+                return `"${s}"`;
+              };
+              const headers = [
+                "Receipt #", "Patient Name", "Phone", "Email", "Date",
+                "Services", "Subtotal (INR)", "Discount %", "Tax %",
+                "Total (INR)", "Payment Method", "Status", "Notes",
+              ];
+              const bodyRows = rows.map(b => {
+                const svcs = ((b.services ?? []) as { description: string; amount: number }[])
+                  .map(s => `${s.description} (${s.amount.toFixed(2)})`).join("; ");
+                return [
+                  escape(b.billNumber),
+                  escape(b.patientName),
+                  escape(b.patientPhone),
+                  escape(b.patientEmail),
+                  escape(b.createdAt ? format(new Date(b.createdAt), "dd MMM yyyy") : ""),
+                  escape(svcs),
+                  String((b.subtotal ?? 0).toFixed(2)),
+                  String(b.discountPct ?? 0),
+                  String(b.taxPct ?? 0),
+                  String((b.total ?? 0).toFixed(2)),
+                  escape(b.paymentMethod),
+                  escape(b.paymentStatus),
+                  escape(b.notes),
+                ].join(",");
+              });
+              const csv = [headers.join(","), ...bodyRows].join("\n");
+              const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `billing_history_${format(new Date(), "yyyyMMdd")}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+              toast({ title: "CSV exported", description: `${rows.length} record${rows.length !== 1 ? "s" : ""} downloaded.` });
+            };
+
             return (
               <div className="p-6 sm:p-8 space-y-6">
                 {/* Header */}
-                <div>
-                  <h2 className="text-xl font-bold tracking-tight">Patient Accounts</h2>
-                  <p className="text-sm text-muted-foreground mt-0.5">Complete billing history across all patient visits</p>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold tracking-tight">Patient Accounts</h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">Complete billing history across all patient visits</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => exportAccountsCSV(filtered)}
+                      disabled={filtered.length === 0}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border/60 bg-background text-sm font-semibold text-foreground hover:bg-muted/50 hover:border-primary/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Export current view as CSV"
+                      data-testid="button-export-csv"
+                    >
+                      <Download className="h-3.5 w-3.5 text-primary" />
+                      Export CSV
+                      {filtered.length > 0 && (
+                        <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full ml-0.5">{filtered.length}</span>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Stats */}
