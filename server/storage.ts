@@ -106,6 +106,7 @@ export interface IStorage {
   getPatientsByDoctor(doctorId: number): Promise<(Patient & { clinic: Clinic })[]>;
   createPatient(patient: InsertPatient): Promise<Patient>;
   upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
+  upsertPatientByPhone(clinicId: number, phone: string, name: string): Promise<Patient>;
   getPatientByEmail(clinicId: number, email: string): Promise<Patient | null>;
   getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]>;
   getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }>;
@@ -1112,6 +1113,38 @@ export class DatabaseStorage implements IStorage {
       email: normalizedEmail,
       name,
       phone: phone || null,
+      patientCode,
+      visitCount: 1,
+      lastVisitAt: new Date(),
+    } as any).returning();
+    return newPatient;
+  }
+
+  async upsertPatientByPhone(clinicId: number, phone: string, name: string): Promise<Patient> {
+    const normalizedPhone = phone.trim();
+    const [existing] = await db.select().from(patients)
+      .where(and(eq(patients.clinicId, clinicId), eq(patients.phone, normalizedPhone)))
+      .limit(1);
+
+    if (existing) {
+      const updates: any = {
+        visitCount: (existing.visitCount ?? 0) + 1,
+        lastVisitAt: new Date(),
+      };
+      if (name && name.length > (existing.name ?? "").length) updates.name = name;
+      const [updated] = await db.update(patients).set(updates).where(eq(patients.id, existing.id)).returning();
+      return updated;
+    }
+
+    const countRows = await db.select({ count: sql<number>`COUNT(*)::int` }).from(patients).where(eq(patients.clinicId, clinicId));
+    const seq = (Number(countRows[0]?.count) ?? 0) + 1;
+    const patientCode = `PAT-${String(seq).padStart(4, '0')}`;
+
+    const [newPatient] = await db.insert(patients).values({
+      clinicId,
+      email: null,
+      name,
+      phone: normalizedPhone,
       patientCode,
       visitCount: 1,
       lastVisitAt: new Date(),

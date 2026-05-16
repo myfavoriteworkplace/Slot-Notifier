@@ -484,7 +484,7 @@ export default function ClinicDashboard() {
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest('POST', '/api/clinic/bookings', data);
+      const response = await apiRequest('POST', '/api/auth/clinic/bookings', data);
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({}));
         throw new Error(errorBody.message || `Failed to create booking (${response.status})`);
@@ -493,7 +493,7 @@ export default function ClinicDashboard() {
     },
     onSuccess: () => {
       setBookingSuccess(true);
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
       toast({
         title: "Booking Created!",
         description: "The appointment has been successfully booked.",
@@ -509,7 +509,7 @@ export default function ClinicDashboard() {
   });
 
   const handleCreateBooking = () => {
-    if (!selectedSlot || !bookingName || !bookingPhone || !bookingEmail || !clinic) return;
+    if (!selectedSlot || !bookingName || !bookingPhone || !clinic) return;
     const slotInfo = slotTimings.find(s => s.id === selectedSlot);
     if (!slotInfo) return;
 
@@ -3962,7 +3962,7 @@ export default function ClinicDashboard() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="booking-email" className="text-left block">Email</Label>
+                        <Label htmlFor="booking-email" className="text-left block">Email <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
                         <Input
                           id="booking-email"
                           type="email"

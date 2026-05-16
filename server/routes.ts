@@ -2236,6 +2236,86 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.status(403).json({ message: "Forbidden" });
   });
 
+  // ── CLINIC ADMIN: create booking for a patient (walk-in or with email) ──────
+  app.post("/api/auth/clinic/bookings", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+
+    try {
+      const { customerName, customerPhone, customerEmail, startTime, endTime, description } = req.body;
+
+      if (!customerName || !customerPhone || !startTime || !endTime) {
+        return res.status(400).json({ message: "Name, phone, start time and end time are required" });
+      }
+
+      const clinic = await storage.getClinic(sess.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+      const requestedStart = new Date(startTime);
+      const existingBookings = await storage.countVerifiedBookingsForClinicTime(clinic.id, clinic.name, requestedStart);
+      const MAX_BOOKINGS_PER_SLOT = 3;
+      if (existingBookings >= MAX_BOOKINGS_PER_SLOT) {
+        return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
+      }
+
+      const slot = await storage.createSlot({
+        ownerId: null,
+        startTime: requestedStart,
+        endTime: new Date(endTime),
+        clinicName: clinic.name,
+        clinicId: clinic.id,
+        isBooked: true,
+      } as any);
+
+      const booking = await storage.createPublicBooking({
+        slotId: slot.id,
+        customerName,
+        customerPhone,
+        customerEmail: customerEmail || null,
+        description: description || null,
+        verificationCode: null,
+        verificationExpiresAt: null,
+        verificationStatus: 'admin_booked',
+      });
+
+      // Upsert patient record so they appear in the Patients tab
+      try {
+        if (customerEmail && customerEmail.trim()) {
+          const patient = await storage.upsertPatientByEmail(clinic.id, customerEmail.trim(), customerName, customerPhone);
+          await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+        } else {
+          const patient = await storage.upsertPatientByPhone(clinic.id, customerPhone, customerName);
+          await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+        }
+      } catch (e: any) {
+        console.error('[ADMIN BOOKING] Patient upsert failed:', e.message);
+      }
+
+      // Send confirmation email to patient if email provided
+      if (customerEmail && customerEmail.trim()) {
+        try {
+          await sendBookingEmails(customerEmail.trim(), customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id);
+        } catch (e: any) {
+          console.error('[ADMIN BOOKING] Email send failed:', e.message);
+        }
+      }
+
+      // Send WhatsApp notification if phone provided
+      if (customerPhone) {
+        try {
+          await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
+        } catch (e: any) {
+          console.error('[ADMIN BOOKING] WhatsApp send failed:', e.message);
+        }
+      }
+
+      res.status(201).json({ message: "Booking created successfully", booking: { ...booking, slot } });
+    } catch (err: any) {
+      console.error('[ADMIN BOOKING ERROR]', err.message);
+      res.status(500).json({ message: "Failed to create booking" });
+    }
+  });
+
   app.get("/api/auth/clinic/export-history", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
