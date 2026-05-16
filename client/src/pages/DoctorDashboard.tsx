@@ -292,6 +292,17 @@ export default function DoctorDashboard() {
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!ALLOWED.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a JPG, PNG or WebP image.", variant: "destructive" });
+      if (photoInputRef.current) photoInputRef.current.value = "";
+      return;
+    }
+    if (file.size > 1 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Profile photo must be under 1 MB. Please resize or compress the image.", variant: "destructive" });
+      if (photoInputRef.current) photoInputRef.current.value = "";
+      return;
+    }
     setProfUploading(true);
     try {
       const signedRes = await apiRequest("POST", "/api/uploads/signed-url", { fileName: file.name, contentType: file.type, fileSize: file.size, folder: "doctors" });
@@ -333,6 +344,17 @@ export default function DoctorDashboard() {
     const setUploading = slot === "before" ? setCaseBeforeUploading : setCaseAfterUploading;
     const setUrl = slot === "before" ? setCaseBeforeUrl : setCaseAfterUrl;
     const ref = slot === "before" ? caseBeforeInputRef : caseAfterInputRef;
+    const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!ALLOWED.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a JPG, PNG or WebP image.", variant: "destructive" });
+      if (ref.current) ref.current.value = "";
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Case photo must be under 3 MB. Please resize or compress the image.", variant: "destructive" });
+      if (ref.current) ref.current.value = "";
+      return;
+    }
     setUploading(true);
     try {
       const signedRes = await apiRequest("POST", "/api/uploads/signed-url", { fileName: file.name, contentType: file.type, fileSize: file.size, folder: "case-media" });
@@ -1595,7 +1617,7 @@ export default function DoctorDashboard() {
                   return (
                     <div key={slot} className="space-y-1.5">
                       <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{slot === "before" ? "Before" : "After"}</span>
-                      <input ref={ref} type="file" accept="image/*,video/*" className="hidden" onChange={e => handleCaseMediaUpload(slot, e)} />
+                      <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => handleCaseMediaUpload(slot, e)} />
                       {url ? (
                         <div className="relative rounded-xl overflow-hidden border border-border/40 aspect-video bg-muted/30 group">
                           {isVideo(url) ? <div className="w-full h-full flex items-center justify-center"><Play className="h-7 w-7 text-primary/60" /></div> : <img src={url} alt={slot} className="w-full h-full object-cover" />}

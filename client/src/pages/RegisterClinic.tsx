@@ -120,6 +120,17 @@ function DocUpload({ label, value, onChange, testId }: {
   const { toast } = useToast();
 
   const handleFile = useCallback(async (file: File) => {
+    const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
+    const ALLOWED_EXT = [".jpg", ".jpeg", ".png", ".webp", ".pdf"];
+    const ext = "." + file.name.split(".").pop()?.toLowerCase();
+    if (!ALLOWED_TYPES.includes(file.type) && !ALLOWED_EXT.includes(ext)) {
+      toast({ title: "Invalid file type", description: "Please upload a PDF, JPG, PNG or WebP file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Document must be under 5 MB. Please compress or split the file.", variant: "destructive" });
+      return;
+    }
     setUploading(true);
     try {
       const sigRes = await apiRequest("POST", "/api/public/uploads/signed-url", {

@@ -208,9 +208,19 @@ export default function Admin() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!ALLOWED.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a JPG, PNG or WebP image.", variant: "destructive" });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Deal image must be under 2 MB. Please resize or compress the image.", variant: "destructive" });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
 
     try {
       // Get signed URL

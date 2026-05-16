@@ -3,10 +3,22 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from "./r2Client";
 import { v4 as uuidv4 } from "uuid";
 
-const MAX_FILE_SIZE = 2 * 1024 * 1024;
-const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const ALLOWED_DOC_TYPES   = [...ALLOWED_IMAGE_TYPES, "application/pdf"];
+
+const ALLOWED_FOLDERS = ["clinics", "doctors", "users", "smile-deals", "case-media", "clinic-docs"];
+
+const FOLDER_MAX_BYTES: Record<string, number> = {
+  "doctors":     1 * 1024 * 1024,  // 1 MB  — profile photos
+  "clinics":     1 * 1024 * 1024,  // 1 MB  — clinic logos
+  "users":       1 * 1024 * 1024,  // 1 MB  — user avatars
+  "case-media":  3 * 1024 * 1024,  // 3 MB  — before/after clinical photos
+  "smile-deals": 2 * 1024 * 1024,  // 2 MB  — marketing images
+  "clinic-docs": 5 * 1024 * 1024,  // 5 MB  — registration documents / PDFs
+};
+const DEFAULT_MAX_BYTES = 2 * 1024 * 1024;
+
 const URL_EXPIRY_SECONDS = 60;
-const ALLOWED_FOLDERS = ["clinics", "doctors", "users", "smile-deals"];
 
 interface SignedUrlRequest {
   fileName: string;
@@ -27,21 +39,24 @@ export async function generateSignedUploadUrl(
   const { fileName, fileType, fileSize, folder } = request;
   const normalizedType = fileType?.toLowerCase();
 
-  if (!normalizedType || !ALLOWED_TYPES.includes(normalizedType)) {
-    throw new Error(
-      `Invalid file type: ${fileType}. Allowed: ${ALLOWED_TYPES.join(", ")}`
-    );
-  }
-
-  if (fileSize > MAX_FILE_SIZE) {
-    throw new Error(
-      `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB`
-    );
-  }
-
   if (!ALLOWED_FOLDERS.includes(folder)) {
     throw new Error(
       `Invalid folder. Allowed: ${ALLOWED_FOLDERS.join(", ")}`
+    );
+  }
+
+  const allowedTypes = folder === "clinic-docs" ? ALLOWED_DOC_TYPES : ALLOWED_IMAGE_TYPES;
+  if (!normalizedType || !allowedTypes.includes(normalizedType)) {
+    throw new Error(
+      `Invalid file type: ${fileType}. Allowed: ${allowedTypes.join(", ")}`
+    );
+  }
+
+  const maxBytes = FOLDER_MAX_BYTES[folder] ?? DEFAULT_MAX_BYTES;
+  const maxMB = (maxBytes / (1024 * 1024)).toFixed(0);
+  if (fileSize > maxBytes) {
+    throw new Error(
+      `File too large. Maximum size for this upload is ${maxMB} MB`
     );
   }
 
@@ -60,21 +75,15 @@ export async function generateSignedUploadUrl(
     expiresIn: URL_EXPIRY_SECONDS,
   });
 
-  // Ensure R2_PUBLIC_URL is present
   if (!R2_PUBLIC_URL) {
     throw new Error("R2_PUBLIC_URL is not configured. Please add it to your environment variables.");
   }
 
-  // Ensure R2_PUBLIC_URL doesn't end with a slash to avoid double slashes
   const baseUrl = R2_PUBLIC_URL.endsWith("/")
     ? R2_PUBLIC_URL.slice(0, -1)
     : R2_PUBLIC_URL;
 
   const publicUrl = `${baseUrl}/${key}`;
 
-  return {
-    uploadUrl,
-    publicUrl,
-    key,
-  };
+  return { uploadUrl, publicUrl, key };
 }
