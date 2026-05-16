@@ -294,7 +294,7 @@ export default function DoctorDashboard() {
     if (!file) return;
     setProfUploading(true);
     try {
-      const signedRes = await apiRequest("POST", "/api/uploads/signed-url", { fileName: file.name, contentType: file.type, fileSize: file.size, folder: "doctor-photos" });
+      const signedRes = await apiRequest("POST", "/api/uploads/signed-url", { fileName: file.name, contentType: file.type, fileSize: file.size, folder: "doctors" });
       if (!signedRes.ok) throw new Error("Failed to get upload URL");
       const { uploadUrl, publicUrl } = await signedRes.json();
       const uploadRes = await fetch(uploadUrl, { method: "PUT", body: file });
