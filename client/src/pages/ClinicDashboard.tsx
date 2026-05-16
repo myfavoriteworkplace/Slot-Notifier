@@ -672,7 +672,7 @@ export default function ClinicDashboard() {
     return new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime();
   });
 
-  const handleOpenBilling = (booking: BookingWithSlot, existingBill?: PatientBill) => {
+  const handleOpenBilling = async (booking: BookingWithSlot, existingBill?: PatientBill) => {
     setBillingBooking(booking);
     const receiptDate = format(new Date(), "yyyyMMdd");
 
@@ -682,12 +682,40 @@ export default function ClinicDashboard() {
       ?? allBills.find(b => b.bookingId === booking.id && b.paymentStatus !== "paid")
       ?? allBills.find(b => b.bookingId === booking.id);
 
-    const loadedServices = resolvedBill?.services
-      ? (resolvedBill.services as { description: string; amount: number }[]).map(s => ({
-          description: s.description,
-          amount: String(s.amount),
-        }))
-      : [{ description: "Dental Consultation", amount: "500" }];
+    let loadedServices: { description: string; amount: string }[];
+    let loadedRemarks = resolvedBill?.notes || "";
+
+    if (resolvedBill?.services) {
+      // Existing saved bill — load its line items as-is
+      loadedServices = (resolvedBill.services as { description: string; amount: number }[]).map(s => ({
+        description: s.description,
+        amount: String(s.amount),
+      }));
+    } else {
+      // No saved bill — fetch the clinical record for this booking and
+      // map its diagnosis[] entries into pre-filled service lines.
+      try {
+        const res = await apiRequest("GET", `/api/clinical-records/booking/${booking.id}`);
+        const records: { diagnosis: string[]; prescription?: string; notes?: string }[] = await res.json();
+        const record = records?.[0];
+        const diagnoses: string[] = record?.diagnosis ?? [];
+
+        if (diagnoses.length > 0) {
+          loadedServices = diagnoses.map(d => ({ description: d, amount: "0" }));
+        } else {
+          loadedServices = [{ description: "Dental Consultation", amount: "500" }];
+        }
+
+        // Build remarks from clinical prescription + doctor notes on the booking
+        const parts: string[] = [];
+        if (record?.prescription) parts.push(`Rx: ${record.prescription}`);
+        if ((booking as any).doctorNotes) parts.push(`Notes: ${(booking as any).doctorNotes}`);
+        if (parts.length > 0) loadedRemarks = parts.join(" | ");
+      } catch {
+        // Fetch failed — fall back silently
+        loadedServices = [{ description: "Dental Consultation", amount: "500" }];
+      }
+    }
 
     setBillingDetails({
       patientName: booking.customerName,
@@ -703,7 +731,7 @@ export default function ClinicDashboard() {
       discount: String(resolvedBill?.discountPct ?? 0),
       tax: String(resolvedBill?.taxPct ?? 0),
       paymentMethod: resolvedBill?.paymentMethod || "Cash",
-      remarks: resolvedBill?.notes || "",
+      remarks: loadedRemarks,
       paymentStatus: (resolvedBill?.paymentStatus as "paid" | "pending" | "partial") || "paid",
       existingBillId: resolvedBill?.id,
     });
