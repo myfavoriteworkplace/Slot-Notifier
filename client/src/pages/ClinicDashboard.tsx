@@ -268,6 +268,17 @@ export default function ClinicDashboard() {
     onError: () => toast({ title: 'Error', description: 'Failed to update bill status.', variant: 'destructive' }),
   });
 
+  const deleteBillMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('DELETE', `/api/auth/clinic/bills/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bills'] });
+      toast({ title: 'Receipt deleted', description: 'The bill record has been removed.' });
+    },
+    onError: () => toast({ title: 'Error', description: 'Failed to delete bill.', variant: 'destructive' }),
+  });
+
+  const [billDeleteConfirm, setBillDeleteConfirm] = useState<number | null>(null);
+
   const addDoctorMutation = useMutation({
     mutationFn: async (data: { name: string; specialization: string; degree: string; email?: string; imageUrl?: string | null }) => {
       const response = await apiRequest('POST', '/api/auth/clinic/doctors', data);
@@ -4260,6 +4271,39 @@ export default function ClinicDashboard() {
                               >
                                 <Download className="h-3.5 w-3.5" />
                               </button>
+
+                              {/* Delete — two-step confirmation */}
+                              {billDeleteConfirm === bill.id ? (
+                                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                                  <button
+                                    className="text-[9px] font-bold px-2 py-1 rounded-lg bg-red-50 border border-red-300 text-red-700 hover:bg-red-100 dark:bg-red-950/40 dark:border-red-700 dark:text-red-400"
+                                    onClick={() => {
+                                      deleteBillMutation.mutate(bill.id);
+                                      setBillDeleteConfirm(null);
+                                    }}
+                                    disabled={deleteBillMutation.isPending}
+                                    data-testid={`accounts-delete-confirm-${bill.id}`}
+                                  >
+                                    {deleteBillMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin inline" /> : "Yes, delete"}
+                                  </button>
+                                  <button
+                                    className="text-[9px] font-bold px-2 py-1 rounded-lg border border-border/60 text-muted-foreground hover:text-foreground"
+                                    onClick={() => setBillDeleteConfirm(null)}
+                                    data-testid={`accounts-delete-cancel-${bill.id}`}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
+                                  onClick={() => setBillDeleteConfirm(bill.id)}
+                                  title="Delete this receipt"
+                                  data-testid={`accounts-delete-${bill.id}`}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                             </div>
                           </div>
                         );
