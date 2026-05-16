@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import {
   IndianRupee, FileText, Trash2, Loader2, Plus, CheckCircle2,
-  Clock, AlertCircle, Check, ChevronDown, ChevronUp, X,
+  Clock, AlertCircle, Check, ChevronDown, ChevronUp, X, History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,7 @@ export function BillingHistoryPanel({
   const [addDesc, setAddDesc] = useState("");
   const [addAmount, setAddAmount] = useState("");
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [historyExpanded, setHistoryExpanded] = useState(false);
 
   const { data: bills = [], isLoading } = useQuery<PatientBill[]>({
     queryKey: ["/api/auth/clinic/bills/booking", bookingId],
@@ -66,6 +67,32 @@ export function BillingHistoryPanel({
       return res.json();
     },
   });
+
+  const { data: patientHistory = [] } = useQuery<PatientBill[]>({
+    queryKey: ["/api/auth/clinic/bills/patient", patientPhone],
+    queryFn: async () => {
+      if (!patientPhone) return [];
+      const res = await fetch(
+        `/api/auth/clinic/bills/patient/${encodeURIComponent(patientPhone)}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) throw new Error("Failed to load patient history");
+      return res.json();
+    },
+    enabled: !!patientPhone,
+  });
+
+  const previousVisitBills = patientHistory.filter(b => b.bookingId !== bookingId);
+
+  const groupByDate = (billList: PatientBill[]) => {
+    const map = new Map<string, PatientBill[]>();
+    for (const b of billList) {
+      const label = b.createdAt ? format(new Date(b.createdAt), "dd MMM yyyy") : "Unknown date";
+      if (!map.has(label)) map.set(label, []);
+      map.get(label)!.push(b);
+    }
+    return map;
+  };
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills/booking", bookingId] });
@@ -444,6 +471,99 @@ export function BillingHistoryPanel({
           })}
         </div>
       )}
+
+      {/* ── Previous Visits Section ───────────────────────────── */}
+      {previousVisitBills.length > 0 && (
+        <div className="border-t border-border/40 pt-3 mt-1">
+          <button
+            onClick={() => setHistoryExpanded(v => !v)}
+            className="w-full flex items-center justify-between gap-2 group"
+            data-testid="button-toggle-patient-history"
+          >
+            <div className="flex items-center gap-1.5">
+              <History className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Previous Visits
+              </span>
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
+                {previousVisitBills.length} bill{previousVisitBills.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+            {historyExpanded
+              ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+              : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+          </button>
+
+          {historyExpanded && (
+            <div className="mt-2 space-y-3">
+              {[...groupByDate(previousVisitBills).entries()].map(([dateLabel, dateBills]) => (
+                <div key={dateLabel}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1.5 px-0.5">
+                    {dateLabel}
+                  </p>
+                  <div className="space-y-1.5">
+                    {dateBills.map(bill => {
+                      const services = (bill.services ?? []) as ServiceItem[];
+                      const paidAmt = services.filter(s => s.paid).reduce((s, i) => s + i.amount, 0);
+                      const totalAmt = bill.total ?? 0;
+                      return (
+                        <div
+                          key={bill.id}
+                          className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2.5"
+                          data-testid={`history-bill-${bill.id}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold font-mono text-foreground/80 flex-1 min-w-0 truncate">
+                              {bill.billNumber}
+                            </span>
+                            <StatusBadge status={bill.paymentStatus ?? "pending"} />
+                            <span className="text-sm font-bold text-primary shrink-0">
+                              ₹{totalAmt.toFixed(0)}
+                            </span>
+                          </div>
+                          {services.length > 0 && (
+                            <div className="mt-1.5 space-y-0.5">
+                              {services.map((svc, idx) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                  <span className={`flex-1 text-[11px] ${svc.paid ? "line-through text-muted-foreground/60" : "text-muted-foreground"}`}>
+                                    {svc.description}
+                                  </span>
+                                  <span className="text-[11px] font-medium tabular-nums text-muted-foreground shrink-0">
+                                    ₹{svc.amount.toFixed(0)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {paidAmt > 0 && paidAmt < totalAmt && (
+                            <p className="text-[10px] text-muted-foreground mt-1.5">
+                              Collected <span className="font-semibold text-emerald-600">₹{paidAmt.toFixed(0)}</span>
+                              {" · "}Balance <span className="font-semibold text-amber-600">₹{(totalAmt - paidAmt).toFixed(0)}</span>
+                            </p>
+                          )}
+                          <div className="flex items-center justify-between mt-1.5 gap-2">
+                            <span className="text-[10px] text-muted-foreground/60">
+                              {bill.paymentMethod ?? "Cash"}
+                            </span>
+                            <button
+                              onClick={() => onPrintBill(bill)}
+                              className="text-[10px] font-semibold text-primary/70 hover:text-primary transition-colors flex items-center gap-1"
+                              data-testid={`button-history-print-${bill.id}`}
+                            >
+                              <FileText className="h-2.5 w-2.5" /> Print
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }

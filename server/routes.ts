@@ -3436,6 +3436,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // GET /api/auth/clinic/bills/patient/:phone — all bills for a patient by phone across all bookings
+  app.get("/api/auth/clinic/bills/patient/:phone", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const phone = decodeURIComponent(req.params.phone);
+      if (!phone) return res.status(400).json({ message: "Phone required" });
+      const bills = await storage.getPatientBillsByPhone(clinicId, phone);
+      res.json(bills);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // GET /api/auth/clinic/bills/booking/:bookingId — bills for a specific booking
   app.get("/api/auth/clinic/bills/booking/:bookingId", async (req, res) => {
     try {

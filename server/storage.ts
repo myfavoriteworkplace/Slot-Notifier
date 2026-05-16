@@ -1066,6 +1066,12 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(patientBills.createdAt));
   }
 
+  async getPatientBillsByPhone(clinicId: number, phone: string): Promise<PatientBill[]> {
+    return db.select().from(patientBills)
+      .where(and(eq(patientBills.clinicId, clinicId), eq(patientBills.patientPhone, phone)))
+      .orderBy(desc(patientBills.createdAt));
+  }
+
   async updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill> {
     const [bill] = await db.update(patientBills)
       .set({ ...updates, updatedAt: new Date() })
