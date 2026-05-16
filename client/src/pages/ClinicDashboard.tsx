@@ -648,8 +648,14 @@ export default function ClinicDashboard() {
     setBillingBooking(booking);
     const receiptDate = format(new Date(), "yyyyMMdd");
 
-    const loadedServices = existingBill?.services
-      ? (existingBill.services as { description: string; amount: number }[]).map(s => ({
+    // If no bill was explicitly passed (e.g. quick-action buttons), look up the
+    // active (unpaid/partial) bill for this booking from the already-fetched list.
+    const resolvedBill = existingBill
+      ?? allBills.find(b => b.bookingId === booking.id && b.paymentStatus !== "paid")
+      ?? allBills.find(b => b.bookingId === booking.id);
+
+    const loadedServices = resolvedBill?.services
+      ? (resolvedBill.services as { description: string; amount: number }[]).map(s => ({
           description: s.description,
           amount: String(s.amount),
         }))
@@ -663,15 +669,15 @@ export default function ClinicDashboard() {
       clinicAddress: (clinic as any)?.address || "",
       clinicPhone: (clinic as any)?.phone || "",
       clinicEmail: (clinic as any)?.email || "",
-      receiptNumber: existingBill?.billNumber || `RCP-${booking.id}-${receiptDate}`,
+      receiptNumber: resolvedBill?.billNumber || `RCP-${booking.id}-${receiptDate}`,
       services: loadedServices,
       date: format(new Date(booking.slot.startTime), "PPP"),
-      discount: String(existingBill?.discountPct ?? 0),
-      tax: String(existingBill?.taxPct ?? 0),
-      paymentMethod: existingBill?.paymentMethod || "Cash",
-      remarks: existingBill?.notes || "",
-      paymentStatus: (existingBill?.paymentStatus as "paid" | "pending" | "partial") || "paid",
-      existingBillId: existingBill?.id,
+      discount: String(resolvedBill?.discountPct ?? 0),
+      tax: String(resolvedBill?.taxPct ?? 0),
+      paymentMethod: resolvedBill?.paymentMethod || "Cash",
+      remarks: resolvedBill?.notes || "",
+      paymentStatus: (resolvedBill?.paymentStatus as "paid" | "pending" | "partial") || "paid",
+      existingBillId: resolvedBill?.id,
     });
     setIsBillingOpen(true);
   };
