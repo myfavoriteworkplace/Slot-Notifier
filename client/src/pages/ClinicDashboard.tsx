@@ -55,7 +55,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
-import type { Slot, Booking, PatientBill } from "@shared/schema";
+import type { Slot, Booking, PatientBill, ClinicalRecord, Patient } from "@shared/schema";
 import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload, KeyRound } from "lucide-react";
 
 interface SlotTiming {
@@ -273,6 +273,18 @@ export default function ClinicDashboard() {
   });
   const [patientSearch, setPatientSearch] = useState("");
   const [patientSort, setPatientSort] = useState<'recent' | 'visits' | 'billed'>('recent');
+  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+
+  type PatientHistory = { bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] };
+  const { data: patientHistory, isLoading: historyLoading } = useQuery<PatientHistory>({
+    queryKey: ['/api/auth/clinic/patients', selectedPatientId, 'history'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/auth/clinic/patients/${selectedPatientId}/history`);
+      if (!res.ok) throw new Error('Failed to load history');
+      return res.json();
+    },
+    enabled: !!selectedPatientId,
+  });
 
   const updateBillStatusMutation = useMutation({
     mutationFn: ({ id, paymentStatus }: { id: number; paymentStatus: string }) =>
@@ -4795,6 +4807,7 @@ export default function ClinicDashboard() {
             };
 
             return (
+              <>
               <div className="space-y-5">
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -4900,18 +4913,19 @@ export default function ClinicDashboard() {
                     </div>
 
                     <div className="divide-y divide-border/50">
-                      {sorted.map((patient, idx) => (
+                      {sorted.map((patient) => (
                         <div
                           key={patient.id}
                           data-testid={`row-patient-${patient.id}`}
-                          className="px-4 py-3 hover:bg-muted/20 transition-colors"
+                          onClick={() => setSelectedPatientId(patient.id)}
+                          className="px-4 py-3 hover:bg-rose-500/5 cursor-pointer transition-colors group"
                         >
                           {/* Desktop row */}
                           <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center">
                             <span className="w-20 font-mono text-[11px] font-bold bg-rose-500/10 text-rose-600 px-2 py-1 rounded-md">
                               {patient.patientCode ?? '—'}
                             </span>
-                            <span className="text-sm font-medium text-foreground truncate">{patient.name ?? '—'}</span>
+                            <span className="text-sm font-medium text-foreground truncate group-hover:text-rose-600 transition-colors">{patient.name ?? '—'}</span>
                             <span className="text-[11px] text-muted-foreground truncate">{patient.email ?? '—'}</span>
                             <span className="text-[11px] text-muted-foreground truncate">{patient.phone ?? '—'}</span>
                             <span className="w-14 text-right">
@@ -4969,7 +4983,220 @@ export default function ClinicDashboard() {
                     </div>
                   </div>
                 )}
+
+                {/* "Click a row to view history" hint */}
+                {sorted.length > 0 && (
+                  <p className="text-center text-[11px] text-muted-foreground mt-2">
+                    Click any patient row to view their full visit history
+                  </p>
+                )}
               </div>
+
+              {/* ── PATIENT HISTORY SLIDE-OVER ── */}
+              {selectedPatientId && (() => {
+                const selPatient = patientDirectory.find(p => p.id === selectedPatientId);
+                const visitBookings = patientHistory?.bookings ?? [];
+                const visitBills = patientHistory?.bills ?? [];
+                const visitRecords = patientHistory?.clinicalRecords ?? [];
+
+                return (
+                  <>
+                    {/* Backdrop */}
+                    <div
+                      className="fixed inset-0 bg-black/40 z-40 animate-in fade-in duration-200"
+                      onClick={() => setSelectedPatientId(null)}
+                    />
+                    {/* Drawer */}
+                    <div className="fixed right-0 top-0 h-full w-full sm:w-[480px] bg-background border-l border-border shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
+                      {/* Drawer header */}
+                      <div className="flex items-start gap-3 px-5 py-4 border-b border-border/60 bg-card shrink-0">
+                        <div className="h-11 w-11 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+                          <User className="h-5 w-5 text-rose-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-base font-bold text-foreground">{selPatient?.name ?? 'Patient'}</p>
+                            {selPatient?.patientCode && (
+                              <span className="font-mono text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-2 py-0.5 rounded-md">
+                                {selPatient.patientCode}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate">{selPatient?.email ?? '—'}</p>
+                          <p className="text-[11px] text-muted-foreground">{selPatient?.phone ?? '—'}</p>
+                        </div>
+                        <button
+                          onClick={() => setSelectedPatientId(null)}
+                          data-testid="button-close-patient-history"
+                          className="h-8 w-8 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      {/* Quick stats bar */}
+                      <div className="grid grid-cols-3 divide-x divide-border/50 border-b border-border/60 shrink-0">
+                        {[
+                          { label: 'Total Visits', value: selPatient?.visitCount ?? 0 },
+                          { label: 'Bills Raised', value: visitBills.length },
+                          { label: 'Total Billed', value: `₹${(selPatient?.totalBilled ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="px-4 py-3 text-center">
+                            <p className="text-base font-bold text-foreground">{value}</p>
+                            <p className="text-[10px] text-muted-foreground">{label}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Scrollable content */}
+                      <div className="flex-1 overflow-y-auto">
+                        {historyLoading ? (
+                          <div className="flex items-center justify-center py-16">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <div className="p-5 space-y-6">
+
+                            {/* Visit Timeline */}
+                            <section>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
+                                Visit Timeline ({visitBookings.length})
+                              </p>
+                              {visitBookings.length === 0 ? (
+                                <p className="text-[12px] text-muted-foreground italic">No bookings linked yet</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {visitBookings.map((bk) => {
+                                    const slotBills = visitBills.filter(b => b.bookingId === bk.id);
+                                    const slotRecord = visitRecords.find(r => r.bookingId === bk.id);
+                                    const statusColor =
+                                      bk.verificationStatus === 'confirmed' ? 'text-emerald-600 bg-emerald-500/10' :
+                                      bk.verificationStatus === 'cancelled' ? 'text-rose-500 bg-rose-500/10' :
+                                      'text-amber-600 bg-amber-500/10';
+                                    return (
+                                      <div key={bk.id} className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                                        {/* Visit header */}
+                                        <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-muted/30 border-b border-border/40">
+                                          <div className="flex items-center gap-2 min-w-0">
+                                            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                            <span className="text-[12px] font-semibold text-foreground">
+                                              {format(new Date(bk.slot.startTime), 'dd MMM yyyy')}
+                                            </span>
+                                            <span className="text-[11px] text-muted-foreground">
+                                              {format(new Date(bk.slot.startTime), 'h:mm a')} – {format(new Date(bk.slot.endTime), 'h:mm a')}
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center gap-2 shrink-0">
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${statusColor}`}>
+                                              {bk.verificationStatus}
+                                            </span>
+                                            <span className="text-[10px] text-muted-foreground font-mono">#{bk.id}</span>
+                                          </div>
+                                        </div>
+
+                                        <div className="px-3 py-2.5 space-y-2">
+                                          {/* Doctor */}
+                                          {bk.assignedDoctor && (
+                                            <div className="flex items-center gap-2">
+                                              <Stethoscope className="h-3 w-3 text-muted-foreground shrink-0" />
+                                              <span className="text-[11px] text-muted-foreground">Dr. {bk.assignedDoctor}</span>
+                                            </div>
+                                          )}
+
+                                          {/* Clinical record */}
+                                          {slotRecord && (
+                                            <div className="rounded-lg bg-blue-500/5 border border-blue-500/15 p-2.5 space-y-1">
+                                              {(slotRecord.diagnosis as string[])?.length > 0 && (
+                                                <div className="flex flex-wrap gap-1">
+                                                  {(slotRecord.diagnosis as string[]).map((d, i) => (
+                                                    <span key={i} className="text-[10px] bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded-md font-medium">{d}</span>
+                                                  ))}
+                                                </div>
+                                              )}
+                                              {slotRecord.prescription && (
+                                                <p className="text-[11px] text-muted-foreground">
+                                                  <span className="font-semibold text-foreground">Rx: </span>{slotRecord.prescription}
+                                                </p>
+                                              )}
+                                              {slotRecord.notes && (
+                                                <p className="text-[11px] text-muted-foreground">
+                                                  <span className="font-semibold text-foreground">Notes: </span>{slotRecord.notes}
+                                                </p>
+                                              )}
+                                            </div>
+                                          )}
+
+                                          {/* Bills */}
+                                          {slotBills.length > 0 && (
+                                            <div className="space-y-1">
+                                              {slotBills.map(bill => (
+                                                <div key={bill.id} className="flex items-center justify-between rounded-lg bg-muted/30 px-2.5 py-1.5">
+                                                  <div className="flex items-center gap-2 min-w-0">
+                                                    <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
+                                                    <span className="text-[11px] text-muted-foreground font-mono truncate">{bill.billNumber}</span>
+                                                  </div>
+                                                  <div className="flex items-center gap-2 shrink-0">
+                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${bill.paymentStatus === 'paid' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
+                                                      {bill.paymentStatus}
+                                                    </span>
+                                                    <span className="text-[12px] font-bold text-foreground">₹{(bill.total ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </section>
+
+                            {/* Unlinked bills (no bookingId match) */}
+                            {(() => {
+                              const linkedBillIds = new Set(visitBookings.map(b => b.id));
+                              const unlinked = visitBills.filter(b => !b.bookingId || !linkedBillIds.has(b.bookingId));
+                              if (unlinked.length === 0) return null;
+                              return (
+                                <section>
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
+                                    Other Bills ({unlinked.length})
+                                  </p>
+                                  <div className="space-y-1.5">
+                                    {unlinked.map(bill => (
+                                      <div key={bill.id} className="flex items-center justify-between rounded-xl border border-border/50 bg-card px-3 py-2.5">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                          <div className="min-w-0">
+                                            <p className="text-[12px] font-semibold text-foreground font-mono">{bill.billNumber}</p>
+                                            <p className="text-[10px] text-muted-foreground">
+                                              {bill.createdAt ? format(new Date(bill.createdAt), 'dd MMM yyyy') : '—'}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${bill.paymentStatus === 'paid' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
+                                            {bill.paymentStatus}
+                                          </span>
+                                          <span className="text-sm font-bold text-foreground">₹{(bill.total ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </section>
+                              );
+                            })()}
+
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+
+              </>
             );
           })()}
 

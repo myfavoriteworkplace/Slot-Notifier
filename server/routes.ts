@@ -3505,6 +3505,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // GET /api/auth/clinic/patients/:patientId/history — full history for one patient
+  app.get("/api/auth/clinic/patients/:patientId/history", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const patientId = parseInt(req.params.patientId);
+      if (isNaN(patientId)) return res.status(400).json({ message: "Invalid patient ID" });
+      const history = await storage.getPatientHistory(clinicId, patientId);
+      res.json(history);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // GET /api/auth/clinic/bills/booking/:bookingId — bills for a specific booking
   app.get("/api/auth/clinic/bills/booking/:bookingId", async (req, res) => {
     try {

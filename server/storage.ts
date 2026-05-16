@@ -108,6 +108,7 @@ export interface IStorage {
   upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
   getPatientByEmail(clinicId: number, email: string): Promise<Patient | null>;
   getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]>;
+  getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }>;
 
   // Doctor Profile
   updateDoctorProfile(id: number, updates: Partial<Doctor>): Promise<Doctor>;
@@ -1136,6 +1137,27 @@ export class DatabaseStorage implements IStorage {
     .groupBy(patients.id)
     .orderBy(desc(patients.lastVisitAt));
     return rows.map(r => ({ ...r.patient, totalBilled: Number(r.totalBilled) }));
+  }
+
+  async getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }> {
+    const [bookingRows, bills, records] = await Promise.all([
+      db.select({ booking: bookings, slot: slots })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(eq(bookings.patientId, patientId), eq(slots.clinicId, clinicId)))
+        .orderBy(desc(slots.startTime)),
+      db.select().from(patientBills)
+        .where(and(eq(patientBills.clinicId, clinicId), eq(patientBills.patientId, patientId)))
+        .orderBy(desc(patientBills.createdAt)),
+      db.select().from(clinicalRecords)
+        .where(and(eq(clinicalRecords.clinicId, clinicId), eq(clinicalRecords.patientId, patientId), eq(clinicalRecords.isDeleted, false)))
+        .orderBy(desc(clinicalRecords.createdAt)),
+    ]);
+    return {
+      bookings: bookingRows.map(r => ({ ...r.booking, slot: r.slot })),
+      bills,
+      clinicalRecords: records,
+    };
   }
 
   async updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill> {
