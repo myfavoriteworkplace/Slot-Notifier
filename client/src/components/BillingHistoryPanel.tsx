@@ -27,6 +27,7 @@ interface BillingHistoryPanelProps {
   bookingId: number;
   patientName: string;
   patientPhone?: string;
+  patientEmail?: string;
   onGenerateReceipt: (existingBill?: PatientBill) => void;
   onPrintBill: (bill: PatientBill) => void;
 }
@@ -50,7 +51,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function BillingHistoryPanel({
-  bookingId, patientName, patientPhone, onGenerateReceipt, onPrintBill,
+  bookingId, patientName, patientPhone, patientEmail, onGenerateReceipt, onPrintBill,
 }: BillingHistoryPanelProps) {
   const { toast } = useToast();
   const [addDesc, setAddDesc] = useState("");
@@ -101,6 +102,7 @@ export function BillingHistoryPanel({
           billNumber: `DFT-${bookingId}-${format(new Date(), "yyyyMMddHHmm")}`,
           patientName: patientName || "Patient",
           patientPhone: patientPhone || "",
+          patientEmail: patientEmail || "",
           services: [{ description, category: "Treatment", amount, paid: false }],
           subtotal: amount,
           total: amount,
