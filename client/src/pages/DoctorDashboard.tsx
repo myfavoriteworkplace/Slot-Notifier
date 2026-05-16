@@ -158,6 +158,8 @@ export default function DoctorDashboard() {
 
   const [leavePickerDate, setLeavePickerDate] = useState<Date | undefined>(undefined);
   const [leaveReason, setLeaveReason] = useState("");
+  const [multiMode, setMultiMode] = useState(false);
+  const [pendingDates, setPendingDates] = useState<Date[]>([]);
 
   const changePwdMutation = useMutation({
     mutationFn: async (data: { currentPassword?: string; newPassword: string; confirmPassword: string }) => {
@@ -186,6 +188,23 @@ export default function DoctorDashboard() {
       toast({ title: "Leave marked", description: "You are marked out of office for that date." });
     },
     onError: () => toast({ title: "Failed to mark leave", variant: "destructive" }),
+  });
+
+  const addLeavesBatchMutation = useMutation({
+    mutationFn: async (data: { dates: string[]; reason?: string }) => {
+      await Promise.all(
+        data.dates.map(leaveDate =>
+          apiRequest("POST", "/api/doctor/leaves", { leaveDate, reason: data.reason || undefined })
+        )
+      );
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/doctor/leaves"] });
+      setPendingDates([]);
+      setLeaveReason("");
+      toast({ title: `${vars.dates.length} ${vars.dates.length === 1 ? "day" : "days"} marked`, description: "You are marked out of office for those dates." });
+    },
+    onError: () => toast({ title: "Failed to mark some leaves", variant: "destructive" }),
   });
 
   const removeLeaveMutation = useMutation({
@@ -1024,61 +1043,108 @@ export default function DoctorDashboard() {
                           <BriefcaseMedical className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                           <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Out of Office / Leave</span>
                         </div>
-                        {!isLeavesLoading && leaves.length > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-200/70 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-[10px] font-bold">
-                            {leaves.length} {leaves.length === 1 ? "day" : "days"} marked
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {!isLeavesLoading && leaves.length > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-200/70 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-[10px] font-bold">
+                              {leaves.length} {leaves.length === 1 ? "day" : "days"} marked
+                            </span>
+                          )}
+                          {/* Single / Multi mode toggle */}
+                          <div className="flex items-center rounded-lg border border-amber-200 dark:border-amber-500/30 overflow-hidden text-[10px] font-semibold">
+                            <button
+                              data-testid="button-single-mode"
+                              onClick={() => { setMultiMode(false); setPendingDates([]); }}
+                              className={`px-2.5 py-1 transition-colors ${!multiMode ? "bg-amber-500 text-white" : "text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/10"}`}
+                            >Single</button>
+                            <button
+                              data-testid="button-multi-mode"
+                              onClick={() => { setMultiMode(true); setLeavePickerDate(undefined); }}
+                              className={`px-2.5 py-1 transition-colors ${multiMode ? "bg-amber-500 text-white" : "text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/10"}`}
+                            >Multi</button>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="p-4 space-y-4">
                         <p className="text-[11px] text-muted-foreground leading-relaxed">
-                          Mark dates when you are unavailable. <span className="font-medium text-amber-700 dark:text-amber-400">Tap an amber date to remove it.</span> Clinic admins will see a warning when trying to assign you on these dates.
+                          {multiMode
+                            ? <><span className="font-medium text-amber-700 dark:text-amber-400">Multi-select:</span> tap several dates, add an optional reason, then submit them all at once — great for holidays or planned leave blocks.</>
+                            : <>Mark dates when you are unavailable. <span className="font-medium text-amber-700 dark:text-amber-400">Tap an amber date to remove it.</span> Clinic admins will see a warning when trying to assign you on these dates.</>
+                          }
                         </p>
 
                         {/* Calendar + reason side by side */}
                         <div className="flex flex-col sm:flex-row gap-4 items-start">
 
-                          {/* Calendar — no overflow-hidden so header isn't clipped */}
+                          {/* Calendar */}
                           <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-background shadow-sm pt-1">
-                            <CalendarPicker
-                              mode="single"
-                              selected={leavePickerDate}
-                              onSelect={(date) => {
-                                if (!date) return;
-                                const dateStr = format(date, 'yyyy-MM-dd');
-                                const existing = leaves.find(l => l.leaveDate === dateStr);
-                                if (existing) {
-                                  removeLeaveMutation.mutate(existing.id);
-                                } else {
-                                  setLeavePickerDate(date);
-                                }
-                              }}
-                              disabled={(date) => {
-                                const today = new Date(); today.setHours(0, 0, 0, 0);
-                                return date < today;
-                              }}
-                              modifiers={{
-                                leave: leaves.map(l => new Date(l.leaveDate + 'T00:00:00')),
-                              }}
-                              modifiersStyles={{
-                                leave: {
-                                  backgroundColor: 'rgb(251 191 36 / 0.25)',
-                                  color: '#92400e',
-                                  fontWeight: '700',
-                                  borderRadius: '6px',
-                                  border: '1.5px solid rgb(251 191 36 / 0.6)',
-                                },
-                              }}
-                              className="p-3"
-                              data-testid="calendar-leave-picker"
-                            />
+                            {multiMode ? (
+                              <CalendarPicker
+                                mode="multiple"
+                                selected={pendingDates}
+                                onSelect={(dates) => {
+                                  const newDates = dates || [];
+                                  // Detect newly added date (toggled in)
+                                  const added = newDates.find(d =>
+                                    !pendingDates.some(p => format(p, 'yyyy-MM-dd') === format(d, 'yyyy-MM-dd'))
+                                  );
+                                  if (added) {
+                                    const dateStr = format(added, 'yyyy-MM-dd');
+                                    const existing = leaves.find(l => l.leaveDate === dateStr);
+                                    if (existing) {
+                                      removeLeaveMutation.mutate(existing.id);
+                                      return;
+                                    }
+                                  }
+                                  // Strip any already-marked leave dates from pending
+                                  setPendingDates(newDates.filter(d =>
+                                    !leaves.some(l => l.leaveDate === format(d, 'yyyy-MM-dd'))
+                                  ));
+                                }}
+                                disabled={(date) => { const t = new Date(); t.setHours(0,0,0,0); return date < t; }}
+                                modifiers={{ leave: leaves.map(l => new Date(l.leaveDate + 'T00:00:00')) }}
+                                modifiersStyles={{
+                                  leave: { backgroundColor: 'rgb(251 191 36 / 0.25)', color: '#92400e', fontWeight: '700', borderRadius: '6px', border: '1.5px solid rgb(251 191 36 / 0.6)' },
+                                }}
+                                className="p-3"
+                                data-testid="calendar-leave-picker-multi"
+                              />
+                            ) : (
+                              <CalendarPicker
+                                mode="single"
+                                selected={leavePickerDate}
+                                onSelect={(date) => {
+                                  if (!date) return;
+                                  const dateStr = format(date, 'yyyy-MM-dd');
+                                  const existing = leaves.find(l => l.leaveDate === dateStr);
+                                  if (existing) {
+                                    removeLeaveMutation.mutate(existing.id);
+                                  } else {
+                                    setLeavePickerDate(date);
+                                  }
+                                }}
+                                disabled={(date) => { const t = new Date(); t.setHours(0,0,0,0); return date < t; }}
+                                modifiers={{ leave: leaves.map(l => new Date(l.leaveDate + 'T00:00:00')) }}
+                                modifiersStyles={{
+                                  leave: { backgroundColor: 'rgb(251 191 36 / 0.25)', color: '#92400e', fontWeight: '700', borderRadius: '6px', border: '1.5px solid rgb(251 191 36 / 0.6)' },
+                                }}
+                                className="p-3"
+                                data-testid="calendar-leave-picker"
+                              />
+                            )}
                             {/* Legend */}
-                            <div className="flex items-center gap-3 px-3 pb-3 pt-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="inline-block h-3 w-3 rounded-sm bg-primary/80" />
-                                <span className="text-[10px] text-muted-foreground">Selected</span>
-                              </div>
+                            <div className="flex items-center gap-3 px-3 pb-3 pt-0 flex-wrap">
+                              {multiMode && pendingDates.length > 0 ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="inline-block h-3 w-3 rounded-sm bg-primary/80" />
+                                  <span className="text-[10px] text-muted-foreground">{pendingDates.length} selected</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="inline-block h-3 w-3 rounded-sm bg-primary/80" />
+                                  <span className="text-[10px] text-muted-foreground">Selected</span>
+                                </div>
+                              )}
                               <div className="flex items-center gap-1.5">
                                 <span className="inline-block h-3 w-3 rounded-sm" style={{ background: 'rgb(251 191 36 / 0.3)', border: '1.5px solid rgb(251 191 36 / 0.6)' }} />
                                 <span className="text-[10px] text-muted-foreground">Leave (tap to remove)</span>
@@ -1100,33 +1166,99 @@ export default function DoctorDashboard() {
                             {leaveReason.length > 0 && (
                               <p className="text-[10px] text-muted-foreground text-right -mt-1">{leaveReason.length}/80</p>
                             )}
-                            <Button
-                              data-testid="button-mark-leave"
-                              variant="outline"
-                              className={`mt-1 font-semibold transition-all ${
-                                leavePickerDate
-                                  ? "border-amber-400 dark:border-amber-500/60 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20 shadow-sm"
-                                  : "border-border text-muted-foreground"
-                              }`}
-                              disabled={!leavePickerDate || addLeaveMutation.isPending}
-                              onClick={() => {
-                                if (!leavePickerDate) return;
-                                addLeaveMutation.mutate({ leaveDate: format(leavePickerDate, 'yyyy-MM-dd'), reason: leaveReason || undefined });
-                              }}
-                            >
-                              {addLeaveMutation.isPending
-                                ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                                : <CalendarDays className="h-3.5 w-3.5 mr-2" />}
-                              {leavePickerDate
-                                ? `Mark ${format(leavePickerDate, 'EEE, MMM d')} as Out of Office`
-                                : "Select a date on the calendar"}
-                            </Button>
 
-                            {/* Inline hint when a leave date is tapped */}
-                            {removeLeaveMutation.isPending && (
-                              <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                                <Loader2 className="h-3 w-3 animate-spin" /> Removing leave…
-                              </p>
+                            {multiMode ? (
+                              <div className="flex flex-col gap-2 mt-1">
+                                {/* Pending date chips */}
+                                {pendingDates.length > 0 && (
+                                  <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/15 space-y-1.5">
+                                    <p className="text-[10px] font-semibold text-primary uppercase tracking-wide">
+                                      {pendingDates.length} {pendingDates.length === 1 ? "date" : "dates"} queued:
+                                    </p>
+                                    <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto pr-0.5">
+                                      {[...pendingDates]
+                                        .sort((a, b) => a.getTime() - b.getTime())
+                                        .map(d => {
+                                          const ds = format(d, 'yyyy-MM-dd');
+                                          return (
+                                            <span key={ds} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium">
+                                              {format(d, 'EEE, MMM d')}
+                                              <button
+                                                data-testid={`button-deselect-${ds}`}
+                                                onClick={() => setPendingDates(prev => prev.filter(p => format(p, 'yyyy-MM-dd') !== ds))}
+                                                className="hover:text-red-500 transition-colors ml-0.5"
+                                              >
+                                                <X className="h-2.5 w-2.5" />
+                                              </button>
+                                            </span>
+                                          );
+                                        })}
+                                    </div>
+                                  </div>
+                                )}
+                                <Button
+                                  data-testid="button-mark-leave-multi"
+                                  variant="outline"
+                                  className={`font-semibold transition-all ${
+                                    pendingDates.length > 0
+                                      ? "border-amber-400 dark:border-amber-500/60 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20 shadow-sm"
+                                      : "border-border text-muted-foreground"
+                                  }`}
+                                  disabled={pendingDates.length === 0 || addLeavesBatchMutation.isPending}
+                                  onClick={() => {
+                                    if (pendingDates.length === 0) return;
+                                    addLeavesBatchMutation.mutate({
+                                      dates: pendingDates.map(d => format(d, 'yyyy-MM-dd')),
+                                      reason: leaveReason || undefined,
+                                    });
+                                  }}
+                                >
+                                  {addLeavesBatchMutation.isPending
+                                    ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                    : <CalendarDays className="h-3.5 w-3.5 mr-2" />}
+                                  {pendingDates.length > 0
+                                    ? `Mark ${pendingDates.length} ${pendingDates.length === 1 ? "day" : "days"} as Out of Office`
+                                    : "Select dates on the calendar"}
+                                </Button>
+                                {pendingDates.length > 0 && (
+                                  <button
+                                    data-testid="button-clear-pending"
+                                    onClick={() => setPendingDates([])}
+                                    className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 text-center transition-colors"
+                                  >
+                                    Clear all selected dates
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex flex-col gap-2">
+                                <Button
+                                  data-testid="button-mark-leave"
+                                  variant="outline"
+                                  className={`mt-1 font-semibold transition-all ${
+                                    leavePickerDate
+                                      ? "border-amber-400 dark:border-amber-500/60 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20 shadow-sm"
+                                      : "border-border text-muted-foreground"
+                                  }`}
+                                  disabled={!leavePickerDate || addLeaveMutation.isPending}
+                                  onClick={() => {
+                                    if (!leavePickerDate) return;
+                                    addLeaveMutation.mutate({ leaveDate: format(leavePickerDate, 'yyyy-MM-dd'), reason: leaveReason || undefined });
+                                  }}
+                                >
+                                  {addLeaveMutation.isPending
+                                    ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                    : <CalendarDays className="h-3.5 w-3.5 mr-2" />}
+                                  {leavePickerDate
+                                    ? `Mark ${format(leavePickerDate, 'EEE, MMM d')} as Out of Office`
+                                    : "Select a date on the calendar"}
+                                </Button>
+                                {removeLeaveMutation.isPending && (
+                                  <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                    <Loader2 className="h-3 w-3 animate-spin" /> Removing leave…
+                                  </p>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>
