@@ -258,6 +258,16 @@ export default function ClinicDashboard() {
     enabled: isAuthenticated,
   });
 
+  const updateBillStatusMutation = useMutation({
+    mutationFn: ({ id, paymentStatus }: { id: number; paymentStatus: string }) =>
+      apiRequest('PATCH', `/api/auth/clinic/bills/${id}`, { paymentStatus }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bills'] });
+      toast({ title: 'Status updated', description: 'Bill payment status has been saved.' });
+    },
+    onError: () => toast({ title: 'Error', description: 'Failed to update bill status.', variant: 'destructive' }),
+  });
+
   const addDoctorMutation = useMutation({
     mutationFn: async (data: { name: string; specialization: string; degree: string; email?: string; imageUrl?: string | null }) => {
       const response = await apiRequest('POST', '/api/auth/clinic/doctors', data);
@@ -4182,50 +4192,78 @@ export default function ClinicDashboard() {
                       <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-center">Status</span>
                     </div>
                     <div className="divide-y divide-border/40">
-                      {filtered.map((bill) => (
-                        <div
-                          key={bill.id}
-                          className="grid grid-cols-1 sm:grid-cols-[1fr_120px_100px_90px_80px] gap-2 sm:gap-4 px-4 py-3 hover:bg-muted/20 transition-colors items-center group"
-                          data-testid={`accounts-row-${bill.id}`}
-                        >
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-foreground truncate">{bill.patientName}</p>
-                            <p className="text-[10px] text-muted-foreground">{bill.patientPhone || "—"}</p>
+                      {filtered.map((bill) => {
+                        const isUpdating = updateBillStatusMutation.isPending && updateBillStatusMutation.variables?.id === bill.id;
+                        const statusCycle: Record<string, string> = { pending: 'paid', partial: 'paid', paid: 'pending' };
+                        const nextStatus = statusCycle[bill.paymentStatus ?? 'pending'] ?? 'paid';
+                        return (
+                          <div
+                            key={bill.id}
+                            className="grid grid-cols-1 sm:grid-cols-[1fr_120px_100px_90px_1fr] gap-2 sm:gap-4 px-4 py-3 hover:bg-muted/20 transition-colors items-center group"
+                            data-testid={`accounts-row-${bill.id}`}
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground truncate">{bill.patientName}</p>
+                              <p className="text-[10px] text-muted-foreground">{bill.patientPhone || "—"}</p>
+                            </div>
+                            <p className="text-xs font-mono text-muted-foreground truncate">{bill.billNumber}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {bill.createdAt ? format(new Date(bill.createdAt), "dd MMM yyyy") : "—"}
+                            </p>
+                            <p className="text-sm font-bold text-primary text-right">
+                              ₹{(bill.total ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                            </p>
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Status badge — always visible */}
+                              {bill.paymentStatus === 'paid' && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
+                                  <CheckCircle2 className="h-2.5 w-2.5" /> Paid
+                                </span>
+                              )}
+                              {bill.paymentStatus === 'pending' && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20 shrink-0">
+                                  <Clock className="h-2.5 w-2.5" /> Pending
+                                </span>
+                              )}
+                              {bill.paymentStatus === 'partial' && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-500/20 shrink-0">
+                                  Partial
+                                </span>
+                              )}
+
+                              {/* Mark as Paid / Unpaid — appears on hover */}
+                              <button
+                                className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[9px] font-bold px-2 py-1 rounded-lg border ${
+                                  nextStatus === 'paid'
+                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-400'
+                                    : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400'
+                                }`}
+                                onClick={() => updateBillStatusMutation.mutate({ id: bill.id, paymentStatus: nextStatus })}
+                                disabled={isUpdating}
+                                title={nextStatus === 'paid' ? 'Mark as Paid' : 'Mark as Pending'}
+                                data-testid={`accounts-status-toggle-${bill.id}`}
+                              >
+                                {isUpdating
+                                  ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                  : nextStatus === 'paid'
+                                    ? <><CheckCircle2 className="h-2.5 w-2.5" /> Mark Paid</>
+                                    : <><Clock className="h-2.5 w-2.5" /> Unpaid</>
+                                }
+                              </button>
+
+                              {/* Print / download */}
+                              <button
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                                onClick={() => printBillFromRecord(bill)}
+                                title="Download receipt PDF"
+                                data-testid={`accounts-print-${bill.id}`}
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
-                          <p className="text-xs font-mono text-muted-foreground truncate">{bill.billNumber}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {bill.createdAt ? format(new Date(bill.createdAt), "dd MMM yyyy") : "—"}
-                          </p>
-                          <p className="text-sm font-bold text-primary text-right">
-                            ₹{(bill.total ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                          </p>
-                          <div className="flex items-center justify-between sm:justify-center gap-2">
-                            {bill.paymentStatus === 'paid' && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                                <CheckCircle2 className="h-2.5 w-2.5" /> Paid
-                              </span>
-                            )}
-                            {bill.paymentStatus === 'pending' && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                                <Clock className="h-2.5 w-2.5" /> Pending
-                              </span>
-                            )}
-                            {bill.paymentStatus === 'partial' && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-500/20">
-                                Partial
-                              </span>
-                            )}
-                            <button
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground"
-                              onClick={() => printBillFromRecord(bill)}
-                              title="Print receipt"
-                              data-testid={`accounts-print-${bill.id}`}
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
