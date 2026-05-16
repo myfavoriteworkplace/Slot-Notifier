@@ -164,7 +164,7 @@ export default function ClinicDashboard() {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'website' | 'accounts'>('bookings');
   const [accountsSearch, setAccountsSearch] = useState("");
-  const [accountsStatusFilter, setAccountsStatusFilter] = useState<'all' | 'paid' | 'pending' | 'partial'>('all');
+  const [accountsStatusFilter, setAccountsStatusFilter] = useState<'all' | 'paid' | 'pending' | 'partial' | 'overdue'>('all');
 
   const [profilePhone, setProfilePhone] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -4126,18 +4126,32 @@ export default function ClinicDashboard() {
 
           {/* ACCOUNTS PANEL */}
           {activePanel === 'accounts' && (() => {
+            const OVERDUE_DAYS = 3;
+            const nowMs = Date.now();
+            const isOverdue = (bill: PatientBill) =>
+              (bill.paymentStatus === 'pending' || bill.paymentStatus === 'partial') &&
+              !!bill.createdAt &&
+              (nowMs - new Date(bill.createdAt).getTime()) > OVERDUE_DAYS * 24 * 60 * 60 * 1000;
+            const daysSince = (bill: PatientBill) =>
+              Math.floor((nowMs - new Date(bill.createdAt!).getTime()) / (24 * 60 * 60 * 1000));
+
             const filtered = allBills.filter(bill => {
               const matchesSearch = !accountsSearch ||
                 bill.patientName.toLowerCase().includes(accountsSearch.toLowerCase()) ||
                 (bill.patientPhone ?? "").includes(accountsSearch) ||
                 (bill.billNumber ?? "").toLowerCase().includes(accountsSearch.toLowerCase());
-              const matchesStatus = accountsStatusFilter === 'all' || bill.paymentStatus === accountsStatusFilter;
+              const matchesStatus =
+                accountsStatusFilter === 'all' ? true :
+                accountsStatusFilter === 'overdue' ? isOverdue(bill) :
+                bill.paymentStatus === accountsStatusFilter;
               return matchesSearch && matchesStatus;
             });
 
             const totalRevenue = allBills.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
             const pendingAmt   = allBills.filter(b => b.paymentStatus === 'pending').reduce((s, b) => s + (b.total ?? 0), 0);
             const paidCount    = allBills.filter(b => b.paymentStatus === 'paid').length;
+            const overdueList  = allBills.filter(isOverdue);
+            const overdueAmt   = overdueList.reduce((s, b) => s + (b.total ?? 0), 0);
 
             const exportAccountsCSV = (rows: PatientBill[]) => {
               const escape = (val: string | null | undefined) => {
@@ -4205,7 +4219,7 @@ export default function ClinicDashboard() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="rounded-xl border border-border/60 bg-card p-4">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Total Receipts</p>
                     <p className="text-2xl font-black text-foreground">{allBills.length}</p>
@@ -4221,7 +4235,49 @@ export default function ClinicDashboard() {
                     <p className="text-2xl font-black text-amber-600">₹{pendingAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">outstanding balance</p>
                   </div>
+                  <button
+                    onClick={() => setAccountsStatusFilter(accountsStatusFilter === 'overdue' ? 'all' : 'overdue')}
+                    data-testid="stat-overdue"
+                    className={`rounded-xl border p-4 text-left transition-all ${
+                      overdueList.length > 0
+                        ? 'border-red-300/60 bg-red-50/60 dark:bg-red-950/20 dark:border-red-800/40 hover:bg-red-100/60 dark:hover:bg-red-950/30'
+                        : 'border-border/60 bg-card'
+                    } ${accountsStatusFilter === 'overdue' ? 'ring-2 ring-red-400/50' : ''}`}
+                  >
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-red-600/80 dark:text-red-400/80 mb-1">Overdue</p>
+                    <p className={`text-2xl font-black ${overdueList.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
+                      {overdueList.length > 0 ? `₹${overdueAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {overdueList.length > 0 ? `${overdueList.length} bill${overdueList.length !== 1 ? 's' : ''} · 3+ days` : 'no overdue bills'}
+                    </p>
+                  </button>
                 </div>
+
+                {/* Overdue alert banner */}
+                {overdueList.length > 0 && (
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-red-300/60 bg-red-50/60 dark:bg-red-950/20 dark:border-red-800/40"
+                    data-testid="banner-overdue">
+                    <div className="h-8 w-8 rounded-lg bg-red-100 dark:bg-red-950/50 border border-red-300/60 dark:border-red-800/40 flex items-center justify-center shrink-0">
+                      <Clock className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                        {overdueList.length} bill{overdueList.length !== 1 ? 's are' : ' is'} overdue (3+ days unpaid)
+                      </p>
+                      <p className="text-xs text-red-600/70 dark:text-red-400/70">
+                        Total outstanding: ₹{overdueAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })} — consider sending a payment reminder
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setAccountsStatusFilter('overdue')}
+                      className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-950/50 border border-red-300/60 dark:border-red-800/40 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-950 transition-colors"
+                      data-testid="button-view-overdue"
+                    >
+                      View overdue
+                    </button>
+                  </div>
+                )}
 
                 {/* Filters */}
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -4236,18 +4292,28 @@ export default function ClinicDashboard() {
                     />
                   </div>
                   <div className="flex gap-1.5 flex-wrap">
-                    {(['all', 'paid', 'pending', 'partial'] as const).map(s => (
+                    {(['all', 'paid', 'pending', 'partial', 'overdue'] as const).map(s => (
                       <button
                         key={s}
                         onClick={() => setAccountsStatusFilter(s)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all capitalize ${
-                          accountsStatusFilter === s
+                          s === 'overdue'
+                            ? accountsStatusFilter === 'overdue'
+                              ? 'bg-red-600 text-white border-red-600'
+                              : overdueList.length > 0
+                              ? 'bg-red-50 border-red-300/60 text-red-700 dark:bg-red-950/20 dark:border-red-800/40 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/30'
+                              : 'bg-background border-border/60 text-muted-foreground'
+                            : accountsStatusFilter === s
                             ? 'bg-primary text-primary-foreground border-primary'
                             : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground'
                         }`}
                         data-testid={`filter-accounts-${s}`}
                       >
-                        {s === 'all' ? `All (${allBills.length})` : s}
+                        {s === 'all'
+                          ? `All (${allBills.length})`
+                          : s === 'overdue'
+                          ? `Overdue${overdueList.length > 0 ? ` (${overdueList.length})` : ''}`
+                          : s}
                       </button>
                     ))}
                   </div>
@@ -4283,21 +4349,40 @@ export default function ClinicDashboard() {
                         const isUpdating = updateBillStatusMutation.isPending && updateBillStatusMutation.variables?.id === bill.id;
                         const statusCycle: Record<string, string> = { pending: 'paid', partial: 'paid', paid: 'pending' };
                         const nextStatus = statusCycle[bill.paymentStatus ?? 'pending'] ?? 'paid';
+                        const overdue = isOverdue(bill);
+                        const daysAgo = overdue ? daysSince(bill) : 0;
                         return (
                           <div
                             key={bill.id}
-                            className="grid grid-cols-1 sm:grid-cols-[1fr_120px_100px_90px_1fr] gap-2 sm:gap-4 px-4 py-3 hover:bg-muted/20 transition-colors items-center group"
+                            className={`relative grid grid-cols-1 sm:grid-cols-[1fr_120px_100px_90px_1fr] gap-2 sm:gap-4 px-4 py-3 hover:bg-muted/20 transition-colors items-center group ${
+                              overdue ? 'bg-red-50/40 dark:bg-red-950/10' : ''
+                            }`}
                             data-testid={`accounts-row-${bill.id}`}
                           >
+                            {/* Red left-border stripe for overdue rows */}
+                            {overdue && (
+                              <div className="absolute left-0 top-0 bottom-0 w-0.5 rounded-r bg-red-500/70" />
+                            )}
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-foreground truncate">{bill.patientName}</p>
-                              <p className="text-[10px] text-muted-foreground">{bill.patientPhone || "—"}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <p className="text-[10px] text-muted-foreground">{bill.patientPhone || "—"}</p>
+                                {overdue && (
+                                  <span
+                                    className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300/60 dark:border-red-800/40 shrink-0"
+                                    data-testid={`accounts-overdue-badge-${bill.id}`}
+                                  >
+                                    <Clock className="h-2 w-2" />
+                                    {daysAgo}d overdue
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <p className="text-xs font-mono text-muted-foreground truncate">{bill.billNumber}</p>
                             <p className="text-xs text-muted-foreground">
                               {bill.createdAt ? format(new Date(bill.createdAt), "dd MMM yyyy") : "—"}
                             </p>
-                            <p className="text-sm font-bold text-primary text-right">
+                            <p className={`text-sm font-bold text-right ${overdue ? 'text-red-600 dark:text-red-400' : 'text-primary'}`}>
                               ₹{(bill.total ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                             </p>
                             <div className="flex items-center justify-end gap-1.5">
@@ -4308,12 +4393,20 @@ export default function ClinicDashboard() {
                                 </span>
                               )}
                               {bill.paymentStatus === 'pending' && (
-                                <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20 shrink-0">
+                                <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                                  overdue
+                                    ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300/60 dark:border-red-800/40'
+                                    : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                                }`}>
                                   <Clock className="h-2.5 w-2.5" /> Pending
                                 </span>
                               )}
                               {bill.paymentStatus === 'partial' && (
-                                <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-500/20 shrink-0">
+                                <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                                  overdue
+                                    ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300/60 dark:border-red-800/40'
+                                    : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                                }`}>
                                   Partial
                                 </span>
                               )}
