@@ -76,6 +76,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [bookingPath, setBookingPath]           = useState<"pay" | "pending" | null>(null);
   const [isClinicSheetOpen, setIsClinicSheetOpen] = useState(false);
   const [infoClinic, setInfoClinic] = useState<Clinic | null>(null);
+  const [returningPatient, setReturningPatient] = useState<{ name: string; visitCount: number; patientCode: string } | null>(null);
   const razorpayScriptRef = useRef(false);
   const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
@@ -336,11 +337,24 @@ export default function Book(props: { params: { clinicId?: string } }) {
       }
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setEmailVerified(true);
       setVerifiedToken(data.verifiedToken);
       setOtpError("");
       toast({ title: "Email Verified!", description: "You can now complete your booking." });
+      // Check if returning patient at this clinic
+      try {
+        const cId = clinicsData?.find((c: any) => c.name === selectedClinic)?.id;
+        if (cId) {
+          const lookup = await fetch(
+            `/api/public/patient-lookup?email=${encodeURIComponent(customerEmail.toLowerCase())}&clinicId=${cId}`
+          );
+          if (lookup.ok) {
+            const result = await lookup.json();
+            if (result.found && result.visitCount > 0) setReturningPatient(result);
+          }
+        }
+      } catch { /* non-fatal */ }
     },
     onError: (error: any) => {
       setOtpError(error.message || "Invalid code. Please try again.");
@@ -1180,6 +1194,26 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     <div className="flex items-center gap-1.5 bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-full shadow-md shadow-emerald-500/25 animate-in fade-in slide-in-from-top-1 duration-300">
                       <CheckCircle2 className="h-3 w-3" />
                       Email verified ✓
+                    </div>
+                  </div>
+                )}
+                {emailVerified && returningPatient && !showSlots && (
+                  <div className="mb-4 p-3 rounded-xl bg-primary/8 border border-primary/20 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-400">
+                    <div className="h-8 w-8 rounded-lg bg-primary/15 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-base">👋</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-primary leading-tight">
+                        Welcome back, {returningPatient.name.split(" ")[0]}!
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        This is your <span className="font-semibold text-foreground">visit #{returningPatient.visitCount + 1}</span> at this clinic
+                        {returningPatient.patientCode && (
+                          <span className="ml-1.5 font-mono text-[9px] uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-md">
+                            {returningPatient.patientCode}
+                          </span>
+                        )}
+                      </p>
                     </div>
                   </div>
                 )}

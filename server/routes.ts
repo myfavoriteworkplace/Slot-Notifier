@@ -1412,6 +1412,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         razorpayPaymentId: razorpay_payment_id,
       });
 
+      // Upsert patient profile and link to booking
+      try {
+        const patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+        await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+      } catch (e: any) {
+        console.error('[PATIENT PROFILE] Failed to upsert:', e.message);
+      }
+
       // Consume the OTP token — one token, one booking
       await db.delete(emailOtps).where(eq(emailOtps.id, otpRow.id));
 
@@ -1425,6 +1433,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       console.error('[RAZORPAY VERIFY ERROR]', err.message);
       res.status(500).json({ message: "Failed to verify payment" });
+    }
+  });
+
+  // ── PUBLIC: Patient lookup by email + clinicId (returning patient detection) ─
+  app.get("/api/public/patient-lookup", async (req, res) => {
+    try {
+      const { email, clinicId } = req.query;
+      if (!email || !clinicId) return res.status(400).json({ message: "email and clinicId required" });
+      const patient = await storage.getPatientByEmail(parseInt(clinicId as string), (email as string).toLowerCase().trim());
+      if (!patient) return res.json({ found: false });
+      res.json({
+        found: true,
+        patientCode: patient.patientCode,
+        name: patient.name,
+        phone: patient.phone,
+        visitCount: patient.visitCount,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: "Lookup failed" });
     }
   });
 
@@ -1490,6 +1517,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         verificationExpiresAt: null,
         verificationStatus: 'email_verified',
       });
+
+      // Upsert patient profile and link to booking
+      try {
+        const patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+        await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
+      } catch (e: any) {
+        console.error('[PATIENT PROFILE] Failed to upsert:', e.message);
+      }
 
       // Consume the OTP token — one token, one booking
       await db.delete(emailOtps).where(eq(emailOtps.id, otpRow.id));
@@ -3445,6 +3480,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!phone) return res.status(400).json({ message: "Phone required" });
       const bills = await storage.getPatientBillsByPhone(clinicId, phone);
       res.json(bills);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // GET /api/auth/clinic/bills/patient-by-email/:email — all bills for a patient by email (primary identifier)
+  app.get("/api/auth/clinic/bills/patient-by-email/:email", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const email = decodeURIComponent(req.params.email);
+      if (!email) return res.status(400).json({ message: "Email required" });
+      const bills = await storage.getPatientBillsByEmail(clinicId, email);
+      res.json(bills);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // GET /api/auth/clinic/patients — all patient profiles for this clinic
+  app.get("/api/auth/clinic/patients", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const patientList = await storage.getPatientsByClinic(clinicId);
+      res.json(patientList);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 

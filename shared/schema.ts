@@ -77,6 +77,7 @@ export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
   slotId: integer("slot_id").notNull().references(() => slots.id),
   customerId: varchar("customer_id").references(() => users.id),
+  patientId: integer("patient_id"),
   customerName: varchar("customer_name", { length: 255 }).notNull(),
   customerPhone: varchar("customer_phone", { length: 50 }).notNull(),
   customerEmail: varchar("customer_email", { length: 255 }),
@@ -180,6 +181,9 @@ export const patients = pgTable("patients", {
   phone: varchar("phone", { length: 50 }),
   doctorId: integer("doctor_id").references(() => doctors.id),
   clinicId: integer("clinic_id").references(() => clinics.id),
+  patientCode: varchar("patient_code", { length: 20 }),
+  visitCount: integer("visit_count").default(0).notNull(),
+  lastVisitAt: timestamp("last_visit_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -206,6 +210,9 @@ export const insertClinicDoctorSchema = createInsertSchema(clinicDoctors).omit({
 export const insertPatientSchema = createInsertSchema(patients).omit({
   id: true,
   createdAt: true,
+  patientCode: true,
+  visitCount: true,
+  lastVisitAt: true,
 });
 
 export type Doctor = typeof doctors.$inferSelect;
@@ -448,6 +455,7 @@ export const clinicalRecords = pgTable("clinical_records", {
   id: serial("id").primaryKey(),
   bookingId: integer("booking_id").notNull().references(() => bookings.id),
   clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  patientId: integer("patient_id").references(() => patients.id),
   patientName: varchar("patient_name", { length: 255 }).notNull(),
   patientPhone: varchar("patient_phone", { length: 50 }),
   doctorName: varchar("doctor_name", { length: 255 }),
@@ -571,6 +579,7 @@ export const patientBills = pgTable("patient_bills", {
   id: serial("id").primaryKey(),
   clinicId: integer("clinic_id").notNull().references(() => clinics.id),
   bookingId: integer("booking_id").references(() => bookings.id),
+  patientId: integer("patient_id").references(() => patients.id),
   billNumber: varchar("bill_number", { length: 50 }).notNull(),
   patientName: varchar("patient_name", { length: 255 }).notNull(),
   patientPhone: varchar("patient_phone", { length: 50 }),

@@ -2249,6 +2249,11 @@ export default function ClinicDashboard() {
                                     <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
                                       #{getBookingNumber(booking).padStart(2, '0')}
                                     </span>
+                                    {(booking as any).patientCode && (
+                                      <span className="font-mono text-[9px] uppercase tracking-wider text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md shrink-0">
+                                        {(booking as any).patientCode}
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
                                     <Phone className="h-2.5 w-2.5 shrink-0" />
@@ -3094,6 +3099,7 @@ export default function ClinicDashboard() {
                                 patientName={booking.customerName}
                                 patientPhone={booking.customerPhone}
                                 patientEmail={booking.customerEmail || ""}
+                                patientCode={(booking as any).patientCode || undefined}
                                 onGenerateReceipt={(existingBill) => handleOpenBilling(booking, existingBill)}
                                 onPrintBill={printBillFromRecord}
                               />

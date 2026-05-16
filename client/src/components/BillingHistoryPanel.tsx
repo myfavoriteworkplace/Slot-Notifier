@@ -28,6 +28,7 @@ interface BillingHistoryPanelProps {
   patientName: string;
   patientPhone?: string;
   patientEmail?: string;
+  patientCode?: string;
   onGenerateReceipt: (existingBill?: PatientBill) => void;
   onPrintBill: (bill: PatientBill) => void;
 }
@@ -51,7 +52,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function BillingHistoryPanel({
-  bookingId, patientName, patientPhone, patientEmail, onGenerateReceipt, onPrintBill,
+  bookingId, patientName, patientPhone, patientEmail, patientCode, onGenerateReceipt, onPrintBill,
 }: BillingHistoryPanelProps) {
   const { toast } = useToast();
   const [addDesc, setAddDesc] = useState("");
@@ -69,17 +70,27 @@ export function BillingHistoryPanel({
   });
 
   const { data: patientHistory = [] } = useQuery<PatientBill[]>({
-    queryKey: ["/api/auth/clinic/bills/patient", patientPhone],
+    queryKey: ["/api/auth/clinic/bills/patient-by-email", patientEmail || patientPhone],
     queryFn: async () => {
-      if (!patientPhone) return [];
-      const res = await fetch(
-        `/api/auth/clinic/bills/patient/${encodeURIComponent(patientPhone)}`,
-        { credentials: "include" }
-      );
-      if (!res.ok) throw new Error("Failed to load patient history");
-      return res.json();
+      if (patientEmail) {
+        const res = await fetch(
+          `/api/auth/clinic/bills/patient-by-email/${encodeURIComponent(patientEmail)}`,
+          { credentials: "include" }
+        );
+        if (!res.ok) throw new Error("Failed to load patient history");
+        return res.json();
+      }
+      if (patientPhone) {
+        const res = await fetch(
+          `/api/auth/clinic/bills/patient/${encodeURIComponent(patientPhone)}`,
+          { credentials: "include" }
+        );
+        if (!res.ok) throw new Error("Failed to load patient history");
+        return res.json();
+      }
+      return [];
     },
-    enabled: !!patientPhone,
+    enabled: !!(patientEmail || patientPhone),
   });
 
   const previousVisitBills = patientHistory.filter(b => b.bookingId !== bookingId);

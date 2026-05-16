@@ -579,6 +579,32 @@ app.use((req, res, next) => {
       `);
       log("patient_bills table verified/created", "system");
 
+      // ── Patient identity columns ─────────────────────────────────────────────
+      await db.execute(sql`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='patients' AND column_name='patient_code') THEN
+            ALTER TABLE patients ADD COLUMN patient_code VARCHAR(20);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='patients' AND column_name='visit_count') THEN
+            ALTER TABLE patients ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='patients' AND column_name='last_visit_at') THEN
+            ALTER TABLE patients ADD COLUMN last_visit_at TIMESTAMP;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='patient_id') THEN
+            ALTER TABLE bookings ADD COLUMN patient_id INTEGER REFERENCES patients(id);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='patient_bills' AND column_name='patient_id') THEN
+            ALTER TABLE patient_bills ADD COLUMN patient_id INTEGER REFERENCES patients(id);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinical_records' AND column_name='patient_id') THEN
+            ALTER TABLE clinical_records ADD COLUMN patient_id INTEGER REFERENCES patients(id);
+          END IF;
+        END $$;
+      `);
+      log("patient identity columns ready", "system");
+
     } catch (dbErr: any) {
       log(`Schema sync warning: ${dbErr.message}`, "system");
     }

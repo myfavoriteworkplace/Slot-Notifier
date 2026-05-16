@@ -105,6 +105,9 @@ export interface IStorage {
   // Patients
   getPatientsByDoctor(doctorId: number): Promise<(Patient & { clinic: Clinic })[]>;
   createPatient(patient: InsertPatient): Promise<Patient>;
+  upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
+  getPatientByEmail(clinicId: number, email: string): Promise<Patient | null>;
+  getPatientsByClinic(clinicId: number): Promise<Patient[]>;
 
   // Doctor Profile
   updateDoctorProfile(id: number, updates: Partial<Doctor>): Promise<Doctor>;
@@ -175,6 +178,8 @@ export interface IStorage {
   createPatientBill(data: InsertPatientBill): Promise<PatientBill>;
   getPatientBillsByClinicId(clinicId: number): Promise<PatientBill[]>;
   getPatientBillsByBookingId(bookingId: number): Promise<PatientBill[]>;
+  getPatientBillsByPhone(clinicId: number, phone: string): Promise<PatientBill[]>;
+  getPatientBillsByEmail(clinicId: number, email: string): Promise<PatientBill[]>;
   updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill>;
   deletePatientBill(id: number, clinicId: number): Promise<void>;
 }
@@ -373,18 +378,20 @@ export class DatabaseStorage implements IStorage {
     return await (query as any).orderBy(slots.startTime);
   }
 
-  async getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot; clinic: Clinic })[]> {
+  async getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot; clinic: Clinic; patientCode?: string | null })[]> {
     const results = await db.select({
       booking: bookings,
       slot: slots,
-      clinic: clinics
+      clinic: clinics,
+      patientCode: patients.patientCode,
     })
     .from(bookings)
     .innerJoin(slots, eq(bookings.slotId, slots.id))
     .leftJoin(clinics, eq(slots.clinicId, clinics.id))
+    .leftJoin(patients, eq(bookings.patientId, patients.id))
     .where(eq(slots.clinicId, Number(clinicId)));
     
-    return results.map(r => ({ ...r.booking, slot: r.slot, clinic: r.clinic! }));
+    return results.map(r => ({ ...r.booking, slot: r.slot, clinic: r.clinic!, patientCode: r.patientCode }));
   }
 
   async getBooking(id: number): Promise<Booking | undefined> {
@@ -1070,6 +1077,58 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(patientBills)
       .where(and(eq(patientBills.clinicId, clinicId), eq(patientBills.patientPhone, phone)))
       .orderBy(desc(patientBills.createdAt));
+  }
+
+  async getPatientBillsByEmail(clinicId: number, email: string): Promise<PatientBill[]> {
+    return db.select().from(patientBills)
+      .where(and(eq(patientBills.clinicId, clinicId), eq(patientBills.patientEmail, email.toLowerCase().trim())))
+      .orderBy(desc(patientBills.createdAt));
+  }
+
+  async upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const [existing] = await db.select().from(patients)
+      .where(and(eq(patients.clinicId, clinicId), eq(patients.email, normalizedEmail)))
+      .limit(1);
+
+    if (existing) {
+      const updates: any = {
+        visitCount: (existing.visitCount ?? 0) + 1,
+        lastVisitAt: new Date(),
+      };
+      if (name && name.length > (existing.name ?? "").length) updates.name = name;
+      if (phone && (!existing.phone || phone.length > (existing.phone ?? "").length)) updates.phone = phone;
+      const [updated] = await db.update(patients).set(updates).where(eq(patients.id, existing.id)).returning();
+      return updated;
+    }
+
+    const countRows = await db.select({ count: sql<number>`COUNT(*)::int` }).from(patients).where(eq(patients.clinicId, clinicId));
+    const seq = (Number(countRows[0]?.count) ?? 0) + 1;
+    const patientCode = `PAT-${String(seq).padStart(4, '0')}`;
+
+    const [newPatient] = await db.insert(patients).values({
+      clinicId,
+      email: normalizedEmail,
+      name,
+      phone: phone || null,
+      patientCode,
+      visitCount: 1,
+      lastVisitAt: new Date(),
+    } as any).returning();
+    return newPatient;
+  }
+
+  async getPatientByEmail(clinicId: number, email: string): Promise<Patient | null> {
+    const [patient] = await db.select().from(patients)
+      .where(and(eq(patients.clinicId, clinicId), eq(patients.email, email.toLowerCase().trim())))
+      .limit(1);
+    return patient ?? null;
+  }
+
+  async getPatientsByClinic(clinicId: number): Promise<Patient[]> {
+    return db.select().from(patients)
+      .where(and(eq(patients.clinicId, clinicId), sql`patient_code IS NOT NULL`))
+      .orderBy(desc(patients.lastVisitAt));
   }
 
   async updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill> {
