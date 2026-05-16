@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Upload, X, User } from "lucide-react";
+import { Loader2, Upload, X, User, Sparkles } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { compressImage } from "@/lib/imageCompression";
@@ -15,11 +15,15 @@ interface ImageUploadProps {
   maxSizeKb?: number;
 }
 
+type UploadPhase = "idle" | "optimising" | "uploading";
+
 export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackText = "?", allowedTypes, maxSizeKb }: ImageUploadProps) {
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const busy = uploadPhase !== "idle";
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -42,6 +46,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
     const maxBytes = (maxSizeKb ?? 2048) * 1024;
     let fileToUpload = file;
     if (file.size > maxBytes) {
+      setUploadPhase("optimising");
       try {
         fileToUpload = await compressImage(file, maxBytes, 1500);
         if (fileToUpload.size > maxBytes) {
@@ -53,6 +58,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
             description: `Could not compress this image below ${label}. Please use a smaller image.`,
             variant: "destructive",
           });
+          setUploadPhase("idle");
           return;
         }
       } catch {
@@ -64,6 +70,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
           description: `Maximum allowed size is ${label}. Please resize or compress the image.`,
           variant: "destructive",
         });
+        setUploadPhase("idle");
         return;
       }
     }
@@ -71,7 +78,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
     const localPreview = URL.createObjectURL(fileToUpload);
     setPreviewUrl(localPreview);
 
-    setIsUploading(true);
+    setUploadPhase("uploading");
     try {
       const signedUrlRes = await apiRequest("POST", "/api/uploads/signed-url", {
         fileName: fileToUpload.name,
@@ -96,7 +103,6 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
         throw new Error("Failed to upload image");
       }
 
-      // Use the key as the identifier in our database
       onImageUploaded(key);
       toast({ title: "Image uploaded successfully" });
     } catch (err: any) {
@@ -107,7 +113,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
       });
       setPreviewUrl(currentImage || null);
     } finally {
-      setIsUploading(false);
+      setUploadPhase("idle");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -124,7 +130,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
 
   return (
     <div className="flex items-center gap-3">
-      <div className="relative group cursor-pointer" onClick={() => !isUploading && fileInputRef.current?.click()}>
+      <div className="relative group cursor-pointer" onClick={() => !busy && fileInputRef.current?.click()}>
         <Avatar className="h-16 w-16 border rounded-2xl transition-all group-hover:opacity-80">
           {previewUrl ? (
             <AvatarImage src={previewUrl} alt="Preview" className="object-cover" />
@@ -140,8 +146,16 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
         </Avatar>
         
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-2xl">
-          {isUploading ? (
-            <Loader2 className="h-6 w-6 animate-spin text-white" />
+          {uploadPhase === "optimising" ? (
+            <div className="flex flex-col items-center gap-0.5">
+              <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
+              <span className="text-[8px] font-bold text-amber-200 uppercase tracking-wider leading-tight">Optimising</span>
+            </div>
+          ) : uploadPhase === "uploading" ? (
+            <div className="flex flex-col items-center gap-0.5">
+              <Loader2 className="h-5 w-5 animate-spin text-white" />
+              <span className="text-[8px] font-bold text-white uppercase tracking-wider leading-tight">Uploading</span>
+            </div>
           ) : (
             <span className="text-[10px] font-bold text-white uppercase tracking-wider">
               {previewUrl ? "Change" : "Upload"}
@@ -149,7 +163,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
           )}
         </div>
 
-        {previewUrl && !isUploading && (
+        {previewUrl && !busy && (
           <button
             type="button"
             className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:scale-110 active:scale-95"

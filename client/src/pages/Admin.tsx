@@ -102,6 +102,7 @@ export default function Admin() {
   const [dealIsFeatured, setDealIsFeatured] = useState(false);
   const [dealCategory, setDealCategory] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isOptimising, setIsOptimising] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Login activity filters
@@ -217,18 +218,22 @@ export default function Admin() {
 
     let fileToUpload = file;
     if (file.size > 2 * 1024 * 1024) {
+      setIsOptimising(true);
       try {
         fileToUpload = await compressImage(file, 2 * 1024 * 1024, 1500);
         if (fileToUpload.size > 2 * 1024 * 1024) {
           toast({ title: "File too large", description: "Could not compress this image below 2 MB. Please use a smaller image.", variant: "destructive" });
           if (fileInputRef.current) fileInputRef.current.value = "";
+          setIsOptimising(false);
           return;
         }
       } catch {
         toast({ title: "File too large", description: "Deal image must be under 2 MB. Please resize or compress the image.", variant: "destructive" });
         if (fileInputRef.current) fileInputRef.current.value = "";
+        setIsOptimising(false);
         return;
       }
+      setIsOptimising(false);
     }
 
     setIsUploading(true);
@@ -1713,9 +1718,9 @@ export default function Admin() {
                       <div className="relative group rounded-xl overflow-hidden border-2 border-primary/30 aspect-video bg-muted">
                         <img src={dealImageUrl} alt="Preview" className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                            Change
+                          <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading || isOptimising}>
+                            {isOptimising ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-amber-400" /> : isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                            {isOptimising ? "Optimising…" : isUploading ? "Uploading…" : "Change"}
                           </Button>
                           <Button type="button" variant="secondary" size="sm" onClick={() => { setDealImageUrl(""); setDealImageManualUrl(""); }}>
                             Remove
@@ -1726,10 +1731,12 @@ export default function Admin() {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        disabled={isUploading}
+                        disabled={isUploading || isOptimising}
                         className="w-full aspect-video border-2 border-dashed border-primary/30 rounded-xl bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-3 group cursor-pointer"
                       >
-                        {isUploading ? (
+                        {isOptimising ? (
+                          <Loader2 className="h-8 w-8 text-amber-500 animate-spin" />
+                        ) : isUploading ? (
                           <Loader2 className="h-8 w-8 text-primary animate-spin" />
                         ) : (
                           <div className="p-3 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors">
@@ -1737,7 +1744,9 @@ export default function Admin() {
                           </div>
                         )}
                         <div className="text-center">
-                          <p className="text-sm font-medium text-primary">Click to upload image</p>
+                          <p className="text-sm font-medium text-primary">
+                            {isOptimising ? "Optimising…" : isUploading ? "Uploading…" : "Click to upload image"}
+                          </p>
                           <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WEBP · max 2 MB</p>
                         </div>
                       </button>
@@ -2524,8 +2533,8 @@ export default function Admin() {
                   onChange={(e) => { setDealImageManualUrl(e.target.value); setDealImageUrl(e.target.value); }}
                   className="text-sm"
                 />
-                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading || isOptimising} title={isOptimising ? "Optimising…" : isUploading ? "Uploading…" : "Upload image"}>
+                  {isOptimising ? <Loader2 className="h-4 w-4 animate-spin text-amber-500" /> : isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 </Button>
               </div>
             </div>

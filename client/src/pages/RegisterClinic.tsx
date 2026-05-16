@@ -117,6 +117,7 @@ function DocUpload({ label, value, onChange, testId }: {
   onChange: (url: string) => void; testId?: string;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [optimising, setOptimising] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -132,16 +133,20 @@ function DocUpload({ label, value, onChange, testId }: {
     let fileToUpload = file;
     if (file.size > 5 * 1024 * 1024) {
       if (file.type.startsWith("image/")) {
+        setOptimising(true);
         try {
           fileToUpload = await compressImage(file, 5 * 1024 * 1024, 2000);
           if (fileToUpload.size > 5 * 1024 * 1024) {
             toast({ title: "File too large", description: "Could not compress this image below 5 MB. Please use a smaller file.", variant: "destructive" });
+            setOptimising(false);
             return;
           }
         } catch {
           toast({ title: "File too large", description: "Document must be under 5 MB. Please compress or split the file.", variant: "destructive" });
+          setOptimising(false);
           return;
         }
+        setOptimising(false);
       } else {
         toast({ title: "File too large", description: "Document must be under 5 MB. Please compress or split the PDF.", variant: "destructive" });
         return;
@@ -157,10 +162,10 @@ function DocUpload({ label, value, onChange, testId }: {
         throw new Error(b.message || "Upload service unavailable");
       }
       const { uploadUrl, publicUrl } = await sigRes.json();
-      const putRes = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      const putRes = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": fileToUpload.type }, body: fileToUpload });
       if (!putRes.ok) throw new Error("Upload failed");
       onChange(publicUrl);
-      toast({ title: "File uploaded", description: file.name });
+      toast({ title: "File uploaded", description: fileToUpload.name });
     } catch (err: any) {
       toast({
         title: "Upload unavailable",
@@ -168,7 +173,8 @@ function DocUpload({ label, value, onChange, testId }: {
         variant: "destructive",
       });
     } finally {
-      setUploading(false); }
+      setUploading(false);
+    }
   }, [onChange, toast]);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,11 +202,17 @@ function DocUpload({ label, value, onChange, testId }: {
       className="relative flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border/40 bg-muted/10 py-4 px-4 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all group"
       data-testid={testId}>
       <input ref={fileRef} type="file" className="hidden" onChange={onFileChange} accept=".pdf,.jpg,.jpeg,.png,.webp" />
-      {uploading
+      {optimising
+        ? <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
+        : uploading
         ? <Loader2 className="h-4 w-4 text-primary animate-spin" />
         : <Upload className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />}
       <p className="text-xs text-muted-foreground text-center leading-snug">
-        {uploading ? "Uploading…" : <><span className="font-medium text-foreground">{label}</span><br /><span className="text-[11px]">Drag &amp; drop or click to upload</span></>}
+        {optimising
+          ? <span className="text-amber-600 dark:text-amber-400 font-medium">Optimising…</span>
+          : uploading
+          ? "Uploading…"
+          : <><span className="font-medium text-foreground">{label}</span><br /><span className="text-[11px]">Drag &amp; drop or click to upload</span></>}
       </p>
     </div>
   );

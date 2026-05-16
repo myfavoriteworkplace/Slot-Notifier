@@ -76,6 +76,7 @@ export default function DoctorDashboard() {
   const [profUsername, setProfUsername] = useState("");
   const [profileUrlCopied, setProfileUrlCopied] = useState(false);
   const [profUploading, setProfUploading] = useState(false);
+  const [profOptimising, setProfOptimising] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [linkCopied, setLinkCopied] = useState(false);
@@ -101,6 +102,8 @@ export default function DoctorDashboard() {
   const [caseAfterUrl, setCaseAfterUrl] = useState("");
   const [caseBeforeUploading, setCaseBeforeUploading] = useState(false);
   const [caseAfterUploading, setCaseAfterUploading] = useState(false);
+  const [caseBeforeOptimising, setCaseBeforeOptimising] = useState(false);
+  const [caseAfterOptimising, setCaseAfterOptimising] = useState(false);
   const caseBeforeInputRef = useRef<HTMLInputElement>(null);
   const caseAfterInputRef = useRef<HTMLInputElement>(null);
 
@@ -301,18 +304,22 @@ export default function DoctorDashboard() {
     }
     let fileToUpload = file;
     if (file.size > 1 * 1024 * 1024) {
+      setProfOptimising(true);
       try {
         fileToUpload = await compressImage(file, 1 * 1024 * 1024, 1200);
         if (fileToUpload.size > 1 * 1024 * 1024) {
           toast({ title: "File too large", description: "Could not compress this image below 1 MB. Please use a smaller photo.", variant: "destructive" });
           if (photoInputRef.current) photoInputRef.current.value = "";
+          setProfOptimising(false);
           return;
         }
       } catch {
         toast({ title: "File too large", description: "Profile photo must be under 1 MB. Please resize or compress the image.", variant: "destructive" });
         if (photoInputRef.current) photoInputRef.current.value = "";
+        setProfOptimising(false);
         return;
       }
+      setProfOptimising(false);
     }
     setProfUploading(true);
     try {
@@ -361,20 +368,25 @@ export default function DoctorDashboard() {
       if (ref.current) ref.current.value = "";
       return;
     }
+    const setOptimising = slot === "before" ? setCaseBeforeOptimising : setCaseAfterOptimising;
     let fileToUpload = file;
     if (file.size > 3 * 1024 * 1024) {
+      setOptimising(true);
       try {
         fileToUpload = await compressImage(file, 3 * 1024 * 1024, 2000);
         if (fileToUpload.size > 3 * 1024 * 1024) {
           toast({ title: "File too large", description: "Could not compress this image below 3 MB. Please use a smaller photo.", variant: "destructive" });
           if (ref.current) ref.current.value = "";
+          setOptimising(false);
           return;
         }
       } catch {
         toast({ title: "File too large", description: "Case photo must be under 3 MB. Please resize or compress the image.", variant: "destructive" });
         if (ref.current) ref.current.value = "";
+        setOptimising(false);
         return;
       }
+      setOptimising(false);
     }
     setUploading(true);
     try {
@@ -992,8 +1004,8 @@ export default function DoctorDashboard() {
                       </div>
                       <div className="flex flex-col gap-1.5">
                         <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => photoInputRef.current?.click()} disabled={profUploading} data-testid="button-upload-photo">
-                          {profUploading ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Uploading...</> : <><Upload className="h-3.5 w-3.5 mr-2" />Upload Photo</>}
+                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => photoInputRef.current?.click()} disabled={profUploading || profOptimising} data-testid="button-upload-photo">
+                          {profOptimising ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin text-amber-500" />Optimising…</> : profUploading ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Uploading…</> : <><Upload className="h-3.5 w-3.5 mr-2" />Upload Photo</>}
                         </Button>
                         {profImageUrl && <button onClick={() => setProfImageUrl("")} className="text-[11px] text-muted-foreground hover:text-destructive transition-colors" data-testid="button-remove-photo">Remove</button>}
                       </div>
@@ -1634,6 +1646,7 @@ export default function DoctorDashboard() {
                   const url = slot === "before" ? caseBeforeUrl : caseAfterUrl;
                   const setUrl = slot === "before" ? setCaseBeforeUrl : setCaseAfterUrl;
                   const uploading = slot === "before" ? caseBeforeUploading : caseAfterUploading;
+                  const optimising = slot === "before" ? caseBeforeOptimising : caseAfterOptimising;
                   const ref = slot === "before" ? caseBeforeInputRef : caseAfterInputRef;
                   return (
                     <div key={slot} className="space-y-1.5">
@@ -1648,9 +1661,9 @@ export default function DoctorDashboard() {
                           </div>
                         </div>
                       ) : (
-                        <button onClick={() => ref.current?.click()} disabled={uploading} className="w-full aspect-video rounded-xl border-2 border-dashed border-border/50 bg-muted/20 hover:bg-muted/40 hover:border-primary/40 transition-all flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                          {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
-                          <span className="text-xs">Upload {slot === "before" ? "Before" : "After"}<br />photo or video</span>
+                        <button onClick={() => ref.current?.click()} disabled={uploading || optimising} className="w-full aspect-video rounded-xl border-2 border-dashed border-border/50 bg-muted/20 hover:bg-muted/40 hover:border-primary/40 transition-all flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                          {optimising ? <Loader2 className="h-5 w-5 animate-spin text-amber-500" /> : uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+                          <span className="text-xs">{optimising ? <span className="text-amber-600 dark:text-amber-400 font-medium">Optimising…</span> : uploading ? "Uploading…" : <>Upload {slot === "before" ? "Before" : "After"}<br />photo</>}</span>
                         </button>
                       )}
                     </div>
