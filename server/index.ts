@@ -605,6 +605,84 @@ app.use((req, res, next) => {
       `);
       log("patient identity columns ready", "system");
 
+      // ── Backfill: create patient records from historical bookings ───────────
+      // Safe to run every startup — only touches bookings where patient_id IS NULL.
+      // Becomes a no-op once all bookings are linked.
+      try {
+        const unlinkedResult = await db.execute(sql`
+          SELECT b.id, s.clinic_id, b.customer_email, b.customer_name, b.customer_phone
+          FROM bookings b
+          JOIN slots s ON s.id = b.slot_id
+          WHERE b.customer_email IS NOT NULL
+            AND b.customer_email != ''
+            AND b.patient_id IS NULL
+            AND s.clinic_id IS NOT NULL
+          ORDER BY b.id
+        `);
+        const unlinked = (unlinkedResult as any).rows ?? [];
+
+        if (unlinked.length > 0) {
+          log(`Patient backfill: processing ${unlinked.length} unlinked booking(s)...`, "system");
+          let created = 0, linked = 0;
+
+          for (const row of unlinked) {
+            try {
+              const clinicId: number = row.clinic_id;
+              const normalizedEmail: string = (row.customer_email as string).toLowerCase().trim();
+              const name: string = row.customer_name || "Unknown";
+              const phone: string | null = row.customer_phone || null;
+
+              // Check if a patient record already exists for this clinic + email
+              const existResult = await db.execute(sql`
+                SELECT id FROM patients
+                WHERE clinic_id = ${clinicId} AND email = ${normalizedEmail}
+                LIMIT 1
+              `);
+              const existingRow = (existResult as any).rows?.[0];
+
+              let patientId: number;
+              if (existingRow) {
+                await db.execute(sql`
+                  UPDATE patients
+                  SET visit_count = visit_count + 1, last_visit_at = NOW()
+                  WHERE id = ${existingRow.id}
+                `);
+                patientId = existingRow.id;
+              } else {
+                // Generate a sequential PAT code scoped to this clinic
+                const countResult = await db.execute(sql`
+                  SELECT COUNT(*)::int AS count FROM patients WHERE clinic_id = ${clinicId}
+                `);
+                const seq = ((countResult as any).rows?.[0]?.count ?? 0) + 1;
+                const patientCode = `PAT-${String(seq).padStart(4, "0")}`;
+
+                const insertResult = await db.execute(sql`
+                  INSERT INTO patients (clinic_id, email, name, phone, patient_code, visit_count, last_visit_at)
+                  VALUES (${clinicId}, ${normalizedEmail}, ${name}, ${phone}, ${patientCode}, 1, NOW())
+                  RETURNING id
+                `);
+                patientId = (insertResult as any).rows?.[0]?.id;
+                created++;
+              }
+
+              // Link the booking to the patient record
+              await db.execute(sql`
+                UPDATE bookings SET patient_id = ${patientId} WHERE id = ${row.id}
+              `);
+              linked++;
+            } catch (rowErr: any) {
+              console.error(`[BACKFILL] Skipped booking ${row.id}:`, rowErr.message);
+            }
+          }
+
+          log(`Patient backfill complete: ${created} new patient(s) created, ${linked} booking(s) linked`, "system");
+        } else {
+          log("Patient backfill: all bookings already linked — nothing to do", "system");
+        }
+      } catch (backfillErr: any) {
+        log(`Patient backfill warning: ${backfillErr.message}`, "system");
+      }
+
     } catch (dbErr: any) {
       log(`Schema sync warning: ${dbErr.message}`, "system");
     }
