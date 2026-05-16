@@ -329,7 +329,14 @@ export default function DoctorDashboard() {
       const uploadRes = await fetch(uploadUrl, { method: "PUT", body: fileToUpload });
       if (!uploadRes.ok) throw new Error("Upload failed");
       setProfImageUrl(publicUrl);
-      toast({ title: "Photo uploaded", description: "Click Save Profile to apply." });
+      // Auto-save the new photo URL to the database immediately
+      const saveRes = await apiRequest("PATCH", "/api/doctor/profile", { imageUrl: publicUrl });
+      if (saveRes.ok) {
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/me"] });
+        toast({ title: "Photo saved", description: "Your profile photo has been updated." });
+      } else {
+        toast({ title: "Photo uploaded", description: "Click Save Profile to keep this photo.", variant: "destructive" });
+      }
     } catch {
       toast({ title: "Upload failed", description: "Could not upload photo.", variant: "destructive" });
     } finally {
