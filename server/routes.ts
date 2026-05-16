@@ -3424,5 +3424,84 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // ── PATIENT BILLS ──────────────────────────────────────────────────────────
+
+  // GET /api/auth/clinic/bills — all bills for this clinic
+  app.get("/api/auth/clinic/bills", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const bills = await storage.getPatientBillsByClinicId(clinicId);
+      res.json(bills);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // GET /api/auth/clinic/bills/booking/:bookingId — bills for a specific booking
+  app.get("/api/auth/clinic/bills/booking/:bookingId", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const bookingId = parseInt(req.params.bookingId);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const bills = await storage.getPatientBillsByBookingId(bookingId);
+      res.json(bills);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // POST /api/auth/clinic/bills — create a new bill
+  app.post("/api/auth/clinic/bills", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const { bookingId, billNumber, patientName, patientPhone, patientEmail,
+              services, subtotal, discountPct, taxPct, total,
+              paymentMethod, paymentStatus, notes } = req.body;
+      if (!patientName || !billNumber) {
+        return res.status(400).json({ message: "patientName and billNumber are required" });
+      }
+      const bill = await storage.createPatientBill({
+        clinicId,
+        bookingId: bookingId || null,
+        billNumber,
+        patientName,
+        patientPhone: patientPhone || null,
+        patientEmail: patientEmail || null,
+        services: services || [],
+        subtotal: subtotal || 0,
+        discountPct: discountPct || 0,
+        taxPct: taxPct || 0,
+        total: total || 0,
+        paymentMethod: paymentMethod || "Cash",
+        paymentStatus: paymentStatus || "paid",
+        notes: notes || null,
+      });
+      res.status(201).json(bill);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // PATCH /api/auth/clinic/bills/:id — update a bill
+  app.patch("/api/auth/clinic/bills/:id", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const bill = await storage.updatePatientBill(id, clinicId, req.body);
+      res.json(bill);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // DELETE /api/auth/clinic/bills/:id — delete a bill
+  app.delete("/api/auth/clinic/bills/:id", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      await storage.deletePatientBill(id, clinicId);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   return createServer(app);
 }

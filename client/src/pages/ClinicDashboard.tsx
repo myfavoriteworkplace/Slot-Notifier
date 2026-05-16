@@ -6,6 +6,7 @@ import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import { InventoryPanel } from "@/components/InventoryPanel";
 import WebsiteConfigPanel from "@/components/WebsiteConfigPanel";
+import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
@@ -53,7 +54,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
-import type { Slot, Booking } from "@shared/schema";
+import type { Slot, Booking, PatientBill } from "@shared/schema";
 import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload, KeyRound } from "lucide-react";
 
 interface SlotTiming {
@@ -147,9 +148,9 @@ export default function ClinicDashboard() {
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
 
   // Modal tab state — keyed by booking id
-  const [modalTabs, setModalTabs] = useState<Record<number, 'overview' | 'clinical' | 'notes' | 'actions'>>({});
+  const [modalTabs, setModalTabs] = useState<Record<number, 'overview' | 'clinical' | 'notes' | 'actions' | 'billing'>>({});
   const getModalTab = (id: number) => modalTabs[id] ?? 'overview';
-  const setModalTab = (id: number, tab: 'overview' | 'clinical' | 'notes' | 'actions') =>
+  const setModalTab = (id: number, tab: 'overview' | 'clinical' | 'notes' | 'actions' | 'billing') =>
     setModalTabs(prev => ({ ...prev, [id]: tab }));
 
   // Reschedule state
@@ -161,7 +162,9 @@ export default function ClinicDashboard() {
 
   // Booking form state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'website'>('bookings');
+  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'website' | 'accounts'>('bookings');
+  const [accountsSearch, setAccountsSearch] = useState("");
+  const [accountsStatusFilter, setAccountsStatusFilter] = useState<'all' | 'paid' | 'pending' | 'partial'>('all');
 
   const [profilePhone, setProfilePhone] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -238,6 +241,17 @@ export default function ClinicDashboard() {
     queryKey: ['/api/auth/clinic/linked-doctors'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/auth/clinic/linked-doctors');
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isAuthenticated,
+  });
+
+  // All clinic bills (for Accounts tab)
+  const { data: allBills = [] } = useQuery<PatientBill[]>({
+    queryKey: ['/api/auth/clinic/bills'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/auth/clinic/bills');
       if (!res.ok) return [];
       return res.json();
     },
@@ -1004,8 +1018,198 @@ export default function ClinicDashboard() {
 
     doc.save(`receipt_${billingDetails.patientName.replace(/\s+/g, "_")}_${format(new Date(), "yyyyMMdd")}.pdf`);
 
+    // Save bill to database
+    const _saveSub = billingDetails.services.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+    const _saveDiscPct = parseFloat(billingDetails.discount) || 0;
+    const _saveTaxPct = parseFloat(billingDetails.tax) || 0;
+    const _saveDiscAmt = _saveSub * (_saveDiscPct / 100);
+    const _saveTaxAmt = (_saveSub - _saveDiscAmt) * (_saveTaxPct / 100);
+    const _saveTot = _saveSub - _saveDiscAmt + _saveTaxAmt;
+    apiRequest("POST", "/api/auth/clinic/bills", {
+      bookingId: billingBooking.id,
+      billNumber: billingDetails.receiptNumber,
+      patientName: billingDetails.patientName,
+      patientPhone: billingDetails.patientPhone,
+      patientEmail: billingDetails.patientEmail,
+      services: billingDetails.services.map(s => ({
+        description: s.description,
+        category: "General",
+        amount: parseFloat(s.amount) || 0,
+      })),
+      subtotal: _saveSub,
+      discountPct: _saveDiscPct,
+      taxPct: _saveTaxPct,
+      total: _saveTot,
+      paymentMethod: billingDetails.paymentMethod || "Cash",
+      paymentStatus: "paid",
+      notes: billingDetails.remarks || null,
+    }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills/booking", billingBooking.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills"] });
+    });
+
     setIsBillingOpen(false);
-    toast({ title: "Receipt Generated", description: "Your PDF download has started." });
+    toast({ title: "Receipt Generated", description: "PDF downloaded and saved to billing history." });
+  };
+
+  const printBillFromRecord = (bill: PatientBill) => {
+    const doc = new jsPDF();
+    const pageWidth  = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const indigoDark: [number,number,number] = [8,80,65];
+    const magenta: [number,number,number]    = [29,158,117];
+    const indigoMid: [number,number,number]  = [15,155,110];
+    const lightBg: [number,number,number]    = [225,245,238];
+    const metaBg: [number,number,number]     = [209,237,226];
+    const totalRowBg: [number,number,number] = [193,229,215];
+    const textDark: [number,number,number]   = [8,40,32];
+    const textMid: [number,number,number]    = [50,100,80];
+    const textLight: [number,number,number]  = [120,160,140];
+    const white: [number,number,number]      = [255,255,255];
+
+    const rightX = pageWidth - margin;
+    const rightColWidth = 70;
+    let contactY = 16;
+
+    doc.setFillColor(...indigoDark);
+    doc.rect(0, 0, pageWidth * 0.55, 12, "F");
+    doc.setFillColor(...magenta);
+    doc.rect(pageWidth * 0.55, 0, pageWidth * 0.45, 12, "F");
+    doc.setFontSize(7);
+    doc.setFont("helvetica","bold");
+    doc.setTextColor(...white);
+    doc.text("BookMySlot — Digital Dental Receipt", pageWidth / 2, 7.5, { align: "center" });
+
+    const clinicName = (clinic as any)?.name || "Clinic";
+    const nameX = margin;
+    doc.setFontSize(19);
+    doc.setFont("helvetica","bold");
+    doc.setTextColor(...textDark);
+    doc.text(clinicName, nameX, 20);
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica","normal");
+    doc.setTextColor(...indigoMid);
+    doc.text("DENTAL RECEIPT", nameX, 26);
+
+    if ((clinic as any)?.address) {
+      const addrLines: string[] = doc.splitTextToSize((clinic as any).address, rightColWidth);
+      addrLines.forEach((line: string) => { doc.setFontSize(8.5); doc.setFont("helvetica","normal"); doc.setTextColor(...textMid); doc.text(line, rightX, contactY, {align:"right"}); contactY += 4.2; });
+    }
+    if ((clinic as any)?.phone) { doc.text(`Tel: ${(clinic as any).phone}`, rightX, contactY, {align:"right"}); contactY += 4.2; }
+    if ((clinic as any)?.email) { doc.text((clinic as any).email, rightX, contactY, {align:"right"}); }
+
+    const metaY = 32; const metaH = 16;
+    doc.setFillColor(...metaBg);
+    doc.roundedRect(margin, metaY, pageWidth - margin * 2, metaH, 3, 3, "F");
+    doc.setFontSize(8);
+    doc.setFont("helvetica","normal");
+    doc.setTextColor(...textMid);
+    doc.text(`Date:  ${bill.createdAt ? format(new Date(bill.createdAt), "PPP") : format(new Date(), "PPP")}`, margin + 4, metaY + 6.5);
+    doc.setTextColor(...indigoMid);
+    doc.setFont("helvetica","bold");
+    doc.text(bill.paymentMethod || "Cash", pageWidth / 2, metaY + 6.5, {align:"center"});
+    doc.setFont("helvetica","normal");
+    doc.setTextColor(...textMid);
+    doc.text(`Receipt #:  ${bill.billNumber}`, rightX - 4, metaY + 6.5, {align:"right"});
+
+    autoTable(doc, {
+      startY: metaY + metaH + 5,
+      head: [["Patient Information",""]],
+      body: [
+        ["Name", bill.patientName],
+        ["Phone", bill.patientPhone || "—"],
+        ["Email", bill.patientEmail || "—"],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: indigoDark, textColor: white, fontStyle: "bold", fontSize: 9, halign: "left", cellPadding: {top:3,bottom:3,left:5,right:5} },
+      columnStyles: {
+        0: { fontStyle:"bold", cellWidth:48, textColor:textDark, fillColor:lightBg, fontSize:8.5, cellPadding:{top:3,bottom:3,left:5,right:5} },
+        1: { textColor:textMid, fontSize:8.5, cellPadding:{top:3,bottom:3,left:5,right:5} },
+      },
+      bodyStyles: { cellPadding: 3 },
+      margin: { left: margin, right: margin },
+    });
+
+    const servicesStartY = (doc as any).lastAutoTable.finalY + 7;
+    const svcs = (bill.services as {description:string;amount:number}[]) || [];
+    const tableBody = svcs.map(s => [s.description, `INR ${(s.amount||0).toFixed(2)}`]);
+    autoTable(doc, {
+      startY: servicesStartY,
+      head: [["Description of Services","Amount"]],
+      body: tableBody,
+      theme: "striped",
+      headStyles: { fillColor: indigoDark, textColor: white, fontStyle:"bold", fontSize:9, cellPadding:{top:3,bottom:3,left:5,right:5} },
+      columnStyles: {
+        0: { textColor:textDark, fontSize:8.5, cellPadding:{top:3,bottom:3,left:5,right:5} },
+        1: { halign:"right", textColor:textDark, cellWidth:40, fontSize:8.5, cellPadding:{top:3,bottom:3,left:5,right:5} },
+      },
+      alternateRowStyles: { fillColor: [248,247,255] as [number,number,number] },
+      bodyStyles: { cellPadding: 3 },
+      margin: { left: margin, right: margin },
+    });
+
+    const afterServicesY = (doc as any).lastAutoTable.finalY + 8;
+    const leftBoxW = pageWidth / 2 - margin - 6;
+    doc.setFillColor(...lightBg);
+    doc.setDrawColor(...indigoMid);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, afterServicesY, leftBoxW, 24, 2.5, 2.5, "FD");
+    doc.setFontSize(7);
+    doc.setFont("helvetica","bold");
+    doc.setTextColor(...indigoMid);
+    doc.text("PAYMENT METHOD", margin + 5, afterServicesY + 7);
+    doc.setFontSize(9.5);
+    doc.setFont("helvetica","bold");
+    doc.setTextColor(...textDark);
+    doc.text(bill.paymentMethod || "Cash", margin + 5, afterServicesY + 15);
+
+    const discountAmt = (bill.subtotal || 0) * ((bill.discountPct || 0) / 100);
+    const taxAmt = ((bill.subtotal || 0) - discountAmt) * ((bill.taxPct || 0) / 100);
+    const summaryData = [
+      ["Subtotal", `INR ${(bill.subtotal||0).toFixed(2)}`],
+      [`Discount (${bill.discountPct||0}%)`, `- INR ${discountAmt.toFixed(2)}`],
+      [`Tax / GST (${bill.taxPct||0}%)`, `+ INR ${taxAmt.toFixed(2)}`],
+      ["Total Amount Due", `INR ${(bill.total||0).toFixed(2)}`],
+    ];
+    autoTable(doc, {
+      startY: afterServicesY,
+      head: [],
+      body: summaryData,
+      theme: "grid",
+      columnStyles: {
+        0: { halign:"right", fontStyle:"normal", textColor:textMid, fontSize:8.5, cellWidth:52, cellPadding:{top:3,bottom:3,left:5,right:5} },
+        1: { halign:"right", textColor:textDark, fontSize:8.5, cellWidth:38, cellPadding:{top:3,bottom:3,left:5,right:5} },
+      },
+      bodyStyles: { cellPadding: 3 },
+      willDrawCell: (data: any) => { if (data.row.index === 3 && data.section === "body") doc.setFillColor(...totalRowBg); },
+      didDrawCell:  (data: any) => { if (data.row.index === 3 && data.section === "body") { doc.setFont("helvetica","bold"); doc.setTextColor(...indigoDark); } },
+      margin: { left: pageWidth / 2 + 3, right: margin },
+    });
+
+    const finalY = Math.max((doc as any).lastAutoTable.finalY, afterServicesY + 24) + 12;
+    doc.setDrawColor(...indigoMid);
+    doc.setLineWidth(0.3);
+    doc.line(margin, finalY - 5, pageWidth - margin, finalY - 5);
+    doc.setFontSize(10);
+    doc.setFont("helvetica","bold");
+    doc.setTextColor(...indigoMid);
+    doc.text(`Thank you for choosing ${clinicName}!`, pageWidth / 2, finalY, {align:"center"});
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica","normal");
+    doc.setTextColor(...textLight);
+    doc.text("This is a computer generated receipt and does not require a physical signature.", pageWidth / 2, finalY + 6, {align:"center"});
+    doc.setFillColor(...indigoDark);
+    doc.rect(0, pageHeight - 8, pageWidth * 0.55, 8, "F");
+    doc.setFillColor(...magenta);
+    doc.rect(pageWidth * 0.55, pageHeight - 8, pageWidth * 0.45, 8, "F");
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica","normal");
+    doc.setTextColor(...white);
+    doc.text("Powered by BookMySlot", pageWidth / 2, pageHeight - 3, {align:"center"});
+
+    doc.save(`receipt_${bill.patientName.replace(/\s+/g,"_")}_${format(new Date(), "yyyyMMdd")}.pdf`);
+    toast({ title: "Receipt Printed", description: `${bill.billNumber} downloaded.` });
   };
 
   const generateConsentPdf = (booking: BookingWithSlot) => {
@@ -1545,6 +1749,26 @@ export default function ClinicDashboard() {
                   <p className="text-[10px] text-muted-foreground">Theme & content</p>
                 </div>
                 {activePanel === 'website' && <div className="h-1.5 w-1.5 rounded-full bg-sky-500 shrink-0" />}
+              </button>
+
+              <button
+                onClick={() => setActivePanel('accounts')}
+                data-testid="nav-accounts"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'accounts' ? 'bg-primary/10 border border-primary/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'accounts' ? 'bg-primary/10 border-primary/20' : 'bg-muted/50 border-border/50'}`}>
+                  <IndianRupee className={`h-4 w-4 ${activePanel === 'accounts' ? 'text-primary' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'accounts' ? 'text-primary' : 'text-foreground'}`}>Accounts</p>
+                  <p className="text-[10px] text-muted-foreground">All patient billing history</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {allBills.length > 0 && (
+                    <span className="text-[9px] font-bold bg-primary/15 text-primary px-1.5 py-0.5 rounded-full">{allBills.length}</span>
+                  )}
+                  {activePanel === 'accounts' && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                </div>
               </button>
 
             </div>
@@ -2252,6 +2476,7 @@ export default function ClinicDashboard() {
                               { key: 'clinical', label: 'Clinical', icon: <ClipboardList className="h-3 w-3" /> },
                               { key: 'notes',    label: 'Notes',    icon: <FileText className="h-3 w-3" /> },
                               { key: 'actions',  label: 'Actions',  icon: <Settings className="h-3 w-3" /> },
+                              { key: 'billing',  label: 'Billing',  icon: <IndianRupee className="h-3 w-3" /> },
                             ] as const).map(({ key, label, icon }) => {
                               const isActive = getModalTab(booking.id) === key;
                               return (
@@ -2812,6 +3037,17 @@ export default function ClinicDashboard() {
                                 );
                               })()}
 
+                            </div>
+                          )}
+
+                          {/* BILLING TAB */}
+                          {getModalTab(booking.id) === 'billing' && (
+                            <div className="p-4">
+                              <BillingHistoryPanel
+                                bookingId={booking.id}
+                                onGenerateReceipt={() => handleOpenBilling(booking)}
+                                onPrintBill={printBillFromRecord}
+                              />
                             </div>
                           )}
 
@@ -3847,6 +4083,155 @@ export default function ClinicDashboard() {
               <WebsiteConfigPanel clinic={clinic} />
             </div>
           )}
+
+          {/* ACCOUNTS PANEL */}
+          {activePanel === 'accounts' && (() => {
+            const filtered = allBills.filter(bill => {
+              const matchesSearch = !accountsSearch ||
+                bill.patientName.toLowerCase().includes(accountsSearch.toLowerCase()) ||
+                (bill.patientPhone ?? "").includes(accountsSearch) ||
+                (bill.billNumber ?? "").toLowerCase().includes(accountsSearch.toLowerCase());
+              const matchesStatus = accountsStatusFilter === 'all' || bill.paymentStatus === accountsStatusFilter;
+              return matchesSearch && matchesStatus;
+            });
+
+            const totalRevenue = allBills.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+            const pendingAmt   = allBills.filter(b => b.paymentStatus === 'pending').reduce((s, b) => s + (b.total ?? 0), 0);
+            const paidCount    = allBills.filter(b => b.paymentStatus === 'paid').length;
+
+            return (
+              <div className="p-6 sm:p-8 space-y-6">
+                {/* Header */}
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight">Patient Accounts</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">Complete billing history across all patient visits</p>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="rounded-xl border border-border/60 bg-card p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Total Receipts</p>
+                    <p className="text-2xl font-black text-foreground">{allBills.length}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{paidCount} paid</p>
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-card p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Collected</p>
+                    <p className="text-2xl font-black text-primary">₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">from paid bills</p>
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-card p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Pending</p>
+                    <p className="text-2xl font-black text-amber-600">₹{pendingAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">outstanding balance</p>
+                  </div>
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      value={accountsSearch}
+                      onChange={e => setAccountsSearch(e.target.value)}
+                      placeholder="Search by patient name, phone, or receipt #…"
+                      className="pl-8 h-9 text-sm"
+                      data-testid="input-accounts-search"
+                    />
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {(['all', 'paid', 'pending', 'partial'] as const).map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setAccountsStatusFilter(s)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all capitalize ${
+                          accountsStatusFilter === s
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                        }`}
+                        data-testid={`filter-accounts-${s}`}
+                      >
+                        {s === 'all' ? `All (${allBills.length})` : s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bill list */}
+                {filtered.length === 0 ? (
+                  <div className="py-16 text-center rounded-xl border border-dashed border-border/60 bg-muted/10">
+                    <div className="p-3 bg-muted/40 rounded-full w-fit mx-auto mb-3">
+                      <IndianRupee className="h-6 w-6 text-muted-foreground/50" />
+                    </div>
+                    <p className="font-medium text-muted-foreground">
+                      {allBills.length === 0 ? "No receipts generated yet" : "No results match your search"}
+                    </p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">
+                      {allBills.length === 0
+                        ? "Open any booking and click 'Generate Receipt' to create your first bill"
+                        : "Try adjusting your search or status filter"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-border/60 overflow-hidden">
+                    {/* Table header */}
+                    <div className="hidden sm:grid grid-cols-[1fr_120px_100px_90px_80px] gap-4 px-4 py-2 bg-muted/40 border-b border-border/50">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Patient</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Receipt #</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Date</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right">Amount</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-center">Status</span>
+                    </div>
+                    <div className="divide-y divide-border/40">
+                      {filtered.map((bill) => (
+                        <div
+                          key={bill.id}
+                          className="grid grid-cols-1 sm:grid-cols-[1fr_120px_100px_90px_80px] gap-2 sm:gap-4 px-4 py-3 hover:bg-muted/20 transition-colors items-center group"
+                          data-testid={`accounts-row-${bill.id}`}
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate">{bill.patientName}</p>
+                            <p className="text-[10px] text-muted-foreground">{bill.patientPhone || "—"}</p>
+                          </div>
+                          <p className="text-xs font-mono text-muted-foreground truncate">{bill.billNumber}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {bill.createdAt ? format(new Date(bill.createdAt), "dd MMM yyyy") : "—"}
+                          </p>
+                          <p className="text-sm font-bold text-primary text-right">
+                            ₹{(bill.total ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                          </p>
+                          <div className="flex items-center justify-between sm:justify-center gap-2">
+                            {bill.paymentStatus === 'paid' && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                <CheckCircle2 className="h-2.5 w-2.5" /> Paid
+                              </span>
+                            )}
+                            {bill.paymentStatus === 'pending' && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                <Clock className="h-2.5 w-2.5" /> Pending
+                              </span>
+                            )}
+                            {bill.paymentStatus === 'partial' && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-500/20">
+                                Partial
+                              </span>
+                            )}
+                            <button
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                              onClick={() => printBillFromRecord(bill)}
+                              title="Print receipt"
+                              data-testid={`accounts-print-${bill.id}`}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
         </div>
         {/* ===== END MAIN CONTENT ===== */}

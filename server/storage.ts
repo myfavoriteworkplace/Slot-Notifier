@@ -1,7 +1,7 @@
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
   doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, clinicalRecords,
-  inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents,
+  inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -23,6 +23,7 @@ import {
   type StockTransaction, type InsertStockTransaction,
   type StockAlert, type InsertStockAlert,
   type LoginEvent, type InsertLoginEvent,
+  type PatientBill, type InsertPatientBill,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns } from "drizzle-orm";
@@ -169,6 +170,13 @@ export interface IStorage {
   getStockAlerts(clinicId: number): Promise<(StockAlert & { itemName: string })[]>;
   createStockAlert(data: InsertStockAlert): Promise<StockAlert>;
   dismissStockAlert(id: number, clinicId: number): Promise<void>;
+
+  // Patient Bills
+  createPatientBill(data: InsertPatientBill): Promise<PatientBill>;
+  getPatientBillsByClinicId(clinicId: number): Promise<PatientBill[]>;
+  getPatientBillsByBookingId(bookingId: number): Promise<PatientBill[]>;
+  updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill>;
+  deletePatientBill(id: number, clinicId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1038,6 +1046,37 @@ export class DatabaseStorage implements IStorage {
 
   async getLoginEvents(limit = 200): Promise<LoginEvent[]> {
     return db.select().from(loginEvents).orderBy(desc(loginEvents.createdAt)).limit(limit);
+  }
+
+  // Patient Bills
+  async createPatientBill(data: InsertPatientBill): Promise<PatientBill> {
+    const [bill] = await db.insert(patientBills).values(data).returning();
+    return bill;
+  }
+
+  async getPatientBillsByClinicId(clinicId: number): Promise<PatientBill[]> {
+    return db.select().from(patientBills)
+      .where(eq(patientBills.clinicId, clinicId))
+      .orderBy(desc(patientBills.createdAt));
+  }
+
+  async getPatientBillsByBookingId(bookingId: number): Promise<PatientBill[]> {
+    return db.select().from(patientBills)
+      .where(eq(patientBills.bookingId, bookingId))
+      .orderBy(desc(patientBills.createdAt));
+  }
+
+  async updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill> {
+    const [bill] = await db.update(patientBills)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(patientBills.id, id), eq(patientBills.clinicId, clinicId)))
+      .returning();
+    return bill;
+  }
+
+  async deletePatientBill(id: number, clinicId: number): Promise<void> {
+    await db.delete(patientBills)
+      .where(and(eq(patientBills.id, id), eq(patientBills.clinicId, clinicId)));
   }
 }
 

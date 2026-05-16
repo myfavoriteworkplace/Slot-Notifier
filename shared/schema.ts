@@ -565,6 +565,37 @@ export const loginEvents = pgTable("login_events", {
 export type LoginEvent = typeof loginEvents.$inferSelect;
 export type InsertLoginEvent = typeof loginEvents.$inferInsert;
 
+// ── PATIENT BILLS ──────────────────────────────────────────────────────────
+
+export const patientBills = pgTable("patient_bills", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  bookingId: integer("booking_id").references(() => bookings.id),
+  billNumber: varchar("bill_number", { length: 50 }).notNull(),
+  patientName: varchar("patient_name", { length: 255 }).notNull(),
+  patientPhone: varchar("patient_phone", { length: 50 }),
+  patientEmail: varchar("patient_email", { length: 255 }),
+  services: jsonb("services").$type<{ description: string; category: string; amount: number }[]>().default([]),
+  subtotal: real("subtotal").notNull().default(0),
+  discountPct: real("discount_pct").notNull().default(0),
+  taxPct: real("tax_pct").notNull().default(0),
+  total: real("total").notNull().default(0),
+  paymentMethod: varchar("payment_method", { length: 50 }).default("Cash"),
+  paymentStatus: varchar("payment_status", { length: 20 }).notNull().default("paid"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPatientBillSchema = createInsertSchema(patientBills).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type PatientBill = typeof patientBills.$inferSelect;
+export type InsertPatientBill = z.infer<typeof insertPatientBillSchema>;
+
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface ClinicSession {

@@ -555,6 +555,30 @@ app.use((req, res, next) => {
       `);
       log("clinical_records table verified/created", "system");
 
+      // Create patient_bills table
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS patient_bills (
+          id SERIAL PRIMARY KEY,
+          clinic_id INTEGER NOT NULL REFERENCES clinics(id),
+          booking_id INTEGER REFERENCES bookings(id),
+          bill_number VARCHAR(50) NOT NULL,
+          patient_name VARCHAR(255) NOT NULL,
+          patient_phone VARCHAR(50),
+          patient_email VARCHAR(255),
+          services JSONB DEFAULT '[]',
+          subtotal REAL NOT NULL DEFAULT 0,
+          discount_pct REAL NOT NULL DEFAULT 0,
+          tax_pct REAL NOT NULL DEFAULT 0,
+          total REAL NOT NULL DEFAULT 0,
+          payment_method VARCHAR(50) DEFAULT 'Cash',
+          payment_status VARCHAR(20) NOT NULL DEFAULT 'paid',
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      log("patient_bills table verified/created", "system");
+
     } catch (dbErr: any) {
       log(`Schema sync warning: ${dbErr.message}`, "system");
     }
