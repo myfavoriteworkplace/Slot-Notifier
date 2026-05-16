@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Upload, X, User } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { compressImage } from "@/lib/imageCompression";
 
 interface ImageUploadProps {
   currentImage?: string;
@@ -39,27 +40,43 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
     }
 
     const maxBytes = (maxSizeKb ?? 2048) * 1024;
+    let fileToUpload = file;
     if (file.size > maxBytes) {
-      const label = (maxSizeKb ?? 2048) >= 1024
-        ? `${((maxSizeKb ?? 2048) / 1024).toFixed(0)} MB`
-        : `${maxSizeKb ?? 2048} KB`;
-      toast({
-        title: "File too large",
-        description: `Maximum allowed size is ${label}. Please resize or compress the image.`,
-        variant: "destructive",
-      });
-      return;
+      try {
+        fileToUpload = await compressImage(file, maxBytes, 1500);
+        if (fileToUpload.size > maxBytes) {
+          const label = (maxSizeKb ?? 2048) >= 1024
+            ? `${((maxSizeKb ?? 2048) / 1024).toFixed(0)} MB`
+            : `${maxSizeKb ?? 2048} KB`;
+          toast({
+            title: "File too large",
+            description: `Could not compress this image below ${label}. Please use a smaller image.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      } catch {
+        const label = (maxSizeKb ?? 2048) >= 1024
+          ? `${((maxSizeKb ?? 2048) / 1024).toFixed(0)} MB`
+          : `${maxSizeKb ?? 2048} KB`;
+        toast({
+          title: "File too large",
+          description: `Maximum allowed size is ${label}. Please resize or compress the image.`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
-    const localPreview = URL.createObjectURL(file);
+    const localPreview = URL.createObjectURL(fileToUpload);
     setPreviewUrl(localPreview);
 
     setIsUploading(true);
     try {
       const signedUrlRes = await apiRequest("POST", "/api/uploads/signed-url", {
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size,
+        fileName: fileToUpload.name,
+        fileType: fileToUpload.type,
+        fileSize: fileToUpload.size,
         folder,
       });
 
@@ -72,7 +89,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
 
       const uploadRes = await fetch(uploadUrl, {
         method: "PUT",
-        body: file,
+        body: fileToUpload,
       });
 
       if (!uploadRes.ok) {

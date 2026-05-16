@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { compressImage } from "@/lib/imageCompression";
 import {
   Loader2, Building2, Mail, Phone, MapPin, Hash,
   ArrowLeft, Sparkles, Shield, CheckCircle2,
@@ -127,14 +128,29 @@ function DocUpload({ label, value, onChange, testId }: {
       toast({ title: "Invalid file type", description: "Please upload a PDF, JPG, PNG or WebP file.", variant: "destructive" });
       return;
     }
+    // Compress images if over 5 MB; PDFs cannot be compressed via Canvas
+    let fileToUpload = file;
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Document must be under 5 MB. Please compress or split the file.", variant: "destructive" });
-      return;
+      if (file.type.startsWith("image/")) {
+        try {
+          fileToUpload = await compressImage(file, 5 * 1024 * 1024, 2000);
+          if (fileToUpload.size > 5 * 1024 * 1024) {
+            toast({ title: "File too large", description: "Could not compress this image below 5 MB. Please use a smaller file.", variant: "destructive" });
+            return;
+          }
+        } catch {
+          toast({ title: "File too large", description: "Document must be under 5 MB. Please compress or split the file.", variant: "destructive" });
+          return;
+        }
+      } else {
+        toast({ title: "File too large", description: "Document must be under 5 MB. Please compress or split the PDF.", variant: "destructive" });
+        return;
+      }
     }
     setUploading(true);
     try {
       const sigRes = await apiRequest("POST", "/api/public/uploads/signed-url", {
-        fileName: file.name, contentType: file.type, fileSize: file.size, folder: "clinic-docs",
+        fileName: fileToUpload.name, contentType: fileToUpload.type, fileSize: fileToUpload.size, folder: "clinic-docs",
       });
       if (!sigRes.ok) {
         const b = await sigRes.json().catch(() => ({}));

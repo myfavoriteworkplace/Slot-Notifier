@@ -29,6 +29,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/schema";
 import { format } from "date-fns";
+import { compressImage } from "@/lib/imageCompression";
 
 type QuickFilter = "all" | "today" | "upcoming" | "awaiting";
 type Tab = "appointments" | "profile" | "certifications" | "cases";
@@ -298,17 +299,27 @@ export default function DoctorDashboard() {
       if (photoInputRef.current) photoInputRef.current.value = "";
       return;
     }
+    let fileToUpload = file;
     if (file.size > 1 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Profile photo must be under 1 MB. Please resize or compress the image.", variant: "destructive" });
-      if (photoInputRef.current) photoInputRef.current.value = "";
-      return;
+      try {
+        fileToUpload = await compressImage(file, 1 * 1024 * 1024, 1200);
+        if (fileToUpload.size > 1 * 1024 * 1024) {
+          toast({ title: "File too large", description: "Could not compress this image below 1 MB. Please use a smaller photo.", variant: "destructive" });
+          if (photoInputRef.current) photoInputRef.current.value = "";
+          return;
+        }
+      } catch {
+        toast({ title: "File too large", description: "Profile photo must be under 1 MB. Please resize or compress the image.", variant: "destructive" });
+        if (photoInputRef.current) photoInputRef.current.value = "";
+        return;
+      }
     }
     setProfUploading(true);
     try {
-      const signedRes = await apiRequest("POST", "/api/uploads/signed-url", { fileName: file.name, contentType: file.type, fileSize: file.size, folder: "doctors" });
+      const signedRes = await apiRequest("POST", "/api/uploads/signed-url", { fileName: fileToUpload.name, contentType: fileToUpload.type, fileSize: fileToUpload.size, folder: "doctors" });
       if (!signedRes.ok) throw new Error("Failed to get upload URL");
       const { uploadUrl, publicUrl } = await signedRes.json();
-      const uploadRes = await fetch(uploadUrl, { method: "PUT", body: file });
+      const uploadRes = await fetch(uploadUrl, { method: "PUT", body: fileToUpload });
       if (!uploadRes.ok) throw new Error("Upload failed");
       setProfImageUrl(publicUrl);
       toast({ title: "Photo uploaded", description: "Click Save Profile to apply." });
@@ -350,17 +361,27 @@ export default function DoctorDashboard() {
       if (ref.current) ref.current.value = "";
       return;
     }
+    let fileToUpload = file;
     if (file.size > 3 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Case photo must be under 3 MB. Please resize or compress the image.", variant: "destructive" });
-      if (ref.current) ref.current.value = "";
-      return;
+      try {
+        fileToUpload = await compressImage(file, 3 * 1024 * 1024, 2000);
+        if (fileToUpload.size > 3 * 1024 * 1024) {
+          toast({ title: "File too large", description: "Could not compress this image below 3 MB. Please use a smaller photo.", variant: "destructive" });
+          if (ref.current) ref.current.value = "";
+          return;
+        }
+      } catch {
+        toast({ title: "File too large", description: "Case photo must be under 3 MB. Please resize or compress the image.", variant: "destructive" });
+        if (ref.current) ref.current.value = "";
+        return;
+      }
     }
     setUploading(true);
     try {
-      const signedRes = await apiRequest("POST", "/api/uploads/signed-url", { fileName: file.name, contentType: file.type, fileSize: file.size, folder: "case-media" });
+      const signedRes = await apiRequest("POST", "/api/uploads/signed-url", { fileName: fileToUpload.name, contentType: fileToUpload.type, fileSize: fileToUpload.size, folder: "case-media" });
       if (!signedRes.ok) throw new Error();
       const { uploadUrl, publicUrl } = await signedRes.json();
-      const uploadRes = await fetch(uploadUrl, { method: "PUT", body: file });
+      const uploadRes = await fetch(uploadUrl, { method: "PUT", body: fileToUpload });
       if (!uploadRes.ok) throw new Error();
       setUrl(publicUrl);
       toast({ title: `${slot === "before" ? "Before" : "After"} photo uploaded` });

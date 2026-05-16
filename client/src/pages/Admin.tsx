@@ -214,10 +214,21 @@ export default function Admin() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
+
+    let fileToUpload = file;
     if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Deal image must be under 2 MB. Please resize or compress the image.", variant: "destructive" });
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
+      try {
+        fileToUpload = await compressImage(file, 2 * 1024 * 1024, 1500);
+        if (fileToUpload.size > 2 * 1024 * 1024) {
+          toast({ title: "File too large", description: "Could not compress this image below 2 MB. Please use a smaller image.", variant: "destructive" });
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+      } catch {
+        toast({ title: "File too large", description: "Deal image must be under 2 MB. Please resize or compress the image.", variant: "destructive" });
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
     }
 
     setIsUploading(true);
@@ -225,9 +236,9 @@ export default function Admin() {
     try {
       // Get signed URL
       const signedRes = await apiRequest('POST', '/api/uploads/signed-url', {
-        fileName: file.name,
-        contentType: file.type,
-        fileSize: file.size,
+        fileName: fileToUpload.name,
+        contentType: fileToUpload.type,
+        fileSize: fileToUpload.size,
         folder: 'smile-deals'
       });
       if (!signedRes.ok) throw new Error("Failed to get upload URL");
@@ -236,7 +247,7 @@ export default function Admin() {
       // Upload to R2
       const uploadRes = await fetch(uploadUrl, {
         method: 'PUT',
-        body: file,
+        body: fileToUpload,
       });
       if (!uploadRes.ok) throw new Error("R2 Upload failed");
 
