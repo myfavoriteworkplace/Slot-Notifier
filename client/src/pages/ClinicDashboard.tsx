@@ -543,7 +543,9 @@ export default function ClinicDashboard() {
     discount: "0",
     tax: "0",
     paymentMethod: "Cash",
-    remarks: ""
+    remarks: "",
+    paymentStatus: "paid" as "paid" | "pending" | "partial",
+    existingBillId: undefined as number | undefined,
   });
 
   // Count today's bookings using the same timezone-safe comparison
@@ -642,9 +644,17 @@ export default function ClinicDashboard() {
     return new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime();
   });
 
-  const handleOpenBilling = (booking: BookingWithSlot) => {
+  const handleOpenBilling = (booking: BookingWithSlot, existingBill?: PatientBill) => {
     setBillingBooking(booking);
     const receiptDate = format(new Date(), "yyyyMMdd");
+
+    const loadedServices = existingBill?.services
+      ? (existingBill.services as { description: string; amount: number }[]).map(s => ({
+          description: s.description,
+          amount: String(s.amount),
+        }))
+      : [{ description: "Dental Consultation", amount: "500" }];
+
     setBillingDetails({
       patientName: booking.customerName,
       patientPhone: booking.customerPhone,
@@ -653,13 +663,15 @@ export default function ClinicDashboard() {
       clinicAddress: (clinic as any)?.address || "",
       clinicPhone: (clinic as any)?.phone || "",
       clinicEmail: (clinic as any)?.email || "",
-      receiptNumber: `RCP-${booking.id}-${receiptDate}`,
-      services: [{ description: "Dental Consultation", amount: "500" }],
+      receiptNumber: existingBill?.billNumber || `RCP-${booking.id}-${receiptDate}`,
+      services: loadedServices,
       date: format(new Date(booking.slot.startTime), "PPP"),
-      discount: "0",
-      tax: "0",
-      paymentMethod: "Cash",
-      remarks: ""
+      discount: String(existingBill?.discountPct ?? 0),
+      tax: String(existingBill?.taxPct ?? 0),
+      paymentMethod: existingBill?.paymentMethod || "Cash",
+      remarks: existingBill?.notes || "",
+      paymentStatus: (existingBill?.paymentStatus as "paid" | "pending" | "partial") || "paid",
+      existingBillId: existingBill?.id,
     });
     setIsBillingOpen(true);
   };
@@ -1046,7 +1058,7 @@ export default function ClinicDashboard() {
     const _saveDiscAmt = _saveSub * (_saveDiscPct / 100);
     const _saveTaxAmt = (_saveSub - _saveDiscAmt) * (_saveTaxPct / 100);
     const _saveTot = _saveSub - _saveDiscAmt + _saveTaxAmt;
-    apiRequest("POST", "/api/auth/clinic/bills", {
+    const _billPayload = {
       bookingId: billingBooking.id,
       billNumber: billingDetails.receiptNumber,
       patientName: billingDetails.patientName,
@@ -1056,15 +1068,20 @@ export default function ClinicDashboard() {
         description: s.description,
         category: "General",
         amount: parseFloat(s.amount) || 0,
+        paid: billingDetails.paymentStatus === "paid",
       })),
       subtotal: _saveSub,
       discountPct: _saveDiscPct,
       taxPct: _saveTaxPct,
       total: _saveTot,
       paymentMethod: billingDetails.paymentMethod || "Cash",
-      paymentStatus: "paid",
+      paymentStatus: billingDetails.paymentStatus || "paid",
       notes: billingDetails.remarks || null,
-    }).then(() => {
+    };
+    const _saveReq = billingDetails.existingBillId
+      ? apiRequest("PATCH", `/api/auth/clinic/bills/${billingDetails.existingBillId}`, _billPayload)
+      : apiRequest("POST", "/api/auth/clinic/bills", _billPayload);
+    _saveReq.then(() => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills/booking", billingBooking.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills"] });
     });
@@ -3066,7 +3083,9 @@ export default function ClinicDashboard() {
                             <div className="p-4">
                               <BillingHistoryPanel
                                 bookingId={booking.id}
-                                onGenerateReceipt={() => handleOpenBilling(booking)}
+                                patientName={booking.customerName}
+                                patientPhone={booking.customerPhone}
+                                onGenerateReceipt={(existingBill) => handleOpenBilling(booking, existingBill)}
                                 onPrintBill={printBillFromRecord}
                               />
                             </div>
@@ -4610,11 +4629,37 @@ export default function ClinicDashboard() {
 
           </div>
 
+          {/* Payment Status */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Payment Status</Label>
+            <div className="flex gap-2">
+              {(["paid", "pending", "partial"] as const).map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setBillingDetails(prev => ({ ...prev, paymentStatus: s }))}
+                  className={`flex-1 h-9 rounded-lg border text-xs font-semibold capitalize transition-all ${
+                    billingDetails.paymentStatus === s
+                      ? s === "paid"
+                        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-600"
+                        : s === "partial"
+                        ? "bg-blue-500/10 border-blue-500/40 text-blue-600"
+                        : "bg-amber-500/10 border-amber-500/40 text-amber-600"
+                      : "bg-background border-border/60 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                  }`}
+                  data-testid={`billing-status-${s}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsBillingOpen(false)}>Cancel</Button>
             <Button onClick={generatePDF} className="gap-2">
               <Download className="h-4 w-4" />
-              Generate Receipt
+              {billingDetails.existingBillId ? "Update & Download" : "Generate Receipt"}
             </Button>
           </DialogFooter>
         </DialogContent>
