@@ -1017,31 +1017,77 @@ export default function DoctorDashboard() {
                       <p className="text-[10px] text-muted-foreground">This becomes your shareable URL. Only lowercase letters, numbers, and hyphens. Leave blank to use your numeric ID.</p>
                     </div>
                     {/* Out of Office / Leave Management */}
-                    <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5 overflow-hidden">
-                      <div className="px-4 py-2.5 bg-amber-100/60 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20 flex items-center gap-2">
-                        <BriefcaseMedical className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Out of Office / Leave</span>
+                    <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5">
+                      {/* Header */}
+                      <div className="px-4 py-3 bg-amber-100/60 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20 flex items-center justify-between rounded-t-xl">
+                        <div className="flex items-center gap-2">
+                          <BriefcaseMedical className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Out of Office / Leave</span>
+                        </div>
+                        {!isLeavesLoading && leaves.length > 0 && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-200/70 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-[10px] font-bold">
+                            {leaves.length} {leaves.length === 1 ? "day" : "days"} marked
+                          </span>
+                        )}
                       </div>
-                      <div className="p-4 space-y-4">
-                        <p className="text-[11px] text-muted-foreground">Mark dates when you are unavailable. Clinic admins will see a warning when trying to assign you on these dates.</p>
 
-                        {/* Calendar picker */}
+                      <div className="p-4 space-y-4">
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          Mark dates when you are unavailable. <span className="font-medium text-amber-700 dark:text-amber-400">Tap an amber date to remove it.</span> Clinic admins will see a warning when trying to assign you on these dates.
+                        </p>
+
+                        {/* Calendar + reason side by side */}
                         <div className="flex flex-col sm:flex-row gap-4 items-start">
-                          <div className="rounded-lg border border-border/60 overflow-hidden bg-background shadow-sm">
+
+                          {/* Calendar — no overflow-hidden so header isn't clipped */}
+                          <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-background shadow-sm pt-1">
                             <CalendarPicker
                               mode="single"
                               selected={leavePickerDate}
-                              onSelect={setLeavePickerDate}
-                              disabled={(date) => {
-                                const today = new Date(); today.setHours(0,0,0,0);
-                                const isAlreadyMarked = leaves.some(l => l.leaveDate === format(date, 'yyyy-MM-dd'));
-                                return date < today || isAlreadyMarked;
+                              onSelect={(date) => {
+                                if (!date) return;
+                                const dateStr = format(date, 'yyyy-MM-dd');
+                                const existing = leaves.find(l => l.leaveDate === dateStr);
+                                if (existing) {
+                                  removeLeaveMutation.mutate(existing.id);
+                                } else {
+                                  setLeavePickerDate(date);
+                                }
                               }}
-                              className="p-0"
+                              disabled={(date) => {
+                                const today = new Date(); today.setHours(0, 0, 0, 0);
+                                return date < today;
+                              }}
+                              modifiers={{
+                                leave: leaves.map(l => new Date(l.leaveDate + 'T00:00:00')),
+                              }}
+                              modifiersStyles={{
+                                leave: {
+                                  backgroundColor: 'rgb(251 191 36 / 0.25)',
+                                  color: '#92400e',
+                                  fontWeight: '700',
+                                  borderRadius: '6px',
+                                  border: '1.5px solid rgb(251 191 36 / 0.6)',
+                                },
+                              }}
+                              className="p-3"
                               data-testid="calendar-leave-picker"
                             />
+                            {/* Legend */}
+                            <div className="flex items-center gap-3 px-3 pb-3 pt-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="inline-block h-3 w-3 rounded-sm bg-primary/80" />
+                                <span className="text-[10px] text-muted-foreground">Selected</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="inline-block h-3 w-3 rounded-sm" style={{ background: 'rgb(251 191 36 / 0.3)', border: '1.5px solid rgb(251 191 36 / 0.6)' }} />
+                                <span className="text-[10px] text-muted-foreground">Leave (tap to remove)</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex flex-col gap-2 flex-1 w-full">
+
+                          {/* Reason + submit */}
+                          <div className="flex flex-col gap-2.5 flex-1 w-full">
                             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reason (optional)</Label>
                             <Input
                               data-testid="input-leave-reason"
@@ -1049,53 +1095,101 @@ export default function DoctorDashboard() {
                               onChange={e => setLeaveReason(e.target.value)}
                               placeholder="e.g. Medical appointment, Personal leave"
                               className="text-sm"
+                              maxLength={80}
                             />
+                            {leaveReason.length > 0 && (
+                              <p className="text-[10px] text-muted-foreground text-right -mt-1">{leaveReason.length}/80</p>
+                            )}
                             <Button
                               data-testid="button-mark-leave"
                               variant="outline"
-                              className="mt-1 border-amber-300 dark:border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 font-semibold"
+                              className={`mt-1 font-semibold transition-all ${
+                                leavePickerDate
+                                  ? "border-amber-400 dark:border-amber-500/60 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20 shadow-sm"
+                                  : "border-border text-muted-foreground"
+                              }`}
                               disabled={!leavePickerDate || addLeaveMutation.isPending}
                               onClick={() => {
                                 if (!leavePickerDate) return;
                                 addLeaveMutation.mutate({ leaveDate: format(leavePickerDate, 'yyyy-MM-dd'), reason: leaveReason || undefined });
                               }}
                             >
-                              {addLeaveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <CalendarDays className="h-3.5 w-3.5 mr-2" />}
-                              {leavePickerDate ? `Mark ${format(leavePickerDate, 'MMM d')} as Out of Office` : "Select a date first"}
+                              {addLeaveMutation.isPending
+                                ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                : <CalendarDays className="h-3.5 w-3.5 mr-2" />}
+                              {leavePickerDate
+                                ? `Mark ${format(leavePickerDate, 'EEE, MMM d')} as Out of Office`
+                                : "Select a date on the calendar"}
                             </Button>
+
+                            {/* Inline hint when a leave date is tapped */}
+                            {removeLeaveMutation.isPending && (
+                              <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Removing leave…
+                              </p>
+                            )}
                           </div>
                         </div>
 
-                        {/* Existing leave list */}
+                        {/* Marked dates list — grouped by month */}
                         {isLeavesLoading ? (
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />Loading leaves...</div>
-                        ) : leaves.length > 0 ? (
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Marked Dates</Label>
-                            {leaves.map(leave => (
-                              <div key={leave.id} data-testid={`leave-item-${leave.id}`} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-amber-100/60 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
-                                <div className="flex items-center gap-2">
-                                  <CalendarDays className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                                  <div>
-                                    <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-                                      {format(new Date(leave.leaveDate + 'T00:00:00'), 'EEE, MMM d, yyyy')}
-                                    </span>
-                                    {leave.reason && <p className="text-[10px] text-amber-600 dark:text-amber-400/80">{leave.reason}</p>}
-                                  </div>
-                                </div>
-                                <button
-                                  data-testid={`button-remove-leave-${leave.id}`}
-                                  onClick={() => removeLeaveMutation.mutate(leave.id)}
-                                  disabled={removeLeaveMutation.isPending}
-                                  className="text-amber-600 hover:text-red-500 dark:text-amber-400 dark:hover:text-red-400 transition-colors"
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            ))}
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />Loading leaves…
                           </div>
-                        ) : (
-                          <p className="text-[11px] text-muted-foreground italic">No leaves marked yet.</p>
+                        ) : leaves.length > 0 ? (() => {
+                          const grouped = leaves.reduce((acc, l) => {
+                            const month = format(new Date(l.leaveDate + 'T00:00:00'), 'MMMM yyyy');
+                            if (!acc[month]) acc[month] = [];
+                            acc[month].push(l);
+                            return acc;
+                          }, {} as Record<string, DoctorLeave[]>);
+
+                          return (
+                            <div className="space-y-3">
+                              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Marked Dates</Label>
+                              {Object.entries(grouped).map(([month, monthLeaves]) => (
+                                <div key={month} className="space-y-1">
+                                  <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest px-1">{month}</p>
+                                  {monthLeaves.map(leave => (
+                                    <div
+                                      key={leave.id}
+                                      data-testid={`leave-item-${leave.id}`}
+                                      className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-amber-100/70 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 group hover:bg-amber-200/50 dark:hover:bg-amber-500/15 transition-colors"
+                                    >
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="h-7 w-7 rounded-md bg-amber-200/80 dark:bg-amber-500/20 flex items-center justify-center shrink-0">
+                                          <CalendarDays className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
+                                        </div>
+                                        <div>
+                                          <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                                            {format(new Date(leave.leaveDate + 'T00:00:00'), 'EEE, MMM d, yyyy')}
+                                          </span>
+                                          {leave.reason
+                                            ? <p className="text-[10px] text-amber-600/80 dark:text-amber-400/70 mt-0.5">{leave.reason}</p>
+                                            : <p className="text-[10px] text-muted-foreground/50 mt-0.5 italic">No reason given</p>
+                                          }
+                                        </div>
+                                      </div>
+                                      <button
+                                        data-testid={`button-remove-leave-${leave.id}`}
+                                        onClick={() => removeLeaveMutation.mutate(leave.id)}
+                                        disabled={removeLeaveMutation.isPending}
+                                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-amber-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 dark:text-amber-400 dark:hover:text-red-400 transition-all"
+                                        title="Remove this leave"
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })() : (
+                          <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-amber-50 dark:bg-amber-500/5 border border-dashed border-amber-200 dark:border-amber-500/20">
+                            <CalendarDays className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                            <p className="text-[11px] text-amber-600/70 dark:text-amber-400/60 italic">No leaves marked yet. Select a date above.</p>
+                          </div>
                         )}
                       </div>
                     </div>
