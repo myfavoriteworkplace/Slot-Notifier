@@ -18,7 +18,8 @@ import {
   Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X,
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText,
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
-  Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, CreditCard
+  Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, CreditCard,
+  Users, Search, ArrowUpDown, BadgeCheck
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -162,7 +163,7 @@ export default function ClinicDashboard() {
 
   // Booking form state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'website' | 'accounts'>('bookings');
+  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'website' | 'accounts' | 'patients'>('bookings');
   const [accountsSearch, setAccountsSearch] = useState("");
   const [accountsStatusFilter, setAccountsStatusFilter] = useState<'all' | 'paid' | 'pending' | 'partial' | 'overdue'>('all');
   const [accountsView, setAccountsView] = useState<'ledger' | 'register'>('ledger');
@@ -259,6 +260,19 @@ export default function ClinicDashboard() {
     },
     enabled: isAuthenticated,
   });
+
+  // Patient directory
+  const { data: patientDirectory = [], isLoading: patientsLoading } = useQuery<(Patient & { totalBilled: number })[]>({
+    queryKey: ['/api/auth/clinic/patients'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/auth/clinic/patients');
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isAuthenticated && activePanel === 'patients',
+  });
+  const [patientSearch, setPatientSearch] = useState("");
+  const [patientSort, setPatientSort] = useState<'recent' | 'visits' | 'billed'>('recent');
 
   const updateBillStatusMutation = useMutation({
     mutationFn: ({ id, paymentStatus }: { id: number; paymentStatus: string }) =>
@@ -1814,6 +1828,26 @@ export default function ClinicDashboard() {
                     <span className="text-[9px] font-bold bg-primary/15 text-primary px-1.5 py-0.5 rounded-full">{allBills.length}</span>
                   )}
                   {activePanel === 'accounts' && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                </div>
+              </button>
+
+              <button
+                onClick={() => setActivePanel('patients')}
+                data-testid="nav-patients"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'patients' ? 'bg-rose-500/10 border border-rose-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'patients' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Users className={`h-4 w-4 ${activePanel === 'patients' ? 'text-rose-500' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'patients' ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'}`}>Patients</p>
+                  <p className="text-[10px] text-muted-foreground">Patient directory</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {patientDirectory.length > 0 && (
+                    <span className="text-[9px] font-bold bg-rose-500/15 text-rose-600 px-1.5 py-0.5 rounded-full">{patientDirectory.length}</span>
+                  )}
+                  {activePanel === 'patients' && <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />}
                 </div>
               </button>
 
@@ -4713,6 +4747,228 @@ export default function ClinicDashboard() {
                   </div>
                 )}
 
+              </div>
+            );
+          })()}
+
+          {/* PATIENT DIRECTORY PANEL */}
+          {activePanel === 'patients' && (() => {
+            const q = patientSearch.toLowerCase().trim();
+            const filtered = patientDirectory.filter(p =>
+              !q ||
+              (p.patientCode ?? '').toLowerCase().includes(q) ||
+              (p.name ?? '').toLowerCase().includes(q) ||
+              (p.email ?? '').toLowerCase().includes(q) ||
+              (p.phone ?? '').toLowerCase().includes(q)
+            );
+            const sorted = [...filtered].sort((a, b) => {
+              if (patientSort === 'visits') return b.visitCount - a.visitCount;
+              if (patientSort === 'billed') return b.totalBilled - a.totalBilled;
+              return new Date(b.lastVisitAt ?? 0).getTime() - new Date(a.lastVisitAt ?? 0).getTime();
+            });
+
+            const totalPatients = patientDirectory.length;
+            const nowMs = Date.now();
+            const activeThisMonth = patientDirectory.filter(p =>
+              p.lastVisitAt && (nowMs - new Date(p.lastVisitAt).getTime()) < 30 * 24 * 60 * 60 * 1000
+            ).length;
+            const newThisMonth = patientDirectory.filter(p =>
+              p.createdAt && (nowMs - new Date(p.createdAt).getTime()) < 30 * 24 * 60 * 60 * 1000
+            ).length;
+            const totalRevenue = patientDirectory.reduce((s, p) => s + p.totalBilled, 0);
+
+            const exportCSV = () => {
+              const header = ['PAT Code', 'Name', 'Email', 'Phone', 'Visits', 'Last Visit', 'Total Billed (₹)'];
+              const rows = patientDirectory.map(p => [
+                p.patientCode ?? '',
+                p.name ?? '',
+                p.email ?? '',
+                p.phone ?? '',
+                String(p.visitCount),
+                p.lastVisitAt ? format(new Date(p.lastVisitAt), 'dd MMM yyyy') : '',
+                String(p.totalBilled),
+              ]);
+              const csv = [header, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+              const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+              const a = document.createElement('a'); a.href = url; a.download = 'patients.csv'; a.click();
+              URL.revokeObjectURL(url);
+            };
+
+            return (
+              <div className="space-y-5">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                      <Users className="h-5 w-5 text-rose-500" />
+                      Patient Directory
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">All patients who booked via verified email</p>
+                  </div>
+                  <button
+                    onClick={exportCSV}
+                    data-testid="button-export-patients"
+                    disabled={patientDirectory.length === 0}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl border border-border/60 bg-card hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export CSV
+                  </button>
+                </div>
+
+                {/* Stats row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Total Patients', value: totalPatients, icon: Users, color: 'rose' },
+                    { label: 'Active This Month', value: activeThisMonth, icon: TrendingUp, color: 'emerald' },
+                    { label: 'New This Month', value: newThisMonth, icon: BadgeCheck, color: 'blue' },
+                    { label: 'Revenue Collected', value: `₹${totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, icon: IndianRupee, color: 'amber' },
+                  ].map(({ label, value, icon: Icon, color }) => (
+                    <div key={label} className="rounded-xl border border-border/50 bg-card p-4">
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center mb-2 ${
+                        color === 'rose' ? 'bg-rose-500/10' :
+                        color === 'emerald' ? 'bg-emerald-500/10' :
+                        color === 'blue' ? 'bg-blue-500/10' : 'bg-amber-500/10'
+                      }`}>
+                        <Icon className={`h-4 w-4 ${
+                          color === 'rose' ? 'text-rose-500' :
+                          color === 'emerald' ? 'text-emerald-600' :
+                          color === 'blue' ? 'text-blue-500' : 'text-amber-600'
+                        }`} />
+                      </div>
+                      <p className="text-xl font-bold text-foreground">{value}</p>
+                      <p className="text-[11px] text-muted-foreground">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Search + Sort bar */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex-1 min-w-[200px] relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      value={patientSearch}
+                      onChange={e => setPatientSearch(e.target.value)}
+                      placeholder="Search by name, email, phone or PAT code…"
+                      data-testid="input-patient-search"
+                      className="w-full h-9 pl-9 pr-3 text-sm rounded-xl border border-border/60 bg-card focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500/10 transition-all placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card p-1">
+                    {(['recent', 'visits', 'billed'] as const).map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setPatientSort(s)}
+                        data-testid={`button-sort-${s}`}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${patientSort === s ? 'bg-rose-500/10 text-rose-600' : 'text-muted-foreground hover:text-foreground'}`}
+                      >
+                        <ArrowUpDown className="h-3 w-3" />
+                        {s === 'recent' ? 'Recent' : s === 'visits' ? 'Most Visits' : 'Highest Billed'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Patient list */}
+                {patientsLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : sorted.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+                      <Users className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-semibold text-muted-foreground">
+                      {patientSearch ? 'No patients match your search' : 'No patients yet'}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      {patientSearch ? 'Try a different name, email, or PAT code' : 'Patients appear here once they book with email OTP verification'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+                    {/* Table header */}
+                    <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center px-4 py-2.5 bg-muted/30 border-b border-border/50 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <span className="w-20">PAT Code</span>
+                      <span>Name</span>
+                      <span>Email</span>
+                      <span>Phone</span>
+                      <span className="w-14 text-right">Visits</span>
+                      <span className="w-24 text-right">Last Visit</span>
+                      <span className="w-24 text-right">Billed</span>
+                    </div>
+
+                    <div className="divide-y divide-border/50">
+                      {sorted.map((patient, idx) => (
+                        <div
+                          key={patient.id}
+                          data-testid={`row-patient-${patient.id}`}
+                          className="px-4 py-3 hover:bg-muted/20 transition-colors"
+                        >
+                          {/* Desktop row */}
+                          <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center">
+                            <span className="w-20 font-mono text-[11px] font-bold bg-rose-500/10 text-rose-600 px-2 py-1 rounded-md">
+                              {patient.patientCode ?? '—'}
+                            </span>
+                            <span className="text-sm font-medium text-foreground truncate">{patient.name ?? '—'}</span>
+                            <span className="text-[11px] text-muted-foreground truncate">{patient.email ?? '—'}</span>
+                            <span className="text-[11px] text-muted-foreground truncate">{patient.phone ?? '—'}</span>
+                            <span className="w-14 text-right">
+                              <span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-primary/10 text-primary text-[11px] font-bold px-1.5">
+                                {patient.visitCount}
+                              </span>
+                            </span>
+                            <span className="w-24 text-right text-[11px] text-muted-foreground">
+                              {patient.lastVisitAt ? format(new Date(patient.lastVisitAt), 'dd MMM yyyy') : '—'}
+                            </span>
+                            <span className="w-24 text-right text-sm font-semibold text-emerald-600">
+                              {patient.totalBilled > 0 ? `₹${patient.totalBilled.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
+                            </span>
+                          </div>
+
+                          {/* Mobile card */}
+                          <div className="sm:hidden flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="h-9 w-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+                                <User className="h-4 w-4 text-rose-500" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-semibold text-foreground truncate">{patient.name ?? '—'}</p>
+                                  <span className="font-mono text-[9px] font-bold bg-rose-500/10 text-rose-600 px-1.5 py-0.5 rounded-md shrink-0">
+                                    {patient.patientCode ?? '—'}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground truncate">{patient.email ?? '—'}</p>
+                                <p className="text-[11px] text-muted-foreground">{patient.phone ?? '—'}</p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-bold text-emerald-600">
+                                {patient.totalBilled > 0 ? `₹${patient.totalBilled.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">{patient.visitCount} visit{patient.visitCount !== 1 ? 's' : ''}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {patient.lastVisitAt ? format(new Date(patient.lastVisitAt), 'dd MMM') : '—'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-4 py-2.5 bg-muted/30 border-t border-border/50 flex items-center justify-between gap-3 flex-wrap">
+                      <p className="text-[10px] text-muted-foreground">
+                        Showing {sorted.length} of {totalPatients} patient{totalPatients !== 1 ? 's' : ''}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Total billed <span className="font-bold text-emerald-600">₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}

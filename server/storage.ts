@@ -107,7 +107,7 @@ export interface IStorage {
   createPatient(patient: InsertPatient): Promise<Patient>;
   upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
   getPatientByEmail(clinicId: number, email: string): Promise<Patient | null>;
-  getPatientsByClinic(clinicId: number): Promise<Patient[]>;
+  getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]>;
 
   // Doctor Profile
   updateDoctorProfile(id: number, updates: Partial<Doctor>): Promise<Doctor>;
@@ -1125,10 +1125,17 @@ export class DatabaseStorage implements IStorage {
     return patient ?? null;
   }
 
-  async getPatientsByClinic(clinicId: number): Promise<Patient[]> {
-    return db.select().from(patients)
-      .where(and(eq(patients.clinicId, clinicId), sql`patient_code IS NOT NULL`))
-      .orderBy(desc(patients.lastVisitAt));
+  async getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]> {
+    const rows = await db.select({
+      patient: patients,
+      totalBilled: sql<number>`COALESCE(SUM(CASE WHEN ${patientBills.paymentStatus} = 'paid' THEN ${patientBills.total} ELSE 0 END), 0)`,
+    })
+    .from(patients)
+    .leftJoin(patientBills, eq(patientBills.patientId, patients.id))
+    .where(and(eq(patients.clinicId, clinicId), sql`${patients.patientCode} IS NOT NULL`))
+    .groupBy(patients.id)
+    .orderBy(desc(patients.lastVisitAt));
+    return rows.map(r => ({ ...r.patient, totalBilled: Number(r.totalBilled) }));
   }
 
   async updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill> {
