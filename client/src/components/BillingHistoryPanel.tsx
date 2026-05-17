@@ -63,7 +63,7 @@ export function BillingHistoryPanel({
   const { data: bills = [], isLoading } = useQuery<PatientBill[]>({
     queryKey: ["/api/auth/clinic/bills/booking", bookingId],
     queryFn: async () => {
-      const res = await fetch(`/api/auth/clinic/bills/booking/${bookingId}`, { credentials: "include" });
+      const res = await apiRequest("GET", `/api/auth/clinic/bills/booking/${bookingId}`);
       if (!res.ok) throw new Error("Failed to load bills");
       return res.json();
     },
@@ -73,17 +73,17 @@ export function BillingHistoryPanel({
     queryKey: ["/api/auth/clinic/bills/patient-by-email", patientEmail || patientPhone],
     queryFn: async () => {
       if (patientEmail) {
-        const res = await fetch(
-          `/api/auth/clinic/bills/patient-by-email/${encodeURIComponent(patientEmail)}`,
-          { credentials: "include" }
+        const res = await apiRequest(
+          "GET",
+          `/api/auth/clinic/bills/patient-by-email/${encodeURIComponent(patientEmail)}`
         );
         if (!res.ok) throw new Error("Failed to load patient history");
         return res.json();
       }
       if (patientPhone) {
-        const res = await fetch(
-          `/api/auth/clinic/bills/patient/${encodeURIComponent(patientPhone)}`,
-          { credentials: "include" }
+        const res = await apiRequest(
+          "GET",
+          `/api/auth/clinic/bills/patient/${encodeURIComponent(patientPhone)}`
         );
         if (!res.ok) throw new Error("Failed to load patient history");
         return res.json();
