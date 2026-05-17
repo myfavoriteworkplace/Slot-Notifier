@@ -2080,28 +2080,109 @@ export default function ClinicDashboard() {
               </Tooltip>
             </TooltipProvider>
 
-            {/* Filtered (non-clickable, shows current result count) */}
+            {/* All — resets all filters; doubles as "Showing" when a filter is active */}
             <TooltipProvider delayDuration={300}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Card className="shadow-sm border-border/50 overflow-hidden cursor-default">
-                    <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
+                  <Card
+                    className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${
+                      quickFilter === 'all' && !filterDate
+                        ? 'ring-2 ring-violet-500 border-violet-400'
+                        : 'border-border/50'
+                    }`}
+                    onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); }}
+                    data-testid="card-filter-all"
+                  >
+                    <div className={`h-1 bg-gradient-to-r ${quickFilter === 'all' && !filterDate ? 'from-violet-500 to-purple-400' : 'from-amber-500 to-orange-400'}`} />
                     <CardContent className="p-4 text-left flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
-                        <Filter className="h-4 w-4 text-amber-500" />
+                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'all' && !filterDate ? 'bg-violet-500/20' : 'bg-amber-500/10'}`}>
+                        <Filter className={`h-4 w-4 ${quickFilter === 'all' && !filterDate ? 'text-violet-500' : 'text-amber-500'}`} />
                       </div>
-                      <div>
-                        <p className="text-[11px] font-medium text-muted-foreground">Showing</p>
-                        <p className="text-xl font-bold text-amber-600">{filteredBookings?.length || 0}</p>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-medium text-muted-foreground">
+                          {quickFilter === 'all' && !filterDate ? 'All' : 'Showing'}
+                        </p>
+                        <p className={`text-xl font-bold ${quickFilter === 'all' && !filterDate ? 'text-violet-600' : 'text-amber-600'}`}>
+                          {filteredBookings?.length || 0}
+                        </p>
                       </div>
+                      {quickFilter === 'all' && !filterDate && (
+                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                      )}
                     </CardContent>
                   </Card>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
-                  Total bookings matching your current filter or date range
+                  {quickFilter === 'all' && !filterDate
+                    ? 'Showing all bookings — click a filter above to narrow down'
+                    : `${filteredBookings?.length || 0} bookings match your current filter — click to reset all`
+                  }
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          </div>
+
+          {/* Compact single-line date range filter */}
+          <div className="flex items-center gap-2 flex-wrap bg-card border border-border/50 rounded-xl px-3 py-2 shadow-sm">
+            <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="text-[11px] font-medium text-muted-foreground shrink-0">Date range:</span>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`h-7 px-2.5 text-xs font-medium rounded-lg border transition-all ${
+                    filterDate
+                      ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10'
+                      : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground'
+                  }`}
+                >
+                  <CalendarIcon className="h-3 w-3 mr-1.5 shrink-0" />
+                  {filterDate ? format(filterDate, "MMM d") : "Start date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                <Calendar mode="single" selected={filterDate} onSelect={setFilterDate} initialFocus />
+              </PopoverContent>
+            </Popover>
+
+            <span className="text-muted-foreground/40 text-xs shrink-0">→</span>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!filterDate}
+                  className={`h-7 px-2.5 text-xs font-medium rounded-lg border transition-all ${
+                    filterEndDate
+                      ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10'
+                      : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground'
+                  }`}
+                >
+                  <CalendarIcon className="h-3 w-3 mr-1.5 shrink-0" />
+                  {filterEndDate ? format(filterEndDate, "MMM d") : "End date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                <Calendar mode="single" selected={filterEndDate} onSelect={setFilterEndDate} initialFocus />
+              </PopoverContent>
+            </Popover>
+
+            {(filterDate || filterEndDate) && (
+              <>
+                <div className="w-px h-4 bg-border/50 mx-0.5 shrink-0" />
+                <button
+                  onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); }}
+                  className="inline-flex items-center gap-1 h-7 px-2.5 text-[11px] font-semibold text-muted-foreground hover:text-destructive rounded-lg border border-transparent hover:border-destructive/30 bg-background transition-all"
+                  data-testid="button-clear-date-filter"
+                >
+                  <X className="h-3 w-3" />
+                  Clear
+                </button>
+              </>
+            )}
           </div>
 
           {/* Week filter chips */}
@@ -2188,75 +2269,6 @@ export default function ClinicDashboard() {
             </div>
 
           <div className="p-5 space-y-5">
-            <div className="bg-muted/30 p-4 rounded-xl border border-border/50 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground px-1 text-left">Start Date</p>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={`w-full justify-start text-left font-normal rounded-xl h-10 bg-background border-border/50 ${!filterDate && "text-muted-foreground"}`}>
-                        <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">{filterDate ? format(filterDate, "PPP") : "Select date"}</span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={filterDate}
-                        onSelect={setFilterDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground px-1 text-left">End Date (Optional)</p>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={`w-full justify-start text-left font-normal rounded-xl h-10 bg-background border-border/50 ${!filterEndDate && "text-muted-foreground"}`}>
-                        <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">{filterEndDate ? format(filterEndDate, "PPP") : "Select end date"}</span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={filterEndDate}
-                        onSelect={setFilterEndDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setFilterDate(new Date());
-                    setFilterEndDate(undefined);
-                  }}
-                  className="rounded-xl h-10 px-4 text-muted-foreground hover:text-foreground"
-                >
-                  Today
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setFilterDate(undefined);
-                    setFilterEndDate(undefined);
-                  }}
-                  className="rounded-xl h-10 px-4 text-muted-foreground hover:text-foreground"
-                >
-                  All
-                </Button>
-              </div>
-            </div>
-
           {/* Colour key */}
           {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && (
             <div className="flex items-center gap-x-5 gap-y-1.5 flex-wrap pb-1">
