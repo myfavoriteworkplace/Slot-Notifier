@@ -1999,21 +1999,21 @@ export default function ClinicDashboard() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Card
-                    className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'today' ? 'ring-2 ring-primary border-primary/60' : 'border-border/50'}`}
+                    className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'today' ? 'ring-2 ring-sky-400 border-sky-400/60' : 'border-border/50'}`}
                     onClick={() => setQuickFilter(q => q === 'today' ? 'all' : 'today')}
                     data-testid="card-filter-today"
                   >
-                    <div className="h-1 bg-gradient-to-r from-primary to-accent" />
+                    <div className="h-1 bg-gradient-to-r from-sky-400 to-cyan-400" />
                     <CardContent className="p-4 text-left flex items-center gap-3">
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-primary/20' : 'bg-primary/10'}`}>
-                        <CalendarIcon className="h-4 w-4 text-primary" />
+                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-sky-400/20' : 'bg-sky-400/10'}`}>
+                        <CalendarIcon className="h-4 w-4 text-sky-500" />
                       </div>
                       <div className="min-w-0">
                         <p className="text-[11px] font-medium text-muted-foreground">Today</p>
-                        <p className="text-xl font-bold text-primary">{todaysBookingsCount}</p>
+                        <p className="text-xl font-bold text-sky-600 dark:text-sky-400">{todaysBookingsCount}</p>
                       </div>
                       {quickFilter === 'today' && (
-                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                       )}
                     </CardContent>
                   </Card>
@@ -2029,21 +2029,21 @@ export default function ClinicDashboard() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Card
-                    className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'upcoming' ? 'ring-2 ring-blue-500 border-blue-400' : 'border-border/50'}`}
+                    className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'upcoming' ? 'ring-2 ring-primary border-primary/60' : 'border-border/50'}`}
                     onClick={() => setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming')}
                     data-testid="card-filter-upcoming"
                   >
-                    <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
+                    <div className="h-1 bg-gradient-to-r from-primary to-accent" />
                     <CardContent className="p-4 text-left flex items-center gap-3">
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-blue-500/20' : 'bg-blue-500/10'}`}>
-                        <TrendingUp className="h-4 w-4 text-blue-500" />
+                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-primary/20' : 'bg-primary/10'}`}>
+                        <TrendingUp className="h-4 w-4 text-primary" />
                       </div>
                       <div className="min-w-0">
                         <p className="text-[11px] font-medium text-muted-foreground">Upcoming</p>
-                        <p className="text-xl font-bold text-blue-600">{futureBookingsCount}</p>
+                        <p className="text-xl font-bold text-primary">{futureBookingsCount}</p>
                       </div>
                       {quickFilter === 'upcoming' && (
-                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                       )}
                     </CardContent>
                   </Card>
@@ -2273,34 +2273,33 @@ export default function ClinicDashboard() {
             </div>
 
           <div className="p-5 space-y-5">
-          {/* Colour key — two-channel legend */}
+          {/* Colour key — compact two-row legend box */}
           {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && (
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pb-1">
-              {/* TIME channel — top bar shape */}
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 shrink-0">When:</span>
+            <div className="inline-flex flex-col gap-1.5 border border-border/40 rounded-lg bg-muted/20 px-3 py-2">
+              {/* Row 1 — TIME (top bar) */}
+              <div className="flex items-center gap-3">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 w-10 shrink-0">When</span>
                 {([
-                  { color: "bg-sky-400",                          label: "Today"    },
-                  { color: "bg-primary",                          label: "Upcoming" },
-                  { color: "bg-slate-300 dark:bg-slate-500",      label: "Past"     },
+                  { color: "bg-sky-400",                     label: "Today"    },
+                  { color: "bg-primary",                     label: "Upcoming" },
+                  { color: "bg-slate-300 dark:bg-slate-500", label: "Past"     },
                 ] as const).map(({ color, label }) => (
                   <div key={label} className="flex items-center gap-1">
-                    <span className={`h-[3px] w-5 rounded-full shrink-0 ${color}`} />
+                    <span className={`h-[3px] w-4 rounded-full shrink-0 ${color}`} />
                     <span className="text-[10px] text-muted-foreground/60">{label}</span>
                   </div>
                 ))}
               </div>
-              <div className="hidden sm:block w-px h-3.5 bg-border/40 shrink-0" />
-              {/* STATUS channel — left border shape */}
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 shrink-0">Status:</span>
+              {/* Row 2 — STATUS (left border) */}
+              <div className="flex items-center gap-3">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 w-10 shrink-0">Status</span>
                 {([
-                  { color: "bg-emerald-400",                  label: "Confirmed"  },
-                  { color: "bg-amber-400",                    label: "Pending"    },
-                  { color: "bg-rose-400",                     label: "Cancelled"  },
+                  { color: "bg-emerald-400", label: "Confirmed" },
+                  { color: "bg-amber-400",   label: "Pending"   },
+                  { color: "bg-rose-400",    label: "Cancelled" },
                 ] as const).map(({ color, label }) => (
                   <div key={label} className="flex items-center gap-1">
-                    <span className={`h-4 w-[3px] rounded-full shrink-0 ${color}`} />
+                    <span className={`h-3.5 w-[3px] rounded-full shrink-0 ${color}`} />
                     <span className="text-[10px] text-muted-foreground/60">{label}</span>
                   </div>
                 ))}
