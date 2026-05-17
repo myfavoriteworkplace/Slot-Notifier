@@ -574,6 +574,7 @@ export default function ClinicDashboard() {
     remarks: "",
     paymentStatus: "paid" as "paid" | "pending" | "partial",
     existingBillId: undefined as number | undefined,
+    printOnly: false,
   });
 
   // Count today's bookings using the same timezone-safe comparison
@@ -772,6 +773,7 @@ export default function ClinicDashboard() {
       remarks: bills.map(b => b.notes).filter(Boolean).join(" | ") || "",
       paymentStatus: allPaid ? "paid" : anyPartial ? "partial" : "pending",
       existingBillId: undefined,
+      printOnly: true,
     });
     setIsBillingOpen(true);
   };
@@ -1151,43 +1153,45 @@ export default function ClinicDashboard() {
 
     doc.save(`receipt_${billingDetails.patientName.replace(/\s+/g, "_")}_${format(new Date(), "yyyyMMdd")}.pdf`);
 
-    // Save bill to database
-    const _saveSub = billingDetails.services.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
-    const _saveDiscPct = parseFloat(billingDetails.discount) || 0;
-    const _saveTaxPct = parseFloat(billingDetails.tax) || 0;
-    const _saveDiscAmt = _saveSub * (_saveDiscPct / 100);
-    const _saveTaxAmt = (_saveSub - _saveDiscAmt) * (_saveTaxPct / 100);
-    const _saveTot = _saveSub - _saveDiscAmt + _saveTaxAmt;
-    const _billPayload = {
-      bookingId: billingBooking.id,
-      billNumber: billingDetails.receiptNumber,
-      patientName: billingDetails.patientName,
-      patientPhone: billingDetails.patientPhone,
-      patientEmail: billingDetails.patientEmail,
-      services: billingDetails.services.map(s => ({
-        description: s.description,
-        category: "General",
-        amount: parseFloat(s.amount) || 0,
-        paid: billingDetails.paymentStatus === "paid",
-      })),
-      subtotal: _saveSub,
-      discountPct: _saveDiscPct,
-      taxPct: _saveTaxPct,
-      total: _saveTot,
-      paymentMethod: billingDetails.paymentMethod || "Cash",
-      paymentStatus: billingDetails.paymentStatus || "paid",
-      notes: billingDetails.remarks || null,
-    };
-    const _saveReq = billingDetails.existingBillId
-      ? apiRequest("PATCH", `/api/auth/clinic/bills/${billingDetails.existingBillId}`, _billPayload)
-      : apiRequest("POST", "/api/auth/clinic/bills", _billPayload);
-    _saveReq.then(() => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills/booking", billingBooking.id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills"] });
-    });
+    if (!billingDetails.printOnly) {
+      // Save / update bill in database
+      const _saveSub = billingDetails.services.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+      const _saveDiscPct = parseFloat(billingDetails.discount) || 0;
+      const _saveTaxPct = parseFloat(billingDetails.tax) || 0;
+      const _saveDiscAmt = _saveSub * (_saveDiscPct / 100);
+      const _saveTaxAmt = (_saveSub - _saveDiscAmt) * (_saveTaxPct / 100);
+      const _saveTot = _saveSub - _saveDiscAmt + _saveTaxAmt;
+      const _billPayload = {
+        bookingId: billingBooking.id,
+        billNumber: billingDetails.receiptNumber,
+        patientName: billingDetails.patientName,
+        patientPhone: billingDetails.patientPhone,
+        patientEmail: billingDetails.patientEmail,
+        services: billingDetails.services.map(s => ({
+          description: s.description,
+          category: "General",
+          amount: parseFloat(s.amount) || 0,
+          paid: billingDetails.paymentStatus === "paid",
+        })),
+        subtotal: _saveSub,
+        discountPct: _saveDiscPct,
+        taxPct: _saveTaxPct,
+        total: _saveTot,
+        paymentMethod: billingDetails.paymentMethod || "Cash",
+        paymentStatus: billingDetails.paymentStatus || "paid",
+        notes: billingDetails.remarks || null,
+      };
+      const _saveReq = billingDetails.existingBillId
+        ? apiRequest("PATCH", `/api/auth/clinic/bills/${billingDetails.existingBillId}`, _billPayload)
+        : apiRequest("POST", "/api/auth/clinic/bills", _billPayload);
+      _saveReq.then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills/booking", billingBooking.id] });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills"] });
+      });
+    }
 
     setIsBillingOpen(false);
-    toast({ title: "Receipt Generated", description: "PDF downloaded and saved to billing history." });
+    toast({ title: "Receipt Downloaded", description: billingDetails.printOnly ? "Consolidated PDF downloaded." : "PDF downloaded and saved to billing history." });
   };
 
   const printBillFromRecord = (bill: PatientBill) => {
@@ -5607,7 +5611,7 @@ export default function ClinicDashboard() {
             <Button variant="outline" onClick={() => setIsBillingOpen(false)}>Cancel</Button>
             <Button onClick={generatePDF} className="gap-2">
               <Download className="h-4 w-4" />
-              {billingDetails.existingBillId ? "Update & Download" : "Generate Receipt"}
+              {billingDetails.printOnly ? "Download PDF" : billingDetails.existingBillId ? "Update & Download" : "Generate Receipt"}
             </Button>
           </DialogFooter>
         </DialogContent>

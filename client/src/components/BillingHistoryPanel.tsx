@@ -254,22 +254,11 @@ export function BillingHistoryPanel({
     <div className="space-y-3">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <IndianRupee className="h-3.5 w-3.5 text-primary" />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            {bills.length > 0 ? `${bills.length} Bill${bills.length > 1 ? "s" : ""}` : "No Bills Yet"}
-          </span>
-        </div>
-        <Button
-          size="sm"
-          onClick={() => onGenerateReceipt(activeBill)}
-          className="h-7 px-2.5 text-[11px] font-bold gap-1 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0"
-          data-testid="button-billing-create"
-        >
-          <FileText className="h-3 w-3" />
-          {activeBill ? "Finalise Receipt" : "Generate Receipt"}
-        </Button>
+      <div className="flex items-center gap-1.5">
+        <IndianRupee className="h-3.5 w-3.5 text-primary" />
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          {bills.length > 0 ? `${bills.length} Bill${bills.length > 1 ? "s" : ""}` : "No Bills Yet"}
+        </span>
       </div>
 
       {/* ── Inline Add Charge ─────────────────────────────────── */}
