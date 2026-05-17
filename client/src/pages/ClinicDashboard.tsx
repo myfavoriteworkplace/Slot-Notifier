@@ -2273,20 +2273,38 @@ export default function ClinicDashboard() {
             </div>
 
           <div className="p-5 space-y-5">
-          {/* Colour key */}
+          {/* Colour key — two-channel legend */}
           {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && (
-            <div className="flex items-center gap-x-5 gap-y-1.5 flex-wrap pb-1">
-              {([
-                { color: "bg-emerald-400", label: "Today" },
-                { color: "bg-primary", label: "Confirmed" },
-                { color: "bg-amber-400", label: "Pending confirmation" },
-                { color: "bg-slate-300 dark:bg-slate-500", label: "Past" },
-              ] as const).map(({ color, label }) => (
-                <div key={label} className="flex items-center gap-1.5">
-                  <span className={`h-2 w-2 rounded-full shrink-0 ${color}`} />
-                  <span className="text-[10px] text-muted-foreground/60">{label}</span>
-                </div>
-              ))}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pb-1">
+              {/* TIME channel — top bar shape */}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 shrink-0">When:</span>
+                {([
+                  { color: "bg-sky-400",                          label: "Today"    },
+                  { color: "bg-primary",                          label: "Upcoming" },
+                  { color: "bg-slate-300 dark:bg-slate-500",      label: "Past"     },
+                ] as const).map(({ color, label }) => (
+                  <div key={label} className="flex items-center gap-1">
+                    <span className={`h-[3px] w-5 rounded-full shrink-0 ${color}`} />
+                    <span className="text-[10px] text-muted-foreground/60">{label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden sm:block w-px h-3.5 bg-border/40 shrink-0" />
+              {/* STATUS channel — left border shape */}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 shrink-0">Status:</span>
+                {([
+                  { color: "bg-emerald-400",                  label: "Confirmed"  },
+                  { color: "bg-amber-400",                    label: "Pending"    },
+                  { color: "bg-rose-400",                     label: "Cancelled"  },
+                ] as const).map(({ color, label }) => (
+                  <div key={label} className="flex items-center gap-1">
+                    <span className={`h-4 w-[3px] rounded-full shrink-0 ${color}`} />
+                    <span className="text-[10px] text-muted-foreground/60">{label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -2316,43 +2334,44 @@ export default function ClinicDashboard() {
                   const isBookingPast = bookingDateTime < startOfDay(new Date()) && !isBookingToday;
 
                   const isConfirmed = booking.verificationStatus === 'confirmed' || !!booking.confirmedBy;
+                  const isCancelled = booking.verificationStatus === 'cancelled';
 
+                  // Top accent bar — TIME dimension (when is the appointment?)
                   const accentBar = isBookingToday
-                    ? "bg-gradient-to-r from-emerald-400 to-teal-400"
+                    ? "bg-gradient-to-r from-sky-400 to-cyan-400"
                     : isBookingPast
                     ? "bg-gradient-to-r from-slate-400 to-slate-300"
-                    : isConfirmed
-                    ? "bg-gradient-to-r from-primary to-accent"
-                    : "bg-gradient-to-r from-amber-400 to-amber-300";
+                    : "bg-gradient-to-r from-primary to-accent";
 
+                  // Card header tint — follows time dimension
                   const headerBg = isBookingToday
-                    ? "bg-gradient-to-r from-emerald-500/8 to-teal-500/5"
+                    ? "bg-gradient-to-r from-sky-500/8 to-cyan-500/5"
                     : isBookingPast
                     ? "bg-muted/30"
-                    : isConfirmed
-                    ? "bg-gradient-to-r from-primary/5 to-accent/5"
-                    : "bg-gradient-to-r from-amber-500/5 to-amber-400/5";
+                    : "bg-gradient-to-r from-primary/5 to-accent/5";
 
-                  const statusLabel = isBookingPast
-                    ? "Past"
-                    : isConfirmed
-                    ? (isBookingToday ? "Today" : "Upcoming")
-                    : "Pending";
-                  const statusClass = isBookingPast
+                  // Time pill — WHEN is the appointment
+                  const timeLabel = isBookingToday ? "Today" : isBookingPast ? "Past" : "Upcoming";
+                  const timeClass = isBookingToday
+                    ? "text-sky-600 bg-sky-500/10 border-sky-500/25 dark:text-sky-400 dark:bg-sky-400/10 dark:border-sky-500/30"
+                    : isBookingPast
                     ? "text-muted-foreground bg-muted/50 border-border/50"
+                    : "text-primary bg-primary/10 border-primary/25";
+
+                  // Status pill — WHAT is the verification state
+                  const statusLabel = isCancelled ? "Cancelled" : isConfirmed ? "Confirmed" : "Pending";
+                  const statusClass = isCancelled
+                    ? "text-rose-600 bg-rose-500/10 border-rose-500/25 dark:text-rose-400 dark:bg-rose-400/10 dark:border-rose-500/30"
                     : isConfirmed
-                    ? (isBookingToday
-                        ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25"
-                        : "text-primary bg-primary/10 border-primary/25")
+                    ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
                     : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
 
+                  // Left border — STATUS dimension (confirmation state at a glance)
                   const cardOpacity = isBookingPast ? "opacity-75" : "";
-                  const leftBorder = isBookingToday
-                    ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
-                    : isBookingPast
-                    ? "border-l-2 border-l-slate-300 dark:border-l-slate-500"
+                  const leftBorder = isCancelled
+                    ? "border-l-2 border-l-rose-400 dark:border-l-rose-500"
                     : isConfirmed
-                    ? "border-l-2 border-l-primary/60"
+                    ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
                     : "border-l-2 border-l-amber-400 dark:border-l-amber-500";
 
                   const complaints = booking.description
@@ -2420,44 +2439,47 @@ export default function ClinicDashboard() {
                                 </div>
                               </div>
 
-                              {/* Status pill + consent pill */}
+                              {/* Time pill + Status pill + Consent pill */}
                               <div className="flex flex-col items-end gap-1">
-                                {!isConfirmed && !isBookingPast ? (
-                                  <TooltipProvider delayDuration={200}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className={`shrink-0 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${statusClass}`}>
+
+                                {/* Time pill — when is the appointment */}
+                                <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${timeClass}`}>
+                                  {isBookingToday && (
+                                    <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
+                                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-sky-500" />
+                                    </span>
+                                  )}
+                                  {timeLabel}
+                                </span>
+
+                                {/* Status pill — confirmation state */}
+                                <TooltipProvider delayDuration={200}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${statusClass}`}>
+                                        {!isConfirmed && !isCancelled && !isBookingPast && (
                                           <span className="relative flex h-1.5 w-1.5 shrink-0">
                                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
                                             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
                                           </span>
-                                          {statusLabel}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top" className="text-xs">
-                                        Patient booked — awaiting clinic confirmation
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                ) : (
-                                  <TooltipProvider delayDuration={200}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${statusClass}`}>
-                                          {isConfirmed && !isBookingPast && <CheckCircle2 className="h-2.5 w-2.5" />}
-                                          {statusLabel}
-                                        </span>
-                                      </TooltipTrigger>
-                                      {isConfirmed && !isBookingPast && booking.confirmedBy && (
-                                        <TooltipContent side="top" className="text-xs">
-                                          {booking.confirmedBy === 'doctor'
-                                            ? `Confirmed by Dr. ${booking.assignedDoctor || 'Doctor'}`
-                                            : 'Confirmed by Admin'}
-                                        </TooltipContent>
-                                      )}
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
+                                        )}
+                                        {isConfirmed && <CheckCircle2 className="h-2.5 w-2.5" />}
+                                        {isCancelled && <X className="h-2.5 w-2.5" />}
+                                        {statusLabel}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs">
+                                      {isCancelled
+                                        ? "This appointment has been cancelled"
+                                        : isConfirmed
+                                        ? `Confirmed by ${booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}`
+                                        : "Awaiting clinic confirmation"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+
+                                {/* Consent signed pill */}
                                 {booking.consentSignedAt && (
                                   <TooltipProvider delayDuration={200}>
                                     <Tooltip>
