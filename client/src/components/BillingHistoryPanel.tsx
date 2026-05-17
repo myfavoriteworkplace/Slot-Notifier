@@ -59,6 +59,7 @@ export function BillingHistoryPanel({
   const [addDesc, setAddDesc] = useState("");
   const [addAmount, setAddAmount] = useState("");
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [historyExpanded, setHistoryExpanded] = useState(false);
 
   const { data: bills = [], isLoading } = useQuery<PatientBill[]>({
@@ -233,6 +234,14 @@ export function BillingHistoryPanel({
     });
   };
 
+  const toggleDate = (label: string) => {
+    setExpandedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label); else next.add(label);
+      return next;
+    });
+  };
+
   const activeBill = bills.find(b => b.paymentStatus !== "paid") ?? bills[0];
 
   if (isLoading) return (
@@ -309,25 +318,53 @@ export function BillingHistoryPanel({
           <p className="text-[11px] text-muted-foreground/60 mt-0.5">or click "Generate Receipt" for a full invoice</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {[...groupByDate(bills).entries()].map(([dateLabel, dateBills]) => (
-            <div key={dateLabel}>
-              <div className="flex items-center justify-between mb-1.5 px-0.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                  {dateLabel}
-                </p>
-                {onConsolidatedReceipt && (
-                  <button
-                    onClick={() => onConsolidatedReceipt(dateBills)}
-                    className="flex items-center gap-1 text-[10px] font-semibold text-primary/70 hover:text-primary transition-colors"
-                    data-testid={`button-consolidated-receipt-${dateLabel}`}
-                  >
-                    <FileText className="h-2.5 w-2.5" />
-                    Consolidated PDF
-                  </button>
-                )}
-              </div>
-              <div className="space-y-2">
+        <div className="space-y-2">
+          {[...groupByDate(bills).entries()].map(([dateLabel, dateBills]) => {
+            const isDateOpen = expandedDates.has(dateLabel);
+            const groupTotal = dateBills.reduce((s, b) => s + (b.total ?? 0), 0);
+            const groupPaid = dateBills.every(b => b.paymentStatus === "paid");
+            return (
+            <div key={dateLabel} className="rounded-xl border border-border/50 overflow-hidden">
+              {/* Date group header — click to expand/collapse */}
+              <button
+                onClick={() => toggleDate(dateLabel)}
+                className="w-full flex items-center gap-2 px-3 py-2.5 bg-muted/20 hover:bg-muted/40 transition-colors text-left"
+                data-testid={`button-toggle-date-${dateLabel}`}
+              >
+                {isDateOpen
+                  ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                <span className="text-[11px] font-bold text-foreground/80 flex-1">{dateLabel}</span>
+                <span className="text-[10px] text-muted-foreground/70 shrink-0">
+                  {dateBills.length} bill{dateBills.length !== 1 ? "s" : ""}
+                </span>
+                <span className={`text-xs font-bold shrink-0 ${groupPaid ? "text-emerald-600" : "text-primary"}`}>
+                  ₹{groupTotal.toFixed(0)}
+                </span>
+                {/* Generate Bill button — stop propagation so it doesn't toggle the group */}
+                <span
+                  onClick={e => {
+                    e.stopPropagation();
+                    if (dateBills.length === 1) {
+                      onGenerateReceipt(dateBills[0]);
+                    } else if (onConsolidatedReceipt) {
+                      onConsolidatedReceipt(dateBills);
+                    } else {
+                      onGenerateReceipt(dateBills[0]);
+                    }
+                  }}
+                  role="button"
+                  className="flex items-center gap-1 text-[10px] font-semibold text-primary/70 hover:text-primary transition-colors shrink-0 px-1.5 py-0.5 rounded hover:bg-primary/10"
+                  data-testid={`button-generate-bill-${dateLabel}`}
+                >
+                  <FileText className="h-2.5 w-2.5" />
+                  {dateBills.length > 1 ? "Consolidated" : "Receipt"}
+                </span>
+              </button>
+
+              {/* Bills under this date — only visible when expanded */}
+              {isDateOpen && (
+              <div className="divide-y divide-border/30">
           {dateBills.map(bill => {
             const services = (bill.services ?? []) as ServiceItem[];
             const isExpanded = expandedIds.has(bill.id);
@@ -499,9 +536,11 @@ export function BillingHistoryPanel({
               </div>
             );
           })}
-              </div>
-            </div>
-          ))}
+          </div>
+        )}
+      </div>
+    );
+  })}
         </div>
       )}
 
