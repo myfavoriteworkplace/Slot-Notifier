@@ -2677,7 +2677,7 @@ export default function ClinicDashboard() {
                               <button
                                 key={key}
                                 onClick={() => setModalTab(booking.id, key)}
-                                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition-all border-b-2 ${
+                                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition-all border-b-2 focus-visible:outline-none ${
                                   isActive
                                     ? 'text-primary border-primary'
                                     : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground/30'
