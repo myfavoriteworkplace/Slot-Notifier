@@ -308,8 +308,14 @@ export function BillingHistoryPanel({
           <p className="text-[11px] text-muted-foreground/60 mt-0.5">or click "Generate Receipt" for a full invoice</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {bills.map(bill => {
+        <div className="space-y-3">
+          {[...groupByDate(bills).entries()].map(([dateLabel, dateBills]) => (
+            <div key={dateLabel}>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1.5 px-0.5">
+                {dateLabel}
+              </p>
+              <div className="space-y-2">
+          {dateBills.map(bill => {
             const services = (bill.services ?? []) as ServiceItem[];
             const isExpanded = expandedIds.has(bill.id);
             const paidAmt = services.filter(s => s.paid).reduce((s, i) => s + i.amount, 0);
@@ -480,6 +486,9 @@ export function BillingHistoryPanel({
               </div>
             );
           })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

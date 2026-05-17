@@ -2599,32 +2599,33 @@ export default function ClinicDashboard() {
                             })()}
                           </div>
 
-                          {/* Tab bar — sits at the bottom of the header */}
-                          <div className="relative flex border-t border-white/10 -mx-5">
-                            {([ 
-                              { key: 'overview', label: 'Overview', icon: <User className="h-3 w-3" /> },
-                              { key: 'clinical', label: 'Clinical', icon: <ClipboardList className="h-3 w-3" /> },
-                              { key: 'notes',    label: 'Notes',    icon: <FileText className="h-3 w-3" /> },
-                              { key: 'actions',  label: 'Actions',  icon: <Settings className="h-3 w-3" /> },
-                              { key: 'billing',  label: 'Billing',  icon: <IndianRupee className="h-3 w-3" /> },
-                            ] as const).map(({ key, label, icon }) => {
-                              const isActive = getModalTab(booking.id) === key;
-                              return (
-                                <button
-                                  key={key}
-                                  onClick={() => setModalTab(booking.id, key)}
-                                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition-all border-b-2 ${
-                                    isActive
-                                      ? 'text-white border-white'
-                                      : 'text-white/55 border-transparent hover:text-white/80'
-                                  }`}
-                                  data-testid={`modal-tab-${key}-${booking.id}`}
-                                >
-                                  {icon}{label}
-                                </button>
-                              );
-                            })}
-                          </div>
+                        </div>
+
+                        {/* Tab strip — neutral bar below header */}
+                        <div className="shrink-0 flex border-b border-border/60 bg-card">
+                          {([
+                            { key: 'overview', label: 'Overview', icon: <User className="h-3 w-3" /> },
+                            { key: 'clinical', label: 'Clinical', icon: <ClipboardList className="h-3 w-3" /> },
+                            { key: 'notes',    label: 'Notes',    icon: <FileText className="h-3 w-3" /> },
+                            { key: 'actions',  label: 'Actions',  icon: <Settings className="h-3 w-3" /> },
+                            { key: 'billing',  label: 'Billing',  icon: <IndianRupee className="h-3 w-3" /> },
+                          ] as const).map(({ key, label, icon }) => {
+                            const isActive = getModalTab(booking.id) === key;
+                            return (
+                              <button
+                                key={key}
+                                onClick={() => setModalTab(booking.id, key)}
+                                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition-all border-b-2 ${
+                                  isActive
+                                    ? 'text-primary border-primary'
+                                    : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground/30'
+                                }`}
+                                data-testid={`modal-tab-${key}-${booking.id}`}
+                              >
+                                {icon}{label}
+                              </button>
+                            );
+                          })}
                         </div>
 
                         {/* ── TAB PANELS ── */}
