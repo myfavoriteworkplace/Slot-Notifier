@@ -31,6 +31,7 @@ interface BillingHistoryPanelProps {
   patientCode?: string;
   onGenerateReceipt: (existingBill?: PatientBill) => void;
   onPrintBill: (bill: PatientBill) => void;
+  onConsolidatedReceipt?: (bills: PatientBill[]) => void;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -52,7 +53,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function BillingHistoryPanel({
-  bookingId, patientName, patientPhone, patientEmail, patientCode, onGenerateReceipt, onPrintBill,
+  bookingId, patientName, patientPhone, patientEmail, patientCode, onGenerateReceipt, onPrintBill, onConsolidatedReceipt,
 }: BillingHistoryPanelProps) {
   const { toast } = useToast();
   const [addDesc, setAddDesc] = useState("");
@@ -311,9 +312,21 @@ export function BillingHistoryPanel({
         <div className="space-y-3">
           {[...groupByDate(bills).entries()].map(([dateLabel, dateBills]) => (
             <div key={dateLabel}>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1.5 px-0.5">
-                {dateLabel}
-              </p>
+              <div className="flex items-center justify-between mb-1.5 px-0.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                  {dateLabel}
+                </p>
+                {onConsolidatedReceipt && (
+                  <button
+                    onClick={() => onConsolidatedReceipt(dateBills)}
+                    className="flex items-center gap-1 text-[10px] font-semibold text-primary/70 hover:text-primary transition-colors"
+                    data-testid={`button-consolidated-receipt-${dateLabel}`}
+                  >
+                    <FileText className="h-2.5 w-2.5" />
+                    Consolidated PDF
+                  </button>
+                )}
+              </div>
               <div className="space-y-2">
           {dateBills.map(bill => {
             const services = (bill.services ?? []) as ServiceItem[];

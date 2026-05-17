@@ -738,6 +738,44 @@ export default function ClinicDashboard() {
     setIsBillingOpen(true);
   };
 
+  const handleConsolidatedBilling = (booking: BookingWithSlot, bills: PatientBill[]) => {
+    setBillingBooking(booking);
+    const firstBill = bills[0];
+    const dateLabel = firstBill?.createdAt
+      ? format(new Date(firstBill.createdAt), "yyyyMMdd")
+      : format(new Date(), "yyyyMMdd");
+
+    const mergedServices = bills.flatMap(bill =>
+      ((bill.services ?? []) as { description: string; amount: number }[]).map(s => ({
+        description: s.description,
+        amount: String(s.amount),
+      }))
+    );
+
+    const allPaid = bills.every(b => b.paymentStatus === "paid");
+    const anyPartial = bills.some(b => b.paymentStatus === "partial");
+
+    setBillingDetails({
+      patientName: booking.customerName,
+      patientPhone: booking.customerPhone,
+      patientEmail: booking.customerEmail || "",
+      clinicName: (clinic as any)?.name || "",
+      clinicAddress: (clinic as any)?.address || "",
+      clinicPhone: (clinic as any)?.phone || "",
+      clinicEmail: (clinic as any)?.email || "",
+      receiptNumber: `CONSOL-${booking.id}-${dateLabel}`,
+      services: mergedServices.length > 0 ? mergedServices : [{ description: "Dental Consultation", amount: "500" }],
+      date: firstBill?.createdAt ? format(new Date(firstBill.createdAt), "PPP") : format(new Date(booking.slot.startTime), "PPP"),
+      discount: String(firstBill?.discountPct ?? 0),
+      tax: String(firstBill?.taxPct ?? 0),
+      paymentMethod: firstBill?.paymentMethod || "Cash",
+      remarks: bills.map(b => b.notes).filter(Boolean).join(" | ") || "",
+      paymentStatus: allPaid ? "paid" : anyPartial ? "partial" : "pending",
+      existingBillId: undefined,
+    });
+    setIsBillingOpen(true);
+  };
+
   const assignDoctorMutation = useMutation({
     mutationFn: async ({ bookingId, doctorName, doctorEmail }: { bookingId: number; doctorName: string; doctorEmail?: string }) => {
       const response = await apiRequest('PATCH', `/api/clinic/bookings/${bookingId}/assign-doctor`, { doctorName, doctorEmail });
@@ -3182,6 +3220,7 @@ export default function ClinicDashboard() {
                                 patientCode={(booking as any).patientCode || undefined}
                                 onGenerateReceipt={(existingBill) => handleOpenBilling(booking, existingBill)}
                                 onPrintBill={printBillFromRecord}
+                                onConsolidatedReceipt={(bills) => handleConsolidatedBilling(booking, bills)}
                               />
                             </div>
                           )}
@@ -3211,15 +3250,6 @@ export default function ClinicDashboard() {
                               )}
                             </div>
                           )}
-                          {/* Generate Bill */}
-                          <Button
-                            className="flex-1 gap-1.5 h-9 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20"
-                            onClick={() => handleOpenBilling(booking)}
-                            data-testid={`button-dialog-bill-${booking.id}`}
-                          >
-                            <IndianRupee className="h-3.5 w-3.5" />
-                            Generate Bill
-                          </Button>
                           {/* Cancel Booking */}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
