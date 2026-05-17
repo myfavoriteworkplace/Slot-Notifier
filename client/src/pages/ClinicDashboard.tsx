@@ -2354,8 +2354,9 @@ export default function ClinicDashboard() {
                     showDivider ? (
                       <div key={`divider-group-${group}`} className="col-span-full flex items-center gap-3 mt-2 mb-1">
                         <div className="h-px flex-1 bg-border/50" />
-                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${groupCfg.textColor} ${groupCfg.bg} ${groupCfg.border}`}>
+                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${groupCfg.textColor} ${groupCfg.bg} ${groupCfg.border}`}>
                           {groupCfg.label}
+                          <span className="font-black opacity-70">— {filteredBookings?.filter(b => getStatusGroup(b) === group).length ?? 0}</span>
                         </span>
                         <div className="h-px flex-1 bg-border/50" />
                       </div>
@@ -2409,7 +2410,11 @@ export default function ClinicDashboard() {
                                   <TooltipProvider delayDuration={200}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${statusClass}`}>
+                                        <span className={`shrink-0 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${statusClass}`}>
+                                          <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
+                                          </span>
                                           {statusLabel}
                                         </span>
                                       </TooltipTrigger>
