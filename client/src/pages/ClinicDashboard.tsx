@@ -1952,6 +1952,36 @@ export default function ClinicDashboard() {
             <div className="space-y-5">
           {/* Stats Cards — click to filter */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* Today */}
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card
+                    className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'today' ? 'ring-2 ring-primary border-primary/60' : 'border-border/50'}`}
+                    onClick={() => setQuickFilter(q => q === 'today' ? 'all' : 'today')}
+                    data-testid="card-filter-today"
+                  >
+                    <div className="h-1 bg-gradient-to-r from-primary to-accent" />
+                    <CardContent className="p-4 text-left flex items-center gap-3">
+                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-primary/20' : 'bg-primary/10'}`}>
+                        <CalendarIcon className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-medium text-muted-foreground">Today</p>
+                        <p className="text-xl font-bold text-primary">{todaysBookingsCount}</p>
+                      </div>
+                      {quickFilter === 'today' && (
+                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                  All appointments scheduled for today
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
             {/* Upcoming */}
             <TooltipProvider delayDuration={300}>
               <Tooltip>
@@ -2008,36 +2038,6 @@ export default function ClinicDashboard() {
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
                   All appointments that have already passed
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            {/* Today */}
-            <TooltipProvider delayDuration={300}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Card
-                    className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'today' ? 'ring-2 ring-primary border-primary/60' : 'border-border/50'}`}
-                    onClick={() => setQuickFilter(q => q === 'today' ? 'all' : 'today')}
-                    data-testid="card-filter-today"
-                  >
-                    <div className="h-1 bg-gradient-to-r from-primary to-accent" />
-                    <CardContent className="p-4 text-left flex items-center gap-3">
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-primary/20' : 'bg-primary/10'}`}>
-                        <CalendarIcon className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-medium text-muted-foreground">Today</p>
-                        <p className="text-xl font-bold text-primary">{todaysBookingsCount}</p>
-                      </div>
-                      {quickFilter === 'today' && (
-                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
-                  All appointments scheduled for today
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -2244,19 +2244,24 @@ export default function ClinicDashboard() {
                   const isBookingToday = bookingDateStr === todayStr;
                   const isBookingPast = bookingDateTime < startOfDay(new Date()) && !isBookingToday;
 
+                  const isConfirmed = booking.verificationStatus === 'confirmed' || !!booking.confirmedBy;
+
                   const accentBar = isBookingToday
                     ? "bg-gradient-to-r from-emerald-400 to-teal-400"
                     : isBookingPast
                     ? "bg-gradient-to-r from-slate-400 to-slate-300"
+                    : isConfirmed
+                    ? "bg-gradient-to-r from-blue-500 to-cyan-400"
                     : "bg-gradient-to-r from-primary via-accent to-accent";
 
                   const headerBg = isBookingToday
                     ? "bg-gradient-to-r from-emerald-500/8 to-teal-500/5"
                     : isBookingPast
                     ? "bg-muted/30"
+                    : isConfirmed
+                    ? "bg-gradient-to-r from-blue-500/5 to-cyan-400/5"
                     : "bg-gradient-to-r from-primary/5 to-accent/5";
 
-                  const isConfirmed = booking.verificationStatus === 'confirmed' || !!booking.confirmedBy;
                   const statusLabel = isBookingPast
                     ? "Past"
                     : isConfirmed
@@ -2267,7 +2272,7 @@ export default function ClinicDashboard() {
                     : isConfirmed
                     ? (isBookingToday
                         ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25"
-                        : "text-primary bg-primary/10 border-primary/25")
+                        : "text-blue-600 bg-blue-500/10 border-blue-500/25")
                     : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
 
                   const cardOpacity = isBookingPast ? "opacity-75" : "";
