@@ -2543,19 +2543,53 @@ export default function ClinicDashboard() {
                               </div>
                             ) : !isBookingPast && (
                               <div className="flex items-center gap-2 text-[12px] min-w-0">
-                                <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
-                                  <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
-                                    <Stethoscope className="h-3 w-3 text-muted-foreground/50" />
-                                  </div>
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="italic text-muted-foreground/60 truncate">No doctor assigned</span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>No doctor assigned</TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
+                                <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                  <Stethoscope className="h-3 w-3 text-muted-foreground/50" />
                                 </div>
+                                {(booking.clinicDoctors ?? []).length > 0 ? (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 px-2 py-0.5 rounded-full transition-colors"
+                                        data-testid={`button-assign-inline-${booking.id}`}
+                                      >
+                                        <UserPlus className="h-2.5 w-2.5" />
+                                        Assign doctor
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                      className="w-52 p-1.5 rounded-xl shadow-lg"
+                                      side="top"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">Select a doctor</p>
+                                      <div className="space-y-0.5">
+                                        {(booking.clinicDoctors ?? []).map((doc, idx) => (
+                                          <button
+                                            key={idx}
+                                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-primary/5 transition-colors text-left"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: doc.name, doctorEmail: (doc as any).email ?? '' });
+                                            }}
+                                            disabled={assignDoctorMutation.isPending}
+                                          >
+                                            <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                              <span className="text-[10px] font-bold text-primary">{doc.name.charAt(0)}</span>
+                                            </div>
+                                            <div className="min-w-0">
+                                              <p className="text-xs font-semibold truncate">Dr. {doc.name}</p>
+                                              <p className="text-[10px] text-muted-foreground truncate">{doc.specialization}</p>
+                                            </div>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                ) : (
+                                  <span className="italic text-muted-foreground/60 text-[11px]">No doctor assigned</span>
+                                )}
                                 {booking.confirmedBy === 'admin' && (
                                   <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 shrink-0">
                                     <CheckCircle2 className="h-2.5 w-2.5" />
