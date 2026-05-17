@@ -2257,6 +2257,23 @@ export default function ClinicDashboard() {
               </div>
             </div>
 
+          {/* Colour key */}
+          {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && (
+            <div className="flex items-center gap-x-5 gap-y-1.5 flex-wrap pb-1">
+              {([
+                { color: "bg-emerald-400", label: "Today" },
+                { color: "bg-primary", label: "Confirmed" },
+                { color: "bg-amber-400", label: "Pending confirmation" },
+                { color: "bg-slate-300 dark:bg-slate-500", label: "Past" },
+              ] as const).map(({ color, label }) => (
+                <div key={label} className="flex items-center gap-1.5">
+                  <span className={`h-2 w-2 rounded-full shrink-0 ${color}`} />
+                  <span className="text-[10px] text-muted-foreground/60">{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {bookingsLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -2289,16 +2306,16 @@ export default function ClinicDashboard() {
                     : isBookingPast
                     ? "bg-gradient-to-r from-slate-400 to-slate-300"
                     : isConfirmed
-                    ? "bg-gradient-to-r from-blue-500 to-cyan-400"
-                    : "bg-gradient-to-r from-primary via-accent to-accent";
+                    ? "bg-gradient-to-r from-primary to-accent"
+                    : "bg-gradient-to-r from-amber-400 to-amber-300";
 
                   const headerBg = isBookingToday
                     ? "bg-gradient-to-r from-emerald-500/8 to-teal-500/5"
                     : isBookingPast
                     ? "bg-muted/30"
                     : isConfirmed
-                    ? "bg-gradient-to-r from-blue-500/5 to-cyan-400/5"
-                    : "bg-gradient-to-r from-primary/5 to-accent/5";
+                    ? "bg-gradient-to-r from-primary/5 to-accent/5"
+                    : "bg-gradient-to-r from-amber-500/5 to-amber-400/5";
 
                   const statusLabel = isBookingPast
                     ? "Past"
@@ -2310,10 +2327,17 @@ export default function ClinicDashboard() {
                     : isConfirmed
                     ? (isBookingToday
                         ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25"
-                        : "text-blue-600 bg-blue-500/10 border-blue-500/25")
+                        : "text-primary bg-primary/10 border-primary/25")
                     : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
 
                   const cardOpacity = isBookingPast ? "opacity-75" : "";
+                  const leftBorder = isBookingToday
+                    ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
+                    : isBookingPast
+                    ? "border-l-2 border-l-slate-300 dark:border-l-slate-500"
+                    : isConfirmed
+                    ? "border-l-2 border-l-primary/60"
+                    : "border-l-2 border-l-amber-400 dark:border-l-amber-500";
 
                   const complaints = booking.description
                     ? CHIEF_COMPLAINTS.filter(c =>
@@ -2339,7 +2363,7 @@ export default function ClinicDashboard() {
                     (
                   <Card
                     key={booking.id}
-                    className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group flex flex-col ${cardOpacity} ${isPending ? "border-l-2 border-l-amber-400 dark:border-l-amber-500" : ""}`}
+                    className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group flex flex-col ${cardOpacity} ${leftBorder}`}
                     data-testid={`card-booking-${booking.id}`}
                   >
                     {/* Status accent bar */}
