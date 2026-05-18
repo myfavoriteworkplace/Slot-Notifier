@@ -652,7 +652,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
             </div>
 
             {/* ── Mode toggle pill switcher ── */}
-            <div className="flex gap-1.5 p-1 bg-muted/40 border border-border/50 rounded-xl mb-4 w-fit">
+            <div className="flex gap-1.5 p-1 bg-muted/40 border border-border/50 rounded-xl mb-4 w-full sm:w-fit">
               {([
                 { id: "select", Icon: Building2, label: "All Clinics"          },
                 { id: "search", Icon: MapPin,    label: "Search by Name / Area" },
@@ -664,7 +664,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     setSearchQuery("");
                     setIsDropdownOpen(false);
                   }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                  className={`flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
                     clinicMode === id
                       ? "bg-gradient-to-r from-primary to-accent text-white shadow-md shadow-primary/20"
                       : "text-muted-foreground hover:text-foreground"
@@ -896,11 +896,11 @@ export default function Book(props: { params: { clinicId?: string } }) {
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => { setInfoClinic(selectedClinicObj ?? null); setIsClinicSheetOpen(true); }}
-                    className="flex items-center gap-1.5 h-8 px-3 rounded-xl bg-white/15 hover:bg-white/30 text-white/90 hover:text-white text-[11px] font-bold transition-all border border-white/25 hover:border-white/45 shadow-sm"
+                    className="flex items-center gap-1.5 h-9 px-2 sm:px-3 rounded-xl bg-white/15 hover:bg-white/30 text-white/90 hover:text-white text-[11px] font-bold transition-all border border-white/25 hover:border-white/45 shadow-sm"
                     data-testid="button-view-clinic-details"
                   >
-                    <Info className="h-3.5 w-3.5" />
-                    <span>About Clinic</span>
+                    <Info className="h-3.5 w-3.5 shrink-0" />
+                    <span className="hidden sm:inline">About Clinic</span>
                   </button>
                   {!clinicIdFromUrl && (
                     <button

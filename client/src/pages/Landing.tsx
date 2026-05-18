@@ -134,49 +134,57 @@ export default function Landing() {
         @keyframes screenInSlow { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
         @media (max-width: 900px) {
-          .lnd-hero          { grid-template-columns: 1fr !important; min-height: auto !important; padding: 40px 24px 60px !important; }
-          .lnd-doctor-hero   { display: none !important; }
-          .lnd-float-badge-1 { right: -8px  !important; top: 12px    !important; }
-          .lnd-float-badge-2 { left:  -8px  !important; bottom: 40px !important; }
-          .lnd-feat-4        { grid-template-columns: 1fr 1fr !important; }
-          .lnd-feat-3        { grid-template-columns: 1fr 1fr !important; }
-          .lnd-steps         { grid-template-columns: 1fr !important; gap: 28px !important; }
-          .lnd-steps::before { display: none !important; }
-          .lnd-how-inner     { padding: 40px 24px !important; }
-          .lnd-cta-inner     { padding: 40px 24px !important; }
-          .lnd-section       { padding-left: 24px !important; padding-right: 24px !important; }
-          .lnd-footer        { padding: 18px 24px !important; }
-          .lnd-deals-inner   { grid-template-columns: 1fr !important; }
-          .lnd-wf-steps      { flex-wrap: wrap !important; }
-          .lnd-wf-connector  { display: none !important; }
-          .lnd-clinic-card   { grid-template-columns: 1fr !important; padding: 32px 28px !important; }
-          .lnd-clinic-anim   { display: none !important; }
-          .lnd-patient-card  { grid-template-columns: 1fr !important; padding: 32px 28px !important; }
-          .lnd-patient-anim  { display: none !important; }
+          .lnd-hero            { grid-template-columns: 1fr !important; min-height: auto !important; padding: 40px 24px 60px !important; }
+          .lnd-doctor-hero     { display: none !important; }
+          .lnd-float-badge-1   { right: -8px  !important; top: 12px    !important; }
+          .lnd-float-badge-2   { left:  -8px  !important; bottom: 40px !important; }
+          .lnd-feat-4          { grid-template-columns: 1fr 1fr !important; }
+          .lnd-feat-3          { grid-template-columns: 1fr 1fr !important; }
+          .lnd-steps           { grid-template-columns: 1fr !important; gap: 28px !important; }
+          .lnd-step-connector  { display: none !important; }
+          .lnd-how-inner       { padding: 40px 24px !important; }
+          .lnd-cta-inner       { padding: 40px 24px !important; }
+          .lnd-section         { padding-left: 24px !important; padding-right: 24px !important; }
+          .lnd-footer          { padding: 18px 24px !important; }
+          .lnd-deals-inner     { grid-template-columns: 1fr !important; }
+          .lnd-deals-box       { padding: 36px 28px !important; }
+          .lnd-wf-steps        { flex-wrap: wrap !important; }
+          .lnd-wf-connector    { display: none !important; }
+          .lnd-clinic-card     { grid-template-columns: 1fr !important; padding: 32px 28px !important; }
+          .lnd-clinic-anim     { display: none !important; }
+          .lnd-patient-card    { grid-template-columns: 1fr !important; padding: 32px 28px !important; }
+          .lnd-patient-anim    { display: none !important; }
+          .lnd-section-btns    { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+          .lnd-section-btns button { min-height: 44px !important; }
         }
         @media (max-width: 540px) {
-          .lnd-hero          { padding: 24px 18px 48px !important; }
-          .lnd-hero-actions  { flex-direction: column !important; align-items: stretch !important; }
+          .lnd-hero            { padding: 24px 18px 48px !important; }
+          .lnd-hero-actions    { flex-direction: column !important; align-items: stretch !important; }
           .lnd-hero-actions > * { width: 100% !important; justify-content: center !important; }
-          .lnd-float-badge   { display: none !important; }
-          .lnd-feat-4        { display: flex !important; flex-direction: row !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; gap: 12px !important; padding-bottom: 14px !important; -webkit-overflow-scrolling: touch !important; scrollbar-width: none !important; }
+          .lnd-float-badge     { display: none !important; }
+          .lnd-feat-4          { display: flex !important; flex-direction: row !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; gap: 12px !important; padding-bottom: 14px !important; -webkit-overflow-scrolling: touch !important; scrollbar-width: none !important; }
           .lnd-feat-4::-webkit-scrollbar { display: none !important; }
-          .lnd-feat-4 > *    { flex: 0 0 82% !important; scroll-snap-align: start !important; }
-          .lnd-feat-3        { display: flex !important; flex-direction: row !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; gap: 12px !important; padding-bottom: 14px !important; -webkit-overflow-scrolling: touch !important; scrollbar-width: none !important; }
+          .lnd-feat-4 > *      { flex: 0 0 82% !important; scroll-snap-align: start !important; }
+          .lnd-feat-3          { display: flex !important; flex-direction: row !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; gap: 12px !important; padding-bottom: 14px !important; -webkit-overflow-scrolling: touch !important; scrollbar-width: none !important; }
           .lnd-feat-3::-webkit-scrollbar { display: none !important; }
-          .lnd-feat-3 > *    { flex: 0 0 82% !important; scroll-snap-align: start !important; }
-          .lnd-swipe-hint    { display: flex !important; }
-          .lnd-how-inner     { border-radius: 16px !important; padding: 32px 18px !important; }
-          .lnd-cta-inner     { border-radius: 16px !important; padding: 32px 18px !important; }
-          .lnd-cta-btns      { flex-direction: column !important; align-items: stretch !important; }
-          .lnd-cta-btns > *  { width: 100% !important; justify-content: center !important; }
-          .lnd-footer        { flex-direction: column !important; text-align: center !important; gap: 6px !important; padding: 18px !important; }
-          .lnd-trust-divider { display: none !important; }
-          .lnd-deals-inner   { grid-template-columns: 1fr !important; }
-          .lnd-wf-steps      { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
-          .lnd-wf-step       { flex-direction: row !important; text-align: left !important; gap: 12px !important; width: 100% !important; }
-          .lnd-clinic-card   { padding: 28px 18px !important; border-radius: 18px !important; }
-          .lnd-patient-card  { padding: 28px 18px !important; border-radius: 18px !important; }
+          .lnd-feat-3 > *      { flex: 0 0 82% !important; scroll-snap-align: start !important; }
+          .lnd-swipe-hint      { display: flex !important; }
+          .lnd-how-inner       { border-radius: 16px !important; padding: 32px 18px !important; }
+          .lnd-cta-inner       { border-radius: 16px !important; padding: 32px 18px !important; }
+          .lnd-cta-btns        { flex-direction: column !important; align-items: stretch !important; }
+          .lnd-cta-btns > *    { width: 100% !important; justify-content: center !important; }
+          .lnd-footer          { flex-direction: column !important; text-align: center !important; gap: 6px !important; padding: 18px !important; }
+          .lnd-trust-divider   { display: none !important; }
+          .lnd-deals-inner     { grid-template-columns: 1fr !important; }
+          .lnd-deals-box       { padding: 28px 18px !important; border-radius: 16px !important; }
+          .lnd-wf-steps        { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
+          .lnd-wf-step         { flex-direction: row !important; text-align: left !important; gap: 12px !important; width: 100% !important; }
+          .lnd-clinic-card     { padding: 28px 18px !important; border-radius: 18px !important; }
+          .lnd-patient-card    { padding: 28px 18px !important; border-radius: 18px !important; }
+          .lnd-steps > *       { padding: 0 8px !important; }
+          .lnd-section-btns    { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+          .lnd-section-btns button { width: 100% !important; justify-content: center !important; min-height: 48px !important; font-size: 15px !important; }
+          .lnd-section-sign-in { font-size: 14px !important; padding: 10px 0 !important; display: inline-block !important; min-height: 44px !important; }
         }
       `}</style>
 
@@ -458,7 +466,7 @@ export default function Landing() {
             </motion.div>
 
             <div className="lnd-steps" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 0, position: "relative", zIndex: 1 }}>
-              <div style={{ position: "absolute", top: 28, left: "calc(16.5% + 16px)", right: "calc(16.5% + 16px)", height: 1, background: "rgba(255,255,255,.08)" }} />
+              <div className="lnd-step-connector" style={{ position: "absolute", top: 28, left: "calc(16.5% + 16px)", right: "calc(16.5% + 16px)", height: 1, background: "rgba(255,255,255,.08)" }} />
               {[
                 { n: "1", title: "Register your clinic",   desc: "Create an account, add clinic details, and invite your doctors — takes under five minutes." },
                 { n: "2", title: "Set up availability",    desc: "Doctors configure their slots. The system handles conflicts and double-bookings automatically." },
@@ -530,7 +538,7 @@ export default function Landing() {
                     </div>
                   ))}
                 </div>
-                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+                <div className="lnd-section-btns" style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
                   <Link href="/register-clinic">
                     <button
                       style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", borderRadius: 100, background: "#0F9B6E", color: "#fff", fontSize: 13.5, fontWeight: 700, fontFamily: "'Sora',sans-serif", border: "none", cursor: "pointer", boxShadow: "0 4px 18px rgba(15,155,110,.4)", transition: "all .25s", letterSpacing: ".01em" }}
@@ -544,6 +552,7 @@ export default function Landing() {
                   </Link>
                   <Link href="/clinic-login">
                     <span
+                      className="lnd-section-sign-in"
                       style={{ fontSize: 13, color: "rgba(255,255,255,.5)", fontWeight: 600, cursor: "pointer", transition: "color .2s", letterSpacing: ".01em" }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,.9)"; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,.5)"; }}
@@ -981,7 +990,7 @@ export default function Landing() {
             </span>
             <div style={{ height: 1, flex: 1, background: c.bdr }} />
           </div>
-          <div style={{ background: "linear-gradient(135deg,#0A2018,#0D1F16)", borderRadius: 28, padding: "48px 56px", position: "relative", overflow: "hidden" }}>
+          <div className="lnd-deals-box" style={{ background: "linear-gradient(135deg,#0A2018,#0D1F16)", borderRadius: 28, padding: "48px 56px", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: -80, right: -80, width: 360, height: 360, borderRadius: "50%", background: "radial-gradient(circle,rgba(15,155,110,.18),transparent 70%)", pointerEvents: "none" }} />
             <div style={{ position: "absolute", bottom: -60, left: -40, width: 240, height: 240, borderRadius: "50%", background: "radial-gradient(circle,rgba(15,155,110,.08),transparent 70%)", pointerEvents: "none" }} />
 
