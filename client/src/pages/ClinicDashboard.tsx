@@ -2452,31 +2452,6 @@ export default function ClinicDashboard() {
                                   {timeLabel}
                                 </span>
 
-                                {/* Status pill — confirmation state */}
-                                <TooltipProvider delayDuration={200}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${statusClass}`}>
-                                        {!isConfirmed && !isCancelled && !isBookingPast && (
-                                          <span className="relative flex h-1.5 w-1.5 shrink-0">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
-                                          </span>
-                                        )}
-                                        {isConfirmed && <CheckCircle2 className="h-2.5 w-2.5" />}
-                                        {isCancelled && <X className="h-2.5 w-2.5" />}
-                                        {statusLabel}
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="text-xs">
-                                      {isCancelled
-                                        ? "This appointment has been cancelled"
-                                        : isConfirmed
-                                        ? `Confirmed by ${booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}`
-                                        : "Awaiting clinic confirmation"}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
 
                                 {/* Consent signed pill */}
                                 {booking.consentSignedAt && (
@@ -2562,19 +2537,32 @@ export default function ClinicDashboard() {
                                   </span>
                                 )}
                                 {booking.doctorApprovalStatus === 'approved' && (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-green-500 text-white dark:bg-green-600">
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
                                     <CheckCircle2 className="h-2.5 w-2.5" />
-                                    Confirmed by Doctor
+                                    Confirmed · Doctor
                                   </span>
                                 )}
                                 {booking.doctorApprovalStatus === 'admin_confirmed' && (
-                                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
-                                    Confirmed by admin
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
+                                    <CheckCircle2 className="h-2.5 w-2.5" />
+                                    Confirmed · Admin
                                   </span>
                                 )}
                                 {booking.doctorApprovalStatus === 'declined' && (
-                                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800">
+                                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800">
                                     Declined — reassign
+                                  </span>
+                                )}
+                                {isCancelled && (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800 shrink-0">
+                                    <X className="h-2.5 w-2.5" />
+                                    Cancelled
+                                  </span>
+                                )}
+                                {isConfirmed && booking.confirmedBy === 'admin' && booking.doctorApprovalStatus !== 'admin_confirmed' && (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 shrink-0">
+                                    <CheckCircle2 className="h-2.5 w-2.5" />
+                                    Confirmed · Admin
                                   </span>
                                 )}
                               </div>
@@ -2627,10 +2615,26 @@ export default function ClinicDashboard() {
                                 ) : (
                                   <span className="italic text-muted-foreground/60 text-[11px]">No doctor assigned</span>
                                 )}
-                                {booking.confirmedBy === 'admin' && (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 shrink-0">
+                                {/* Booking-status badge — single source of truth for all states */}
+                                {isCancelled ? (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800 shrink-0">
+                                    <X className="h-2.5 w-2.5" />
+                                    Cancelled
+                                  </span>
+                                ) : isConfirmed ? (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 shrink-0">
                                     <CheckCircle2 className="h-2.5 w-2.5" />
-                                    Confirmed by Admin
+                                    {booking.confirmedBy === 'doctor'
+                                      ? `Confirmed · Dr. ${booking.assignedDoctor || 'Doctor'}`
+                                      : 'Confirmed · Admin'}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 shrink-0">
+                                    <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
+                                    </span>
+                                    Pending
                                   </span>
                                 )}
                               </div>
