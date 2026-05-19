@@ -12,3 +12,9 @@ id = "I-FVEpkLOi1xYYUqbG6KR"
 uri = "file://docs/domain-migration.md"
 type = "text"
 title = "Domain Migration Guide"
+
+[[outputs]]
+id = "W32cVAtwp90QkswE2DK9T"
+uri = "file://docs/Features-and-Functionalities.md"
+type = "text"
+title = "BookMySlot — Features & Functionalities"
