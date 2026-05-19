@@ -484,7 +484,8 @@ export default function DoctorDashboard() {
       {(doctor as any).isDefaultPassword && (
         <div className="bg-gradient-to-r from-amber-500/90 via-yellow-500/90 to-amber-500/90 text-white px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-2 flex-wrap">
           <ShieldAlert className="h-4 w-4 shrink-0" />
-          <span>You are using a temporary password. Please change it to keep your account secure.</span>
+          <span className="hidden sm:inline">You are using a temporary password. Please change it to keep your account secure.</span>
+          <span className="sm:hidden">Temporary password in use — please update it.</span>
           <button
             onClick={() => setChangePwdOpen(true)}
             className="ml-2 inline-flex items-center gap-1 bg-white/20 hover:bg-white/30 border border-white/40 text-white text-xs font-semibold px-3 py-1 rounded-full transition-colors"
@@ -520,8 +521,70 @@ export default function DoctorDashboard() {
       {/* Two-column layout */}
       <div className="container mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6 items-start">
 
-        {/* ── LEFT SIDEBAR ── */}
-        <aside className="w-full lg:w-60 shrink-0 lg:sticky lg:top-[70px] space-y-3">
+        {/* ── MOBILE-ONLY: compact profile strip + horizontal tab bar ── */}
+        <div className="lg:hidden w-full space-y-3">
+          {/* Compact profile strip */}
+          <div className="flex items-center gap-3 bg-background rounded-2xl border border-border/50 shadow-sm px-4 py-3">
+            <Avatar className="h-10 w-10 ring-2 ring-primary/20 shrink-0">
+              <AvatarImage src={(doctor as any).imageUrl || undefined} />
+              <AvatarFallback className="bg-primary/10 text-primary font-bold text-base">
+                {(doctor as any).name.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm leading-tight truncate">Dr. {(doctor as any).name}</p>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                {(doctor as any).specialization && (
+                  <Badge className="text-[10px] py-0 px-2 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/10">
+                    {(doctor as any).specialization}
+                  </Badge>
+                )}
+                {(doctor as any).clinicName && (
+                  <span className="text-[11px] text-muted-foreground truncate">{(doctor as any).clinicName}</span>
+                )}
+              </div>
+            </div>
+            <div className="shrink-0 flex items-center gap-4 text-center">
+              <div className="flex flex-col items-center">
+                <span className="text-base font-extrabold leading-none text-primary">{todayBookings.length}</span>
+                <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wide mt-0.5">Today</span>
+              </div>
+              {awaitingBookings.length > 0 && (
+                <div className="flex flex-col items-center">
+                  <span className="text-base font-extrabold leading-none text-amber-600">{awaitingBookings.length}</span>
+                  <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wide mt-0.5">Awaiting</span>
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Horizontal scrollable tab bar */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
+            {NAV_ITEMS.map(({ key, label, icon: Icon, activeClass }) => {
+              const isActive = activeTab === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap border transition-all shrink-0 ${
+                    isActive ? `${activeClass} border-current/20` : "bg-background border-border/50 text-muted-foreground"
+                  }`}
+                  data-testid={`mobile-tab-${key}`}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {label}
+                  {key === "appointments" && awaitingBookings.length > 0 && (
+                    <span className="text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                      {awaitingBookings.length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── LEFT SIDEBAR (desktop only) ── */}
+        <aside className="hidden lg:flex lg:flex-col lg:w-60 shrink-0 lg:sticky lg:top-[70px] space-y-3">
 
           {/* Doctor identity card */}
           <div className="rounded-2xl border border-border/50 bg-background shadow-sm p-4 flex flex-col items-center text-center gap-3">
@@ -701,7 +764,7 @@ export default function DoctorDashboard() {
                   {quickFilter === "all" && (
                     <div className="relative">
                       <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input type="date" className="pl-9 h-9 w-44" value={appointmentDateFilter} onChange={(e) => setAppointmentDateFilter(e.target.value)} />
+                      <Input type="date" className="pl-9 h-9 w-full sm:w-44" value={appointmentDateFilter} onChange={(e) => setAppointmentDateFilter(e.target.value)} />
                     </div>
                   )}
                   <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
@@ -815,7 +878,7 @@ export default function DoctorDashboard() {
                             {/* Accept / Decline — awaiting filter only */}
                             {quickFilter === "awaiting" && booking.doctorApprovalStatus === 'pending' && (
                               <div className="flex gap-2">
-                                <Button size="sm" className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white font-semibold"
+                                <Button size="sm" className="flex-1 h-10 sm:h-8 text-xs bg-green-600 hover:bg-green-700 text-white font-semibold"
                                   onClick={() => approveMutation.mutate(booking.id)}
                                   disabled={approveMutation.isPending || declineMutation.isPending}
                                   data-testid={`button-approve-${booking.id}`}
@@ -823,7 +886,7 @@ export default function DoctorDashboard() {
                                   {approveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3 mr-1.5" />}
                                   Accept
                                 </Button>
-                                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 dark:hover:bg-red-950/20 font-semibold"
+                                <Button size="sm" variant="outline" className="flex-1 h-10 sm:h-8 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 dark:hover:bg-red-950/20 font-semibold"
                                   onClick={() => declineMutation.mutate(booking.id)}
                                   disabled={approveMutation.isPending || declineMutation.isPending}
                                   data-testid={`button-decline-${booking.id}`}
@@ -857,7 +920,7 @@ export default function DoctorDashboard() {
                                       if (notesOpenId === booking.id) { setNotesOpenId(null); }
                                       else { setNotesOpenId(booking.id); setRecordsOpenId(null); setStatusDraft(booking.clinicalStatus || ""); }
                                     }}
-                                    className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+                                    className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors py-2 -my-1 pr-2"
                                   >
                                     <FileText className="h-3 w-3" />
                                     Notes
@@ -869,7 +932,7 @@ export default function DoctorDashboard() {
                                       if (recordsOpenId === booking.id) { setRecordsOpenId(null); }
                                       else { setRecordsOpenId(booking.id); setNotesOpenId(null); }
                                     }}
-                                    className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+                                    className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors py-2 -my-1 px-2 -mx-1"
                                     data-testid={`button-clinical-records-${booking.id}`}
                                   >
                                     <ClipboardList className="h-3 w-3" />
