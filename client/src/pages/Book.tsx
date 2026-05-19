@@ -735,7 +735,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                   data-testid="select-clinic"
                 >
                   {/* Icon tile */}
-                  <div className={`flex items-center justify-center h-12 w-12 shrink-0 border-r border-border/40 transition-colors ${
+                  <div className={`flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 shrink-0 border-r border-border/40 transition-colors ${
                     isDropdownOpen ? "bg-primary/10 border-primary/20" : "bg-muted/30"
                   }`}>
                     {selectedClinic ? (
@@ -1020,7 +1020,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                   setIsDetailsOpen(true);
                                 }}
                                 data-testid={`date-button-${format(date, "yyyy-MM-dd")}`}
-                                className={`flex flex-col items-center justify-center min-w-[4rem] h-[4.5rem] rounded-2xl border transition-all duration-200 relative ${
+                                className={`flex flex-col items-center justify-center min-w-[3.5rem] sm:min-w-[4rem] h-14 sm:h-[4.5rem] rounded-2xl border transition-all duration-200 relative ${
                                   isSelected
                                     ? "bg-gradient-to-b from-primary to-accent text-white border-primary shadow-lg shadow-primary/25 scale-105"
                                     : isDayFull
@@ -1028,13 +1028,13 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                     : "bg-card border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md"
                                 }`}
                               >
-                                <span className={`text-[9px] font-bold uppercase tracking-wider mb-1 ${isSelected ? "text-white/70" : "text-muted-foreground"}`}>
+                                <span className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${isSelected ? "text-white/70" : "text-muted-foreground"}`}>
                                   {format(date, "EEE")}
                                 </span>
-                                <span className="text-xl font-black leading-none">
+                                <span className="text-base sm:text-xl font-black leading-none">
                                   {format(date, "d")}
                                 </span>
-                                <span className={`text-[8px] mt-0.5 ${isSelected ? "text-white/50" : "text-muted-foreground/60"}`}>
+                                <span className={`hidden sm:block text-[8px] mt-0.5 ${isSelected ? "text-white/50" : "text-muted-foreground/60"}`}>
                                   {format(date, "MMM")}
                                 </span>
                                 <div className={`h-1.5 w-1.5 rounded-full mt-1 transition-colors ${
@@ -1068,7 +1068,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-[4.5rem] w-14 rounded-2xl border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all"
+                      className="h-14 w-12 sm:h-[4.5rem] sm:w-14 rounded-2xl border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all"
                       data-testid="button-calendar-picker"
                     >
                       <CalendarDays className="h-5 w-5 text-muted-foreground" />
