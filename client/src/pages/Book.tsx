@@ -697,9 +697,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
             {/* ── Mode toggle pill switcher ── */}
             <div className="flex gap-1.5 p-1 bg-muted/40 border border-border/50 rounded-xl mb-4 w-full sm:w-fit">
               {([
-                { id: "select", Icon: Building2, label: "All Clinics"          },
-                { id: "search", Icon: MapPin,    label: "Search by Name / Area" },
-              ] as const).map(({ id, Icon, label }) => (
+                { id: "select", Icon: Building2, label: "All Clinics",           mobileLabel: "All Clinics"  },
+                { id: "search", Icon: MapPin,    label: "Search by Name / Area",  mobileLabel: "Search"       },
+              ] as const).map(({ id, Icon, label, mobileLabel }) => (
                 <button
                   key={id}
                   onClick={() => {
@@ -707,15 +707,16 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     setSearchQuery("");
                     setIsDropdownOpen(false);
                   }}
-                  className={`flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                  className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
                     clinicMode === id
                       ? "bg-gradient-to-r from-primary to-accent text-white shadow-md shadow-primary/20"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                   data-testid={`mode-tab-${id}`}
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                  {label}
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="sm:hidden">{mobileLabel}</span>
+                  <span className="hidden sm:inline">{label}</span>
                 </button>
               ))}
             </div>
@@ -914,25 +915,27 @@ export default function Book(props: { params: { clinicId?: string } }) {
           <div className="rounded-2xl overflow-hidden border border-primary/25 shadow-lg shadow-primary/8 animate-in fade-in slide-in-from-top-2 duration-400">
             {/* Neon top bar */}
             <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
-            <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 py-4 overflow-hidden">
+            <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 sm:px-5 py-3 sm:py-4 overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
-              <div className="relative flex items-center gap-4">
+              <div className="relative flex items-center gap-3 sm:gap-4">
                 {/* Avatar */}
                 <div className="relative shrink-0">
                   <div className="absolute -inset-1 rounded-xl bg-gradient-to-br from-accent/40 to-primary/30 blur-sm" />
-                  <div className="relative h-12 w-12 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center ring-1 ring-white/10">
-                    <span className="text-xl font-black text-white">{selectedClinic.charAt(0)}</span>
+                  <div className="relative h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center ring-1 ring-white/10">
+                    <span className="text-lg sm:text-xl font-black text-white">{selectedClinic.charAt(0)}</span>
                   </div>
                 </div>
                 {/* Info */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/55 mb-0.5">Booking At</p>
-                  <p className="text-white font-extrabold text-lg leading-tight truncate">{selectedClinic}</p>
+                  <p className="text-white font-extrabold text-base sm:text-lg leading-tight truncate">{selectedClinic}</p>
                   {selectedClinicObj?.doctorName && (
-                    <p className="text-white/60 text-xs mt-0.5 flex items-center gap-1">
-                      <Stethoscope className="h-3 w-3" />
-                      Dr. {selectedClinicObj.doctorName}
-                      {selectedClinicObj.doctorSpecialization ? ` · ${selectedClinicObj.doctorSpecialization}` : ""}
+                    <p className="text-white/60 text-xs mt-0.5 flex items-center gap-1 overflow-hidden">
+                      <Stethoscope className="h-3 w-3 shrink-0" />
+                      <span className="truncate">
+                        Dr. {selectedClinicObj.doctorName}
+                        {selectedClinicObj.doctorSpecialization ? ` · ${selectedClinicObj.doctorSpecialization}` : ""}
+                      </span>
                     </p>
                   )}
                 </div>

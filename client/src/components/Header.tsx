@@ -406,7 +406,7 @@ export function Header() {
               <Button
                 variant={location.startsWith("/book") ? "default" : "ghost"}
                 size="sm"
-                className={`gap-2 h-9 px-3 ${location.startsWith("/book") ? "" : "text-muted-foreground hover:text-foreground"}`}
+                className={`gap-2 h-9 px-2 sm:px-3 ${location.startsWith("/book") ? "" : "text-muted-foreground hover:text-foreground"}`}
                 data-testid="tab-book-a-slot"
               >
                 <CalendarPlus className="h-4 w-4 shrink-0" />
@@ -429,7 +429,7 @@ export function Header() {
                   <Button
                     variant={isActive ? "default" : "ghost"}
                     size="sm"
-                    className={`gap-2 h-9 min-w-[100px] justify-center ${
+                    className={`gap-2 h-9 sm:min-w-[100px] justify-center ${
                       isActive ? "" : "text-muted-foreground hover:text-foreground"
                     }`}
                     data-testid={`tab-${tab.label.toLowerCase().replace(/\s+/g, "-")}`}
@@ -456,7 +456,7 @@ export function Header() {
                 <Button
                   variant={location === "/deals" ? "default" : "ghost"}
                   size="sm"
-                  className={`gap-2 h-9 px-3 ${location === "/deals" ? "" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`gap-2 h-9 px-2 sm:px-3 ${location === "/deals" ? "" : "text-muted-foreground hover:text-foreground"}`}
                   data-testid="tab-smile-deals"
                 >
                   <Sparkles className="h-4 w-4 shrink-0" />
