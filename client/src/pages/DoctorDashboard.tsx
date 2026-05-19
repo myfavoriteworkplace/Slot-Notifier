@@ -524,7 +524,7 @@ export default function DoctorDashboard() {
       </div>
 
       {/* Two-column layout */}
-      <div className="container mx-auto px-4 pt-4 pb-24 lg:py-6 flex flex-col lg:flex-row gap-6 items-start">
+      <div className="container mx-auto px-4 pt-4 pb-6 lg:py-6 flex flex-col lg:flex-row gap-6 items-start">
 
         {/* ── MOBILE-ONLY: profile card with inline stats ── */}
         <div className="lg:hidden w-full">
