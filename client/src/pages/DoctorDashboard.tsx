@@ -65,6 +65,8 @@ export default function DoctorDashboard() {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
+  const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
+  const toggleCard = (id: number) => setExpandedCards(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const [profName, setProfName] = useState("");
   const [profSpecialization, setProfSpecialization] = useState("");
@@ -695,8 +697,33 @@ export default function DoctorDashboard() {
           {activeTab === "appointments" && (
             <div className="space-y-5">
 
-              {/* Stats Cards — click to filter */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Stats — mobile: horizontal chip strip, desktop: 4-column cards */}
+              {/* Mobile chip strip */}
+              <div className="flex items-center gap-2 overflow-x-auto sm:hidden pb-0.5" style={{ scrollbarWidth: "none" }}>
+                {([
+                  { filter: "all"      as QuickFilter, label: "Total",    count: confirmedBookings.length, Icon: ClipboardList, colorCls: "text-slate-600 dark:text-slate-400", activeBg: "bg-slate-100 dark:bg-slate-800/60 border-slate-400" },
+                  { filter: "today"    as QuickFilter, label: "Today",    count: todayBookings.length,     Icon: Calendar,      colorCls: "text-sky-600 dark:text-sky-400",        activeBg: "bg-sky-50 dark:bg-sky-950/30 border-sky-400" },
+                  { filter: "upcoming" as QuickFilter, label: "Upcoming", count: upcomingBookings.length,  Icon: TrendingUp,    colorCls: "text-primary",                          activeBg: "bg-primary/8 border-primary/60" },
+                  { filter: "awaiting" as QuickFilter, label: "Awaiting", count: awaitingBookings.length,  Icon: AlertCircle,   colorCls: awaitingBookings.length > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground", activeBg: "bg-amber-50 dark:bg-amber-950/30 border-amber-400" },
+                ] as { filter: QuickFilter; label: string; count: number; Icon: any; colorCls: string; activeBg: string }[]).map(({ filter, label, count, Icon, colorCls, activeBg }) => {
+                  const isActive = quickFilter === filter;
+                  return (
+                    <button
+                      key={filter}
+                      onClick={() => { setActiveTab("appointments"); handleQuickFilter(filter); }}
+                      className={`flex items-center gap-2 shrink-0 px-3 py-2.5 rounded-xl border transition-all active:scale-[0.97] min-h-[44px] ${isActive ? activeBg : "bg-background border-border/50"}`}
+                      data-testid={`stat-chip-${filter}`}
+                    >
+                      <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? colorCls : "text-muted-foreground"}`} />
+                      <span className={`text-xs font-semibold whitespace-nowrap ${isActive ? colorCls : "text-muted-foreground"}`}>{label}</span>
+                      <span className={`text-[11px] font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center ${isActive ? "bg-current/10 " + colorCls : "bg-muted text-muted-foreground"}`}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Desktop card grid */}
+              <div className="hidden sm:grid sm:grid-cols-4 gap-3">
                 {/* Total */}
                 <TooltipProvider delayDuration={300}>
                   <Tooltip>
@@ -836,51 +863,28 @@ export default function DoctorDashboard() {
                 </div>
               )}
 
-              {/* Filter row */}
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {([
-                    { key: "all",      label: "All",      count: confirmedBookings.length },
-                    { key: "today",    label: "Today",    count: todayBookings.length },
-                    { key: "upcoming", label: "Upcoming", count: upcomingBookings.length },
-                  ] as { key: QuickFilter; label: string; count: number }[]).map(chip => (
-                    <button
-                      key={chip.key}
-                      onClick={() => handleQuickFilter(chip.key)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200 ${quickFilter === chip.key ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20" : "bg-background text-muted-foreground border-border/60 hover:border-primary/40 hover:text-primary"}`}
-                    >
-                      {chip.label}
-                      <span className={`text-[10px] rounded-full px-1.5 py-0.5 font-bold leading-none ${quickFilter === chip.key ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>{chip.count}</span>
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => handleQuickFilter("awaiting")}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200 ${quickFilter === "awaiting" ? "bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-500/20" : "bg-background text-amber-600 border-amber-300 hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20"}`}
-                  >
-                    Awaiting
-                    <span className={`text-[10px] rounded-full px-1.5 py-0.5 font-bold leading-none ${quickFilter === "awaiting" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"}`}>{awaitingBookings.length}</span>
-                  </button>
-                </div>
-                <div className="flex gap-2 flex-1 sm:justify-end flex-wrap">
-                  {quickFilter === "all" && (
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input type="date" className="pl-9 h-9 w-full sm:w-44" value={appointmentDateFilter} onChange={(e) => setAppointmentDateFilter(e.target.value)} />
-                    </div>
-                  )}
+              {/* Filters — date + clinic side-by-side */}
+              <div className="flex flex-wrap gap-2 items-center sm:justify-end">
+                {quickFilter === "all" && (
+                  <div className="relative flex-1 min-w-[130px] sm:flex-none sm:w-44">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input type="date" className="pl-9 h-9 w-full" value={appointmentDateFilter} onChange={(e) => setAppointmentDateFilter(e.target.value)} />
+                  </div>
+                )}
+                <div className={quickFilter === "all" ? "flex-1 min-w-[130px] sm:flex-none" : "w-full sm:w-auto"}>
                   <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
-                    <SelectTrigger className="w-[170px] h-9"><SelectValue placeholder="All Clinics" /></SelectTrigger>
+                    <SelectTrigger className="h-9 w-full sm:w-[170px]"><SelectValue placeholder="All Clinics" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Clinics</SelectItem>
                       {doctorClinics.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  {(appointmentDateFilter || appointmentClinicFilter !== "all" || quickFilter !== "all") && (
-                    <Button variant="ghost" size="sm" className="h-9 text-muted-foreground hover:text-foreground" onClick={() => { setQuickFilter("all"); setAppointmentDateFilter(""); setAppointmentClinicFilter("all"); }}>
-                      <RotateCcw className="h-3.5 w-3.5 mr-1.5" />Clear all
-                    </Button>
-                  )}
                 </div>
+                {(appointmentDateFilter || appointmentClinicFilter !== "all" || quickFilter !== "all") && (
+                  <Button variant="ghost" size="sm" className="h-9 text-muted-foreground hover:text-foreground shrink-0" onClick={() => { setQuickFilter("all"); setAppointmentDateFilter(""); setAppointmentClinicFilter("all"); }}>
+                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" />Clear
+                  </Button>
+                )}
               </div>
 
               <p className="text-xs text-muted-foreground px-1">
@@ -904,8 +908,11 @@ export default function DoctorDashboard() {
                     const isVerified = booking.verificationStatus === "verified";
                     return (
                       <div key={booking.id} className="rounded-2xl border border-border/50 bg-background shadow-sm shadow-primary/5 overflow-hidden flex flex-col hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300">
-                        {/* Card header */}
-                        <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-3 overflow-hidden">
+                        {/* Card header — tappable on mobile to expand/collapse */}
+                        <div
+                          className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-3 overflow-hidden md:cursor-default cursor-pointer"
+                          onClick={() => { if (window.innerWidth < 768) toggleCard(booking.id); }}
+                        >
                           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
                           <div className="relative flex items-start justify-between gap-2">
                             <div className="flex items-center gap-3">
@@ -923,18 +930,47 @@ export default function DoctorDashboard() {
                                 </div>
                               </div>
                             </div>
-                            {booking.verificationStatus && (
-                              <div className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ${isVerified ? "bg-green-500/25 text-green-100" : "bg-amber-400/25 text-amber-100"}`}>
-                                {isVerified ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-                                {isVerified ? "Verified" : "Pending"}
+                            <div className="flex items-center gap-2 shrink-0">
+                              {booking.verificationStatus && (
+                                <div className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${isVerified ? "bg-green-500/25 text-green-100" : "bg-amber-400/25 text-amber-100"}`}>
+                                  {isVerified ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+                                  {isVerified ? "Verified" : "Pending"}
+                                </div>
+                              )}
+                              {/* Mobile expand chevron */}
+                              <div className="md:hidden">
+                                {expandedCards.has(booking.id)
+                                  ? <ChevronUp className="h-4 w-4 text-white/70" />
+                                  : <ChevronDown className="h-4 w-4 text-white/70" />}
                               </div>
-                            )}
+                            </div>
                           </div>
                           <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
                         </div>
 
-                        {/* Card body */}
-                        <div className="px-4 py-3 flex flex-col gap-2.5 flex-1">
+                        {/* Mobile: compact summary row (shown when collapsed) */}
+                        {!expandedCards.has(booking.id) && (
+                          <div
+                            className="md:hidden px-4 py-2.5 flex items-center gap-3 border-t border-border/30 cursor-pointer active:bg-muted/40 transition-colors"
+                            onClick={() => toggleCard(booking.id)}
+                          >
+                            <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap text-xs">
+                              <span className="font-medium text-foreground">
+                                {startTime ? startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "—"}
+                              </span>
+                              <span className="text-muted-foreground">·</span>
+                              <span className="text-muted-foreground">
+                                {startTime ? startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                                {endTime ? ` – ${endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+                              </span>
+                              {durationMin && <span className="text-[10px] bg-primary/8 text-primary px-1.5 py-0.5 rounded-full font-medium">{durationMin} min</span>}
+                            </div>
+                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          </div>
+                        )}
+
+                        {/* Card body — always shown on desktop, toggleable on mobile */}
+                        <div className={`px-4 py-3 flex-col gap-2.5 flex-1 ${expandedCards.has(booking.id) ? "flex" : "hidden md:flex"}`}>
                           <div className="flex items-start gap-2">
                             <Calendar className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
                             <div>
