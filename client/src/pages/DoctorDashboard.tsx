@@ -24,7 +24,8 @@ import {
   ClipboardList, CheckCircle2, AlertCircle, Hash, CalendarDays, TrendingUp, ArrowRight,
   Info, X, Filter, BadgeCheck, RotateCcw, User, Award, BookOpen, Plus, Pencil, Trash2,
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
-  Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound
+  Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound,
+  MoreHorizontal
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -65,8 +66,7 @@ export default function DoctorDashboard() {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
-  const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
-  const toggleCard = (id: number) => setExpandedCards(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
 
   const [profName, setProfName] = useState("");
   const [profSpecialization, setProfSpecialization] = useState("");
@@ -500,8 +500,8 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {/* Page greeting bar */}
-      <div className="border-b border-border/40 bg-background/60">
+      {/* Page greeting bar — desktop only */}
+      <div className="hidden lg:block border-b border-border/40 bg-background/60">
         <div className="container mx-auto px-4 h-11 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -523,67 +523,45 @@ export default function DoctorDashboard() {
       </div>
 
       {/* Two-column layout */}
-      <div className="container mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6 items-start">
+      <div className="container mx-auto px-4 pt-4 pb-24 lg:py-6 flex flex-col lg:flex-row gap-6 items-start">
 
-        {/* ── MOBILE-ONLY: compact profile strip + horizontal tab bar ── */}
-        <div className="lg:hidden w-full space-y-3">
-          {/* Compact profile strip */}
-          <div className="flex items-center gap-3 bg-background rounded-2xl border border-border/50 shadow-sm px-4 py-3">
-            <Avatar className="h-10 w-10 ring-2 ring-primary/20 shrink-0">
-              <AvatarImage src={(doctor as any).imageUrl || undefined} />
-              <AvatarFallback className="bg-primary/10 text-primary font-bold text-base">
-                {(doctor as any).name.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm leading-tight truncate">Dr. {(doctor as any).name}</p>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                {(doctor as any).specialization && (
-                  <Badge className="text-[10px] py-0 px-2 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/10">
-                    {(doctor as any).specialization}
-                  </Badge>
-                )}
-                {(doctor as any).clinicName && (
-                  <span className="text-[11px] text-muted-foreground truncate">{(doctor as any).clinicName}</span>
-                )}
-              </div>
-            </div>
-            <div className="shrink-0 flex items-center gap-4 text-center">
-              <div className="flex flex-col items-center">
-                <span className="text-base font-extrabold leading-none text-primary">{todayBookings.length}</span>
-                <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wide mt-0.5">Today</span>
-              </div>
-              {awaitingBookings.length > 0 && (
-                <div className="flex flex-col items-center">
-                  <span className="text-base font-extrabold leading-none text-amber-600">{awaitingBookings.length}</span>
-                  <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wide mt-0.5">Awaiting</span>
-                </div>
-              )}
-            </div>
-          </div>
-          {/* Horizontal scrollable tab bar */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
-            {NAV_ITEMS.map(({ key, label, icon: Icon, activeClass }) => {
-              const isActive = activeTab === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setActiveTab(key)}
-                  className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap border transition-all shrink-0 ${
-                    isActive ? `${activeClass} border-current/20` : "bg-background border-border/50 text-muted-foreground"
-                  }`}
-                  data-testid={`mobile-tab-${key}`}
-                >
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  {label}
-                  {key === "appointments" && awaitingBookings.length > 0 && (
-                    <span className="text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none">
-                      {awaitingBookings.length}
+        {/* ── MOBILE-ONLY: profile card with inline stats ── */}
+        <div className="lg:hidden w-full">
+          <div className="bg-gradient-to-r from-[#085041] via-primary to-accent rounded-2xl shadow-md overflow-hidden">
+            <div className="px-4 py-3 flex items-center gap-3">
+              <Avatar className="h-12 w-12 ring-2 ring-white/30 shrink-0">
+                <AvatarImage src={(doctor as any).imageUrl || undefined} />
+                <AvatarFallback className="bg-white/20 text-white font-bold text-lg">
+                  {(doctor as any).name.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm text-white leading-tight">Dr. {(doctor as any).name}</p>
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  {(doctor as any).specialization && (
+                    <span className="text-[10px] font-semibold bg-white/20 text-white/90 px-2 py-0.5 rounded-full border border-white/20">
+                      {(doctor as any).specialization}
                     </span>
                   )}
-                </button>
-              );
-            })}
+                  {(doctor as any).clinicName && (
+                    <span className="text-[10px] text-white/65 truncate">{(doctor as any).clinicName}</span>
+                  )}
+                </div>
+              </div>
+              {/* Inline stat chips */}
+              <div className="shrink-0 flex items-center gap-1.5">
+                {[
+                  { label: "Total",    count: confirmedBookings.length },
+                  { label: "Today",    count: todayBookings.length },
+                  { label: "Upcoming", count: upcomingBookings.length },
+                ].map(({ label, count }) => (
+                  <div key={label} className="flex flex-col items-center bg-white/15 rounded-xl px-2 py-1.5 min-w-[38px]">
+                    <span className="text-sm font-extrabold text-white leading-none">{count}</span>
+                    <span className="text-[8px] font-semibold text-white/70 mt-0.5 uppercase tracking-wide">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -697,26 +675,30 @@ export default function DoctorDashboard() {
           {activeTab === "appointments" && (
             <div className="space-y-5">
 
-              {/* Stats — mobile: horizontal chip strip, desktop: 4-column cards */}
-              {/* Mobile chip strip */}
-              <div className="flex items-center gap-2 overflow-x-auto sm:hidden pb-0.5" style={{ scrollbarWidth: "none" }}>
+              {/* Mobile sticky filter bar */}
+              <div className="flex items-center gap-2 overflow-x-auto sm:hidden -mx-4 px-4 py-2.5 sticky top-0 z-10 bg-muted/60 backdrop-blur-md border-b border-border/30" style={{ scrollbarWidth: "none" }}>
                 {([
-                  { filter: "all"      as QuickFilter, label: "Total",    count: confirmedBookings.length, Icon: ClipboardList, colorCls: "text-slate-600 dark:text-slate-400", activeBg: "bg-slate-100 dark:bg-slate-800/60 border-slate-400" },
-                  { filter: "today"    as QuickFilter, label: "Today",    count: todayBookings.length,     Icon: Calendar,      colorCls: "text-sky-600 dark:text-sky-400",        activeBg: "bg-sky-50 dark:bg-sky-950/30 border-sky-400" },
-                  { filter: "upcoming" as QuickFilter, label: "Upcoming", count: upcomingBookings.length,  Icon: TrendingUp,    colorCls: "text-primary",                          activeBg: "bg-primary/8 border-primary/60" },
-                  { filter: "awaiting" as QuickFilter, label: "Awaiting", count: awaitingBookings.length,  Icon: AlertCircle,   colorCls: awaitingBookings.length > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground", activeBg: "bg-amber-50 dark:bg-amber-950/30 border-amber-400" },
-                ] as { filter: QuickFilter; label: string; count: number; Icon: any; colorCls: string; activeBg: string }[]).map(({ filter, label, count, Icon, colorCls, activeBg }) => {
+                  { filter: "all"      as QuickFilter, label: "All" },
+                  { filter: "today"    as QuickFilter, label: "Today" },
+                  { filter: "upcoming" as QuickFilter, label: "Upcoming" },
+                  { filter: "awaiting" as QuickFilter, label: "Awaiting", badge: awaitingBookings.length },
+                ] as { filter: QuickFilter; label: string; badge?: number }[]).map(({ filter, label, badge }) => {
                   const isActive = quickFilter === filter;
                   return (
                     <button
                       key={filter}
                       onClick={() => { setActiveTab("appointments"); handleQuickFilter(filter); }}
-                      className={`flex items-center gap-2 shrink-0 px-3 py-2.5 rounded-xl border transition-all active:scale-[0.97] min-h-[44px] ${isActive ? activeBg : "bg-background border-border/50"}`}
-                      data-testid={`stat-chip-${filter}`}
+                      className={`flex items-center gap-1.5 shrink-0 px-4 py-2 rounded-full text-sm font-semibold border transition-all active:scale-[0.97] min-h-[44px] whitespace-nowrap ${
+                        isActive
+                          ? "bg-primary text-white border-primary shadow-sm"
+                          : "bg-background border-border/50 text-muted-foreground"
+                      }`}
+                      data-testid={`filter-btn-${filter}`}
                     >
-                      <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? colorCls : "text-muted-foreground"}`} />
-                      <span className={`text-xs font-semibold whitespace-nowrap ${isActive ? colorCls : "text-muted-foreground"}`}>{label}</span>
-                      <span className={`text-[11px] font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center ${isActive ? "bg-current/10 " + colorCls : "bg-muted text-muted-foreground"}`}>{count}</span>
+                      {label}
+                      {badge !== undefined && badge > 0 && (
+                        <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center ${isActive ? "bg-white/25 text-white" : "bg-amber-500 text-white"}`}>{badge}</span>
+                      )}
                     </button>
                   );
                 })}
@@ -908,11 +890,8 @@ export default function DoctorDashboard() {
                     const isVerified = booking.verificationStatus === "verified";
                     return (
                       <div key={booking.id} className="rounded-2xl border border-border/50 bg-background shadow-sm shadow-primary/5 overflow-hidden flex flex-col hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300">
-                        {/* Card header — tappable on mobile to expand/collapse */}
-                        <div
-                          className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-3 overflow-hidden md:cursor-default cursor-pointer"
-                          onClick={() => { if (window.innerWidth < 768) toggleCard(booking.id); }}
-                        >
+                        {/* Card header */}
+                        <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-3 overflow-hidden">
                           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
                           <div className="relative flex items-start justify-between gap-2">
                             <div className="flex items-center gap-3">
@@ -931,46 +910,25 @@ export default function DoctorDashboard() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              {booking.verificationStatus && (
-                                <div className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${isVerified ? "bg-green-500/25 text-green-100" : "bg-amber-400/25 text-amber-100"}`}>
-                                  {isVerified ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-                                  {isVerified ? "Verified" : "Pending"}
-                                </div>
-                              )}
-                              {/* Mobile expand chevron */}
-                              <div className="md:hidden">
-                                {expandedCards.has(booking.id)
-                                  ? <ChevronUp className="h-4 w-4 text-white/70" />
-                                  : <ChevronDown className="h-4 w-4 text-white/70" />}
+                              {/* Status badge */}
+                              <div className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                                booking.doctorApprovalStatus === 'approved' ? "bg-green-500/25 text-green-100" :
+                                booking.doctorApprovalStatus === 'pending'  ? "bg-amber-400/25 text-amber-100" :
+                                booking.doctorApprovalStatus === 'declined' ? "bg-red-500/25 text-red-100" :
+                                isVerified ? "bg-green-500/25 text-green-100" : "bg-white/15 text-white/80"
+                              }`}>
+                                {booking.doctorApprovalStatus === 'approved' ? "Confirmed" :
+                                 booking.doctorApprovalStatus === 'pending'  ? "Pending" :
+                                 booking.doctorApprovalStatus === 'declined' ? "Declined" :
+                                 isVerified ? "Verified" : "Unverified"}
                               </div>
                             </div>
                           </div>
                           <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
                         </div>
 
-                        {/* Mobile: compact summary row (shown when collapsed) */}
-                        {!expandedCards.has(booking.id) && (
-                          <div
-                            className="md:hidden px-4 py-2.5 flex items-center gap-3 border-t border-border/30 cursor-pointer active:bg-muted/40 transition-colors"
-                            onClick={() => toggleCard(booking.id)}
-                          >
-                            <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap text-xs">
-                              <span className="font-medium text-foreground">
-                                {startTime ? startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "—"}
-                              </span>
-                              <span className="text-muted-foreground">·</span>
-                              <span className="text-muted-foreground">
-                                {startTime ? startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
-                                {endTime ? ` – ${endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
-                              </span>
-                              {durationMin && <span className="text-[10px] bg-primary/8 text-primary px-1.5 py-0.5 rounded-full font-medium">{durationMin} min</span>}
-                            </div>
-                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          </div>
-                        )}
-
-                        {/* Card body — always shown on desktop, toggleable on mobile */}
-                        <div className={`px-4 py-3 flex-col gap-2.5 flex-1 ${expandedCards.has(booking.id) ? "flex" : "hidden md:flex"}`}>
+                        {/* Card body — always fully expanded */}
+                        <div className="px-4 py-3 flex flex-col gap-2.5 flex-1">
                           <div className="flex items-start gap-2">
                             <Calendar className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
                             <div>
@@ -1012,8 +970,8 @@ export default function DoctorDashboard() {
                           )}
 
                           <div className="pt-1 border-t border-border/40 mt-auto space-y-2">
-                            {/* Accept / Decline — awaiting filter only */}
-                            {quickFilter === "awaiting" && booking.doctorApprovalStatus === 'pending' && (
+                            {/* Accept / Decline — shown for all pending bookings */}
+                            {booking.doctorApprovalStatus === 'pending' && (
                               <div className="flex gap-2">
                                 <Button size="sm" className="flex-1 h-10 sm:h-8 text-xs bg-green-600 hover:bg-green-700 text-white font-semibold"
                                   onClick={() => approveMutation.mutate(booking.id)}
@@ -1048,78 +1006,33 @@ export default function DoctorDashboard() {
                               </div>
                             )}
 
-                            {/* Notes & Records toggles */}
-                            {quickFilter !== "awaiting" && (
-                              <>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => {
-                                      if (notesOpenId === booking.id) { setNotesOpenId(null); }
-                                      else { setNotesOpenId(booking.id); setRecordsOpenId(null); setStatusDraft(booking.clinicalStatus || ""); }
-                                    }}
-                                    className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors py-2 -my-1 pr-2"
-                                  >
-                                    <FileText className="h-3 w-3" />
-                                    Notes
-                                    {notesOpenId === booking.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                  </button>
-                                  <span className="text-border/60 text-xs">·</span>
-                                  <button
-                                    onClick={() => {
-                                      if (recordsOpenId === booking.id) { setRecordsOpenId(null); }
-                                      else { setRecordsOpenId(booking.id); setNotesOpenId(null); }
-                                    }}
-                                    className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors py-2 -my-1 px-2 -mx-1"
-                                    data-testid={`button-clinical-records-${booking.id}`}
-                                  >
-                                    <ClipboardList className="h-3 w-3" />
-                                    Records
-                                    {recordsOpenId === booking.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                  </button>
-                                </div>
-
-                                {notesOpenId === booking.id && (
-                                  <div className="space-y-2.5 pt-2 border-t border-border/30 animate-in slide-in-from-top-1 duration-150">
-                                    <div className="space-y-1">
-                                      <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
-                                      <div className="flex gap-2">
-                                        <Select value={statusDraft} onValueChange={setStatusDraft}>
-                                          <SelectTrigger className="h-8 text-xs flex-1"><SelectValue placeholder="Select status..." /></SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="first_visit">First Visit</SelectItem>
-                                            <SelectItem value="revisit">Revisit</SelectItem>
-                                            <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
-                                            <SelectItem value="case_closed">Case Closed</SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                        <Button size="sm" className="h-8 px-3 text-xs shrink-0"
-                                          onClick={() => saveNotesMutation.mutate({ id: booking.id, clinicalStatus: statusDraft })}
-                                          disabled={saveNotesMutation.isPending}
-                                        >
-                                          {saveNotesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
-                                        </Button>
-                                      </div>
-                                    </div>
-                                    <BookingNotesThread bookingId={booking.id} authorType="doctor" />
-                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground w-full" onClick={() => setNotesOpenId(null)}>Close</Button>
-                                  </div>
-                                )}
-
-                                {recordsOpenId === booking.id && (
-                                  <div className="pt-2 border-t border-border/30 animate-in slide-in-from-top-1 duration-150">
-                                    <ClinicalRecordsTab
-                                      bookingId={booking.id}
-                                      clinicId={booking.clinicId}
-                                      patientName={booking.customerName}
-                                      patientPhone={booking.customerPhone}
-                                      doctorName={profName || booking.assignedDoctor}
-                                      mode="doctor"
-                                      clinicName={booking.clinic?.name || booking.clinicName}
-                                    />
-                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground w-full mt-2" onClick={() => setRecordsOpenId(null)}>Close</Button>
-                                  </div>
-                                )}
-                              </>
+                            {/* Notes & Records — open as slide-up sheets */}
+                            {booking.doctorApprovalStatus !== 'pending' && booking.doctorApprovalStatus !== 'declined' && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    setNotesOpenId(booking.id);
+                                    setRecordsOpenId(null);
+                                    setStatusDraft(booking.clinicalStatus || "");
+                                  }}
+                                  className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors py-2 -my-1 pr-2"
+                                >
+                                  <FileText className="h-3 w-3" />
+                                  Notes
+                                </button>
+                                <span className="text-border/60 text-xs">·</span>
+                                <button
+                                  onClick={() => {
+                                    setRecordsOpenId(booking.id);
+                                    setNotesOpenId(null);
+                                  }}
+                                  className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors py-2 -my-1 px-2 -mx-1"
+                                  data-testid={`button-clinical-records-${booking.id}`}
+                                >
+                                  <ClipboardList className="h-3 w-3" />
+                                  Records
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1787,6 +1700,192 @@ export default function DoctorDashboard() {
           )}
         </main>
       </div>
+
+      {/* ── MOBILE BOTTOM NAV BAR ── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-background/95 backdrop-blur-md border-t border-border/50 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
+        <div className="flex items-stretch">
+          {([
+            { key: "appointments" as Tab, label: "Appointments", Icon: Calendar },
+            { key: "profile"       as Tab, label: "Profile",      Icon: User },
+            { key: "certifications" as Tab, label: "Certs",       Icon: Award },
+          ] as { key: Tab; label: string; Icon: any }[]).map(({ key, label, Icon }) => {
+            const isActive = activeTab === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
+                  isActive ? "text-primary" : "text-muted-foreground"
+                }`}
+                data-testid={`bottom-nav-${key}`}
+              >
+                {isActive && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
+                <Icon className="h-5 w-5" />
+                <span className="text-[10px] font-semibold">{label}</span>
+                {key === "appointments" && awaitingBookings.length > 0 && (
+                  <span className="absolute top-2 right-[22%] h-4 w-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">{awaitingBookings.length}</span>
+                )}
+              </button>
+            );
+          })}
+          {/* More button */}
+          <button
+            onClick={() => setMoreDrawerOpen(true)}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
+              activeTab === "cases" ? "text-primary" : "text-muted-foreground"
+            }`}
+            data-testid="bottom-nav-more"
+          >
+            {activeTab === "cases" && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
+            <MoreHorizontal className="h-5 w-5" />
+            <span className="text-[10px] font-semibold">More</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* ── MORE DRAWER (mobile) ── */}
+      <Sheet open={moreDrawerOpen} onOpenChange={setMoreDrawerOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader className="mb-4">
+            <SheetTitle>More</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-2 pb-6">
+            <button
+              onClick={() => { setActiveTab("cases"); setMoreDrawerOpen(false); }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-border/50 bg-background text-left hover:bg-muted/30 transition-colors active:scale-[0.98]"
+            >
+              <div className="h-9 w-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+                <BookOpen className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Case Studies</p>
+                <p className="text-xs text-muted-foreground">Manage your clinical cases</p>
+              </div>
+            </button>
+            <button
+              onClick={() => { setChangePwdOpen(true); setMoreDrawerOpen(false); }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-border/50 bg-background text-left hover:bg-muted/30 transition-colors active:scale-[0.98]"
+            >
+              <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                <KeyRound className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Change Password</p>
+                <p className="text-xs text-muted-foreground">Update your account password</p>
+              </div>
+            </button>
+            {doctor && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-border/50 bg-muted/20">
+                <div className="rounded-xl overflow-hidden bg-white p-2 border border-border/40 shadow-inner shrink-0">
+                  <QRCode
+                    value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
+                    size={64}
+                    level="M"
+                    fgColor="#085041"
+                    bgColor="#ffffff"
+                    style={{ display: "block" }}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">Your QR Code</p>
+                  <p className="text-xs text-muted-foreground mb-2">Scan to view public profile</p>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={copyProfileLink}>
+                    {linkCopied ? <Check className="h-3 w-3 mr-1.5 text-primary" /> : <Copy className="h-3 w-3 mr-1.5" />}
+                    {linkCopied ? "Copied!" : "Copy Profile Link"}
+                  </Button>
+                </div>
+              </div>
+            )}
+            <button
+              onClick={() => { logout(); setMoreDrawerOpen(false); }}
+              disabled={isLoggingOut}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-red-200 dark:border-red-900/40 bg-background text-left hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors active:scale-[0.98]"
+            >
+              <div className="h-9 w-9 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+                <LogOut className="h-4 w-4 text-red-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm text-red-600 dark:text-red-400">{isLoggingOut ? "Logging out…" : "Log Out"}</p>
+                <p className="text-xs text-muted-foreground">Sign out of the doctor portal</p>
+              </div>
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Notes Sheet (slide-up) ── */}
+      <Sheet open={notesOpenId !== null} onOpenChange={(o) => { if (!o) setNotesOpenId(null); }}>
+        <SheetContent side="bottom" className="h-[80vh] rounded-t-2xl overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle className="flex items-center gap-2"><FileText className="h-4 w-4 text-primary" />Notes &amp; Clinical Status</SheetTitle>
+          </SheetHeader>
+          {notesOpenId !== null && (() => {
+            const b = myBookings.find((bk: any) => bk.id === notesOpenId);
+            return (
+              <div className="space-y-4 pb-6">
+                {b && (
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-muted/40 border border-border/30">
+                    <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                      {b.customerName?.[0]?.toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold leading-tight">{b.customerName}</p>
+                      <p className="text-[10px] text-muted-foreground">REF-{String(b.id).padStart(4, "0")}</p>
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
+                  <div className="flex gap-2">
+                    <Select value={statusDraft} onValueChange={setStatusDraft}>
+                      <SelectTrigger className="h-9 text-sm flex-1"><SelectValue placeholder="Select status..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="first_visit">First Visit</SelectItem>
+                        <SelectItem value="revisit">Revisit</SelectItem>
+                        <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
+                        <SelectItem value="case_closed">Case Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" className="h-9 px-4 text-sm shrink-0"
+                      onClick={() => saveNotesMutation.mutate({ id: notesOpenId, clinicalStatus: statusDraft })}
+                      disabled={saveNotesMutation.isPending}
+                    >
+                      {saveNotesMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                    </Button>
+                  </div>
+                </div>
+                <BookingNotesThread bookingId={notesOpenId} authorType="doctor" />
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Records Sheet (slide-up) ── */}
+      <Sheet open={recordsOpenId !== null} onOpenChange={(o) => { if (!o) setRecordsOpenId(null); }}>
+        <SheetContent side="bottom" className="h-[90vh] rounded-t-2xl overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle className="flex items-center gap-2"><ClipboardList className="h-4 w-4 text-primary" />Clinical Records</SheetTitle>
+          </SheetHeader>
+          {recordsOpenId !== null && (() => {
+            const b = myBookings.find((bk: any) => bk.id === recordsOpenId);
+            if (!b) return null;
+            return (
+              <div className="pb-6">
+                <ClinicalRecordsTab
+                  bookingId={recordsOpenId}
+                  clinicId={b.clinicId}
+                  patientName={b.customerName}
+                  patientPhone={b.customerPhone}
+                  doctorName={profName || b.assignedDoctor}
+                  mode="doctor"
+                  clinicName={b.clinic?.name || b.clinicName}
+                />
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
 
       {/* ── Certification Sheet ── */}
       <Sheet open={certSheetOpen} onOpenChange={(o) => { if (!o) closeCertSheet(); }}>
