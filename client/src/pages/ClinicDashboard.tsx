@@ -1774,7 +1774,7 @@ export default function ClinicDashboard() {
       <div className="flex flex-col lg:flex-row gap-6 items-start">
 
         {/* ===== LEFT SIDEBAR NAV ===== */}
-        <div className="w-full lg:w-56 shrink-0">
+        <div className="hidden lg:block lg:w-56 shrink-0">
           <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
             <div className="p-2 space-y-0.5">
 
