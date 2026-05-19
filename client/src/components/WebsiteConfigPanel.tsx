@@ -9,10 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ImageUpload } from "@/components/ImageUpload";
 import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from "@/components/ui/sheet";
+import {
   Globe, Palette, Image, Layers, Star, Clock, Share2,
-  Plus, Trash2, ExternalLink, Save, Eye,
+  Plus, Trash2, ExternalLink, Save, Eye, Smartphone,
   BarChart2, Sparkles, Instagram, Facebook, Youtube,
-  Users, Layout, Lock,
+  Users, Layout, Lock, X, RefreshCw,
 } from "lucide-react";
 import type { ClinicWebsiteConfig } from "@shared/schema";
 
@@ -112,6 +115,8 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
   );
   const [showMap, setShowMap] = useState(existing.showMap !== false);
   const [openSection, setOpenSection] = useState<Section>("hero");
+  const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
+  const [iframeKey, setIframeKey] = useState(0);
 
   useEffect(() => {
     const e: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: "classic" };
@@ -815,13 +820,27 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {previewUrl && (
-            <a href={previewUrl} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" className="gap-2 rounded-xl">
-                <Eye className="h-3.5 w-3.5" />
+            <>
+              {/* Mobile: open preview in-app sheet */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 rounded-xl sm:hidden"
+                onClick={() => setPreviewSheetOpen(true)}
+                data-testid="button-preview-mobile"
+              >
+                <Smartphone className="h-3.5 w-3.5" />
                 Preview
-                <ExternalLink className="h-3 w-3" />
               </Button>
-            </a>
+              {/* Desktop: open in new tab */}
+              <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="hidden sm:block">
+                <Button variant="outline" size="sm" className="gap-2 rounded-xl">
+                  <Eye className="h-3.5 w-3.5" />
+                  Preview
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              </a>
+            </>
           )}
           <Button
             size="sm"
@@ -831,7 +850,8 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             data-testid="button-save-website"
           >
             <Save className="h-3.5 w-3.5" />
-            {saveMutation.isPending ? "Saving…" : "Save Website"}
+            <span className="hidden sm:inline">Save Website</span>
+            <span className="sm:hidden">Save</span>
           </Button>
         </div>
       </div>
@@ -1001,6 +1021,73 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
         </div>
       </div>
+
+      {/* ── Mobile live preview sheet ── */}
+      {previewUrl && (
+        <Sheet open={previewSheetOpen} onOpenChange={setPreviewSheetOpen}>
+          <SheetContent
+            side="bottom"
+            className="h-[92dvh] p-0 flex flex-col rounded-t-2xl overflow-hidden"
+          >
+            {/* Header bar */}
+            <SheetHeader className="shrink-0 flex flex-row items-center justify-between px-4 py-3 border-b border-border/50 bg-background space-y-0">
+              <SheetTitle className="text-sm font-semibold flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-primary" />
+                Live Clinic Page
+              </SheetTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground active:scale-[0.95]"
+                  onClick={() => setIframeKey(k => k + 1)}
+                  title="Reload preview"
+                  data-testid="button-reload-preview"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-8 w-8 rounded-xl items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                  title="Open in new tab"
+                  data-testid="link-open-preview-tab"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground active:scale-[0.95]"
+                  onClick={() => setPreviewSheetOpen(false)}
+                  data-testid="button-close-preview"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </SheetHeader>
+
+            {/* URL pill */}
+            <div className="shrink-0 px-4 py-2 bg-muted/30 border-b border-border/40">
+              <p className="text-[11px] text-muted-foreground font-mono truncate text-center">
+                {window.location.origin}{previewUrl}
+              </p>
+            </div>
+
+            {/* iframe */}
+            <div className="flex-1 overflow-hidden bg-background">
+              <iframe
+                key={iframeKey}
+                src={previewUrl}
+                title="Clinic page preview"
+                className="w-full h-full border-0"
+                data-testid="iframe-clinic-preview"
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   );
 }
