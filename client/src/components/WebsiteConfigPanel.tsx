@@ -344,7 +344,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         return (
           <div className="p-4 bg-[#F4F8F6] h-full">
             <p className="text-[8px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-2">Why Choose Us</p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {features.slice(0, 4).map((f, i) => (
                 <div key={i} className="bg-white rounded-lg p-2 border border-[#DCE9E3] flex flex-col items-center text-center gap-1.5">
                   <div className="h-7 w-7 rounded-full bg-[#0F9B6E]/10 border border-[#0F9B6E]/20 flex items-center justify-center text-sm">
@@ -370,7 +370,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         return (
           <div className="h-full bg-[#0A3D2E] p-4">
             <p className="text-white/40 text-[8px] uppercase tracking-widest mb-3">Our Achievements</p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {liveStats.slice(0, 4).map((s, i) => (
                 <div key={i} className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
                   <p className="text-white font-black text-sm leading-none">{s.value}</p>
@@ -394,7 +394,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         return (
           <div className="p-4 bg-white h-full">
             <p className="text-[8px] font-bold text-[#0A3D2E] uppercase tracking-wider mb-2">Our Services</p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {liveServices.slice(0, 4).map((s, i) => (
                 <div key={i} className="rounded-lg bg-[#F4F8F6] border border-[#DCE9E3] overflow-hidden">
                   {s.imageUrl ? (
@@ -424,7 +424,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         return (
           <div className="bg-[#0A3D2E] h-full p-4">
             <p className="text-white/40 text-[8px] uppercase tracking-widest mb-2">Photo Gallery</p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {liveGallery.slice(0, 4).map((g, i) => (
                 <div key={i} className="rounded-lg overflow-hidden aspect-video shadow-md">
                   <img src={g.url} alt={g.caption || ""} className="w-full h-full object-cover" />
@@ -609,25 +609,27 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground">Up to 4 reasons shown as icon cards. Always visible on every theme.</p>
             {features.map((f, i) => (
-              <div key={i} className="flex items-center gap-3">
+              <div key={i} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <select
                   value={f.icon}
                   onChange={e => setFeatures(prev => prev.map((x, j) => j === i ? { ...x, icon: e.target.value } : x))}
-                  className="rounded-xl border border-input bg-background px-3 py-2 text-sm w-48 shrink-0"
+                  className="rounded-xl border border-input bg-background px-3 py-2 text-sm w-full sm:w-48 sm:shrink-0 min-h-[44px]"
                   data-testid={`select-feature-icon-${i}`}
                 >
                   {FEATURE_ICON_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-                <Input
-                  value={f.title}
-                  onChange={e => setFeatures(prev => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))}
-                  placeholder="e.g. Expert and Passionate Team"
-                  className="rounded-xl"
-                  data-testid={`input-feature-title-${i}`}
-                />
-                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 shrink-0" onClick={() => setFeatures(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-feature-${i}`}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2 flex-1">
+                  <Input
+                    value={f.title}
+                    onChange={e => setFeatures(prev => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))}
+                    placeholder="e.g. Expert and Passionate Team"
+                    className="rounded-xl flex-1"
+                    data-testid={`input-feature-title-${i}`}
+                  />
+                  <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl text-destructive hover:bg-destructive/10 active:scale-[0.95] shrink-0" onClick={() => setFeatures(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-feature-${i}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
             {features.length < 4 && (
@@ -697,16 +699,16 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground">Upload up to 6 clinic photos. Gallery section is <strong>hidden</strong> until at least one photo is added.</p>
             {gallery.map((g, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className="flex-1">
+              <div key={i} className="p-3 rounded-xl border border-border/40 space-y-2 sm:space-y-0 sm:p-0 sm:border-0 sm:flex sm:items-start sm:gap-3">
+                <div className="sm:flex-1">
                   <ImageUpload currentImageUrl={g.url || null} onUploadComplete={(url) => setGallery(prev => prev.map((x, j) => j === i ? { ...x, url } : x))} folder="clinic-photos" label={`Photo ${i + 1}`} />
                 </div>
-                <div className="flex-1">
-                  <Input value={g.caption} onChange={e => setGallery(prev => prev.map((x, j) => j === i ? { ...x, caption: e.target.value } : x))} placeholder="Caption (optional)" className="rounded-xl" data-testid={`input-gallery-caption-${i}`} />
+                <div className="flex items-center gap-2 sm:flex-1">
+                  <Input value={g.caption} onChange={e => setGallery(prev => prev.map((x, j) => j === i ? { ...x, caption: e.target.value } : x))} placeholder="Caption (optional)" className="rounded-xl flex-1" data-testid={`input-gallery-caption-${i}`} />
+                  <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl text-destructive hover:bg-destructive/10 active:scale-[0.95] shrink-0" onClick={() => setGallery(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-gallery-${i}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 shrink-0 mt-1" onClick={() => setGallery(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-gallery-${i}`}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </div>
             ))}
             {gallery.length < 6 && (
@@ -730,9 +732,9 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   </Button>
                 </div>
                 <Textarea value={t.quote} onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, quote: e.target.value } : x))} placeholder="Patient quote..." rows={2} className="rounded-xl resize-none" data-testid={`input-testimonial-quote-${i}`} />
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Input value={t.patientName} onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, patientName: e.target.value } : x))} placeholder="Patient first name" className="rounded-xl" data-testid={`input-testimonial-name-${i}`} />
-                  <select value={t.rating} onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, rating: Number(e.target.value) } : x))} className="rounded-xl border border-input bg-background px-3 py-2 text-sm" data-testid={`select-testimonial-rating-${i}`}>
+                  <select value={t.rating} onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, rating: Number(e.target.value) } : x))} className="rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[44px]" data-testid={`select-testimonial-rating-${i}`}>
                     {[5, 4, 3, 2, 1].map(r => <option key={r} value={r}>{"★".repeat(r)} {r}/5</option>)}
                   </select>
                 </div>
@@ -750,17 +752,19 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         return (
           <div className="space-y-3">
             {hours.map((h, i) => (
-              <div key={i} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center">
+              <div key={i} className="p-3 rounded-xl border border-border/40 space-y-2 sm:space-y-0 sm:p-0 sm:border-0 sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto] sm:gap-2 sm:items-center">
                 <Input value={h.day} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, day: e.target.value } : x))} placeholder="e.g. Mon – Fri" className="rounded-xl" data-testid={`input-hours-day-${i}`} />
-                <Input value={h.open} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, open: e.target.value } : x))} placeholder="9:00 AM" className="rounded-xl w-28" disabled={h.closed} data-testid={`input-hours-open-${i}`} />
-                <Input value={h.close} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, close: e.target.value } : x))} placeholder="7:00 PM" className="rounded-xl w-28" disabled={h.closed} data-testid={`input-hours-close-${i}`} />
-                <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
-                  <input type="checkbox" checked={h.closed} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, closed: e.target.checked } : x))} className="accent-primary" data-testid={`checkbox-hours-closed-${i}`} />
-                  Closed
-                </label>
-                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-destructive hover:bg-destructive/10 shrink-0" onClick={() => setHours(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-hours-${i}`}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex gap-2 items-center">
+                  <Input value={h.open} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, open: e.target.value } : x))} placeholder="9:00 AM" className="rounded-xl flex-1 sm:w-28 sm:flex-none" disabled={h.closed} data-testid={`input-hours-open-${i}`} />
+                  <Input value={h.close} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, close: e.target.value } : x))} placeholder="7:00 PM" className="rounded-xl flex-1 sm:w-28 sm:flex-none" disabled={h.closed} data-testid={`input-hours-close-${i}`} />
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground whitespace-nowrap min-h-[44px]">
+                    <input type="checkbox" checked={h.closed} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, closed: e.target.checked } : x))} className="accent-primary h-4 w-4" data-testid={`checkbox-hours-closed-${i}`} />
+                    Closed
+                  </label>
+                  <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl text-destructive hover:bg-destructive/10 active:scale-[0.95] shrink-0" onClick={() => setHours(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-hours-${i}`}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             ))}
             <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setHours(prev => [...prev, { day: "", open: "", close: "", closed: false }])} data-testid="button-add-hours">
@@ -859,10 +863,34 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
         </div>
 
         {/* 2-pane body */}
-        <div className="flex bg-background" style={{ minHeight: 520 }}>
+        <div className="flex flex-col lg:flex-row bg-background" style={{ minHeight: "clamp(400px, 60vh, 600px)" }}>
 
-          {/* ── Left: section navigator ── */}
-          <div className="w-52 shrink-0 border-r border-border/40 divide-y divide-border/30 overflow-y-auto">
+          {/* ── Mobile: horizontal tab strip (hidden on desktop) ── */}
+          <div className="lg:hidden flex overflow-x-auto gap-1 p-2 border-b border-border/40" style={{ scrollbarWidth: "none" }}>
+            {MAP_ROWS.map((row) => {
+              const Icon = row.icon;
+              const isActive = openSection === row.id;
+              return (
+                <button
+                  key={row.id}
+                  onClick={() => row.editable ? setOpenSection(row.id as Section) : undefined}
+                  disabled={!row.editable}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border whitespace-nowrap shrink-0 transition-all min-h-[44px] text-xs font-semibold ${
+                    isActive
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : "border-border/40 text-muted-foreground hover:bg-muted/50 active:scale-[0.97]"
+                  } ${!row.editable ? "opacity-50 cursor-default" : ""}`}
+                  data-testid={`mobile-tab-${row.id}`}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {row.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── Left: section navigator (desktop only) ── */}
+          <div className="hidden lg:flex lg:flex-col w-52 shrink-0 border-r border-border/40 divide-y divide-border/30 overflow-y-auto">
             {MAP_ROWS.map((row) => {
               const Icon = row.icon;
               const isActive = openSection === row.id;
