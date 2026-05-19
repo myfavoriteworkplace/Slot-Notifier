@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Loader2, CalendarDays, CheckCircle2, Building2, User, Phone, Mail,
   MapPin, Sun, Moon, Clock, Shield, Sparkles, Search, Stethoscope, X, ChevronDown,
@@ -20,6 +21,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -51,8 +53,42 @@ const getSlotMeta = (startHour: number) => {
   return              { Icon: Moon,  color: "text-primary",    bg: "bg-primary/10",    border: "border-primary/30"   };
 };
 
+function BookingShell({
+  open,
+  onOpenChange,
+  isMobile,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isMobile: boolean;
+  children: React.ReactNode;
+}) {
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="bottom"
+          className="p-0 rounded-t-3xl overflow-hidden flex flex-col focus:outline-none border-0"
+          style={{ maxHeight: "92dvh" }}
+        >
+          {children}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[95vw] sm:max-w-[460px] rounded-2xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
+        {children}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Book(props: { params: { clinicId?: string } }) {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [location] = useLocation();
   const params = new URLSearchParams(window.location.search);
   const clinicIdFromUrl = props.params.clinicId || params.get("clinicId");
@@ -584,7 +620,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
           <CalendarDays className="h-52 w-52 text-white" />
         </div>
 
-        <div className="relative container mx-auto px-4 sm:px-6 py-10 sm:py-14 max-w-5xl">
+        <div className="relative container mx-auto px-4 sm:px-6 py-5 sm:py-14 max-w-5xl">
           <button
             type="button"
             onClick={() => {
@@ -596,7 +632,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                 window.location.href = "/";
               }
             }}
-            className="flex items-center gap-1.5 text-[11px] font-semibold text-white/50 hover:text-white mb-5 transition-colors"
+            className="flex items-center gap-1.5 text-[11px] font-semibold text-white/50 hover:text-white mb-4 transition-colors py-2 -my-2"
             data-testid="button-back"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
@@ -608,10 +644,10 @@ export default function Book(props: { params: { clinicId?: string } }) {
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight mb-2">
             Book a <span className="text-primary">Dental Appointment</span>
           </h1>
-          <p className="text-white/50 text-sm sm:text-base mb-7 max-w-md">
+          <p className="text-white/50 text-sm sm:text-base mb-5 sm:mb-7 max-w-md">
             Find a verified clinic near you, pick a slot, and get confirmed instantly. No account needed.
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="hidden sm:flex flex-wrap gap-2">
             {[
               { Icon: MapPin,    label: "50+ verified clinics across Kerala" },
               { Icon: Shield,   label: "No sign-up — just email verification" },
@@ -622,6 +658,13 @@ export default function Book(props: { params: { clinicId?: string } }) {
                 {label}
               </div>
             ))}
+          </div>
+          <div className="flex sm:hidden gap-3 text-[11px] text-white/50 font-semibold">
+            <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> 50+ clinics</span>
+            <span>·</span>
+            <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> Email verified</span>
+            <span>·</span>
+            <span className="flex items-center gap-1"><Sparkles className="h-3 w-3" /> Instant</span>
           </div>
         </div>
 
@@ -1052,9 +1095,12 @@ export default function Book(props: { params: { clinicId?: string } }) {
         )}
       </div>
 
-      {/* ── BOOKING DIALOG ────────────────────────────────── */}
-      <Dialog open={isDetailsOpen} onOpenChange={open => { if (!open) resetForm(); else setIsDetailsOpen(open); }}>
-        <DialogContent className="w-[95vw] sm:max-w-[460px] rounded-2xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
+      {/* ── BOOKING PANEL (Sheet on mobile, Dialog on desktop) ── */}
+      <BookingShell
+        open={isDetailsOpen}
+        onOpenChange={open => { if (!open) resetForm(); else setIsDetailsOpen(open); }}
+        isMobile={isMobile}
+      >
 
           {/* Neon accent bar */}
           <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent shrink-0" />
@@ -1352,7 +1398,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                       )}
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-1.5 sm:gap-2">
+                                  <div className="flex items-center gap-1 sm:gap-1.5">
                                     {otpDigits.map((digit, index) => (
                                       <input
                                         key={index}
@@ -1366,7 +1412,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                         inputMode="numeric"
                                         maxLength={1}
                                         disabled={verifyOtpMutation.isPending}
-                                        className={`h-12 w-10 sm:w-12 rounded-xl border text-center text-xl font-bold outline-none transition-all duration-200 shadow-sm ${
+                                        className={`h-11 w-9 sm:h-12 sm:w-11 rounded-xl border text-center text-lg sm:text-xl font-bold outline-none transition-all duration-200 shadow-sm ${
                                           digit
                                             ? "border-primary/35 bg-primary/8 text-foreground shadow-primary/10"
                                             : "border-border/60 bg-background text-foreground"
@@ -1379,7 +1425,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                       type="button"
                                       onClick={handleVerifyOtp}
                                       disabled={!isOtpComplete || verifyOtpMutation.isPending}
-                                      className={`h-12 w-12 rounded-xl border flex items-center justify-center transition-all duration-200 shrink-0 ${
+                                      className={`h-11 w-11 sm:h-12 sm:w-12 rounded-xl border flex items-center justify-center transition-all duration-200 shrink-0 ${
                                         isOtpComplete
                                           ? "border-emerald-400/50 bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 hover:bg-emerald-600"
                                           : "border-border/60 bg-muted/40 text-muted-foreground"
@@ -1449,7 +1495,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                               type="button"
                               onClick={() => handleComplaintClick(complaint)}
                               disabled={!emailVerified}
-                              className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-all ${
+                              className={`text-[11px] font-semibold px-3 py-2.5 sm:py-1.5 rounded-lg border transition-all ${
                                 isOn
                                   ? "bg-primary/15 border-primary/35 text-primary shadow-sm"
                                   : "bg-background border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
@@ -1679,7 +1725,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-bold text-sm text-foreground">Pay ₹1 &amp; Confirm Instantly</p>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">Token fee only · Slot reserved immediately · Pay at clinic for treatment</p>
+                            <p className="hidden sm:block text-[11px] text-muted-foreground mt-0.5">Token fee only · Slot reserved immediately · Pay at clinic for treatment</p>
+                            <p className="sm:hidden text-[11px] text-muted-foreground mt-0.5">Token fee · Pay at clinic</p>
                           </div>
                           <div className="shrink-0">
                             <span className="text-[10px] font-bold bg-primary/15 text-primary border border-primary/25 px-2 py-1 rounded-lg">INSTANT</span>
@@ -1700,7 +1747,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-bold text-sm text-foreground">Book with Clinic Approval</p>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">Free · Clinic will confirm your slot · No payment now</p>
+                            <p className="hidden sm:block text-[11px] text-muted-foreground mt-0.5">Free · Clinic will confirm your slot · No payment now</p>
+                            <p className="sm:hidden text-[11px] text-muted-foreground mt-0.5">Free · Awaiting approval</p>
                           </div>
                           <div className="shrink-0">
                             <span className="text-[10px] font-bold bg-muted text-muted-foreground border border-border/50 px-2 py-1 rounded-lg">FREE</span>
@@ -1727,8 +1775,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
               </div>
             </>
           )}
-        </DialogContent>
-      </Dialog>
+      </BookingShell>
 
       <ClinicInfoSheet
         clinic={(infoClinic ?? selectedClinicObj) as any ?? null}
