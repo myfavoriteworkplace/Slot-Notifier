@@ -1640,6 +1640,10 @@ export default function ClinicDashboard() {
     return null;
   }
 
+  const todayBookingsCount = bookings?.filter(b => (b.slot as any)?.date === todayStr).length ?? 0;
+  const pendingCount = bookings?.filter(b => b.status === 'pending').length ?? 0;
+  const confirmedCount = bookings?.filter(b => b.status === 'confirmed').length ?? 0;
+
   return (
     <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-8">
 
@@ -1666,22 +1670,37 @@ export default function ClinicDashboard() {
         </div>
       )}
 
-      {/* Page Header */}
-      <div className="rounded-2xl overflow-hidden shadow-xl mb-6 sm:mb-8 border border-white/10">
-        {/* Neon accent bar */}
+      {/* ═══════════════ PAGE HEADER ═══════════════ */}
+      <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
+
+        {/* Top neon accent bar */}
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
 
-        <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 py-4 sm:px-6 sm:py-5">
-          {/* Subtle radial glow overlay */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_60%)] pointer-events-none" />
+        {/* Main hero band */}
+        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-5 py-5 sm:px-7 sm:py-6 overflow-hidden">
 
-          <div className="relative flex items-center justify-between gap-4">
+          {/* Grid texture overlay */}
+          <div
+            className="absolute inset-0 pointer-events-none opacity-[0.04]"
+            style={{
+              backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)",
+              backgroundSize: "32px 32px",
+            }}
+          />
+          {/* Ambient glow orbs — decorative only */}
+          <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-primary/20 blur-[100px] pointer-events-none" />
+          <div className="absolute -bottom-16 -right-8 w-60 h-60 rounded-full bg-accent/15 blur-[80px] pointer-events-none" />
+          {/* Radial highlight */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.07)_0%,transparent_60%)] pointer-events-none" />
 
-            <div className="flex items-center gap-4 min-w-0">
+          <div className="relative flex items-start justify-between gap-4">
 
-              {/* Logo upload with double-ring glow */}
-              <div className="shrink-0 relative">
-                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-accent/30 to-primary/30 blur-sm" />
+            {/* Left: avatar + identity */}
+            <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+
+              {/* Logo with glow ring */}
+              <div className="shrink-0 relative mt-1">
+                <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-accent/35 via-primary/20 to-transparent blur-md pointer-events-none" />
                 <div className="relative ring-2 ring-white/25 rounded-2xl">
                   <ImageUpload
                     currentImage={clinic?.logoUrl || undefined}
@@ -1692,46 +1711,39 @@ export default function ClinicDashboard() {
                     maxSizeKb={500}
                   />
                 </div>
-                {/* Logo spec hint */}
-                <div className="absolute -bottom-5 left-0 right-0 text-center">
-                  <span className="text-[9px] font-medium text-white/40 whitespace-nowrap">PNG · JPG · max 500 KB</span>
-                </div>
+                <p className="absolute -bottom-5 left-0 right-0 text-center text-xs text-white/30 whitespace-nowrap">
+                  PNG · JPG · 500 KB
+                </p>
               </div>
 
-              {/* Text block */}
+              {/* Name + status badges */}
               <div className="min-w-0">
-                {/* Clinic name — prominent */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide truncate drop-shadow-sm">
+                  <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight truncate">
                     {clinic?.name}
                   </h1>
                   {clinic?.id && clinic.id >= 999 && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-amber-300 bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 rounded-full">
-                      <FlaskConical className="h-2.5 w-2.5" />
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-amber-300 bg-amber-400/15 border border-amber-400/30 px-2.5 py-1 rounded-full">
+                      <FlaskConical className="h-3 w-3" />
                       Demo
                     </span>
                   )}
                 </div>
 
-                {/* Sub-row: badges + live indicator */}
-                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/90 bg-white/10 border border-white/20 px-2 py-0.5 rounded-full">
-                    <Building2 className="h-2.5 w-2.5" />
+                <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-2.5 py-1 rounded-full">
+                    <Building2 className="h-3 w-3" />
                     Clinic Administration
                   </span>
-
-                  {/* Live indicator */}
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-2 py-0.5 rounded-full">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-2.5 py-1 rounded-full">
                     <span className="relative flex h-1.5 w-1.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
                     </span>
                     Live
                   </span>
-
-                  {/* Current date */}
-                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-white/60 bg-white/8 border border-white/15 px-2 py-0.5 rounded-full">
-                    <CalendarIcon className="h-2.5 w-2.5" />
+                  <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-white/50 bg-white/[0.06] border border-white/15 px-2.5 py-1 rounded-full">
+                    <CalendarIcon className="h-3 w-3" />
                     {format(new Date(), "MMM d, yyyy")}
                   </span>
                 </div>
@@ -1743,31 +1755,39 @@ export default function ClinicDashboard() {
               variant="ghost"
               size="sm"
               onClick={handleLogout}
-              className="shrink-0 text-white/70 hover:text-white hover:bg-white/15 border border-white/15 gap-1.5 text-xs backdrop-blur-sm"
+              className="shrink-0 min-h-[44px] px-3 text-white/70 hover:text-white hover:bg-white/15 active:bg-white/25 active:scale-[0.97] border border-white/20 gap-2 text-xs transition-all"
+              data-testid="button-sign-out"
             >
               <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Sign Out</span>
+              <span className="hidden sm:inline font-semibold">Sign Out</span>
             </Button>
+          </div>
+
+          {/* ── Live stats row ── */}
+          <div className="relative mt-5 pt-4 border-t border-white/[0.10] grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {([
+              { label: "Today's Bookings", value: todayBookingsCount, Icon: CalendarIcon, text: "text-sky-300", bg: "bg-sky-400/10", border: "border-sky-400/20" },
+              { label: "Pending", value: pendingCount, Icon: Clock, text: "text-amber-300", bg: "bg-amber-400/10", border: "border-amber-400/20" },
+              { label: "Confirmed", value: confirmedCount, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+              { label: "All Bookings", value: bookings?.length ?? 0, Icon: TrendingUp, text: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
+            ] as const).map(({ label, value, Icon, text, bg, border }, i) => (
+              <div key={i} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border bg-white/[0.04] ${border}`}>
+                <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg`}>
+                  <Icon className="h-3.5 w-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-base sm:text-lg font-extrabold text-white leading-none tabular-nums">
+                    {bookingsLoading ? "—" : value}
+                  </p>
+                  <p className={`text-xs font-medium mt-0.5 ${text} truncate`}>{label}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* ===== NAMEPLATE STRIP ===== */}
-        <div className="relative bg-black/25 backdrop-blur-sm px-5 sm:px-6 py-2.5 flex items-center justify-center overflow-hidden">
-          {/* Left decorative line */}
-          <div className="absolute left-5 sm:left-6 top-1/2 -translate-y-1/2 h-px w-16 bg-gradient-to-r from-accent/50 to-transparent" />
-          {/* Right decorative line */}
-          <div className="absolute right-5 sm:right-6 top-1/2 -translate-y-1/2 h-px w-16 bg-gradient-to-l from-accent/50 to-transparent" />
-          {/* Corner brackets */}
-          <span className="absolute left-5 sm:left-6 text-accent/40 text-xs font-mono select-none">[</span>
-          <span className="absolute right-5 sm:right-6 text-accent/40 text-xs font-mono select-none">]</span>
-          {/* Clinic name */}
-          <p className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.35em] text-white/65 truncate px-8">
-            {clinic?.name}
-          </p>
-        </div>
-        {/* Bottom accent bar */}
-        <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-50" />
-
+        {/* Bottom accent line */}
+        <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-60" />
       </div>
 
       {/* Two-column layout: left sidebar + main content */}
