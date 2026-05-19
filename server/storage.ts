@@ -184,6 +184,9 @@ export interface IStorage {
   getPatientBillsByEmail(clinicId: number, email: string): Promise<PatientBill[]>;
   updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill>;
   deletePatientBill(id: number, clinicId: number): Promise<void>;
+
+  // Analytics
+  getClinicAnalytics(clinicId: number, range: string): Promise<Record<string, any>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1204,6 +1207,166 @@ export class DatabaseStorage implements IStorage {
   async deletePatientBill(id: number, clinicId: number): Promise<void> {
     await db.delete(patientBills)
       .where(and(eq(patientBills.id, id), eq(patientBills.clinicId, clinicId)));
+  }
+
+  async getClinicAnalytics(clinicId: number, range: string): Promise<Record<string, any>> {
+    const now = new Date();
+    let startDate: Date;
+    if (range === 'year') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+    } else {
+      const days = range === '60d' ? 60 : range === '90d' ? 90 : 30;
+      startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    }
+
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    const thirtyDaysOut = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    function dateKey(d: Date) { return d.toISOString().substring(0, 10); }
+    function weekKey(d: Date) {
+      const c = new Date(d); c.setDate(c.getDate() - c.getDay());
+      return c.toISOString().substring(0, 10);
+    }
+    function monthLabel(d: Date) {
+      const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${mo[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
+    }
+
+    const [bookingRows, slotRows, billRows, patientRows, clinicalRows, alertRows, itemRows, loginRows] =
+      await Promise.all([
+        db.select({ booking: bookings, slot: slots })
+          .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id))
+          .where(and(eq(slots.clinicId, clinicId), gte(slots.startTime, startDate))),
+
+        db.select().from(slots)
+          .where(and(eq(slots.clinicId, clinicId), gte(slots.startTime, startDate))),
+
+        db.select().from(patientBills)
+          .where(and(eq(patientBills.clinicId, clinicId), gte(patientBills.createdAt as any, startDate))),
+
+        db.select().from(patients).where(eq(patients.clinicId, clinicId)),
+
+        db.select({ diagnosis: clinicalRecords.diagnosis })
+          .from(clinicalRecords)
+          .where(and(
+            eq(clinicalRecords.clinicId, clinicId),
+            eq(clinicalRecords.isDeleted, false),
+            gte(clinicalRecords.createdAt as any, startDate)
+          )),
+
+        db.select().from(stockAlerts)
+          .where(and(eq(stockAlerts.clinicId, clinicId), eq(stockAlerts.isDismissed, false))),
+
+        db.select().from(inventoryItems).where(eq(inventoryItems.clinicId, clinicId)),
+
+        db.select({ success: loginEvents.success })
+          .from(loginEvents)
+          .where(and(eq(loginEvents.role, 'clinic'), gte(loginEvents.createdAt as any, startDate))),
+      ]);
+
+    // ── Overview ──────────────────────────────────────────────────────────────
+    const totalBookings  = bookingRows.length;
+    const todayBookings  = bookingRows.filter(r => r.slot.startTime >= todayStart && r.slot.startTime <= todayEnd).length;
+    const cancelledSlots = slotRows.filter(s => s.isCancelled).length;
+    const bookedSlots    = slotRows.filter(s => s.isBooked).length;
+    const utilizationPct = slotRows.length > 0 ? Math.round((bookedSlots / slotRows.length) * 100) : 0;
+
+    const trendMap = new Map<string, number>();
+    for (const r of bookingRows) {
+      const k = dateKey(r.slot.startTime);
+      trendMap.set(k, (trendMap.get(k) ?? 0) + 1);
+    }
+    const trendByDay = Array.from(trendMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({ date, count }));
+
+    // ── Financial ─────────────────────────────────────────────────────────────
+    const paidBills      = billRows.filter(b => b.paymentStatus === 'paid');
+    const totalRevenue   = paidBills.reduce((s, b) => s + (b.total ?? 0), 0);
+    const outstanding    = billRows.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+    const uniquePtIds    = new Set(billRows.map(b => b.patientId).filter(Boolean));
+    const avgRevPerPt    = uniquePtIds.size > 0 ? Math.round(totalRevenue / uniquePtIds.size) : 0;
+
+    const payMap = new Map<string, { amount: number; count: number }>();
+    for (const b of billRows) {
+      const m = b.paymentMethod ?? 'Cash';
+      const e = payMap.get(m) ?? { amount: 0, count: 0 };
+      payMap.set(m, { amount: e.amount + (b.total ?? 0), count: e.count + 1 });
+    }
+    const paymentBreakdown = Array.from(payMap.entries())
+      .map(([method, d]) => ({ method, ...d }))
+      .sort((a, b) => b.amount - a.amount);
+
+    const revMap = new Map<string, number>();
+    for (const b of billRows) {
+      if (!b.createdAt) continue;
+      const k = weekKey(b.createdAt);
+      revMap.set(k, (revMap.get(k) ?? 0) + (b.total ?? 0));
+    }
+    const revenueTrend = Array.from(revMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([week, amount]) => ({ week, amount: Math.round(amount) }));
+
+    // ── Appointments ──────────────────────────────────────────────────────────
+    const statusMap = new Map<string, number>();
+    for (const r of bookingRows) {
+      const s = r.booking.clinicalStatus ?? 'Awaiting';
+      statusMap.set(s, (statusMap.get(s) ?? 0) + 1);
+    }
+    const statusBreakdown = Array.from(statusMap.entries())
+      .map(([status, count]) => ({ status, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const docMap = new Map<string, number>();
+    for (const r of bookingRows) {
+      const d = r.booking.assignedDoctor ?? 'Unassigned';
+      docMap.set(d, (docMap.get(d) ?? 0) + 1);
+    }
+    const doctorWorkload = Array.from(docMap.entries())
+      .map(([doctor, count]) => ({ doctor, count }))
+      .sort((a, b) => b.count - a.count).slice(0, 8);
+
+    const procMap = new Map<string, number>();
+    for (const r of clinicalRows) {
+      for (const d of ((r.diagnosis ?? []) as string[])) {
+        if (d) procMap.set(d, (procMap.get(d) ?? 0) + 1);
+      }
+    }
+    const topProcedures = Array.from(procMap.entries())
+      .map(([procedure, count]) => ({ procedure, count }))
+      .sort((a, b) => b.count - a.count).slice(0, 6);
+
+    // ── Patients ──────────────────────────────────────────────────────────────
+    const totalPatients  = patientRows.length;
+    const newPatients    = patientRows.filter(p => p.visitCount <= 1).length;
+    const repeatPatients = patientRows.filter(p => p.visitCount > 1).length;
+
+    const growthMap = new Map<string, number>();
+    for (const p of patientRows) {
+      if (!p.createdAt) continue;
+      const k = monthLabel(p.createdAt);
+      growthMap.set(k, (growthMap.get(k) ?? 0) + 1);
+    }
+    const growthByMonth = Array.from(growthMap.entries())
+      .map(([month, count]) => ({ month, count }));
+
+    // ── Compliance ────────────────────────────────────────────────────────────
+    const signedCount    = bookingRows.filter(r => r.booking.consentSignedAt !== null).length;
+    const consentRate    = totalBookings > 0 ? Math.round((signedCount / totalBookings) * 100) : 0;
+    const lowStockItems  = itemRows.filter(i => i.reorderLevel !== null && i.currentQty <= (i.reorderLevel ?? Infinity)).length;
+    const expiringItems  = itemRows.filter(i => i.expiryDate && new Date(i.expiryDate) <= thirtyDaysOut).length;
+    const loginSuccess   = loginRows.filter(l => l.success).length;
+    const loginFail      = loginRows.filter(l => !l.success).length;
+
+    return {
+      range,
+      overview: { totalBookings, todayBookings, utilizationPct, cancellations: cancelledSlots, trendByDay },
+      financial: { totalRevenue: Math.round(totalRevenue), outstanding: Math.round(outstanding), avgRevenuePerPatient: avgRevPerPt, paymentBreakdown, revenueTrend },
+      appointments: { statusBreakdown, doctorWorkload, topProcedures },
+      patients: { total: totalPatients, newPatients, repeatPatients, growthByMonth },
+      compliance: { consentRate, signedCount, totalWithConsent: totalBookings, inventoryAlerts: alertRows.length, lowStockItems, expiringItems, loginSuccess, loginFail },
+    };
   }
 }
 

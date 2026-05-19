@@ -3664,5 +3664,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // ── CLINIC ANALYTICS ──────────────────────────────────────────────────────
+  // GET /api/auth/clinic/analytics?range=30d
+  app.get("/api/auth/clinic/analytics", async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const range = typeof req.query.range === 'string' ? req.query.range : '30d';
+      const analytics = await storage.getClinicAnalytics(clinicId, range);
+      res.json(analytics);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   return createServer(app);
 }
