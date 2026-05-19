@@ -5,6 +5,8 @@ import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import { useDoctorAuth } from "@/hooks/use-doctor-auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -613,25 +615,6 @@ export default function DoctorDashboard() {
               </div>
             </div>
 
-            {/* Stats grid */}
-            <div className="w-full grid grid-cols-2 gap-2 pt-3 border-t border-border/40">
-              {[
-                { label: "Total",    count: confirmedBookings.length, filter: "all"      as QuickFilter, cls: "bg-muted/60 text-foreground border-border/50" },
-                { label: "Today",    count: todayBookings.length,     filter: "today"    as QuickFilter, cls: "bg-primary/8 text-primary border-primary/20" },
-                { label: "Upcoming", count: upcomingBookings.length,  filter: "upcoming" as QuickFilter, cls: "bg-blue-500/8 text-blue-600 dark:text-blue-400 border-blue-500/20" },
-                { label: "Awaiting", count: awaitingBookings.length,  filter: "awaiting" as QuickFilter, cls: awaitingBookings.length > 0 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-400/30" : "bg-muted/60 text-muted-foreground border-border/50" },
-              ].map(s => (
-                <button
-                  key={s.filter}
-                  onClick={() => { setActiveTab("appointments"); handleQuickFilter(s.filter); }}
-                  className={`flex flex-col items-center rounded-xl border px-2 py-2 transition-all hover:scale-[1.03] ${s.cls} ${quickFilter === s.filter && activeTab === "appointments" ? "ring-2 ring-offset-1 ring-current/30 shadow-sm" : ""}`}
-                  data-testid={`stat-${s.filter}`}
-                >
-                  <span className="text-xl font-extrabold leading-none">{s.count}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide mt-0.5 opacity-75">{s.label}</span>
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Navigation */}
@@ -711,6 +694,124 @@ export default function DoctorDashboard() {
           {/* ─────────────── APPOINTMENTS ─────────────── */}
           {activeTab === "appointments" && (
             <div className="space-y-5">
+
+              {/* Stats Cards — click to filter */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* Total */}
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card
+                        className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-[0.98] ${quickFilter === 'all' ? 'ring-2 ring-slate-400 border-slate-400/60' : 'border-border/50'}`}
+                        onClick={() => { setActiveTab("appointments"); handleQuickFilter("all"); }}
+                        data-testid="stat-all"
+                      >
+                        <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
+                        <CardContent className="p-4 text-left flex items-center gap-3">
+                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'all' ? 'bg-slate-400/20' : 'bg-slate-400/10'}`}>
+                            <ClipboardList className="h-4 w-4 text-slate-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium text-muted-foreground">Total</p>
+                            <p className="text-xl font-bold text-slate-600 dark:text-slate-400">{confirmedBookings.length}</p>
+                          </div>
+                          {quickFilter === 'all' && (
+                            <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent>All confirmed appointments</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* Today */}
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card
+                        className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-[0.98] ${quickFilter === 'today' ? 'ring-2 ring-sky-400 border-sky-400/60' : 'border-border/50'}`}
+                        onClick={() => { setActiveTab("appointments"); handleQuickFilter("today"); }}
+                        data-testid="stat-today"
+                      >
+                        <div className="h-1 bg-gradient-to-r from-sky-400 to-cyan-400" />
+                        <CardContent className="p-4 text-left flex items-center gap-3">
+                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-sky-400/20' : 'bg-sky-400/10'}`}>
+                            <Calendar className="h-4 w-4 text-sky-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium text-muted-foreground">Today</p>
+                            <p className="text-xl font-bold text-sky-600 dark:text-sky-400">{todayBookings.length}</p>
+                          </div>
+                          {quickFilter === 'today' && (
+                            <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent>Today's appointments</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* Upcoming */}
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card
+                        className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-[0.98] ${quickFilter === 'upcoming' ? 'ring-2 ring-primary border-primary/60' : 'border-border/50'}`}
+                        onClick={() => { setActiveTab("appointments"); handleQuickFilter("upcoming"); }}
+                        data-testid="stat-upcoming"
+                      >
+                        <div className="h-1 bg-gradient-to-r from-primary to-accent" />
+                        <CardContent className="p-4 text-left flex items-center gap-3">
+                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-primary/20' : 'bg-primary/10'}`}>
+                            <TrendingUp className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium text-muted-foreground">Upcoming</p>
+                            <p className="text-xl font-bold text-primary">{upcomingBookings.length}</p>
+                          </div>
+                          {quickFilter === 'upcoming' && (
+                            <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent>Future appointments beyond today</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* Awaiting */}
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card
+                        className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-[0.98] ${quickFilter === 'awaiting' ? 'ring-2 ring-amber-400 border-amber-400/60' : 'border-border/50'}`}
+                        onClick={() => { setActiveTab("appointments"); handleQuickFilter("awaiting"); }}
+                        data-testid="stat-awaiting"
+                      >
+                        <div className={`h-1 bg-gradient-to-r ${awaitingBookings.length > 0 ? 'from-amber-400 to-yellow-400' : 'from-slate-300 to-slate-200'}`} />
+                        <CardContent className="p-4 text-left flex items-center gap-3">
+                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'awaiting' ? 'bg-amber-400/20' : awaitingBookings.length > 0 ? 'bg-amber-400/10' : 'bg-muted'}`}>
+                            <AlertCircle className={`h-4 w-4 ${awaitingBookings.length > 0 ? 'text-amber-500' : 'text-muted-foreground'}`} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium text-muted-foreground">Awaiting</p>
+                            <p className={`text-xl font-bold ${awaitingBookings.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>{awaitingBookings.length}</p>
+                          </div>
+                          {quickFilter === 'awaiting' && (
+                            <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                          )}
+                          {awaitingBookings.length > 0 && quickFilter !== 'awaiting' && (
+                            <span className="ml-auto text-[9px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none shrink-0">{awaitingBookings.length}</span>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent>Appointments needing your approval</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
 
               {/* Awaiting approval banner */}
               {awaitingBookings.length > 0 && (
