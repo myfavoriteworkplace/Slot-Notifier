@@ -1065,8 +1065,9 @@ export default function DoctorDashboard() {
             const pct = Math.round((filled / completenessFields.length) * 100);
             const isComplete = pct === 100;
             return (
-              <div className="max-w-2xl space-y-6">
-                {/* Profile card */}
+              <div className="max-w-2xl space-y-4 animate-in fade-in duration-200">
+
+                {/* ── Live Preview Banner ── */}
                 <div className="rounded-2xl border border-border/50 bg-background shadow-sm overflow-hidden">
                   <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-4 overflow-hidden">
                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
@@ -1079,34 +1080,32 @@ export default function DoctorDashboard() {
                         </Avatar>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 mb-0.5">Doctor Profile</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 mb-0.5">Doctor Profile</p>
                         <h2 className="text-lg font-extrabold text-white leading-tight">{profName || "Your Name"}</h2>
                         <p className="text-xs text-white/55 mb-2">{profSpecialization || "Specialization"} · {profDegree || "Degree"}</p>
-                        {/* Secondary info row — college, experience, languages */}
                         <div className="flex flex-wrap gap-1.5 mb-1.5">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${profCollege ? "bg-white/15 text-white/80" : "bg-white/5 text-white/25 border border-white/10 border-dashed italic"}`}>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${profCollege ? "bg-white/15 text-white/80" : "bg-white/5 text-white/25 border border-white/10 border-dashed italic"}`}>
                             {profCollege || "College / University"}
                           </span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${profYearsExp ? "bg-white/15 text-white/80" : "bg-white/5 text-white/25 border border-white/10 border-dashed italic"}`}>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${profYearsExp ? "bg-white/15 text-white/80" : "bg-white/5 text-white/25 border border-white/10 border-dashed italic"}`}>
                             {profYearsExp ? `${profYearsExp} yrs experience` : "Years of experience"}
                           </span>
                           {profLanguages.length > 0 ? profLanguages.map(lang => (
-                            <span key={lang} className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-white/15 text-white/80">{lang}</span>
+                            <span key={lang} className="text-xs px-2 py-0.5 rounded-full font-medium bg-white/15 text-white/80">{lang}</span>
                           )) : (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-white/5 text-white/25 border border-white/10 border-dashed italic">Languages spoken</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-white/5 text-white/25 border border-white/10 border-dashed italic">Languages spoken</span>
                           )}
                         </div>
-                        {/* Bio preview */}
-                        <p className={`text-[10px] leading-relaxed line-clamp-2 ${profBio ? "text-white/50" : "text-white/20 italic"}`}>
+                        <p className={`text-xs leading-relaxed line-clamp-2 ${profBio ? "text-white/50" : "text-white/20 italic"}`}>
                           {profBio || "No professional bio added yet — describe your expertise and approach for patients to see."}
                         </p>
                       </div>
                     </div>
-                    {/* Completeness */}
+                    {/* Completeness bar */}
                     <div className="relative mt-3">
                       <div className="flex justify-between items-center mb-1">
-                        <span className="text-[10px] text-white/60 font-medium">Profile completeness</span>
-                        <span className={`text-[10px] font-bold ${isComplete ? "text-green-300" : "text-white/80"}`}>{pct}%</span>
+                        <span className="text-xs text-white/60 font-medium">Profile completeness</span>
+                        <span className={`text-xs font-bold ${isComplete ? "text-green-300" : "text-white/80"}`}>{pct}%</span>
                       </div>
                       <div className="h-1.5 rounded-full bg-white/15 overflow-hidden">
                         <div className={`h-full rounded-full transition-all duration-500 ${isComplete ? "bg-green-400" : "bg-white/70"}`} style={{ width: `${pct}%` }} />
@@ -1114,71 +1113,184 @@ export default function DoctorDashboard() {
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/40 via-primary/60 to-accent/40" />
                   </div>
+                </div>
+
+                {/* ── Section 1: Identity ── */}
+                <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                  <div className="px-5 py-3 border-b border-border/40 bg-muted/20">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5" /> Identity
+                    </p>
+                  </div>
                   <div className="p-5 space-y-4">
                     {/* Photo upload */}
                     <div className="flex items-center gap-4">
-                      <div className="relative shrink-0">
-                        <Avatar className="h-16 w-16 ring-2 ring-primary/20">
-                          <AvatarImage src={profImageUrl || undefined} />
-                          <AvatarFallback className="bg-primary/10 text-primary font-bold text-xl">{profName?.charAt(0) || "?"}</AvatarFallback>
-                        </Avatar>
-                      </div>
-                      <div className="flex flex-col gap-1.5">
+                      <Avatar className="h-16 w-16 ring-2 ring-primary/20 shrink-0">
+                        <AvatarImage src={profImageUrl || undefined} />
+                        <AvatarFallback className="bg-primary/10 text-primary font-bold text-xl">{profName?.charAt(0) || "?"}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col gap-2">
                         <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => photoInputRef.current?.click()} disabled={profUploading || profOptimising} data-testid="button-upload-photo">
-                          {profOptimising ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin text-amber-500" />Optimising…</> : profUploading ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Uploading…</> : <><Upload className="h-3.5 w-3.5 mr-2" />Upload Photo</>}
+                        <Button
+                          variant="outline" size="sm"
+                          className="min-h-[44px] text-xs active:scale-[0.98] transition-all"
+                          onClick={() => photoInputRef.current?.click()}
+                          disabled={profUploading || profOptimising}
+                          data-testid="button-upload-photo"
+                        >
+                          {profOptimising
+                            ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin text-amber-500" />Optimising…</>
+                            : profUploading
+                              ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Uploading…</>
+                              : <><Upload className="h-3.5 w-3.5 mr-2" />Upload Photo</>}
                         </Button>
-                        {profImageUrl && <button onClick={() => setProfImageUrl("")} className="text-[11px] text-muted-foreground hover:text-destructive transition-colors" data-testid="button-remove-photo">Remove</button>}
+                        {profImageUrl && (
+                          <button
+                            onClick={() => setProfImageUrl("")}
+                            className="text-xs text-muted-foreground hover:text-destructive active:opacity-70 transition-colors min-h-[44px] px-2"
+                            data-testid="button-remove-photo"
+                          >
+                            Remove photo
+                          </button>
+                        )}
                       </div>
                     </div>
                     {/* Name + Phone */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Full Name</Label>
-                        <Input data-testid="input-prof-name" value={profName} onChange={e => setProfName(e.target.value)} placeholder="John Smith" />
+                        <Input
+                          data-testid="input-prof-name"
+                          value={profName}
+                          onChange={e => setProfName(e.target.value)}
+                          placeholder="Dr. John Smith"
+                          onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Contact Phone</Label>
-                        <Input data-testid="input-prof-phone" value={profPhone} onChange={e => setProfPhone(e.target.value)} placeholder="+91 98765 43210" />
+                        <Input
+                          data-testid="input-prof-phone"
+                          type="tel"
+                          value={profPhone}
+                          onChange={e => setProfPhone(e.target.value)}
+                          placeholder="+91 98765 43210"
+                          onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                        />
                       </div>
                     </div>
-                    {/* Specialization + Degree */}
-                    <div className="grid grid-cols-2 gap-4">
+                  </div>
+                </div>
+
+                {/* ── Section 2: Credentials ── */}
+                <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                  <div className="px-5 py-3 border-b border-border/40 bg-muted/20">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                      <GraduationCap className="h-3.5 w-3.5" /> Credentials
+                    </p>
+                  </div>
+                  <div className="p-5 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Stethoscope className="h-3 w-3" />Specialization</Label>
-                        <Input data-testid="input-prof-specialization" value={profSpecialization} onChange={e => setProfSpecialization(e.target.value)} placeholder="Orthodontist" />
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                          <Stethoscope className="h-3 w-3" />Specialization
+                        </Label>
+                        <Input
+                          data-testid="input-prof-specialization"
+                          value={profSpecialization}
+                          onChange={e => setProfSpecialization(e.target.value)}
+                          placeholder="Orthodontist"
+                          onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                        />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><GraduationCap className="h-3 w-3" />Degree</Label>
-                        <Input data-testid="input-prof-degree" value={profDegree} onChange={e => setProfDegree(e.target.value)} placeholder="BDS, MDS" />
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                          <GraduationCap className="h-3 w-3" />Degree
+                        </Label>
+                        <Input
+                          data-testid="input-prof-degree"
+                          value={profDegree}
+                          onChange={e => setProfDegree(e.target.value)}
+                          placeholder="BDS, MDS"
+                          onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                        />
                       </div>
                     </div>
-                    {/* College + Experience */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Building2 className="h-3 w-3" />College / University</Label>
-                        <Input data-testid="input-prof-college" value={profCollege} onChange={e => setProfCollege(e.target.value)} placeholder="AIIMS New Delhi" />
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                          <Building2 className="h-3 w-3" />College / University
+                        </Label>
+                        <Input
+                          data-testid="input-prof-college"
+                          value={profCollege}
+                          onChange={e => setProfCollege(e.target.value)}
+                          placeholder="AIIMS New Delhi"
+                          onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                        />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><TrendingUp className="h-3 w-3" />Years of Experience</Label>
-                        <Input data-testid="input-prof-experience" type="number" min="0" max="70" value={profYearsExp} onChange={e => setProfYearsExp(e.target.value)} placeholder="e.g. 10" />
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                          <TrendingUp className="h-3 w-3" />Years of Experience
+                        </Label>
+                        <Input
+                          data-testid="input-prof-experience"
+                          type="number"
+                          min="0"
+                          max="70"
+                          inputMode="numeric"
+                          value={profYearsExp}
+                          onChange={e => setProfYearsExp(e.target.value)}
+                          placeholder="e.g. 10"
+                          onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                        />
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* ── Section 3: Public Profile ── */}
+                <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                  <div className="px-5 py-3 border-b border-border/40 bg-muted/20">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                      <Globe className="h-3.5 w-3.5" /> Public Profile
+                    </p>
+                  </div>
+                  <div className="p-5 space-y-5">
                     {/* Languages */}
                     <div className="space-y-2">
-                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Globe className="h-3 w-3" />Languages Spoken</Label>
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                        <Globe className="h-3 w-3" />Languages Spoken
+                      </Label>
                       <div className="flex flex-wrap gap-2">
                         {LANGUAGES.map(lang => (
-                          <button key={lang} type="button" data-testid={`toggle-lang-${lang.toLowerCase()}`} onClick={() => toggleLanguage(lang)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${profLanguages.includes(lang) ? "bg-primary text-white border-primary shadow-sm shadow-primary/20" : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"}`}
-                          >{lang}</button>
+                          <button
+                            key={lang}
+                            type="button"
+                            data-testid={`toggle-lang-${lang.toLowerCase()}`}
+                            onClick={() => toggleLanguage(lang)}
+                            className={`min-h-[44px] px-4 rounded-full text-xs font-semibold border transition-all active:scale-[0.97] ${
+                              profLanguages.includes(lang)
+                                ? "bg-primary text-white border-primary shadow-sm shadow-primary/20"
+                                : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground active:bg-muted/60"
+                            }`}
+                          >
+                            {lang}
+                          </button>
                         ))}
                       </div>
                     </div>
                     {/* Bio */}
                     <div className="space-y-2">
                       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Professional Bio</Label>
-                      <Textarea data-testid="input-prof-bio" value={profBio} onChange={e => setProfBio(e.target.value)} placeholder="Brief professional summary visible on your public profile..." className="resize-none h-24" />
+                      <Textarea
+                        data-testid="input-prof-bio"
+                        value={profBio}
+                        onChange={e => setProfBio(e.target.value)}
+                        placeholder="Brief professional summary visible on your public profile…"
+                        className="resize-none h-24"
+                        onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                      />
                     </div>
                     {/* Profile Handle */}
                     <div className="space-y-2">
@@ -1194,6 +1306,7 @@ export default function DoctorDashboard() {
                             onChange={e => setProfUsername(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
                             placeholder="dr-your-name"
                             className="pl-[70px] font-mono text-sm"
+                            onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                           />
                         </div>
                         {!profUsername && profName && (
@@ -1201,7 +1314,7 @@ export default function DoctorDashboard() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="shrink-0 text-xs border-primary/30 text-primary hover:bg-primary/5"
+                            className="shrink-0 min-h-[44px] text-xs border-primary/30 text-primary hover:bg-primary/5 active:scale-[0.97]"
                             onClick={() => setProfUsername(slugify(profName))}
                             data-testid="button-suggest-username"
                           >
@@ -1209,386 +1322,116 @@ export default function DoctorDashboard() {
                           </Button>
                         )}
                       </div>
-                      <p className="text-[10px] text-muted-foreground">This becomes your shareable URL. Only lowercase letters, numbers, and hyphens. Leave blank to use your numeric ID.</p>
+                      <p className="text-xs text-muted-foreground">Lowercase letters, numbers, and hyphens only. Leave blank to use your numeric ID.</p>
                     </div>
-                    {/* Leave management → now a dedicated sidebar tab */}
-                    <button
-                      onClick={() => setActiveTab("leaves")}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5 hover:bg-amber-100/60 dark:hover:bg-amber-500/10 active:scale-[0.99] transition-all text-left"
-                      data-testid="button-go-to-leaves"
-                    >
-                      <div className="h-9 w-9 rounded-lg bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 flex items-center justify-center shrink-0">
-                        <CalendarOff className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Leave Management</p>
-                        <p className="text-xs text-amber-600/80 dark:text-amber-400/60 mt-0.5">Mark your out-of-office dates from the Leave Management tab</p>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-amber-500 dark:text-amber-400 shrink-0" />
-                    </button>
-                    {/* ↓↓↓ OLD LEAVE BLOCK REMOVED — see activeTab === "leaves" section ↓↓↓ */}
-                    <div className="hidden rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5">
-                      {/* Header */}
-                      <div className="px-4 py-3 bg-amber-100/60 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20 flex items-center justify-between rounded-t-xl">
-                        <div className="flex items-center gap-2">
-                          <BriefcaseMedical className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                          <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Out of Office / Leave</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {!isLeavesLoading && leaves.length > 0 && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-200/70 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-[10px] font-bold">
-                              {leaves.length} {leaves.length === 1 ? "day" : "days"} marked
-                            </span>
-                          )}
-                          {/* Single / Multi mode toggle */}
-                          <div className="flex items-center rounded-lg border border-amber-200 dark:border-amber-500/30 overflow-hidden text-[10px] font-semibold">
-                            <button
-                              data-testid="button-single-mode"
-                              onClick={() => { setMultiMode(false); setPendingDates([]); }}
-                              className={`px-2.5 py-1 transition-colors ${!multiMode ? "bg-amber-500 text-white" : "text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/10"}`}
-                            >Single</button>
-                            <button
-                              data-testid="button-multi-mode"
-                              onClick={() => { setMultiMode(true); setLeavePickerDate(undefined); }}
-                              className={`px-2.5 py-1 transition-colors ${multiMode ? "bg-amber-500 text-white" : "text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/10"}`}
-                            >Multi</button>
-                          </div>
-                        </div>
-                      </div>
+                  </div>
+                </div>
 
-                      <div className="p-4 space-y-4">
-                        <p className="text-[11px] text-muted-foreground leading-relaxed">
-                          {multiMode
-                            ? <><span className="font-medium text-amber-700 dark:text-amber-400">Multi-select:</span> tap several dates, add an optional reason, then submit them all at once — great for holidays or planned leave blocks.</>
-                            : <>Mark dates when you are unavailable. <span className="font-medium text-amber-700 dark:text-amber-400">Tap an amber date to remove it.</span> Clinic admins will see a warning when trying to assign you on these dates.</>
-                          }
-                        </p>
-
-                        {/* Calendar + reason side by side */}
-                        <div className="flex flex-col sm:flex-row gap-4 items-start">
-
-                          {/* Calendar */}
-                          <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-background shadow-sm pt-1">
-                            {multiMode ? (
-                              <CalendarPicker
-                                mode="multiple"
-                                selected={pendingDates}
-                                onSelect={(dates) => {
-                                  const newDates = dates || [];
-                                  // Detect newly added date (toggled in)
-                                  const added = newDates.find(d =>
-                                    !pendingDates.some(p => format(p, 'yyyy-MM-dd') === format(d, 'yyyy-MM-dd'))
-                                  );
-                                  if (added) {
-                                    const dateStr = format(added, 'yyyy-MM-dd');
-                                    const existing = leaves.find(l => l.leaveDate === dateStr);
-                                    if (existing) {
-                                      removeLeaveMutation.mutate(existing.id);
-                                      return;
-                                    }
-                                  }
-                                  // Strip any already-marked leave dates from pending
-                                  setPendingDates(newDates.filter(d =>
-                                    !leaves.some(l => l.leaveDate === format(d, 'yyyy-MM-dd'))
-                                  ));
-                                }}
-                                disabled={(date) => { const t = new Date(); t.setHours(0,0,0,0); return date < t; }}
-                                modifiers={{ leave: leaves.map(l => new Date(l.leaveDate + 'T00:00:00')) }}
-                                modifiersStyles={{
-                                  leave: { backgroundColor: 'rgb(251 191 36 / 0.25)', color: '#92400e', fontWeight: '700', borderRadius: '6px', border: '1.5px solid rgb(251 191 36 / 0.6)' },
-                                }}
-                                className="p-3"
-                                data-testid="calendar-leave-picker-multi"
-                              />
-                            ) : (
-                              <CalendarPicker
-                                mode="single"
-                                selected={leavePickerDate}
-                                onSelect={(date) => {
-                                  if (!date) return;
-                                  const dateStr = format(date, 'yyyy-MM-dd');
-                                  const existing = leaves.find(l => l.leaveDate === dateStr);
-                                  if (existing) {
-                                    removeLeaveMutation.mutate(existing.id);
-                                  } else {
-                                    setLeavePickerDate(date);
-                                  }
-                                }}
-                                disabled={(date) => { const t = new Date(); t.setHours(0,0,0,0); return date < t; }}
-                                modifiers={{ leave: leaves.map(l => new Date(l.leaveDate + 'T00:00:00')) }}
-                                modifiersStyles={{
-                                  leave: { backgroundColor: 'rgb(251 191 36 / 0.25)', color: '#92400e', fontWeight: '700', borderRadius: '6px', border: '1.5px solid rgb(251 191 36 / 0.6)' },
-                                }}
-                                className="p-3"
-                                data-testid="calendar-leave-picker"
-                              />
-                            )}
-                            {/* Legend */}
-                            <div className="flex items-center gap-3 px-3 pb-3 pt-0 flex-wrap">
-                              {multiMode && pendingDates.length > 0 ? (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="inline-block h-3 w-3 rounded-sm bg-primary/80" />
-                                  <span className="text-[10px] text-muted-foreground">{pendingDates.length} selected</span>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="inline-block h-3 w-3 rounded-sm bg-primary/80" />
-                                  <span className="text-[10px] text-muted-foreground">Selected</span>
-                                </div>
-                              )}
-                              <div className="flex items-center gap-1.5">
-                                <span className="inline-block h-3 w-3 rounded-sm" style={{ background: 'rgb(251 191 36 / 0.3)', border: '1.5px solid rgb(251 191 36 / 0.6)' }} />
-                                <span className="text-[10px] text-muted-foreground">Leave (tap to remove)</span>
-                              </div>
+                {/* ── Section 4: Scan & Share ── */}
+                {doctor && (
+                  <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                    <div className="px-5 py-3 border-b border-border/40 bg-muted/20">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                        <Share2 className="h-3.5 w-3.5" /> Scan &amp; Share
+                      </p>
+                    </div>
+                    <div className="px-5 py-4 flex flex-col sm:flex-row gap-4 items-center">
+                      <div className="relative rounded-2xl overflow-hidden bg-white p-3 border border-border/40 shadow-inner shrink-0 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 pointer-events-none rounded-2xl" />
+                        <QRCode
+                          value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
+                          size={110}
+                          level="M"
+                          fgColor="#085041"
+                          bgColor="#ffffff"
+                          style={{ display: "block" }}
+                        />
+                      </div>
+                      <div className="flex-1 w-full space-y-2">
+                        <p className="text-xs text-muted-foreground leading-relaxed">Patients can scan this QR or tap the link below to view your public profile.</p>
+                        <div className="w-full rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Profile URL</p>
+                              <p className="text-xs text-foreground truncate font-mono mt-0.5">
+                                /doctor/{(doctor as any).username || (doctor as any).id}
+                              </p>
                             </div>
-                          </div>
-
-                          {/* Reason + submit */}
-                          <div className="flex flex-col gap-2.5 flex-1 w-full">
-                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reason (optional)</Label>
-                            <Input
-                              data-testid="input-leave-reason"
-                              value={leaveReason}
-                              onChange={e => setLeaveReason(e.target.value)}
-                              placeholder="e.g. Medical appointment, Personal leave"
-                              className="text-sm"
-                              maxLength={80}
-                            />
-                            {leaveReason.length > 0 && (
-                              <p className="text-[10px] text-muted-foreground text-right -mt-1">{leaveReason.length}/80</p>
-                            )}
-
-                            {multiMode ? (
-                              <div className="flex flex-col gap-2 mt-1">
-                                {/* Pending date chips */}
-                                {pendingDates.length > 0 && (
-                                  <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/15 space-y-1.5">
-                                    <p className="text-[10px] font-semibold text-primary uppercase tracking-wide">
-                                      {pendingDates.length} {pendingDates.length === 1 ? "date" : "dates"} queued:
-                                    </p>
-                                    <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto pr-0.5">
-                                      {[...pendingDates]
-                                        .sort((a, b) => a.getTime() - b.getTime())
-                                        .map(d => {
-                                          const ds = format(d, 'yyyy-MM-dd');
-                                          return (
-                                            <span key={ds} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium">
-                                              {format(d, 'EEE, MMM d')}
-                                              <button
-                                                data-testid={`button-deselect-${ds}`}
-                                                onClick={() => setPendingDates(prev => prev.filter(p => format(p, 'yyyy-MM-dd') !== ds))}
-                                                className="hover:text-red-500 transition-colors ml-0.5"
-                                              >
-                                                <X className="h-2.5 w-2.5" />
-                                              </button>
-                                            </span>
-                                          );
-                                        })}
-                                    </div>
-                                  </div>
-                                )}
-                                <Button
-                                  data-testid="button-mark-leave-multi"
-                                  variant="outline"
-                                  className={`font-semibold transition-all ${
-                                    pendingDates.length > 0
-                                      ? "border-amber-400 dark:border-amber-500/60 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20 shadow-sm"
-                                      : "border-border text-muted-foreground"
-                                  }`}
-                                  disabled={pendingDates.length === 0 || addLeavesBatchMutation.isPending}
-                                  onClick={() => {
-                                    if (pendingDates.length === 0) return;
-                                    addLeavesBatchMutation.mutate({
-                                      dates: pendingDates.map(d => format(d, 'yyyy-MM-dd')),
-                                      reason: leaveReason || undefined,
-                                    });
-                                  }}
-                                >
-                                  {addLeavesBatchMutation.isPending
-                                    ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                                    : <CalendarDays className="h-3.5 w-3.5 mr-2" />}
-                                  {pendingDates.length > 0
-                                    ? `Mark ${pendingDates.length} ${pendingDates.length === 1 ? "day" : "days"} as Out of Office`
-                                    : "Select dates on the calendar"}
-                                </Button>
-                                {pendingDates.length > 0 && (
-                                  <button
-                                    data-testid="button-clear-pending"
-                                    onClick={() => setPendingDates([])}
-                                    className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 text-center transition-colors"
-                                  >
-                                    Clear all selected dates
-                                  </button>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="flex flex-col gap-2">
-                                <Button
-                                  data-testid="button-mark-leave"
-                                  variant="outline"
-                                  className={`mt-1 font-semibold transition-all ${
-                                    leavePickerDate
-                                      ? "border-amber-400 dark:border-amber-500/60 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20 shadow-sm"
-                                      : "border-border text-muted-foreground"
-                                  }`}
-                                  disabled={!leavePickerDate || addLeaveMutation.isPending}
-                                  onClick={() => {
-                                    if (!leavePickerDate) return;
-                                    addLeaveMutation.mutate({ leaveDate: format(leavePickerDate, 'yyyy-MM-dd'), reason: leaveReason || undefined });
-                                  }}
-                                >
-                                  {addLeaveMutation.isPending
-                                    ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                                    : <CalendarDays className="h-3.5 w-3.5 mr-2" />}
-                                  {leavePickerDate
-                                    ? `Mark ${format(leavePickerDate, 'EEE, MMM d')} as Out of Office`
-                                    : "Select a date on the calendar"}
-                                </Button>
-                                {removeLeaveMutation.isPending && (
-                                  <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                                    <Loader2 className="h-3 w-3 animate-spin" /> Removing leave…
-                                  </p>
-                                )}
-                              </div>
-                            )}
+                            <button
+                              data-testid="button-copy-profile-url"
+                              title="Copy profile URL"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`);
+                                setProfileUrlCopied(true);
+                                setTimeout(() => setProfileUrlCopied(false), 2000);
+                              }}
+                              className={`min-h-[44px] min-w-[44px] rounded-lg border flex items-center justify-center shrink-0 transition-all active:scale-[0.95]
+                                ${profileUrlCopied
+                                  ? 'bg-primary/10 border-primary/30 text-primary'
+                                  : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}
+                            >
+                              {profileUrlCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                            </button>
                           </div>
                         </div>
-
-                        {/* Marked dates list — grouped by month */}
-                        {isLeavesLoading ? (
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />Loading leaves…
-                          </div>
-                        ) : leaves.length > 0 ? (() => {
-                          const grouped = leaves.reduce((acc, l) => {
-                            const month = format(new Date(l.leaveDate + 'T00:00:00'), 'MMMM yyyy');
-                            if (!acc[month]) acc[month] = [];
-                            acc[month].push(l);
-                            return acc;
-                          }, {} as Record<string, DoctorLeave[]>);
-
-                          return (
-                            <div className="space-y-3">
-                              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Marked Dates</Label>
-                              {Object.entries(grouped).map(([month, monthLeaves]) => (
-                                <div key={month} className="space-y-1">
-                                  <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest px-1">{month}</p>
-                                  {monthLeaves.map(leave => (
-                                    <div
-                                      key={leave.id}
-                                      data-testid={`leave-item-${leave.id}`}
-                                      className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-amber-100/70 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 group hover:bg-amber-200/50 dark:hover:bg-amber-500/15 transition-colors"
-                                    >
-                                      <div className="flex items-center gap-2.5">
-                                        <div className="h-7 w-7 rounded-md bg-amber-200/80 dark:bg-amber-500/20 flex items-center justify-center shrink-0">
-                                          <CalendarDays className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
-                                        </div>
-                                        <div>
-                                          <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">
-                                            {format(new Date(leave.leaveDate + 'T00:00:00'), 'EEE, MMM d, yyyy')}
-                                          </span>
-                                          {leave.reason
-                                            ? <p className="text-[10px] text-amber-600/80 dark:text-amber-400/70 mt-0.5">{leave.reason}</p>
-                                            : <p className="text-[10px] text-muted-foreground/50 mt-0.5 italic">No reason given</p>
-                                          }
-                                        </div>
-                                      </div>
-                                      <button
-                                        data-testid={`button-remove-leave-${leave.id}`}
-                                        onClick={() => removeLeaveMutation.mutate(leave.id)}
-                                        disabled={removeLeaveMutation.isPending}
-                                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-amber-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 dark:text-amber-400 dark:hover:text-red-400 transition-all"
-                                        title="Remove this leave"
-                                      >
-                                        <X className="h-3.5 w-3.5" />
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })() : (
-                          <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-amber-50 dark:bg-amber-500/5 border border-dashed border-amber-200 dark:border-amber-500/20">
-                            <CalendarDays className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                            <p className="text-[11px] text-amber-600/70 dark:text-amber-400/60 italic">No leaves marked yet. Select a date above.</p>
-                          </div>
+                        {!(doctor as any).username && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400">Set a Profile Handle above to get a memorable URL instead of a number.</p>
                         )}
                       </div>
                     </div>
-                    {/* Actions */}
-                    <div className="flex gap-3">
-                      <Button className="flex-1 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-semibold shadow-md shadow-primary/20"
-                        onClick={() => updateProfileMutation.mutate({ name: profName, specialization: profSpecialization, degree: profDegree, college: profCollege, bio: profBio, phone: profPhone, imageUrl: profImageUrl, yearsOfExperience: profYearsExp !== "" ? parseInt(profYearsExp, 10) : null, languages: profLanguages, username: profUsername.trim() || null })}
-                        disabled={updateProfileMutation.isPending}
-                        data-testid="button-save-profile"
-                      >
-                        {updateProfileMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                        Save Profile
-                      </Button>
-                      <Button variant="outline" className="border-primary/30 text-primary hover:bg-primary/5" onClick={() => window.open(`/doctor/${(doctor as any).username || (doctor as any).id}`, "_blank")} data-testid="button-preview-profile">
-                        <Eye className="h-4 w-4 mr-2" />Preview
-                      </Button>
-                    </div>
+                  </div>
+                )}
 
-                    {/* QR / Share Card */}
-                    {doctor && (
-                      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-                        <div className="px-4 pt-4 pb-1.5 flex items-center gap-2">
-                          <Share2 className="h-3.5 w-3.5 text-primary/70" />
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Scan &amp; Share Profile</p>
-                        </div>
-                        <div className="px-4 pb-4 flex flex-col sm:flex-row gap-4 items-center">
-                          {/* QR Code */}
-                          <div className="relative rounded-2xl overflow-hidden bg-white p-3 border border-border/40 shadow-inner shrink-0 flex items-center justify-center">
-                            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5 pointer-events-none rounded-2xl" />
-                            <QRCode
-                              value={`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`}
-                              size={110}
-                              level="M"
-                              fgColor="#085041"
-                              bgColor="#ffffff"
-                              style={{ display: "block" }}
-                            />
-                          </div>
-                          {/* URL info */}
-                          <div className="flex-1 w-full space-y-2">
-                            <p className="text-[11px] text-muted-foreground leading-relaxed">Patients can scan this QR or open the link below to view your public profile.</p>
-                            <div className="w-full rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Profile URL</p>
-                                  <p className="text-[11px] text-foreground truncate font-mono mt-0.5">
-                                    /doctor/{(doctor as any).username || (doctor as any).id}
-                                  </p>
-                                </div>
-                                <button
-                                  data-testid="button-copy-profile-url"
-                                  title="Copy profile URL"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(`${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`);
-                                    setProfileUrlCopied(true);
-                                    setTimeout(() => setProfileUrlCopied(false), 2000);
-                                  }}
-                                  className={`h-7 w-7 rounded-lg border flex items-center justify-center shrink-0 transition-all duration-200
-                                    ${profileUrlCopied
-                                      ? 'bg-primary/10 border-primary/30 text-primary'
-                                      : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}
-                                >
-                                  {profileUrlCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                                </button>
-                              </div>
-                            </div>
-                            {!(doctor as any).username && (
-                              <p className="text-[10px] text-amber-600 dark:text-amber-400">Set a Profile Handle above to get a memorable URL instead of a number.</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
+                {/* ── Sticky Save Footer ── */}
+                <div className="sticky bottom-0 pb-[env(safe-area-inset-bottom)] bg-background/95 backdrop-blur-sm pt-3 border-t border-border/40">
+                  <div className="flex gap-3">
+                    <Button
+                      className="flex-1 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-semibold shadow-md shadow-primary/20 active:scale-[0.98] transition-all min-h-[44px]"
+                      onClick={() => updateProfileMutation.mutate({
+                        name: profName,
+                        specialization: profSpecialization,
+                        degree: profDegree,
+                        college: profCollege,
+                        bio: profBio,
+                        phone: profPhone,
+                        imageUrl: profImageUrl,
+                        yearsOfExperience: profYearsExp !== "" ? parseInt(profYearsExp, 10) : null,
+                        languages: profLanguages,
+                        username: profUsername.trim() || null,
+                      })}
+                      disabled={updateProfileMutation.isPending}
+                      data-testid="button-save-profile"
+                    >
+                      {updateProfileMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                      Save Profile
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="min-h-[44px] border-primary/30 text-primary hover:bg-primary/5 active:scale-[0.97] transition-all"
+                      onClick={() => window.open(`/doctor/${(doctor as any).username || (doctor as any).id}`, "_blank")}
+                      data-testid="button-preview-profile"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />Preview
+                    </Button>
                   </div>
                 </div>
+
+                {/* ── Leave nav shortcut ── */}
+                <button
+                  onClick={() => setActiveTab("leaves")}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5 hover:bg-amber-100/60 dark:hover:bg-amber-500/10 active:scale-[0.99] transition-all text-left"
+                  data-testid="button-go-to-leaves"
+                >
+                  <div className="h-9 w-9 rounded-lg bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 flex items-center justify-center shrink-0">
+                    <CalendarOff className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Leave Management</p>
+                    <p className="text-xs text-amber-600/80 dark:text-amber-400/60 mt-0.5">Mark your out-of-office dates from the Leaves tab</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-amber-500 dark:text-amber-400 shrink-0" />
+                </button>
+
               </div>
             );
           })()}
