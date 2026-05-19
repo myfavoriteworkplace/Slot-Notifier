@@ -206,6 +206,8 @@ export async function ensureSessionTable() {
       ALTER TABLE IF EXISTS "doctors" ADD COLUMN IF NOT EXISTS "years_of_experience" integer;
       ALTER TABLE IF EXISTS "doctors" ADD COLUMN IF NOT EXISTS "languages" text[];
       ALTER TABLE IF EXISTS "doctors" ADD COLUMN IF NOT EXISTS "is_temporary_password" boolean DEFAULT false;
+      ALTER TABLE IF EXISTS "doctors" ADD COLUMN IF NOT EXISTS "treatments" text[];
+      ALTER TABLE IF EXISTS "doctors" ADD COLUMN IF NOT EXISTS "intro_video_url" varchar(1000);
     `);
     console.log("[DATABASE] Doctor extended columns ready.");
   } catch (err: any) {

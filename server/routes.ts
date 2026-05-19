@@ -3164,8 +3164,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!d) return res.status(404).json({ message: "Doctor not found" });
       const certs = await storage.getCertificationsByDoctor(d.id);
       const cases = await storage.getCasesByDoctor(d.id);
+      const clinic = await storage.getClinicByDoctorId(d.id);
       const { passwordHash, ...safeDoctor } = d;
-      res.json({ doctor: safeDoctor, certifications: certs, cases });
+      res.json({ doctor: safeDoctor, certifications: certs, cases, clinic: clinic ?? null });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 

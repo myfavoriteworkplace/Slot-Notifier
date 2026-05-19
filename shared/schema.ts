@@ -143,6 +143,8 @@ export const doctors = pgTable("doctors", {
   imageUrl: varchar("image_url", { length: 1000 }),
   yearsOfExperience: integer("years_of_experience"),
   languages: text("languages").array(),
+  treatments: text("treatments").array(),
+  introVideoUrl: varchar("intro_video_url", { length: 1000 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
