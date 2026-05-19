@@ -32,12 +32,38 @@ Animations: Tailwind `animate-in`, `slide-in-from-*`, `fade-in` utilities only. 
 ### Mobile (responsive adaptation)
 - Default stack: `flex flex-col gap-3`. Multi-column only at `sm:` or `lg:` breakpoints.
 - Page padding collapses to `px-4`. Drop `max-w` constraints (let it fill the screen).
-- **Sidebar**: `hidden lg:flex lg:flex-col` on desktop. On mobile (`lg:hidden`) replace with a **horizontal scrollable tab strip** — not a bottom nav bar.
+- **Sidebar**: `hidden lg:flex lg:flex-col` on desktop. On mobile (`lg:hidden`) replace with a **sticky bottom nav bar** — the standard mobile dashboard pattern.
+  - Show the 4 most-used panels as labelled icon buttons; overflow panels go behind a "More" button that opens a `Sheet` drawer from the bottom.
+  - Add `pb-24` to the page content wrapper so content is never hidden behind the nav bar.
+  - Pattern:
   ```jsx
-  <div className="flex items-center gap-1.5 overflow-x-auto lg:hidden pb-0.5"
-       style={{ scrollbarWidth: "none" }}>
-    {TABS.map(tab => <button key={tab.key} ... />)}
-  </div>
+  {/* Add pb-24 lg:pb-0 to the page content wrapper */}
+  <div className="... pb-24 lg:pb-0">...</div>
+
+  {/* Bottom nav — mobile only */}
+  <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-background/95 backdrop-blur-md border-t border-border/50 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
+    <div className="flex items-stretch">
+      {PRIMARY_TABS.map(({ key, label, Icon }) => (
+        <button key={key} onClick={() => setActiveTab(key)}
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative">
+          <Icon className="h-5 w-5" />
+          <span className="text-[10px] font-semibold">{label}</span>
+        </button>
+      ))}
+      <button onClick={() => setMoreDrawerOpen(true)}
+        className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px]">
+        <MoreHorizontal className="h-5 w-5" />
+        <span className="text-[10px] font-semibold">More</span>
+      </button>
+    </div>
+  </nav>
+
+  {/* More drawer */}
+  <Sheet open={moreDrawerOpen} onOpenChange={setMoreDrawerOpen}>
+    <SheetContent side="bottom" className="rounded-t-2xl">
+      {/* secondary panel links */}
+    </SheetContent>
+  </Sheet>
   ```
 - No fixed widths on inputs or buttons. Use `w-full` with `sm:w-auto` where needed.
 - No element should require horizontal scrolling to reach.

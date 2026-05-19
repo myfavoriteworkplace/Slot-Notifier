@@ -20,12 +20,15 @@ import {
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText,
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
   Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, CreditCard,
-  Users, Search, ArrowUpDown, BadgeCheck
+  Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle
+} from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay, differenceInCalendarDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
@@ -169,6 +172,7 @@ export default function ClinicDashboard() {
   const [accountsStatusFilter, setAccountsStatusFilter] = useState<'all' | 'paid' | 'pending' | 'partial' | 'overdue'>('all');
   const [accountsView, setAccountsView] = useState<'ledger' | 'register'>('ledger');
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
+  const [clinicMoreDrawerOpen, setClinicMoreDrawerOpen] = useState(false);
 
   const [profilePhone, setProfilePhone] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -1637,7 +1641,7 @@ export default function ClinicDashboard() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
+    <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-8">
 
       {/* Subscription payment pending banner */}
       {(clinic as any)?.subscriptionStatus === "pending_payment" && (
@@ -5721,6 +5725,85 @@ export default function ClinicDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── CLINIC MOBILE BOTTOM NAV ── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-background/95 backdrop-blur-md border-t border-border/50 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
+        <div className="flex items-stretch">
+          {([
+            { key: 'bookings'        as const, label: 'Bookings', Icon: CalendarIcon },
+            { key: 'configure-slots' as const, label: 'Slots',    Icon: Clock },
+            { key: 'manage-doctors'  as const, label: 'Doctors',  Icon: Stethoscope },
+            { key: 'accounts'        as const, label: 'Accounts', Icon: IndianRupee },
+          ]).map(({ key, label, Icon }) => {
+            const isActive = activePanel === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setActivePanel(key)}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
+                  isActive ? 'text-primary' : 'text-muted-foreground'
+                }`}
+                data-testid={`bottom-nav-clinic-${key}`}
+              >
+                {isActive && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
+                <Icon className="h-5 w-5" />
+                <span className="text-[10px] font-semibold">{label}</span>
+              </button>
+            );
+          })}
+          <button
+            onClick={() => setClinicMoreDrawerOpen(true)}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
+              ['clinic-profile','book-a-slot','inventory','website','export-data','patients','analytics'].includes(activePanel)
+                ? 'text-primary' : 'text-muted-foreground'
+            }`}
+            data-testid="bottom-nav-clinic-more"
+          >
+            {['clinic-profile','book-a-slot','inventory','website','export-data','patients','analytics'].includes(activePanel) && (
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />
+            )}
+            <MoreHorizontal className="h-5 w-5" />
+            <span className="text-[10px] font-semibold">More</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* ── CLINIC MORE DRAWER (mobile) ── */}
+      <Sheet open={clinicMoreDrawerOpen} onOpenChange={setClinicMoreDrawerOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader className="mb-4">
+            <SheetTitle>More</SheetTitle>
+          </SheetHeader>
+          <div className="grid grid-cols-2 gap-2 pb-6">
+            {([
+              { key: 'clinic-profile' as const, label: 'Clinic Profile', desc: 'Edit details & logo',      Icon: Building2,   cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
+              { key: 'book-a-slot'    as const, label: 'Book a Slot',    desc: 'New patient booking',      Icon: Plus,        cls: 'bg-primary/10 border-primary/20 text-primary' },
+              { key: 'inventory'      as const, label: 'Inventory',      desc: 'Supplies & stock',          Icon: Package,     cls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' },
+              { key: 'website'        as const, label: 'Website',        desc: 'Public clinic page',        Icon: Globe,       cls: 'bg-sky-500/10 border-sky-500/20 text-sky-600' },
+              { key: 'export-data'   as const, label: 'Export Data',    desc: 'Download reports',          Icon: Download,    cls: 'bg-amber-500/10 border-amber-500/20 text-amber-600' },
+              { key: 'analytics'     as const, label: 'Analytics',      desc: 'Insights & trends',         Icon: TrendingUp,  cls: 'bg-rose-500/10 border-rose-500/20 text-rose-600' },
+            ]).map(({ key, label, desc, Icon, cls }) => (
+              <button
+                key={key}
+                onClick={() => { setActivePanel(key); setClinicMoreDrawerOpen(false); }}
+                className={`flex items-center gap-3 px-3 py-3 rounded-2xl border border-border/50 bg-background text-left hover:bg-muted/30 transition-colors active:scale-[0.98] ${
+                  activePanel === key ? 'ring-2 ring-primary/30' : ''
+                }`}
+                data-testid={`drawer-clinic-${key}`}
+              >
+                <div className={`h-8 w-8 rounded-xl border flex items-center justify-center shrink-0 ${cls}`}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm leading-tight">{label}</p>
+                  <p className="text-xs text-muted-foreground truncate">{desc}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
+
     </div>
   );
 }
