@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -149,12 +150,12 @@ export default function DoctorDashboard() {
     enabled: isAuthenticated,
   });
 
-  const { data: certifications = [], isLoading: isCertsLoading } = useQuery<DoctorCertification[]>({
+  const { data: certifications = [], isLoading: isCertsLoading, isError: isCertsError, refetch: refetchCerts } = useQuery<DoctorCertification[]>({
     queryKey: ["/api/doctor/certifications"],
     enabled: isAuthenticated && activeTab === "certifications",
   });
 
-  const { data: cases = [], isLoading: isCasesLoading } = useQuery<DoctorCase[]>({
+  const { data: cases = [], isLoading: isCasesLoading, isError: isCasesError, refetch: refetchCases } = useQuery<DoctorCase[]>({
     queryKey: ["/api/doctor/cases"],
     enabled: isAuthenticated && activeTab === "cases",
   });
@@ -728,9 +729,8 @@ export default function DoctorDashboard() {
 
           {/* ─────────────── APPOINTMENTS ─────────────── */}
           {activeTab === "appointments" && (
-            <div className="space-y-5">
-
-              {/* Mobile sticky filter bar */}
+            <>
+              {/* Mobile sticky filter bar — must live OUTSIDE space-y-5 to avoid phantom top margin */}
               <div className="flex items-center gap-2 overflow-x-auto sm:hidden -mx-4 px-4 py-2.5 sticky top-0 z-10 bg-muted/60 backdrop-blur-md border-b border-border/30" style={{ scrollbarWidth: "none" }}>
                 {([
                   { filter: "all"      as QuickFilter, label: "All" },
@@ -759,6 +759,14 @@ export default function DoctorDashboard() {
                 })}
               </div>
 
+              <div className="space-y-5">
+
+              {/* Page heading */}
+              <div>
+                <h2 className="text-xl md:text-2xl font-semibold">Appointments</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Your confirmed appointments across all clinics.</p>
+              </div>
+
               {/* Desktop card grid */}
               <div className="hidden sm:grid sm:grid-cols-4 gap-3">
                 {/* Total */}
@@ -776,11 +784,11 @@ export default function DoctorDashboard() {
                             <ClipboardList className="h-4 w-4 text-slate-500" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[11px] font-medium text-muted-foreground">Total</p>
+                            <p className="text-xs font-medium text-muted-foreground">Total</p>
                             <p className="text-xl font-bold text-slate-600 dark:text-slate-400">{confirmedBookings.length}</p>
                           </div>
                           {quickFilter === 'all' && (
-                            <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                           )}
                         </CardContent>
                       </Card>
@@ -804,11 +812,11 @@ export default function DoctorDashboard() {
                             <Calendar className="h-4 w-4 text-sky-500" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[11px] font-medium text-muted-foreground">Today</p>
+                            <p className="text-xs font-medium text-muted-foreground">Today</p>
                             <p className="text-xl font-bold text-sky-600 dark:text-sky-400">{todayBookings.length}</p>
                           </div>
                           {quickFilter === 'today' && (
-                            <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                           )}
                         </CardContent>
                       </Card>
@@ -832,11 +840,11 @@ export default function DoctorDashboard() {
                             <TrendingUp className="h-4 w-4 text-primary" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[11px] font-medium text-muted-foreground">Upcoming</p>
+                            <p className="text-xs font-medium text-muted-foreground">Upcoming</p>
                             <p className="text-xl font-bold text-primary">{upcomingBookings.length}</p>
                           </div>
                           {quickFilter === 'upcoming' && (
-                            <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                           )}
                         </CardContent>
                       </Card>
@@ -860,11 +868,11 @@ export default function DoctorDashboard() {
                             <AlertCircle className={`h-4 w-4 ${awaitingBookings.length > 0 ? 'text-amber-500' : 'text-muted-foreground'}`} />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[11px] font-medium text-muted-foreground">Awaiting</p>
+                            <p className="text-xs font-medium text-muted-foreground">Awaiting</p>
                             <p className={`text-xl font-bold ${awaitingBookings.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>{awaitingBookings.length}</p>
                           </div>
                           {quickFilter === 'awaiting' && (
-                            <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                           )}
                           {awaitingBookings.length > 0 && quickFilter !== 'awaiting' && (
                             <span className="ml-auto text-[9px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none shrink-0">{awaitingBookings.length}</span>
@@ -1109,6 +1117,7 @@ export default function DoctorDashboard() {
                 </div>
               )}
             </div>
+          </>
           )}
 
           {/* ─────────────── PROFILE ─────────────── */}
@@ -1119,7 +1128,13 @@ export default function DoctorDashboard() {
             const pct = Math.round((filled / completenessFields.length) * 100);
             const isComplete = pct === 100;
             return (
-              <div className="max-w-2xl space-y-4 animate-in fade-in duration-200">
+              <div className="space-y-5 animate-in fade-in duration-200">
+
+                {/* Page heading */}
+                <div>
+                  <h2 className="text-xl md:text-2xl font-semibold">My Profile</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Manage your public profile visible to patients and clinics.</p>
+                </div>
 
                 {/* ── Live Preview Banner ── */}
                 <div className="rounded-2xl border border-border/50 bg-background shadow-sm overflow-hidden">
@@ -1780,7 +1795,7 @@ export default function DoctorDashboard() {
             <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold">Certifications & Achievements</h2>
+                  <h2 className="text-xl md:text-2xl font-semibold">Certifications & Achievements</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">Highlight your credentials — these appear on your public profile.</p>
                 </div>
                 <Button onClick={openNewCert} className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20">
@@ -1788,7 +1803,23 @@ export default function DoctorDashboard() {
                 </Button>
               </div>
               {isCertsLoading ? (
-                <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground/50" /></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="rounded-2xl border border-border/50 bg-background shadow-sm overflow-hidden">
+                      <Skeleton className="aspect-video w-full" />
+                      <div className="p-4 space-y-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                        <Skeleton className="h-8 w-full mt-3" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : isCertsError ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/20">
+                  <p className="text-sm text-muted-foreground">Could not load certifications.</p>
+                  <Button variant="outline" onClick={() => refetchCerts()} className="border-primary/30 text-primary hover:bg-primary/5">Try again</Button>
+                </div>
               ) : certifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/20">
                   <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center"><Award className="h-8 w-8 text-primary/50" /></div>
@@ -1832,7 +1863,7 @@ export default function DoctorDashboard() {
             <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold">Case Studies</h2>
+                  <h2 className="text-xl md:text-2xl font-semibold">Case Studies</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">Share your clinical cases with descriptions and media. Visible on your public profile.</p>
                 </div>
                 <Button onClick={openNewCase} className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20">
@@ -1840,7 +1871,27 @@ export default function DoctorDashboard() {
                 </Button>
               </div>
               {isCasesLoading ? (
-                <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground/50" /></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="rounded-2xl border border-border/50 bg-background shadow-sm overflow-hidden">
+                      <div className="grid grid-cols-2 gap-1 p-2">
+                        <Skeleton className="aspect-video rounded-xl" />
+                        <Skeleton className="aspect-video rounded-xl" />
+                      </div>
+                      <div className="p-4 space-y-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-full" />
+                        <Skeleton className="h-3 w-2/3" />
+                        <Skeleton className="h-8 w-full mt-3" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : isCasesError ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/20">
+                  <p className="text-sm text-muted-foreground">Could not load case studies.</p>
+                  <Button variant="outline" onClick={() => refetchCases()} className="border-primary/30 text-primary hover:bg-primary/5">Try again</Button>
+                </div>
               ) : cases.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/20">
                   <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center"><BookOpen className="h-8 w-8 text-primary/50" /></div>
