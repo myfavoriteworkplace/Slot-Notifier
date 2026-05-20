@@ -513,14 +513,14 @@ export default function DoctorDashboard() {
       )}
 
       {/* ═══ DOCTOR HERO BAR — desktop only ═══ */}
-      <div className="container mx-auto px-4">
-      <div className="hidden lg:block rounded-2xl overflow-hidden shadow-2xl mb-6 border border-white/10">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <div className="hidden lg:block rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
 
         {/* Top neon accent bar */}
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
 
         {/* Main hero band */}
-        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-7 py-6 overflow-hidden">
+        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-5 py-5 sm:px-7 sm:py-6 overflow-hidden">
 
           {/* Grid texture overlay */}
           <div
@@ -601,7 +601,7 @@ export default function DoctorDashboard() {
       </div>
 
       {/* Two-column layout */}
-      <div className="container mx-auto px-4 pt-4 pb-24 lg:py-6 flex flex-col lg:flex-row gap-6 items-start">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pb-24 lg:pb-8 flex flex-col lg:flex-row gap-6 items-start">
 
         {/* ── MOBILE-ONLY: profile card with stats grid ── */}
         <div className="lg:hidden w-full">
