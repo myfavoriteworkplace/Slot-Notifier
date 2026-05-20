@@ -60,7 +60,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import type { Slot, Booking, PatientBill, ClinicalRecord, Patient } from "@shared/schema";
-import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload, KeyRound } from "lucide-react";
+import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload, KeyRound, CalendarOff } from "lucide-react";
 
 interface SlotTiming {
   id: string;
@@ -172,6 +172,7 @@ export default function ClinicDashboard() {
   const [accountsStatusFilter, setAccountsStatusFilter] = useState<'all' | 'paid' | 'pending' | 'partial' | 'overdue'>('all');
   const [accountsView, setAccountsView] = useState<'ledger' | 'register'>('ledger');
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
+  const [expandedLeaves, setExpandedLeaves] = useState<Set<string>>(new Set());
   const [clinicMoreDrawerOpen, setClinicMoreDrawerOpen] = useState(false);
 
   const [profilePhone, setProfilePhone] = useState("");
@@ -3619,7 +3620,13 @@ export default function ClinicDashboard() {
                         </span>
                       </div>
                       <div className="grid gap-3">
-                        {clinicData.doctors.map((doctor, index) => (
+                        {clinicData.doctors.map((doctor, index) => {
+                          const doctorUpcomingLeaves = allDoctorLeaves
+                            .filter(l => l.doctorEmail === doctor.email && l.leaveDate >= todayStr)
+                            .sort((a, b) => a.leaveDate.localeCompare(b.leaveDate));
+                          const isOnLeaveToday = doctorUpcomingLeaves.some(l => l.leaveDate === todayStr);
+                          const leavesExpanded = expandedLeaves.has(doctor.email);
+                          return (
                           <div
                             key={index}
                             className="relative rounded-xl border border-border/60 overflow-hidden bg-card shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300 group"
@@ -3653,10 +3660,17 @@ export default function ClinicDashboard() {
                                 {/* Name + active pill */}
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="font-bold text-sm tracking-tight">Dr. {doctor.name}</p>
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-px rounded-full">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    Active
-                                  </span>
+                                  {isOnLeaveToday ? (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-px rounded-full">
+                                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                      On Leave
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-px rounded-full">
+                                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                      Active
+                                    </span>
+                                  )}
                                 </div>
 
                                 {/* Specialization + degree badges */}
@@ -3743,8 +3757,52 @@ export default function ClinicDashboard() {
                               </AlertDialog>
                             </div>
                           </div>
+                          {/* Leaves section */}
+                          {doctorUpcomingLeaves.length > 0 && (
+                            <div className="border-t border-border/30">
+                              <button
+                                onClick={() => setExpandedLeaves(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(doctor.email)) next.delete(doctor.email);
+                                  else next.add(doctor.email);
+                                  return next;
+                                })}
+                                className="w-full flex items-center justify-between px-5 py-2.5 text-left hover:bg-amber-50/50 dark:hover:bg-amber-500/5 transition-colors min-h-[44px]"
+                                data-testid={`button-toggle-leaves-${index}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <CalendarOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                  <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                                    {doctorUpcomingLeaves.length} upcoming {doctorUpcomingLeaves.length === 1 ? 'leave' : 'leaves'}
+                                  </span>
+                                </div>
+                                <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${leavesExpanded ? 'rotate-180' : ''}`} />
+                              </button>
+                              {leavesExpanded && (
+                                <div className="px-5 pb-3 space-y-1.5">
+                                  {doctorUpcomingLeaves.map(leave => (
+                                    <div key={leave.leaveDate} className="flex items-center gap-2 flex-wrap">
+                                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border ${
+                                        leave.leaveDate === todayStr
+                                          ? 'bg-amber-100 dark:bg-amber-500/20 border-amber-300 dark:border-amber-500/40 text-amber-800 dark:text-amber-300'
+                                          : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400'
+                                      }`}>
+                                        <CalendarOff className="h-3 w-3" />
+                                        {format(new Date(leave.leaveDate + 'T00:00:00'), 'EEE, MMM d yyyy')}
+                                        {leave.leaveDate === todayStr && <span className="font-bold ml-0.5">(Today)</span>}
+                                      </span>
+                                      {leave.reason && (
+                                        <span className="text-xs text-muted-foreground truncate">— {leave.reason}</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        ))}
+                        );
+                        })}
                       </div>
                     </div>
                   ) : (
