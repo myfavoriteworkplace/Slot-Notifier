@@ -486,11 +486,11 @@ export default function DoctorDashboard() {
   const greet = new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening";
 
   const NAV_ITEMS = [
-    { key: "appointments"  as Tab, label: "Appointments",     icon: Calendar,    color: "primary", activeClass: "bg-primary/10 border-primary/20 text-primary",                                    iconClass: "bg-primary/10 border-primary/20 text-primary",              dotClass: "bg-primary" },
-    { key: "profile"       as Tab, label: "My Profile",       icon: User,        color: "violet",  activeClass: "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400",     iconClass: "bg-violet-500/10 border-violet-500/20 text-violet-600",     dotClass: "bg-violet-500" },
-    { key: "certifications"as Tab, label: "Certifications",   icon: Award,       color: "blue",    activeClass: "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400",             iconClass: "bg-blue-500/10 border-blue-500/20 text-blue-600",           dotClass: "bg-blue-500" },
-    { key: "cases"         as Tab, label: "Case Studies",     icon: BookOpen,    color: "teal",    activeClass: "bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400",             iconClass: "bg-teal-500/10 border-teal-500/20 text-teal-600",           dotClass: "bg-teal-500" },
-    { key: "leaves"        as Tab, label: "Leave Management", icon: CalendarOff, color: "amber",   activeClass: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400",         iconClass: "bg-amber-500/10 border-amber-500/20 text-amber-600",        dotClass: "bg-amber-500" },
+    { key: "appointments"  as Tab, label: "Appointments",     subtitle: "Today's schedule",      icon: Calendar,    activeClass: "bg-primary/10 border-primary/20 text-primary",                                    iconClass: "bg-primary/10 border-primary/20 text-primary",              dotClass: "bg-primary" },
+    { key: "profile"       as Tab, label: "My Profile",       subtitle: "Edit your details",     icon: User,        activeClass: "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400",     iconClass: "bg-violet-500/10 border-violet-500/20 text-violet-600",     dotClass: "bg-violet-500" },
+    { key: "certifications"as Tab, label: "Certifications",   subtitle: "Degrees & awards",      icon: Award,       activeClass: "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400",             iconClass: "bg-blue-500/10 border-blue-500/20 text-blue-600",           dotClass: "bg-blue-500" },
+    { key: "cases"         as Tab, label: "Case Studies",     subtitle: "Patient cases",         icon: BookOpen,    activeClass: "bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400",             iconClass: "bg-teal-500/10 border-teal-500/20 text-teal-600",           dotClass: "bg-teal-500" },
+    { key: "leaves"        as Tab, label: "Leave Management", subtitle: "Time off & availability",icon: CalendarOff, activeClass: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400",         iconClass: "bg-amber-500/10 border-amber-500/20 text-amber-600",        dotClass: "bg-amber-500" },
   ];
 
   return (
@@ -649,21 +649,24 @@ export default function DoctorDashboard() {
         <aside className="hidden lg:flex lg:flex-col lg:w-60 shrink-0 lg:sticky lg:top-[70px] space-y-3">
 
           {/* Navigation */}
-          <div className="rounded-2xl border border-border/50 bg-background shadow-sm p-2 space-y-0.5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-3 pt-2 pb-1.5">Navigation</p>
-            {NAV_ITEMS.map(({ key, label, icon: Icon, activeClass, iconClass, dotClass }) => {
+          <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+            <div className="p-2 space-y-0.5">
+            {NAV_ITEMS.map(({ key, label, subtitle, icon: Icon, activeClass, iconClass, dotClass }) => {
               const isActive = activeTab === key;
               return (
                 <button
                   key={key}
                   onClick={() => setActiveTab(key)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left border ${isActive ? `${activeClass} border-current/20` : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isActive ? `${activeClass} border border-current/20` : "border border-transparent hover:bg-muted/50"}`}
                   data-testid={`nav-${key}`}
                 >
-                  <div className={`h-7 w-7 rounded-lg border flex items-center justify-center shrink-0 ${isActive ? iconClass : "bg-muted/50 border-border/50"}`}>
-                    <Icon className="h-3.5 w-3.5" />
+                  <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${isActive ? iconClass : "bg-muted/50 border-border/50"}`}>
+                    <Icon className="h-4 w-4" />
                   </div>
-                  <span className="text-sm font-semibold leading-tight flex-1">{label}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold leading-tight">{label}</p>
+                    <p className="text-[10px] text-muted-foreground">{subtitle}</p>
+                  </div>
                   {isActive && <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass}`} />}
                   {key === "appointments" && awaitingBookings.length > 0 && !isActive && (
                     <span className="text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none shrink-0">{awaitingBookings.length}</span>
@@ -671,6 +674,7 @@ export default function DoctorDashboard() {
                 </button>
               );
             })}
+            </div>
           </div>
 
           {/* Scan & Share */}
