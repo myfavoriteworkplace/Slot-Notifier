@@ -459,6 +459,17 @@ export default function DoctorDashboard() {
     return d && d >= new Date();
   });
 
+  const now = new Date();
+  const next7 = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const pendingNext7Count = awaitingBookings.filter((b: any) => {
+    const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+    return d && d >= now && d <= next7;
+  }).length;
+  const confirmedNext7Count = confirmedBookings.filter((b: any) => {
+    const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+    return d && d >= now && d <= next7;
+  }).length;
+
   const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setAppointmentDateFilter(""); };
 
   const filteredBookings = (quickFilter === "awaiting" ? awaitingBookings : confirmedBookings).filter((b: any) => {
@@ -526,10 +537,11 @@ export default function DoctorDashboard() {
       {/* Two-column layout */}
       <div className="container mx-auto px-4 pt-4 pb-24 lg:py-6 flex flex-col lg:flex-row gap-6 items-start">
 
-        {/* ── MOBILE-ONLY: profile card with inline stats ── */}
+        {/* ── MOBILE-ONLY: profile card with stats grid ── */}
         <div className="lg:hidden w-full">
           <div className="bg-gradient-to-r from-[#085041] via-primary to-accent rounded-2xl shadow-md overflow-hidden">
-            <div className="px-4 py-3 flex items-center gap-3">
+            {/* Identity row */}
+            <div className="px-4 pt-3 pb-2 flex items-center gap-3">
               <Avatar className="h-12 w-12 ring-2 ring-white/30 shrink-0">
                 <AvatarImage src={(doctor as any).imageUrl || undefined} />
                 <AvatarFallback className="bg-white/20 text-white font-bold text-lg">
@@ -540,28 +552,29 @@ export default function DoctorDashboard() {
                 <p className="font-bold text-sm text-white leading-tight">Dr. {(doctor as any).name}</p>
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                   {(doctor as any).specialization && (
-                    <span className="text-[10px] font-semibold bg-white/20 text-white/90 px-2 py-0.5 rounded-full border border-white/20">
+                    <span className="text-xs font-semibold bg-white/20 text-white/90 px-2 py-0.5 rounded-full border border-white/20">
                       {(doctor as any).specialization}
                     </span>
                   )}
                   {(doctor as any).clinicName && (
-                    <span className="text-[10px] text-white/65 truncate">{(doctor as any).clinicName}</span>
+                    <span className="text-xs text-white/65 truncate">{(doctor as any).clinicName}</span>
                   )}
                 </div>
               </div>
-              {/* Inline stat chips */}
-              <div className="shrink-0 flex items-center gap-1.5">
-                {[
-                  { label: "Total",    count: confirmedBookings.length },
-                  { label: "Today",    count: todayBookings.length },
-                  { label: "Upcoming", count: upcomingBookings.length },
-                ].map(({ label, count }) => (
-                  <div key={label} className="flex flex-col items-center bg-white/15 rounded-xl px-2 py-1.5 min-w-[38px]">
-                    <span className="text-sm font-extrabold text-white leading-none">{count}</span>
-                    <span className="text-[8px] font-semibold text-white/70 mt-0.5 uppercase tracking-wide">{label}</span>
-                  </div>
-                ))}
-              </div>
+            </div>
+            {/* 2×2 stats grid */}
+            <div className="px-3 pb-3 grid grid-cols-2 gap-2">
+              {[
+                { label: "Today",            count: todayBookings.length,    color: "bg-sky-400/20 border-sky-300/30",    text: "text-white" },
+                { label: "Total Pending",    count: awaitingBookings.length, color: "bg-amber-400/20 border-amber-300/30", text: "text-white" },
+                { label: "Pending (7 days)", count: pendingNext7Count,        color: "bg-amber-400/20 border-amber-300/30", text: "text-white" },
+                { label: "Confirmed (7 days)", count: confirmedNext7Count,   color: "bg-emerald-400/20 border-emerald-300/30", text: "text-white" },
+              ].map(({ label, count, color, text }) => (
+                <div key={label} className={`flex flex-col rounded-xl border px-3 py-2 min-h-[56px] justify-center ${color}`}>
+                  <span className={`text-lg font-extrabold leading-none ${text}`}>{count}</span>
+                  <span className={`text-xs font-semibold mt-1 leading-tight ${text} opacity-80`}>{label}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -596,6 +609,24 @@ export default function DoctorDashboard() {
               </div>
             </div>
 
+          </div>
+
+          {/* Stats card */}
+          <div className="rounded-2xl border border-border/50 bg-background shadow-sm p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2.5">Schedule Overview</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: "Today",            count: todayBookings.length,    bg: "bg-sky-50 dark:bg-sky-950/20",     border: "border-sky-200 dark:border-sky-800/40",     val: "text-sky-600 dark:text-sky-400"   },
+                { label: "Total Pending",    count: awaitingBookings.length, bg: "bg-amber-50 dark:bg-amber-950/20", border: "border-amber-300 dark:border-amber-800/40", val: "text-amber-600 dark:text-amber-400" },
+                { label: "Pending 7d",       count: pendingNext7Count,        bg: "bg-amber-50 dark:bg-amber-950/20", border: "border-amber-300 dark:border-amber-800/40", val: "text-amber-600 dark:text-amber-400" },
+                { label: "Confirmed 7d",     count: confirmedNext7Count,     bg: "bg-emerald-50 dark:bg-emerald-950/20", border: "border-emerald-200 dark:border-emerald-800/40", val: "text-emerald-600 dark:text-emerald-400" },
+              ].map(({ label, count, bg, border, val }) => (
+                <div key={label} className={`rounded-xl border px-2.5 py-2 ${bg} ${border}`}>
+                  <p className={`text-base font-bold leading-none ${val}`}>{count}</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-tight">{label}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Navigation */}
