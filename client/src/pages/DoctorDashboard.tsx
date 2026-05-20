@@ -686,16 +686,16 @@ export default function DoctorDashboard() {
         <main className="flex-1 min-w-0">
 
           {/* ── Desktop sticky schedule overview bar ── */}
-          <div className="hidden lg:flex items-center gap-3 sticky top-[70px] z-10 px-4 py-2.5 mb-5 bg-background/95 backdrop-blur-sm border border-border/50 rounded-2xl shadow-sm">
+          <div className="hidden lg:flex items-center gap-3 sticky top-[70px] z-10 px-4 py-4 mb-5 bg-background/95 backdrop-blur-sm border border-border/50 rounded-2xl shadow-sm">
             {[
               { label: "Today",         count: todayBookings.length,    bg: "bg-sky-50 dark:bg-sky-950/20",          border: "border-sky-200 dark:border-sky-800/40",          val: "text-sky-600 dark:text-sky-400" },
               { label: "Total Pending", count: awaitingBookings.length, bg: "bg-amber-50 dark:bg-amber-950/20",      border: "border-amber-300 dark:border-amber-800/40",      val: "text-amber-600 dark:text-amber-400" },
               { label: "Pending 7d",    count: pendingNext7Count,       bg: "bg-amber-50 dark:bg-amber-950/20",      border: "border-amber-300 dark:border-amber-800/40",      val: "text-amber-600 dark:text-amber-400" },
               { label: "Confirmed 7d",  count: confirmedNext7Count,     bg: "bg-emerald-50 dark:bg-emerald-950/20",  border: "border-emerald-200 dark:border-emerald-800/40",  val: "text-emerald-600 dark:text-emerald-400" },
             ].map(({ label, count, bg, border, val }) => (
-              <div key={label} className={`flex-1 flex items-center justify-center gap-2.5 rounded-xl border px-3 py-2.5 ${bg} ${border}`}>
-                <span className={`text-lg font-extrabold leading-none ${val}`}>{count}</span>
-                <span className="text-xs font-medium text-muted-foreground leading-tight whitespace-nowrap">{label}</span>
+              <div key={label} className={`flex-1 flex flex-col items-center justify-center gap-2 rounded-xl border min-h-[160px] px-3 ${bg} ${border}`}>
+                <span className={`text-3xl font-extrabold leading-none ${val}`}>{count}</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground text-center">{label}</span>
               </div>
             ))}
           </div>
