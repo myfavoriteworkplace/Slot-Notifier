@@ -1640,9 +1640,19 @@ export default function ClinicDashboard() {
     return null;
   }
 
-  const todayBookingsCount = bookings?.filter(b => (b.slot as any)?.date === todayStr).length ?? 0;
-  const pendingCount = bookings?.filter(b => b.status === 'pending').length ?? 0;
-  const confirmedCount = bookings?.filter(b => b.status === 'confirmed').length ?? 0;
+  const next7DaysEnd = addDays(todayStart, 7);
+  const todayConfirmedCount = bookings?.filter(b =>
+    format(new Date(b.slot.startTime), 'yyyy-MM-dd') === todayStr && b.status === 'confirmed'
+  ).length ?? 0;
+  const pendingNext7Count = bookings?.filter(b => {
+    const d = new Date(b.slot.startTime);
+    return d >= todayStart && d <= next7DaysEnd && b.status === 'pending';
+  }).length ?? 0;
+  const totalPendingCount = bookings?.filter(b => b.status === 'pending').length ?? 0;
+  const confirmedNext7Count = bookings?.filter(b => {
+    const d = new Date(b.slot.startTime);
+    return d >= todayStart && d <= next7DaysEnd && b.status === 'confirmed';
+  }).length ?? 0;
 
   return (
     <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-8">
@@ -1711,9 +1721,6 @@ export default function ClinicDashboard() {
                     maxSizeKb={500}
                   />
                 </div>
-                <p className="absolute -bottom-5 left-0 right-0 text-center text-xs text-white/30 whitespace-nowrap">
-                  PNG · JPG · 500 KB
-                </p>
               </div>
 
               {/* Name + status badges */}
@@ -1766,10 +1773,10 @@ export default function ClinicDashboard() {
           {/* ── Live stats row ── */}
           <div className="relative mt-5 pt-4 border-t border-white/[0.10] grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {([
-              { label: "Today's Bookings", value: todayBookingsCount, Icon: CalendarIcon, text: "text-sky-300", bg: "bg-sky-400/10", border: "border-sky-400/20" },
-              { label: "Pending", value: pendingCount, Icon: Clock, text: "text-amber-300", bg: "bg-amber-400/10", border: "border-amber-400/20" },
-              { label: "Confirmed", value: confirmedCount, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
-              { label: "All Bookings", value: bookings?.length ?? 0, Icon: TrendingUp, text: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
+              { label: "Today Confirmed", value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-300", bg: "bg-sky-400/10", border: "border-sky-400/20" },
+              { label: "Pending Next 7 Days", value: pendingNext7Count, Icon: Clock, text: "text-amber-300", bg: "bg-amber-400/10", border: "border-amber-400/20" },
+              { label: "Total Pending", value: totalPendingCount, Icon: TrendingUp, text: "text-rose-300", bg: "bg-rose-400/10", border: "border-rose-400/20" },
+              { label: "Confirmed This Week", value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
             ] as const).map(({ label, value, Icon, text, bg, border }, i) => (
               <div key={i} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border bg-white/[0.04] ${border}`}>
                 <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg`}>

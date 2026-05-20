@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Upload, X, User, Sparkles } from "lucide-react";
+import { Loader2, Camera, X, User, Sparkles } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { compressImage } from "@/lib/imageCompression";
@@ -157,9 +157,12 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
               <span className="text-[8px] font-bold text-white uppercase tracking-wider leading-tight">Uploading</span>
             </div>
           ) : (
-            <span className="text-[10px] font-bold text-white uppercase tracking-wider">
-              {previewUrl ? "Change" : "Upload"}
-            </span>
+            <div className="flex flex-col items-center gap-1">
+              <Camera className="h-5 w-5 text-white" />
+              <span className="text-[9px] font-bold text-white/80 uppercase tracking-wider leading-none">
+                {previewUrl ? "Change" : "Upload"}
+              </span>
+            </div>
           )}
         </div>
 

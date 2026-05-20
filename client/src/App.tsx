@@ -65,7 +65,7 @@ function HealthIndicator() {
   }, []);
 
   return (
-    <div className="fixed bottom-4 left-4 z-[100] flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur-md rounded-full border border-border/50 shadow-lg opacity-60 hover:opacity-100 transition-all group">
+    <div className="fixed bottom-4 left-4 z-[100] hidden sm:flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur-md rounded-full border border-border/50 shadow-lg opacity-60 hover:opacity-100 transition-all group">
       <div className="flex items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
