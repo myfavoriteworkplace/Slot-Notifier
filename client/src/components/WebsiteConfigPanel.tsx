@@ -582,7 +582,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Hero / Clinic Photo</Label>
               <p className="text-xs text-muted-foreground mb-2">Used as the background (Warm theme) or side image (Classic & Modern themes).</p>
-              <ImageUpload currentImageUrl={heroImageUrl || null} onUploadComplete={(url) => setHeroImageUrl(url)} folder="clinic-photos" label="Upload Clinic Photo" />
+              <ImageUpload currentImage={heroImageUrl || undefined} onImageUploaded={(url) => setHeroImageUrl(url)} folder="clinics" fallbackText="Hero" />
             </div>
           </div>
         );
@@ -645,7 +645,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             <div className="pt-2 border-t border-border/40">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Side Photo (optional)</Label>
               <p className="text-xs text-muted-foreground mb-2">Shown next to the feature grid. Falls back to Hero photo if not set.</p>
-              <ImageUpload currentImageUrl={featuresImageUrl || null} onUploadComplete={(url) => setFeaturesImageUrl(url)} folder="clinic-photos" label="Upload Features Section Photo" />
+              <ImageUpload currentImage={featuresImageUrl || undefined} onImageUploaded={(url) => setFeaturesImageUrl(url)} folder="clinics" fallbackText="Photo" />
             </div>
           </div>
         );
@@ -689,7 +689,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 </div>
                 <div>
                   <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Service Photo (optional)</Label>
-                  <ImageUpload currentImageUrl={s.imageUrl || null} onUploadComplete={(url) => setServices(prev => prev.map((x, j) => j === i ? { ...x, imageUrl: url } : x))} folder="clinic-photos" label="Add service photo" />
+                  <ImageUpload currentImage={s.imageUrl || undefined} onImageUploaded={(url) => setServices(prev => prev.map((x, j) => j === i ? { ...x, imageUrl: url } : x))} folder="clinics" fallbackText="Svc" />
                 </div>
               </div>
             ))}
@@ -706,7 +706,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             {gallery.map((g, i) => (
               <div key={i} className="p-3 rounded-xl border border-border/40 space-y-2 sm:space-y-0 sm:p-0 sm:border-0 sm:flex sm:items-start sm:gap-3">
                 <div className="sm:flex-1">
-                  <ImageUpload currentImageUrl={g.url || null} onUploadComplete={(url) => setGallery(prev => prev.map((x, j) => j === i ? { ...x, url } : x))} folder="clinic-photos" label={`Photo ${i + 1}`} />
+                  <ImageUpload currentImage={g.url || undefined} onImageUploaded={(url) => setGallery(prev => prev.map((x, j) => j === i ? { ...x, url } : x))} folder="clinics" fallbackText={`P${i + 1}`} />
                 </div>
                 <div className="flex items-center gap-2 sm:flex-1">
                   <Input value={g.caption} onChange={e => setGallery(prev => prev.map((x, j) => j === i ? { ...x, caption: e.target.value } : x))} placeholder="Caption (optional)" className="rounded-xl flex-1" data-testid={`input-gallery-caption-${i}`} />

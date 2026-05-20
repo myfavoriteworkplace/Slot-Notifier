@@ -110,6 +110,58 @@ Every colour choice must look correct in both **light mode** and **dark mode**. 
 
 ---
 
+## IMAGE & FILE UPLOAD
+
+### Shared component — use for every single-image avatar/logo/photo slot
+
+```tsx
+import { ImageUpload } from "@/components/ImageUpload";
+
+<ImageUpload
+  currentImage={existingUrl || undefined}   // string | undefined — pre-populates preview
+  onImageUploaded={(url) => save(url)}       // called with the R2 key after upload
+  folder="clinics"                           // "clinics" | "doctors" | "users"
+  fallbackText="Clinic Name"                 // initials derived from first+last word
+  allowedTypes={["image/png", "image/jpeg"]} // optional; defaults to all images
+  maxSizeKb={500}                            // optional; client-side compression target
+/>
+```
+
+**What the component provides automatically:**
+- Circular `Avatar` with `AvatarFallback` initials (1 word → first letter; 2+ words → first + last initial)
+- Hover overlay: camera icon + "Upload" / "Change" label (desktop); tappable on mobile
+- Sparkles animation during client-side optimise phase
+- Spinner during R2 upload
+- ✕ remove button once an image is set (calls `onImageUploaded("")`)
+- Uploads via `POST /api/uploads/signed-url` → direct PUT to R2
+
+**When to use `ImageUpload`:**
+- Single circular image attached to a record (clinic logo, doctor profile photo, add-doctor avatar)
+- Any place that shows initials as a fallback when no image exists
+
+**When NOT to use `ImageUpload`:**
+- Rectangular hero/banner images — build a custom zone but follow the same state pattern below
+- Multi-file or bulk uploads — hidden `<input type="file" multiple>` with its own handler
+- Case media / clinical attachments — use a hidden input triggered by a button
+
+**Required states for any bespoke upload zone (when not using `ImageUpload`):**
+
+| Phase | UI |
+|---|---|
+| Idle — no file | Dashed border zone, `Upload` icon, helper text |
+| Idle — file set | Thumbnail preview, "Change" + "Remove" buttons |
+| Optimising | `<Sparkles className="animate-pulse" />` + "Optimising…" label |
+| Uploading | `<Loader2 className="animate-spin" />` + "Uploading…" label |
+| Error | `<AlertCircle />` + plain-language message + retry button |
+
+**Prop pitfalls — do not get these wrong:**
+- `currentImage` not `currentImageUrl`
+- `onImageUploaded` not `onUploadComplete` or `onChange`
+- `folder` must be one of the exact string literals: `"clinics"` · `"doctors"` · `"users"`
+- No `label` prop exists — use a `<Label>` element above the component instead
+
+---
+
 ## SHADCN COMPONENTS — USE THESE, DON'T REINVENT
 
 | Need | Component |
