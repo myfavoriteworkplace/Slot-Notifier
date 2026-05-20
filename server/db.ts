@@ -129,21 +129,28 @@ export async function ensureSessionTable() {
     `);
 
     // Migrate existing doctorNotes → first message in thread (idempotent)
-    await pool.query(`
-      INSERT INTO booking_notes (booking_id, author_type, author_name, content, created_at)
-      SELECT
-        b.id,
-        'doctor',
-        COALESCE(b.assigned_doctor, 'Doctor'),
-        b.doctor_notes,
-        COALESCE(b.created_at, NOW())
-      FROM bookings b
-      WHERE b.doctor_notes IS NOT NULL AND b.doctor_notes != ''
-        AND NOT EXISTS (
-          SELECT 1 FROM booking_notes bn
-          WHERE bn.booking_id = b.id AND bn.author_type = 'doctor'
-        );
+    // Guard: only run if the doctor_notes column still exists on bookings
+    const colCheck = await pool.query(`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'bookings' AND column_name = 'doctor_notes';
     `);
+    if (colCheck.rowCount && colCheck.rowCount > 0) {
+      await pool.query(`
+        INSERT INTO booking_notes (booking_id, author_type, author_name, content, created_at)
+        SELECT
+          b.id,
+          'doctor',
+          COALESCE(b.assigned_doctor, 'Doctor'),
+          b.doctor_notes,
+          COALESCE(b.created_at, NOW())
+        FROM bookings b
+        WHERE b.doctor_notes IS NOT NULL AND b.doctor_notes != ''
+          AND NOT EXISTS (
+            SELECT 1 FROM booking_notes bn
+            WHERE bn.booking_id = b.id AND bn.author_type = 'doctor'
+          );
+      `);
+    }
 
     console.log("[DATABASE] booking_notes table ready.");
   } catch (err: any) {
