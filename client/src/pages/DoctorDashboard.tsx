@@ -513,6 +513,7 @@ export default function DoctorDashboard() {
       )}
 
       {/* ═══ DOCTOR HERO BAR — desktop only ═══ */}
+      <div className="container mx-auto px-4">
       <div className="hidden lg:block rounded-2xl overflow-hidden shadow-2xl mb-6 border border-white/10">
 
         {/* Top neon accent bar */}
@@ -596,6 +597,7 @@ export default function DoctorDashboard() {
 
         {/* Bottom accent line */}
         <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-60" />
+      </div>
       </div>
 
       {/* Two-column layout */}
