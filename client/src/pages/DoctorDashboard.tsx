@@ -512,28 +512,6 @@ export default function DoctorDashboard() {
         </div>
       )}
 
-      {/* Page greeting bar — desktop only */}
-      <div className="hidden lg:block border-b border-border/40 bg-background/60">
-        <div className="container mx-auto px-4 h-11 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center">
-              <Stethoscope className="h-3.5 w-3.5 text-primary" />
-            </div>
-            <span className="font-semibold text-sm text-foreground">Doctor Portal</span>
-            <span className="text-border hidden sm:block">·</span>
-            <span className="hidden sm:block text-sm text-muted-foreground">Good {greet}, Dr. {(doctor as any).name.split(" ")[0]}</span>
-          </div>
-          <button
-            onClick={copyProfileLink}
-            title="Copy shareable profile link"
-            className="h-7 w-7 rounded-full border border-border/60 bg-background flex items-center justify-center text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all duration-200"
-            data-testid="button-copy-profile-link"
-          >
-            {linkCopied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Share2 className="h-3.5 w-3.5" />}
-          </button>
-        </div>
-      </div>
-
       {/* ═══ DOCTOR HERO BAR — desktop only ═══ */}
       <div className="hidden lg:block rounded-2xl overflow-hidden shadow-2xl mb-6 border border-white/10">
 
@@ -568,6 +546,7 @@ export default function DoctorDashboard() {
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
+                <p className="text-xs text-white/50 font-medium mb-0.5">Good {greet},</p>
                 <p className="font-extrabold text-xl text-white tracking-tight leading-tight truncate">
                   Dr. {(doctor as any).name}
                 </p>
