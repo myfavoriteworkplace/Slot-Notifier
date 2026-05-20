@@ -534,6 +534,91 @@ export default function DoctorDashboard() {
         </div>
       </div>
 
+      {/* ═══ DOCTOR HERO BAR — desktop only ═══ */}
+      <div className="hidden lg:block rounded-2xl overflow-hidden shadow-2xl mb-6 border border-white/10">
+
+        {/* Top neon accent bar */}
+        <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
+
+        {/* Main hero band */}
+        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-7 py-6 overflow-hidden">
+
+          {/* Grid texture overlay */}
+          <div
+            className="absolute inset-0 pointer-events-none opacity-[0.04]"
+            style={{
+              backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)",
+              backgroundSize: "32px 32px",
+            }}
+          />
+          {/* Ambient glow orbs — decorative only */}
+          <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-primary/20 blur-[100px] pointer-events-none" />
+          <div className="absolute -bottom-16 -right-8 w-60 h-60 rounded-full bg-accent/15 blur-[80px] pointer-events-none" />
+          {/* Radial highlight */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.07)_0%,transparent_60%)] pointer-events-none" />
+
+          <div className="relative flex items-stretch gap-6">
+
+            {/* LEFT — Identity section */}
+            <div className="flex items-center gap-4 w-72 shrink-0">
+              <Avatar className="h-16 w-16 ring-2 ring-white/30 shadow-md shrink-0">
+                <AvatarImage src={(doctor as any).imageUrl || undefined} />
+                <AvatarFallback className="bg-white/20 text-white font-bold text-xl">
+                  {(doctor as any).name.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="font-extrabold text-xl text-white tracking-tight leading-tight truncate">
+                  Dr. {(doctor as any).name}
+                </p>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  {(doctor as any).specialization && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-2.5 py-1 rounded-full">
+                      <Stethoscope className="h-3 w-3" />
+                      {(doctor as any).specialization}
+                    </span>
+                  )}
+                </div>
+                {(doctor as any).degree && (
+                  <p className="text-xs text-white/55 mt-1.5">{(doctor as any).degree}</p>
+                )}
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <Building2 className="h-3 w-3 text-white/45 shrink-0" />
+                  <span className="text-xs text-white/55 truncate">{(doctor as any).clinicName}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Vertical divider */}
+            <div className="w-px bg-white/10 shrink-0 self-stretch" />
+
+            {/* RIGHT — Schedule overview stats */}
+            <div className="flex-1 grid grid-cols-4 gap-2.5 items-center">
+              {[
+                { label: "Today Confirmed",  count: todayBookings.length,    Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
+                { label: "Total Pending",    count: awaitingBookings.length, Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+                { label: "Pending 7 Days",   count: pendingNext7Count,       Icon: TrendingUp,    text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+                { label: "Confirmed 7 Days", count: confirmedNext7Count,     Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+              ].map(({ label, count, Icon, text, bg, border }) => (
+                <div key={label} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border bg-white/[0.04] ${border}`}>
+                  <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg`}>
+                    <Icon className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-lg font-extrabold text-white leading-none tabular-nums">{count}</p>
+                    <p className={`text-xs font-medium mt-0.5 ${text} truncate`}>{label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          </div>
+        </div>
+
+        {/* Bottom accent line */}
+        <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-60" />
+      </div>
+
       {/* Two-column layout */}
       <div className="container mx-auto px-4 pt-4 pb-24 lg:py-6 flex flex-col lg:flex-row gap-6 items-start">
 
@@ -581,35 +666,6 @@ export default function DoctorDashboard() {
 
         {/* ── LEFT SIDEBAR (desktop only) ── */}
         <aside className="hidden lg:flex lg:flex-col lg:w-60 shrink-0 lg:sticky lg:top-[70px] space-y-3">
-
-          {/* Doctor identity card */}
-          <div className="rounded-2xl border border-border/50 bg-background shadow-sm p-4 flex flex-col items-center text-center gap-3">
-            <div className="relative">
-              <Avatar className="h-16 w-16 ring-2 ring-primary/30 shadow-[0_0_14px_hsl(var(--primary)/0.15)]">
-                <AvatarImage src={(doctor as any).imageUrl || undefined} />
-                <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">{(doctor as any).name.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <span className="absolute -bottom-0.5 -right-0.5 h-5 w-5 rounded-full bg-primary flex items-center justify-center shadow-md border-2 border-background">
-                <Stethoscope className="h-2.5 w-2.5 text-white" />
-              </span>
-            </div>
-            <div>
-              <p className="font-bold text-sm leading-tight">Dr. {(doctor as any).name}</p>
-              {(doctor as any).specialization && (
-                <Badge className="mt-1 text-[10px] py-0 px-2 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/10">
-                  {(doctor as any).specialization}
-                </Badge>
-              )}
-              {(doctor as any).degree && (
-                <p className="text-[11px] text-muted-foreground mt-1">{(doctor as any).degree}</p>
-              )}
-              <div className="flex items-center justify-center gap-1 mt-1.5">
-                <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
-                <span className="text-[11px] text-muted-foreground leading-tight line-clamp-1">{(doctor as any).clinicName}</span>
-              </div>
-            </div>
-
-          </div>
 
           {/* Navigation */}
           <div className="rounded-2xl border border-border/50 bg-background shadow-sm p-2 space-y-0.5">
@@ -684,21 +740,6 @@ export default function DoctorDashboard() {
 
         {/* ── MAIN CONTENT ── */}
         <main className="flex-1 min-w-0">
-
-          {/* ── Desktop sticky schedule overview bar ── */}
-          <div className="hidden lg:flex items-center gap-3 sticky top-[70px] z-10 px-4 py-4 mb-5 bg-background/95 backdrop-blur-sm border border-border/50 rounded-2xl shadow-sm">
-            {[
-              { label: "Today",         count: todayBookings.length,    bg: "bg-sky-50 dark:bg-sky-950/20",          border: "border-sky-200 dark:border-sky-800/40",          val: "text-sky-600 dark:text-sky-400" },
-              { label: "Total Pending", count: awaitingBookings.length, bg: "bg-amber-50 dark:bg-amber-950/20",      border: "border-amber-300 dark:border-amber-800/40",      val: "text-amber-600 dark:text-amber-400" },
-              { label: "Pending 7d",    count: pendingNext7Count,       bg: "bg-amber-50 dark:bg-amber-950/20",      border: "border-amber-300 dark:border-amber-800/40",      val: "text-amber-600 dark:text-amber-400" },
-              { label: "Confirmed 7d",  count: confirmedNext7Count,     bg: "bg-emerald-50 dark:bg-emerald-950/20",  border: "border-emerald-200 dark:border-emerald-800/40",  val: "text-emerald-600 dark:text-emerald-400" },
-            ].map(({ label, count, bg, border, val }) => (
-              <div key={label} className={`flex-1 flex flex-col items-center justify-center gap-2 rounded-xl border min-h-[160px] px-3 ${bg} ${border}`}>
-                <span className={`text-3xl font-extrabold leading-none ${val}`}>{count}</span>
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground text-center">{label}</span>
-              </div>
-            ))}
-          </div>
 
           {/* ─────────────── APPOINTMENTS ─────────────── */}
           {activeTab === "appointments" && (
