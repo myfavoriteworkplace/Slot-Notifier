@@ -1643,16 +1643,21 @@ export default function ClinicDashboard() {
 
   const next7DaysEnd = addDays(todayStart, 7);
   const todayConfirmedCount = bookings?.filter(b =>
-    format(new Date(b.slot.startTime), 'yyyy-MM-dd') === todayStr && b.status === 'confirmed'
+    format(new Date(b.slot.startTime), 'yyyy-MM-dd') === todayStr &&
+    (b.verificationStatus === 'confirmed' || !!b.confirmedBy)
   ).length ?? 0;
   const pendingNext7Count = bookings?.filter(b => {
     const d = new Date(b.slot.startTime);
-    return d >= todayStart && d <= next7DaysEnd && b.status === 'pending';
+    return d >= todayStart && d <= next7DaysEnd &&
+      b.verificationStatus !== 'confirmed' && !b.confirmedBy;
   }).length ?? 0;
-  const totalPendingCount = bookings?.filter(b => b.status === 'pending').length ?? 0;
+  const totalPendingCount = bookings?.filter(b =>
+    b.verificationStatus !== 'confirmed' && !b.confirmedBy
+  ).length ?? 0;
   const confirmedNext7Count = bookings?.filter(b => {
     const d = new Date(b.slot.startTime);
-    return d >= todayStart && d <= next7DaysEnd && b.status === 'confirmed';
+    return d >= todayStart && d <= next7DaysEnd &&
+      (b.verificationStatus === 'confirmed' || !!b.confirmedBy);
   }).length ?? 0;
 
   return (
