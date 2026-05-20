@@ -611,24 +611,6 @@ export default function DoctorDashboard() {
 
           </div>
 
-          {/* Stats card */}
-          <div className="rounded-2xl border border-border/50 bg-background shadow-sm p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2.5">Schedule Overview</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: "Today",            count: todayBookings.length,    bg: "bg-sky-50 dark:bg-sky-950/20",     border: "border-sky-200 dark:border-sky-800/40",     val: "text-sky-600 dark:text-sky-400"   },
-                { label: "Total Pending",    count: awaitingBookings.length, bg: "bg-amber-50 dark:bg-amber-950/20", border: "border-amber-300 dark:border-amber-800/40", val: "text-amber-600 dark:text-amber-400" },
-                { label: "Pending 7d",       count: pendingNext7Count,        bg: "bg-amber-50 dark:bg-amber-950/20", border: "border-amber-300 dark:border-amber-800/40", val: "text-amber-600 dark:text-amber-400" },
-                { label: "Confirmed 7d",     count: confirmedNext7Count,     bg: "bg-emerald-50 dark:bg-emerald-950/20", border: "border-emerald-200 dark:border-emerald-800/40", val: "text-emerald-600 dark:text-emerald-400" },
-              ].map(({ label, count, bg, border, val }) => (
-                <div key={label} className={`rounded-xl border px-2.5 py-2 ${bg} ${border}`}>
-                  <p className={`text-base font-bold leading-none ${val}`}>{count}</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-tight">{label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Navigation */}
           <div className="rounded-2xl border border-border/50 bg-background shadow-sm p-2 space-y-0.5">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-3 pt-2 pb-1.5">Navigation</p>
@@ -702,6 +684,37 @@ export default function DoctorDashboard() {
 
         {/* ── MAIN CONTENT ── */}
         <main className="flex-1 min-w-0">
+
+          {/* ── Desktop sticky schedule overview bar ── */}
+          <div className="hidden lg:flex items-center justify-between gap-4 sticky top-[70px] z-10 -mx-0 px-4 py-2.5 mb-5 bg-background/95 backdrop-blur-sm border border-border/50 rounded-2xl shadow-sm">
+            {/* Doctor identity (mini) */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <Avatar className="h-8 w-8 ring-2 ring-primary/20 shrink-0">
+                <AvatarImage src={(doctor as any).imageUrl || undefined} />
+                <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">{(doctor as any).name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="text-sm font-bold leading-tight truncate">Dr. {(doctor as any).name}</p>
+                {(doctor as any).specialization && (
+                  <p className="text-xs text-muted-foreground leading-none mt-0.5 truncate">{(doctor as any).specialization}</p>
+                )}
+              </div>
+            </div>
+            {/* Stats row */}
+            <div className="flex items-center gap-2">
+              {[
+                { label: "Today",         count: todayBookings.length,    bg: "bg-sky-50 dark:bg-sky-950/20",          border: "border-sky-200 dark:border-sky-800/40",          val: "text-sky-600 dark:text-sky-400" },
+                { label: "Total Pending", count: awaitingBookings.length, bg: "bg-amber-50 dark:bg-amber-950/20",      border: "border-amber-300 dark:border-amber-800/40",      val: "text-amber-600 dark:text-amber-400" },
+                { label: "Pending 7d",    count: pendingNext7Count,        bg: "bg-amber-50 dark:bg-amber-950/20",      border: "border-amber-300 dark:border-amber-800/40",      val: "text-amber-600 dark:text-amber-400" },
+                { label: "Confirmed 7d",  count: confirmedNext7Count,     bg: "bg-emerald-50 dark:bg-emerald-950/20",  border: "border-emerald-200 dark:border-emerald-800/40",  val: "text-emerald-600 dark:text-emerald-400" },
+              ].map(({ label, count, bg, border, val }) => (
+                <div key={label} className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 ${bg} ${border}`}>
+                  <span className={`text-base font-extrabold leading-none ${val}`}>{count}</span>
+                  <span className="text-xs text-muted-foreground leading-tight whitespace-nowrap">{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* ─────────────── APPOINTMENTS ─────────────── */}
           {activeTab === "appointments" && (
