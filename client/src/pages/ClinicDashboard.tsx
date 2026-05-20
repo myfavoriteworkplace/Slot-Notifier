@@ -3593,12 +3593,12 @@ export default function ClinicDashboard() {
           {/* MANAGE DOCTORS PANEL */}
           {activePanel === 'manage-doctors' && (
             <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-[#085041] to-[#0F9B6E] px-5 py-4 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Stethoscope className="h-5 w-5 text-white" />
                   <div>
                     <h2 className="text-lg font-bold text-white tracking-tight">Manage Doctors</h2>
-                    <p className="text-white/70 text-[11px] mt-0.5">Add and manage practitioners</p>
+                    <p className="text-white/70 text-xs mt-0.5">Add and manage practitioners</p>
                   </div>
                 </div>
                 <Badge className="bg-white/20 text-white border-white/30 text-xs hover:bg-white/20">
@@ -3606,14 +3606,14 @@ export default function ClinicDashboard() {
                 </Badge>
               </div>
               <div className="p-5 space-y-4">
-                <div className="border-t border-border/30 px-4 pb-4 pt-3">
+                <div className="border-t border-border/30">
                   <div className="space-y-4">
 
                   {/* Current Doctors List */}
                   {clinicData?.doctors && clinicData.doctors.length > 0 ? (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Current Doctors</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Current Doctors</p>
                         <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full">
                           <Stethoscope className="h-3 w-3" />
                           {clinicData.doctors.length} {clinicData.doctors.length === 1 ? "doctor" : "doctors"}
@@ -3690,7 +3690,7 @@ export default function ClinicDashboard() {
                                 {doctor.email && (
                                   <div className="flex items-center gap-1.5 mt-1.5">
                                     <Mail className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-                                    <span className="text-[11px] font-mono text-muted-foreground truncate">{doctor.email}</span>
+                                    <span className="text-xs font-mono text-muted-foreground truncate">{doctor.email}</span>
                                   </div>
                                 )}
                               </div>
@@ -3707,7 +3707,7 @@ export default function ClinicDashboard() {
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-8 w-8 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 transition-colors"
+                                          className="h-10 w-10 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 active:scale-[0.98] transition-all"
                                           onClick={() => {
                                             setResetPwdDoctorId(linked.id);
                                             setResetPwdDoctorName(linked.name);
@@ -3731,7 +3731,7 @@ export default function ClinicDashboard() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                    className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:scale-[0.98] transition-all"
                                     data-testid={`button-remove-doctor-${index}`}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -3835,7 +3835,7 @@ export default function ClinicDashboard() {
 
                         {/* Left: Photo upload */}
                         <div className="space-y-2 flex flex-col items-center lg:items-start">
-                          <Label className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Doctor Photo</Label>
+                          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Doctor Photo</Label>
                           <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5 w-fit">
                             <ImageUpload
                               currentImage={newDoctorImageUrl || undefined}
@@ -3843,30 +3843,32 @@ export default function ClinicDashboard() {
                               folder="doctors"
                               fallbackText={newDoctorName ? newDoctorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : "Dr"}
                             />
-                            <p className="text-[10px] text-muted-foreground text-center">Click photo to upload</p>
+                            <p className="text-xs text-muted-foreground text-center">Click photo to upload</p>
                           </div>
                         </div>
 
                         {/* Right: Form fields */}
                         <div className="space-y-3">
                           <div className="space-y-1.5">
-                            <Label htmlFor="doctor-name" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Name</Label>
+                            <Label htmlFor="doctor-name" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Name</Label>
                             <Input
                               id="doctor-name"
                               value={newDoctorName}
                               onChange={(e) => setNewDoctorName(e.target.value)}
+                              onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                               placeholder="John Smith"
                               data-testid="input-doctor-name"
                               required
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label htmlFor="doctor-email" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Email</Label>
+                            <Label htmlFor="doctor-email" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</Label>
                             <Input
                               id="doctor-email"
                               type="email"
                               value={newDoctorEmail}
                               onChange={(e) => setNewDoctorEmail(e.target.value)}
+                              onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                               placeholder="doctor@example.com"
                               data-testid="input-doctor-email"
                               required
@@ -3874,7 +3876,7 @@ export default function ClinicDashboard() {
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
-                              <Label htmlFor="doctor-specialization" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Specialization</Label>
+                              <Label htmlFor="doctor-specialization" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Specialization</Label>
                               <SpecializationInput
                                 id="doctor-specialization"
                                 value={newDoctorSpecialization}
@@ -3885,11 +3887,12 @@ export default function ClinicDashboard() {
                               />
                             </div>
                             <div className="space-y-1.5">
-                              <Label htmlFor="doctor-degree" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Degree (Optional)</Label>
+                              <Label htmlFor="doctor-degree" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Degree (Optional)</Label>
                               <Input
                                 id="doctor-degree"
                                 value={newDoctorDegree}
                                 onChange={(e) => setNewDoctorDegree(e.target.value)}
+                                onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                                 placeholder="BDS, MDS"
                                 data-testid="input-doctor-degree"
                               />
