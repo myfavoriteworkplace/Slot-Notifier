@@ -211,7 +211,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     {
       id: "hero", icon: Image, label: "Hero Section",
       status: taglineL1 ? `"${taglineL1.slice(0, 20)}${taglineL1.length > 20 ? "…" : ""}"` : "Using default tagline",
-      dot: taglineL1 ? "green" : "gray", editable: true, accent: "bg-[#085041]",
+      dot: taglineL1 ? "green" : "gray", editable: true, accent: "bg-primary",
     },
     {
       id: "about", icon: Layers, label: "About & Values",
@@ -261,7 +261,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     {
       id: "footer", icon: Globe, label: "Footer",
       status: "Auto-generated from clinic data",
-      dot: "green", editable: false, accent: "bg-[#08281f]",
+      dot: "green", editable: false, accent: "bg-primary/60",
     },
   ];
 
@@ -526,6 +526,9 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     }
   };
 
+  const scrollFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
   /* ── Edit pane (bottom of right panel) ───────────── */
   const EditorPane = () => {
     switch (openSection) {
@@ -568,16 +571,16 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Tagline Line 1</Label>
-                <Input value={taglineL1} onChange={e => setTaglineL1(e.target.value)} placeholder="e.g. Your Smile," className="rounded-xl" data-testid="input-tagline-l1" />
+                <Input value={taglineL1} onChange={e => setTaglineL1(e.target.value)} placeholder="e.g. Your Smile," className="rounded-xl" onFocus={scrollFocus} data-testid="input-tagline-l1" />
               </div>
               <div>
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Tagline Line 2 (highlighted)</Label>
-                <Input value={taglineL2} onChange={e => setTaglineL2(e.target.value)} placeholder="e.g. Our Passion." className="rounded-xl" data-testid="input-tagline-l2" />
+                <Input value={taglineL2} onChange={e => setTaglineL2(e.target.value)} placeholder="e.g. Our Passion." className="rounded-xl" onFocus={scrollFocus} data-testid="input-tagline-l2" />
               </div>
             </div>
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Hero Description</Label>
-              <Textarea value={heroDescription} onChange={e => setHeroDescription(e.target.value)} placeholder="Short paragraph shown below the tagline..." rows={3} className="rounded-xl resize-none" data-testid="input-hero-description" />
+              <Textarea value={heroDescription} onChange={e => setHeroDescription(e.target.value)} placeholder="Short paragraph shown below the tagline..." rows={3} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid="input-hero-description" />
             </div>
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Hero / Clinic Photo</Label>
@@ -592,15 +595,15 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           <div className="space-y-4">
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">About / Our Story</Label>
-              <Textarea value={aboutDescription} onChange={e => setAboutDescription(e.target.value)} placeholder="Tell patients about your clinic, your background, and what makes you different..." rows={4} className="rounded-xl resize-none" data-testid="input-about-description" />
+              <Textarea value={aboutDescription} onChange={e => setAboutDescription(e.target.value)} placeholder="Tell patients about your clinic, your background, and what makes you different..." rows={4} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid="input-about-description" />
             </div>
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Our Vision</Label>
-              <Textarea value={vision} onChange={e => setVision(e.target.value)} placeholder="e.g. Exceptional dental care delivered with precision, compassion, and modern technology." rows={2} className="rounded-xl resize-none" data-testid="input-vision" />
+              <Textarea value={vision} onChange={e => setVision(e.target.value)} placeholder="e.g. Exceptional dental care delivered with precision, compassion, and modern technology." rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid="input-vision" />
             </div>
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Our Values</Label>
-              <Textarea value={values} onChange={e => setValues(e.target.value)} placeholder="e.g. Patient-first · Pain-free dentistry · Transparency · Continuous excellence." rows={2} className="rounded-xl resize-none" data-testid="input-values" />
+              <Textarea value={values} onChange={e => setValues(e.target.value)} placeholder="e.g. Patient-first · Pain-free dentistry · Transparency · Continuous excellence." rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid="input-values" />
             </div>
             <div className="flex items-center gap-3 p-3.5 rounded-xl bg-muted/30 border border-border/50">
               <input type="checkbox" id="show-map" checked={showMap} onChange={e => setShowMap(e.target.checked)} className="h-4 w-4 accent-primary" data-testid="checkbox-show-map" />
@@ -629,6 +632,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                     onChange={e => setFeatures(prev => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))}
                     placeholder="e.g. Expert and Passionate Team"
                     className="rounded-xl flex-1"
+                    onFocus={scrollFocus}
                     data-testid={`input-feature-title-${i}`}
                   />
                   <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl text-destructive hover:bg-destructive/10 active:scale-[0.95] shrink-0" onClick={() => setFeatures(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-feature-${i}`}>
@@ -656,8 +660,8 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             <p className="text-xs text-muted-foreground">Your clinic's achievements. These defaults are pre-filled — edit the numbers and labels to match your own, or delete any you don't need.</p>
             {stats.map((s, i) => (
               <div key={i} className="grid grid-cols-[1fr_2fr_auto] gap-3 items-center">
-                <Input value={s.value} onChange={e => setStats(prev => prev.map((x, j) => j === i ? { ...x, value: e.target.value } : x))} placeholder="e.g. 2800+" className="rounded-xl font-bold" data-testid={`input-stat-value-${i}`} />
-                <Input value={s.label} onChange={e => setStats(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} placeholder="e.g. Dental Fillings Completed" className="rounded-xl" data-testid={`input-stat-label-${i}`} />
+                <Input value={s.value} onChange={e => setStats(prev => prev.map((x, j) => j === i ? { ...x, value: e.target.value } : x))} placeholder="e.g. 2800+" className="rounded-xl font-bold" onFocus={scrollFocus} data-testid={`input-stat-value-${i}`} />
+                <Input value={s.label} onChange={e => setStats(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} placeholder="e.g. Dental Fillings Completed" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-stat-label-${i}`} />
                 <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10 shrink-0" onClick={() => setStats(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-stat-${i}`}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -684,8 +688,8 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   </Button>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
-                  <Input value={s.name} onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="Service name" className="rounded-xl" data-testid={`input-service-name-${i}`} />
-                  <Input value={s.description} onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Short description" className="rounded-xl" data-testid={`input-service-desc-${i}`} />
+                  <Input value={s.name} onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="Service name" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-service-name-${i}`} />
+                  <Input value={s.description} onChange={e => setServices(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Short description" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-service-desc-${i}`} />
                 </div>
                 <div>
                   <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Service Photo (optional)</Label>
@@ -709,7 +713,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   <ImageUpload currentImage={g.url || undefined} onImageUploaded={(url) => setGallery(prev => prev.map((x, j) => j === i ? { ...x, url } : x))} folder="clinics" fallbackText={`P${i + 1}`} />
                 </div>
                 <div className="flex items-center gap-2 sm:flex-1">
-                  <Input value={g.caption} onChange={e => setGallery(prev => prev.map((x, j) => j === i ? { ...x, caption: e.target.value } : x))} placeholder="Caption (optional)" className="rounded-xl flex-1" data-testid={`input-gallery-caption-${i}`} />
+                  <Input value={g.caption} onChange={e => setGallery(prev => prev.map((x, j) => j === i ? { ...x, caption: e.target.value } : x))} placeholder="Caption (optional)" className="rounded-xl flex-1" onFocus={scrollFocus} data-testid={`input-gallery-caption-${i}`} />
                   <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl text-destructive hover:bg-destructive/10 active:scale-[0.95] shrink-0" onClick={() => setGallery(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-gallery-${i}`}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -736,9 +740,9 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-                <Textarea value={t.quote} onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, quote: e.target.value } : x))} placeholder="Patient quote..." rows={2} className="rounded-xl resize-none" data-testid={`input-testimonial-quote-${i}`} />
+                <Textarea value={t.quote} onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, quote: e.target.value } : x))} placeholder="Patient quote..." rows={2} className="rounded-xl resize-none" onFocus={scrollFocus} data-testid={`input-testimonial-quote-${i}`} />
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <Input value={t.patientName} onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, patientName: e.target.value } : x))} placeholder="Patient first name" className="rounded-xl" data-testid={`input-testimonial-name-${i}`} />
+                  <Input value={t.patientName} onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, patientName: e.target.value } : x))} placeholder="Patient first name" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-testimonial-name-${i}`} />
                   <select value={t.rating} onChange={e => setTestimonials(prev => prev.map((x, j) => j === i ? { ...x, rating: Number(e.target.value) } : x))} className="rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[44px]" data-testid={`select-testimonial-rating-${i}`}>
                     {[5, 4, 3, 2, 1].map(r => <option key={r} value={r}>{"★".repeat(r)} {r}/5</option>)}
                   </select>
@@ -758,10 +762,10 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           <div className="space-y-3">
             {hours.map((h, i) => (
               <div key={i} className="p-3 rounded-xl border border-border/40 space-y-2 sm:space-y-0 sm:p-0 sm:border-0 sm:grid sm:grid-cols-[1fr_auto_auto_auto_auto] sm:gap-2 sm:items-center">
-                <Input value={h.day} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, day: e.target.value } : x))} placeholder="e.g. Mon – Fri" className="rounded-xl" data-testid={`input-hours-day-${i}`} />
+                <Input value={h.day} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, day: e.target.value } : x))} placeholder="e.g. Mon – Fri" className="rounded-xl" onFocus={scrollFocus} data-testid={`input-hours-day-${i}`} />
                 <div className="flex gap-2 items-center">
-                  <Input value={h.open} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, open: e.target.value } : x))} placeholder="9:00 AM" className="rounded-xl flex-1 sm:w-28 sm:flex-none" disabled={h.closed} data-testid={`input-hours-open-${i}`} />
-                  <Input value={h.close} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, close: e.target.value } : x))} placeholder="7:00 PM" className="rounded-xl flex-1 sm:w-28 sm:flex-none" disabled={h.closed} data-testid={`input-hours-close-${i}`} />
+                  <Input value={h.open} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, open: e.target.value } : x))} placeholder="9:00 AM" className="rounded-xl flex-1 sm:w-28 sm:flex-none" disabled={h.closed} onFocus={scrollFocus} data-testid={`input-hours-open-${i}`} />
+                  <Input value={h.close} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, close: e.target.value } : x))} placeholder="7:00 PM" className="rounded-xl flex-1 sm:w-28 sm:flex-none" disabled={h.closed} onFocus={scrollFocus} data-testid={`input-hours-close-${i}`} />
                   <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground whitespace-nowrap min-h-[44px]">
                     <input type="checkbox" checked={h.closed} onChange={e => setHours(prev => prev.map((x, j) => j === i ? { ...x, closed: e.target.checked } : x))} className="accent-primary h-4 w-4" data-testid={`checkbox-hours-closed-${i}`} />
                     Closed
@@ -783,15 +787,15 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           <div className="space-y-4">
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Instagram URL</Label>
-              <Input value={socialLinks.instagram ?? ""} onChange={e => setSocialLinks(p => ({ ...p, instagram: e.target.value }))} placeholder="https://instagram.com/yourclinic" className="rounded-xl" data-testid="input-social-instagram" />
+              <Input value={socialLinks.instagram ?? ""} onChange={e => setSocialLinks(p => ({ ...p, instagram: e.target.value }))} placeholder="https://instagram.com/yourclinic" className="rounded-xl" onFocus={scrollFocus} data-testid="input-social-instagram" />
             </div>
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Facebook URL</Label>
-              <Input value={socialLinks.facebook ?? ""} onChange={e => setSocialLinks(p => ({ ...p, facebook: e.target.value }))} placeholder="https://facebook.com/yourclinic" className="rounded-xl" data-testid="input-social-facebook" />
+              <Input value={socialLinks.facebook ?? ""} onChange={e => setSocialLinks(p => ({ ...p, facebook: e.target.value }))} placeholder="https://facebook.com/yourclinic" className="rounded-xl" onFocus={scrollFocus} data-testid="input-social-facebook" />
             </div>
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">YouTube URL</Label>
-              <Input value={socialLinks.youtube ?? ""} onChange={e => setSocialLinks(p => ({ ...p, youtube: e.target.value }))} placeholder="https://youtube.com/@yourclinic" className="rounded-xl" data-testid="input-social-youtube" />
+              <Input value={socialLinks.youtube ?? ""} onChange={e => setSocialLinks(p => ({ ...p, youtube: e.target.value }))} placeholder="https://youtube.com/@yourclinic" className="rounded-xl" onFocus={scrollFocus} data-testid="input-social-youtube" />
             </div>
           </div>
         );
@@ -808,7 +812,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     <div className="space-y-5">
 
       {/* ── Top header ── */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Globe className="h-5 w-5 text-primary" />
@@ -824,8 +828,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               {/* Mobile: open preview in-app sheet */}
               <Button
                 variant="outline"
-                size="sm"
-                className="gap-2 rounded-xl sm:hidden"
+                className="gap-2 rounded-xl min-h-[44px] sm:hidden"
                 onClick={() => setPreviewSheetOpen(true)}
                 data-testid="button-preview-mobile"
               >
@@ -834,7 +837,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               </Button>
               {/* Desktop: open in new tab */}
               <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="hidden sm:block">
-                <Button variant="outline" size="sm" className="gap-2 rounded-xl">
+                <Button variant="outline" className="gap-2 rounded-xl min-h-[44px]">
                   <Eye className="h-3.5 w-3.5" />
                   Preview
                   <ExternalLink className="h-3 w-3" />
@@ -843,8 +846,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             </>
           )}
           <Button
-            size="sm"
-            className="gap-2 rounded-xl"
+            className="gap-2 rounded-xl min-h-[44px]"
             onClick={handleSave}
             disabled={saveMutation.isPending}
             data-testid="button-save-website"
@@ -866,7 +868,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           <div className="flex items-center gap-2.5">
             <Layout className="h-4 w-4 text-primary" />
             <span className="font-semibold text-sm text-foreground">Website Structure</span>
-            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
               {themeLabel} theme · {liveServices.length} services · {liveGallery.length} photos
             </span>
           </div>
@@ -875,7 +877,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               href={previewUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] text-primary font-semibold flex items-center gap-1 hover:underline"
+              className="text-xs text-primary font-semibold flex items-center gap-1 hover:underline active:underline active:opacity-70"
             >
               Open live page <ExternalLink className="h-2.5 w-2.5" />
             </a>
@@ -930,8 +932,8 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                       <Icon className="h-2.5 w-2.5 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-medium text-foreground leading-none truncate">{row.label}</p>
-                      <p className="text-[9px] text-muted-foreground mt-0.5 italic flex items-center gap-1">
+                      <p className="text-xs font-medium text-foreground leading-none truncate">{row.label}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 italic flex items-center gap-1">
                         <Lock className="h-2 w-2" /> auto
                       </p>
                     </div>
@@ -947,7 +949,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-all group ${
                     isActive
                       ? "bg-primary/8 border-l-2 border-primary"
-                      : "hover:bg-muted/50 border-l-2 border-transparent"
+                      : "hover:bg-muted/50 active:bg-muted/70 border-l-2 border-transparent"
                   }`}
                   data-testid={`map-row-${row.id}`}
                 >
@@ -956,8 +958,8 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                     <Icon className={`h-2.5 w-2.5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-[11px] font-semibold leading-none truncate ${isActive ? "text-primary" : "text-foreground"}`}>{row.label}</p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5 truncate">{row.status}</p>
+                    <p className={`text-xs font-semibold leading-none truncate ${isActive ? "text-primary" : "text-foreground"}`}>{row.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{row.status}</p>
                   </div>
                   <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />
                 </button>
@@ -972,11 +974,11 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
             <div className="flex items-center justify-between px-4 py-2 border-b border-border/40 bg-muted/20 shrink-0">
               <div className="flex items-center gap-2">
                 <Eye className="h-3 w-3 text-primary" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   {activeRow?.label ?? "Preview"}
                 </span>
               </div>
-              <span className="text-[10px] text-muted-foreground/60 italic">updates as you type</span>
+              <span className="text-xs text-muted-foreground/60 italic">updates as you type</span>
             </div>
 
             {/* Mini preview strip */}
@@ -991,13 +993,12 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   {EditorPane()}
                 </div>
                 {/* Sticky save bar */}
-                <div className="shrink-0 border-t border-border/40 bg-background/95 backdrop-blur-sm px-5 py-3 flex items-center justify-between">
-                  <p className="text-[11px] text-muted-foreground">
+                <div className="shrink-0 border-t border-border/40 bg-background px-5 py-3 flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
                     Changes apply to your live page after saving.
                   </p>
                   <Button
-                    size="sm"
-                    className="gap-2 rounded-xl px-6"
+                    className="gap-2 rounded-xl px-6 min-h-[44px]"
                     onClick={handleSave}
                     disabled={saveMutation.isPending}
                     data-testid="button-save-website-panel"
