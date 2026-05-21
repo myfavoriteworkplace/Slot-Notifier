@@ -2463,12 +2463,12 @@ export default function ClinicDashboard() {
                         <div className="w-full text-left cursor-pointer flex-1 flex flex-col">
 
                           {/* Card Header */}
-                          <div className={`px-4 pt-3.5 pb-3 ${headerBg} transition-colors group-hover:brightness-[0.97]`}>
+                          <div className={`px-4 pt-2.5 pb-2 ${headerBg} transition-colors group-hover:brightness-[0.97]`}>
                             <div className="flex items-start justify-between gap-2">
 
                               {/* Avatar + name block */}
                               <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <div className="shrink-0 h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 dark:border-primary/30 flex items-center justify-center">
+                                <div className="shrink-0 h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 dark:border-primary/30 flex items-center justify-center">
                                   <span className="text-sm font-bold text-primary dark:text-primary/70 leading-none">
                                     {booking.customerName.charAt(0).toUpperCase()}
                                   </span>
@@ -2476,27 +2476,27 @@ export default function ClinicDashboard() {
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
-                                    <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
+                                    <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
                                       #{getBookingNumber(booking).padStart(2, '0')}
                                     </span>
                                     {(booking as any).patientCode && (
-                                      <span className="font-mono text-[9px] uppercase tracking-wider text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md shrink-0">
+                                      <span className="font-mono text-xs uppercase tracking-wider text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md shrink-0">
                                         {(booking as any).patientCode}
                                       </span>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
+                                  <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
                                     <Phone className="h-2.5 w-2.5 shrink-0" />
                                     <span className="truncate">{booking.customerPhone}</span>
                                   </div>
                                 </div>
                               </div>
 
-                              {/* Time pill + Status pill + Consent pill */}
+                              {/* Time pill + Consent pill */}
                               <div className="flex flex-col items-end gap-1">
 
                                 {/* Time pill — when is the appointment */}
-                                <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${timeClass}`}>
+                                <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${timeClass}`}>
                                   {isBookingToday && (
                                     <span className="relative flex h-1.5 w-1.5 shrink-0">
                                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
@@ -2506,15 +2506,14 @@ export default function ClinicDashboard() {
                                   {timeLabel}
                                 </span>
 
-
                                 {/* Consent signed pill */}
                                 {booking.consentSignedAt && (
                                   <TooltipProvider delayDuration={200}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 px-1.5 py-0.5 rounded-full cursor-default">
-                                          <CheckCircle2 className="h-2 w-2" />
-                                          Consent Signed
+                                        <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 px-1.5 py-0.5 rounded-full cursor-default">
+                                          <CheckCircle2 className="h-2.5 w-2.5" />
+                                          Signed
                                         </span>
                                       </TooltipTrigger>
                                       <TooltipContent side="left" className="text-xs">
@@ -2528,49 +2527,42 @@ export default function ClinicDashboard() {
                           </div>
 
                           {/* Info rows */}
-                          <div className="px-4 py-3 space-y-2">
+                          <div className="px-4 py-2 space-y-1.5">
 
-                            {/* Date */}
-                            <div className="flex items-center gap-2.5 text-[12px]">
-                              <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                                <CalendarIcon className="h-3 w-3 text-primary" />
+                            {/* Date + Time — merged single row */}
+                            <div className="flex items-center gap-2 text-xs flex-wrap">
+                              <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                <CalendarIcon className="h-2.5 w-2.5 text-primary" />
                               </div>
                               <span className="font-semibold text-foreground">
-                                {format(bookingDateTime, "EEEE, MMMM do")}
+                                {format(bookingDateTime, "EEE, d MMM")}
+                              </span>
+                              <span className="text-muted-foreground font-medium">
+                                {format(bookingDateTime, "h:mm a")}
+                                <span className="mx-1 opacity-40">→</span>
+                                {format(new Date(booking.slot.endTime), "h:mm a")}
                               </span>
                               {!isBookingPast && (() => {
                                 const daysAway = differenceInCalendarDays(bookingDateTime, new Date());
-                                const label = isBookingToday ? "Today" : daysAway === 1 ? "Tomorrow" : `in ${daysAway} days`;
+                                const label = isBookingToday ? "Today" : daysAway === 1 ? "Tomorrow" : `in ${daysAway}d`;
                                 const cls = isBookingToday
                                   ? "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"
                                   : daysAway === 1
                                   ? "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
                                   : "text-muted-foreground bg-muted/50 border-border/50";
                                 return (
-                                  <span className={`text-[9px] font-bold uppercase tracking-wider border px-1.5 py-0.5 rounded-full ${cls}`}>
+                                  <span className={`text-xs font-bold uppercase tracking-wider border px-1.5 py-0.5 rounded-full ${cls}`}>
                                     {label}
                                   </span>
                                 );
                               })()}
                             </div>
 
-                            {/* Time range */}
-                            <div className="flex items-center gap-2.5 text-[12px]">
-                              <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                                <Clock className="h-3 w-3 text-muted-foreground" />
-                              </div>
-                              <span className="text-muted-foreground font-medium">
-                                {format(bookingDateTime, "h:mm a")}
-                                <span className="mx-1 opacity-40">→</span>
-                                {format(new Date(booking.slot.endTime), "h:mm a")}
-                              </span>
-                            </div>
-
-                            {/* Email */}
+                            {/* Email — hidden on mobile, visible on sm+ */}
                             {booking.customerEmail && (
-                              <div className="flex items-center gap-2.5 text-[12px]">
-                                <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                                  <Mail className="h-3 w-3 text-muted-foreground" />
+                              <div className="hidden sm:flex items-center gap-2 text-xs">
+                                <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                  <Mail className="h-2.5 w-2.5 text-muted-foreground" />
                                 </div>
                                 <span className="text-muted-foreground truncate">{booking.customerEmail}</span>
                               </div>
@@ -2578,59 +2570,59 @@ export default function ClinicDashboard() {
 
                             {/* Assigned doctor */}
                             {booking.assignedDoctor ? (
-                              <div className="flex items-center gap-2 text-[12px] flex-wrap">
+                              <div className="flex items-center gap-2 text-xs flex-wrap">
                                 <div className="flex items-center gap-2">
-                                  <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                                    <Stethoscope className="h-3 w-3 text-primary" />
+                                  <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                    <Stethoscope className="h-2.5 w-2.5 text-primary" />
                                   </div>
                                   <span className="font-medium text-primary">Dr. {booking.assignedDoctor}</span>
                                 </div>
                                 {booking.doctorApprovalStatus === 'pending' && (
-                                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-                                    Awaiting Dr. Approval
+                                  <span className="text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
+                                    Awaiting Dr.
                                   </span>
                                 )}
                                 {booking.doctorApprovalStatus === 'approved' && (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
                                     <CheckCircle2 className="h-2.5 w-2.5" />
-                                    Confirmed · Doctor
+                                    Confirmed
                                   </span>
                                 )}
                                 {booking.doctorApprovalStatus === 'admin_confirmed' && (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
                                     <CheckCircle2 className="h-2.5 w-2.5" />
-                                    Confirmed · Admin
+                                    Confirmed
                                   </span>
                                 )}
                                 {booking.doctorApprovalStatus === 'declined' && (
-                                  <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800">
-                                    Declined — reassign
+                                  <span className="text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800">
+                                    Declined
                                   </span>
                                 )}
                                 {isCancelled && (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800 shrink-0">
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800 shrink-0">
                                     <X className="h-2.5 w-2.5" />
                                     Cancelled
                                   </span>
                                 )}
                                 {isConfirmed && booking.confirmedBy === 'admin' && booking.doctorApprovalStatus !== 'admin_confirmed' && (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 shrink-0">
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 shrink-0">
                                     <CheckCircle2 className="h-2.5 w-2.5" />
-                                    Confirmed · Admin
+                                    Confirmed
                                   </span>
                                 )}
                               </div>
                             ) : !isBookingPast && (
-                              <div className="flex items-center gap-2 text-[12px] min-w-0">
-                                <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
-                                  <Stethoscope className="h-3 w-3 text-muted-foreground/50" />
+                              <div className="flex items-center gap-2 text-xs min-w-0">
+                                <div className="h-4 w-4 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                  <Stethoscope className="h-2.5 w-2.5 text-muted-foreground/50" />
                                 </div>
                                 {(booking.clinicDoctors ?? []).length > 0 ? (
                                   <Popover>
                                     <PopoverTrigger asChild>
                                       <button
                                         onClick={(e) => e.stopPropagation()}
-                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 px-2 py-0.5 rounded-full transition-colors"
+                                        className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 active:bg-amber-100 px-2 py-0.5 rounded-full transition-colors"
                                         data-testid={`button-assign-inline-${booking.id}`}
                                       >
                                         <UserPlus className="h-2.5 w-2.5" />
@@ -2642,12 +2634,12 @@ export default function ClinicDashboard() {
                                       side="top"
                                       onClick={(e) => e.stopPropagation()}
                                     >
-                                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">Select a doctor</p>
+                                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">Select a doctor</p>
                                       <div className="space-y-0.5">
                                         {(booking.clinicDoctors ?? []).map((doc, idx) => (
                                           <button
                                             key={idx}
-                                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-primary/5 transition-colors text-left"
+                                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-primary/5 active:bg-primary/10 transition-colors text-left"
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: doc.name, doctorEmail: (doc as any).email ?? '' });
@@ -2655,11 +2647,11 @@ export default function ClinicDashboard() {
                                             disabled={assignDoctorMutation.isPending}
                                           >
                                             <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                                              <span className="text-[10px] font-bold text-primary">{doc.name.charAt(0)}</span>
+                                              <span className="text-xs font-bold text-primary">{doc.name.charAt(0)}</span>
                                             </div>
                                             <div className="min-w-0">
                                               <p className="text-xs font-semibold truncate">Dr. {doc.name}</p>
-                                              <p className="text-[10px] text-muted-foreground truncate">{doc.specialization}</p>
+                                              <p className="text-xs text-muted-foreground truncate">{doc.specialization}</p>
                                             </div>
                                           </button>
                                         ))}
@@ -2667,23 +2659,21 @@ export default function ClinicDashboard() {
                                     </PopoverContent>
                                   </Popover>
                                 ) : (
-                                  <span className="italic text-muted-foreground/60 text-[11px]">No doctor assigned</span>
+                                  <span className="italic text-muted-foreground/60 text-xs">No doctor assigned</span>
                                 )}
-                                {/* Booking-status badge — single source of truth for all states */}
+                                {/* Booking-status badge */}
                                 {isCancelled ? (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800 shrink-0">
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800 shrink-0">
                                     <X className="h-2.5 w-2.5" />
                                     Cancelled
                                   </span>
                                 ) : isConfirmed ? (
-                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 shrink-0">
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 shrink-0">
                                     <CheckCircle2 className="h-2.5 w-2.5" />
-                                    {booking.confirmedBy === 'doctor'
-                                      ? `Confirmed · Dr. ${booking.assignedDoctor || 'Doctor'}`
-                                      : 'Confirmed · Admin'}
+                                    Confirmed
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 shrink-0">
+                                  <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 shrink-0">
                                     <span className="relative flex h-1.5 w-1.5 shrink-0">
                                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
                                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
@@ -2698,12 +2688,12 @@ export default function ClinicDashboard() {
                             {complaints.length > 0 && (
                               <div className="flex flex-wrap gap-1 pt-0.5">
                                 {complaints.slice(0, 4).map((c, i) => (
-                                  <span key={i} className="inline-flex items-center text-[9px] font-semibold uppercase tracking-wide text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                                  <span key={i} className="inline-flex items-center text-xs font-semibold uppercase tracking-wide text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
                                     {c}
                                   </span>
                                 ))}
                                 {complaints.length > 4 && (
-                                  <span className="text-[9px] text-muted-foreground font-medium px-1">+{complaints.length - 4}</span>
+                                  <span className="text-xs text-muted-foreground font-medium px-1">+{complaints.length - 4}</span>
                                 )}
                               </div>
                             )}
@@ -3444,13 +3434,13 @@ export default function ClinicDashboard() {
                     </Dialog>
 
                     {/* Quick-action footer */}
-                    <div className="px-4 py-2.5 flex items-center gap-2 border-t border-border/50 bg-muted/20">
+                    <div className="px-4 py-1.5 flex items-center gap-2 border-t border-border/50 bg-muted/20">
                       {!isBookingPast && booking.verificationStatus !== 'confirmed' && (
                         <>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="flex-1 h-7 gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-400/10"
+                            className="flex-1 h-9 gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-400/10 active:bg-emerald-100 dark:active:bg-emerald-400/20 active:scale-[0.97] transition-all"
                             onClick={(e) => { e.stopPropagation(); confirmBookingMutation.mutate(booking.id); }}
                             disabled={confirmBookingMutation.isPending}
                             data-testid={`button-confirm-${booking.id}`}
@@ -3466,7 +3456,7 @@ export default function ClinicDashboard() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="flex-1 h-7 gap-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-background/80"
+                        className="flex-1 h-9 gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-background/80 active:bg-muted/60 active:scale-[0.97] transition-all"
                         onClick={(e) => { e.stopPropagation(); handleOpenBilling(booking); }}
                         data-testid={`button-bill-${booking.id}`}
                       >
@@ -3479,7 +3469,7 @@ export default function ClinicDashboard() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="flex-1 h-7 gap-1.5 text-[11px] font-semibold text-destructive/70 hover:text-destructive hover:bg-destructive/5"
+                            className="flex-1 h-9 gap-1.5 text-xs font-semibold text-destructive/70 hover:text-destructive hover:bg-destructive/5 active:bg-destructive/10 active:text-destructive active:scale-[0.97] transition-all"
                             onClick={(e) => e.stopPropagation()}
                             data-testid={`button-cancel-booking-${booking.id}`}
                           >
