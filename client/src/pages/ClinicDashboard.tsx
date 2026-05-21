@@ -135,9 +135,9 @@ export default function ClinicDashboard() {
     }
   }, [clinic]);
 
-  const [filterDate, setFilterDate] = useState<Date | undefined>(new Date());
-  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(new Date());
-  const [quickFilter, setQuickFilter] = useState<'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week'>('all');
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
+  const [quickFilter, setQuickFilter] = useState<'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week'>('today');
   const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
 
   const copyClinicUrl = (type: 'booking' | 'about') => {
@@ -2310,8 +2310,24 @@ export default function ClinicDashboard() {
             {/* Bookings header */}
             <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-white tracking-tight">Bookings</h2>
-                <p className="text-white/70 text-[11px] mt-0.5">All patient appointments</p>
+                <h2 className="text-lg font-bold text-white tracking-tight">
+                  {quickFilter === 'today' ? "Today's Bookings"
+                    : quickFilter === 'upcoming' ? "Upcoming Bookings"
+                    : quickFilter === 'past' ? "Past Bookings"
+                    : quickFilter === 'this-week' ? "This Week"
+                    : quickFilter === 'next-week' ? "Next Week"
+                    : filterDate ? "Filtered Bookings"
+                    : "Bookings"}
+                </h2>
+                <p className="text-white/70 text-xs mt-0.5">
+                  {quickFilter === 'today' ? "Appointments for today"
+                    : quickFilter === 'upcoming' ? "Future appointments"
+                    : quickFilter === 'past' ? "Previous appointments"
+                    : quickFilter === 'this-week' ? "Appointments Mon – Sun"
+                    : quickFilter === 'next-week' ? "Appointments for next week"
+                    : filterDate ? "Showing custom date range"
+                    : "All patient appointments"}
+                </p>
               </div>
               <Button
                 variant="ghost"
@@ -2327,34 +2343,36 @@ export default function ClinicDashboard() {
             </div>
 
           <div className="p-5 space-y-5">
-          {/* Colour key — compact two-row legend box */}
-          {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && (
-            <div className="inline-flex flex-col gap-1.5 border border-border/40 rounded-lg bg-muted/20 px-3 py-2">
-              {/* Row 1 — TIME (top bar) */}
-              <div className="flex items-center gap-3">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 w-10 shrink-0">When</span>
+          {/* Colour key — single-row on desktop, two-row on mobile; hidden for time-specific filters */}
+          {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && quickFilter === 'all' && !filterDate && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border border-border/40 rounded-lg bg-muted/20 px-3 py-2">
+              {/* WHEN group */}
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50 w-10 shrink-0">When</span>
                 {([
                   { color: "bg-sky-400",                     label: "Today"    },
                   { color: "bg-primary",                     label: "Upcoming" },
                   { color: "bg-slate-300 dark:bg-slate-500", label: "Past"     },
                 ] as const).map(({ color, label }) => (
-                  <div key={label} className="flex items-center gap-1">
+                  <div key={label} className="flex items-center gap-1.5">
                     <span className={`h-[3px] w-4 rounded-full shrink-0 ${color}`} />
-                    <span className="text-[10px] text-muted-foreground/60">{label}</span>
+                    <span className="text-xs text-muted-foreground/70">{label}</span>
                   </div>
                 ))}
               </div>
-              {/* Row 2 — STATUS (left border) */}
-              <div className="flex items-center gap-3">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 w-10 shrink-0">Status</span>
+              {/* divider — visible on desktop only */}
+              <span className="hidden sm:block h-3.5 w-px bg-border/60 shrink-0" />
+              {/* STATUS group */}
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50 w-10 shrink-0">Status</span>
                 {([
                   { color: "bg-emerald-400", label: "Confirmed" },
                   { color: "bg-amber-400",   label: "Pending"   },
                   { color: "bg-rose-400",    label: "Cancelled" },
                 ] as const).map(({ color, label }) => (
-                  <div key={label} className="flex items-center gap-1">
+                  <div key={label} className="flex items-center gap-1.5">
                     <span className={`h-3.5 w-[3px] rounded-full shrink-0 ${color}`} />
-                    <span className="text-[10px] text-muted-foreground/60">{label}</span>
+                    <span className="text-xs text-muted-foreground/70">{label}</span>
                   </div>
                 ))}
               </div>
@@ -2529,15 +2547,15 @@ export default function ClinicDashboard() {
                           {/* Info rows */}
                           <div className="px-4 py-2 space-y-1.5">
 
-                            {/* Date + Time — merged single row */}
-                            <div className="flex items-center gap-2 text-xs flex-wrap">
+                            {/* Date + Time — merged single row, no wrap */}
+                            <div className="flex items-center gap-2 text-xs min-w-0">
                               <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                                 <CalendarIcon className="h-2.5 w-2.5 text-primary" />
                               </div>
-                              <span className="font-semibold text-foreground">
+                              <span className="font-semibold text-foreground shrink-0">
                                 {format(bookingDateTime, "EEE, d MMM")}
                               </span>
-                              <span className="text-muted-foreground font-medium">
+                              <span className="text-muted-foreground font-medium truncate min-w-0">
                                 {format(bookingDateTime, "h:mm a")}
                                 <span className="mx-1 opacity-40">→</span>
                                 {format(new Date(booking.slot.endTime), "h:mm a")}
@@ -2551,7 +2569,7 @@ export default function ClinicDashboard() {
                                   ? "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
                                   : "text-muted-foreground bg-muted/50 border-border/50";
                                 return (
-                                  <span className={`text-xs font-bold uppercase tracking-wider border px-1.5 py-0.5 rounded-full ${cls}`}>
+                                  <span className={`shrink-0 text-xs font-bold uppercase tracking-wider border px-1.5 py-0.5 rounded-full ${cls}`}>
                                     {label}
                                   </span>
                                 );
