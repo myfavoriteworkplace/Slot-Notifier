@@ -1932,6 +1932,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const clinic = await storage.getClinic(sess.clinicId);
       if (!clinic) return res.status(404).json({ message: "Clinic not found" });
       const existingDoctors: any[] = Array.isArray(clinic.doctors) ? clinic.doctors : [];
+      if (email) {
+        const emailLower = email.trim().toLowerCase();
+        const alreadyInClinic = existingDoctors.some(
+          (d: any) => d.email && d.email.trim().toLowerCase() === emailLower
+        );
+        if (alreadyInClinic) {
+          return res.status(409).json({ message: "A doctor with this email is already part of your clinic." });
+        }
+      }
       const newDoctorEntry = { name, specialization, degree, email: email || null, imageUrl: imageUrl || null };
       const updatedClinic = await storage.updateClinic(sess.clinicId, { doctors: [...existingDoctors, newDoctorEntry] });
       if (email) {

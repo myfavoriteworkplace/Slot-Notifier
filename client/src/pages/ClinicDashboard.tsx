@@ -387,15 +387,14 @@ export default function ClinicDashboard() {
       return;
     }
     const existingDoctors = clinicData?.doctors || [];
-    const nameLower = newDoctorName.trim().toLowerCase();
     const emailLower = newDoctorEmail.trim().toLowerCase();
-    const duplicate = existingDoctors.find(
-      (d) => d.name.trim().toLowerCase() === nameLower || (d.email && d.email.trim().toLowerCase() === emailLower)
+    const emailDuplicate = existingDoctors.find(
+      (d) => d.email && d.email.trim().toLowerCase() === emailLower
     );
-    if (duplicate) {
+    if (emailDuplicate) {
       toast({
-        title: "Doctor already exists",
-        description: `A doctor with the same ${duplicate.name.trim().toLowerCase() === nameLower ? "name" : "email"} is already in your clinic.`,
+        title: "Doctor already in your clinic",
+        description: "A doctor with this email is already part of your clinic.",
         variant: "destructive",
       });
       return;
