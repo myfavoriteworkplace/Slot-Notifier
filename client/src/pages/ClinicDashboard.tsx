@@ -29,6 +29,13 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle
 } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay, differenceInCalendarDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
@@ -220,6 +227,7 @@ export default function ClinicDashboard() {
 
   // Doctor Management state
   const [isDoctorsOpen, setIsDoctorsOpen] = useState(false);
+  const [showAddDoctorForm, setShowAddDoctorForm] = useState(false);
   const [newDoctorName, setNewDoctorName] = useState("");
   const [newDoctorSpecialization, setNewDoctorSpecialization] = useState("");
   const [newDoctorDegree, setNewDoctorDegree] = useState("");
@@ -244,6 +252,13 @@ export default function ClinicDashboard() {
     },
     enabled: isAuthenticated,
   });
+
+  // Auto-open add-doctor form when there are no doctors yet
+  useEffect(() => {
+    if (activePanel === 'manage-doctors' && clinicData && (!clinicData.doctors || clinicData.doctors.length === 0)) {
+      setShowAddDoctorForm(true);
+    }
+  }, [activePanel, clinicData]);
 
   // Fetch real linked doctor accounts (for reset password key icon)
   const { data: linkedDoctors = [] } = useQuery<{ id: number; name: string; email: string }[]>({
@@ -327,6 +342,7 @@ export default function ClinicDashboard() {
       setNewDoctorDegree("");
       setNewDoctorEmail("");
       setNewDoctorImageUrl(null);
+      setShowAddDoctorForm(false);
       toast({ title: "Doctor added successfully", description: "A welcome email with login credentials has been sent." });
     },
     onError: (error: any) => {
@@ -368,6 +384,20 @@ export default function ClinicDashboard() {
   const handleAddDoctor = () => {
     if (!newDoctorName || !newDoctorSpecialization || !newDoctorEmail) {
       toast({ title: "Please fill in name, specialization and email", variant: "destructive" });
+      return;
+    }
+    const existingDoctors = clinicData?.doctors || [];
+    const nameLower = newDoctorName.trim().toLowerCase();
+    const emailLower = newDoctorEmail.trim().toLowerCase();
+    const duplicate = existingDoctors.find(
+      (d) => d.name.trim().toLowerCase() === nameLower || (d.email && d.email.trim().toLowerCase() === emailLower)
+    );
+    if (duplicate) {
+      toast({
+        title: "Doctor already exists",
+        description: `A doctor with the same ${duplicate.name.trim().toLowerCase() === nameLower ? "name" : "email"} is already in your clinic.`,
+        variant: "destructive",
+      });
       return;
     }
     addDoctorMutation.mutate({
@@ -3709,67 +3739,144 @@ export default function ClinicDashboard() {
                                 )}
                               </div>
 
-                              {/* Action buttons */}
+                              {/* Action buttons — inline on md+, dropdown on mobile */}
                               <div className="flex items-center gap-1 shrink-0">
-                              {(() => {
-                                const linked = linkedDoctors.find(d => d.email === doctor.email);
-                                if (!linked) return null;
-                                return (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
+                                {/* Desktop: inline buttons */}
+                                <div className="hidden sm:flex items-center gap-1">
+                                  {(() => {
+                                    const linked = linkedDoctors.find(d => d.email === doctor.email);
+                                    if (!linked) return null;
+                                    return (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-10 w-10 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 active:scale-[0.98] transition-all"
+                                              onClick={() => {
+                                                setResetPwdDoctorId(linked.id);
+                                                setResetPwdDoctorName(linked.name);
+                                                setResetPwdDoctorEmail(linked.email);
+                                                setResetPwdNew("");
+                                                setResetPwdConfirm("");
+                                                setResetPwdOpen(true);
+                                              }}
+                                              data-testid={`button-reset-password-${index}`}
+                                            >
+                                              <KeyRound className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Reset password</TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    );
+                                  })()}
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:scale-[0.98] transition-all"
+                                        data-testid={`button-remove-doctor-${index}`}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Remove Doctor?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Are you sure you want to remove {doctor.name} from your clinic? This action cannot be undone.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => removeDoctorMutation.mutate(index)}
+                                          className="bg-destructive text-destructive-foreground"
+                                        >
+                                          Remove
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+
+                                {/* Mobile: MoreHorizontal dropdown */}
+                                <div className="sm:hidden">
+                                  <AlertDialog>
+                                    {({ open: alertOpen, onOpenChange: setAlertOpen } = {} as any) => null}
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-10 w-10 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 active:scale-[0.98] transition-all"
-                                          onClick={() => {
-                                            setResetPwdDoctorId(linked.id);
-                                            setResetPwdDoctorName(linked.name);
-                                            setResetPwdDoctorEmail(linked.email);
-                                            setResetPwdNew("");
-                                            setResetPwdConfirm("");
-                                            setResetPwdOpen(true);
-                                          }}
-                                          data-testid={`button-reset-password-${index}`}
+                                          className="h-10 w-10 text-muted-foreground hover:bg-muted/60 active:scale-[0.98] transition-all"
+                                          data-testid={`button-more-doctor-${index}`}
                                         >
-                                          <KeyRound className="h-4 w-4" />
+                                          <MoreHorizontal className="h-4 w-4" />
                                         </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Reset password</TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                );
-                              })()}
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:scale-[0.98] transition-all"
-                                    data-testid={`button-remove-doctor-${index}`}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Remove Doctor?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to remove {doctor.name} from your clinic? This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => removeDoctorMutation.mutate(index)}
-                                      className="bg-destructive text-destructive-foreground"
-                                    >
-                                      Remove
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-44">
+                                        {(() => {
+                                          const linked = linkedDoctors.find(d => d.email === doctor.email);
+                                          if (!linked) return null;
+                                          return (
+                                            <>
+                                              <DropdownMenuItem
+                                                className="gap-2 text-amber-600 focus:text-amber-700 focus:bg-amber-50 dark:focus:bg-amber-500/10"
+                                                onSelect={() => {
+                                                  setResetPwdDoctorId(linked.id);
+                                                  setResetPwdDoctorName(linked.name);
+                                                  setResetPwdDoctorEmail(linked.email);
+                                                  setResetPwdNew("");
+                                                  setResetPwdConfirm("");
+                                                  setResetPwdOpen(true);
+                                                }}
+                                                data-testid={`menu-reset-password-${index}`}
+                                              >
+                                                <KeyRound className="h-4 w-4" />
+                                                Reset Password
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                            </>
+                                          );
+                                        })()}
+                                        <AlertDialog>
+                                          <AlertDialogTrigger asChild>
+                                            <DropdownMenuItem
+                                              className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
+                                              onSelect={(e) => e.preventDefault()}
+                                              data-testid={`menu-remove-doctor-${index}`}
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                              Remove Doctor
+                                            </DropdownMenuItem>
+                                          </AlertDialogTrigger>
+                                          <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                              <AlertDialogTitle>Remove Doctor?</AlertDialogTitle>
+                                              <AlertDialogDescription>
+                                                Are you sure you want to remove {doctor.name} from your clinic? This action cannot be undone.
+                                              </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                              <AlertDialogAction
+                                                onClick={() => removeDoctorMutation.mutate(index)}
+                                                className="bg-destructive text-destructive-foreground"
+                                              >
+                                                Remove
+                                              </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                          </AlertDialogContent>
+                                        </AlertDialog>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </AlertDialog>
+                                </div>
+                              </div>
                           </div>
                           {/* Leaves section */}
                           {doctorUpcomingLeaves.length > 0 && (
@@ -3829,106 +3936,113 @@ export default function ClinicDashboard() {
                     </div>
                   )}
 
-                  {/* Add New Doctor Panel */}
+                  {/* Add New Doctor — toggle */}
                   <div className="rounded-xl overflow-hidden border border-border/60 shadow-sm">
-
-                    {/* Panel header */}
-                    <div className="bg-gradient-to-r from-primary to-accent px-5 py-3.5 flex items-center gap-3">
-                      <div className="p-1.5 bg-white/20 rounded-lg">
-                        <UserPlus className="h-4 w-4 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-white font-semibold text-sm leading-tight">Add a New Doctor</h3>
-                        <p className="text-white/70 text-xs">Register a new practitioner to your clinic profile</p>
-                      </div>
-                    </div>
-
-                    {/* Panel body */}
-                    <div className="p-5 bg-card">
-                      <div className="grid gap-5 lg:grid-cols-2">
-
-                        {/* Left: Photo upload */}
-                        <div className="space-y-2 flex flex-col items-center lg:items-start">
-                          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Doctor Photo</Label>
-                          <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5 w-fit">
-                            <ImageUpload
-                              currentImage={newDoctorImageUrl || undefined}
-                              onImageUploaded={(url) => setNewDoctorImageUrl(url)}
-                              folder="doctors"
-                              fallbackText={newDoctorName ? newDoctorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : "Dr"}
-                            />
-                            <p className="text-xs text-muted-foreground text-center">Click photo to upload</p>
-                          </div>
+                    <button
+                      onClick={() => setShowAddDoctorForm(v => !v)}
+                      className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-primary to-accent px-5 py-3.5 min-h-[52px] active:opacity-90 transition-opacity"
+                      data-testid="button-toggle-add-doctor-form"
+                      aria-expanded={showAddDoctorForm}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-white/20 rounded-lg">
+                          <UserPlus className="h-4 w-4 text-white" />
                         </div>
+                        <div className="text-left">
+                          <p className="text-white font-semibold text-sm leading-tight">Add a New Doctor</p>
+                          <p className="text-white/70 text-xs">Register a new practitioner</p>
+                        </div>
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-white/80 transition-transform duration-200 ${showAddDoctorForm ? 'rotate-180' : ''}`} />
+                    </button>
 
-                        {/* Right: Form fields */}
-                        <div className="space-y-3">
-                          <div className="space-y-1.5">
-                            <Label htmlFor="doctor-name" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Name</Label>
-                            <Input
-                              id="doctor-name"
-                              value={newDoctorName}
-                              onChange={(e) => setNewDoctorName(e.target.value)}
-                              onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                              placeholder="John Smith"
-                              data-testid="input-doctor-name"
-                              required
-                            />
+                    {showAddDoctorForm && (
+                      <div className="p-5 bg-card">
+                        <div className="grid gap-5 lg:grid-cols-2">
+
+                          {/* Left: Photo upload */}
+                          <div className="space-y-2 flex flex-col items-center lg:items-start">
+                            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Doctor Photo</Label>
+                            <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5 w-fit">
+                              <ImageUpload
+                                currentImage={newDoctorImageUrl || undefined}
+                                onImageUploaded={(url) => setNewDoctorImageUrl(url)}
+                                folder="doctors"
+                                fallbackText={newDoctorName ? newDoctorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : "Dr"}
+                              />
+                              <p className="text-xs text-muted-foreground text-center">Click photo to upload</p>
+                            </div>
                           </div>
-                          <div className="space-y-1.5">
-                            <Label htmlFor="doctor-email" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</Label>
-                            <Input
-                              id="doctor-email"
-                              type="email"
-                              value={newDoctorEmail}
-                              onChange={(e) => setNewDoctorEmail(e.target.value)}
-                              onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                              placeholder="doctor@example.com"
-                              data-testid="input-doctor-email"
-                              required
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
+
+                          {/* Right: Form fields */}
+                          <div className="space-y-3">
                             <div className="space-y-1.5">
-                              <Label htmlFor="doctor-specialization" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Specialization</Label>
-                              <SpecializationInput
-                                id="doctor-specialization"
-                                value={newDoctorSpecialization}
-                                onChange={setNewDoctorSpecialization}
-                                placeholder="General Dentist"
-                                data-testid="input-doctor-specialization"
+                              <Label htmlFor="doctor-name" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Name</Label>
+                              <Input
+                                id="doctor-name"
+                                value={newDoctorName}
+                                onChange={(e) => setNewDoctorName(e.target.value)}
+                                onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                                placeholder="John Smith"
+                                data-testid="input-doctor-name"
                                 required
                               />
                             </div>
                             <div className="space-y-1.5">
-                              <Label htmlFor="doctor-degree" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Degree (Optional)</Label>
+                              <Label htmlFor="doctor-email" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</Label>
                               <Input
-                                id="doctor-degree"
-                                value={newDoctorDegree}
-                                onChange={(e) => setNewDoctorDegree(e.target.value)}
+                                id="doctor-email"
+                                type="email"
+                                value={newDoctorEmail}
+                                onChange={(e) => setNewDoctorEmail(e.target.value)}
                                 onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                                placeholder="BDS, MDS"
-                                data-testid="input-doctor-degree"
+                                placeholder="doctor@example.com"
+                                data-testid="input-doctor-email"
+                                required
                               />
                             </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1.5">
+                                <Label htmlFor="doctor-specialization" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Specialization</Label>
+                                <SpecializationInput
+                                  id="doctor-specialization"
+                                  value={newDoctorSpecialization}
+                                  onChange={setNewDoctorSpecialization}
+                                  placeholder="General Dentist"
+                                  data-testid="input-doctor-specialization"
+                                  required
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="doctor-degree" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Degree (Optional)</Label>
+                                <Input
+                                  id="doctor-degree"
+                                  value={newDoctorDegree}
+                                  onChange={(e) => setNewDoctorDegree(e.target.value)}
+                                  onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                                  placeholder="BDS, MDS"
+                                  data-testid="input-doctor-degree"
+                                />
+                              </div>
+                            </div>
+                            <Button
+                              onClick={handleAddDoctor}
+                              disabled={!newDoctorName || !newDoctorSpecialization || !newDoctorEmail || addDoctorMutation.isPending}
+                              className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-md shadow-primary/20 mt-1"
+                              data-testid="button-add-doctor"
+                            >
+                              {addDoctorMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : (
+                                <UserPlus className="h-4 w-4 mr-2" />
+                              )}
+                              Add Doctor
+                            </Button>
                           </div>
-                          <Button
-                            onClick={handleAddDoctor}
-                            disabled={!newDoctorName || !newDoctorSpecialization || !newDoctorEmail || addDoctorMutation.isPending}
-                            className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-md shadow-primary/20 mt-1"
-                            data-testid="button-add-doctor"
-                          >
-                            {addDoctorMutation.isPending ? (
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            ) : (
-                              <UserPlus className="h-4 w-4 mr-2" />
-                            )}
-                            Add Doctor
-                          </Button>
-                        </div>
 
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
               </div>
