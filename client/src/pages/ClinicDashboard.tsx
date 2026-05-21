@@ -1693,7 +1693,7 @@ export default function ClinicDashboard() {
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
 
         {/* Main hero band */}
-        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-5 py-5 sm:px-7 sm:py-6 overflow-hidden">
+        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-5 py-3 sm:px-7 sm:py-6 overflow-hidden">
 
           {/* Grid texture overlay */}
           <div
@@ -1732,7 +1732,7 @@ export default function ClinicDashboard() {
               {/* Name + status badges */}
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight truncate">
+                  <h1 className="text-lg sm:text-3xl font-extrabold text-white tracking-tight truncate">
                     {clinic?.name}
                   </h1>
                   {clinic?.id && clinic.id >= 999 && (
@@ -1746,7 +1746,8 @@ export default function ClinicDashboard() {
                 <div className="flex items-center gap-2 mt-2.5 flex-wrap">
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-2.5 py-1 rounded-full">
                     <Building2 className="h-3 w-3" />
-                    Clinic Administration
+                    <span className="sm:hidden">Admin</span>
+                    <span className="hidden sm:inline">Clinic Administration</span>
                   </span>
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-2.5 py-1 rounded-full">
                     <span className="relative flex h-1.5 w-1.5">
@@ -1784,7 +1785,7 @@ export default function ClinicDashboard() {
               { label: "Total Pending", value: totalPendingCount, Icon: TrendingUp, text: "text-rose-300", bg: "bg-rose-400/10", border: "border-rose-400/20" },
               { label: "Confirmed This Week", value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
             ] as const).map(({ label, value, Icon, text, bg, border }, i) => (
-              <div key={i} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border bg-white/[0.04] ${border}`}>
+              <div key={i} className={`flex items-center gap-2.5 px-2 py-2 sm:px-3 sm:py-2.5 rounded-xl border bg-white/[0.04] ${border}`}>
                 <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg`}>
                   <Icon className="h-3.5 w-3.5" />
                 </div>

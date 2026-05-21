@@ -637,7 +637,7 @@ export default function DoctorDashboard() {
                 { label: "Pending (7 days)", count: pendingNext7Count,        color: "bg-amber-400/20 border-amber-300/30", text: "text-white" },
                 { label: "Confirmed (7 days)", count: confirmedNext7Count,   color: "bg-emerald-400/20 border-emerald-300/30", text: "text-white" },
               ].map(({ label, count, color, text }) => (
-                <div key={label} className={`flex flex-col rounded-xl border px-3 py-2 min-h-[56px] justify-center ${color}`}>
+                <div key={label} className={`flex flex-col rounded-xl border px-2 py-1.5 min-h-[44px] justify-center ${color}`}>
                   <span className={`text-lg font-extrabold leading-none ${text}`}>{count}</span>
                   <span className={`text-xs font-semibold mt-1 leading-tight ${text} opacity-80`}>{label}</span>
                 </div>
