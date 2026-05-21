@@ -2701,34 +2701,33 @@ export default function ClinicDashboard() {
                         </div>
                       </DialogTrigger>
 
-                      <DialogContent className="w-[95vw] sm:max-w-[680px] rounded-2xl p-0 overflow-hidden h-[85vh] flex flex-col">
+                      <DialogContent className="w-[95vw] sm:max-w-[680px] rounded-2xl p-0 overflow-hidden h-[90vh] sm:h-[85vh] flex flex-col">
 
                         {/* ── HEADER ── */}
-                        <div className="shrink-0 bg-gradient-to-br from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-0 relative overflow-hidden">
+                        <div className="shrink-0 bg-gradient-to-br from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-0 relative overflow-hidden">
                           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
                           {/* Top row: avatar + name + close */}
-                          <div className="relative flex items-start gap-4 mb-3">
+                          <div className="relative flex items-start gap-3 mb-2">
                             <div className="shrink-0">
-                              <div className="h-12 w-12 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center ring-2 ring-white/10">
-                                <span className="text-xl font-black text-white leading-none">
+                              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center ring-2 ring-white/10">
+                                <span className="text-lg sm:text-xl font-black text-white leading-none">
                                   {booking.customerName.charAt(0).toUpperCase()}
                                 </span>
                               </div>
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <DialogTitle className="text-white font-extrabold text-xl leading-tight tracking-tight">
+                                <DialogTitle className="text-white font-extrabold text-base sm:text-xl leading-tight tracking-tight">
                                   {booking.customerName}
                                 </DialogTitle>
-                                <span className="font-mono text-[9px] uppercase tracking-widest text-white/60 bg-white/10 border border-white/20 px-1.5 py-0.5 rounded-md shrink-0">
+                                <span className="font-mono text-xs uppercase tracking-widest text-white/60 bg-white/10 border border-white/20 px-1.5 py-0.5 rounded-md shrink-0">
                                   REF-{getBookingNumber(booking).padStart(4, '0')}
                                 </span>
                               </div>
-                              {/* Badges row — consistent pill style throughout */}
-                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                {/* Single confirmation badge — shows WHO confirmed, using confirmedBy field */}
+                              {/* Badges row */}
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                 {booking.verificationStatus === 'confirmed' && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white border border-white/25">
+                                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white border border-white/25">
                                     {booking.confirmedBy === 'doctor'
                                       ? <Stethoscope className="h-2.5 w-2.5" />
                                       : <CheckCircle2 className="h-2.5 w-2.5" />}
@@ -2739,16 +2738,14 @@ export default function ClinicDashboard() {
                                       : 'Payment Confirmed'}
                                   </span>
                                 )}
-                                {/* Awaiting doctor — only when unconfirmed and doctor hasn't acted yet */}
                                 {booking.verificationStatus !== 'confirmed' && booking.doctorApprovalStatus === 'pending' && booking.assignedDoctor && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30">
+                                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30">
                                     <Clock className="h-2.5 w-2.5" />
                                     Awaiting Dr. {booking.assignedDoctor.split(' ')[0]}
                                   </span>
                                 )}
-                                {/* Consent signed */}
                                 {booking.consentSignedAt && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/20">
+                                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/20">
                                     <PenLine className="h-2.5 w-2.5" />
                                     Consent Signed
                                   </span>
@@ -2757,32 +2754,34 @@ export default function ClinicDashboard() {
                             </div>
                           </div>
 
-                          {/* Appointment strip */}
-                          <div className="relative flex items-center gap-4 pb-3 flex-wrap">
-                            <div className="flex items-center gap-1.5 text-[12px] text-white/75">
-                              <CalendarDays className="h-3 w-3 opacity-80 shrink-0" />
-                              <strong className="text-white font-semibold">{format(bookingDateTime, "EEE, d MMM yyyy")}</strong>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[12px] text-white/75">
-                              <Clock className="h-3 w-3 opacity-80 shrink-0" />
-                              <strong className="text-white font-semibold">{format(bookingDateTime, "h:mm a")}</strong>
-                              <span>→ {format(new Date(booking.slot.endTime), "h:mm a")}</span>
-                            </div>
-                            {clinic?.name && (
-                              <div className="flex items-center gap-1.5 text-[12px] text-white/75">
-                                <Building2 className="h-3 w-3 opacity-80 shrink-0" />
-                                <span>{clinic.name}</span>
+                          {/* Appointment strip — 2-col grid on mobile, flex row on sm+ */}
+                          <div className="relative pb-3">
+                            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-3">
+                              <div className="flex items-center gap-1.5 text-xs text-white/75">
+                                <CalendarDays className="h-3 w-3 opacity-80 shrink-0" />
+                                <strong className="text-white font-semibold">{format(bookingDateTime, "EEE, d MMM yyyy")}</strong>
                               </div>
-                            )}
-                            {!isBookingPast && (() => {
-                              const daysAway = differenceInCalendarDays(bookingDateTime, new Date());
-                              const label = isBookingToday ? "Today" : daysAway === 1 ? "Tomorrow" : `in ${daysAway} days`;
-                              return (
-                                <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30">
-                                  {label}
-                                </span>
-                              );
-                            })()}
+                              <div className="flex items-center gap-1.5 text-xs text-white/75">
+                                <Clock className="h-3 w-3 opacity-80 shrink-0" />
+                                <strong className="text-white font-semibold">{format(bookingDateTime, "h:mm a")}</strong>
+                                <span>→ {format(new Date(booking.slot.endTime), "h:mm a")}</span>
+                              </div>
+                              {clinic?.name && (
+                                <div className="flex items-center gap-1.5 text-xs text-white/75">
+                                  <Building2 className="h-3 w-3 opacity-80 shrink-0" />
+                                  <span className="truncate">{clinic.name}</span>
+                                </div>
+                              )}
+                              {!isBookingPast && (() => {
+                                const daysAway = differenceInCalendarDays(bookingDateTime, new Date());
+                                const label = isBookingToday ? "Today" : daysAway === 1 ? "Tomorrow" : `in ${daysAway} days`;
+                                return (
+                                  <span className="inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30 w-fit">
+                                    {label}
+                                  </span>
+                                );
+                              })()}
+                            </div>
                           </div>
 
                         </div>
@@ -2790,25 +2789,26 @@ export default function ClinicDashboard() {
                         {/* Tab strip — neutral bar below header */}
                         <div className="shrink-0 flex border-b border-border/60 bg-card">
                           {([
-                            { key: 'overview', label: 'Overview', icon: <User className="h-3 w-3" /> },
-                            { key: 'clinical', label: 'Clinical', icon: <ClipboardList className="h-3 w-3" /> },
-                            { key: 'notes',    label: 'Notes',    icon: <FileText className="h-3 w-3" /> },
-                            { key: 'actions',  label: 'Actions',  icon: <Settings className="h-3 w-3" /> },
-                            { key: 'billing',  label: 'Billing',  icon: <IndianRupee className="h-3 w-3" /> },
+                            { key: 'overview', label: 'Overview', icon: <User className="h-3.5 w-3.5" /> },
+                            { key: 'clinical', label: 'Clinical', icon: <ClipboardList className="h-3.5 w-3.5" /> },
+                            { key: 'notes',    label: 'Notes',    icon: <FileText className="h-3.5 w-3.5" /> },
+                            { key: 'actions',  label: 'Actions',  icon: <Settings className="h-3.5 w-3.5" /> },
+                            { key: 'billing',  label: 'Billing',  icon: <IndianRupee className="h-3.5 w-3.5" /> },
                           ] as const).map(({ key, label, icon }) => {
                             const isActive = getModalTab(booking.id) === key;
                             return (
                               <button
                                 key={key}
                                 onClick={() => setModalTab(booking.id, key)}
-                                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition-all border-b-2 focus-visible:outline-none ${
+                                className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/40 ${
                                   isActive
                                     ? 'text-primary border-primary'
-                                    : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground/30'
+                                    : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground/30 active:text-foreground'
                                 }`}
                                 data-testid={`modal-tab-${key}-${booking.id}`}
                               >
-                                {icon}{label}
+                                {icon}
+                                <span className="text-[10px] sm:text-xs leading-none">{label}</span>
                               </button>
                             );
                           })}
@@ -2825,25 +2825,25 @@ export default function ClinicDashboard() {
                               <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                   <CalendarDays className="h-3 w-3 text-primary" />
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Appointment</span>
+                                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Appointment</span>
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 divide-x divide-border/50">
                                   <div className="px-3 py-2.5">
-                                    <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Date</p>
+                                    <p className="text-xs text-muted-foreground font-medium mb-0.5">Date</p>
                                     <p className="text-sm font-bold text-foreground">{format(bookingDateTime, "MMM d, yyyy")}</p>
-                                    <p className="text-[10px] text-muted-foreground">{format(bookingDateTime, "EEEE")}</p>
+                                    <p className="text-xs text-muted-foreground">{format(bookingDateTime, "EEEE")}</p>
                                   </div>
                                   <div className="px-3 py-2.5">
-                                    <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Time</p>
+                                    <p className="text-xs text-muted-foreground font-medium mb-0.5">Time</p>
                                     <p className="text-sm font-bold text-foreground">{format(bookingDateTime, "h:mm a")}</p>
-                                    <p className="text-[10px] text-muted-foreground">→ {format(new Date(booking.slot.endTime), "h:mm a")}</p>
+                                    <p className="text-xs text-muted-foreground">→ {format(new Date(booking.slot.endTime), "h:mm a")}</p>
                                   </div>
                                   {booking.assignedDoctor && (
                                     <div className="px-3 py-2.5 col-span-2 sm:col-span-1 border-t border-border/50 sm:border-t-0">
-                                      <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Doctor</p>
+                                      <p className="text-xs text-muted-foreground font-medium mb-0.5">Doctor</p>
                                       <div className="flex items-center gap-1.5">
-                                        <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                                          <span className="text-[8px] font-bold text-primary">{booking.assignedDoctor.charAt(0)}</span>
+                                        <div className="h-5 w-5 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                                          <span className="text-xs font-bold text-primary">{booking.assignedDoctor.charAt(0)}</span>
                                         </div>
                                         <p className="text-sm font-semibold text-foreground truncate">Dr. {booking.assignedDoctor}</p>
                                       </div>
@@ -2852,7 +2852,7 @@ export default function ClinicDashboard() {
                                 </div>
                                 {booking.createdAt && (
                                   <div className="px-3 py-1.5 bg-muted/20 border-t border-border/40">
-                                    <span className="text-[10px] text-muted-foreground">Booked on {format(new Date(booking.createdAt), "MMM d, yyyy · h:mm a")}</span>
+                                    <span className="text-xs text-muted-foreground">Booked on {format(new Date(booking.createdAt), "MMM d, yyyy · h:mm a")}</span>
                                   </div>
                                 )}
                               </div>
@@ -2861,7 +2861,7 @@ export default function ClinicDashboard() {
                               <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                   <User className="h-3 w-3 text-primary" />
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Contact</span>
+                                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Contact</span>
                                 </div>
                                 <div className="divide-y divide-border/40">
                                   <div className="px-3 py-2.5 flex items-center gap-3">
@@ -2884,12 +2884,12 @@ export default function ClinicDashboard() {
                                 <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                                   <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                     <FlaskConical className="h-3 w-3 text-primary" />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Chief Complaint</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Chief Complaint</span>
                                   </div>
                                   {complaints.length > 0 && (
                                     <div className="px-3 py-2.5 flex flex-wrap gap-1.5">
                                       {complaints.map((c, i) => (
-                                        <span key={i} className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/10 border border-primary/25 px-2 py-1 rounded-lg">
+                                        <span key={i} className="inline-flex items-center text-xs font-semibold uppercase tracking-wide text-primary bg-primary/10 border border-primary/25 px-2 py-1 rounded-lg">
                                           {c}
                                         </span>
                                       ))}
@@ -2906,22 +2906,22 @@ export default function ClinicDashboard() {
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5">
                                     <ClipboardCheck className="h-3 w-3 text-primary" />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Digital Consent</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Digital Consent</span>
                                   </div>
                                   {booking.consentSignedAt ? (
-                                    <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
+                                    <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
                                       <CheckCircle2 className="h-3 w-3" /> Signed
                                     </span>
                                   ) : null}
                                 </div>
                                 {booking.consentSignedAt ? (
-                                  <div className="px-3 py-2 flex items-center justify-between gap-2">
-                                    <span className="text-[10px] text-muted-foreground">
+                                  <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+                                    <span className="text-xs text-muted-foreground">
                                       Signed on {format(new Date(booking.consentSignedAt), "dd MMM yyyy, hh:mm a")}
                                     </span>
                                     {booking.consentSignature && (
                                       <button
-                                        className="flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                                        className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors min-h-[36px] px-1"
                                         onClick={() => generateConsentPdf(booking)}
                                         data-testid={`button-download-consent-${booking.id}`}
                                       >
@@ -2932,9 +2932,9 @@ export default function ClinicDashboard() {
                                   </div>
                                 ) : (
                                   <div className="px-3 py-2.5 flex items-center justify-between gap-2">
-                                    <span className="text-[11px] text-muted-foreground">Not yet signed</span>
+                                    <span className="text-xs text-muted-foreground">Not yet signed</span>
                                     <button
-                                      className="text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+                                      className="text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors disabled:opacity-50 min-h-[36px] px-1"
                                       onClick={() => { requestConsentMutation.mutate(booking.id); setModalTab(booking.id, 'actions'); }}
                                       disabled={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
                                       data-testid={`button-request-consent-overview-${booking.id}`}
@@ -2945,22 +2945,22 @@ export default function ClinicDashboard() {
                                 )}
                                 {!booking.consentSignedAt && consentUrls[booking.id] && (
                                   <div className="px-3 pb-2.5 space-y-2">
-                                    <p className="text-[10px] text-muted-foreground">
+                                    <p className="text-xs text-muted-foreground">
                                       Link sent to <strong>{booking.customerPhone}</strong>. Share manually:
                                     </p>
                                     <div className="flex items-center gap-1.5">
-                                      <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-[10px] text-muted-foreground font-mono truncate">
+                                      <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground font-mono truncate">
                                         {consentUrls[booking.id]}
                                       </div>
                                       <button
-                                        className="shrink-0 p-1.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors"
+                                        className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors"
                                         onClick={() => { navigator.clipboard.writeText(consentUrls[booking.id]); setCopiedConsentId(booking.id); setTimeout(() => setCopiedConsentId(null), 2000); }}
                                         data-testid={`button-copy-consent-${booking.id}`}
                                       >
-                                        {copiedConsentId === booking.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                                        {copiedConsentId === booking.id ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
                                       </button>
-                                      <a href={consentUrls[booking.id]} target="_blank" rel="noopener noreferrer" className="shrink-0 p-1.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors" data-testid={`link-open-consent-${booking.id}`}>
-                                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                      <a href={consentUrls[booking.id]} target="_blank" rel="noopener noreferrer" className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors" data-testid={`link-open-consent-${booking.id}`}>
+                                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
                                       </a>
                                     </div>
                                   </div>
@@ -2978,7 +2978,7 @@ export default function ClinicDashboard() {
                               <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                   <ClipboardCheck className="h-3 w-3 text-primary" />
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Clinical Status</span>
+                                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Clinical Status</span>
                                 </div>
                                 <div className="px-3 py-3 flex flex-wrap gap-2">
                                   {([
@@ -3017,7 +3017,7 @@ export default function ClinicDashboard() {
                               <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                   <ClipboardList className="h-3 w-3 text-primary" />
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Clinical Records</span>
+                                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Clinical Records</span>
                                 </div>
                                 <div className="p-3">
                                   <ClinicalRecordsTab
@@ -3051,11 +3051,11 @@ export default function ClinicDashboard() {
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5">
                                     <CalendarDays className="h-3 w-3 text-primary" />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Reschedule Appointment</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Reschedule Appointment</span>
                                   </div>
                                   {rescheduleBookingId === booking.id ? (
                                     <button
-                                      className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                                      className="text-xs font-semibold text-muted-foreground hover:text-foreground active:text-foreground transition-colors min-h-[36px] px-1"
                                       onClick={() => { setRescheduleBookingId(null); setRescheduleSlot(null); }}
                                       data-testid="button-cancel-reschedule"
                                     >
@@ -3063,7 +3063,7 @@ export default function ClinicDashboard() {
                                     </button>
                                   ) : (
                                     <button
-                                      className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                                      className="text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors min-h-[36px] px-1"
                                       onClick={() => { setRescheduleBookingId(booking.id); setRescheduleDate(new Date(booking.slot.startTime)); }}
                                       data-testid="button-start-reschedule"
                                     >
@@ -3073,15 +3073,15 @@ export default function ClinicDashboard() {
                                 </div>
                                 {rescheduleBookingId !== booking.id && (
                                   <div className="px-3 py-2.5">
-                                    <p className="text-[12px] text-muted-foreground">Current: <span className="font-medium text-foreground">{format(bookingDateTime, "EEE, MMM d")} · {format(bookingDateTime, "h:mm a")} → {format(new Date(booking.slot.endTime), "h:mm a")}</span></p>
+                                    <p className="text-xs text-muted-foreground">Current: <span className="font-medium text-foreground">{format(bookingDateTime, "EEE, MMM d")} · {format(bookingDateTime, "h:mm a")} → {format(new Date(booking.slot.endTime), "h:mm a")}</span></p>
                                   </div>
                                 )}
                                 {rescheduleBookingId === booking.id && (
                                   <div className="px-3 py-3 space-y-3">
                                     <div className="space-y-1.5">
                                       <div className="flex items-center justify-between">
-                                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Select Date</span>
-                                        <span className="text-[10px] text-muted-foreground">{format(rescheduleDate, "MMMM yyyy")}</span>
+                                        <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Select Date</span>
+                                        <span className="text-xs text-muted-foreground">{format(rescheduleDate, "MMMM yyyy")}</span>
                                       </div>
                                       <ScrollArea className="w-full whitespace-nowrap pb-1">
                                         <div className="flex space-x-1.5 w-max pb-1">
@@ -3089,14 +3089,14 @@ export default function ClinicDashboard() {
                                             <button
                                               key={date.toISOString()}
                                               onClick={() => { setRescheduleDate(date); setRescheduleSlot(null); }}
-                                              className={`flex flex-col items-center justify-center min-w-[2.75rem] h-11 rounded-xl border transition-all text-center ${
+                                              className={`flex flex-col items-center justify-center min-w-[2.75rem] h-11 rounded-xl border transition-all text-center active:scale-[0.96] ${
                                                 isSameDay(date, rescheduleDate)
                                                   ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
-                                                  : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5'
+                                                  : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5 active:bg-primary/10'
                                               }`}
                                               data-testid={`reschedule-date-${format(date, 'yyyy-MM-dd')}`}
                                             >
-                                              <span className="text-[8px] uppercase font-bold opacity-70">{format(date, "EEE")}</span>
+                                              <span className="text-xs uppercase font-bold opacity-70 leading-none">{format(date, "EEE")}</span>
                                               <span className="text-sm font-black leading-tight">{format(date, "d")}</span>
                                             </button>
                                           ))}
@@ -3105,7 +3105,7 @@ export default function ClinicDashboard() {
                                       </ScrollArea>
                                     </div>
                                     <div className="space-y-1.5">
-                                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
+                                      <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
                                       <div className="grid grid-cols-3 gap-1.5">
                                         {slotTimings.map((slot) => {
                                           const slotTime = new Date(rescheduleDate);
@@ -3121,19 +3121,19 @@ export default function ClinicDashboard() {
                                               key={slot.id}
                                               onClick={() => !isFull && setRescheduleSlot(slot.id)}
                                               disabled={isFull}
-                                              className={`relative flex flex-col items-center justify-center h-12 rounded-xl border text-center transition-all ${
+                                              className={`relative flex flex-col items-center justify-center h-12 rounded-xl border text-center transition-all active:scale-[0.96] ${
                                                 isSelected
                                                   ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
                                                   : isFull
                                                   ? 'bg-muted/30 border-border/40 opacity-50 cursor-not-allowed'
-                                                  : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5'
+                                                  : 'bg-background border-border/60 hover:border-primary/40 hover:bg-primary/5 active:bg-primary/10'
                                               }`}
                                               data-testid={`reschedule-slot-${slot.id}`}
                                             >
-                                              <span className="text-[10px] font-bold leading-tight">{slot.label}</span>
-                                              <span className="text-[9px] opacity-70 leading-tight">{formatTime(slot.startHour, slot.startMinute)}</span>
+                                              <span className="text-xs font-bold leading-tight">{slot.label}</span>
+                                              <span className="text-xs opacity-70 leading-tight">{formatTime(slot.startHour, slot.startMinute)}</span>
                                               {isFull && (
-                                                <span className="absolute -top-1.5 -right-1.5 text-[8px] font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
+                                                <span className="absolute -top-1.5 -right-1.5 text-xs font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
                                               )}
                                             </button>
                                           );
@@ -3179,15 +3179,15 @@ export default function ClinicDashboard() {
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5">
                                     <ClipboardCheck className="h-3 w-3 text-primary" />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Request Digital Consent</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Request Digital Consent</span>
                                   </div>
                                   {booking.consentSignedAt ? (
-                                    <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
+                                    <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
                                       <CheckCircle2 className="h-3 w-3" /> Signed
                                     </span>
                                   ) : (
                                     <button
-                                      className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+                                      className="text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors disabled:opacity-50 min-h-[36px] px-1"
                                       onClick={() => requestConsentMutation.mutate(booking.id)}
                                       disabled={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
                                       data-testid={`button-request-consent-${booking.id}`}
@@ -3202,38 +3202,38 @@ export default function ClinicDashboard() {
                                   <div className="px-3 py-2.5">
                                     {consentUrls[booking.id] ? (
                                       <div className="space-y-2">
-                                        <p className="text-[10px] text-muted-foreground">
+                                        <p className="text-xs text-muted-foreground">
                                           WhatsApp link sent to <strong>{booking.customerPhone}</strong>. Share manually if needed:
                                         </p>
                                         <div className="flex items-center gap-1.5">
-                                          <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-[10px] text-muted-foreground font-mono truncate">
+                                          <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground font-mono truncate">
                                             {consentUrls[booking.id]}
                                           </div>
                                           <button
-                                            className="shrink-0 p-1.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors"
+                                            className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors"
                                             onClick={() => { navigator.clipboard.writeText(consentUrls[booking.id]); setCopiedConsentId(booking.id); setTimeout(() => setCopiedConsentId(null), 2000); }}
                                             data-testid={`button-copy-consent-actions-${booking.id}`}
                                           >
-                                            {copiedConsentId === booking.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                                            {copiedConsentId === booking.id ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
                                           </button>
-                                          <a href={consentUrls[booking.id]} target="_blank" rel="noopener noreferrer" className="shrink-0 p-1.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors" data-testid={`link-open-consent-actions-${booking.id}`}>
-                                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                          <a href={consentUrls[booking.id]} target="_blank" rel="noopener noreferrer" className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors" data-testid={`link-open-consent-actions-${booking.id}`}>
+                                            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
                                           </a>
                                         </div>
                                       </div>
                                     ) : (
-                                      <p className="text-[12px] text-muted-foreground">Send a digital consent form to the patient via WhatsApp or SMS.</p>
+                                      <p className="text-xs text-muted-foreground">Send a digital consent form to the patient via WhatsApp or SMS.</p>
                                     )}
                                   </div>
                                 )}
                                 {booking.consentSignedAt && (
-                                  <div className="px-3 py-2 flex items-center justify-between gap-2">
-                                    <span className="text-[10px] text-muted-foreground">
+                                  <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+                                    <span className="text-xs text-muted-foreground">
                                       Signed on {format(new Date(booking.consentSignedAt), "dd MMM yyyy, hh:mm a")}
                                     </span>
                                     {booking.consentSignature && (
                                       <button
-                                        className="flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                                        className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors min-h-[36px] px-1"
                                         onClick={() => generateConsentPdf(booking)}
                                         data-testid={`button-download-consent-actions-${booking.id}`}
                                       >
@@ -3263,9 +3263,9 @@ export default function ClinicDashboard() {
                                     <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
                                       <div className="flex items-center gap-1.5">
                                         <Stethoscope className="h-3 w-3 text-primary" />
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign Doctor</span>
+                                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Assign Doctor</span>
                                       </div>
-                                      <span className="text-[10px] text-muted-foreground">{format(new Date(booking.slot.startTime), "MMM d · h:mm a")}</span>
+                                      <span className="text-xs text-muted-foreground">{format(new Date(booking.slot.startTime), "MMM d · h:mm a")}</span>
                                     </div>
                                     <div className="p-2.5 space-y-1.5">
                                       {clinic?.doctorName && (() => {
@@ -3289,7 +3289,7 @@ export default function ClinicDashboard() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                               <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-white' : 'text-foreground'}`}>{clinic.doctorName}</p>
-                                              <p className={`text-[10px] ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                                              <p className={`text-xs ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
                                                 {outOfOffice ? '⚠ Out of office' : (clinic.doctorSpecialization || 'Lead Doctor')}
                                               </p>
                                             </div>
@@ -3330,7 +3330,7 @@ export default function ClinicDashboard() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                               <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-white' : 'text-foreground'}`}>Dr. {doctor.name}</p>
-                                              <p className={`text-[10px] ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                                              <p className={`text-xs ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
                                                 {outOfOffice ? '⚠ Out of office' : `${doctor.specialization}${doctor.degree ? ` · ${doctor.degree}` : ''}`}
                                               </p>
                                             </div>
@@ -3376,11 +3376,11 @@ export default function ClinicDashboard() {
                         </div>
 
                         {/* ── PERSISTENT FOOTER ── */}
-                        <div className="shrink-0 px-4 py-3 border-t border-border/50 bg-muted/10 flex gap-2">
+                        <div className="shrink-0 px-4 py-2.5 border-t border-border/50 bg-muted/10 flex gap-2">
                           {/* Confirm / Confirmed status */}
                           {!isBookingPast && booking.verificationStatus !== 'confirmed' && (
                             <Button
-                              className="flex-1 gap-1.5 h-9 text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 border-0 shadow-md shadow-emerald-500/20 text-white"
+                              className="flex-1 gap-1.5 h-11 text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:from-emerald-700 active:to-teal-700 active:scale-[0.98] border-0 shadow-md shadow-emerald-500/20 text-white transition-all"
                               onClick={() => confirmBookingMutation.mutate(booking.id)}
                               disabled={confirmBookingMutation.isPending}
                               data-testid={`button-dialog-confirm-${booking.id}`}
@@ -3390,11 +3390,11 @@ export default function ClinicDashboard() {
                             </Button>
                           )}
                           {booking.verificationStatus === 'confirmed' && (
-                            <div className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                            <div className="flex-1 flex items-center gap-1.5 px-3 h-11 rounded-lg bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
                               <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                               <span className="text-xs font-semibold">Confirmed</span>
                               {booking.confirmedBy && (
-                                <span className="text-[10px] font-normal opacity-75">· by {booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}</span>
+                                <span className="text-xs font-normal opacity-75">· by {booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}</span>
                               )}
                             </div>
                           )}
@@ -3403,7 +3403,7 @@ export default function ClinicDashboard() {
                             <AlertDialogTrigger asChild>
                               <Button
                                 variant="outline"
-                                className="gap-1.5 h-9 text-xs font-bold text-destructive border-destructive/30 hover:bg-destructive/5 hover:border-destructive/50"
+                                className="flex-1 gap-1.5 h-11 text-xs font-bold text-destructive border-destructive/30 hover:bg-destructive/5 hover:border-destructive/50 active:bg-destructive/10 active:scale-[0.98] transition-all"
                                 data-testid={`button-dialog-cancel-${booking.id}`}
                               >
                                 <X className="h-3.5 w-3.5" />
