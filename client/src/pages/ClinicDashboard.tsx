@@ -2047,7 +2047,7 @@ export default function ClinicDashboard() {
           {activePanel === 'bookings' && (
             <div className="space-y-5">
           {/* Stats Cards — click to filter */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-4 gap-2 sm:gap-3">
             {/* Today */}
             <TooltipProvider delayDuration={300}>
               <Tooltip>
@@ -2058,16 +2058,16 @@ export default function ClinicDashboard() {
                     data-testid="card-filter-today"
                   >
                     <div className="h-1 bg-gradient-to-r from-sky-400 to-cyan-400" />
-                    <CardContent className="p-4 text-left flex items-center gap-3">
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-sky-400/20' : 'bg-sky-400/10'}`}>
-                        <CalendarIcon className="h-4 w-4 text-sky-500" />
+                    <CardContent className="p-2.5 sm:p-4 text-center sm:text-left flex flex-col sm:flex-row items-center gap-1 sm:gap-3">
+                      <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-sky-400/20' : 'bg-sky-400/10'}`}>
+                        <CalendarIcon className="h-3.5 w-3.5 text-sky-500" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[11px] font-medium text-muted-foreground">Today</p>
-                        <p className="text-xl font-bold text-sky-600 dark:text-sky-400">{todaysBookingsCount}</p>
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">Today</p>
+                        <p className="text-base sm:text-xl font-bold text-sky-600 dark:text-sky-400 leading-tight">{todaysBookingsCount}</p>
                       </div>
                       {quickFilter === 'today' && (
-                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                        <span className="hidden sm:inline ml-auto text-xs font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                       )}
                     </CardContent>
                   </Card>
@@ -2088,16 +2088,16 @@ export default function ClinicDashboard() {
                     data-testid="card-filter-upcoming"
                   >
                     <div className="h-1 bg-gradient-to-r from-primary to-accent" />
-                    <CardContent className="p-4 text-left flex items-center gap-3">
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-primary/20' : 'bg-primary/10'}`}>
-                        <TrendingUp className="h-4 w-4 text-primary" />
+                    <CardContent className="p-2.5 sm:p-4 text-center sm:text-left flex flex-col sm:flex-row items-center gap-1 sm:gap-3">
+                      <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-primary/20' : 'bg-primary/10'}`}>
+                        <TrendingUp className="h-3.5 w-3.5 text-primary" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[11px] font-medium text-muted-foreground">Upcoming</p>
-                        <p className="text-xl font-bold text-primary">{futureBookingsCount}</p>
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">Upcoming</p>
+                        <p className="text-base sm:text-xl font-bold text-primary leading-tight">{futureBookingsCount}</p>
                       </div>
                       {quickFilter === 'upcoming' && (
-                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                        <span className="hidden sm:inline ml-auto text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                       )}
                     </CardContent>
                   </Card>
@@ -2118,16 +2118,16 @@ export default function ClinicDashboard() {
                     data-testid="card-filter-past"
                   >
                     <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
-                    <CardContent className="p-4 text-left flex items-center gap-3">
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'past' ? 'bg-muted' : 'bg-muted'}`}>
-                        <History className="h-4 w-4 text-muted-foreground" />
+                    <CardContent className="p-2.5 sm:p-4 text-center sm:text-left flex flex-col sm:flex-row items-center gap-1 sm:gap-3">
+                      <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'past' ? 'bg-muted' : 'bg-muted'}`}>
+                        <History className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[11px] font-medium text-muted-foreground">Past</p>
-                        <p className="text-xl font-bold text-muted-foreground">{pastBookingsCount}</p>
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">Past</p>
+                        <p className="text-base sm:text-xl font-bold text-muted-foreground leading-tight">{pastBookingsCount}</p>
                       </div>
                       {quickFilter === 'past' && (
-                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                        <span className="hidden sm:inline ml-auto text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                       )}
                     </CardContent>
                   </Card>
@@ -2152,20 +2152,20 @@ export default function ClinicDashboard() {
                     data-testid="card-filter-all"
                   >
                     <div className={`h-1 bg-gradient-to-r ${quickFilter === 'all' && !filterDate ? 'from-violet-500 to-purple-400' : 'from-amber-500 to-orange-400'}`} />
-                    <CardContent className="p-4 text-left flex items-center gap-3">
-                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'all' && !filterDate ? 'bg-violet-500/20' : 'bg-amber-500/10'}`}>
-                        <Filter className={`h-4 w-4 ${quickFilter === 'all' && !filterDate ? 'text-violet-500' : 'text-amber-500'}`} />
+                    <CardContent className="p-2.5 sm:p-4 text-center sm:text-left flex flex-col sm:flex-row items-center gap-1 sm:gap-3">
+                      <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'all' && !filterDate ? 'bg-violet-500/20' : 'bg-amber-500/10'}`}>
+                        <Filter className={`h-3.5 w-3.5 ${quickFilter === 'all' && !filterDate ? 'text-violet-500' : 'text-amber-500'}`} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[11px] font-medium text-muted-foreground">
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">
                           {quickFilter === 'all' && !filterDate ? 'All' : 'Showing'}
                         </p>
-                        <p className={`text-xl font-bold ${quickFilter === 'all' && !filterDate ? 'text-violet-600' : 'text-amber-600'}`}>
+                        <p className={`text-base sm:text-xl font-bold leading-tight ${quickFilter === 'all' && !filterDate ? 'text-violet-600' : 'text-amber-600'}`}>
                           {filteredBookings?.length || 0}
                         </p>
                       </div>
                       {quickFilter === 'all' && !filterDate && (
-                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                        <span className="hidden sm:inline ml-auto text-xs font-bold uppercase tracking-wider text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                       )}
                     </CardContent>
                   </Card>
@@ -2181,23 +2181,23 @@ export default function ClinicDashboard() {
           </div>
 
           {/* Compact single-line date range filter */}
-          <div className="flex items-center gap-2 flex-wrap bg-card border border-border/50 rounded-xl px-3 py-2 shadow-sm">
+          <div className="flex items-center gap-2 bg-card border border-border/50 rounded-xl px-3 py-2 shadow-sm">
             <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span className="text-[11px] font-medium text-muted-foreground shrink-0">Date range:</span>
+            <span className="hidden sm:inline text-xs font-medium text-muted-foreground shrink-0">Date range:</span>
 
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={`h-7 px-2.5 text-xs font-medium rounded-lg border transition-all ${
+                  className={`h-9 px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
                     filterDate
-                      ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10'
-                      : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground'
+                      ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
+                      : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
                   }`}
                 >
                   <CalendarIcon className="h-3 w-3 mr-1.5 shrink-0" />
-                  {filterDate ? format(filterDate, "MMM d") : "Start date"}
+                  {filterDate ? format(filterDate, "MMM d") : "Start"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 rounded-xl" align="start">
@@ -2213,14 +2213,14 @@ export default function ClinicDashboard() {
                   variant="ghost"
                   size="sm"
                   disabled={!filterDate}
-                  className={`h-7 px-2.5 text-xs font-medium rounded-lg border transition-all ${
+                  className={`h-9 px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
                     filterEndDate
-                      ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10'
-                      : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground'
+                      ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
+                      : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
                   }`}
                 >
                   <CalendarIcon className="h-3 w-3 mr-1.5 shrink-0" />
-                  {filterEndDate ? format(filterEndDate, "MMM d") : "End date"}
+                  {filterEndDate ? format(filterEndDate, "MMM d") : "End"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 rounded-xl" align="start">
@@ -2233,7 +2233,7 @@ export default function ClinicDashboard() {
                 <div className="w-px h-4 bg-border/50 mx-0.5 shrink-0" />
                 <button
                   onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); }}
-                  className="inline-flex items-center gap-1 h-7 px-2.5 text-[11px] font-semibold text-muted-foreground hover:text-destructive rounded-lg border border-transparent hover:border-destructive/30 bg-background transition-all"
+                  className="inline-flex items-center gap-1 h-9 px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
                   data-testid="button-clear-date-filter"
                 >
                   <X className="h-3 w-3" />
@@ -2245,22 +2245,22 @@ export default function ClinicDashboard() {
 
           {/* Week filter chips */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-medium text-muted-foreground">Quick week:</span>
+            <span className="text-xs font-medium text-muted-foreground">Quick week:</span>
             <TooltipProvider delayDuration={300}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week')}
                     data-testid="chip-filter-this-week"
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                    className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all active:scale-[0.97] ${
                       quickFilter === 'this-week'
                         ? 'bg-violet-500 text-white border-violet-500 shadow-sm'
-                        : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400 hover:text-violet-600'
+                        : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400 hover:text-violet-600 active:bg-violet-500/10'
                     }`}
                   >
                     <CalendarIcon className="h-3 w-3" />
                     This Week
-                    <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-white/20 text-white' : 'bg-violet-500/10 text-violet-600'}`}>
+                    <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-white/20 text-white' : 'bg-violet-500/10 text-violet-600'}`}>
                       {thisWeekCount}
                     </span>
                   </button>
@@ -2276,15 +2276,15 @@ export default function ClinicDashboard() {
                   <button
                     onClick={() => setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week')}
                     data-testid="chip-filter-next-week"
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                    className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all active:scale-[0.97] ${
                       quickFilter === 'next-week'
                         ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
-                        : 'bg-background text-muted-foreground border-border/60 hover:border-indigo-400 hover:text-indigo-600'
+                        : 'bg-background text-muted-foreground border-border/60 hover:border-indigo-400 hover:text-indigo-600 active:bg-indigo-500/10'
                     }`}
                   >
                     <CalendarDays className="h-3 w-3" />
                     Next Week
-                    <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-600'}`}>
+                    <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-600'}`}>
                       {nextWeekCount}
                     </span>
                   </button>
