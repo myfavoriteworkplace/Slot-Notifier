@@ -40,15 +40,13 @@ Snapshots JavaScript heap memory at intervals and compares them. Shows which obj
 Three npm scripts were added to `package.json`. They are **only ever run manually** — they never execute during `npm run dev`, `npm run build`, `npm run start`, or the Replit workflow.
 
 ```json
-"clinic:doctor":     "clinic doctor -- node --loader tsx/esm server/index.ts",
-"clinic:flame":      "clinic flame -- node --loader tsx/esm server/index.ts",
-"clinic:bubbleprof": "clinic bubbleprof -- node --loader tsx/esm server/index.ts"
+"clinic:doctor":     "clinic doctor -- node --import tsx/esm server/index.ts",
+"clinic:flame":      "clinic flame -- node --import tsx/esm server/index.ts",
+"clinic:bubbleprof": "clinic bubbleprof -- node --import tsx/esm server/index.ts"
 ```
 
-**Why `node --loader tsx/esm` instead of `node server.js`?**  
-The standard Node Clinic guide uses `node server.js` because it assumes a plain JavaScript project. BookMySlot is TypeScript. Clinic v11 strictly requires the command after `--` to be literally `node` — it rejects shell wrappers like `node_modules/.bin/tsx`. The fix is to call `node` directly and attach `tsx` as a TypeScript ESM loader via the `--loader tsx/esm` flag. This compiles TypeScript on the fly, exactly like running `tsx` directly, but satisfies Clinic's requirement. The project uses `"type": "module"` (ESM), so `tsx/esm` is the correct loader variant.
-
-> **Note:** You will see a `ExperimentalWarning: `--experimental-loader` is an experimental feature` line in the terminal when running these scripts. This is normal, harmless, and expected — Node.js warns about `--loader` being experimental but it works correctly.
+**Why `node --import tsx/esm` instead of `node server.js`?**  
+The standard Node Clinic guide uses `node server.js` because it assumes a plain JavaScript project. BookMySlot is TypeScript. Clinic v11 strictly requires the command after `--` to be literally `node` — it rejects shell wrappers like `node_modules/.bin/tsx`. The fix is to call `node` directly and pre-load `tsx` as a TypeScript ESM module via the `--import tsx/esm` flag. This compiles TypeScript on the fly, exactly like running `tsx` directly, but satisfies Clinic's requirement. The project uses `"type": "module"` (ESM) and Node.js v20+, so `--import tsx/esm` is the correct approach — the older `--loader` flag was deprecated in Node v20.6.0 and tsx actively rejects it.
 
 **`.clinic/` is git-ignored**  
 When Clinic finishes a run it writes an HTML report into a `.clinic/` folder at the project root. This folder is added to `.gitignore` so reports never get committed.
