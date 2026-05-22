@@ -53,6 +53,92 @@ When Clinic finishes a run it writes an HTML report into a `.clinic/` folder at 
 
 ---
 
+### Troubleshooting — Issues We Hit During Setup
+
+These are real problems encountered when setting up Clinic on this project, documented here so you don't hit them again.
+
+---
+
+#### Issue 1 — VS Code Debugger Interfering (server never starts)
+
+**What you see**
+```
+Debugger listening on ws://127.0.0.1:xxxxx/...
+Debugger attached.
+> clinic doctor -- node --import tsx/esm server/index.ts
+Debugger listening on ws://127.0.0.1:xxxxx/...
+Debugger attached.
+Waiting for the debugger to disconnect...
+Waiting for the debugger to disconnect...
+```
+The server never reaches `[express] Server listening on port 5000`. The process just hangs or exits silently.
+
+**Why it happens**  
+VS Code has a feature called **Node.js Auto Attach** that automatically hooks a debugger into every Node process you start from the VS Code integrated terminal. When Clinic runs, it spawns a child Node process and instruments it from the outside. VS Code then also tries to attach a debugger to that same child process. The two conflict — the child process stalls waiting for the debugger to release it, and Clinic never gets to profile anything.
+
+**Fix — disable Auto Attach for the terminal session**
+
+Press `Ctrl+Shift+P` in VS Code, type `Toggle Auto Attach`, and set it to **Disabled**.
+
+Then open a **new terminal tab** (important — the existing tab still has the old setting) and run your clinic command from there:
+
+```bash
+npm run clinic:doctor
+```
+
+The server will now boot normally and Clinic will profile it cleanly.
+
+**To re-enable Auto Attach afterwards**
+
+`Ctrl+Shift+P` → `Toggle Auto Attach` → set back to **Smart** (recommended) or **Always**.
+
+**Alternative — use a system terminal outside VS Code**  
+Open iTerm2, Terminal.app (macOS), or Windows Terminal — any terminal that is not the VS Code integrated terminal. Navigate to the project folder and run the clinic command from there. VS Code's debugger never attaches to external terminals, so this always works regardless of the Auto Attach setting.
+
+---
+
+#### Issue 2 — `--loader` Flag Rejected on Node v20+
+
+**What you see**
+```
+Error: tsx must be loaded with --import instead of --loader
+The --loader flag was deprecated in Node v20.6.0 and v18.19.0
+Node.js v20.19.4
+```
+
+**Why it happens**  
+Node.js deprecated the `--loader` flag in v20.6.0. The tsx package (v3+) detects this and actively throws an error rather than silently using the old behaviour. The scripts originally used `--loader tsx/esm` which worked on older Node versions but fails on v20+.
+
+**Fix applied**  
+Scripts updated in `package.json` from `--loader tsx/esm` to `--import tsx/esm`. The `--import` flag is the correct modern replacement — it pre-loads tsx as a TypeScript ESM module before the server starts, achieving the same result.
+
+```bash
+# Old (broken on Node v20+)
+clinic doctor -- node --loader tsx/esm server/index.ts
+
+# Fixed (works on Node v20+)
+clinic doctor -- node --import tsx/esm server/index.ts
+```
+
+This is already applied in the current `package.json` — no action needed.
+
+---
+
+### Where to Find the Results
+
+When you press `Ctrl+C` to stop the server, Clinic processes the collected data and:
+
+1. **Automatically opens the HTML report** in your default browser — you don't need to do anything
+2. **Prints the full file path** in the terminal, for example:
+   ```
+   Generated HTML file is file:///Users/yourname/.../Slot-Notifier/.clinic/12345.clinic-doctor.html
+   ```
+3. If the browser doesn't open automatically, copy that path from the terminal and paste it directly into any browser address bar
+
+All reports are saved in the **`.clinic/` folder** at the project root. Each run creates a new numbered file so old reports are never overwritten. The folder is git-ignored so these files stay on your local machine only.
+
+---
+
 ### One-Time Local Setup
 
 Do this once on your own development machine. None of these steps touch the server or Replit.
@@ -96,8 +182,8 @@ npm run clinic:doctor
 1. Your server starts normally on port 5000.
 2. Send it some traffic — open the app in a browser, click around, trigger the slow feature.
 3. Press `Ctrl+C` to stop the server.
-4. Clinic generates `<timestamp>.clinic-doctor-flamegraph.html` in `.clinic/`.
-5. Open that file in a browser to see the report.
+4. Clinic processes the data and **automatically opens the HTML report** in your default browser.
+5. If it doesn't open automatically, the file path is printed in the terminal — copy and paste it into any browser.
 
 **Clinic Flame — CPU flamegraph**
 
@@ -120,7 +206,7 @@ Same flow. The output shows async operations as bubbles. Hover over a bubble to 
 Clinic Heap is not in `package.json` yet but you can run it directly if needed:
 
 ```bash
-clinic heap -- node_modules/.bin/tsx server/index.ts
+clinic heap -- node --import tsx/esm server/index.ts
 ```
 
 Let it run for several minutes while sending traffic, then stop it. Look for objects whose count keeps growing.
