@@ -102,7 +102,7 @@ Open iTerm2, Terminal.app (macOS), or Windows Terminal — any terminal that is 
 
 ---
 
-#### Issue 3 — `traceevent` File Missing / No HTML Report Generated
+#### Issue 2 — `traceevent` File Missing / No HTML Report Generated
 
 **What you see**  
 After pressing `Ctrl+C`, no HTML file appears. The `.clinic/` folder contains a numbered subfolder (e.g. `.clinic/96698.clinic-doctor/`) with only two raw files inside — `clinic-doctor-processstat` and `clinic-doctor-systeminfo` — but no `traceevent` file and no `.html` report.
@@ -139,7 +139,7 @@ Then run a fresh session with the updated scripts.
 
 ---
 
-#### Issue 2 — `--loader` Flag Rejected on Node v20+
+#### Issue 3 — `--loader` Flag Rejected on Node v20+
 
 **What you see**
 ```
@@ -151,15 +151,21 @@ Node.js v20.19.4
 **Why it happens**  
 Node.js deprecated the `--loader` flag in v20.6.0. The tsx package (v3+) detects this and actively throws an error rather than silently using the old behaviour. The scripts originally used `--loader tsx/esm` which worked on older Node versions but fails on v20+.
 
-**Fix applied**  
-Scripts updated in `package.json` from `--loader tsx/esm` to `--import tsx/esm`. The `--import` flag is the correct modern replacement — it pre-loads tsx as a TypeScript ESM module before the server starts, achieving the same result.
+**Intermediate fix (led to Issue 2)**  
+Scripts were updated from `--loader tsx/esm` to `--import tsx/esm`. This stopped the error but introduced the `traceevent` incompatibility described in Issue 2 above.
+
+**Final fix — already applied**  
+Both `--loader` and `--import` approaches were abandoned. The scripts now compile TypeScript first and profile the plain JavaScript output:
 
 ```bash
-# Old (broken on Node v20+)
+# First attempt (broken — --loader deprecated on Node v20)
 clinic doctor -- node --loader tsx/esm server/index.ts
 
-# Fixed (works on Node v20+)
+# Second attempt (broken — traceevent never written with --import on Node v20)
 clinic doctor -- node --import tsx/esm server/index.ts
+
+# Final working version
+npm run build && clinic doctor -- node dist/index.cjs
 ```
 
 This is already applied in the current `package.json` — no action needed.
@@ -221,11 +227,12 @@ Make sure you are running these commands from the project root on your **local m
 npm run clinic:doctor
 ```
 
-1. Your server starts normally on port 5000.
-2. Send it some traffic — open the app in a browser, click around, trigger the slow feature.
-3. Press `Ctrl+C` to stop the server.
-4. Clinic processes the data and **automatically opens the HTML report** in your default browser.
-5. If it doesn't open automatically, the file path is printed in the terminal — copy and paste it into any browser.
+1. TypeScript is compiled first (~5 seconds) — you will see build output in the terminal.
+2. Your server starts on port 5000 — wait until you see `[express] Server listening on port 5000`.
+3. Open the app in a browser and use it actively for at least 30–60 seconds — log in, navigate pages, trigger bookings. This generates the trace data.
+4. Press `Ctrl+C` to stop the server.
+5. Clinic processes the data and **automatically opens the HTML report** in your default browser.
+6. If it doesn't open automatically, the file path is printed in the terminal — copy and paste it into any browser.
 
 **Clinic Flame — CPU flamegraph**
 
@@ -248,7 +255,7 @@ Same flow. The output shows async operations as bubbles. Hover over a bubble to 
 Clinic Heap is not in `package.json` yet but you can run it directly if needed:
 
 ```bash
-clinic heap -- node --import tsx/esm server/index.ts
+npm run build && clinic heap -- node dist/index.cjs
 ```
 
 Let it run for several minutes while sending traffic, then stop it. Look for objects whose count keeps growing.
