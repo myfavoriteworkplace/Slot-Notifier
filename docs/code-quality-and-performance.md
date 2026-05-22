@@ -97,6 +97,32 @@ Open iTerm2, Terminal.app (macOS), or Windows Terminal — any terminal that is 
 
 ---
 
+#### Issue 3 — Data Collected but No HTML Report Generated
+
+**What you see**  
+After pressing `Ctrl+C`, no HTML file appears. The `.clinic/` folder contains a numbered subfolder (e.g. `.clinic/96185.clinic-doctor/`) with raw data files inside (`clinic-doctor-processstat`, `clinic-doctor-systeminfo`) but no `.html` file.
+
+**Why it happens**  
+Clinic has two steps: collect data while the server runs, then visualize that data into an HTML report after you stop it. If the server exits uncleanly — for example it crashes instead of receiving a proper `Ctrl+C` — the collection step completes but the visualization step never runs.
+
+**Fix — generate the report from the existing data**  
+The raw data is already saved. Run this command pointing at the numbered folder that was created:
+
+```bash
+clinic doctor --visualize-only .clinic/96185.clinic-doctor
+```
+
+Replace `96185` with whatever number appears in your `.clinic/` folder. Clinic will process the raw files and open the HTML report in your browser automatically. The `.html` file will also appear in the `.clinic/` folder in VS Code.
+
+This works for Flame and Bubbleprof too:
+
+```bash
+clinic flame --visualize-only .clinic/<number>.clinic-flame
+clinic bubbleprof --visualize-only .clinic/<number>.clinic-bubbleprof
+```
+
+---
+
 #### Issue 2 — `--loader` Flag Rejected on Node v20+
 
 **What you see**
