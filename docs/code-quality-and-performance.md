@@ -283,8 +283,211 @@ Let it run for several minutes while sending traffic, then stop it. Look for obj
 
 ---
 
+## Autocannon
+
+### What It Is
+
+Autocannon fires a continuous stream of HTTP requests at your local server and measures how it responds under load. You control how many users to simulate and for how long. When it finishes it prints a table showing latency (how long each request took) and throughput (how many requests per second your server handled).
+
+It answers questions like: "Can my server handle 30 users checking slot availability at the same time?" or "Does the Smile Deals page slow down under load?"
+
+It is purely a client-side tool — it makes HTTP calls and records timings. It never reads your code, never modifies files, and has no idea whether it is talking to a local or production server. Safety comes entirely from always pointing it at `http://localhost:5000` — as long as you do that, it is physically impossible for it to affect your deployed app or Replit environment.
+
+---
+
+### One-Time Setup
+
+```bash
+npm install -g autocannon
+```
+
+Global install on your local machine — not added to the project's `package.json`. Verify it worked:
+
+```bash
+autocannon --version
+```
+
+---
+
+### Important: Start the Server First
+
+Unlike Clinic (which wraps and starts the server for you), Autocannon connects to an **already-running server**. You need two terminal windows open at the same time:
+
+- **Terminal 1** — start the server and leave it running:
+  ```bash
+  npm run dev
+  ```
+  Wait until you see `[express] Server listening on port 5000` before moving to Terminal 2.
+
+- **Terminal 2** — run your autocannon commands here
+
+---
+
+### Key Flags
+
+| Flag | What it does | Example |
+|---|---|---|
+| `-c` | Number of concurrent connections (simulated users) | `-c 20` |
+| `-d` | Duration in seconds | `-d 20` |
+| `-m` | HTTP method | `-m POST` |
+| `-H` | Add a request header | `-H "Content-Type: application/json"` |
+| `-b` | Request body | `-b '{"key":"value"}'` |
+| `--json` | Output results as JSON instead of a table | `--json` |
+
+---
+
+### Tests to Run — Your Real Endpoints
+
+These use the actual API endpoints in this project. Run each command in Terminal 2 while the server is running in Terminal 1.
+
+---
+
+**Test 1 — Baseline health check**
+
+The fastest possible endpoint — no database, no logic. Use this to establish your baseline. If this is slow, something is wrong at the server level before any of your code runs.
+
+```bash
+autocannon -c 10 -d 10 http://localhost:5000/api/health
+```
+
+Expected: p99 under 5ms. If it's over 20ms, investigate the server startup and middleware chain.
+
+---
+
+**Test 2 — Public clinic listing**
+
+The endpoint that loads the list of clinics patients see. Hits the database.
+
+```bash
+autocannon -c 20 -d 20 http://localhost:5000/api/public/clinics
+```
+
+Expected: p99 under 80ms. This is a simple SELECT so it should be fast.
+
+---
+
+**Test 3 — Smile Deals gallery**
+
+The public Smile Deals page. Hits the database and returns image URLs and deal metadata.
+
+```bash
+autocannon -c 20 -d 20 http://localhost:5000/api/smile-deals
+```
+
+Expected: p99 under 100ms.
+
+---
+
+**Test 4 — Slot availability check**
+
+The most frequently hit endpoint — every patient checks this before booking. Replace `1` with a real clinic ID from your local database.
+
+```bash
+autocannon -c 30 -d 20 "http://localhost:5000/api/public/clinic-availability?clinicId=1"
+```
+
+Expected: p99 under 150ms. If it creeps above 400ms under 30 users, the slot query likely needs a database index.
+
+---
+
+**Test 5 — Notifications polling**
+
+This endpoint is called on every page load for every logged-in user. It quietly hits the database on a loop. Worth testing because notification volume grows over time.
+
+```bash
+autocannon -c 10 -d 15 http://localhost:5000/api/notifications
+```
+
+Expected: p99 under 50ms. If it's slow, check whether old notifications are being cleaned up.
+
+---
+
+**Test 6 — OTP send (rate limiting check)**
+
+A POST endpoint that should be well-protected. Useful for verifying that hammering it doesn't cause errors or crashes.
+
+```bash
+autocannon -c 5 -d 10 -m POST \
+  -H "Content-Type: application/json" \
+  -b '{"email":"test@example.com","clinicId":1}' \
+  http://localhost:5000/api/public/otp/send
+```
+
+Expected: consistent responses (even if they are 400 or 429 errors). What you don't want to see is crashes (500 errors) or the server becoming unresponsive.
+
+---
+
+### How to Read the Output Table
+
+After autocannon finishes you will see something like this:
+
+```
+┌─────────┬──────┬──────┬───────┬──────┬─────────┬─────────┬──────────┐
+│ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%  │ Avg     │ Stdev   │ Max      │
+├─────────┼──────┼──────┼───────┼──────┼─────────┼─────────┼──────────┤
+│ Latency │ 8 ms │ 12ms │ 34 ms │ 52ms │ 13.4 ms │ 6.21 ms │ 210.3 ms │
+└─────────┴──────┴──────┴───────┴──────┴─────────┴─────────┴──────────┘
+┌───────────┬─────────┬─────────┬─────────┬────────┬─────────┬───────────┐
+│ Stat      │ 1%      │ 2.5%    │ 50%     │ 97.5%  │ Avg     │ Stdev     │
+├───────────┼─────────┼─────────┼─────────┼────────┼─────────┼───────────┤
+│ Req/Sec   │ 412     │ 450     │ 521     │ 580    │ 510.4   │ 42.3      │
+└───────────┴─────────┴─────────┴─────────┴────────┴─────────┴───────────┘
+```
+
+| Column | What it means |
+|---|---|
+| **2.5%** | The fastest 2.5% of requests — your best-case response time |
+| **50% (p50)** | Half of all requests finished within this time — your typical response time |
+| **97.5% (p97.5)** | 97.5% of requests finished within this — what most users experience |
+| **99% (p99)** | 99% of requests finished within this — your worst-case for normal users |
+| **Max** | The single slowest request in the entire run — could be a one-off spike |
+| **Avg** | Mathematical average — less useful than p99 because outliers skew it |
+| **Stdev** | How consistent the server is — a high Stdev means very uneven response times |
+| **Req/Sec** | Requests completed per second — your throughput |
+| **Errors** | Any non-2xx responses — if this is non-zero, investigate immediately |
+
+**The number to watch most: p99.** If your p99 latency is acceptable, 99% of your real users are getting a good experience. The Max column tells you about rare spikes, which are often unavoidable (garbage collection, cold DB connections).
+
+---
+
+### What Good vs Bad Looks Like for This Project
+
+| Endpoint | Healthy p99 | Needs investigation | Action |
+|---|---|---|---|
+| `/api/health` | < 5ms | > 20ms | Check Express middleware overhead |
+| `/api/public/clinics` | < 80ms | > 300ms | Add DB index or cache the result |
+| `/api/smile-deals` | < 100ms | > 400ms | Add DB index on `is_active`, `expires_at` |
+| `/api/public/clinic-availability` | < 150ms | > 400ms | Add composite index on `clinic_id` + `date` |
+| `/api/notifications` | < 50ms | > 200ms | Check query filters; archive old notifications |
+
+---
+
+### Combine Autocannon with Clinic Doctor
+
+Clinic Doctor has a built-in `--autocannon` flag that runs both tools simultaneously — Clinic profiles the server internals while Autocannon generates realistic load. This is the most powerful combination: you see exactly what the server is doing (flamegraph, event loop) while it is under real pressure.
+
+```bash
+npm run build
+
+clinic doctor --autocannon [ -c 20 -d 30 /api/public/clinics ] -- node dist/index.cjs
+```
+
+The URL path after the flags is relative — Clinic fills in `http://localhost:<PORT>` automatically. Press `Ctrl+C` when done and both the Clinic HTML report and the autocannon summary will be generated.
+
+---
+
+### What Autocannon Does NOT Test
+
+- **Frontend rendering** — it only hits API endpoints, not React components. Use Lighthouse for frontend performance.
+- **WebSocket connections** — autocannon is HTTP only.
+- **File uploads** — multipart form data needs a different tool (e.g. k6).
+- **End-to-end user journeys** — autocannon hits one endpoint per run. For testing a full flow (login → check slots → book → confirm), use k6.
+
+---
+
 ## Future Sections
 
 - **ESLint Performance Rules** — catching expensive patterns at the linting stage
 - **Lighthouse CI** — automated frontend performance audits in the browser
 - **PostgreSQL EXPLAIN ANALYZE** — reading query plans for slow database calls
+- **k6** — scripted load testing for full user journeys across multiple endpoints
