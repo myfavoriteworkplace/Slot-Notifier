@@ -9,7 +9,10 @@
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "scan": "node scripts/scan.cjs"
+    "scan": "node scripts/scan.cjs",
+    "clinic:doctor": "clinic doctor -- node_modules/.bin/tsx server/index.ts",
+    "clinic:flame": "clinic flame -- node_modules/.bin/tsx server/index.ts",
+    "clinic:bubbleprof": "clinic bubbleprof -- node_modules/.bin/tsx server/index.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1019.0",
