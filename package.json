@@ -10,6 +10,7 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "scan": "node scripts/scan.cjs",
+    "benchmark": "node scripts/benchmark.mjs",
     "clinic:doctor": "npm run build && clinic doctor -- node dist/index.cjs",
     "clinic:flame": "npm run build && clinic flame -- node dist/index.cjs",
     "clinic:bubbleprof": "npm run build && clinic bubbleprof -- node dist/index.cjs"

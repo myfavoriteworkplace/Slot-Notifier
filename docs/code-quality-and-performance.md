@@ -476,6 +476,71 @@ The URL path after the flags is relative — Clinic fills in `http://localhost:<
 
 ---
 
+### Automated Benchmark Runner
+
+Instead of running each endpoint test manually one by one, a benchmark script runs all safe read-only endpoints sequentially and prints a combined summary table.
+
+**Run it:**
+
+```bash
+# Terminal 1 — start the server and leave it running
+npm run dev
+
+# Terminal 2 — run the full benchmark suite
+npm run benchmark
+```
+
+The script checks the server is reachable before starting. If it cannot connect it prints a clear error and exits — it will not silently hang.
+
+**What gets tested automatically:**
+
+| Endpoint | Connections | Duration |
+|---|---|---|
+| `GET /api/health` | 10 | 10s |
+| `GET /api/health/database` | 10 | 10s |
+| `GET /api/public/clinics` | 20 | 15s |
+| `GET /api/smile-deals` | 20 | 15s |
+| `GET /api/public/clinic-availability?clinicId=1` | 20 | 15s |
+| `GET /api/notifications` | 10 | 10s |
+
+POST endpoints and authenticated endpoints are intentionally excluded — they cause side effects (sending emails, creating records) and require session cookies that the script cannot provide.
+
+**Example output:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  BookMySlot API Benchmark — 22/05/2026, 15:30:00
+  Server : http://localhost:5000
+  Config : 20 connections · 15s per endpoint
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Endpoint                                   p50     p99     Req/s   Status
+  ────────────────────────────────────────────────────────────────────────
+  GET /api/health                            2ms     4ms     4821    ✅ PASS
+  GET /api/health/database                   4ms     12ms    1820    ✅ PASS
+  GET /api/public/clinics                    18ms    52ms    890     ✅ PASS
+  GET /api/smile-deals                       24ms    71ms    742     ✅ PASS
+  GET /api/public/clinic-availability        45ms    198ms   380     ✅ PASS
+  GET /api/notifications                     8ms     23ms    2100    ✅ PASS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Results saved → .benchmarks/2026-05-22T15-30-00.json
+```
+
+**Status icons:**
+
+| Icon | Meaning |
+|---|---|
+| ✅ PASS | p99 is within the defined threshold for that endpoint |
+| ⚠️ SLOW | p99 exceeded the threshold — worth investigating |
+| ❌ FAIL | p99 is more than 2× the threshold — needs immediate attention |
+
+The script exits with code `1` if any endpoint is SLOW or FAIL, and code `0` if all pass. This means you can optionally plug it into a CI pipeline later.
+
+**Saved results:**  
+Every run saves a timestamped JSON file to `.benchmarks/` at the project root. The folder is git-ignored so files stay local. Compare results across runs to catch regressions — if the p99 for `/api/public/clinics` was 52ms last week and is 310ms today, something changed.
+
+---
+
 ### What Autocannon Does NOT Test
 
 - **Frontend rendering** — it only hits API endpoints, not React components. Use Lighthouse for frontend performance.

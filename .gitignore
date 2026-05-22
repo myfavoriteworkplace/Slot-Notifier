@@ -9,3 +9,4 @@ vite.config.ts.*
 !.env.example
 docs/local-env-values.md
 .clinic/
+.benchmarks/
