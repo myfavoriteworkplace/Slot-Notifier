@@ -40,13 +40,18 @@ Snapshots JavaScript heap memory at intervals and compares them. Shows which obj
 Three npm scripts were added to `package.json`. They are **only ever run manually** — they never execute during `npm run dev`, `npm run build`, `npm run start`, or the Replit workflow.
 
 ```json
-"clinic:doctor":     "clinic doctor -- node --import tsx/esm server/index.ts",
-"clinic:flame":      "clinic flame -- node --import tsx/esm server/index.ts",
-"clinic:bubbleprof": "clinic bubbleprof -- node --import tsx/esm server/index.ts"
+"clinic:doctor":     "npm run build && clinic doctor -- node dist/index.cjs",
+"clinic:flame":      "npm run build && clinic flame -- node dist/index.cjs",
+"clinic:bubbleprof": "npm run build && clinic bubbleprof -- node dist/index.cjs"
 ```
 
-**Why `node --import tsx/esm` instead of `node server.js`?**  
-The standard Node Clinic guide uses `node server.js` because it assumes a plain JavaScript project. BookMySlot is TypeScript. Clinic v11 strictly requires the command after `--` to be literally `node` — it rejects shell wrappers like `node_modules/.bin/tsx`. The fix is to call `node` directly and pre-load `tsx` as a TypeScript ESM module via the `--import tsx/esm` flag. This compiles TypeScript on the fly, exactly like running `tsx` directly, but satisfies Clinic's requirement. The project uses `"type": "module"` (ESM) and Node.js v20+, so `--import tsx/esm` is the correct approach — the older `--loader` flag was deprecated in Node v20.6.0 and tsx actively rejects it.
+**Why compile first instead of running TypeScript directly?**  
+The standard guide uses `node server.js` against plain JavaScript. This project is TypeScript. After trying two TypeScript-on-the-fly approaches (`--loader tsx/esm` and `--import tsx/esm`), both failed on Node v20 for different reasons:
+
+- `--loader tsx/esm` — deprecated in Node v20.6.0; tsx v3+ throws a hard error and refuses to run
+- `--import tsx/esm` — works for normal development, but Clinic v11 + Node v20 + `--import` ESM hooks are incompatible: Node spins up a separate internal worker thread for ESM module registration, which interferes with Clinic's trace event collector. The `traceevent` file is never written, so no HTML report is ever produced
+
+The reliable solution is to compile the TypeScript to JavaScript first (`npm run build` → `dist/index.cjs`) and profile the compiled output directly with plain `node`. No loaders, no ESM hooks, no worker threads — exactly what Clinic was designed for. Each clinic script now runs `npm run build` automatically before profiling, so you never need to remember to build manually.
 
 **`.clinic/` is git-ignored**  
 When Clinic finishes a run it writes an HTML report into a `.clinic/` folder at the project root. This folder is added to `.gitignore` so reports never get committed.
@@ -97,29 +102,40 @@ Open iTerm2, Terminal.app (macOS), or Windows Terminal — any terminal that is 
 
 ---
 
-#### Issue 3 — Data Collected but No HTML Report Generated
+#### Issue 3 — `traceevent` File Missing / No HTML Report Generated
 
 **What you see**  
-After pressing `Ctrl+C`, no HTML file appears. The `.clinic/` folder contains a numbered subfolder (e.g. `.clinic/96185.clinic-doctor/`) with raw data files inside (`clinic-doctor-processstat`, `clinic-doctor-systeminfo`) but no `.html` file.
+After pressing `Ctrl+C`, no HTML file appears. The `.clinic/` folder contains a numbered subfolder (e.g. `.clinic/96698.clinic-doctor/`) with only two raw files inside — `clinic-doctor-processstat` and `clinic-doctor-systeminfo` — but no `traceevent` file and no `.html` report.
+
+Trying `--visualize-only` gives:
+```
+Error: ENOENT: no such file or directory, open '.clinic/96698.clinic-doctor/96698.clinic-doctor-traceevent'
+```
 
 **Why it happens**  
-Clinic has two steps: collect data while the server runs, then visualize that data into an HTML report after you stop it. If the server exits uncleanly — for example it crashes instead of receiving a proper `Ctrl+C` — the collection step completes but the visualization step never runs.
+The `traceevent` file is written by Node.js's built-in trace collection system. Clinic activates it by injecting `--trace-event-categories` flags into your node process at startup. If that file never appears — even after a full run with traffic — it means trace collection never initialised at all.
 
-**Fix — generate the report from the existing data**  
-The raw data is already saved. Run this command pointing at the numbered folder that was created:
+This is a known incompatibility: **Clinic v11 + Node v20 + `--import` ESM loader hooks**. When `--import tsx/esm` is used, Node v20 spins up a separate internal worker thread to handle ESM module registration. This happens at a level that prevents Clinic from attaching its trace collector before the process starts. Result: `processstat` and `systeminfo` are written (they don't need the trace system) but `traceevent` is never created.
 
-```bash
-clinic doctor --visualize-only .clinic/96185.clinic-doctor
-```
+The `--visualize-only` recovery trick only works when `traceevent` was actually collected. Folders missing that file cannot be recovered.
 
-Replace `96185` with whatever number appears in your `.clinic/` folder. Clinic will process the raw files and open the HTML report in your browser automatically. The `.html` file will also appear in the `.clinic/` folder in VS Code.
-
-This works for Flame and Bubbleprof too:
+**Fix — already applied**  
+The clinic scripts in `package.json` were updated to compile TypeScript first and profile the plain JavaScript output instead:
 
 ```bash
-clinic flame --visualize-only .clinic/<number>.clinic-flame
-clinic bubbleprof --visualize-only .clinic/<number>.clinic-bubbleprof
+npm run build && clinic doctor -- node dist/index.cjs
 ```
+
+Plain `node dist/index.cjs` gives Clinic a clean process with no ESM hooks, no worker threads, and no loaders — exactly what it needs to write the `traceevent` file correctly. The HTML report will open automatically after `Ctrl+C`.
+
+**Recovery for incomplete `.clinic/` folders**  
+The old numbered folders (e.g. `96185`, `96481`, `96698`) that are missing `traceevent` cannot be visualised. You can safely delete them:
+
+```bash
+rm -rf .clinic/
+```
+
+Then run a fresh session with the updated scripts.
 
 ---
 
