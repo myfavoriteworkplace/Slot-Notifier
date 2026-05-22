@@ -550,6 +550,93 @@ Every run saves a timestamped JSON file to `.benchmarks/` at the project root. T
 
 ---
 
+## Sentry — Frontend Error Tracking
+
+### What It Is
+
+Sentry automatically captures every unhandled JavaScript error that occurs in the React frontend and sends it to your Sentry dashboard at sentry.io. For each error you get:
+
+- The full stack trace with exact file and line number
+- The sequence of user actions leading up to the crash (breadcrumbs)
+- The React component tree at the time of the error
+- Browser, OS, and screen size of the affected user
+- How many users were affected and how often it happens
+
+It runs silently in the background. If Sentry's servers are unreachable for any reason, it fails silently and the app continues normally — it never blocks rendering or crashes the page.
+
+---
+
+### What Was Set Up
+
+**Package installed:** `@sentry/react`
+
+**File changed:** `client/src/main.tsx` — Sentry is initialised once before the React root renders. No other frontend files were touched.
+
+```tsx
+import * as Sentry from "@sentry/react";
+
+Sentry.init({
+  dsn: "https://9c45bd62145b7da0216f4d5a358521d5@o4511434421567488.ingest.de.sentry.io/4511434452697168",
+  environment: import.meta.env.MODE,   // "development" or "production"
+  enabled: import.meta.env.PROD,       // only active in production builds
+  tracesSampleRate: 0.1,               // traces 10% of page loads for performance
+});
+```
+
+**React ErrorBoundary added:** the `<App />` component is wrapped with `<Sentry.ErrorBoundary>`. If the entire React tree crashes, instead of a blank white screen the user sees a fallback message, and Sentry captures the full error automatically.
+
+---
+
+### Key Configuration Decisions
+
+**`enabled: import.meta.env.PROD`**  
+Sentry only activates when the app is running as a production build. During local development (`npm run dev`) it is completely inactive — no events are sent, no network calls are made. This prevents development errors and test noise from polluting your Sentry dashboard.
+
+**`environment: import.meta.env.MODE`**  
+Tags every error with the environment (`"development"` or `"production"`). Useful if you ever enable Sentry in staging or preview builds — errors from different environments are filterable in the dashboard.
+
+**`tracesSampleRate: 0.1`**  
+Captures performance traces for 10% of page loads (navigation timing, React rendering). Kept low to avoid using up your Sentry performance quota. Can be raised to `1.0` temporarily for detailed profiling, then lowered again.
+
+**`sendDefaultPii` — intentionally omitted**  
+The original snippet included `sendDefaultPii: true` which automatically collects user IP addresses. This was removed. If any clinic patients are in the EU, collecting IP addresses without explicit consent has GDPR implications. Sentry works fully without it.
+
+---
+
+### How to Use the Sentry Dashboard
+
+1. Go to [sentry.io](https://sentry.io) and sign in
+2. Open your project — errors from production will appear here automatically once the app is deployed
+3. Each error entry shows: message, stack trace, affected users, first/last seen, and breadcrumbs
+4. Click **Assign** to assign an error to yourself
+5. Click **Resolve** once you have fixed it — Sentry will re-alert if the same error reappears
+
+**Useful filters in the dashboard:**
+- `environment:production` — only show live app errors
+- `!has:assignee` — unassigned errors needing attention
+- Sort by **Users Affected** to prioritise which errors hurt the most people
+
+---
+
+### What Sentry Does NOT Cover
+
+- **Backend Express errors** — `@sentry/react` only captures frontend JavaScript errors. Server-side errors (crashed routes, database failures) are not sent to Sentry by this setup. Backend Sentry integration (`@sentry/node`) would need to be added to `server/index.ts` separately.
+- **Network request failures** — a 500 from your API appears as a breadcrumb ("HTTP 500 to /api/bookings") but not as a standalone error unless your code explicitly throws based on it.
+- **Performance in development** — `tracesSampleRate` has no effect in dev because `enabled: false`. Use Node Clinic and Autocannon locally instead.
+
+---
+
+### Updating the DSN or Disabling Sentry
+
+The DSN is hardcoded in `client/src/main.tsx`. To rotate it (e.g. if it leaks):
+1. Go to Sentry dashboard → Project Settings → Client Keys
+2. Generate a new DSN and revoke the old one
+3. Update the value in `client/src/main.tsx`
+
+To disable Sentry entirely, change `enabled: import.meta.env.PROD` to `enabled: false` and redeploy.
+
+---
+
 ## Future Sections
 
 - **ESLint Performance Rules** — catching expensive patterns at the linting stage
