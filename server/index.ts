@@ -691,7 +691,7 @@ app.use((req, res, next) => {
       try {
         await db.execute(sql`
           ALTER TABLE notifications
-            DROP CONSTRAINT IF EXISTS notifications_user_id_fkey;
+            DROP CONSTRAINT IF EXISTS notifications_user_id_users_id_fk;
         `);
         log("notifications user_id FK constraint removed", "system");
       } catch (e: any) {
