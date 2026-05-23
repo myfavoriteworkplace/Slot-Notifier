@@ -683,6 +683,22 @@ app.use((req, res, next) => {
         log(`Patient backfill warning: ${backfillErr.message}`, "system");
       }
 
+      // ── Drop FK constraint on notifications.user_id ─────────────────────────
+      // notifications.user_id originally referenced users(id) (Replit Auth),
+      // but clinic/doctor/admin IDs are not in the users table — the FK caused
+      // every createNotification call to fail silently, so no push notifications
+      // were ever delivered. Safe to run every startup (IF EXISTS is a no-op).
+      try {
+        await db.execute(sql`
+          ALTER TABLE notifications
+            DROP CONSTRAINT IF EXISTS notifications_user_id_fkey;
+        `);
+        log("notifications user_id FK constraint removed", "system");
+      } catch (e: any) {
+        log(`notifications FK drop warning: ${e.message}`, "system");
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
     } catch (dbErr: any) {
       log(`Schema sync warning: ${dbErr.message}`, "system");
     }

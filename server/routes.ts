@@ -751,7 +751,7 @@ let adminOtpStore: { otp: string; expiresAt: number } | null = null;
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
   // ── WebSocket server for real-time clinic notifications ──────────────────
-  const wss = new WebSocketServer({ server: httpServer });
+  const wss = new WebSocketServer({ server: httpServer, path: "/ws/notifications" });
   const clinicSockets = new Map<string, Set<WebSocket>>();
 
   function broadcastToClinic(clinicId: string, data: object) {
