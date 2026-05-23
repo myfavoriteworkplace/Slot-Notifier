@@ -407,6 +407,9 @@ In `PRODUCTION` mode: emails go to the actual recipient.
 - A toast alert also appears when a new booking arrives, even if the bell dropdown is closed
 - For full technical details see `docs/notification-service.md`
 
+**Important — how `userId` works in the notifications table:**
+Notifications use the numeric clinic ID (e.g. `"42"`) as the `userId` field, not a Replit OIDC user string. The `notifications` table originally had a foreign key (`notifications_user_id_users_id_fk`) referencing the `users` table, which caused every `createNotification` call to fail silently because clinic IDs do not exist in `users`. This constraint was dropped in May 2026 and the startup migration in `server/index.ts` drops it on every boot using `ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_user_id_users_id_fk`. If this constraint is ever re-added (e.g. by a Drizzle schema push that re-introduces `.references(() => users.id)` on the `userId` column), in-app notifications will silently stop working again — bookings and emails will continue normally but no notification rows will be created.
+
 ---
 
 ## 12. Integrations
@@ -589,6 +592,78 @@ const mutation = useMutation({
 - Development: empty string (same-origin, Vite proxies to Express on port 5000)
 - Production on Render: the backend URL set via `VITE_API_URL` environment variable
 - Never hardcode a port or hostname in frontend API calls — always use relative paths or `API_BASE_URL`
+
+### Split Deployment Architecture (Render)
+
+The frontend and backend are deployed as **two separate Render services** with different public URLs:
+
+| Service | Render type | URL |
+|---|---|---|
+| Backend (Express) | Web Service | `https://api.bookmyslot.dental.mossaic.in` |
+| Frontend (React SPA) | Static Site | `https://bookmyslot.dental.mossaic.in` |
+
+**Critical: `VITE_API_URL` is a build-time variable, not runtime.**
+
+Vite bakes all `VITE_*` environment variables into the compiled JS bundle during `npm run build`. This means:
+- `VITE_API_URL` must be set in the **frontend Static Site's build environment** on Render (under Build & Deploy → Environment), not in the runtime environment
+- If it is missing or empty at build time, all API calls from the browser will use relative paths (e.g. `/api/notifications`) which resolve against the frontend domain (`bookmyslot.dental.mossaic.in`) — a static file host that returns `index.html` for every unknown path
+- The correct value to set is `VITE_API_URL=https://api.bookmyslot.dental.mossaic.in`
+
+Session cookies work across the two origins because the Express session is configured with `sameSite: "none"` and `secure: true` in production, and CORS is configured with `credentials: true` and the frontend origin explicitly allowlisted in `FRONTEND_ORIGINS` in `server/index.ts`.
+
+### The Two Fetch Patterns — Which One to Use
+
+The codebase contains two populations of API call code. **Only one is safe in the split deployment:**
+
+| Pattern | Code example | Safe? |
+|---|---|---|
+| `apiRequest()` | `apiRequest("POST", "/api/some/endpoint", body)` | ✅ Always safe — prepends `API_BASE_URL` |
+| Default TanStack queryFn (no custom `queryFn`) | `useQuery({ queryKey: ["/api/some/endpoint"] })` | ✅ Always safe — prepends `API_BASE_URL` |
+| Explicit `API_BASE_URL` prefix | `` fetch(`${API_BASE_URL}/api/auth/user`, ...) `` | ✅ Safe |
+| Raw `fetch()` with a bare path string | `fetch("/api/notifications", ...)` | ❌ Broken in production |
+| Raw `fetch()` with a `shared/routes.ts` constant | `fetch(api.notifications.list.path, ...)` | ❌ Broken in production |
+
+**The rule: never call `fetch()` directly with a bare `/api/...` path.**
+
+`shared/routes.ts` path constants (e.g. `api.notifications.list.path = "/api/notifications"`) are **path strings only** — they are the canonical source of truth for paths and cache keys, but `buildUrl()` only handles `:param` substitution and never prepends the base URL. You must prepend `API_BASE_URL` yourself when using `fetch()` directly:
+
+```typescript
+// WRONG — resolves against the frontend static host in production
+const res = await fetch(api.notifications.list.path, { credentials: "include" });
+
+// CORRECT — always goes to the backend API service
+const res = await fetch(`${API_BASE_URL}${api.notifications.list.path}`, { credentials: "include" });
+
+// ALSO CORRECT — use apiRequest() which handles this automatically
+const res = await apiRequest("GET", api.notifications.list.path);
+```
+
+### Checklist When Adding a New Endpoint
+
+Follow this checklist every time a new backend route or service is added:
+
+1. **Define the contract first** — add path, method, and Zod response schema to `shared/routes.ts`
+2. **Storage layer** — add the method signature to `IStorage` in `server/storage.ts` and implement it in `DatabaseStorage`
+3. **Route** — add the Express handler in `server/routes.ts` using the correct auth middleware (`isAdmin`, `isAuthenticated`, or an inline session check for clinic/doctor routes)
+4. **Document it** — add a row to the endpoint reference table in Section 18 of this document
+5. **Frontend reads** — use `useQuery` with **no custom `queryFn`**; the default fetcher prepends `API_BASE_URL` automatically
+6. **Frontend mutations** — use `apiRequest("POST" | "PATCH" | "DELETE", path, body)` from `@/lib/queryClient`; never call `fetch()` with a bare path
+7. **If a custom `queryFn` is required** (e.g. custom error handling) — always import `API_BASE_URL` from `@/lib/queryClient` and prefix: `` `${API_BASE_URL}${path}` ``
+8. **CORS** — no change needed; `bookmyslot.dental.mossaic.in` is already in `FRONTEND_ORIGINS`
+9. **New `VITE_*` frontend env var** — if the new service requires a public key or URL exposed to the browser, remember it must be set in the **Render frontend build environment** and prefixed with `VITE_`
+10. **Notifications** — if the endpoint should trigger an in-app notification, call `storage.createNotification({ userId: String(clinic.id), message, read: false })` and then `broadcastToClinic(String(clinic.id), { type, notification })`. Use the numeric clinic ID as `userId` — do **not** use a Replit user ID or email string
+
+### Known Inconsistencies (Tech Debt)
+
+The following files still use the broken raw-`fetch` pattern with bare paths and will be fixed incrementally. Do not copy the pattern from these files when adding new code:
+
+| File | Broken calls |
+|---|---|
+| `client/src/hooks/use-bookings.ts` | `fetch(api.bookings.list.path)`, `fetch(api.bookings.create.path)` |
+| `client/src/hooks/use-slots.ts` | `fetch(api.slots.list.path)`, `fetch(api.slots.create.path)`, `fetch(buildUrl(api.slots.delete.path, ...))` |
+| `client/src/pages/Activate.tsx` | `` fetch(`/api/activate/${token}`) `` |
+| `client/src/pages/ResetPassword.tsx` | `fetch("/api/auth/reset-password")` |
+| `client/src/pages/SmileDeals.tsx` | `fetch("/api/public/otp/send")`, `fetch("/api/public/otp/verify")`, `fetch("/api/public/supplier-listing-request/submit")` |
 
 ### Forms
 
