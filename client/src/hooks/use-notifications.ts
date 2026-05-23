@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { api, buildUrl } from "@shared/routes";
 import { useToast } from "@/hooks/use-toast";
+import { API_BASE_URL } from "@/lib/queryClient";
 
 export function useNotifications() {
   return useQuery({
@@ -59,8 +60,15 @@ export function useNotificationSocket(clinicId?: number) {
     function connect() {
       if (cancelled) return;
 
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const ws = new WebSocket(`${protocol}://${window.location.host}/ws/notifications`);
+      // In a split deployment (separate Render Static Site + Web Service),
+      // window.location.host is the frontend domain which has no WebSocket server.
+      // API_BASE_URL (from VITE_API_URL) always points at the backend, so we
+      // convert it: "https://api.example.com" → "wss://api.example.com".
+      // Falls back to same-origin (dev, or single-service deploy) when empty.
+      const wsUrl = API_BASE_URL
+        ? API_BASE_URL.replace(/^https/, "wss").replace(/^http/, "ws") + "/ws/notifications"
+        : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws/notifications`;
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
