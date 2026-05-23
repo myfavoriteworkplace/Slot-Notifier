@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { useDoctorAuth } from "@/hooks/use-doctor-auth";
-import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notifications";
+import { useNotifications, useMarkNotificationRead, useNotificationSocket } from "@/hooks/use-notifications";
 import { useState, useEffect } from "react";
 import logoPath from "@assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png";
 import {
@@ -43,6 +43,7 @@ export function Header() {
   const [location] = useLocation();
   const { data: notifications = [] } = useNotifications();
   const { mutate: markRead } = useMarkNotificationRead();
+  useNotificationSocket(clinic?.id ?? undefined);
   const { resolvedTheme, setTheme } = useTheme();
 
   const [adminHovered, setAdminHovered] = useState(false);

@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { db } from "./db";
 import { sql, eq, and, gte, lte } from "drizzle-orm";
@@ -748,6 +749,49 @@ async function sendPasswordChangedEmail(toEmail: string, userType: "clinic" | "d
 let adminOtpStore: { otp: string; expiresAt: number } | null = null;
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+
+  // ── WebSocket server for real-time clinic notifications ──────────────────
+  const wss = new WebSocketServer({ server: httpServer });
+  const clinicSockets = new Map<string, Set<WebSocket>>();
+
+  function broadcastToClinic(clinicId: string, data: object) {
+    const clients = clinicSockets.get(clinicId);
+    if (!clients) return;
+    const message = JSON.stringify(data);
+    for (const client of clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    }
+  }
+
+  wss.on("connection", (ws) => {
+    let registeredClinicId: string | null = null;
+
+    ws.on("message", (raw) => {
+      try {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === "auth" && msg.clinicId) {
+          registeredClinicId = String(msg.clinicId);
+          if (!clinicSockets.has(registeredClinicId)) {
+            clinicSockets.set(registeredClinicId, new Set());
+          }
+          clinicSockets.get(registeredClinicId)!.add(ws);
+          ws.send(JSON.stringify({ type: "auth_ok" }));
+        }
+      } catch {}
+    });
+
+    ws.on("close", () => {
+      if (registeredClinicId) {
+        clinicSockets.get(registeredClinicId)?.delete(ws);
+      }
+    });
+
+    ws.on("error", () => {});
+  });
+  // ─────────────────────────────────────────────────────────────────────────
+
   const isAdmin = (req: any, res: any, next: any) => {
     const sess = req.session as any;
     if (sess && sess.adminLoggedIn && sess.role === 'superuser') return next();
@@ -1533,6 +1577,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       if (customerPhone) {
         await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
+      }
+
+      // Create in-app notification and push it instantly to the clinic admin via WebSocket
+      try {
+        const notifMessage = `New booking from ${customerName} on ${requestedStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} at ${requestedStart.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+        const notification = await storage.createNotification({
+          userId: String(clinic.id),
+          message: notifMessage,
+          read: false,
+        });
+        broadcastToClinic(String(clinic.id), { type: "new_booking", notification });
+      } catch (e: any) {
+        console.error('[NOTIFICATION] Failed to create or broadcast:', e.message);
       }
 
       res.status(201).json({ message: "Booking request submitted!", booking: { ...booking, slot } });
