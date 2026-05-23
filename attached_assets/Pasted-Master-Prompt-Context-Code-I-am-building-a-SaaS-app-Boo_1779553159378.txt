@@ -1,0 +1,51 @@
+Master Prompt (Context)
+Code
+I am building a SaaS app (BookMySlot) deployed on Render (backend in Node.js/Express, frontend in React).
+
+Requirement:
+1. As soon as a patient books a slot, a notification must instantly pop up in the clinic admin screen.
+2. The system should be reliable, cheap, and scalable.
+3. It should be industry-standard, easy to maintain, and configurable.
+4. It should be independent of Supabase/Firebase so I can replace or migrate later.
+5. I plan to add mobile apps in the future, so the solution should support push notifications (FCM/APNs) later.
+
+Please implement this using Upstash Redis + WebSockets.
+🧩 Step‑by‑Step Prompts to Feed Your Agent
+Step 1: Setup Upstash Redis
+Code
+Create a free Redis database on Upstash.
+- Name: bookmyslot-redis
+- Primary Region: closest to Render backend
+- Eviction: enabled
+Return the connection URL (rediss://...).
+Step 2: Backend Integration
+Code
+In my Node.js/Express backend:
+- Install ioredis and ws
+- Connect to UPSTASH_REDIS_URL
+- Create publisher and subscriber
+- Subscribe to "bookings" channel
+- Broadcast messages to WebSocket clients when a booking event is published
+- Add an endpoint /book that publishes booking events to Redis
+Provide the complete backend code.
+Step 3: Frontend Integration
+Code
+In my React clinic admin frontend:
+- Connect to WebSocket server (wss://backend.onrender.com)
+- Listen for messages
+- Parse booking data
+- Show instant popup/alert when a new booking arrives
+Provide the React useEffect snippet.
+Step 4: Mobile Upgrade Path
+Code
+Extend the backend to also trigger Firebase Cloud Messaging (FCM) when publishing to Redis.
+- Keep Redis Pub/Sub as backbone
+- Add FCM push notifications for mobile apps
+Explain how to integrate FCM with Node.js backend.
+Step 5: Deployment on Render
+Code
+Explain how to:
+- Add UPSTASH_REDIS_URL to Render environment variables
+- Deploy backend with WebSocket support
+- Ensure frontend connects to backend WebSocket endpoint
+Provide render.yaml or Dockerfile config if needed.
