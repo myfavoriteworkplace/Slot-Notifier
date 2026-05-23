@@ -8,7 +8,7 @@ export function useNotifications() {
   return useQuery({
     queryKey: [api.notifications.list.path],
     queryFn: async () => {
-      const res = await fetch(api.notifications.list.path, { credentials: "include" });
+      const res = await fetch(`${API_BASE_URL}${api.notifications.list.path}`, { credentials: "include" });
       
       if (!res.ok) {
         if (res.status === 401) throw new Error("Unauthorized");
@@ -27,7 +27,7 @@ export function useMarkNotificationRead() {
   
   return useMutation({
     mutationFn: async (id: number) => {
-      const url = buildUrl(api.notifications.markRead.path, { id });
+      const url = `${API_BASE_URL}${buildUrl(api.notifications.markRead.path, { id })}`;
       const res = await fetch(url, { 
         method: api.notifications.markRead.method,
         credentials: "include" 
