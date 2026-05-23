@@ -398,10 +398,14 @@ In `PRODUCTION` mode: emails go to the actual recipient.
 | Patient books a slot | Patient (booking confirmation) |
 | Clinic requests digital consent | Patient (consent signing link) |
 
-### In-App Notifications
-- A notification bell is shown to authenticated Replit users (superusers)
-- Notifications are stored in the `notifications` database table
-- Can be marked as read individually
+### In-App Notifications (Real-Time WebSocket)
+- A notification bell icon is shown in the header to Clinic Admins, Doctors, and the Super Admin
+- When a patient makes a booking, a notification is instantly pushed to the clinic admin's browser via WebSocket — no page refresh needed
+- Notifications are also stored in the `notifications` database table for persistence (survives page reloads)
+- Each notification can be marked as read individually
+- A 30-second polling fallback runs alongside the WebSocket in case the connection drops
+- A toast alert also appears when a new booking arrives, even if the bell dropdown is closed
+- For full technical details see `docs/notification-service.md`
 
 ---
 
@@ -507,5 +511,236 @@ These are features that are **planned or partially stubbed** but not yet functio
 
 ---
 
+---
+
+## 17. API Architecture & Frontend Integration
+
+This section is specifically for AI agents and developers who need to write, modify, or debug code. It explains how APIs are structured and how the frontend communicates with the backend.
+
+### The Shared Contract (`shared/routes.ts`)
+
+`shared/routes.ts` is the single source of truth for all API paths, HTTP methods, and Zod response schemas. Both the backend and frontend import from it.
+
+```typescript
+// Example shape of an entry in shared/routes.ts
+api.notifications.list = {
+  path: "/api/notifications",
+  method: "GET",
+  responses: { 200: z.array(notificationSchema) }
+}
+```
+
+**Why this matters for AI agents:** When adding a new endpoint, define it in `shared/routes.ts` first. The frontend query key should always be `api.<feature>.<action>.path` — this guarantees cache invalidation works correctly.
+
+### Backend Pattern: How Routes Are Written
+
+All API routes live in `server/routes.ts` inside the `registerRoutes(httpServer, app)` function. The pattern is:
+
+```
+1. Middleware guard (isAdmin / isClinicAuthenticated / isAuthenticated)
+2. Parse and validate request body with Zod schema (from shared/schema.ts via drizzle-zod)
+3. Call a method on the `storage` interface (never query the DB directly from a route)
+4. Return JSON response
+```
+
+The `storage` interface is defined in `server/storage.ts` (`IStorage`) and implemented by `DatabaseStorage`. All database logic lives there, keeping routes thin and testable.
+
+**Three authentication middlewares:**
+| Middleware | What it checks | Used for |
+|---|---|---|
+| `isAuthenticated` | `req.session.adminLoggedIn` OR `req.session.clinicId` OR `req.session.doctorId` OR Replit OIDC | General auth guard |
+| `isAdmin` | `sess.adminLoggedIn && sess.role === "superuser"` | Super Admin only routes |
+| `isClinicAuthenticated` (inline) | `sess.clinicId` | Clinic Admin only routes |
+
+Session data available after login:
+- Clinic Admin: `sess.clinicId` (number), `sess.adminLoggedIn = true`
+- Doctor: `sess.doctorId` (number), `sess.doctorEmail` (string), `sess.doctorLoggedIn = true`
+- Super Admin: `sess.adminLoggedIn = true`, `sess.role = "superuser"`, `sess.adminEmail`
+
+### Frontend Data Fetching: TanStack Query v5
+
+All data fetching uses TanStack Query. The `queryClient` in `client/src/lib/queryClient.ts` has a default `queryFn` that:
+- Prepends `API_BASE_URL` to the query key path
+- Automatically includes `credentials: "include"` (sends session cookies)
+- Throws on non-2xx responses (triggers React Query error state)
+
+**Fetching data:**
+```typescript
+// Queries should NOT define their own queryFn — the default handles it
+const { data } = useQuery({
+  queryKey: [api.notifications.list.path],  // path is the cache key
+});
+```
+
+**Mutating data:**
+```typescript
+import { apiRequest, queryClient } from "@/lib/queryClient";
+
+const mutation = useMutation({
+  mutationFn: () => apiRequest("POST", "/api/some/endpoint", { body }),
+  onSuccess: () => {
+    // Always invalidate the affected query key after a mutation
+    queryClient.invalidateQueries({ queryKey: ["/api/some/endpoint"] });
+  },
+});
+```
+
+**`API_BASE_URL`:**
+- Development: empty string (same-origin, Vite proxies to Express on port 5000)
+- Production on Render: the backend URL set via `VITE_API_URL` environment variable
+- Never hardcode a port or hostname in frontend API calls — always use relative paths or `API_BASE_URL`
+
+### Forms
+
+All forms use `react-hook-form` via shadcn's `useForm` hook with `zodResolver` for validation. The schema passed to `zodResolver` should come from `shared/schema.ts` (the `insert*Schema` exports). Use `.extend()` to add frontend-only rules (e.g. password confirmation).
+
+### Environment Variables
+
+**Backend (set in Render / `.env` locally):**
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string (Supabase) |
+| `SESSION_SECRET` | Signing key for session cookies |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Super Admin credentials |
+| `RESEND_API_KEY` | Email sending |
+| `RESEND` | `PRODUCTION` or `DEV` (default: DEV, redirects all mail to test inbox) |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_WHATSAPP_FROM` | WhatsApp |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` / `R2_ENDPOINT` / `R2_PUBLIC_URL` | Cloudflare R2 image storage |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Payments |
+| `PORT` | Server port (Render sets this automatically; default 5000 locally) |
+
+**Frontend (prefix with `VITE_` to expose to browser):**
+| Variable | Purpose |
+|---|---|
+| `VITE_API_URL` | Backend URL in production (leave empty in dev) |
+| `VITE_SENTRY_DSN` | Sentry error tracking (production only) |
+| `VITE_RAZORPAY_KEY_ID` | Razorpay public key for frontend checkout |
+
+---
+
+## 18. Complete API Endpoint Reference
+
+All endpoints are in `server/routes.ts`. Auth column shows which session field must be present.
+
+### Public / Patient (no login required)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/clinics/register` | None | Clinic self-registration with trust score calculation |
+| `POST` | `/api/public/otp/send` | None | Send 6-digit email OTP to patient or clinic |
+| `POST` | `/api/public/otp/verify` | None | Verify OTP and return a short-lived `verifiedToken` |
+| `GET` | `/api/public/clinics` | None | List all active, approved clinics |
+| `GET` | `/api/public/clinic/:id` | None | Single clinic profile (public fields only) |
+| `POST` | `/api/public/slot-availability` | None | Check how many bookings exist for each requested time slot |
+| `POST` | `/api/public/bookings` | `verifiedToken` in body | Create a patient booking (consumes OTP token) |
+| `GET` | `/api/public/doctors/:id` | None | Public doctor profile |
+| `POST` | `/api/public/razorpay/create-order` | None | Create Razorpay order for a booking payment |
+| `POST` | `/api/public/razorpay/verify-payment` | None | Verify Razorpay payment signature and confirm booking |
+| `GET` | `/api/consent/:token` | None | Fetch consent form data for patient signing page |
+| `POST` | `/api/consent/:token/sign` | None | Submit patient signature and store it |
+| `GET` | `/api/activate/:token` | None | Fetch activation details for subscription payment page |
+| `POST` | `/api/activate/:token/pay` | None | Process Razorpay subscription payment |
+| `GET` | `/api/health` | None | Backend health check (used by header status indicator) |
+| `GET` | `/api/health/backend` | None | Backend-only liveness probe |
+| `GET` | `/api/health/database` | None | Database connectivity probe |
+
+### Clinic Admin
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/clinic/login` | None | Clinic admin login (username + password) |
+| `POST` | `/api/auth/clinic/logout` | `clinicId` | Log out clinic admin session |
+| `GET` | `/api/auth/clinic/me` | `clinicId` | Current clinic admin session info |
+| `PATCH` | `/api/auth/clinic/profile` | `clinicId` | Update clinic profile (name, address, logo, etc.) |
+| `PATCH` | `/api/auth/clinic/website-config` | `clinicId` | Update clinic's public page theme and content |
+| `GET` | `/api/auth/clinic/bookings` | `clinicId` | List all bookings for the clinic |
+| `PATCH` | `/api/auth/clinic/bookings/:id/confirm` | `clinicId` | Confirm a pending booking |
+| `PATCH` | `/api/auth/clinic/bookings/:id/cancel` | `clinicId` | Cancel a booking |
+| `PATCH` | `/api/auth/clinic/bookings/:id/assign-doctor` | `clinicId` | Assign a doctor to a booking |
+| `PATCH` | `/api/auth/clinic/bookings/:id/clinical-status` | `clinicId` | Update clinical status (Completed, No-Show, etc.) |
+| `POST` | `/api/auth/clinic/bookings/:id/request-consent` | `clinicId` | Generate consent token and send WhatsApp link |
+| `GET` | `/api/auth/clinic/slots` | `clinicId` | List clinic's appointment slots |
+| `POST` | `/api/auth/clinic/slots` | `clinicId` | Create a new appointment slot |
+| `DELETE` | `/api/auth/clinic/slots/:id` | `clinicId` | Delete a slot |
+| `GET` | `/api/auth/clinic/doctors` | `clinicId` | List doctors linked to the clinic |
+| `POST` | `/api/auth/clinic/invite-doctor` | `clinicId` | Send doctor invitation email |
+| `DELETE` | `/api/auth/clinic/doctors/:id` | `clinicId` | Remove a doctor from the clinic |
+| `GET` | `/api/auth/clinic/clinical-records` | `clinicId` | List clinical records |
+| `POST` | `/api/auth/clinic/clinical-records` | `clinicId` | Create a clinical record |
+| `PATCH` | `/api/auth/clinic/clinical-records/:id` | `clinicId` | Update a clinical record |
+| `DELETE` | `/api/auth/clinic/clinical-records/:id` | `clinicId` | Soft-delete a clinical record |
+| `GET` | `/api/auth/clinic/export` | `clinicId` | Export bookings as XLSX |
+| `GET` | `/api/clinic/inventory/categories` | `clinicId` | List inventory categories |
+| `POST` | `/api/clinic/inventory/categories` | `clinicId` | Create inventory category |
+| `GET` | `/api/clinic/inventory/items` | `clinicId` | List inventory items |
+| `POST` | `/api/clinic/inventory/items` | `clinicId` | Create inventory item |
+| `PATCH` | `/api/clinic/inventory/items/:id` | `clinicId` | Update inventory item |
+| `POST` | `/api/clinic/inventory/transactions` | `clinicId` | Record a stock movement |
+| `GET` | `/api/clinic/inventory/alerts` | `clinicId` | List stock and expiry alerts |
+| `PATCH` | `/api/clinic/inventory/alerts/:id/dismiss` | `clinicId` | Dismiss an alert |
+| `GET` | `/api/auth/clinic/patients` | `clinicId` | List patients linked to the clinic |
+
+### Doctor
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/doctor/login` | None | Doctor login (email + password) |
+| `POST` | `/api/auth/doctor/logout` | `doctorId` | Log out doctor session |
+| `GET` | `/api/auth/doctor/me` | `doctorId` | Current doctor session info |
+| `PATCH` | `/api/doctor/profile` | `doctorId` | Update doctor profile (bio, photo, experience, etc.) |
+| `GET` | `/api/doctor/bookings` | `doctorId` | List bookings assigned to this doctor |
+| `PATCH` | `/api/doctor/bookings/:id/notes` | `doctorId` | Add/update clinical notes on a booking |
+| `PATCH` | `/api/doctor/bookings/:id/approve` | `doctorId` | Approve an assigned booking |
+| `PATCH` | `/api/doctor/bookings/:id/decline` | `doctorId` | Decline an assigned booking |
+| `GET` | `/api/doctor/leaves` | `doctorId` | List leave dates |
+| `POST` | `/api/doctor/leaves` | `doctorId` | Add a leave date |
+| `DELETE` | `/api/doctor/leaves/:id` | `doctorId` | Remove a leave date |
+| `GET` | `/api/doctor/certifications` | `doctorId` | List certifications |
+| `POST` | `/api/doctor/certifications` | `doctorId` | Add a certification |
+| `DELETE` | `/api/doctor/certifications/:id` | `doctorId` | Remove a certification |
+| `GET` | `/api/doctor/cases` | `doctorId` | List case studies |
+| `POST` | `/api/doctor/cases` | `doctorId` | Add a case study |
+| `DELETE` | `/api/doctor/cases/:id` | `doctorId` | Remove a case study |
+| `POST` | `/api/auth/doctor/accept-invite` | None | Accept invite token and set password |
+| `POST` | `/api/auth/doctor/forgot-password` | None | Request password reset email |
+| `POST` | `/api/auth/doctor/reset-password` | None | Set new password via reset token |
+
+### Super Admin
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/admin/login` | None | Admin login (email + password, triggers OTP) |
+| `POST` | `/api/auth/admin/verify-otp` | None | Verify admin OTP and create session |
+| `POST` | `/api/auth/admin/logout` | `superuser` | Log out admin session |
+| `GET` | `/api/clinics` | `superuser` | List all clinics (active, pending, archived) |
+| `PATCH` | `/api/clinics/:id/approve` | `superuser` | Approve a clinic (generate credentials, send email) |
+| `PATCH` | `/api/clinics/:id/reject` | `superuser` | Reject a clinic registration |
+| `PATCH` | `/api/clinics/:id/archive` | `superuser` | Archive a clinic |
+| `PATCH` | `/api/clinics/:id/restore` | `superuser` | Restore an archived clinic |
+| `POST` | `/api/clinics/:id/reset-credentials` | `superuser` | Reset clinic username/password |
+| `PATCH` | `/api/clinics/:id/mark-paid` | `superuser` | Manually activate a clinic's subscription |
+| `POST` | `/api/clinics/:id/resend-activation` | `superuser` | Regenerate and resend activation email |
+| `GET` | `/api/auth/admin/login-events` | `superuser` | Audit log of admin logins |
+| `GET` | `/api/admin/smile-deals` | `superuser` | List all Smile Deals |
+| `POST` | `/api/admin/smile-deals` | `superuser` | Create a new Smile Deal |
+| `PATCH` | `/api/admin/smile-deals/:id` | `superuser` | Update a Smile Deal |
+| `DELETE` | `/api/admin/smile-deals/:id` | `superuser` | Delete a Smile Deal |
+
+### Notifications & WebSocket
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/notifications` | Session (any role) | List notifications for the current user |
+| `PATCH` | `/api/notifications/:id/read` | Session (any role) | Mark a notification as read |
+| `WS` | `/ws/notifications` | Client sends `{type:"auth",clinicId:N}` after connect | Real-time push channel for clinic admins |
+
+### File Uploads
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/uploads/signed-url` | Session | Request a pre-signed Cloudflare R2 upload URL |
+
+---
+
 *Last updated: May 2026*
-*This document reflects the current state of the application. For setup instructions, see `docs/local-development-setup.md`. For deployment, see `docs/render-environment-setup.md`.*
+*This document reflects the current state of the application. For setup instructions, see `docs/local-development-setup.md`. For deployment, see `docs/render-environment-setup.md`. For the real-time notification system, see `docs/notification-service.md`.*
