@@ -1546,105 +1546,106 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       </div>
                     )}
 
-                    {/* Chief complaints — accordion */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          What brings you in? <span className="text-destructive">*</span>
-                        </label>
-                        {selectedSubIssues.length > 0 && (
-                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
-                            {selectedSubIssues.length} selected
-                          </span>
-                        )}
-                        {selectedSubIssues.length === 0 && !emailVerified && (
-                          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <Lock className="h-3 w-3" /> Verify email first
-                          </span>
-                        )}
-                      </div>
+                    {/* Chief complaints + Additional Notes — revealed after email verify */}
+                    {emailVerified && (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-400">
 
-                      <div className={`rounded-xl border overflow-hidden transition-all duration-300 ${
-                        emailVerified
-                          ? selectedSubIssues.length > 0
-                            ? "border-primary/30"
-                            : "border-border/60"
-                          : "border-border/40"
-                      }`}>
-                        {/* Accordion body */}
-                        <div className={`transition-opacity duration-300 ${!emailVerified ? "opacity-50 pointer-events-none" : ""}`}>
-                          <div className="max-h-[300px] overflow-y-auto overscroll-contain">
-                            <Accordion
-                              type="single"
-                              collapsible
-                              value={openCategory}
-                              onValueChange={setOpenCategory}
-                              className="divide-y divide-border/40"
-                            >
-                              {DENTAL_CATEGORIES.map((cat) => {
-                                const count = countForCategory(cat);
-                                return (
-                                  <AccordionItem key={cat.category} value={cat.category} className="border-0">
-                                    <AccordionTrigger
-                                      className="px-3 py-2.5 hover:no-underline hover:bg-muted/30 transition-colors [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-muted-foreground"
-                                      data-testid={`accordion-${cat.category}`}
-                                    >
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <span className="text-base leading-none shrink-0">{cat.emoji}</span>
-                                        <span className="text-[12px] font-semibold text-foreground text-left leading-tight">{cat.category}</span>
-                                        {count > 0 && (
-                                          <span className="shrink-0 text-[9px] font-bold text-primary bg-primary/12 border border-primary/25 px-1.5 py-0.5 rounded-full">
-                                            {count}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="px-3 pb-3 pt-0">
-                                      <div className="flex flex-wrap gap-1.5 pt-1">
-                                        {cat.subIssues.map(issue => {
-                                          const isOn = selectedSubIssues.includes(issue);
-                                          return (
-                                            <button
-                                              key={issue}
-                                              type="button"
-                                              onClick={() => handleSubIssueToggle(issue)}
-                                              className={`text-[11px] font-medium px-3 py-1.5 rounded-lg border transition-all ${
-                                                isOn
-                                                  ? "bg-primary/15 border-primary/40 text-primary shadow-sm"
-                                                  : "bg-background border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                                              }`}
-                                              data-testid={`chip-subissue-${issue}`}
-                                            >
-                                              {isOn && <span className="mr-1">✓</span>}{issue}
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    </AccordionContent>
-                                  </AccordionItem>
-                                );
-                              })}
-                            </Accordion>
+                        {/* Chief complaints — accordion */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              What brings you in? <span className="text-destructive">*</span>
+                            </label>
+                            {selectedSubIssues.length > 0 && (
+                              <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                                {selectedSubIssues.length} selected
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Helper message */}
+                          <div className="flex items-center gap-1.5">
+                            <Stethoscope className="h-3 w-3 text-primary/60 shrink-0" />
+                            <p className="text-[11px] text-muted-foreground">Helps us assign the right specialist for your visit</p>
+                          </div>
+
+                          <div className={`rounded-xl border overflow-hidden transition-all duration-300 ${
+                            selectedSubIssues.length > 0 ? "border-primary/30" : "border-border/60"
+                          }`}>
+                            <div className="max-h-[300px] overflow-y-auto overscroll-contain">
+                              <Accordion
+                                type="single"
+                                collapsible
+                                value={openCategory}
+                                onValueChange={setOpenCategory}
+                                className="divide-y divide-border/40"
+                              >
+                                {DENTAL_CATEGORIES.map((cat) => {
+                                  const count = countForCategory(cat);
+                                  return (
+                                    <AccordionItem key={cat.category} value={cat.category} className="border-0">
+                                      <AccordionTrigger
+                                        className="px-3 py-2.5 hover:no-underline hover:bg-muted/30 transition-colors [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-muted-foreground"
+                                        data-testid={`accordion-${cat.category}`}
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className="text-base leading-none shrink-0">{cat.emoji}</span>
+                                          <span className="text-[12px] font-semibold text-foreground text-left leading-tight">{cat.category}</span>
+                                          {count > 0 && (
+                                            <span className="shrink-0 text-[9px] font-bold text-primary bg-primary/12 border border-primary/25 px-1.5 py-0.5 rounded-full">
+                                              {count}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </AccordionTrigger>
+                                      <AccordionContent className="px-3 pb-3 pt-0">
+                                        <div className="flex flex-wrap gap-1.5 pt-1">
+                                          {cat.subIssues.map(issue => {
+                                            const isOn = selectedSubIssues.includes(issue);
+                                            return (
+                                              <button
+                                                key={issue}
+                                                type="button"
+                                                onClick={() => handleSubIssueToggle(issue)}
+                                                className={`text-[11px] font-medium px-3 py-1.5 rounded-lg border transition-all ${
+                                                  isOn
+                                                    ? "bg-primary/15 border-primary/40 text-primary shadow-sm"
+                                                    : "bg-background border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                                                }`}
+                                                data-testid={`chip-subissue-${issue}`}
+                                              >
+                                                {isOn && <span className="mr-1">✓</span>}{issue}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </AccordionContent>
+                                    </AccordionItem>
+                                  );
+                                })}
+                              </Accordion>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
 
-                    {/* Additional Notes (optional) */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Additional Notes</label>
-                        <span className="text-[9px] font-medium text-muted-foreground/60 bg-muted/60 border border-border/40 px-1.5 py-0.5 rounded-full">Optional</span>
+                        {/* Additional Notes (optional) */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Additional Notes</label>
+                            <span className="text-[9px] font-medium text-muted-foreground/60 bg-muted/60 border border-border/40 px-1.5 py-0.5 rounded-full">Optional</span>
+                          </div>
+                          <textarea
+                            value={additionalNotes}
+                            onChange={e => setAdditionalNotes(e.target.value)}
+                            placeholder="Anything else you'd like the clinic to know…"
+                            rows={2}
+                            className="w-full rounded-xl border border-border/60 bg-muted/20 focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/10 px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground resize-none transition-all"
+                            data-testid="textarea-additional-notes"
+                          />
+                        </div>
+
                       </div>
-                      <textarea
-                        value={additionalNotes}
-                        onChange={e => setAdditionalNotes(e.target.value)}
-                        placeholder="Anything else you'd like the clinic to know…"
-                        rows={2}
-                        className="w-full rounded-xl border border-border/60 bg-muted/20 focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/10 px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground resize-none transition-all"
-                        data-testid="textarea-additional-notes"
-                      />
-                    </div>
+                    )}
 
                     {/* CTA */}
                     <div className="relative">
