@@ -201,11 +201,33 @@ export default function ClinicDashboard() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [slotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
-  const CHIEF_COMPLAINTS = [
-    "Toothache", "Cavities", "Sensitivity", "Swelling",
-    "Bleeding", "Abscess", "Fracture", "Wisdom",
-    "Infection", "Checkup"
+  const DENTAL_CATEGORIES = [
+    { category: "Tooth Pain or Sensitivity",        emoji: "🦷", subIssues: ["Sensitivity to hot/cold/sweet", "Sharp or throbbing pain", "Pain while chewing", "Pain at night"],                     specialists: ["Endodontist", "General Dentist"] },
+    { category: "Gum Problems",                     emoji: "🩸", subIssues: ["Bleeding gums", "Swollen or red gums", "Receding gums", "Bad breath or bad taste"],                                  specialists: ["Periodontist", "General Dentist"] },
+    { category: "Tooth Decay / Cavities",           emoji: "🕳️", subIssues: ["Visible hole or black spot", "Pain when eating or drinking", "Food getting stuck"],                                   specialists: ["General Dentist", "Endodontist"] },
+    { category: "Broken, Chipped or Cracked Tooth", emoji: "💔", subIssues: ["Chipped or broken tooth", "Cracked tooth", "Worn down teeth"],                                                        specialists: ["Prosthodontist", "General Dentist"] },
+    { category: "Alignment or Bite Issues",         emoji: "🔀", subIssues: ["Crooked or crowded teeth", "Gaps between teeth", "Bite feels off or jaw discomfort"],                                 specialists: ["Orthodontist"] },
+    { category: "Missing Teeth",                    emoji: "🫥", subIssues: ["One tooth missing", "Multiple teeth missing", "Want replacement options"],                                            specialists: ["Prosthodontist", "Oral Surgeon"] },
+    { category: "Cosmetic / Smile Concerns",        emoji: "✨", subIssues: ["Yellow or stained teeth", "Want a whiter smile", "Uneven teeth shape", "Gaps I want closed"],                        specialists: ["Cosmetic Dentist", "Prosthodontist"] },
+    { category: "Swelling or Infection",            emoji: "🤒", subIssues: ["Swollen face or gum", "Pus or abscess", "Severe pain with swelling"],                                                specialists: ["Endodontist", "Oral Surgeon", "General Dentist"] },
+    { category: "Child's Dental Issues",            emoji: "👶", subIssues: ["Tooth decay in baby teeth", "Child complains of pain", "Thumb sucking habits", "Delayed tooth eruption"],           specialists: ["Pedodontist"] },
+    { category: "Jaw Pain or Other",                emoji: "🦴", subIssues: ["Jaw pain or clicking (TMJ)", "Dry mouth", "Mouth ulcers", "Suspicious growth or lump"],                             specialists: ["Oral Medicine Specialist", "Oral Surgeon", "General Dentist"] },
+    { category: "Wisdom Tooth Problems",            emoji: "😬", subIssues: ["Pain from wisdom tooth", "Swelling near wisdom tooth", "Difficulty opening mouth"],                                 specialists: ["Oral Surgeon", "General Dentist"] },
+    { category: "Preventive / Routine Care",        emoji: "🧹", subIssues: ["Regular checkup", "Cleaning or scaling", "Fluoride treatment"],                                                      specialists: ["General Dentist", "Dental Hygienist"] },
   ];
+
+  const getRecommendedSpecialists = (descriptionText: string): string[] => {
+    if (!descriptionText) return [];
+    const selectedIssues = descriptionText.split(", ").map(s => s.trim().toLowerCase());
+    const matched = new Set<string>();
+    DENTAL_CATEGORIES.forEach(cat => {
+      const hasMatch = cat.subIssues.some(s => selectedIssues.includes(s.toLowerCase()));
+      if (hasMatch) cat.specialists.forEach(sp => matched.add(sp));
+    });
+    return Array.from(matched);
+  };
+
+  const CHIEF_COMPLAINTS = DENTAL_CATEGORIES.flatMap(c => c.subIssues);
 
   const handleComplaintClick = (complaint: string) => {
     const currentComplaints = bookingDescription ? bookingDescription.split(", ").filter(Boolean) : [];
@@ -3314,11 +3336,38 @@ export default function ClinicDashboard() {
                                       </div>
                                       <span className="text-xs text-muted-foreground">{format(new Date(booking.slot.startTime), "MMM d · h:mm a")}</span>
                                     </div>
+
+                                    {/* Specialist suggestion banner */}
+                                    {(() => {
+                                      const suggested = getRecommendedSpecialists(booking.description || "");
+                                      if (!suggested.length) return null;
+                                      return (
+                                        <div className="mx-2.5 mt-2.5 px-3 py-2 rounded-lg bg-primary/6 border border-primary/20 flex items-start gap-2">
+                                          <span className="text-base shrink-0 mt-0.5">💡</span>
+                                          <div className="min-w-0">
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-primary/70 mb-1">Suggested specialization</p>
+                                            <div className="flex flex-wrap gap-1">
+                                              {suggested.map(sp => (
+                                                <span key={sp} className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">
+                                                  {sp}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+
                                     <div className="p-2.5 space-y-1.5">
                                       {clinic?.doctorName && (() => {
                                         const isAssigned = booking.assignedDoctor === clinic.doctorName;
                                         const outOfOffice = isOOO(undefined, clinic.doctorName);
                                         const reason = oooReason(undefined, clinic.doctorName);
+                                        const suggested = getRecommendedSpecialists(booking.description || "");
+                                        const isBestMatch = suggested.length > 0 && suggested.some(sp =>
+                                          (clinic.doctorSpecialization || "").toLowerCase().includes(sp.toLowerCase()) ||
+                                          sp.toLowerCase().includes((clinic.doctorSpecialization || "").toLowerCase())
+                                        );
                                         const btn = (
                                           <button
                                             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
@@ -3326,6 +3375,8 @@ export default function ClinicDashboard() {
                                                 ? 'bg-primary border-primary shadow-md shadow-primary/20'
                                                 : outOfOffice
                                                 ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
+                                                : isBestMatch
+                                                ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/40 hover:border-emerald-400 hover:shadow-sm'
                                                 : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
                                             }`}
                                             onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: clinic.doctorName!, doctorEmail: undefined }); }}
@@ -3341,6 +3392,11 @@ export default function ClinicDashboard() {
                                               </p>
                                             </div>
                                             {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
+                                            {!isAssigned && isBestMatch && (
+                                              <span className="shrink-0 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+                                                Best match
+                                              </span>
+                                            )}
                                           </button>
                                         );
                                         return outOfOffice ? (
@@ -3359,6 +3415,11 @@ export default function ClinicDashboard() {
                                         const isAssigned = booking.assignedDoctor === doctor.name;
                                         const outOfOffice = isOOO(doctor.email, doctor.name);
                                         const reason = oooReason(doctor.email, doctor.name);
+                                        const suggestedForDoc = getRecommendedSpecialists(booking.description || "");
+                                        const isBestMatchDoc = suggestedForDoc.length > 0 && suggestedForDoc.some(sp =>
+                                          (doctor.specialization || "").toLowerCase().includes(sp.toLowerCase()) ||
+                                          sp.toLowerCase().includes((doctor.specialization || "").toLowerCase())
+                                        );
                                         const btn = (
                                           <button
                                             key={idx}
@@ -3367,6 +3428,8 @@ export default function ClinicDashboard() {
                                                 ? 'bg-primary border-primary shadow-md shadow-primary/20'
                                                 : outOfOffice
                                                 ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 opacity-80 hover:opacity-100'
+                                                : isBestMatchDoc
+                                                ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/40 hover:border-emerald-400 hover:shadow-sm'
                                                 : 'bg-background border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm'
                                             }`}
                                             onClick={(e) => { e.stopPropagation(); assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: doctor.name, doctorEmail: doctor.email }); }}
@@ -3382,6 +3445,11 @@ export default function ClinicDashboard() {
                                               </p>
                                             </div>
                                             {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
+                                            {!isAssigned && isBestMatchDoc && (
+                                              <span className="shrink-0 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+                                                Best match
+                                              </span>
+                                            )}
                                           </button>
                                         );
                                         return outOfOffice ? (

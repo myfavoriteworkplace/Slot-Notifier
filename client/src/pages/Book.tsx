@@ -25,6 +25,9 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface SlotTiming {
   id: string;
@@ -41,10 +44,19 @@ const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
   { id: "3", label: "Evening",   startHour: 16, startMinute: 0, endHour: 18, endMinute: 0 },
 ];
 
-const CHIEF_COMPLAINTS = [
-  "Toothache", "Cavities", "Sensitivity", "Swelling",
-  "Bleeding", "Abscess", "Fracture", "Wisdom",
-  "Infection", "Checkup",
+const DENTAL_CATEGORIES = [
+  { category: "Tooth Pain or Sensitivity",      emoji: "🦷", subIssues: ["Sensitivity to hot/cold/sweet", "Sharp or throbbing pain", "Pain while chewing", "Pain at night"],                          specialists: ["Endodontist", "General Dentist"] },
+  { category: "Gum Problems",                   emoji: "🩸", subIssues: ["Bleeding gums", "Swollen or red gums", "Receding gums", "Bad breath or bad taste"],                                     specialists: ["Periodontist", "General Dentist"] },
+  { category: "Tooth Decay / Cavities",         emoji: "🕳️", subIssues: ["Visible hole or black spot", "Pain when eating or drinking", "Food getting stuck"],                                      specialists: ["General Dentist", "Endodontist"] },
+  { category: "Broken, Chipped or Cracked Tooth", emoji: "💔", subIssues: ["Chipped or broken tooth", "Cracked tooth", "Worn down teeth"],                                                         specialists: ["Prosthodontist", "General Dentist"] },
+  { category: "Alignment or Bite Issues",       emoji: "🔀", subIssues: ["Crooked or crowded teeth", "Gaps between teeth", "Bite feels off or jaw discomfort"],                                    specialists: ["Orthodontist"] },
+  { category: "Missing Teeth",                  emoji: "🫥", subIssues: ["One tooth missing", "Multiple teeth missing", "Want replacement options"],                                               specialists: ["Prosthodontist", "Oral Surgeon"] },
+  { category: "Cosmetic / Smile Concerns",      emoji: "✨", subIssues: ["Yellow or stained teeth", "Want a whiter smile", "Uneven teeth shape", "Gaps I want closed"],                           specialists: ["Cosmetic Dentist", "Prosthodontist"] },
+  { category: "Swelling or Infection",          emoji: "🤒", subIssues: ["Swollen face or gum", "Pus or abscess", "Severe pain with swelling"],                                                   specialists: ["Endodontist", "Oral Surgeon", "General Dentist"] },
+  { category: "Child's Dental Issues",          emoji: "👶", subIssues: ["Tooth decay in baby teeth", "Child complains of pain", "Thumb sucking habits", "Delayed tooth eruption"],              specialists: ["Pedodontist"] },
+  { category: "Jaw Pain or Other",              emoji: "🦴", subIssues: ["Jaw pain or clicking (TMJ)", "Dry mouth", "Mouth ulcers", "Suspicious growth or lump"],                                specialists: ["Oral Medicine Specialist", "Oral Surgeon", "General Dentist"] },
+  { category: "Wisdom Tooth Problems",          emoji: "😬", subIssues: ["Pain from wisdom tooth", "Swelling near wisdom tooth", "Difficulty opening mouth"],                                    specialists: ["Oral Surgeon", "General Dentist"] },
+  { category: "Preventive / Routine Care",      emoji: "🧹", subIssues: ["Regular checkup", "Cleaning or scaling", "Fluoride treatment"],                                                         specialists: ["General Dentist", "Dental Hygienist"] },
 ];
 
 const getSlotMeta = (startHour: number) => {
@@ -239,13 +251,18 @@ export default function Book(props: { params: { clinicId?: string } }) {
     sessionStorage.setItem("bms_description", description);
   }, [customerName, customerPhone, customerEmail, description]);
 
-  const handleComplaintClick = (complaint: string) => {
+  const handleSubIssueToggle = (subIssue: string) => {
     const current = description ? description.split(", ").filter(Boolean) : [];
-    const updated = current.includes(complaint)
-      ? current.filter(c => c !== complaint)
-      : [...current, complaint];
+    const updated = current.includes(subIssue)
+      ? current.filter(c => c !== subIssue)
+      : [...current, subIssue];
     setDescription(updated.join(", "));
   };
+
+  const selectedSubIssues = description ? description.split(", ").filter(Boolean) : [];
+
+  const countForCategory = (cat: typeof DENTAL_CATEGORIES[0]) =>
+    cat.subIssues.filter(s => selectedSubIssues.includes(s)).length;
 
   useEffect(() => {
     const saved = localStorage.getItem("slotTimings");
@@ -1472,43 +1489,73 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       </div>
                     )}
 
-                    {/* Chief complaints */}
+                    {/* Chief complaints — accordion */}
                     <div className={`rounded-xl border overflow-hidden transition-all duration-300 ${
-                      emailVerified
-                        ? "border-border/60 bg-muted/20"
-                        : "border-border/40 bg-muted/30"
+                      emailVerified ? "border-border/60" : "border-border/40"
                     }`}>
+                      {/* Header */}
                       <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                        <Sparkles className="h-3 w-3 text-primary" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Chief Complaints</span>
-                        {emailVerified ? (
-                          <span className="ml-auto text-[10px] text-muted-foreground">Select all that apply</span>
-                        ) : (
-                          <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <Lock className="h-3 w-3" /> Verify email to select
+                        <Stethoscope className="h-3 w-3 text-primary" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">What brings you in?</span>
+                        {selectedSubIssues.length > 0 && (
+                          <span className="ml-auto text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                            {selectedSubIssues.length} selected
                           </span>
                         )}
+                        {selectedSubIssues.length === 0 && (
+                          emailVerified
+                            ? <span className="ml-auto text-[10px] text-muted-foreground">Tap a category to expand</span>
+                            : <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground"><Lock className="h-3 w-3" /> Verify email first</span>
+                        )}
                       </div>
-                      <div className={`p-3 flex flex-wrap gap-1.5 transition-opacity duration-300 ${!emailVerified ? "opacity-50 pointer-events-none" : ""}`}>
-                        {CHIEF_COMPLAINTS.map(complaint => {
-                          const isOn = description.split(", ").includes(complaint);
-                          return (
-                            <button
-                              key={complaint}
-                              type="button"
-                              onClick={() => handleComplaintClick(complaint)}
-                              disabled={!emailVerified}
-                              className={`text-[11px] font-semibold px-3 py-2.5 sm:py-1.5 rounded-lg border transition-all ${
-                                isOn
-                                  ? "bg-primary/15 border-primary/35 text-primary shadow-sm"
-                                  : "bg-background border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                              } disabled:cursor-not-allowed`}
-                              data-testid={`chip-complaint-${complaint}`}
-                            >
-                              {complaint}
-                            </button>
-                          );
-                        })}
+
+                      {/* Accordion body */}
+                      <div className={`transition-opacity duration-300 ${!emailVerified ? "opacity-50 pointer-events-none" : ""}`}>
+                        <Accordion type="single" collapsible className="divide-y divide-border/40">
+                          {DENTAL_CATEGORIES.map((cat) => {
+                            const count = countForCategory(cat);
+                            return (
+                              <AccordionItem key={cat.category} value={cat.category} className="border-0">
+                                <AccordionTrigger
+                                  className="px-3 py-2.5 hover:no-underline hover:bg-muted/30 transition-colors [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-muted-foreground"
+                                  data-testid={`accordion-${cat.category}`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-base leading-none shrink-0">{cat.emoji}</span>
+                                    <span className="text-[12px] font-semibold text-foreground text-left leading-tight">{cat.category}</span>
+                                    {count > 0 && (
+                                      <span className="shrink-0 text-[9px] font-bold text-primary bg-primary/12 border border-primary/25 px-1.5 py-0.5 rounded-full">
+                                        {count}
+                                      </span>
+                                    )}
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-3 pb-3 pt-0">
+                                  <div className="flex flex-wrap gap-1.5 pt-1">
+                                    {cat.subIssues.map(issue => {
+                                      const isOn = selectedSubIssues.includes(issue);
+                                      return (
+                                        <button
+                                          key={issue}
+                                          type="button"
+                                          onClick={() => handleSubIssueToggle(issue)}
+                                          className={`text-[11px] font-medium px-3 py-1.5 rounded-lg border transition-all ${
+                                            isOn
+                                              ? "bg-primary/15 border-primary/40 text-primary shadow-sm"
+                                              : "bg-background border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                                          }`}
+                                          data-testid={`chip-subissue-${issue}`}
+                                        >
+                                          {isOn && <span className="mr-1">✓</span>}{issue}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            );
+                          })}
+                        </Accordion>
                       </div>
                     </div>
 
