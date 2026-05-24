@@ -112,7 +112,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [customerEmail, setCustomerEmail]   = useState("");
   const [selectedClinic, setSelectedClinic] = useState<string>("");
   const [selectedSlot, setSelectedSlot]     = useState<string | null>(null);
-  const [description, setDescription]       = useState("");
+  const [selectedSubIssues, setSelectedSubIssues] = useState<string[]>([]);
+  const [additionalNotes, setAdditionalNotes]     = useState("");
+  const [openCategory, setOpenCategory]           = useState("");
   const [showSlots, setShowSlots]           = useState(false);
   const [step, setStep]                     = useState<"details" | "success">("details");
   const [phoneError, setPhoneError]         = useState("");
@@ -154,7 +156,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail);
   const otpDigits = Array.from({ length: 6 }, (_, index) => otpCode[index] || "");
   const isOtpComplete = otpCode.length === 6;
-  const canProceedToSlots = Boolean(customerName && isPhoneValid && isEmailValid && selectedClinic && emailVerified && verifiedToken);
+  const canProceedToSlots = Boolean(customerName && isPhoneValid && isEmailValid && selectedClinic && emailVerified && verifiedToken && selectedSubIssues.length > 0);
 
   const resetOtpState = () => {
     setOtpSent(false);
@@ -233,14 +235,16 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
   // Restore form fields from sessionStorage on mount
   useEffect(() => {
-    const name  = sessionStorage.getItem("bms_name");
-    const phone = sessionStorage.getItem("bms_phone");
-    const email = sessionStorage.getItem("bms_email");
-    const desc  = sessionStorage.getItem("bms_description");
-    if (name)  setCustomerName(name);
-    if (phone) setCustomerPhone(phone);
-    if (email) setCustomerEmail(email);
-    if (desc)  setDescription(desc);
+    const name   = sessionStorage.getItem("bms_name");
+    const phone  = sessionStorage.getItem("bms_phone");
+    const email  = sessionStorage.getItem("bms_email");
+    const issues = sessionStorage.getItem("bms_sub_issues");
+    const notes  = sessionStorage.getItem("bms_notes");
+    if (name)   setCustomerName(name);
+    if (phone)  setCustomerPhone(phone);
+    if (email)  setCustomerEmail(email);
+    if (issues) { try { setSelectedSubIssues(JSON.parse(issues)); } catch {} }
+    if (notes)  setAdditionalNotes(notes);
   }, []);
 
   // Persist form fields to sessionStorage on every change
@@ -248,21 +252,25 @@ export default function Book(props: { params: { clinicId?: string } }) {
     if (customerName)  sessionStorage.setItem("bms_name",  customerName);
     if (customerPhone) sessionStorage.setItem("bms_phone", customerPhone);
     if (customerEmail) sessionStorage.setItem("bms_email", customerEmail);
-    sessionStorage.setItem("bms_description", description);
-  }, [customerName, customerPhone, customerEmail, description]);
+    sessionStorage.setItem("bms_sub_issues", JSON.stringify(selectedSubIssues));
+    if (additionalNotes) sessionStorage.setItem("bms_notes", additionalNotes);
+  }, [customerName, customerPhone, customerEmail, selectedSubIssues, additionalNotes]);
 
   const handleSubIssueToggle = (subIssue: string) => {
-    const current = description ? description.split(", ").filter(Boolean) : [];
-    const updated = current.includes(subIssue)
-      ? current.filter(c => c !== subIssue)
-      : [...current, subIssue];
-    setDescription(updated.join(", "));
+    setSelectedSubIssues(prev =>
+      prev.includes(subIssue) ? prev.filter(s => s !== subIssue) : [...prev, subIssue]
+    );
   };
-
-  const selectedSubIssues = description ? description.split(", ").filter(Boolean) : [];
 
   const countForCategory = (cat: typeof DENTAL_CATEGORIES[0]) =>
     cat.subIssues.filter(s => selectedSubIssues.includes(s)).length;
+
+  // Auto-open first category accordion panel when email is verified
+  useEffect(() => {
+    if (emailVerified && !openCategory) {
+      setOpenCategory(DENTAL_CATEGORIES[0].category);
+    }
+  }, [emailVerified]);
 
   useEffect(() => {
     const saved = localStorage.getItem("slotTimings");
@@ -466,7 +474,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
     createBookingMutation.mutate({
       customerName, customerPhone, customerEmail,
       clinicId, clinicName: selectedClinic,
-      startTime: startTime.toISOString(), endTime: endTime.toISOString(), description,
+      startTime: startTime.toISOString(), endTime: endTime.toISOString(),
+      description: [selectedSubIssues.join(", "), additionalNotes].filter(Boolean).join(" — "),
       verifiedToken,
     });
   };
@@ -539,7 +548,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
               clinicId, clinicName: selectedClinic,
               startTime: startTime.toISOString(),
               endTime: endTime.toISOString(),
-              description,
+              description: [selectedSubIssues.join(", "), additionalNotes].filter(Boolean).join(" — "),
               verifiedToken,
             });
             if (!verifyRes.ok) {
@@ -577,7 +586,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
     setCustomerName("");
     setCustomerPhone("");
     setCustomerEmail("");
-    setDescription("");
+    setSelectedSubIssues([]);
+    setAdditionalNotes("");
+    setOpenCategory("");
     setPhoneError("");
     setPaymentLoading(false);
     setBookingPath(null);
@@ -586,7 +597,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
     sessionStorage.removeItem("bms_name");
     sessionStorage.removeItem("bms_phone");
     sessionStorage.removeItem("bms_email");
-    sessionStorage.removeItem("bms_description");
+    sessionStorage.removeItem("bms_sub_issues");
+    sessionStorage.removeItem("bms_notes");
   };
 
   const selectedClinicObj = clinics.find(c => c.name === selectedClinic);
@@ -1490,85 +1502,102 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     )}
 
                     {/* Chief complaints — accordion */}
-                    <div className={`rounded-xl border overflow-hidden transition-all duration-300 ${
-                      emailVerified ? "border-border/60" : "border-border/40"
-                    }`}>
-                      {/* Header */}
-                      <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                        <Stethoscope className="h-3 w-3 text-primary" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">What brings you in?</span>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          What brings you in? <span className="text-destructive">*</span>
+                        </label>
                         {selectedSubIssues.length > 0 && (
-                          <span className="ml-auto text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
                             {selectedSubIssues.length} selected
                           </span>
                         )}
-                        {selectedSubIssues.length === 0 && (
-                          emailVerified
-                            ? <span className="ml-auto text-[10px] text-muted-foreground">Tap a category to expand</span>
-                            : <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground"><Lock className="h-3 w-3" /> Verify email first</span>
+                        {selectedSubIssues.length === 0 && !emailVerified && (
+                          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Lock className="h-3 w-3" /> Verify email first
+                          </span>
                         )}
                       </div>
 
-                      {/* Accordion body */}
-                      <div className={`transition-opacity duration-300 ${!emailVerified ? "opacity-50 pointer-events-none" : ""}`}>
-                        <Accordion type="single" collapsible className="divide-y divide-border/40">
-                          {DENTAL_CATEGORIES.map((cat) => {
-                            const count = countForCategory(cat);
-                            return (
-                              <AccordionItem key={cat.category} value={cat.category} className="border-0">
-                                <AccordionTrigger
-                                  className="px-3 py-2.5 hover:no-underline hover:bg-muted/30 transition-colors [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-muted-foreground"
-                                  data-testid={`accordion-${cat.category}`}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className="text-base leading-none shrink-0">{cat.emoji}</span>
-                                    <span className="text-[12px] font-semibold text-foreground text-left leading-tight">{cat.category}</span>
-                                    {count > 0 && (
-                                      <span className="shrink-0 text-[9px] font-bold text-primary bg-primary/12 border border-primary/25 px-1.5 py-0.5 rounded-full">
-                                        {count}
-                                      </span>
-                                    )}
-                                  </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="px-3 pb-3 pt-0">
-                                  <div className="flex flex-wrap gap-1.5 pt-1">
-                                    {cat.subIssues.map(issue => {
-                                      const isOn = selectedSubIssues.includes(issue);
-                                      return (
-                                        <button
-                                          key={issue}
-                                          type="button"
-                                          onClick={() => handleSubIssueToggle(issue)}
-                                          className={`text-[11px] font-medium px-3 py-1.5 rounded-lg border transition-all ${
-                                            isOn
-                                              ? "bg-primary/15 border-primary/40 text-primary shadow-sm"
-                                              : "bg-background border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                                          }`}
-                                          data-testid={`chip-subissue-${issue}`}
-                                        >
-                                          {isOn && <span className="mr-1">✓</span>}{issue}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </AccordionContent>
-                              </AccordionItem>
-                            );
-                          })}
-                        </Accordion>
+                      <div className={`rounded-xl border overflow-hidden transition-all duration-300 ${
+                        emailVerified
+                          ? selectedSubIssues.length > 0
+                            ? "border-primary/30"
+                            : "border-border/60"
+                          : "border-border/40"
+                      }`}>
+                        {/* Accordion body */}
+                        <div className={`transition-opacity duration-300 ${!emailVerified ? "opacity-50 pointer-events-none" : ""}`}>
+                          <div className="max-h-[300px] overflow-y-auto overscroll-contain">
+                            <Accordion
+                              type="single"
+                              collapsible
+                              value={openCategory}
+                              onValueChange={setOpenCategory}
+                              className="divide-y divide-border/40"
+                            >
+                              {DENTAL_CATEGORIES.map((cat) => {
+                                const count = countForCategory(cat);
+                                return (
+                                  <AccordionItem key={cat.category} value={cat.category} className="border-0">
+                                    <AccordionTrigger
+                                      className="px-3 py-2.5 hover:no-underline hover:bg-muted/30 transition-colors [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-muted-foreground"
+                                      data-testid={`accordion-${cat.category}`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className="text-base leading-none shrink-0">{cat.emoji}</span>
+                                        <span className="text-[12px] font-semibold text-foreground text-left leading-tight">{cat.category}</span>
+                                        {count > 0 && (
+                                          <span className="shrink-0 text-[9px] font-bold text-primary bg-primary/12 border border-primary/25 px-1.5 py-0.5 rounded-full">
+                                            {count}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-3 pb-3 pt-0">
+                                      <div className="flex flex-wrap gap-1.5 pt-1">
+                                        {cat.subIssues.map(issue => {
+                                          const isOn = selectedSubIssues.includes(issue);
+                                          return (
+                                            <button
+                                              key={issue}
+                                              type="button"
+                                              onClick={() => handleSubIssueToggle(issue)}
+                                              className={`text-[11px] font-medium px-3 py-1.5 rounded-lg border transition-all ${
+                                                isOn
+                                                  ? "bg-primary/15 border-primary/40 text-primary shadow-sm"
+                                                  : "bg-background border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                                              }`}
+                                              data-testid={`chip-subissue-${issue}`}
+                                            >
+                                              {isOn && <span className="mr-1">✓</span>}{issue}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                );
+                              })}
+                            </Accordion>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Description */}
+                    {/* Additional Notes (optional) */}
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Additional Notes</label>
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Additional Notes</label>
+                        <span className="text-[9px] font-medium text-muted-foreground/60 bg-muted/60 border border-border/40 px-1.5 py-0.5 rounded-full">Optional</span>
+                      </div>
                       <textarea
-                        value={description}
-                        onChange={e => setDescription(e.target.value)}
-                        placeholder="Describe your issue in more detail…"
-                        rows={3}
+                        value={additionalNotes}
+                        onChange={e => setAdditionalNotes(e.target.value)}
+                        placeholder="Anything else you'd like the clinic to know…"
+                        rows={2}
                         className="w-full rounded-xl border border-border/60 bg-muted/20 focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/10 px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground resize-none transition-all"
-                        data-testid="textarea-description"
+                        data-testid="textarea-additional-notes"
                       />
                     </div>
 
@@ -1596,6 +1625,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           ? "Enter your name to continue"
                           : !isPhoneValid
                           ? "Enter a valid phone number to continue"
+                          : selectedSubIssues.length === 0
+                          ? "Select at least one reason for your visit to continue"
                           : "Complete all fields to continue"}
                       </p>
                     )}
