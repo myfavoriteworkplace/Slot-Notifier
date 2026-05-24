@@ -637,6 +637,151 @@ To disable Sentry entirely, change `enabled: import.meta.env.PROD` to `enabled: 
 
 ---
 
+## SonarCloud — Static Code Analysis
+
+### What It Is
+
+SonarCloud is a cloud-based static analysis service that inspects your source code on every push or pull request and reports issues before they reach production. It does not run your code — it reads it, much like a very thorough code reviewer that never gets tired.
+
+For each scan it produces a report covering:
+
+- **Bugs** — code patterns that will very likely cause incorrect behaviour at runtime (e.g. a null dereference, a promise never awaited, a condition that is always true)
+- **Vulnerabilities** — security weaknesses in your own code (e.g. unsanitised input passed to a SQL query, a secret exposed in a log statement)
+- **Security Hotspots** — code that is not necessarily wrong but deserves a human review (e.g. a `eval()` call, a regex that could be ReDoS-prone)
+- **Code Smells** — maintainability issues that are not bugs today but will cause bugs tomorrow (e.g. a function with 200 lines, a deeply nested `if`, a duplicated block)
+- **Duplications** — copy-pasted code blocks across files (signals where a shared helper or hook is missing)
+- **Coverage** — what percentage of your code is exercised by tests (requires a test runner to generate a coverage report and upload it)
+
+Each issue has a severity (Blocker → Critical → Major → Minor → Info) and an estimated fix time. Issues are tracked over time so you can see whether the codebase is improving or accumulating debt.
+
+---
+
+### How It Integrates With This Project
+
+SonarCloud connects to your GitHub repository. The two most common integration points are:
+
+**Option A — GitHub Actions (recommended for this project)**
+
+A `.github/workflows/sonar.yml` file runs `sonar-scanner` on every push to `main` and on every pull request. The scanner uploads results to SonarCloud automatically. A quality gate status (pass / fail) appears directly on the PR.
+
+**Option B — Render Build Hook**
+
+Run `sonar-scanner` as a step in the Render build command before `npm run build`. Slower and less visible than GitHub Actions but requires no CI setup.
+
+---
+
+### Setup (One-Time)
+
+**1. Create a SonarCloud account and project**
+- Sign in at [sonarcloud.io](https://sonarcloud.io) with your GitHub account
+- Click **+** → **Analyze new project** → select the BookMySlot repository
+- SonarCloud will generate an **organisation key** and **project key**
+
+**2. Add `sonar-project.properties` to the project root**
+
+```properties
+sonar.projectKey=YOUR_ORG_KEY_bookmyslot
+sonar.organization=YOUR_ORG_KEY
+sonar.projectName=BookMySlot
+sonar.projectVersion=1.0
+
+# Source paths — exclude generated files and dependencies
+sonar.sources=client/src,server,shared
+sonar.exclusions=**/node_modules/**,**/dist/**,**/*.test.ts,**/*.test.tsx
+
+# Language
+sonar.typescript.tsconfigPath=tsconfig.json
+
+# If you generate test coverage reports (Jest / Vitest):
+# sonar.javascript.lcov.reportPaths=coverage/lcov.info
+```
+
+**3. Add `SONAR_TOKEN` secret**
+- In SonarCloud → My Account → Security → generate a token
+- Add it as a GitHub Actions secret named `SONAR_TOKEN`
+- If using Render build hook instead, add it as a Render environment variable
+
+**4. Add the GitHub Actions workflow**
+
+Create `.github/workflows/sonar.yml`:
+```yaml
+name: SonarCloud Analysis
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  sonar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # full history needed for blame and new-code detection
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+```
+
+---
+
+### Quality Gate
+
+SonarCloud applies a **Quality Gate** — a pass/fail verdict that blocks a PR merge if the new code introduced in that PR crosses any threshold. The default Sonar Way gate checks that new code has:
+
+- Zero new bugs
+- Zero new vulnerabilities
+- Security hotspot review coverage ≥ 80 %
+- Duplication on new code ≤ 3 %
+- Coverage ≥ 80 % (only enforced if you upload a coverage report)
+
+You can customise the gate thresholds in the SonarCloud dashboard under **Administration → Quality Gates**.
+
+---
+
+### How to Read the SonarCloud Dashboard
+
+1. Go to [sonarcloud.io](https://sonarcloud.io) and open your project
+2. The **Overview** tab shows the Quality Gate verdict and a summary of all issues
+3. The **Issues** tab lists every finding — filter by type, severity, or file
+4. The **Code** tab shows the full source with inline annotations for each issue
+5. The **Activity** tab shows how the issue count has changed over time
+6. On a pull request, SonarCloud posts a comment summarising new issues introduced by that PR
+
+**Useful filters:**
+- `Type: Bug + Severity: Critical` — the shortest list of the highest-priority fixes
+- `Status: Open + Assigned: Me` — your personal backlog
+- `Resolution: False Positive` — issues you have reviewed and dismissed as intentional
+
+---
+
+### What SonarCloud Does NOT Cover
+
+- **Runtime errors** — SonarCloud never runs your code. It will not catch a bug that only appears with certain input data, a race condition, or a memory leak under load. Use Sentry (above) for runtime errors and Node Clinic for performance.
+- **Infrastructure or deployment issues** — network timeouts, misconfigured environment variables, and Render deployment failures are outside its scope.
+- **End-to-end correctness** — SonarCloud does not know whether your API returns the right data for a given scenario. It only checks whether the code has known bad patterns.
+- **Frontend visual regressions** — use Lighthouse CI or manual testing for layout and rendering issues.
+
+---
+
+### What to Prioritise for This Project
+
+Given this project has no test suite at the moment, the most valuable things SonarCloud will surface immediately are:
+
+1. **Unhandled promise rejections** — async functions in Express routes that are missing `await` or a `.catch()` handler — these cause silent 500 errors
+2. **SQL injection hotspots** — any place where user input is concatenated into a raw SQL string rather than passed as a parameterised value
+3. **Exposed secrets** — API keys or tokens accidentally committed as string literals
+4. **Unused variables and dead code** — TypeScript catches some of these but SonarCloud is more thorough
+5. **Overly complex functions** — the booking route in `server/routes.ts` is very long; SonarCloud's cognitive complexity metric will flag the worst offenders for extraction
+
+---
+
 ## Future Sections
 
 - **ESLint Performance Rules** — catching expensive patterns at the linting stage
