@@ -1,0 +1,20 @@
+Dental Issues Classification & Doctor Mapping
+Main Category	Sub‑Issues (Simple Language)	Doctor Specialization
+Tooth Pain or Sensitivity	Sensitivity to hot/cold/sweet, sharp or throbbing pain, pain while chewing, pain at night	Endodontist, General Dentist
+Gum Problems	Bleeding gums, swollen/red gums, receding gums, bad breath/bad taste	Periodontist, General Dentist
+Tooth Decay / Cavities	Visible hole/black spot, pain when eating/drinking, food getting stuck	General Dentist, Endodontist
+Broken, Chipped or Cracked Tooth	Chipped/broken tooth, cracked tooth, worn down teeth	Prosthodontist, General Dentist
+Alignment or Bite Issues	Crooked/crowded teeth, gaps between teeth, bite feels off/jaw discomfort	Orthodontist
+Missing Teeth	One tooth missing, multiple teeth missing, want replacement options	Prosthodontist, Oral Surgeon
+Cosmetic / Smile Concerns	Yellow/stained teeth, want whiter smile, uneven teeth shape, gaps I want closed	Cosmetic Dentist, Prosthodontist
+Swelling or Infection	Swollen face/gum, pus or abscess, severe pain with swelling	Endodontist, Oral Surgeon, General Dentist
+Child’s Dental Issues	Tooth decay in baby teeth, child complains of pain, thumb sucking/habits, delayed tooth eruption	Pedodontist (Pediatric Dentist)
+Jaw Pain or Other	Jaw pain/clicking (TMJ), dry mouth, mouth ulcers, suspicious growth/lump	Oral Medicine Specialist, Oral Surgeon, General Dentist
+Wisdom Tooth Problems	Pain, swelling, impacted wisdom tooth, difficulty opening mouth	Oral Surgeon, General Dentist
+Orthognathic / Jaw Surgery Needs	Severe bite/jaw alignment requiring surgery	Oral & Maxillofacial Surgeon
+Oral Cancer Screening	Suspicious growth, non‑healing ulcer, white/red patches	Oral Medicine Specialist, Oncologist
+Prosthetic / Implant Needs	Dental implants, full mouth rehabilitation, dentures	Prosthodontist, Implantologist, Oral Surgeon
+Preventive / Routine Care	Regular checkup, cleaning, fluoride treatment, scaling/polishing	General Dentist, Dental Hygienist
+
+
+✅ Common‑Man Summary
