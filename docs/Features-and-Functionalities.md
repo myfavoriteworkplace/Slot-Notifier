@@ -10,6 +10,7 @@
 1. [Application Overview](#1-application-overview)
 2. [User Roles & Access Control](#2-user-roles--access-control)
 3. [Public-Facing Pages & Features](#3-public-facing-pages--features)
+   - [3.4.1 Chief Complaint Categories & Specialist Mapping](#341-chief-complaint-categories--specialist-mapping)
 4. [End-to-End Booking Workflow](#4-end-to-end-booking-workflow)
 5. [Clinic Admin Dashboard](#5-clinic-admin-dashboard)
 6. [Doctor Dashboard](#6-doctor-dashboard)
@@ -152,14 +153,40 @@ The core patient-facing booking interface. No login required.
 3. A 6-digit OTP is sent to the email (via Resend); expires after a short window
 4. Patient verifies the OTP — a `verifiedToken` is issued
 5. Patient selects a date, then picks a morning / afternoon / evening slot
-6. Patient enters name, phone number, and chief complaints (quick-select chips: Toothache, Cavities, Sensitivity, Swelling, Bleeding, Fracture, Wisdom, Infection, Checkup, or free text)
+6. Patient enters name, phone number, and selects chief complaints via the accordion panel (see §3.4.1 below)
 7. Booking is submitted; confirmation email sent immediately
 
 **Features:**
 - OTP verification prevents spam and fake bookings
 - Slot capacity is enforced (configurable per clinic)
 - Fully cancelled / full slots are hidden from the picker
-- Chief complaint chips make mobile entry fast
+- Accordion complaint picker is fast on mobile — one category open at a time
+- Selected sub-issues are stored as a comma-separated string in `bookings.description`
+- Free-text "Additional Notes" field remains available for anything not covered by the categories
+
+### 3.4.1 Chief Complaint Categories & Specialist Mapping
+
+The booking form groups complaints into 12 dental categories. Each category expands to reveal plain-language sub-issues. The selected sub-issues drive the **Suggested Specialization** banner shown to clinic staff in the doctor-assignment panel.
+
+| # | Category | Sub-Issues | Recommended Specialist(s) |
+|---|---|---|---|
+| 1 | 🦷 Tooth Pain or Sensitivity | Sensitivity to hot/cold/sweet · Sharp or throbbing pain · Pain while chewing · Pain at night | Endodontist · General Dentist |
+| 2 | 🩸 Gum Problems | Bleeding gums · Swollen or red gums · Receding gums · Bad breath or bad taste | Periodontist · General Dentist |
+| 3 | 🕳️ Tooth Decay / Cavities | Visible hole or black spot · Pain when eating or drinking · Food getting stuck | General Dentist · Endodontist |
+| 4 | 💔 Broken, Chipped or Cracked Tooth | Chipped or broken tooth · Cracked tooth · Worn down teeth | Prosthodontist · General Dentist |
+| 5 | 🔀 Alignment or Bite Issues | Crooked or crowded teeth · Gaps between teeth · Bite feels off or jaw discomfort | Orthodontist |
+| 6 | 🫥 Missing Teeth | One tooth missing · Multiple teeth missing · Want replacement options | Prosthodontist · Oral Surgeon |
+| 7 | ✨ Cosmetic / Smile Concerns | Yellow or stained teeth · Want a whiter smile · Uneven teeth shape · Gaps I want closed | Cosmetic Dentist · Prosthodontist |
+| 8 | 🤒 Swelling or Infection | Swollen face or gum · Pus or abscess · Severe pain with swelling | Endodontist · Oral Surgeon · General Dentist |
+| 9 | 👶 Child's Dental Issues | Tooth decay in baby teeth · Child complains of pain · Thumb sucking habits · Delayed tooth eruption | Pedodontist |
+| 10 | 🦴 Jaw Pain or Other | Jaw pain or clicking (TMJ) · Dry mouth · Mouth ulcers · Suspicious growth or lump | Oral Medicine Specialist · Oral Surgeon · General Dentist |
+| 11 | 😬 Wisdom Tooth Problems | Pain from wisdom tooth · Swelling near wisdom tooth · Difficulty opening mouth | Oral Surgeon · General Dentist |
+| 12 | 🧹 Preventive / Routine Care | Regular checkup · Cleaning or scaling · Fluoride treatment | General Dentist · Dental Hygienist |
+
+**How the mapping is used in the clinic dashboard:**
+- When a clinic admin opens a booking card and views the doctor-assignment panel, the system reads `booking.description`, matches each sub-issue against the table above, and collects the union of recommended specialists.
+- A **💡 Suggested specialization** banner is displayed above the doctor list, showing the matched specialist types as pill tags.
+- Any doctor whose recorded `specialization` field matches one of the suggestions is highlighted with a green **"Best match"** badge and a green card background — making the right assignment immediately obvious.
 
 ### 3.5 Smile Deals Marketplace (`/deals`)
 
@@ -335,10 +362,13 @@ Each tile is clickable and acts as a quick filter on the list below.
 **Actions per booking:**
 - Confirm / Cancel booking
 - Reschedule to a different date/slot
-- Assign or reassign a doctor
+- Assign or reassign a doctor — with smart specialist suggestion (see below)
 - Request digital consent → generates WhatsApp link
 - Generate PDF bill
 - Download consent certificate
+
+**Smart Doctor Assignment:**
+When a booking has chief complaints selected, the assign-doctor panel automatically shows a **💡 Suggested specialization** banner listing the specialist types derived from the patient's complaints (e.g. Endodontist, Periodontist). Doctors whose recorded specialization matches a suggestion are highlighted with a green **"Best match"** badge. See §3.4.1 for the full category → specialist mapping.
 
 ### 5.2 Configure Slots Panel
 
