@@ -48,27 +48,59 @@ function makeGoogleCalLink(title: string, start: Date, location?: string | null)
   return url;
 }
 
-function emailShell(headerColor: string, headerTitle: string, headerSubtitle: string, body: string): string {
+// ─── EMAIL DESIGN SYSTEM ──────────────────────────────────────────────────────
+// All 17 emails share one structural shell. Only the 4-px accent bar colour
+// and the inner body HTML differ per template. See docs/email-design-system.md.
+//
+// Helpers:
+//   logoBlock(onDark)              — "bookMySlot DENTAL" mark
+//   emailShell(accentColor, body)  — outer card wrapper with consistent footer
+//   heroBand(gradient, title, sub) — full-colour hero for celebratory emails
+//   detailCard(fields, opts)       — 2-col responsive detail grid
+//   infoBanner(type, html)         — amber / green / red / blue status notice
+//   primaryButton(label, href, c)  — solid CTA button
+//   splitButtons(...)              — side-by-side Accept / Decline pair
+// ─────────────────────────────────────────────────────────────────────────────
+
+function logoBlock(onDark = false): string {
+  const text   = onDark ? 'white'                : '#0d1f1a';
+  const tag    = onDark ? 'rgba(255,255,255,.7)' : '#1a9e6f';
+  const iconBg = onDark ? 'rgba(255,255,255,.2)' : '#1a9e6f';
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td style="width:34px;height:34px;background:${iconBg};border-radius:8px;text-align:center;vertical-align:middle;">
+      <span style="font-size:17px;line-height:34px;color:white;">&#128197;</span>
+    </td>
+    <td style="padding-left:10px;vertical-align:middle;">
+      <span style="font-size:16px;font-weight:700;color:${text};letter-spacing:-.3px;">bookMySlot</span>
+      <span style="font-size:11px;color:${tag};font-weight:600;"> DENTAL</span>
+    </td>
+  </tr></table>`;
+}
+
+function emailShell(accentColor: string, body: string): string {
   return `<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f4ff;font-family:'Helvetica Neue',Arial,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;padding:32px 16px">
-    <tr><td align="center">
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(62,52,180,0.10)">
-        <tr>
-          <td style="background:${headerColor};padding:28px 32px 24px">
-            <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.60)">BookMySlot</p>
-            <h1 style="margin:0;font-size:22px;font-weight:800;color:#ffffff;line-height:1.2">${headerTitle}</h1>
-            <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.82)">${headerSubtitle}</p>
-          </td>
-        </tr>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="x-apple-disable-message-reformatting"/>
+  <title>BookMySlot Dental</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f5f2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0f5f2;">
+    <tr><td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"
+        style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,.07);">
+        <!-- 4-px accent bar — the only colour that changes between templates -->
+        <tr><td style="height:4px;background:${accentColor};font-size:0;">&nbsp;</td></tr>
         ${body}
-        <tr>
-          <td style="background:${headerColor};padding:16px 32px;text-align:center">
-            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.60)">Powered by <strong style="color:#fff">BookMySlot</strong> &nbsp;·&nbsp; Please do not reply to this email</p>
-          </td>
-        </tr>
+        <!-- consistent footer -->
+        <tr><td style="padding:18px 40px;border-top:1px solid #edf2ef;">
+          <p style="margin:0;font-size:11px;color:#a8b8b0;text-align:center;line-height:1.6;">
+            bookMySlot Dental &nbsp;&middot;&nbsp; Automated message &nbsp;&middot;&nbsp;
+            <a href="mailto:support@bookmyslot.in" style="color:#1a9e6f;text-decoration:none;">support@bookmyslot.in</a>
+          </p>
+        </td></tr>
       </table>
     </td></tr>
   </table>
@@ -76,20 +108,92 @@ function emailShell(headerColor: string, headerTitle: string, headerSubtitle: st
 </html>`;
 }
 
-function detailsTable(rows: { label: string; value: string; mono?: boolean }[]): string {
-  const rowsHtml = rows.map((r, i) => `
-    <tr style="${i < rows.length - 1 ? 'border-bottom:1px solid #e5e3fa' : ''}">
-      <td style="padding:9px 14px;color:#6b6f8c;font-size:13px;width:130px;vertical-align:top">${r.label}</td>
-      <td style="padding:9px 14px;font-size:13px;font-weight:600;color:${r.mono ? '#3e34b4' : '#1e1c3c'};${r.mono ? 'font-family:monospace' : ''}">${r.value}</td>
-    </tr>`).join('');
-  return `<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;border-radius:10px;overflow:hidden;border:1px solid #e5e3fa">
-    <tr style="background:#3e34b4"><td colspan="2" style="padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.85)">Appointment Details</td></tr>
-    ${rowsHtml}
+function heroBand(gradient: string, title: string, subtitle: string): string {
+  return `<tr><td style="background:${gradient};padding:32px 40px;">
+    ${logoBlock(true)}
+    <p style="margin:20px 0 4px;font-size:26px;font-weight:700;color:white;letter-spacing:-.4px;">${title}</p>
+    <p style="margin:0;font-size:15px;color:rgba(255,255,255,.82);line-height:1.5;">${subtitle}</p>
+  </td></tr>`;
+}
+
+function detailCard(
+  fields: { label: string; value: string; strikethrough?: boolean }[],
+  accentColor = '#5a9070',
+  cardBg      = '#f8fbf9',
+  borderColor = '#d4ebe0',
+): string {
+  const pairs: string[] = [];
+  for (let i = 0; i < fields.length; i += 2) {
+    const a    = fields[i];
+    const b    = fields[i + 1];
+    const last = i + 2 >= fields.length;
+    const cell = (f: { label: string; value: string; strikethrough?: boolean }) =>
+      `<p style="margin:0;font-size:10px;font-weight:600;color:${accentColor};text-transform:uppercase;letter-spacing:.08em;">${f.label}</p>
+       <p style="margin:4px 0 0;font-size:14px;font-weight:600;color:${f.strikethrough ? '#9aaa9e' : '#0d1f1a'};${f.strikethrough ? 'text-decoration:line-through;' : ''}">${f.value}</p>`;
+    pairs.push(`<tr>
+      <td width="50%" style="${!last ? 'padding-bottom:14px;' : ''}vertical-align:top;">${cell(a)}</td>
+      ${b
+        ? `<td width="50%" style="${!last ? 'padding-bottom:14px;' : ''}vertical-align:top;">${cell(b)}</td>`
+        : '<td width="50%"></td>'
+      }
+    </tr>`);
+  }
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+    style="background:${cardBg};border:1px solid ${borderColor};border-radius:10px;">
+    <tr><td style="padding:20px 24px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        ${pairs.join('')}
+      </table>
+    </td></tr>
   </table>`;
 }
 
-function actionButton(label: string, href: string, color = '#3e34b4'): string {
-  return `<a href="${href}" style="display:inline-block;padding:12px 28px;background:${color};color:#fff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px">${label}</a>`;
+function infoBanner(type: 'amber' | 'green' | 'red' | 'blue', html: string): string {
+  const s = {
+    amber: { bg: '#fef9ec', border: '#f0c870', text: '#7a5010' },
+    green: { bg: '#f0faf5', border: '#a8dfc4', text: '#2d6a4a' },
+    red:   { bg: '#fff5f5', border: '#fca5a5', text: '#8b2020' },
+    blue:  { bg: '#f0f6ff', border: '#bfdbfe', text: '#1e4ba0' },
+  }[type];
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+    style="background:${s.bg};border:1px solid ${s.border};border-radius:8px;">
+    <tr><td style="padding:13px 18px;">
+      <p style="margin:0;font-size:13px;color:${s.text};line-height:1.6;">${html}</p>
+    </td></tr>
+  </table>`;
+}
+
+function primaryButton(label: string, href: string, color = '#1a9e6f'): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+    <tr><td style="border-radius:8px;background:${color};">
+      <a href="${href}" style="display:inline-block;padding:13px 32px;background:${color};color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;border-radius:8px;letter-spacing:.01em;">${label}</a>
+    </td></tr>
+  </table>`;
+}
+
+function splitButtons(
+  leftLabel: string,  leftHref: string,  leftColor: string,
+  rightLabel: string, rightHref: string,
+): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td width="48%" align="center">
+        <a href="${leftHref}" style="display:block;background:${leftColor};color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:12px 16px;border-radius:8px;text-align:center;">${leftLabel}</a>
+      </td>
+      <td width="4%"></td>
+      <td width="48%" align="center">
+        <a href="${rightHref}" style="display:block;background:#fff5f5;color:#dc2626;text-decoration:none;font-size:13px;font-weight:600;padding:11px 16px;border-radius:8px;text-align:center;border:1.5px solid #fca5a5;">${rightLabel}</a>
+      </td>
+    </tr>
+  </table>`;
+}
+
+// Legacy shims — keeps any remaining call-sites outside named email functions compiling
+function detailsTable(rows: { label: string; value: string; mono?: boolean }[]): string {
+  return detailCard(rows.map(r => ({ label: r.label, value: r.value })));
+}
+function actionButton(label: string, href: string, color = '#1a9e6f'): string {
+  return `<a href="${href}" style="display:inline-block;padding:12px 28px;background:${color};color:#fff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;">${label}</a>`;
 }
 
 function generateTempPassword(): string {
@@ -101,18 +205,29 @@ function generateTempPassword(): string {
   return result;
 }
 
-function sendOtpEmail(code: string): string {
+function sendOtpEmail(code: string, recipientName?: string): string {
+  const greeting = recipientName
+    ? `Hi <strong style="color:#0d1f1a;">${recipientName}</strong>, use the code below to verify your email and complete your request.`
+    : `Use the code below to verify your email address.`;
   return emailShell(
-    '#3e34b4',
-    'Your Verification Code',
-    'Use this code to verify your email and complete your booking',
-    `<tr><td style="padding:28px 32px">
-      <p style="margin:0 0 20px;font-size:14px;color:#4a4a6a;line-height:1.6">Enter the code below in the booking form. It is valid for <strong>5 minutes</strong> and can only be used once.</p>
-      <div style="background:#f5f4ff;border:2px dashed #c4c0f0;border-radius:12px;padding:28px;text-align:center;margin:0 0 20px">
-        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#6b6f8c">Your verification code</p>
-        <p style="margin:0;font-size:44px;font-weight:900;letter-spacing:12px;color:#3e34b4;font-family:monospace">${code}</p>
-      </div>
-      <p style="margin:0;font-size:12px;color:#9090aa;text-align:center">If you did not request this, you can safely ignore this email.</p>
+    'linear-gradient(90deg,#0f9b6e,#1dbe88)',
+    `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+    <tr><td style="padding:24px 40px 36px;">
+      <p style="margin:0 0 6px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">Verify your email</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">${greeting}</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr><td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"
+            style="background:#f0faf5;border:1.5px solid #a8dfc4;border-radius:12px;">
+            <tr><td style="padding:28px 48px;text-align:center;">
+              <p style="margin:0 0 6px;font-size:11px;font-weight:600;color:#3b8c62;text-transform:uppercase;letter-spacing:.1em;">Your verification code</p>
+              <p style="margin:0;font-size:52px;font-weight:700;color:#0d7a50;letter-spacing:.35em;font-family:'Courier New',Courier,monospace;line-height:1.1;">${code}</p>
+              <p style="margin:10px 0 0;font-size:12px;color:#7aaa8e;">Expires in <strong>5 minutes</strong></p>
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+      <p style="margin:24px 0 0;font-size:13px;color:#8fa89a;line-height:1.6;">If you didn't request this, you can safely ignore this email. The code will expire automatically.</p>
     </td></tr>`
   );
 }
@@ -132,68 +247,76 @@ async function sendBookingEmails(
     return;
   }
   const finalCustomerEmail = RESEND_MODE === 'PRODUCTION' ? customerEmail : TEST_EMAIL;
-  const finalClinicEmail = RESEND_MODE === 'PRODUCTION' ? clinicEmail : TEST_EMAIL;
-  const formattedTime = startTime.toLocaleString('en-IN', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
-  const calLink = makeGoogleCalLink(`Appointment at ${clinicName}`, startTime);
-  const receiptRef = bookingId ? `BMS-${bookingId}` : null;
+  const finalClinicEmail   = RESEND_MODE === 'PRODUCTION' ? clinicEmail   : TEST_EMAIL;
+  const apptDate  = startTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const apptTime  = startTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const calLink   = makeGoogleCalLink(`Appointment at ${clinicName}`, startTime);
+  const refNum    = bookingId ? `BMS-${bookingId}` : '—';
+  const dashLink  = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
 
-  const patientDetailRows: { label: string; value: string; mono?: boolean }[] = [
-    { label: 'Clinic', value: clinicName },
-    { label: 'Date &amp; Time', value: formattedTime },
-    ...(clinicPhone ? [{ label: 'Clinic Phone', value: clinicPhone }] : []),
-    ...(receiptRef ? [{ label: 'Reference', value: receiptRef, mono: true }] : []),
-  ];
-
+  // ── Patient: booking received ───────────────────────────────────────────────
   const patientHtml = emailShell(
-    'linear-gradient(90deg,#3e34b4 0%,#a83cd2 100%)',
-    'Booking Received ✓',
-    `Your request has been sent to <strong>${clinicName}</strong>.`,
-    `<tr><td style="padding:24px 32px 0">
-      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${customerName}</strong>,</p>
-      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
-        Thanks for booking with us! Your appointment request is now <strong>pending clinic confirmation</strong>. You will receive another email as soon as the clinic approves it.
-      </p>
-      ${detailsTable(patientDetailRows)}
-    </td></tr>
-    <tr><td style="padding:20px 32px 28px">
-      ${actionButton('Add to Google Calendar', calLink)}
+    'linear-gradient(90deg,#0f9b6e,#1dbe88)',
+    `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+    <tr><td style="padding:24px 40px 0;">
+      <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">Booking received ✓</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">Hi <strong style="color:#0d1f1a;">${customerName}</strong>, your appointment request has been received. The clinic will confirm it shortly.</p>
+      ${detailCard([
+        { label: 'Clinic',    value: clinicName },
+        { label: 'Reference', value: refNum },
+        { label: 'Date',      value: apptDate },
+        { label: 'Time',      value: apptTime },
+      ])}
+      <div style="margin-top:16px;">${infoBanner('amber', '&#9203; <strong>Awaiting confirmation</strong> — The clinic will confirm your booking within 1 working day. You\'ll receive another email once confirmed.')}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
+        <tr><td align="center">${primaryButton('&#128197; &nbsp;Add to Google Calendar', calLink)}</td></tr>
+      </table>
+      <p style="margin:24px 0 0;font-size:13px;color:#8fa89a;line-height:1.6;">Questions? Contact <strong style="color:#0d1f1a;">${clinicName}</strong> directly or reply to this email.</p>
     </td></tr>`
   );
 
-  const clinicDetailRows: { label: string; value: string }[] = [
-    { label: 'Patient', value: customerName },
-    ...(customerPhone ? [{ label: 'Phone', value: customerPhone }] : []),
-    ...(customerEmail ? [{ label: 'Email', value: customerEmail }] : []),
-    { label: 'Date &amp; Time', value: formattedTime },
-    ...(receiptRef ? [{ label: 'Reference', value: receiptRef }] : []),
-  ];
-
+  // ── Clinic admin: new booking request ──────────────────────────────────────
   const clinicHtml = emailShell(
-    'linear-gradient(90deg,#1e1c3c 0%,#3e34b4 100%)',
-    'New Booking Request',
-    `A patient has requested an appointment at <strong>${clinicName}</strong>.`,
-    `<tr><td style="padding:24px 32px 20px">
-      <p style="margin:0 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
-        A new appointment request is waiting for your review. Log in to your Clinic Portal to confirm or manage this booking.
-      </p>
-      ${detailsTable(clinicDetailRows)}
+    'linear-gradient(90deg,#2563eb,#3b82f6)',
+    `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+    <tr><td style="padding:24px 40px 0;">
+      <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">New booking request</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">A patient has requested an appointment at <strong style="color:#0d1f1a;">${clinicName}</strong>. Log in to confirm or manage this booking.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#f0f6ff;border:1px solid #bfdbfe;border-radius:10px;">
+        <tr><td style="padding:20px 24px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr><td style="padding-bottom:12px;border-bottom:1px solid #dbeafe;">
+              <p style="margin:0;font-size:10px;font-weight:600;color:#3b6ac2;text-transform:uppercase;letter-spacing:.08em;">Patient</p>
+              <p style="margin:4px 0 0;font-size:15px;font-weight:700;color:#0d1f1a;">${customerName}</p>
+              <p style="margin:2px 0 0;font-size:13px;color:#5a7a6a;">${customerPhone ? customerPhone + ' &nbsp;&middot;&nbsp; ' : ''}${customerEmail}</p>
+            </td></tr>
+            <tr><td style="padding-top:12px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td width="34%"><p style="margin:0;font-size:10px;font-weight:600;color:#3b6ac2;text-transform:uppercase;letter-spacing:.08em;">Date</p><p style="margin:4px 0 0;font-size:13px;font-weight:600;color:#0d1f1a;">${apptDate}</p></td>
+                <td width="33%"><p style="margin:0;font-size:10px;font-weight:600;color:#3b6ac2;text-transform:uppercase;letter-spacing:.08em;">Time</p><p style="margin:4px 0 0;font-size:13px;font-weight:600;color:#0d1f1a;">${apptTime}</p></td>
+                <td width="33%"><p style="margin:0;font-size:10px;font-weight:600;color:#3b6ac2;text-transform:uppercase;letter-spacing:.08em;">Ref</p><p style="margin:4px 0 0;font-size:13px;font-weight:600;color:#0d1f1a;">${refNum}</p></td>
+              </tr></table>
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+        <tr><td align="center">${primaryButton('Open dashboard to confirm', dashLink, '#2563eb')}</td></tr>
+      </table>
     </td></tr>`
   );
 
   try {
     await resend.emails.send({
-      from: EMAIL_FROM,
-      to: finalCustomerEmail,
-      subject: `Booking Received at ${clinicName} — Pending Confirmation`,
+      from: EMAIL_FROM, to: finalCustomerEmail,
+      subject: `BookMySlot – Booking Received · ${clinicName}`,
       html: patientHtml,
     });
     if (finalClinicEmail) {
       await resend.emails.send({
-        from: EMAIL_FROM,
-        to: finalClinicEmail,
-        subject: `New Booking Request: ${customerName} — ${formattedTime}`,
+        from: EMAIL_FROM, to: finalClinicEmail,
+        subject: `BookMySlot – New Booking Request · ${customerName}`,
         html: clinicHtml,
       });
     }
@@ -219,62 +342,47 @@ async function sendConfirmationEmail(
     console.log(`[EMAIL MOCK] Resend not configured — confirmation email skipped.`);
     return;
   }
-  const finalEmail = RESEND_MODE === 'PRODUCTION' ? customerEmail : TEST_EMAIL;
-  const formattedTime = startTime.toLocaleString('en-IN', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-  const receiptRef = bookingId ? `BMS-${bookingId}` : '—';
-  const calLink = makeGoogleCalLink(`Appointment at ${clinicName}`, startTime, clinicAddress);
-  const mapsLink = (lat != null && lng != null)
+  const finalEmail  = RESEND_MODE === 'PRODUCTION' ? customerEmail : TEST_EMAIL;
+  const apptDate    = startTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const apptTime    = startTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const refNum      = bookingId ? `BMS-${bookingId}` : '—';
+  const calLink     = makeGoogleCalLink(`Appointment at ${clinicName}`, startTime, clinicAddress);
+  const mapsLink    = (lat != null && lng != null)
     ? `https://maps.google.com/?q=${lat},${lng}`
     : clinicAddress ? `https://maps.google.com/?q=${encodeURIComponent(clinicAddress)}` : null;
 
-  const detailRows = [
-    { label: 'Date &amp; Time', value: formattedTime },
-    { label: 'Clinic', value: clinicName },
-    ...(doctorName ? [{ label: 'Doctor', value: doctorName }] : []),
-    { label: 'Reference', value: receiptRef, mono: true },
-  ];
-
-  const contactRows = [
-    ...(clinicPhone ? [{ label: 'Phone', value: clinicPhone }] : []),
-    ...(clinicAddress ? [{ label: 'Address', value: mapsLink ? `<a href="${mapsLink}" style="color:#3e34b4;text-decoration:none">${clinicAddress} ↗</a>` : clinicAddress }] : []),
-    ...(clinicEmail ? [{ label: 'Email', value: clinicEmail }] : []),
-  ];
-
-  const contactSection = contactRows.length > 0
-    ? `<tr><td style="padding:0 32px 24px">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;border-radius:10px;overflow:hidden;border:1px solid #e5e3fa">
-          <tr style="background:#6357dc"><td colspan="2" style="padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.85)">Clinic Contact</td></tr>
-          ${contactRows.map((r, i) => `<tr style="${i < contactRows.length - 1 ? 'border-bottom:1px solid #e5e3fa' : ''}"><td style="padding:9px 14px;color:#6b6f8c;font-size:13px;width:130px">${r.label}</td><td style="padding:9px 14px;font-size:13px;color:#1e1c3c">${r.value}</td></tr>`).join('')}
-        </table>
-      </td></tr>`
-    : '';
+  const detailFields: { label: string; value: string }[] = [
+    { label: 'Clinic',    value: clinicName },
+    ...(doctorName ? [{ label: 'Doctor', value: `Dr. ${doctorName}` }] : [{ label: 'Reference', value: refNum }]),
+    { label: 'Date',      value: apptDate },
+    { label: 'Time',      value: apptTime },
+    ...(doctorName ? [{ label: 'Reference', value: refNum }, ...(clinicPhone ? [{ label: 'Phone', value: clinicPhone }] : [])] : (clinicPhone ? [{ label: 'Phone', value: clinicPhone }, { label: '', value: '' }] : [])),
+  ].filter(f => !(f.label === '' && f.value === ''));
 
   const html = emailShell(
-    'linear-gradient(90deg,#3e34b4 0%,#a83cd2 100%)',
-    'Appointment Confirmed ✓',
-    `Your booking at <strong>${clinicName}</strong> has been confirmed.`,
-    `<tr><td style="padding:24px 32px 0">
-      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${customerName}</strong>,</p>
-      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
-        Great news — your appointment has been confirmed. Find the details below and please arrive a few minutes early.
-      </p>
-      ${detailsTable(detailRows)}
-    </td></tr>
-    <tr><td style="padding:20px 32px">
-      ${actionButton('Add to Google Calendar', calLink)}
-      ${mapsLink ? `&nbsp;&nbsp;${actionButton('Get Directions ↗', mapsLink, '#6357dc')}` : ''}
-    </td></tr>
-    ${contactSection}`
+    'linear-gradient(90deg,#0f9b6e,#1dbe88)',
+    `${heroBand('linear-gradient(135deg,#0d7a50 0%,#1a9e6f 100%)', 'Appointment confirmed &#127881;', `Hi <strong style="color:rgba(255,255,255,.95);">${customerName}</strong> — we\'re looking forward to seeing you.`)}
+    <tr><td style="padding:28px 40px 0;">
+      ${detailCard(detailFields)}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+        <tr>
+          ${mapsLink ? `<td width="48%" align="center"><a href="${mapsLink}" style="display:block;background:#1a9e6f;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:12px 16px;border-radius:8px;text-align:center;">&#128205; &nbsp;Get directions</a></td><td width="4%"></td>` : ''}
+          <td width="${mapsLink ? '48' : '100'}%" align="center">
+            ${clinicPhone
+              ? `<a href="tel:${clinicPhone}" style="display:block;background:#f0faf5;color:#0d7a50;text-decoration:none;font-size:13px;font-weight:600;padding:12px 16px;border-radius:8px;text-align:center;border:1.5px solid #a8dfc4;">&#128222; &nbsp;Call clinic</a>`
+              : `<a href="${calLink}" style="display:block;background:#f0faf5;color:#0d7a50;text-decoration:none;font-size:13px;font-weight:600;padding:12px 16px;border-radius:8px;text-align:center;border:1.5px solid #a8dfc4;">&#128197; &nbsp;Add to Calendar</a>`
+            }
+          </td>
+        </tr>
+      </table>
+      <p style="margin:24px 0 0;font-size:13px;color:#8fa89a;line-height:1.6;">Please arrive 5 minutes early.${clinicPhone ? ` If you need to reschedule, call <strong style="color:#0d1f1a;">${clinicPhone}</strong>.` : ''}</p>
+    </td></tr>`
   );
 
   try {
     await resend.emails.send({
-      from: EMAIL_FROM,
-      to: finalEmail,
-      subject: `Appointment Confirmed at ${clinicName} — ${formattedTime}`,
+      from: EMAIL_FROM, to: finalEmail,
+      subject: `BookMySlot – Appointment Confirmed · ${clinicName}`,
       html,
     });
   } catch (error) {
@@ -282,32 +390,32 @@ async function sendConfirmationEmail(
   }
 }
 
-async function sendCancellationEmail(email: string, name: string, date: Date, clinic: string) {
+async function sendCancellationEmail(email: string, name: string, date: Date, clinic: string, clinicPhone?: string | null, bookingId?: number | null) {
   if (!resend) return;
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
-  const formattedTime = date.toLocaleString('en-IN', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
+  const apptDate   = date.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const apptTime   = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const refNum     = bookingId ? `BMS-${bookingId}` : '—';
   const html = emailShell(
-    'linear-gradient(90deg,#7c3aed 0%,#c026d3 100%)',
-    'Appointment Cancelled',
-    `Your booking at <strong>${clinic}</strong> has been cancelled.`,
-    `<tr><td style="padding:24px 32px 32px">
-      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${name}</strong>,</p>
-      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
-        Your appointment has been cancelled. If this was unexpected, please contact the clinic directly to rebook.
-      </p>
-      ${detailsTable([
-        { label: 'Clinic', value: clinic },
-        { label: 'Date &amp; Time', value: formattedTime },
-      ])}
+    'linear-gradient(90deg,#dc2626,#ef4444)',
+    `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+    <tr><td style="padding:24px 40px 0;">
+      <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">Appointment cancelled</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">Hi <strong style="color:#0d1f1a;">${name}</strong>, we're sorry to let you know that your appointment has been cancelled.</p>
+      ${detailCard([
+        { label: 'Clinic',        value: clinic },
+        { label: 'Reference',     value: refNum },
+        { label: 'Was scheduled', value: apptDate, strikethrough: true },
+        { label: 'Time',          value: apptTime, strikethrough: true },
+      ], '#e05050', '#fff5f5', '#fca5a5')}
+      <div style="margin-top:16px;">${infoBanner('green', `To book a new appointment, please contact <strong>${clinic}</strong>${clinicPhone ? ` at <strong>${clinicPhone}</strong>` : ' directly'}. Their team will be happy to help you find a suitable time.`)}</div>
+      <p style="margin:20px 0 0;font-size:13px;color:#8fa89a;line-height:1.6;">We apologise for any inconvenience caused.</p>
     </td></tr>`
   );
   try {
     await resend.emails.send({
-      from: EMAIL_FROM,
-      to: finalEmail,
-      subject: `Appointment Cancelled at ${clinic}`,
+      from: EMAIL_FROM, to: finalEmail,
+      subject: `BookMySlot – Appointment Cancelled · ${clinic}`,
       html,
     });
   } catch (error) {
@@ -343,35 +451,34 @@ async function sendDoctorAssignmentEmail(
     console.log(`[EMAIL MOCK] Resend not configured — doctor assignment email skipped.`);
     return;
   }
-  const finalEmail = RESEND_MODE === 'PRODUCTION' ? doctorEmail : TEST_EMAIL;
-  const formattedTime = startTime.toLocaleString('en-IN', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
+  const finalEmail  = RESEND_MODE === 'PRODUCTION' ? doctorEmail : TEST_EMAIL;
+  const apptDate    = startTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const apptTime    = startTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const dashLink    = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
   const html = emailShell(
-    'linear-gradient(90deg,#1e1c3c 0%,#3e34b4 100%)',
-    'New Appointment — Action Required',
-    `You have been assigned a patient at <strong>${clinicName}</strong>.`,
-    `<tr><td style="padding:24px 32px 0">
-      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${doctorName}</strong>,</p>
-      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
-        A new appointment has been assigned to you and is <strong>awaiting your approval</strong>. Please log in to your Doctor Portal to accept or decline.
-      </p>
-      ${detailsTable([
-        { label: 'Patient', value: patientName },
-        { label: 'Clinic', value: clinicName },
-        { label: 'Date &amp; Time', value: formattedTime },
-        { label: 'Reference', value: `BMS-${bookingId}`, mono: true },
-      ])}
-    </td></tr>
-    <tr><td style="padding:20px 32px 28px">
-      ${actionButton('View in Doctor Portal →', '#')}
+    'linear-gradient(90deg,#7c3aed,#a78bfa)',
+    `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+    <tr><td style="padding:24px 40px 0;">
+      <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">New appointment assigned</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">Hi <strong style="color:#0d1f1a;">Dr. ${doctorName}</strong>, a new appointment has been assigned to you and is <strong style="color:#0d1f1a;">awaiting your approval</strong>.</p>
+      ${detailCard([
+        { label: 'Patient',   value: patientName },
+        { label: 'Clinic',    value: clinicName },
+        { label: 'Date',      value: apptDate },
+        { label: 'Time',      value: apptTime },
+        { label: 'Reference', value: `BMS-${bookingId}` },
+        { label: '',          value: '' },
+      ].filter(f => !(f.label === '' && f.value === '')), '#6d3abf', '#faf5ff', '#e9d5ff')}
+      <div style="margin-top:16px;">${infoBanner('amber', '&#9203; Please log in to your doctor portal to <strong>accept or decline</strong> this appointment before the scheduled time.')}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+        <tr><td align="center">${primaryButton('View in Doctor Portal', dashLink, '#7c3aed')}</td></tr>
+      </table>
     </td></tr>`
   );
   try {
     await resend.emails.send({
-      from: EMAIL_FROM,
-      to: finalEmail,
-      subject: `Action Required: New appointment assigned to you at ${clinicName}`,
+      from: EMAIL_FROM, to: finalEmail,
+      subject: `BookMySlot – New Appointment Assigned (action needed)`,
       html,
     });
   } catch (error) {
@@ -391,36 +498,39 @@ async function sendDoctorAdminConfirmEmail(
     console.log(`[EMAIL MOCK] Resend not configured — doctor admin-confirm email skipped.`);
     return;
   }
-  const finalEmail = RESEND_MODE === 'PRODUCTION' ? doctorEmail : TEST_EMAIL;
-  const formattedTime = startTime.toLocaleString('en-IN', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
-  const calLink = makeGoogleCalLink(`Patient: ${patientName} at ${clinicName}`, startTime);
+  const finalEmail  = RESEND_MODE === 'PRODUCTION' ? doctorEmail : TEST_EMAIL;
+  const apptDate    = startTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const apptTime    = startTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const calLink     = makeGoogleCalLink(`Patient: ${patientName} at ${clinicName}`, startTime);
+  const dashLink    = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
   const html = emailShell(
-    'linear-gradient(90deg,#b45309 0%,#d97706 100%)',
-    'Appointment Confirmed by Admin',
-    `The clinic admin confirmed a booking on your behalf at <strong>${clinicName}</strong>.`,
-    `<tr><td style="padding:24px 32px 0">
-      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${doctorName}</strong>,</p>
-      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
-        The clinic admin confirmed the appointment below on your behalf without waiting for your approval. This appointment is now active on your schedule.
-      </p>
-      ${detailsTable([
-        { label: 'Patient', value: patientName },
-        { label: 'Clinic', value: clinicName },
-        { label: 'Date &amp; Time', value: formattedTime },
-        { label: 'Reference', value: `BMS-${bookingId}`, mono: true },
-      ])}
-    </td></tr>
-    <tr><td style="padding:20px 32px 28px">
-      ${actionButton('Add to Google Calendar', calLink, '#b45309')}
+    'linear-gradient(90deg,#d97706,#f59e0b)',
+    `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+    <tr><td style="padding:24px 40px 0;">
+      <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">Added to your schedule</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">Hi <strong style="color:#0d1f1a;">Dr. ${doctorName}</strong>, the clinic admin confirmed an appointment on your behalf. It is now active on your schedule.</p>
+      ${detailCard([
+        { label: 'Patient',   value: patientName },
+        { label: 'Clinic',    value: clinicName },
+        { label: 'Date',      value: apptDate },
+        { label: 'Time',      value: apptTime },
+        { label: 'Reference', value: `BMS-${bookingId}` },
+        { label: '',          value: '' },
+      ].filter(f => !(f.label === '' && f.value === '')), '#a16207', '#fefce8', '#fde68a')}
+      <div style="margin-top:16px;">${infoBanner('amber', 'This appointment was confirmed by the clinic admin without waiting for your approval. If you have a conflict, please contact the clinic directly.')}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+        <tr>
+          <td width="48%" align="center"><a href="${calLink}" style="display:block;background:#d97706;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:12px 16px;border-radius:8px;text-align:center;">&#128197; &nbsp;Add to Calendar</a></td>
+          <td width="4%"></td>
+          <td width="48%" align="center"><a href="${dashLink}" style="display:block;background:#fefce8;color:#a16207;text-decoration:none;font-size:13px;font-weight:600;padding:11px 16px;border-radius:8px;text-align:center;border:1.5px solid #fde68a;">View in portal</a></td>
+        </tr>
+      </table>
     </td></tr>`
   );
   try {
     await resend.emails.send({
-      from: EMAIL_FROM,
-      to: finalEmail,
-      subject: `FYI: Clinic admin confirmed an appointment on your behalf at ${clinicName}`,
+      from: EMAIL_FROM, to: finalEmail,
+      subject: `BookMySlot – Added to Your Schedule · ${clinicName}`,
       html,
     });
   } catch (error) {
@@ -441,34 +551,33 @@ async function sendAdminDoctorDeclineEmail(
     return;
   }
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? adminEmail : TEST_EMAIL;
-  const formattedTime = startTime.toLocaleString('en-IN', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
+  const apptDate   = startTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const apptTime   = startTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const dashLink   = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
   const html = emailShell(
-    'linear-gradient(90deg,#991b1b 0%,#b45309 100%)',
-    'Doctor Declined — Action Needed',
-    `A doctor has declined an assignment at <strong>${clinicName}</strong>.`,
-    `<tr><td style="padding:24px 32px 0">
-      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi,</p>
-      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
-        <strong>${doctorName}</strong> has declined the appointment below. Please log in to your Clinic Portal to reassign a doctor or take further action before the patient's slot time.
-      </p>
-      ${detailsTable([
-        { label: 'Patient', value: patientName },
-        { label: 'Doctor', value: doctorName },
-        { label: 'Date &amp; Time', value: formattedTime },
-        { label: 'Reference', value: `BMS-${bookingId}`, mono: true },
-      ])}
-    </td></tr>
-    <tr><td style="padding:20px 32px 28px">
-      ${actionButton('Manage in Clinic Portal →', '#', '#991b1b')}
+    'linear-gradient(90deg,#dc2626,#ef4444)',
+    `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+    <tr><td style="padding:24px 40px 0;">
+      <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">Action needed: doctor declined</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;"><strong style="color:#0d1f1a;">Dr. ${doctorName}</strong> has declined the appointment below. Please log in to reassign a doctor before the patient's slot time.</p>
+      ${detailCard([
+        { label: 'Patient',   value: patientName },
+        { label: 'Doctor',    value: `Dr. ${doctorName}` },
+        { label: 'Date',      value: apptDate },
+        { label: 'Time',      value: apptTime },
+        { label: 'Clinic',    value: clinicName },
+        { label: 'Reference', value: `BMS-${bookingId}` },
+      ], '#c02020', '#fff5f5', '#fca5a5')}
+      <div style="margin-top:16px;">${infoBanner('red', '&#128680; The patient has not yet been notified. Reassign a doctor promptly to avoid disruption.')}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+        <tr><td align="center">${primaryButton('Reassign doctor now', dashLink, '#dc2626')}</td></tr>
+      </table>
     </td></tr>`
   );
   try {
     await resend.emails.send({
-      from: EMAIL_FROM,
-      to: finalEmail,
-      subject: `⚠ Doctor Declined: ${patientName}'s appointment at ${clinicName} — action needed`,
+      from: EMAIL_FROM, to: finalEmail,
+      subject: `BookMySlot – Action Needed: Doctor Declined · ${patientName}`,
       html,
     });
   } catch (error) {
@@ -480,29 +589,21 @@ async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLi
   if (!resend) return;
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
   const html = emailShell(
-    'linear-gradient(90deg,#3e34b4 0%,#a83cd2 100%)',
-    "You've Been Invited",
-    `<strong>${clinicName}</strong> has added you as a doctor on BookMySlot.`,
-    `<tr><td style="padding:24px 32px 0">
-      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi there,</p>
-      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
-        You have been invited to join <strong>${clinicName}</strong> on BookMySlot. Click the button below to set up your Doctor Portal account and start managing your appointments.
-      </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;border-radius:10px;border:1px solid #e5e3fa">
-        <tr><td style="padding:14px 16px;font-size:13px;color:#6b6f8c">
-          This invitation link will expire. If you did not expect this email, you can safely ignore it.
-        </td></tr>
+    'linear-gradient(90deg,#7c3aed,#a78bfa)',
+    `${heroBand('linear-gradient(135deg,#5b21b6 0%,#7c3aed 100%)', `You're invited to join ${clinicName}`, 'Set up your Doctor Portal account and start managing your appointments.')}
+    <tr><td style="padding:28px 40px 0;">
+      <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;"><strong style="color:#0d1f1a;">${clinicName}</strong> has added you as a doctor on bookMySlot Dental. Accept the invitation to create your account.</p>
+      ${infoBanner('amber', '&#9203; This invitation link expires in <strong>72 hours</strong>. If you did not expect this email, you can safely ignore it.')}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
+        <tr><td align="center">${primaryButton('Set Up My Account', inviteLink, '#7c3aed')}</td></tr>
       </table>
-    </td></tr>
-    <tr><td style="padding:20px 32px 28px">
-      ${actionButton('Set Up My Account →', inviteLink)}
+      <p style="margin:16px 0 0;font-size:12px;color:#a8b8b0;text-align:center;">Or copy this link: <a href="${inviteLink}" style="color:#7c3aed;text-decoration:none;word-break:break-all;">${inviteLink}</a></p>
     </td></tr>`
   );
   try {
     await resend.emails.send({
-      from: EMAIL_FROM,
-      to: finalEmail,
-      subject: `You've been invited to join ${clinicName} on BookMySlot`,
+      from: EMAIL_FROM, to: finalEmail,
+      subject: `BookMySlot – You're Invited to Join ${clinicName}`,
       html,
     });
   } catch (error) {
@@ -511,46 +612,51 @@ async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLi
 }
 
 async function sendDoctorWelcomeEmail(email: string, doctorName: string, clinicName: string, tempPassword: string) {
-  const loginUrl = process.env.FRONTEND_URL
-    ? `${process.env.FRONTEND_URL}/clinic-login`
-    : `https://${process.env.REPLIT_DEV_DOMAIN || 'bookmyslot.dental'}/clinic-login`;
+  const loginUrl = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
   if (!resend) {
     console.log(`[EMAIL MOCK] Doctor welcome: ${email} — Login: ${email}, Password: ${tempPassword}`);
     return;
   }
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
   const html = emailShell(
-    'linear-gradient(90deg,#059669 0%,#10b981 100%)',
-    'Welcome to BookMySlot',
-    `You've been added as a doctor at <strong>${clinicName}</strong>`,
-    `<tr><td style="padding:24px 32px 0">
-      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi Dr. ${doctorName},</p>
-      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
-        You've been added to <strong>${clinicName}</strong> on BookMySlot. Use the credentials below to sign in to your Doctor Portal.
-      </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0;margin-bottom:20px">
-        <tr style="border-bottom:1px solid #bbf7d0">
-          <td style="padding:10px 16px;font-size:13px;color:#6b6f8c;width:150px">Login ID (Email)</td>
-          <td style="padding:10px 16px;font-size:13px;font-weight:700;color:#1e1c3c;font-family:monospace">${email}</td>
-        </tr>
-        <tr>
-          <td style="padding:10px 16px;font-size:13px;color:#6b6f8c">Temporary Password</td>
-          <td style="padding:10px 16px;font-size:14px;font-weight:800;color:#059669;font-family:monospace;letter-spacing:1px">${tempPassword}</td>
-        </tr>
+    'linear-gradient(90deg,#7c3aed,#a78bfa)',
+    `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+    <tr><td style="padding:24px 40px 0;">
+      <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">Your login credentials</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">Hi <strong style="color:#0d1f1a;">Dr. ${doctorName}</strong>, you've been added to <strong style="color:#0d1f1a;">${clinicName}</strong> on bookMySlot Dental. Use the details below to sign in.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;">
+        <tr><td style="padding:20px 24px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr style="border-bottom:1px solid #e9d5ff;">
+              <td style="padding-bottom:12px;width:42%;vertical-align:top;">
+                <p style="margin:0;font-size:10px;font-weight:600;color:#6d3abf;text-transform:uppercase;letter-spacing:.08em;">Login email</p>
+              </td>
+              <td style="padding-bottom:12px;vertical-align:top;">
+                <p style="margin:0;font-size:13px;font-weight:600;color:#0d1f1a;font-family:'Courier New',Courier,monospace;">${email}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-top:12px;vertical-align:top;">
+                <p style="margin:0;font-size:10px;font-weight:600;color:#6d3abf;text-transform:uppercase;letter-spacing:.08em;">Temp password</p>
+              </td>
+              <td style="padding-top:12px;vertical-align:top;">
+                <p style="margin:0;font-size:18px;font-weight:700;color:#7c3aed;font-family:'Courier New',Courier,monospace;letter-spacing:.1em;">${tempPassword}</p>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
       </table>
-      <p style="margin:0 0 20px;font-size:13px;color:#9090aa;line-height:1.6">
-        ⚠&nbsp; Please change your password after your first login for security.
-      </p>
-    </td></tr>
-    <tr><td style="padding:0 32px 28px">
-      ${actionButton('Sign In to Doctor Portal →', loginUrl, '#059669')}
+      <div style="margin-top:16px;">${infoBanner('amber', '&#128274; Please change your password after your first login. Keep these credentials safe and do not share them.')}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+        <tr><td align="center">${primaryButton('Sign In to Doctor Portal', loginUrl, '#7c3aed')}</td></tr>
+      </table>
     </td></tr>`
   );
   try {
     await resend.emails.send({
-      from: EMAIL_FROM,
-      to: finalEmail,
-      subject: `Welcome to ${clinicName} — Your Doctor Portal credentials`,
+      from: EMAIL_FROM, to: finalEmail,
+      subject: `BookMySlot – Your Login Credentials · ${clinicName}`,
       html,
     });
   } catch (error) {
@@ -572,37 +678,53 @@ async function sendRescheduleEmail(
     return;
   }
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? customerEmail : TEST_EMAIL;
-  const fmtOpts: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-  const formattedOld = oldTime.toLocaleString('en-IN', fmtOpts);
-  const formattedNew = newTime.toLocaleString('en-IN', fmtOpts);
-  const receiptRef = bookingId ? `BMS-${bookingId}` : '—';
-  const calLink = makeGoogleCalLink(`Appointment at ${clinicName}`, newTime);
+  const fmtDate: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  const fmtTime: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+  const oldDate  = oldTime.toLocaleDateString('en-IN', fmtDate);
+  const oldTm    = oldTime.toLocaleTimeString('en-IN', fmtTime);
+  const newDate  = newTime.toLocaleDateString('en-IN', fmtDate);
+  const newTm    = newTime.toLocaleTimeString('en-IN', fmtTime);
+  const refNum   = bookingId ? `BMS-${bookingId}` : '—';
+  const calLink  = makeGoogleCalLink(`Appointment at ${clinicName}`, newTime);
   const html = emailShell(
-    'linear-gradient(90deg,#085041 0%,#0F9B6E 100%)',
-    'Appointment Rescheduled',
-    `Your appointment at <strong>${clinicName}</strong> has been moved to a new time.`,
-    `<tr><td style="padding:24px 32px 0">
-      <p style="margin:0;font-size:15px;color:#1e1c3c">Hi <strong>${customerName}</strong>,</p>
-      <p style="margin:10px 0 20px;font-size:14px;color:#6b6f8c;line-height:1.6">
-        Your appointment has been rescheduled by the clinic. Please see the updated details below. If this does not suit you, please contact the clinic directly.
-      </p>
-      ${detailsTable([
-        { label: 'Previous Time', value: formattedOld },
-        { label: 'New Time', value: `<strong style="color:#085041">${formattedNew}</strong>` },
-        { label: 'Clinic', value: clinicName },
-        ...(clinicPhone ? [{ label: 'Clinic Phone', value: clinicPhone }] : []),
-        { label: 'Reference', value: receiptRef, mono: true },
-      ])}
-    </td></tr>
-    <tr><td style="padding:20px 32px 28px">
-      ${actionButton('Add to Google Calendar', calLink, '#0F9B6E')}
+    'linear-gradient(90deg,#d97706,#f59e0b)',
+    `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+    <tr><td style="padding:24px 40px 0;">
+      <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">Appointment rescheduled</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">Hi <strong style="color:#0d1f1a;">${customerName}</strong>, your appointment at <strong style="color:#0d1f1a;">${clinicName}</strong> has been moved to a new time.</p>
+      <!-- Old / New side-by-side -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td width="44%" style="background:#fff5f5;border:1px solid #fca5a5;border-radius:10px;padding:16px 18px;vertical-align:top;">
+            <p style="margin:0 0 4px;font-size:10px;font-weight:600;color:#c02020;text-transform:uppercase;letter-spacing:.08em;">Previous</p>
+            <p style="margin:0;font-size:13px;font-weight:600;color:#9aaa9e;text-decoration:line-through;">${oldDate}</p>
+            <p style="margin:2px 0 0;font-size:12px;color:#b0b8b4;text-decoration:line-through;">${oldTm}</p>
+          </td>
+          <td width="12%" style="text-align:center;vertical-align:middle;font-size:20px;color:#a8b8b0;">&#8594;</td>
+          <td width="44%" style="background:#f0faf5;border:1px solid #a8dfc4;border-radius:10px;padding:16px 18px;vertical-align:top;">
+            <p style="margin:0 0 4px;font-size:10px;font-weight:600;color:#3b8c62;text-transform:uppercase;letter-spacing:.08em;">New time</p>
+            <p style="margin:0;font-size:13px;font-weight:700;color:#0d7a50;">${newDate}</p>
+            <p style="margin:2px 0 0;font-size:12px;color:#3b8c62;">${newTm}</p>
+          </td>
+        </tr>
+      </table>
+      <div style="margin-top:16px;">
+        ${detailCard([
+          { label: 'Clinic',    value: clinicName },
+          { label: 'Reference', value: refNum },
+          ...(clinicPhone ? [{ label: 'Clinic phone', value: clinicPhone }, { label: '', value: '' }] : []),
+        ].filter(f => !(f.label === '' && f.value === '')))}
+      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+        <tr><td align="center">${primaryButton('&#128197; &nbsp;Update Calendar', calLink)}</td></tr>
+      </table>
+      <p style="margin:20px 0 0;font-size:13px;color:#8fa89a;line-height:1.6;">If this new time does not work for you, please contact ${clinicName} directly${clinicPhone ? ` at <strong style="color:#0d1f1a;">${clinicPhone}</strong>` : ''}.</p>
     </td></tr>`
   );
   try {
     await resend.emails.send({
-      from: EMAIL_FROM,
-      to: finalEmail,
-      subject: `Your Appointment Has Been Rescheduled — ${clinicName}`,
+      from: EMAIL_FROM, to: finalEmail,
+      subject: `BookMySlot – Appointment Rescheduled · ${clinicName}`,
       html,
     });
   } catch (error) {
@@ -623,52 +745,57 @@ async function sendClinicApprovalEmail(
     return;
   }
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? clinicEmail : TEST_EMAIL;
-  const loginUrl = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
-  const activationSection = activationUrl ? `
-    <tr><td style="padding:0 32px 8px">
-      <div style="background:linear-gradient(135deg,#3e34b4 0%,#1ab97c 100%);border-radius:12px;padding:20px 24px;text-align:center">
-        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.75)">Next Step</p>
-        <p style="margin:0 0 14px;font-size:16px;font-weight:800;color:#fff">Activate Your Subscription${planLabel ? ` — ${planLabel}` : ''}</p>
-        <p style="margin:0 0 16px;font-size:13px;color:rgba(255,255,255,0.85);line-height:1.5">Complete your payment to unlock all dashboard features. Your activation link expires in 7 days.</p>
-        ${actionButton('Activate Now & Pay →', activationUrl, '#ffffff').replace('color:#fff', 'color:#3e34b4')}
-      </div>
-    </td></tr>` : '';
+  const loginUrl   = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
   const html = emailShell(
-    'linear-gradient(90deg,#3e34b4 0%,#1ab97c 100%)',
-    '🎉 Your Clinic is Approved!',
-    `Welcome to BookMySlot, <strong>${clinicName}</strong>`,
-    `<tr><td style="padding:28px 32px 16px">
-      <p style="margin:0 0 12px;font-size:14px;color:#4a4a6a;line-height:1.6">
-        Congratulations! Your clinic registration has been reviewed and approved by our team.
-      </p>
-      <p style="margin:0 0 20px;font-size:14px;color:#4a4a6a;line-height:1.6">
-        Here are your login credentials. We recommend changing your password after your first login.
-      </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ff;border-radius:12px;overflow:hidden;border:1px solid #e5e3fa;margin-bottom:20px">
-        <tr style="background:#3e34b4">
-          <td colspan="2" style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.85)">Your Login Credentials</td>
-        </tr>
-        <tr style="border-bottom:1px solid #e5e3fa">
-          <td style="padding:12px 16px;color:#6b6f8c;font-size:13px;width:130px">Username</td>
-          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:#3e34b4;font-family:monospace">${username}</td>
-        </tr>
-        <tr>
-          <td style="padding:12px 16px;color:#6b6f8c;font-size:13px">Password</td>
-          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:#3e34b4;font-family:monospace">${plainPassword}</td>
-        </tr>
+    'linear-gradient(90deg,#0f9b6e,#1dbe88)',
+    `${heroBand('linear-gradient(135deg,#085041 0%,#0f9b6e 100%)', 'Your clinic is approved &#127881;', `Welcome to bookMySlot Dental, <strong style="color:rgba(255,255,255,.95);">${clinicName}</strong>`)}
+    <tr><td style="padding:28px 40px 0;">
+      <p style="margin:0 0 20px;font-size:15px;color:#5a7a6a;line-height:1.5;">Your registration has been reviewed and approved. Use the credentials below to log in and start managing your appointments.</p>
+      <!-- Credentials card -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="background:#f8fbf9;border:1px solid #d4ebe0;border-radius:10px;">
+        <tr><td style="padding:6px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr style="border-bottom:1px solid #d4ebe0;">
+              <td style="padding:12px 20px;width:38%;vertical-align:top;">
+                <p style="margin:0;font-size:10px;font-weight:600;color:#5a9070;text-transform:uppercase;letter-spacing:.08em;">Username</p>
+              </td>
+              <td style="padding:12px 20px;vertical-align:top;">
+                <p style="margin:0;font-size:14px;font-weight:700;color:#0d7a50;font-family:'Courier New',Courier,monospace;">${username}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 20px;vertical-align:top;">
+                <p style="margin:0;font-size:10px;font-weight:600;color:#5a9070;text-transform:uppercase;letter-spacing:.08em;">Password</p>
+              </td>
+              <td style="padding:12px 20px;vertical-align:top;">
+                <p style="margin:0;font-size:18px;font-weight:700;color:#0d7a50;font-family:'Courier New',Courier,monospace;letter-spacing:.1em;">${plainPassword}</p>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
       </table>
-      <p style="margin:0 0 4px;font-size:12px;color:#9090aa;">Keep this email safe. Do not share your credentials with anyone.</p>
-    </td></tr>
-    ${activationSection}
-    <tr><td style="padding:8px 32px 28px">
-      ${actionButton('Go to Clinic Dashboard →', loginUrl, '#1ab97c')}
+      <div style="margin-top:16px;">${infoBanner('amber', '&#128274; Keep this email safe and do not share your credentials. Please change your password after your first login.')}</div>
+      ${activationUrl ? `
+      <div style="margin-top:16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+          style="background:linear-gradient(135deg,#085041 0%,#1a9e6f 100%);border-radius:10px;">
+          <tr><td style="padding:20px 24px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:rgba(255,255,255,.9);">Next step — Activate your subscription${planLabel ? ` (${planLabel})` : ''}</p>
+            <p style="margin:0 0 16px;font-size:12px;color:rgba(255,255,255,.7);line-height:1.5;">Complete your payment to unlock all dashboard features. This link expires in 7 days.</p>
+            <a href="${activationUrl}" style="display:inline-block;background:white;color:#085041;text-decoration:none;font-size:13px;font-weight:700;padding:11px 28px;border-radius:8px;">Activate &amp; Pay</a>
+          </td></tr>
+        </table>
+      </div>` : ''}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+        <tr><td align="center">${primaryButton('Go to Clinic Dashboard', loginUrl)}</td></tr>
+      </table>
     </td></tr>`
   );
   try {
     await resend.emails.send({
-      from: EMAIL_FROM,
-      to: finalEmail,
-      subject: `Your clinic "${clinicName}" has been approved on BookMySlot`,
+      from: EMAIL_FROM, to: finalEmail,
+      subject: `BookMySlot – Your Clinic is Approved`,
       html,
     });
   } catch (error) {
@@ -677,34 +804,29 @@ async function sendClinicApprovalEmail(
 }
 
 async function sendPasswordResetEmail(toEmail: string, resetUrl: string, userType: "clinic" | "doctor") {
-  const label = userType === "clinic" ? "Clinic Account" : "Doctor Account";
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? toEmail : TEST_EMAIL;
   if (!resend) {
     console.log(`[EMAIL MOCK] Password reset for ${toEmail}: ${resetUrl}`);
     return;
   }
   const html = emailShell(
-    'linear-gradient(90deg,#3e34b4 0%,#1ab97c 100%)',
-    '🔐 Reset Your Password',
-    `Password reset request for your <strong>${label}</strong>`,
-    `<tr><td style="padding:28px 32px 8px">
-      <p style="margin:0 0 12px;font-size:14px;color:#4a4a6a;line-height:1.6">
-        We received a request to reset the password for your BookMySlot ${label}.
-        Click the button below to choose a new password.
-      </p>
-      <p style="margin:0 0 20px;font-size:13px;color:#9090aa;line-height:1.5">
-        This link expires in <strong>30 minutes</strong>. If you did not request a password reset, you can safely ignore this email — your password will not change.
-      </p>
-    </td></tr>
-    <tr><td style="padding:0 32px 28px">
-      ${actionButton('Reset My Password →', resetUrl, '#3e34b4')}
+    'linear-gradient(90deg,#d97706,#f59e0b)',
+    `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+    <tr><td style="padding:24px 40px 0;">
+      <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">Reset your password</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">We received a request to reset your bookMySlot Dental password. Click the button below to choose a new one.</p>
+      ${infoBanner('amber', '&#9203; This link expires in <strong>30 minutes</strong>. If it expires, request a new one from the login page.')}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
+        <tr><td align="center">${primaryButton('Reset my password', resetUrl, '#d97706')}</td></tr>
+      </table>
+      <p style="margin:16px 0 0;font-size:12px;color:#a8b8b0;text-align:center;">Or: <a href="${resetUrl}" style="color:#d97706;text-decoration:none;word-break:break-all;">${resetUrl}</a></p>
+      <p style="margin:20px 0 0;font-size:13px;color:#8fa89a;line-height:1.6;">If you didn't request a password reset, you can safely ignore this email. Your password will not change.</p>
     </td></tr>`
   );
   try {
     await resend.emails.send({
-      from: EMAIL_FROM,
-      to: finalEmail,
-      subject: `Reset your BookMySlot ${label} password`,
+      from: EMAIL_FROM, to: finalEmail,
+      subject: `BookMySlot – Reset Your Password (expires in 30 min)`,
       html,
     });
   } catch (err) {
@@ -713,31 +835,26 @@ async function sendPasswordResetEmail(toEmail: string, resetUrl: string, userTyp
 }
 
 async function sendPasswordChangedEmail(toEmail: string, userType: "clinic" | "doctor") {
-  const label = userType === "clinic" ? "Clinic Account" : "Doctor Account";
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? toEmail : TEST_EMAIL;
   if (!resend) {
     console.log(`[EMAIL MOCK] Password changed confirmation for ${toEmail}`);
     return;
   }
+  const changedAt = new Date().toLocaleString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const html = emailShell(
-    'linear-gradient(90deg,#1ab97c 0%,#3e34b4 100%)',
-    '✅ Password Changed',
-    `Your <strong>${label}</strong> password was updated`,
-    `<tr><td style="padding:28px 32px 28px">
-      <p style="margin:0 0 12px;font-size:14px;color:#4a4a6a;line-height:1.6">
-        Your BookMySlot ${label} password was successfully changed.
-      </p>
-      <p style="margin:0;font-size:13px;color:#9090aa;line-height:1.5">
-        If you did not make this change, please contact support immediately at
-        <a href="mailto:support@bookmyslot.in" style="color:#3e34b4;">support@bookmyslot.in</a>.
-      </p>
+    'linear-gradient(90deg,#0f9b6e,#1dbe88)',
+    `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+    <tr><td style="padding:24px 40px 0;">
+      <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">Password changed ✓</p>
+      <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">Your bookMySlot Dental password was successfully changed on <strong style="color:#0d1f1a;">${changedAt}</strong>.</p>
+      ${infoBanner('green', '&#10003; &nbsp;Your account is secure. No further action is needed.')}
+      <div style="margin-top:12px;">${infoBanner('red', '&#128274; <strong>Didn\'t make this change?</strong> Contact us immediately at <a href="mailto:support@bookmyslot.in" style="color:#dc2626;text-decoration:none;font-weight:600;">support@bookmyslot.in</a> to secure your account.')}</div>
     </td></tr>`
   );
   try {
     await resend.emails.send({
-      from: EMAIL_FROM,
-      to: finalEmail,
-      subject: `Your BookMySlot ${label} password was changed`,
+      from: EMAIL_FROM, to: finalEmail,
+      subject: `BookMySlot – Password Changed Successfully`,
       html,
     });
   } catch (err) {
@@ -1252,55 +1369,51 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const finalSupplierEmail = RESEND_MODE === 'PRODUCTION' ? normalizedEmail : TEST_EMAIL;
       const submittedAt = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
 
-      const adminHtml = `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f9f9f7;padding:32px 24px;border-radius:12px">
-          <div style="background:linear-gradient(135deg,#085041,#0F9B6E);border-radius:10px;padding:24px 28px;margin-bottom:24px">
-            <div style="color:rgba(255,255,255,.7);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">BookMySlot — Supplier Marketplace</div>
-            <div style="color:#fff;font-size:22px;font-weight:700;letter-spacing:-.01em">New Listing Request</div>
-          </div>
-          <table style="width:100%;border-collapse:collapse">
-            ${[
-              ['Company / Brand', companyName],
-              ['Business Email', `${normalizedEmail} <span style="color:#0F9B6E;font-weight:700;font-size:11px">✓ Verified</span>`],
-              ['Phone', phone],
-              ['Category', category],
-              ...(description ? [['Description', description]] : []),
-              ...(website ? [['Website', `<a href="${website}" style="color:#0F9B6E">${website}</a>`]] : []),
-              ['Submitted At', submittedAt],
-            ].map(([label, value]) => `
-              <tr>
-                <td style="padding:10px 0;border-bottom:1px solid #eee;color:#666;font-size:13px;font-weight:600;width:38%;vertical-align:top">${label}</td>
-                <td style="padding:10px 0;border-bottom:1px solid #eee;color:#111;font-size:14px;vertical-align:top">${value}</td>
-              </tr>`).join('')}
+      const adminHtml = emailShell(
+        'linear-gradient(90deg,#2563eb,#3b82f6)',
+        `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+        <tr><td style="padding:24px 40px 0;">
+          <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">New supplier submission</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">A supplier has submitted their details through the marketplace form. Full submission below.</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+            style="background:#f0f6ff;border:1px solid #bfdbfe;border-radius:10px;">
+            <tr><td style="padding:6px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                ${[
+                  ['Supplier / Company', companyName],
+                  ['Business email', `${normalizedEmail} <span style="color:#1a9e6f;font-weight:700;font-size:11px;">&#10003; Verified</span>`],
+                  ['Phone', phone],
+                  ['Category', category],
+                  ...(description ? [['Products / services', description]] : []),
+                  ...(website ? [['Website', `<a href="${website}" style="color:#2563eb;text-decoration:none;">${website}</a>`]] : []),
+                  ['Submitted at', submittedAt],
+                ].map(([label, value], i, arr) => `
+                  <tr${i < arr.length - 1 ? ' style="border-bottom:1px solid #dbeafe;"' : ''}>
+                    <td style="padding:10px 20px;width:38%;vertical-align:top;"><p style="margin:0;font-size:11px;font-weight:600;color:#3b6ac2;text-transform:uppercase;letter-spacing:.07em;">${label}</p></td>
+                    <td style="padding:10px 20px;vertical-align:top;"><p style="margin:0;font-size:13px;font-weight:600;color:#0d1f1a;">${value}</p></td>
+                  </tr>`).join('')}
+              </table>
+            </td></tr>
           </table>
-          <div style="margin-top:24px;padding:14px 18px;background:#E1F5EE;border-radius:8px;border-left:3px solid #0F9B6E;font-size:13px;color:#085041">
-            Log in to the admin panel to approve, create a deal, or contact this supplier.
-          </div>
-        </div>`;
+          <p style="margin:20px 0 0;font-size:13px;color:#8fa89a;line-height:1.6;">Log in to the admin panel to approve, create a deal, or contact this supplier.</p>
+        </td></tr>`
+      );
 
-      const supplierHtml = `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f9f9f7;padding:32px 24px;border-radius:12px">
-          <div style="background:linear-gradient(135deg,#085041,#0F9B6E);border-radius:10px;padding:24px 28px;margin-bottom:24px">
-            <div style="color:rgba(255,255,255,.7);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">BookMySlot Dental Marketplace</div>
-            <div style="color:#fff;font-size:22px;font-weight:700;letter-spacing:-.01em">We've received your request!</div>
-          </div>
-          <p style="font-size:15px;color:#333;line-height:1.7">Hi <strong>${companyName}</strong>,</p>
-          <p style="font-size:14px;color:#555;line-height:1.7">Thank you for applying to list on <strong>BookMySlot Smile Deals</strong>. Our team will review your request and get back to you within <strong>2 working days</strong>.</p>
-          <div style="background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:20px 24px;margin:20px 0">
-            <div style="font-size:12px;font-weight:700;color:#0F9B6E;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Your submission details</div>
-            ${[
-              ['Company', companyName],
-              ['Category', category],
-              ...(website ? [['Website', website]] : []),
-            ].map(([l, v]) => `<div style="display:flex;gap:12px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px"><span style="color:#888;min-width:90px">${l}</span><span style="color:#111;font-weight:600">${v}</span></div>`).join('')}
-          </div>
-          <p style="font-size:13px;color:#888;line-height:1.6">If you have questions in the meantime, reply to this email or write to <a href="mailto:hello@bookmyslot.in" style="color:#0F9B6E">hello@bookmyslot.in</a>.</p>
-        </div>`;
+      const supplierHtml = emailShell(
+        'linear-gradient(90deg,#2563eb,#3b82f6)',
+        `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
+        <tr><td style="padding:24px 40px 0;">
+          <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">We've received your submission ✓</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">Hi <strong style="color:#0d1f1a;">${companyName}</strong>, thank you for your interest in partnering with bookMySlot Dental.</p>
+          ${infoBanner('blue', '<strong style="font-size:13px;">&#128203; &nbsp;What happens next</strong><br/>Our team will review your submission and get back to you within <strong>2 working days</strong>. We\'ll reach out to the email or phone number you provided to discuss next steps.')}
+          <p style="margin:20px 0 0;font-size:13px;color:#8fa89a;line-height:1.6;">If you have any questions in the meantime, write to us at <a href="mailto:support@bookmyslot.in" style="color:#1a9e6f;text-decoration:none;">support@bookmyslot.in</a>.</p>
+        </td></tr>`
+      );
 
       if (resend) {
         await Promise.allSettled([
-          resend.emails.send({ from: EMAIL_FROM, to: finalAdminEmail, subject: `New Supplier Listing Request — ${companyName}`, html: adminHtml }),
-          resend.emails.send({ from: EMAIL_FROM, to: finalSupplierEmail, subject: "We received your listing request — BookMySlot", html: supplierHtml }),
+          resend.emails.send({ from: EMAIL_FROM, to: finalAdminEmail, subject: `BookMySlot – New Supplier Submission · ${companyName}`, html: adminHtml }),
+          resend.emails.send({ from: EMAIL_FROM, to: finalSupplierEmail, subject: `BookMySlot – We've Received Your Submission`, html: supplierHtml }),
         ]);
       } else {
         console.log(`[SUPPLIER LISTING DEV] Request from ${companyName} <${normalizedEmail}>, category: ${category}`);
@@ -1848,21 +1961,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           await resend.emails.send({
             from: EMAIL_FROM,
             to: finalEmail,
-            subject: `BookMySlot Admin — Your Login OTP`,
-            html: `
-              <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px;">
-                <div style="text-align:center;margin-bottom:24px;">
-                  <div style="display:inline-block;background:#0F9B6E;border-radius:10px;padding:10px 16px;">
-                    <span style="color:#fff;font-size:15px;font-weight:700;letter-spacing:.04em;">bookMySlot</span>
-                  </div>
-                </div>
-                <h2 style="font-size:20px;font-weight:700;color:#0A1F16;margin:0 0 8px;">Admin Login Verification</h2>
-                <p style="font-size:14px;color:#6b7280;margin:0 0 24px;">Use the code below to complete your login. It expires in <strong>10 minutes</strong>.</p>
-                <div style="background:#fff;border:2px solid #0F9B6E;border-radius:10px;padding:24px;text-align:center;margin-bottom:24px;">
-                  <div style="font-size:38px;font-weight:800;letter-spacing:10px;color:#0F9B6E;">${otp}</div>
-                </div>
-                <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">If you did not request this, your password may be compromised. Please change it immediately.</p>
-              </div>`,
+            subject: `BookMySlot – Admin Login Code (expires in 10 min)`,
+            html: `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>BookMySlot Admin OTP</title></head>
+<body style="margin:0;padding:0;background:#0d1f1a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0d1f1a;">
+    <tr><td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"
+        style="max-width:600px;width:100%;background:#0d2a1f;border-radius:14px;overflow:hidden;border:1px solid #1a4a30;box-shadow:0 2px 30px rgba(0,0,0,.4);">
+        <tr><td style="height:3px;background:linear-gradient(90deg,#0f9b6e,#1dbe88,#5dcaa5);font-size:0;">&nbsp;</td></tr>
+        <tr><td style="padding:32px 40px;text-align:center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
+            <td style="width:34px;height:34px;background:rgba(255,255,255,.15);border-radius:8px;text-align:center;vertical-align:middle;"><span style="font-size:17px;line-height:34px;color:white;">&#128197;</span></td>
+            <td style="padding-left:10px;vertical-align:middle;"><span style="font-size:16px;font-weight:700;color:white;letter-spacing:-.3px;">bookMySlot</span><span style="font-size:11px;color:#5dcaa5;font-weight:600;"> DENTAL</span></td>
+          </tr></table>
+          <p style="margin:24px 0 4px;font-size:13px;font-weight:600;color:#5dcaa5;text-transform:uppercase;letter-spacing:.12em;">Superadmin authentication</p>
+          <p style="margin:0 0 24px;font-size:16px;color:rgba(255,255,255,.7);">Your one-time access code</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="background:#0a3020;border:1.5px solid #1a9e6f;border-radius:12px;">
+            <tr><td style="padding:24px 48px;text-align:center;">
+              <p style="margin:0;font-size:52px;font-weight:700;color:#5dcaa5;letter-spacing:.35em;font-family:'Courier New',Courier,monospace;line-height:1.1;">${otp}</p>
+              <p style="margin:10px 0 0;font-size:12px;color:#4a8a60;">Expires in <strong style="color:#5dcaa5;">10 minutes</strong> &nbsp;&middot;&nbsp; Single use only</p>
+            </td></tr>
+          </table>
+          <p style="margin:20px 0 0;font-size:12px;color:#4a7060;line-height:1.6;">Never share this code. If you did not request this, your password may be compromised.</p>
+        </td></tr>
+        <tr><td style="padding:16px 40px;border-top:1px solid #1a3a28;"><p style="margin:0;font-size:11px;color:#3a5a48;text-align:center;">bookMySlot Dental &nbsp;&middot;&nbsp; Internal use only &nbsp;&middot;&nbsp; <a href="mailto:support@bookmyslot.in" style="color:#5dcaa5;text-decoration:none;">support@bookmyslot.in</a></p></td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`,
           });
         } catch (err) {
           console.error('[ADMIN 2FA] Failed to send OTP email:', err);
