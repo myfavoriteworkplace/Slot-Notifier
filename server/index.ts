@@ -595,6 +595,12 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='patient_id') THEN
             ALTER TABLE bookings ADD COLUMN patient_id INTEGER REFERENCES patients(id);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='customer_age') THEN
+            ALTER TABLE bookings ADD COLUMN customer_age integer;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='customer_gender') THEN
+            ALTER TABLE bookings ADD COLUMN customer_gender varchar(20);
+          END IF;
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='patient_bills' AND column_name='patient_id') THEN
             ALTER TABLE patient_bills ADD COLUMN patient_id INTEGER REFERENCES patients(id);
           END IF;

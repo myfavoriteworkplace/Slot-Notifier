@@ -81,6 +81,8 @@ export const bookings = pgTable("bookings", {
   customerName: varchar("customer_name", { length: 255 }).notNull(),
   customerPhone: varchar("customer_phone", { length: 50 }).notNull(),
   customerEmail: varchar("customer_email", { length: 255 }),
+  customerAge: integer("customer_age"),
+  customerGender: varchar("customer_gender", { length: 20 }),
   verificationCode: varchar("verification_code", { length: 10 }),
   verificationStatus: varchar("verification_status", { length: 20 }).default("pending").notNull(),
   verificationExpiresAt: timestamp("verification_expires_at"),

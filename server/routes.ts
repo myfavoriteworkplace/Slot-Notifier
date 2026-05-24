@@ -1615,7 +1615,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── PUBLIC BOOKING: clinic-approval path (pending) ─────────────────────────
   app.post("/api/public/bookings", async (req, res) => {
     try {
-      const { customerName, customerPhone, customerEmail, clinicId, clinicName, startTime, endTime, description, verifiedToken } = req.body;
+      const { customerName, customerPhone, customerEmail, customerAge, customerGender, clinicId, clinicName, startTime, endTime, description, verifiedToken } = req.body;
 
       if (!customerName || !customerPhone || !customerEmail || !clinicId || !startTime || !endTime) {
         return res.status(400).json({ message: "Missing required fields" });
@@ -1669,6 +1669,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         customerName,
         customerPhone,
         customerEmail,
+        customerAge: customerAge ? parseInt(customerAge) : null,
+        customerGender: customerGender || null,
         description: description || null,
         verificationCode: null,
         verificationExpiresAt: null,

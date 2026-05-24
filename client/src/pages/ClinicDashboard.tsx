@@ -2557,6 +2557,16 @@ export default function ClinicDashboard() {
                                   <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
                                     <Phone className="h-2.5 w-2.5 shrink-0" />
                                     <span className="truncate">{booking.customerPhone}</span>
+                                    {((booking as any).customerAge || (booking as any).customerGender) && (
+                                      <>
+                                        <span className="opacity-30">·</span>
+                                        <span className="truncate">
+                                          {(booking as any).customerAge ? `${(booking as any).customerAge}y` : ""}
+                                          {(booking as any).customerAge && (booking as any).customerGender ? " · " : ""}
+                                          {(booking as any).customerGender ? ((booking as any).customerGender.charAt(0).toUpperCase() + (booking as any).customerGender.slice(1)) : ""}
+                                        </span>
+                                      </>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -2926,13 +2936,33 @@ export default function ClinicDashboard() {
                                 )}
                               </div>
 
-                              {/* Contact */}
+                              {/* Contact / Patient Info */}
                               <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                   <User className="h-3 w-3 text-primary" />
-                                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Contact</span>
+                                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Patient</span>
                                 </div>
                                 <div className="divide-y divide-border/40">
+                                  {((booking as any).customerAge || (booking as any).customerGender) && (
+                                    <div className="px-3 py-2.5 grid grid-cols-2 gap-3">
+                                      {(booking as any).customerAge && (
+                                        <div className="flex items-center gap-2">
+                                          <div className="h-6 w-6 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                                            <span className="text-xs">🎂</span>
+                                          </div>
+                                          <span className="text-sm font-medium text-foreground">{(booking as any).customerAge} years</span>
+                                        </div>
+                                      )}
+                                      {(booking as any).customerGender && (
+                                        <div className="flex items-center gap-2">
+                                          <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                            <span className="text-xs">{(booking as any).customerGender === "male" ? "♂" : (booking as any).customerGender === "female" ? "♀" : "⊕"}</span>
+                                          </div>
+                                          <span className="text-sm font-medium text-foreground capitalize">{(booking as any).customerGender}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                   <div className="px-3 py-2.5 flex items-center gap-3">
                                     <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                                       <Phone className="h-3 w-3 text-primary" />

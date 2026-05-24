@@ -115,6 +115,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [selectedSubIssues, setSelectedSubIssues] = useState<string[]>([]);
   const [additionalNotes, setAdditionalNotes]     = useState("");
   const [openCategory, setOpenCategory]           = useState("");
+  const [customerAge, setCustomerAge]             = useState("");
+  const [customerGender, setCustomerGender]       = useState<"male" | "female" | "other" | "">("");
   const [showSlots, setShowSlots]           = useState(false);
   const [step, setStep]                     = useState<"details" | "success">("details");
   const [phoneError, setPhoneError]         = useState("");
@@ -473,6 +475,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
     }
     createBookingMutation.mutate({
       customerName, customerPhone, customerEmail,
+      customerAge: customerAge ? parseInt(customerAge) : undefined,
+      customerGender: customerGender || undefined,
       clinicId, clinicName: selectedClinic,
       startTime: startTime.toISOString(), endTime: endTime.toISOString(),
       description: [selectedSubIssues.join(", "), additionalNotes].filter(Boolean).join(" — "),
@@ -589,6 +593,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
     setSelectedSubIssues([]);
     setAdditionalNotes("");
     setOpenCategory("");
+    setCustomerAge("");
+    setCustomerGender("");
     setPhoneError("");
     setPaymentLoading(false);
     setBookingPath(null);
@@ -1313,6 +1319,45 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
                           data-testid="input-name"
                         />
+                      </div>
+                    </div>
+
+                    {/* Age + Gender */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Age &amp; Gender <span className="text-muted-foreground/50 font-normal normal-case tracking-normal">(optional)</span></label>
+                      <div className="flex gap-2">
+                        {/* Age input */}
+                        <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden w-28 shrink-0">
+                          <input
+                            type="number"
+                            min={1}
+                            max={120}
+                            value={customerAge}
+                            onChange={e => setCustomerAge(e.target.value)}
+                            placeholder="Age"
+                            className="w-full h-10 bg-transparent pl-3 pr-2 text-sm outline-none placeholder:text-muted-foreground"
+                            data-testid="input-age"
+                          />
+                          <span className="text-xs text-muted-foreground pr-3 shrink-0">yrs</span>
+                        </div>
+                        {/* Gender pills */}
+                        <div className="flex gap-1.5 flex-1">
+                          {(["male", "female", "other"] as const).map(g => (
+                            <button
+                              key={g}
+                              type="button"
+                              onClick={() => setCustomerGender(prev => prev === g ? "" : g)}
+                              data-testid={`btn-gender-${g}`}
+                              className={`flex-1 h-10 rounded-xl border text-xs font-semibold capitalize transition-all ${
+                                customerGender === g
+                                  ? "bg-primary text-white border-primary shadow-sm shadow-primary/25"
+                                  : "border-border/60 bg-muted/20 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                              }`}
+                            >
+                              {g === "male" ? "♂ Male" : g === "female" ? "♀ Female" : "Other"}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 

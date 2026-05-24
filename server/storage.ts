@@ -477,6 +477,8 @@ export class DatabaseStorage implements IStorage {
     customerName: string;
     customerPhone: string;
     customerEmail: string;
+    customerAge?: number | null;
+    customerGender?: string | null;
     description?: string | null;
     verificationCode?: string | null;
     verificationExpiresAt?: Date | null;
@@ -490,6 +492,8 @@ export class DatabaseStorage implements IStorage {
       customerName: data.customerName,
       customerPhone: data.customerPhone,
       customerEmail: data.customerEmail,
+      customerAge: data.customerAge || null,
+      customerGender: data.customerGender || null,
       description: data.description || null,
       verificationCode: data.verificationCode || null,
       verificationStatus: data.verificationStatus || 'verified',
@@ -497,7 +501,7 @@ export class DatabaseStorage implements IStorage {
       paymentStatus: data.paymentStatus || null,
       razorpayOrderId: data.razorpayOrderId || null,
       razorpayPaymentId: data.razorpayPaymentId || null,
-    }).returning();
+    } as any).returning();
     return booking;
   }
 
