@@ -61,6 +61,29 @@ export function useMarkNotificationRead() {
   });
 }
 
+function playNotificationSound() {
+  try {
+    const ctx = new AudioContext();
+    const resume = ctx.state === "suspended" ? ctx.resume() : Promise.resolve();
+    resume.then(() => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.35);
+      osc.onended = () => ctx.close();
+    });
+  } catch {
+    // AudioContext not supported or blocked — fail silently
+  }
+}
+
 const TOAST_TITLES: Record<string, string> = {
   new_booking:        "New Booking Request",
   paid_booking:       "Paid Booking Confirmed",
@@ -105,6 +128,7 @@ export function useNotificationSocket(clinicId?: number, doctorId?: number) {
           const msg = JSON.parse(event.data);
           if (msg.type && msg.notification) {
             queryClient.invalidateQueries({ queryKey: [api.notifications.list.path] });
+            playNotificationSound();
             const title = TOAST_TITLES[msg.type] ?? "New Notification";
             toast({
               title,

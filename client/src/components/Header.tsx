@@ -104,7 +104,9 @@ function NotificationBellPanel({
         >
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary animate-pulse" />
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-primary text-[9px] font-bold text-white flex items-center justify-center leading-none">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
           )}
         </button>
       </PopoverTrigger>
