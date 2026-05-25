@@ -17,7 +17,6 @@ export function useNotifications() {
       
       return api.notifications.list.responses[200].parse(await res.json());
     },
-    // Keep 30s polling as fallback in case WebSocket drops
     refetchInterval: 30000,
   });
 }
@@ -46,25 +45,31 @@ export function useMarkNotificationRead() {
   });
 }
 
-export function useNotificationSocket(clinicId?: number) {
+const TOAST_TITLES: Record<string, string> = {
+  new_booking:        "New Booking Request",
+  paid_booking:       "Paid Booking Confirmed",
+  booking_rescheduled:"Booking Rescheduled",
+  doctor_approved:    "Doctor Confirmed",
+  doctor_declined:    "Doctor Declined",
+  consent_signed:     "Consent Signed",
+  doctor_assigned:    "New Appointment Assigned",
+  admin_confirmed:    "Appointment Confirmed",
+};
+
+export function useNotificationSocket(clinicId?: number, doctorId?: number) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!clinicId) return;
+    if (!clinicId && !doctorId) return;
 
     let cancelled = false;
 
     function connect() {
       if (cancelled) return;
 
-      // In a split deployment (separate Render Static Site + Web Service),
-      // window.location.host is the frontend domain which has no WebSocket server.
-      // API_BASE_URL (from VITE_API_URL) always points at the backend, so we
-      // convert it: "https://api.example.com" → "wss://api.example.com".
-      // Falls back to same-origin (dev, or single-service deploy) when empty.
       const wsUrl = API_BASE_URL
         ? API_BASE_URL.replace(/^https/, "wss").replace(/^http/, "ws") + "/ws/notifications"
         : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws/notifications`;
@@ -72,18 +77,21 @@ export function useNotificationSocket(clinicId?: number) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({ type: "auth", clinicId }));
+        if (clinicId) {
+          ws.send(JSON.stringify({ type: "auth", clinicId }));
+        } else if (doctorId) {
+          ws.send(JSON.stringify({ type: "auth", doctorId }));
+        }
       };
 
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
-          if (msg.type === "new_booking" && msg.notification) {
-            // Instantly refresh the notification list
+          if (msg.type && msg.notification) {
             queryClient.invalidateQueries({ queryKey: [api.notifications.list.path] });
-            // Show a toast so the clinic admin sees it even if the bell is closed
+            const title = TOAST_TITLES[msg.type] ?? "New Notification";
             toast({
-              title: "New Booking Request",
+              title,
               description: msg.notification.message,
               duration: 6000,
             });
@@ -93,7 +101,6 @@ export function useNotificationSocket(clinicId?: number) {
 
       ws.onclose = () => {
         if (!cancelled) {
-          // Reconnect after 5 seconds — polling fallback covers the gap
           reconnectTimerRef.current = setTimeout(connect, 5000);
         }
       };
@@ -110,5 +117,5 @@ export function useNotificationSocket(clinicId?: number) {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       wsRef.current?.close();
     };
-  }, [clinicId, queryClient, toast]);
+  }, [clinicId, doctorId, queryClient, toast]);
 }

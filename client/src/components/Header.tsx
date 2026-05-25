@@ -43,7 +43,7 @@ export function Header() {
   const [location] = useLocation();
   const { data: notifications = [] } = useNotifications();
   const { mutate: markRead } = useMarkNotificationRead();
-  useNotificationSocket(clinic?.id ?? undefined);
+  useNotificationSocket(clinic?.id ?? undefined, doctor?.id ?? undefined);
   const { resolvedTheme, setTheme } = useTheme();
 
   const [adminHovered, setAdminHovered] = useState(false);

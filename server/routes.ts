@@ -867,42 +867,53 @@ let adminOtpStore: { otp: string; expiresAt: number } | null = null;
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
-  // ── WebSocket server for real-time clinic notifications ──────────────────
+  // ── WebSocket server for real-time clinic + doctor notifications ─────────
   const wss = new WebSocketServer({ server: httpServer, path: "/ws/notifications" });
   const clinicSockets = new Map<string, Set<WebSocket>>();
+  const doctorSockets = new Map<string, Set<WebSocket>>();
 
   function broadcastToClinic(clinicId: string, data: object) {
     const clients = clinicSockets.get(clinicId);
     if (!clients) return;
     const message = JSON.stringify(data);
     for (const client of clients) {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(message);
-      }
+      if (client.readyState === WebSocket.OPEN) client.send(message);
+    }
+  }
+
+  function broadcastToDoctor(doctorId: string, data: object) {
+    const clients = doctorSockets.get(doctorId);
+    if (!clients) return;
+    const message = JSON.stringify(data);
+    for (const client of clients) {
+      if (client.readyState === WebSocket.OPEN) client.send(message);
     }
   }
 
   wss.on("connection", (ws) => {
     let registeredClinicId: string | null = null;
+    let registeredDoctorId: string | null = null;
 
     ws.on("message", (raw) => {
       try {
         const msg = JSON.parse(raw.toString());
         if (msg.type === "auth" && msg.clinicId) {
           registeredClinicId = String(msg.clinicId);
-          if (!clinicSockets.has(registeredClinicId)) {
-            clinicSockets.set(registeredClinicId, new Set());
-          }
+          if (!clinicSockets.has(registeredClinicId)) clinicSockets.set(registeredClinicId, new Set());
           clinicSockets.get(registeredClinicId)!.add(ws);
+          ws.send(JSON.stringify({ type: "auth_ok" }));
+        } else if (msg.type === "auth" && msg.doctorId) {
+          registeredDoctorId = String(msg.doctorId);
+          if (!doctorSockets.has(registeredDoctorId)) doctorSockets.set(registeredDoctorId, new Set());
+          doctorSockets.get(registeredDoctorId)!.add(ws);
           ws.send(JSON.stringify({ type: "auth_ok" }));
         }
       } catch {}
     });
 
     ws.on("close", () => {
-      if (registeredClinicId) {
-        clinicSockets.get(registeredClinicId)?.delete(ws);
-      }
+      if (registeredClinicId) clinicSockets.get(registeredClinicId)?.delete(ws);
+      if (registeredDoctorId) doctorSockets.get(registeredDoctorId)?.delete(ws);
     });
 
     ws.on("error", () => {});
@@ -1584,6 +1595,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       if (customerPhone) {
         await sendWhatsAppBookingNotification(customerPhone, customerName, clinic.name, requestedStart);
+      }
+
+      // In-app notification for clinic admin — paid booking confirmed
+      try {
+        const dateStr = requestedStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        const timeStr = requestedStart.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+        const paidNotif = await storage.createNotification({
+          userId: String(clinic.id),
+          message: `Paid booking confirmed — ${customerName} on ${dateStr} at ${timeStr}`,
+          read: false,
+        });
+        broadcastToClinic(String(clinic.id), { type: "paid_booking", notification: paidNotif });
+      } catch (e: any) {
+        console.error('[NOTIFICATION] Paid booking notification failed:', e.message);
       }
 
       res.status(201).json({ message: "Payment verified and booking confirmed!", booking: { ...booking, slot } });
@@ -2750,6 +2775,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           bookingId,
         ).catch((err) => console.error('[EMAIL ERROR] Reschedule email failed:', err));
       }
+      // In-app notification for clinic admin — booking rescheduled
+      if (clinic?.id && newSlot) {
+        try {
+          const newDateStr = new Date(newSlot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+          const reschedNotif = await storage.createNotification({
+            userId: String(clinic.id),
+            message: `Booking #${bookingId} for ${booking.customerName} rescheduled to ${newDateStr}`,
+            read: false,
+          });
+          broadcastToClinic(String(clinic.id), { type: "booking_rescheduled", notification: reschedNotif });
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Reschedule notification failed:', e.message);
+        }
+      }
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -2843,6 +2882,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           slot ? new Date(slot.startTime) : new Date(),
           bookingId,
         ).catch((err) => console.error('[EMAIL ERROR] Doctor admin-confirm email failed:', err));
+
+        // In-app notification for doctor — admin confirmed on their behalf
+        try {
+          const [overriddenDoc] = await db.select({ id: doctors.id })
+            .from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail!)).limit(1);
+          if (overriddenDoc) {
+            const dateStr = slot
+              ? new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+              : '';
+            const overrideNotif = await storage.createNotification({
+              userId: String(overriddenDoc.id),
+              message: `Admin confirmed ${booking.customerName}'s appointment on your behalf${dateStr ? ` on ${dateStr}` : ''} — no action needed`,
+              read: false,
+            });
+            broadcastToDoctor(String(overriddenDoc.id), { type: "admin_confirmed", notification: overrideNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Admin override notification failed:', e.message);
+        }
       }
 
       res.json(updated);
@@ -2874,7 +2932,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const approvalStatus = resolvedEmail ? 'pending' : null;
       const updated = await storage.updateBookingAssignment(bookingId, doctorName, resolvedEmail, approvalStatus);
 
-      // Notify doctor by email that they have a new appointment awaiting their approval
+      // Notify doctor by email and in-app that they have a new appointment awaiting their approval
       if (resolvedEmail) {
         const slot = await storage.getSlot(booking.slotId);
         const clinicForAssign = sess.clinicId ? await storage.getClinic(sess.clinicId) : null;
@@ -2886,6 +2944,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           slot ? new Date(slot.startTime) : new Date(),
           bookingId,
         ).catch((err) => console.error('[EMAIL ERROR] Doctor assignment email failed:', err));
+
+        // In-app notification for the doctor
+        try {
+          const [assignedDoc] = await db.select({ id: doctors.id })
+            .from(doctors).where(eq(doctors.email, resolvedEmail)).limit(1);
+          if (assignedDoc) {
+            const dateStr = slot
+              ? new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+              : 'upcoming date';
+            const timeStr = slot
+              ? new Date(slot.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+              : '';
+            const assignNotif = await storage.createNotification({
+              userId: String(assignedDoc.id),
+              message: `New appointment assigned: ${booking.customerName} on ${dateStr}${timeStr ? ` at ${timeStr}` : ''} — awaiting your approval`,
+              read: false,
+            });
+            broadcastToDoctor(String(assignedDoc.id), { type: "doctor_assigned", notification: assignNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Doctor assignment notification failed:', e.message);
+        }
       }
 
       res.json(updated);
@@ -2945,6 +3025,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         ).catch(() => {});
       }
 
+      // In-app notification for clinic admin — doctor approved
+      if (doctorClinic?.id) {
+        try {
+          const dateStr = slot
+            ? new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+            : '';
+          const approveNotif = await storage.createNotification({
+            userId: String(doctorClinic.id),
+            message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} confirmed ${booking.customerName}'s appointment${dateStr ? ` on ${dateStr}` : ''}`,
+            read: false,
+          });
+          broadcastToClinic(String(doctorClinic.id), { type: "doctor_approved", notification: approveNotif });
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Doctor approve notification failed:', e.message);
+        }
+      }
+
       res.json(updated);
     } catch (err: any) {
       const status = err.message === "Booking not found" ? 404 : err.message === "Forbidden" ? 403 : 500;
@@ -2964,7 +3061,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const updated = await storage.updateBookingDoctorApproval(Number(req.params.id), sess.doctorEmail, 'declined');
 
-      // Notify clinic admin that the doctor has declined (fire-and-forget)
+      // Notify clinic admin that the doctor has declined (fire-and-forget + in-app)
       const slot = await storage.getSlot(booking.slotId);
       if (slot?.clinicId) {
         const clinicForDecline = await storage.getClinic(slot.clinicId);
@@ -2977,6 +3074,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             new Date(slot.startTime),
             booking.id,
           ).catch((err) => console.error('[EMAIL ERROR] Admin doctor-decline email failed:', err));
+        }
+        if (clinicForDecline) {
+          try {
+            const dateStr = new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+            const declineNotif = await storage.createNotification({
+              userId: String(clinicForDecline.id),
+              message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} declined ${booking.customerName}'s appointment on ${dateStr} — reassignment needed`,
+              read: false,
+            });
+            broadcastToClinic(String(clinicForDecline.id), { type: "doctor_declined", notification: declineNotif });
+          } catch (e: any) {
+            console.error('[NOTIFICATION] Doctor decline notification failed:', e.message);
+          }
         }
       }
 
@@ -3453,6 +3563,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         req.socket.remoteAddress || "unknown";
 
       await storage.markConsentSigned(req.params.token, signature, ip);
+
+      // In-app notification for clinic admin — consent signed
+      try {
+        const consentClinicId = (record as any).clinic?.id;
+        if (consentClinicId) {
+          const consentSlot = await storage.getSlot(record.booking.slotId);
+          const dateStr = consentSlot
+            ? new Date(consentSlot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+            : '';
+          const consentNotif = await storage.createNotification({
+            userId: String(consentClinicId),
+            message: `Consent signed by ${record.booking.customerName}${dateStr ? ` for appointment on ${dateStr}` : ''}`,
+            read: false,
+          });
+          broadcastToClinic(String(consentClinicId), { type: "consent_signed", notification: consentNotif });
+        }
+      } catch (e: any) {
+        console.error('[NOTIFICATION] Consent sign notification failed:', e.message);
+      }
 
       res.json({ success: true, message: "Consent signed successfully" });
     } catch (err: any) {
