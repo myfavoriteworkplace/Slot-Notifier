@@ -2,21 +2,31 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { useDoctorAuth } from "@/hooks/use-doctor-auth";
-import { useNotifications, useMarkNotificationRead, useNotificationSocket } from "@/hooks/use-notifications";
-import { useState, useEffect } from "react";
+import {
+  useNotifications,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+  useNotificationSocket,
+} from "@/hooks/use-notifications";
+import { useState } from "react";
+import { useEffect } from "react";
 import logoPath from "@assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png";
 import {
   Bell,
   LogOut,
   CalendarPlus,
   LayoutDashboard,
-  Shield,
   Building2,
   Sparkles,
   Stethoscope,
   Sun,
   Moon,
   ChevronDown,
+  CalendarCheck,
+  CheckCircle2,
+  XCircle,
+  RefreshCw,
+  FileCheck,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/queryClient";
 import { useTheme } from "next-themes";
@@ -27,6 +37,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
@@ -34,8 +46,190 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isToday, isYesterday } from "date-fns";
+import type { Notification } from "@shared/schema";
 
+/* ── Notification icon inference ─────────────────────────────────────────── */
+function getNotifMeta(message: string): {
+  Icon: React.ComponentType<{ className?: string }>;
+  bg: string;
+  color: string;
+} {
+  const m = message.toLowerCase();
+  if (m.includes("cancel"))
+    return { Icon: XCircle,      bg: "bg-rose-100 dark:bg-rose-950/40",    color: "text-rose-500 dark:text-rose-400"    };
+  if (m.includes("reschedul"))
+    return { Icon: RefreshCw,    bg: "bg-amber-100 dark:bg-amber-950/40",  color: "text-amber-600 dark:text-amber-400"  };
+  if (m.includes("consent") || m.includes("signed"))
+    return { Icon: FileCheck,    bg: "bg-sky-100 dark:bg-sky-950/40",      color: "text-sky-600 dark:text-sky-400"      };
+  if (m.includes("doctor") || m.includes("assigned"))
+    return { Icon: Stethoscope,  bg: "bg-teal-100 dark:bg-teal-950/40",    color: "text-teal-600 dark:text-teal-400"    };
+  if (m.includes("approved") || m.includes("confirmed"))
+    return { Icon: CheckCircle2, bg: "bg-emerald-100 dark:bg-emerald-950/40", color: "text-emerald-600 dark:text-emerald-400" };
+  return   { Icon: CalendarCheck, bg: "bg-primary/10",                      color: "text-primary"                        };
+}
+
+/* ── NotificationBellPanel ────────────────────────────────────────────────── */
+interface NotificationBellProps {
+  notifications: Notification[];
+  unreadCount: number;
+  onMarkRead: (id: number) => void;
+  onMarkAllRead: () => void;
+}
+
+function NotificationBellPanel({
+  notifications,
+  unreadCount,
+  onMarkRead,
+  onMarkAllRead,
+}: NotificationBellProps) {
+  const todayItems     = notifications.filter(n => isToday(new Date(n.createdAt!)));
+  const yesterdayItems = notifications.filter(n => isYesterday(new Date(n.createdAt!)));
+  const earlierItems   = notifications.filter(
+    n => !isToday(new Date(n.createdAt!)) && !isYesterday(new Date(n.createdAt!))
+  );
+
+  const groups = [
+    { label: "Today",     items: todayItems     },
+    { label: "Yesterday", items: yesterdayItems  },
+    { label: "Earlier",   items: earlierItems    },
+  ].filter(g => g.items.length > 0);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className="relative h-9 w-9 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted/80 transition-colors"
+          data-testid="button-notifications"
+        >
+          <Bell className="h-4 w-4" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary animate-pulse" />
+          )}
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className="w-[380px] p-0 shadow-xl rounded-2xl overflow-hidden"
+      >
+        {/* ── Header ── */}
+        <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border/50">
+          <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Bell className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold leading-tight">Notifications</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {unreadCount > 0
+                ? `${unreadCount} unread update${unreadCount !== 1 ? "s" : ""}`
+                : "All caught up"}
+            </p>
+          </div>
+          {unreadCount > 0 && (
+            <button
+              onClick={onMarkAllRead}
+              className="shrink-0 text-xs font-semibold text-primary hover:text-primary/80 active:scale-95 transition-all px-2 py-1.5 rounded-lg hover:bg-primary/8 min-h-[32px]"
+            >
+              Mark all read
+            </button>
+          )}
+        </div>
+
+        {/* ── Body ── */}
+        <ScrollArea className="max-h-[360px]">
+          {notifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center">
+                <Bell className="h-6 w-6 text-muted-foreground/30" />
+              </div>
+              <p className="text-sm text-muted-foreground">No notifications yet</p>
+            </div>
+          ) : (
+            <div className="py-1.5">
+              {groups.map((group, gi) => (
+                <div key={group.label}>
+                  {/* Group label */}
+                  <div className="px-4 pb-1 pt-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {group.label}
+                    </span>
+                  </div>
+
+                  {/* Rows */}
+                  {group.items.map(n => {
+                    const { Icon, bg, color } = getNotifMeta(n.message);
+                    return (
+                      <button
+                        key={n.id}
+                        className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 active:bg-muted/70 ${
+                          !n.read ? "bg-primary/5" : ""
+                        }`}
+                        onClick={() => !n.read && onMarkRead(n.id)}
+                      >
+                        {/* Unread dot */}
+                        <div className="shrink-0 w-2 flex justify-center pt-2.5">
+                          {!n.read && (
+                            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                          )}
+                        </div>
+
+                        {/* Type icon */}
+                        <div
+                          className={`h-8 w-8 rounded-xl ${bg} flex items-center justify-center shrink-0 mt-0.5`}
+                        >
+                          <Icon className={`h-3.5 w-3.5 ${color}`} />
+                        </div>
+
+                        {/* Text */}
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm leading-snug ${
+                              !n.read
+                                ? "font-medium text-foreground"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {n.message}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatDistanceToNow(new Date(n.createdAt!), {
+                              addSuffix: true,
+                            })}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+
+                  {/* Group divider */}
+                  {gi < groups.length - 1 && (
+                    <div className="mx-4 my-0.5 border-t border-border/30" />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+
+        {/* ── Footer ── */}
+        {notifications.length > 0 && (
+          <div className="border-t border-border/50 px-4 py-2.5 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              {notifications.length} notification{notifications.length !== 1 ? "s" : ""}
+            </span>
+            <span className="text-xs font-semibold text-primary">
+              {unreadCount} unread
+            </span>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
 export function Header() {
   const { user, logout, isAuthenticated } = useAuth();
   const { clinic, isAuthenticated: isClinicAuthenticated, logout: clinicLogout } = useClinicAuth();
@@ -43,6 +237,7 @@ export function Header() {
   const [location] = useLocation();
   const { data: notifications = [] } = useNotifications();
   const { mutate: markRead } = useMarkNotificationRead();
+  const { mutate: markAllRead } = useMarkAllNotificationsRead();
   useNotificationSocket(clinic?.id ?? undefined, doctor?.id ?? undefined);
   const { resolvedTheme, setTheme } = useTheme();
 
@@ -89,19 +284,21 @@ export function Header() {
     return () => clearInterval(iv);
   }, [location]);
 
-  const [healthStatus, setHealthStatus] = useState<{ backend: boolean | null; database: boolean | null }>({
-    backend: null,
-    database: null,
-  });
+  const [healthStatus, setHealthStatus] = useState<{
+    backend: boolean | null;
+    database: boolean | null;
+  }>({ backend: null, database: null });
 
-  const unreadCount   = notifications.filter((n) => !n.read).length;
-  const isSuperUser   = isAuthenticated && user?.role === "superuser";
-  const isNoone       = !isAuthenticated && !isClinicAuthenticated && !isDoctorAuthenticated;
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const isSuperUser = isAuthenticated && user?.role === "superuser";
+  const isNoone     = !isAuthenticated && !isClinicAuthenticated && !isDoctorAuthenticated;
 
   const bookHref =
     location.startsWith("/book/") && !location.endsWith("/null")
       ? location
-      : location === "/about" || location.startsWith("/clinic/") || location === "/clinic-login"
+      : location === "/about" ||
+        location.startsWith("/clinic/") ||
+        location === "/clinic-login"
       ? (() => {
           const id =
             new URLSearchParams(window.location.search).get("clinicId") ||
@@ -142,56 +339,22 @@ export function Header() {
       : []),
   ];
 
-  /* ── Reusable notification bell — shared by all authenticated roles ── */
-  const NotificationBell = (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          className="relative h-8 w-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-          data-testid="button-notifications"
-        >
-          <Bell className="h-4 w-4" />
-          {unreadCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent animate-pulse" />
-          )}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-0">
-        <div className="p-4 border-b bg-muted/30">
-          <h4 className="text-sm font-semibold">Notifications</h4>
-        </div>
-        <div className="max-h-[300px] overflow-y-auto">
-          {notifications.length === 0 ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">No notifications yet</div>
-          ) : (
-            notifications.map((n) => (
-              <DropdownMenuItem
-                key={n.id}
-                className={`flex flex-col items-start gap-1 p-4 cursor-pointer focus:bg-muted/50 ${!n.read ? "bg-primary/5" : ""}`}
-                onClick={() => !n.read && markRead(n.id)}
-              >
-                <p className={`text-sm ${!n.read ? "font-medium text-foreground" : "text-muted-foreground"}`}>
-                  {n.message}
-                </p>
-                <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(n.createdAt!), { addSuffix: true })}
-                </span>
-              </DropdownMenuItem>
-            ))
-          )}
-        </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+  /* ── Bell props (shared for all roles) ── */
+  const bellProps: NotificationBellProps = {
+    notifications,
+    unreadCount,
+    onMarkRead:    (id: number) => markRead(id),
+    onMarkAllRead: ()           => markAllRead(),
+  };
 
-  /* ── Auth block (right side, before separator) ── */
+  /* ── Auth block ── */
   const renderAuthBlock = () => {
 
-    /* ── SUPERUSER ── */
+    /* SUPERUSER */
     if (isAuthenticated) {
       return (
         <div className="flex items-center gap-2">
-          {NotificationBell}
+          <NotificationBellPanel {...bellProps} />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -208,7 +371,9 @@ export function Header() {
                   <p className="text-sm font-medium leading-none">
                     {user?.firstName} {user?.lastName}
                   </p>
-                  <p className="text-[11px] text-muted-foreground mt-[3px] capitalize">{user?.role}</p>
+                  <p className="text-[11px] text-muted-foreground mt-[3px] capitalize">
+                    {user?.role}
+                  </p>
                 </div>
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
               </button>
@@ -248,11 +413,11 @@ export function Header() {
       );
     }
 
-    /* ── CLINIC ADMIN ── */
+    /* CLINIC ADMIN */
     if (isClinicAuthenticated) {
       return (
         <div className="flex items-center gap-2">
-          {NotificationBell}
+          <NotificationBellPanel {...bellProps} />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -303,12 +468,12 @@ export function Header() {
       );
     }
 
-    /* ── DOCTOR ── */
+    /* DOCTOR */
     if (isDoctorAuthenticated) {
       const displayName = doctor?.name || "";
       return (
         <div className="flex items-center gap-2">
-          {NotificationBell}
+          <NotificationBellPanel {...bellProps} />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -359,7 +524,7 @@ export function Header() {
       );
     }
 
-    /* ── LOGGED OUT ── */
+    /* LOGGED OUT */
     return (
       <Link href="/clinic-login">
         <button
@@ -381,7 +546,7 @@ export function Header() {
       <div className="w-full px-4 sm:px-6">
         <div className="flex h-16 items-center gap-4">
 
-          {/* ── Logo ── */}
+          {/* Logo */}
           <Link
             href="/"
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0"
@@ -401,13 +566,15 @@ export function Header() {
             </div>
           </Link>
 
-          {/* ── Book a Slot — shown only to unauthenticated visitors ── */}
+          {/* Book a Slot — unauthenticated only */}
           {isNoone && (
             <Link href={bookHref}>
               <Button
                 variant={location.startsWith("/book") ? "default" : "ghost"}
                 size="sm"
-                className={`gap-2 h-9 px-2 sm:px-3 ${location.startsWith("/book") ? "" : "text-muted-foreground hover:text-foreground"}`}
+                className={`gap-2 h-9 px-2 sm:px-3 ${
+                  location.startsWith("/book") ? "" : "text-muted-foreground hover:text-foreground"
+                }`}
                 data-testid="tab-book-a-slot"
               >
                 <CalendarPlus className="h-4 w-4 shrink-0" />
@@ -416,9 +583,9 @@ export function Header() {
             </Link>
           )}
 
-          {/* ── Centre nav tabs ── */}
+          {/* Centre nav tabs */}
           <nav className="flex-1 flex items-center justify-center gap-1">
-            {tabs.map((tab) => {
+            {tabs.map(tab => {
               const isActive =
                 location === tab.href ||
                 (tab.label === "Clinic Dashboard" && location === "/clinic-dashboard") ||
@@ -443,21 +610,20 @@ export function Header() {
             })}
           </nav>
 
-          {/* ── Right utility bar ── */}
+          {/* Right utility bar */}
           <div className="flex items-center gap-3 shrink-0">
 
-            {/* Auth block — bell + avatar dropdown for all authenticated roles,
-                          teal Clinic Portal CTA when logged out */}
             {renderAuthBlock()}
 
-            {/* Dental Marketplace — only for unauthenticated visitors
-                (authenticated users reach it via their avatar dropdown) */}
+            {/* Dental Marketplace — unauthenticated only */}
             {isNoone && (
               <Link href="/deals">
                 <Button
                   variant={location === "/deals" ? "default" : "ghost"}
                   size="sm"
-                  className={`gap-2 h-9 px-2 sm:px-3 ${location === "/deals" ? "" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`gap-2 h-9 px-2 sm:px-3 ${
+                    location === "/deals" ? "" : "text-muted-foreground hover:text-foreground"
+                  }`}
                   data-testid="tab-smile-deals"
                 >
                   <Sparkles className="h-4 w-4 shrink-0" />
@@ -469,7 +635,7 @@ export function Header() {
             {/* Separator */}
             <div className="w-px h-5 bg-border/60" />
 
-            {/* Stealth admin — only for unauthenticated visitors */}
+            {/* Stealth admin — unauthenticated only */}
             {isNoone && (
               <TooltipProvider delayDuration={400}>
                 <Tooltip>
@@ -505,7 +671,7 @@ export function Header() {
               </TooltipProvider>
             )}
 
-            {/* Theme toggle — always visible */}
+            {/* Theme toggle */}
             <TooltipProvider delayDuration={300}>
               <Tooltip>
                 <TooltipTrigger asChild>

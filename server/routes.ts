@@ -1933,6 +1933,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.patch("/api/notifications/read-all", async (req, res) => {
+    const sess = req.session as any;
+    if (!sess?.adminLoggedIn && !sess?.doctorLoggedIn) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const userId = String(sess.doctorId || sess.doctorEmail || sess.clinicId || sess.adminEmail || "superuser");
+    try {
+      await storage.markAllNotificationsRead(userId);
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.patch("/api/notifications/:id/read", isAuthenticated, async (req, res) => {
     try {
       const notification = await storage.markNotificationRead(Number(req.params.id));

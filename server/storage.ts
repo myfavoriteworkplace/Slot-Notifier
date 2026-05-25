@@ -83,6 +83,7 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   getNotifications(userId: string): Promise<Notification[]>;
   markNotificationRead(id: number): Promise<Notification | undefined>;
+  markAllNotificationsRead(userId: string): Promise<void>;
 
   // Users (from auth storage)
   getUser(id: string): Promise<User | undefined>;
@@ -644,6 +645,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notifications.id, id))
       .returning();
     return updated;
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    await db.update(notifications)
+      .set({ read: true })
+      .where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
   }
 
   // Auth User wrapper

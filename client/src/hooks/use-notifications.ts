@@ -21,6 +21,22 @@ export function useNotifications() {
   });
 }
 
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${API_BASE_URL}/api/notifications/read-all`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to mark all as read");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.notifications.list.path] });
+    },
+  });
+}
+
 export function useMarkNotificationRead() {
   const queryClient = useQueryClient();
   
