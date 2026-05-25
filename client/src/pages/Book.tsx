@@ -116,8 +116,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [additionalNotes, setAdditionalNotes]     = useState("");
   const [openCategory, setOpenCategory]           = useState("");
   const [customerAge, setCustomerAge]             = useState("");
-  const [customerGender, setCustomerGender]       = useState<"male" | "female" | "other" | "">("");
-  const [showAgeGender, setShowAgeGender]         = useState(false);
+  const [customerGender, setCustomerGender]       = useState<"male" | "female" | "other" | "">();
   const [showSlots, setShowSlots]           = useState(false);
   const [step, setStep]                     = useState<"details" | "success">("details");
   const [phoneError, setPhoneError]         = useState("");
@@ -159,7 +158,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail);
   const otpDigits = Array.from({ length: 6 }, (_, index) => otpCode[index] || "");
   const isOtpComplete = otpCode.length === 6;
-  const canProceedToSlots = Boolean(customerName && isPhoneValid && isEmailValid && selectedClinic && emailVerified && verifiedToken && selectedSubIssues.length > 0);
+  const isAgeValid = Boolean(customerAge && Number(customerAge) >= 1 && Number(customerAge) <= 120);
+  const canProceedToSlots = Boolean(customerName && isAgeValid && customerGender && isPhoneValid && isEmailValid && selectedClinic && emailVerified && verifiedToken && selectedSubIssues.length > 0);
 
   const resetOtpState = () => {
     setOtpSent(false);
@@ -595,8 +595,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
     setAdditionalNotes("");
     setOpenCategory("");
     setCustomerAge("");
-    setCustomerGender("");
-    setShowAgeGender(false);
+    setCustomerGender(undefined);
     setPhoneError("");
     setPaymentLoading(false);
     setBookingPath(null);
@@ -1316,6 +1315,45 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       </div>
                     </div>
 
+                    {/* Age & Gender — mandatory */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">
+                        Age &amp; Gender <span className="text-destructive">*</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden w-28 shrink-0">
+                          <input
+                            type="number"
+                            min={1}
+                            max={120}
+                            value={customerAge}
+                            onChange={e => setCustomerAge(e.target.value)}
+                            placeholder="Age"
+                            className="w-full h-10 bg-transparent pl-3 pr-2 text-sm outline-none placeholder:text-muted-foreground"
+                            data-testid="input-age"
+                          />
+                          <span className="text-xs text-muted-foreground pr-3 shrink-0">yrs</span>
+                        </div>
+                        <div className="flex gap-1.5 flex-1">
+                          {(["male", "female", "other"] as const).map(g => (
+                            <button
+                              key={g}
+                              type="button"
+                              onClick={() => setCustomerGender(prev => prev === g ? undefined : g)}
+                              data-testid={`btn-gender-${g}`}
+                              className={`flex-1 h-10 rounded-xl border text-xs font-semibold capitalize transition-all ${
+                                customerGender === g
+                                  ? "bg-primary text-white border-primary shadow-sm shadow-primary/25"
+                                  : "border-border/60 bg-muted/20 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                              }`}
+                            >
+                              {g === "male" ? "♂ Male" : g === "female" ? "♀ Female" : "Other"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Phone */}
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-muted-foreground">Best number to reach you?</label>
@@ -1600,56 +1638,6 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           />
                         </div>
 
-                        {/* Age & Gender — optional, collapsible */}
-                        <div className="space-y-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowAgeGender(prev => !prev)}
-                            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                            data-testid="btn-toggle-age-gender"
-                          >
-                            <div className={`h-4 w-4 rounded-full border flex items-center justify-center transition-all shrink-0 ${showAgeGender ? "border-primary/50 bg-primary/10" : "border-border/60"}`}>
-                              <span className="text-[9px] font-bold text-primary leading-none">{showAgeGender ? "−" : "+"}</span>
-                            </div>
-                            <span className="font-semibold">Add age &amp; gender</span>
-                            <span className="text-muted-foreground/50">(optional — helps your doctor prepare)</span>
-                          </button>
-                          {showAgeGender && (
-                            <div className="flex gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                              <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden w-28 shrink-0">
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={120}
-                                  value={customerAge}
-                                  onChange={e => setCustomerAge(e.target.value)}
-                                  placeholder="Age"
-                                  className="w-full h-11 bg-transparent pl-3 pr-2 text-sm outline-none placeholder:text-muted-foreground"
-                                  data-testid="input-age"
-                                />
-                                <span className="text-xs text-muted-foreground pr-3 shrink-0">yrs</span>
-                              </div>
-                              <div className="flex gap-1.5 flex-1">
-                                {(["male", "female", "other"] as const).map(g => (
-                                  <button
-                                    key={g}
-                                    type="button"
-                                    onClick={() => setCustomerGender(prev => prev === g ? "" : g)}
-                                    data-testid={`btn-gender-${g}`}
-                                    className={`flex-1 h-11 rounded-xl border text-xs font-semibold capitalize transition-all ${
-                                      customerGender === g
-                                        ? "bg-primary text-white border-primary shadow-sm shadow-primary/25"
-                                        : "border-border/60 bg-muted/20 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                                    }`}
-                                  >
-                                    {g === "male" ? "♂ Male" : g === "female" ? "♀ Female" : "Other"}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
                       </div>
                     )}
 
@@ -1675,6 +1663,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             <Lock className="h-3.5 w-3.5 shrink-0" />
                             {!customerName
                               ? "Enter your name first"
+                              : !isAgeValid || !customerGender
+                              ? "Enter your age and select a gender"
                               : !isPhoneValid
                               ? "Enter a valid phone number"
                               : "Select a reason for your visit"}
