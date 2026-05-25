@@ -20,7 +20,7 @@ import {
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText,
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
   Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, CreditCard,
-  Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal
+  Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -199,6 +199,7 @@ export default function ClinicDashboard() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState("");
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingShowReview, setBookingShowReview] = useState(false);
   const [slotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
   const DENTAL_CATEGORIES = [
@@ -519,6 +520,7 @@ export default function ClinicDashboard() {
     setSelectedSlot(null);
     setPhoneError("");
     setBookingSuccess(false);
+    setBookingShowReview(false);
   };
 
   const cancelBookingMutation = useMutation({
@@ -4386,22 +4388,51 @@ export default function ClinicDashboard() {
               <div className="p-5">
               <div className="border-t border-border/30 px-4 pb-4 pt-3">
                 {bookingSuccess ? (
-                  <div className="py-8 flex flex-col items-center gap-4">
-                    <CheckCircle2 className="h-16 w-16 text-green-500" />
-                    <div className="text-center">
-                      <h3 className="text-lg font-semibold">Booking Confirmed!</h3>
-                      <p className="text-muted-foreground mt-1">
-                        Appointment on {format(bookingDate, "MMMM do, yyyy")} has been booked.
-                      </p>
+                  <div className="py-10 flex flex-col items-center gap-5 text-center">
+                    <div className="relative">
+                      <div className="absolute -inset-4 rounded-full bg-gradient-to-br from-emerald-400/20 to-primary/20 blur-xl animate-pulse" />
+                      <div className="relative h-20 w-20 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                        <CheckCircle2 className="h-10 w-10 text-white" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-xl font-extrabold tracking-tight">Booking Confirmed!</h3>
+                      <p className="text-sm text-muted-foreground">The appointment has been created successfully.</p>
+                    </div>
+                    <div className="w-full rounded-2xl border border-border/60 bg-muted/20 overflow-hidden text-left">
+                      <div className="px-4 py-2.5 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
+                        <CalendarDays className="h-3 w-3 text-primary" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Booking Summary</span>
+                      </div>
+                      <div className="divide-y divide-border/40">
+                        <div className="flex items-center gap-3 px-4 py-2.5">
+                          <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <User className="h-3 w-3 text-primary" />
+                          </div>
+                          <span className="text-sm font-medium">{bookingName}</span>
+                        </div>
+                        {bookingPhone && (
+                          <div className="flex items-center gap-3 px-4 py-2.5">
+                            <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                              <Phone className="h-3 w-3 text-primary" />
+                            </div>
+                            <span className="text-sm font-medium">{bookingPhone}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3 px-4 py-2.5">
+                          <div className="h-6 w-6 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                            <CalendarDays className="h-3 w-3 text-emerald-500" />
+                          </div>
+                          <span className="text-sm font-medium">{format(bookingDate, "EEEE, MMM d, yyyy")}</span>
+                        </div>
+                      </div>
                     </div>
                     <Button
-                      onClick={() => {
-                        resetBookingForm();
-                      }}
-                      className="mt-2"
+                      onClick={() => resetBookingForm()}
+                      className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
                       data-testid="button-book-another"
                     >
-                      Book Another
+                      Book Another Appointment
                     </Button>
                   </div>
                 ) : (
@@ -4435,7 +4466,7 @@ export default function ClinicDashboard() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="booking-email" className="text-left block">Email <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+                        <Label htmlFor="booking-email" className="text-left block">Email <span className="text-muted-foreground font-normal text-xs">(optional — for confirmation)</span></Label>
                         <Input
                           id="booking-email"
                           type="email"
@@ -4544,43 +4575,31 @@ export default function ClinicDashboard() {
 
                     {/* Time Slot Selection */}
                     <div className="space-y-2">
-                      <Label className="text-left block">Select Time Slot</Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <Label className="text-left block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Select Time Slot</Label>
+                      <div className="space-y-2">
                         {slotTimings.filter(slot => {
                           const startTime = new Date(bookingDate);
                           startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
                           const isoString = startTime.toISOString();
-
                           if (localStorage.getItem("demo_clinic_active") === "true") {
                             const storedConfigs = localStorage.getItem("demo_slot_configs");
                             const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
                             if (configs[isoString]?.isCancelled) return false;
-
-                            // Check capacity
-                            const maxBookings = configs[isoString]?.maxBookings ?? 3;
-                            const currentBookings = bookings?.filter(b =>
-                              new Date(b.slot.startTime).toISOString() === isoString
-                            ).length || 0;
-
                             return true;
                           } else {
-                            // Logic for registered clinics
-                            // Filter out slots that are cancelled
                             const existingBookingWithSlot = bookings?.find(b =>
                               new Date(b.slot.startTime).toISOString() === isoString
                             );
                             if (existingBookingWithSlot?.slot.isCancelled) return false;
-
                             return true;
                           }
                         }).map((slot) => {
                           const startTime = new Date(bookingDate);
                           startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
                           const isoString = startTime.toISOString();
-
                           let isFull = false;
+                          let spotsLeft = 3;
                           let maxBookings = 3;
-
                           if (localStorage.getItem("demo_clinic_active") === "true") {
                             const storedConfigs = localStorage.getItem("demo_slot_configs");
                             const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
@@ -4588,23 +4607,26 @@ export default function ClinicDashboard() {
                             const currentBookings = bookings?.filter(b =>
                               new Date(b.slot.startTime).toISOString() === isoString
                             ).length || 0;
+                            spotsLeft = Math.max(0, maxBookings - currentBookings);
                             isFull = currentBookings >= maxBookings;
                           } else {
-                            // Logic for registered clinics using backend data
                             const currentBookings = bookings?.filter(b =>
                               new Date(b.slot.startTime).toISOString() === isoString
                             ).length || 0;
-
-                            // Try to find maxBookings from any existing booking's slot info
                             const existingBookingWithSlot = bookings?.find(b =>
                               new Date(b.slot.startTime).toISOString() === isoString
                             );
-
                             maxBookings = existingBookingWithSlot?.slot.maxBookings ?? 3;
+                            spotsLeft = Math.max(0, maxBookings - currentBookings);
                             isFull = currentBookings >= maxBookings;
                           }
-
-                          const slotLabel = `${formatTime(slot.startHour, slot.startMinute)} - ${formatTime(slot.endHour, slot.endMinute)}`;
+                          const isSelected = selectedSlot === slot.id;
+                          const slotIcon = slot.startHour < 12
+                            ? { Icon: Sun, color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-400/30" }
+                            : slot.startHour < 16
+                            ? { Icon: Clock, color: "text-sky-500", bg: "bg-sky-500/10", border: "border-sky-400/30" }
+                            : { Icon: Moon, color: "text-primary", bg: "bg-primary/10", border: "border-primary/30" };
+                          const { Icon, color, bg, border } = slotIcon;
                           return (
                             <TooltipProvider key={slot.id}>
                               <Tooltip>
@@ -4613,28 +4635,44 @@ export default function ClinicDashboard() {
                                     onClick={() => !isFull && setSelectedSlot(slot.id)}
                                     disabled={isFull}
                                     data-testid={`booking-slot-${slot.id}`}
-                                    className={`p-5 sm:p-4 rounded-xl border text-center transition-all relative ${selectedSlot === slot.id
-                                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                      : isFull
-                                        ? "border-destructive/30 bg-destructive/5 cursor-not-allowed"
-                                        : "border-border hover:bg-muted/50 hover:border-primary/50"
-                                      }`}
+                                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left relative overflow-hidden ${
+                                      isSelected
+                                        ? "bg-primary/10 border-primary/40 ring-2 ring-primary/20 shadow-md shadow-primary/10"
+                                        : isFull
+                                        ? "bg-muted/30 border-border/40 opacity-50 cursor-not-allowed"
+                                        : "bg-card border-border/50 hover:border-primary/30 hover:bg-primary/4 hover:shadow-md"
+                                    }`}
                                   >
-                                    <div className={`font-semibold text-base sm:text-base ${isFull ? "text-destructive/70" : ""}`}>
-                                      {slot.label}
+                                    {isSelected && (
+                                      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-accent/5 pointer-events-none" />
+                                    )}
+                                    <div className={`relative h-11 w-11 rounded-xl ${bg} border ${border} flex items-center justify-center shrink-0`}>
+                                      <Icon className={`h-5 w-5 ${color}`} />
                                     </div>
-                                    <div className="text-sm text-muted-foreground mt-1">{slotLabel}</div>
-                                    {isFull && (
-                                      <Badge variant="destructive" className="absolute -top-2 -right-2 px-1.5 py-0 text-[10px] h-4">
-                                        Full
-                                      </Badge>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-bold text-sm">{slot.label}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {formatTime(slot.startHour, slot.startMinute)} → {formatTime(slot.endHour, slot.endMinute)}
+                                      </p>
+                                    </div>
+                                    <div className="shrink-0 text-right">
+                                      {isFull ? (
+                                        <span className="text-xs font-bold bg-destructive/10 text-destructive border border-destructive/20 px-2 py-1 rounded-lg">FULL</span>
+                                      ) : (
+                                        <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
+                                          spotsLeft <= 1 ? "bg-amber-500/10 text-amber-600 border border-amber-400/20" : "bg-emerald-500/10 text-emerald-600 border border-emerald-400/20"
+                                        }`}>
+                                          {spotsLeft} left
+                                        </span>
+                                      )}
+                                    </div>
+                                    {isSelected && (
+                                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
                                     )}
                                   </button>
                                 </TooltipTrigger>
                                 {isFull && (
-                                  <TooltipContent>
-                                    <p>Booking closed for this slot</p>
-                                  </TooltipContent>
+                                  <TooltipContent><p>This slot is fully booked</p></TooltipContent>
                                 )}
                               </Tooltip>
                             </TooltipProvider>
@@ -4643,25 +4681,74 @@ export default function ClinicDashboard() {
                       </div>
                     </div>
 
-                    {/* Submit Button */}
-                    <Button
-                      onClick={handleCreateBooking}
-                      disabled={!bookingName || !isPhoneValid || !bookingEmail || !selectedSlot || createBookingMutation.isPending}
-                      className="w-full sm:w-auto"
-                      data-testid="button-create-booking"
-                    >
-                      {createBookingMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Creating Booking...
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create Booking
-                        </>
-                      )}
-                    </Button>
+                    {/* Review & Submit */}
+                    {bookingShowReview ? (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="text-center space-y-0.5 pb-1">
+                          <p className="text-sm font-bold text-foreground">Review Booking</p>
+                          <p className="text-xs text-muted-foreground">Double-check everything before confirming</p>
+                        </div>
+                        <div className="rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
+                          <div className="px-4 py-3 space-y-0.5">
+                            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Patient</p>
+                            <p className="text-sm font-bold text-foreground">{bookingName}</p>
+                            <p className="text-xs text-muted-foreground">{bookingPhone}{bookingEmail ? ` · ${bookingEmail}` : ""}</p>
+                          </div>
+                          {(() => {
+                            const reviewSlot = slotTimings.find(s => s.id === selectedSlot);
+                            return reviewSlot ? (
+                              <div className="px-4 py-3 space-y-0.5">
+                                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Appointment</p>
+                                <p className="text-sm font-bold text-foreground">{format(bookingDate, "EEEE, d MMMM yyyy")}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {reviewSlot.label} · {formatTime(reviewSlot.startHour, reviewSlot.startMinute)}–{formatTime(reviewSlot.endHour, reviewSlot.endMinute)}
+                                </p>
+                              </div>
+                            ) : null;
+                          })()}
+                          {bookingDescription && (
+                            <div className="px-4 py-3 space-y-1.5">
+                              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Chief Complaints</p>
+                              <div className="flex flex-wrap gap-1">
+                                {bookingDescription.split(", ").filter(Boolean).map(issue => (
+                                  <span key={issue} className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">{issue}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setBookingShowReview(false)}
+                            className="flex-1 h-11 rounded-xl border border-border/60 bg-muted/20 text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-border transition-all"
+                            data-testid="button-admin-review-back"
+                          >
+                            ← Go back
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCreateBooking}
+                            disabled={createBookingMutation.isPending}
+                            className="flex-1 h-11 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-bold shadow-md shadow-primary/20 hover:from-primary/90 hover:to-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            data-testid="button-create-booking"
+                          >
+                            {createBookingMutation.isPending
+                              ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Creating…</span>
+                              : "Confirm & Create →"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={() => setBookingShowReview(true)}
+                        disabled={!bookingName || !isPhoneValid || !selectedSlot}
+                        className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
+                        data-testid="button-review-booking"
+                      >
+                        Review Booking →
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>

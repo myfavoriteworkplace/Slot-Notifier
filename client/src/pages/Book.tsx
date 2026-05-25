@@ -545,7 +545,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
         description: "Token booking fee – actual consultation fee payable at clinic",
         order_id: order.orderId,
         prefill: { name: customerName, contact: customerPhone, email: customerEmail },
-        theme: { color: "#6d28d9" },
+        theme: { color: "#0F9B6E" },
         handler: async (response: any) => {
           try {
             const verifyRes = await apiRequest("POST", "/api/public/razorpay/verify-payment", {
@@ -1258,15 +1258,24 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     </div>
                     <div className="h-px w-4 bg-white/20" />
                     <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${
-                      showSlots
+                      showSlots && !showReview
                         ? "bg-white/20 border-white/30 text-white"
                         : "bg-white/8 border-white/15 text-white/45"
                     }`}>
                       <span className="h-3.5 w-3.5 rounded-full bg-white/30 flex items-center justify-center text-[9px] font-black">2</span>
                       Pick a Slot
                     </div>
+                    <div className="h-px w-4 bg-white/20" />
+                    <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${
+                      showReview
+                        ? "bg-white/20 border-white/30 text-white"
+                        : "bg-white/8 border-white/15 text-white/45"
+                    }`}>
+                      <span className="h-3.5 w-3.5 rounded-full bg-white/30 flex items-center justify-center text-[9px] font-black">3</span>
+                      Review
+                    </div>
                   </div>
-                  <p className="text-xs text-white/40 mb-2">Quick booking · 2 steps · about 90 seconds</p>
+                  <p className="text-xs text-white/40 mb-2">Quick booking · 3 steps · about 90 seconds</p>
 
                   <DialogTitle className="text-white font-extrabold text-xl leading-tight">
                     {format(selectedDate, "EEEE, MMMM d")}
@@ -1726,12 +1735,14 @@ export default function Book(props: { params: { clinicId?: string } }) {
                   </div>
 
                 ) : (
-                  /* STEP 2: Slot selection */
+                  /* STEP 2 / 3: Slot selection or Review */
                   <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-sm font-bold">Select a Time Slot</h3>
+                      <h3 className="text-sm font-bold">
+                        {showReview ? "Review Booking" : "Select a Time Slot"}
+                      </h3>
                       <button
-                        onClick={() => setShowSlots(false)}
+                        onClick={() => showReview ? setShowReview(false) : setShowSlots(false)}
                         className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                       >
                         ← Back
