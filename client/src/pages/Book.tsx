@@ -131,6 +131,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [returningPatient, setReturningPatient] = useState<{ name: string; visitCount: number; patientCode: string } | null>(null);
   const razorpayScriptRef = useRef(false);
   const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const [pendingBookingPath, setPendingBookingPath] = useState<"pay" | "pending" | null>(null);
 
   // OTP verification state
   const [otpSent, setOtpSent]               = useState(false);
@@ -599,6 +602,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
     setPhoneError("");
     setPaymentLoading(false);
     setBookingPath(null);
+    setShowAllCategories(false);
+    setShowReview(false);
+    setPendingBookingPath(null);
     setStep("details");
     resetOtpState();
     sessionStorage.removeItem("bms_name");
@@ -1298,9 +1304,40 @@ export default function Book(props: { params: { clinicId?: string } }) {
                   /* STEP 1: Patient details */
                   <div className="space-y-4">
 
+                    {emailVerified ? (
+                      /* ─── Verified summary: collapse all inputs ─── */
+                      <div className="flex items-start gap-3 p-3.5 rounded-2xl border border-emerald-400/20 bg-emerald-500/5 animate-in fade-in duration-300" data-testid="section-patient-summary">
+                        <div className="h-9 w-9 rounded-xl bg-emerald-500/15 border border-emerald-400/20 flex items-center justify-center shrink-0 mt-0.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-bold text-foreground leading-tight">{customerName}</p>
+                            <button
+                              type="button"
+                              onClick={() => resetOtpState()}
+                              className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors shrink-0"
+                              data-testid="button-edit-details"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {customerAge} yrs · {customerGender ? customerGender.charAt(0).toUpperCase() + customerGender.slice(1) : ""}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{customerPhone}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs text-muted-foreground">{customerEmail}</span>
+                            <span className="text-xs font-bold text-emerald-600 bg-emerald-500/10 border border-emerald-400/20 px-1.5 py-0.5 rounded-full">✓ verified</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                    <>
+
                     {/* Name */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground">What's your name?</label>
+                      <label className="text-xs font-semibold text-muted-foreground">What's your name? <span className="text-destructive">*</span></label>
                       <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
                         <div className="flex items-center justify-center h-10 w-10 shrink-0 border-r border-border/40 bg-muted/30">
                           <User className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1356,7 +1393,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
                     {/* Phone */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground">Best number to reach you?</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Best number to reach you? <span className="text-destructive">*</span></label>
                       <div className={`flex items-center rounded-xl border bg-muted/20 focus-within:bg-background focus-within:ring-2 transition-all overflow-hidden ${
                         phoneError ? "border-destructive focus-within:ring-destructive/10 focus-within:border-destructive" : "border-border/60 focus-within:border-primary/50 focus-within:ring-primary/10"
                       }`}>
@@ -1378,7 +1415,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
                     {/* Email */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground">Your email address</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Your email address <span className="text-destructive">*</span></label>
                       <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
                         <div className="flex items-center justify-center h-10 w-10 shrink-0 border-r border-border/40 bg-muted/30">
                           <Mail className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1539,6 +1576,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         </div>
                       </div>
                     )}
+                    </>
+                    )}
 
                     {/* Chief complaints + Additional Notes — revealed after email verify */}
                     {emailVerified && (
@@ -1574,7 +1613,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                 onValueChange={setOpenCategory}
                                 className="divide-y divide-border/40"
                               >
-                                {DENTAL_CATEGORIES.map((cat) => {
+                                {(showAllCategories ? DENTAL_CATEGORIES : DENTAL_CATEGORIES.slice(0, 4)).map((cat) => {
                                   const count = countForCategory(cat);
                                   return (
                                     <AccordionItem key={cat.category} value={cat.category} className="border-0">
@@ -1619,6 +1658,16 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                 })}
                               </Accordion>
                             </div>
+                            {!showAllCategories && (
+                              <button
+                                type="button"
+                                onClick={() => setShowAllCategories(true)}
+                                className="w-full py-2.5 text-xs font-semibold text-primary hover:text-accent transition-colors border-t border-border/40 bg-muted/10 hover:bg-muted/30"
+                                data-testid="button-show-more-categories"
+                              >
+                                Show {DENTAL_CATEGORIES.length - 4} more categories ↓
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -1683,11 +1732,82 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       <h3 className="text-sm font-bold">Select a Time Slot</h3>
                       <button
                         onClick={() => setShowSlots(false)}
-                        className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                       >
                         ← Back
                       </button>
                     </div>
+
+                    {showReview && selectedSlot ? (
+                      /* ─── Booking Review Screen ─── */
+                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="text-center space-y-0.5 pb-1">
+                          <p className="text-sm font-bold text-foreground">Review your booking</p>
+                          <p className="text-xs text-muted-foreground">Double-check everything before confirming</p>
+                        </div>
+
+                        <div className="rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
+                          {/* Patient */}
+                          <div className="px-4 py-3 space-y-0.5">
+                            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Patient</p>
+                            <p className="text-sm font-bold text-foreground">{customerName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {customerAge} yrs · {customerGender ? customerGender.charAt(0).toUpperCase() + customerGender.slice(1) : ""}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{customerPhone} · {customerEmail}</p>
+                          </div>
+                          {/* Appointment */}
+                          {(() => {
+                            const reviewSlot = slotTimings.find(s => s.id === selectedSlot);
+                            return reviewSlot ? (
+                              <div className="px-4 py-3 space-y-0.5">
+                                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Appointment</p>
+                                <p className="text-sm font-bold text-foreground">{format(selectedDate, "EEEE, d MMMM yyyy")}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {reviewSlot.label} · {formatTime(reviewSlot.startHour, reviewSlot.startMinute)}–{formatTime(reviewSlot.endHour, reviewSlot.endMinute)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">{selectedClinic}</p>
+                              </div>
+                            ) : null;
+                          })()}
+                          {/* Reason */}
+                          <div className="px-4 py-3 space-y-1.5">
+                            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Reason for visit</p>
+                            <div className="flex flex-wrap gap-1">
+                              {selectedSubIssues.map(issue => (
+                                <span key={issue} className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">{issue}</span>
+                              ))}
+                            </div>
+                            {additionalNotes && (
+                              <p className="text-xs text-muted-foreground italic">"{additionalNotes}"</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setShowReview(false)}
+                            className="flex-1 h-11 rounded-xl border border-border/60 bg-muted/20 text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-border transition-all"
+                            data-testid="button-review-back"
+                          >
+                            ← Go back
+                          </button>
+                          <button
+                            type="button"
+                            disabled={paymentLoading || createBookingMutation.isPending}
+                            onClick={() => { if (pendingBookingPath === "pay") handlePayAndConfirm(); else handleBook(); }}
+                            className="flex-1 h-11 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-bold shadow-md shadow-primary/20 hover:from-primary/90 hover:to-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            data-testid="button-review-confirm"
+                          >
+                            {paymentLoading || createBookingMutation.isPending ? (
+                              <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Confirming…</span>
+                            ) : pendingBookingPath === "pay" ? "Pay ₹1 & Confirm →" : "Confirm Booking →"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                    <>
 
                     {/* ── Doctor on-leave soft warning ── */}
                     {isRealClinic && clinicAvailability && !clinicAvailability.hasAnyAvailable && (
@@ -1697,7 +1817,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-amber-700">All doctors on leave today</p>
-                          <p className="text-[11px] text-amber-600/80 mt-0.5 leading-relaxed">
+                          <p className="text-xs text-amber-600/80 mt-0.5 leading-relaxed">
                             All {clinicAvailability.totalDoctors} doctor{clinicAvailability.totalDoctors !== 1 ? "s" : ""} at this clinic are on leave on {format(selectedDate, "MMM d")}. You can still book — the clinic will manage your appointment.
                           </p>
                         </div>
@@ -1832,13 +1952,13 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         {/* Divider */}
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-px bg-border/50" />
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2">Choose how to confirm</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-2">Choose how to confirm</span>
                           <div className="flex-1 h-px bg-border/50" />
                         </div>
 
                         {/* Option 1: Pay & Confirm */}
                         <button
-                          onClick={handlePayAndConfirm}
+                          onClick={() => { setPendingBookingPath("pay"); setShowReview(true); }}
                           disabled={!selectedSlot || !emailVerified || !verifiedToken || paymentLoading || createBookingMutation.isPending}
                           data-testid="button-pay-confirm"
                           className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-primary/40 bg-gradient-to-r from-primary/8 to-accent/8 hover:from-primary/15 hover:to-accent/15 hover:border-primary/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-left group"
@@ -1850,8 +1970,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-bold text-sm text-foreground">Pay ₹1 &amp; Confirm Instantly</p>
-                            <p className="hidden sm:block text-[11px] text-muted-foreground mt-0.5">Token fee only · Slot reserved immediately · Pay at clinic for treatment</p>
-                            <p className="sm:hidden text-[11px] text-muted-foreground mt-0.5">Token fee · Pay at clinic</p>
+                            <p className="hidden sm:block text-xs text-muted-foreground mt-0.5">Token fee only · Slot reserved immediately · Pay at clinic for treatment</p>
+                            <p className="sm:hidden text-xs text-muted-foreground mt-0.5">Token fee · Pay at clinic</p>
                           </div>
                           <div className="shrink-0">
                             <span className="text-[10px] font-bold bg-primary/15 text-primary border border-primary/25 px-2 py-1 rounded-lg">INSTANT</span>
@@ -1860,7 +1980,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
                         {/* Option 2: Clinic Approval */}
                         <button
-                          onClick={handleBook}
+                          onClick={() => { setPendingBookingPath("pending"); setShowReview(true); }}
                           disabled={!selectedSlot || !emailVerified || !verifiedToken || createBookingMutation.isPending || paymentLoading}
                           data-testid="button-clinic-approval"
                           className="w-full flex items-center gap-4 p-4 rounded-2xl border border-border/60 bg-card hover:border-primary/30 hover:bg-primary/4 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed text-left"
@@ -1872,8 +1992,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-bold text-sm text-foreground">Book with Clinic Approval</p>
-                            <p className="hidden sm:block text-[11px] text-muted-foreground mt-0.5">Free · Clinic will confirm your slot · No payment now</p>
-                            <p className="sm:hidden text-[11px] text-muted-foreground mt-0.5">Free · Awaiting approval</p>
+                            <p className="hidden sm:block text-xs text-muted-foreground mt-0.5">Free · Clinic will confirm your slot · No payment now</p>
+                            <p className="sm:hidden text-xs text-muted-foreground mt-0.5">Free · Awaiting approval</p>
                           </div>
                           <div className="shrink-0">
                             <span className="text-[10px] font-bold bg-muted text-muted-foreground border border-border/50 px-2 py-1 rounded-lg">FREE</span>
@@ -1885,7 +2005,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     {/* Demo clinic: single button */}
                     {selectedClinic === "Demo Smile Clinic" && (
                       <Button
-                        onClick={handleBook}
+                        onClick={() => { setPendingBookingPath("pending"); setShowReview(true); }}
                         disabled={!selectedSlot || !emailVerified || !verifiedToken || createBookingMutation.isPending}
                         className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl mt-2"
                         data-testid="button-confirm-booking"
@@ -1894,6 +2014,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Confirming…</>
                           : "Confirm Booking"}
                       </Button>
+                    )}
+
+                    </>
                     )}
                   </div>
                 )}
