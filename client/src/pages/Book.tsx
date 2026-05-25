@@ -91,7 +91,7 @@ function BookingShell({
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-[460px] rounded-2xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
+      <DialogContent className="w-[95vw] sm:max-w-[520px] rounded-2xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
         {children}
       </DialogContent>
     </Dialog>
@@ -117,6 +117,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [openCategory, setOpenCategory]           = useState("");
   const [customerAge, setCustomerAge]             = useState("");
   const [customerGender, setCustomerGender]       = useState<"male" | "female" | "other" | "">("");
+  const [showAgeGender, setShowAgeGender]         = useState(false);
   const [showSlots, setShowSlots]           = useState(false);
   const [step, setStep]                     = useState<"details" | "success">("details");
   const [phoneError, setPhoneError]         = useState("");
@@ -595,6 +596,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
     setOpenCategory("");
     setCustomerAge("");
     setCustomerGender("");
+    setShowAgeGender(false);
     setPhoneError("");
     setPaymentLoading(false);
     setBookingPath(null);
@@ -1240,25 +1242,26 @@ export default function Book(props: { params: { clinicId?: string } }) {
                 />
                 <div className="relative">
                   {/* Step pills */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${
                       !showSlots
                         ? "bg-white/20 border-white/30 text-white"
                         : "bg-white/8 border-white/15 text-white/45"
                     }`}>
-                      <span className="h-3.5 w-3.5 rounded-full bg-white/30 flex items-center justify-center text-[8px] font-black">1</span>
+                      <span className="h-3.5 w-3.5 rounded-full bg-white/30 flex items-center justify-center text-[9px] font-black">1</span>
                       Your Details
                     </div>
                     <div className="h-px w-4 bg-white/20" />
-                    <div className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                    <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${
                       showSlots
                         ? "bg-white/20 border-white/30 text-white"
                         : "bg-white/8 border-white/15 text-white/45"
                     }`}>
-                      <span className="h-3.5 w-3.5 rounded-full bg-white/30 flex items-center justify-center text-[8px] font-black">2</span>
+                      <span className="h-3.5 w-3.5 rounded-full bg-white/30 flex items-center justify-center text-[9px] font-black">2</span>
                       Pick a Slot
                     </div>
                   </div>
+                  <p className="text-xs text-white/40 mb-2">Quick booking · 2 steps · about 90 seconds</p>
 
                   <DialogTitle className="text-white font-extrabold text-xl leading-tight">
                     {format(selectedDate, "EEEE, MMMM d")}
@@ -1272,15 +1275,6 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
               {/* ── DIALOG BODY ─────────────────────────────── */}
               <div className="overflow-y-auto flex-1 p-5">
-                {/* Floating verified badge — sticky inside scroll area */}
-                {emailVerified && !showSlots && (
-                  <div className="sticky top-0 z-10 flex justify-end mb-3 pointer-events-none">
-                    <div className="flex items-center gap-1.5 bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-full shadow-md shadow-emerald-500/25 animate-in fade-in slide-in-from-top-1 duration-300">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Email verified ✓
-                    </div>
-                  </div>
-                )}
                 {emailVerified && returningPatient && !showSlots && (
                   <div className="mb-4 p-3 rounded-xl bg-primary/8 border border-primary/20 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-400">
                     <div className="h-8 w-8 rounded-lg bg-primary/15 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
@@ -1307,7 +1301,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
                     {/* Name */}
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Full Name</label>
+                      <label className="text-xs font-semibold text-muted-foreground">What's your name?</label>
                       <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
                         <div className="flex items-center justify-center h-10 w-10 shrink-0 border-r border-border/40 bg-muted/30">
                           <User className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1322,48 +1316,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       </div>
                     </div>
 
-                    {/* Age + Gender */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Age &amp; Gender <span className="text-muted-foreground/50 font-normal normal-case tracking-normal">(optional)</span></label>
-                      <div className="flex gap-2">
-                        {/* Age input */}
-                        <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden w-28 shrink-0">
-                          <input
-                            type="number"
-                            min={1}
-                            max={120}
-                            value={customerAge}
-                            onChange={e => setCustomerAge(e.target.value)}
-                            placeholder="Age"
-                            className="w-full h-10 bg-transparent pl-3 pr-2 text-sm outline-none placeholder:text-muted-foreground"
-                            data-testid="input-age"
-                          />
-                          <span className="text-xs text-muted-foreground pr-3 shrink-0">yrs</span>
-                        </div>
-                        {/* Gender pills */}
-                        <div className="flex gap-1.5 flex-1">
-                          {(["male", "female", "other"] as const).map(g => (
-                            <button
-                              key={g}
-                              type="button"
-                              onClick={() => setCustomerGender(prev => prev === g ? "" : g)}
-                              data-testid={`btn-gender-${g}`}
-                              className={`flex-1 h-10 rounded-xl border text-xs font-semibold capitalize transition-all ${
-                                customerGender === g
-                                  ? "bg-primary text-white border-primary shadow-sm shadow-primary/25"
-                                  : "border-border/60 bg-muted/20 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                              }`}
-                            >
-                              {g === "male" ? "♂ Male" : g === "female" ? "♀ Female" : "Other"}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
                     {/* Phone */}
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Phone Number</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Best number to reach you?</label>
                       <div className={`flex items-center rounded-xl border bg-muted/20 focus-within:bg-background focus-within:ring-2 transition-all overflow-hidden ${
                         phoneError ? "border-destructive focus-within:ring-destructive/10 focus-within:border-destructive" : "border-border/60 focus-within:border-primary/50 focus-within:ring-primary/10"
                       }`}>
@@ -1379,13 +1334,13 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         />
                       </div>
                       {phoneError && (
-                        <p className="text-[11px] text-destructive">{phoneError}</p>
+                        <p className="text-xs text-destructive">{phoneError}</p>
                       )}
                     </div>
 
                     {/* Email */}
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Email Address</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Your email address</label>
                       <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
                         <div className="flex items-center justify-center h-10 w-10 shrink-0 border-r border-border/40 bg-muted/30">
                           <Mail className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1409,9 +1364,10 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         {!emailVerified && !otpSent && (
                           <div className="flex items-center gap-2 px-1">
                             <Shield className="h-3.5 w-3.5 text-primary/60 shrink-0" />
-                            <p className="text-[11px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                               We'll verify your email before showing available slots — takes 30 seconds
                             </p>
+
                           </div>
                         )}
 
@@ -1429,7 +1385,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                               </div>
                               <div>
                                 <p className="text-sm font-bold">Email verified</p>
-                                <p className="text-[11px] text-emerald-700/80">You can now view slots and complete your booking.</p>
+                                <p className="text-xs text-emerald-700/80">You can now view slots and complete your booking.</p>
                               </div>
                             </div>
                           ) : (
@@ -1442,7 +1398,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                     </div>
                                     <div className="min-w-0 pt-0.5">
                                       <p className="text-sm font-bold text-foreground">Verify your email</p>
-                                      <p className="text-[11px] text-muted-foreground mt-0.5">We'll send a 6-digit code to confirm</p>
+                                      <p className="text-xs text-muted-foreground mt-0.5">We'll send a 6-digit code to confirm</p>
                                     </div>
                                   </div>
                                   <Button
@@ -1465,7 +1421,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                   <div className="flex items-center justify-between gap-3 mb-4">
                                     <div>
                                       <p className="text-sm font-bold text-foreground">Verify your email</p>
-                                      <p className="text-[11px] text-muted-foreground mt-0.5">Enter the code we sent to your email</p>
+                                      <p className="text-xs text-muted-foreground mt-0.5">Enter the code we sent to your email</p>
                                     </div>
                                     <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
                                       {verifyOtpMutation.isPending ? (
@@ -1517,7 +1473,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                       )}
                                     </button>
                                   </div>
-                                  <div className="mt-3 flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
+                                  <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
                                     {resendCountdown > 0 ? (
                                       <>
                                         <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
@@ -1538,7 +1494,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                 </div>
                               )}
                               {otpError && (
-                                <p className="px-4 pb-3 text-[11px] text-destructive animate-in fade-in duration-200" data-testid="text-otp-error">{otpError}</p>
+                                <p className="px-4 pb-3 text-xs text-destructive animate-in fade-in duration-200" data-testid="text-otp-error">{otpError}</p>
                               )}
                             </>
                           )}
@@ -1553,11 +1509,11 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         {/* Chief complaints — accordion */}
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            <label className="text-xs font-semibold text-muted-foreground">
                               What brings you in? <span className="text-destructive">*</span>
                             </label>
                             {selectedSubIssues.length > 0 && (
-                              <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                              <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
                                 {selectedSubIssues.length} selected
                               </span>
                             )}
@@ -1566,7 +1522,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           {/* Helper message */}
                           <div className="flex items-center gap-1.5">
                             <Stethoscope className="h-3 w-3 text-primary/60 shrink-0" />
-                            <p className="text-[11px] text-muted-foreground">Helps us assign the right specialist for your visit</p>
+                            <p className="text-xs text-muted-foreground">Helps us assign the right specialist for your visit</p>
                           </div>
 
                           <div className={`rounded-xl border overflow-hidden transition-all duration-300 ${
@@ -1592,7 +1548,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                           <span className="text-base leading-none shrink-0">{cat.emoji}</span>
                                           <span className="text-[12px] font-semibold text-foreground text-left leading-tight">{cat.category}</span>
                                           {count > 0 && (
-                                            <span className="shrink-0 text-[9px] font-bold text-primary bg-primary/12 border border-primary/25 px-1.5 py-0.5 rounded-full">
+                                            <span className="shrink-0 text-xs font-bold text-primary bg-primary/12 border border-primary/25 px-1.5 py-0.5 rounded-full">
                                               {count}
                                             </span>
                                           )}
@@ -1607,7 +1563,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                                 key={issue}
                                                 type="button"
                                                 onClick={() => handleSubIssueToggle(issue)}
-                                                className={`text-[11px] font-medium px-3 py-1.5 rounded-lg border transition-all ${
+                                                className={`text-xs font-medium px-3 py-2.5 min-h-[44px] rounded-lg border transition-all ${
                                                   isOn
                                                     ? "bg-primary/15 border-primary/40 text-primary shadow-sm"
                                                     : "bg-background border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
@@ -1631,8 +1587,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         {/* Additional Notes (optional) */}
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-1.5">
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Additional Notes</label>
-                            <span className="text-[9px] font-medium text-muted-foreground/60 bg-muted/60 border border-border/40 px-1.5 py-0.5 rounded-full">Optional</span>
+                            <label className="text-xs font-semibold text-muted-foreground">Additional notes</label>
+                            <span className="text-xs font-medium text-muted-foreground/60 bg-muted/60 border border-border/40 px-1.5 py-0.5 rounded-full">Optional</span>
                           </div>
                           <textarea
                             value={additionalNotes}
@@ -1642,6 +1598,56 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             className="w-full rounded-xl border border-border/60 bg-muted/20 focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/10 px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground resize-none transition-all"
                             data-testid="textarea-additional-notes"
                           />
+                        </div>
+
+                        {/* Age & Gender — optional, collapsible */}
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowAgeGender(prev => !prev)}
+                            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            data-testid="btn-toggle-age-gender"
+                          >
+                            <div className={`h-4 w-4 rounded-full border flex items-center justify-center transition-all shrink-0 ${showAgeGender ? "border-primary/50 bg-primary/10" : "border-border/60"}`}>
+                              <span className="text-[9px] font-bold text-primary leading-none">{showAgeGender ? "−" : "+"}</span>
+                            </div>
+                            <span className="font-semibold">Add age &amp; gender</span>
+                            <span className="text-muted-foreground/50">(optional — helps your doctor prepare)</span>
+                          </button>
+                          {showAgeGender && (
+                            <div className="flex gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                              <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden w-28 shrink-0">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={120}
+                                  value={customerAge}
+                                  onChange={e => setCustomerAge(e.target.value)}
+                                  placeholder="Age"
+                                  className="w-full h-11 bg-transparent pl-3 pr-2 text-sm outline-none placeholder:text-muted-foreground"
+                                  data-testid="input-age"
+                                />
+                                <span className="text-xs text-muted-foreground pr-3 shrink-0">yrs</span>
+                              </div>
+                              <div className="flex gap-1.5 flex-1">
+                                {(["male", "female", "other"] as const).map(g => (
+                                  <button
+                                    key={g}
+                                    type="button"
+                                    onClick={() => setCustomerGender(prev => prev === g ? "" : g)}
+                                    data-testid={`btn-gender-${g}`}
+                                    className={`flex-1 h-11 rounded-xl border text-xs font-semibold capitalize transition-all ${
+                                      customerGender === g
+                                        ? "bg-primary text-white border-primary shadow-sm shadow-primary/25"
+                                        : "border-border/60 bg-muted/20 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                                    }`}
+                                  >
+                                    {g === "male" ? "♂ Male" : g === "female" ? "♀ Female" : "Other"}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                       </div>
@@ -1655,27 +1661,29 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       <Button
                         onClick={() => setShowSlots(true)}
                         disabled={!canProceedToSlots}
-                        className={`relative w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 rounded-xl transition-all duration-300 ${
+                        className={`relative w-full h-12 font-bold rounded-xl border-0 transition-all duration-300 flex items-center justify-center gap-2 ${
                           canProceedToSlots
-                            ? "shadow-lg shadow-primary/30"
-                            : "shadow-md shadow-primary/20"
+                            ? "bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white shadow-lg shadow-primary/30"
+                            : "bg-muted text-muted-foreground shadow-none cursor-not-allowed"
                         }`}
                         data-testid="button-check-slots"
                       >
-                        {emailVerified ? "View Available Slots →" : "Verify Email to View Slots"}
+                        {canProceedToSlots ? (
+                          <>View Available Slots <span aria-hidden>→</span></>
+                        ) : emailVerified ? (
+                          <>
+                            <Lock className="h-3.5 w-3.5 shrink-0" />
+                            {!customerName
+                              ? "Enter your name first"
+                              : !isPhoneValid
+                              ? "Enter a valid phone number"
+                              : "Select a reason for your visit"}
+                          </>
+                        ) : (
+                          <><Lock className="h-3.5 w-3.5 shrink-0" /> Verify email to continue</>
+                        )}
                       </Button>
                     </div>
-                    {emailVerified && !canProceedToSlots && (
-                      <p className="text-center text-[11px] text-muted-foreground animate-in fade-in duration-300 -mt-1">
-                        {!customerName
-                          ? "Enter your name to continue"
-                          : !isPhoneValid
-                          ? "Enter a valid phone number to continue"
-                          : selectedSubIssues.length === 0
-                          ? "Select at least one reason for your visit to continue"
-                          : "Complete all fields to continue"}
-                      </p>
-                    )}
                   </div>
 
                 ) : (
