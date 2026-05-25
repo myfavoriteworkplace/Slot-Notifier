@@ -310,13 +310,13 @@ async function sendBookingEmails(
   try {
     await resend.emails.send({
       from: EMAIL_FROM, to: finalCustomerEmail,
-      subject: `BookMySlot – Booking Received · ${clinicName}`,
+      subject: `${clinicName} – Booking Received`,
       html: patientHtml,
     });
     if (finalClinicEmail) {
       await resend.emails.send({
         from: EMAIL_FROM, to: finalClinicEmail,
-        subject: `BookMySlot – New Booking Request · ${customerName}`,
+        subject: `New Booking Received – ${customerName} on ${apptDate}`,
         html: clinicHtml,
       });
     }
@@ -382,7 +382,7 @@ async function sendConfirmationEmail(
   try {
     await resend.emails.send({
       from: EMAIL_FROM, to: finalEmail,
-      subject: `BookMySlot – Appointment Confirmed · ${clinicName}`,
+      subject: `${clinicName} – Your Appointment is Confirmed`,
       html,
     });
   } catch (error) {
@@ -415,7 +415,7 @@ async function sendCancellationEmail(email: string, name: string, date: Date, cl
   try {
     await resend.emails.send({
       from: EMAIL_FROM, to: finalEmail,
-      subject: `BookMySlot – Appointment Cancelled · ${clinic}`,
+      subject: `${clinic} – Appointment Cancelled`,
       html,
     });
   } catch (error) {
@@ -478,7 +478,7 @@ async function sendDoctorAssignmentEmail(
   try {
     await resend.emails.send({
       from: EMAIL_FROM, to: finalEmail,
-      subject: `BookMySlot – New Appointment Assigned (action needed)`,
+      subject: `${clinicName} – New Appointment Assigned`,
       html,
     });
   } catch (error) {
@@ -530,7 +530,7 @@ async function sendDoctorAdminConfirmEmail(
   try {
     await resend.emails.send({
       from: EMAIL_FROM, to: finalEmail,
-      subject: `BookMySlot – Added to Your Schedule · ${clinicName}`,
+      subject: `${clinicName} – Appointment Added to Your Schedule`,
       html,
     });
   } catch (error) {
@@ -577,7 +577,7 @@ async function sendAdminDoctorDeclineEmail(
   try {
     await resend.emails.send({
       from: EMAIL_FROM, to: finalEmail,
-      subject: `BookMySlot – Action Needed: Doctor Declined · ${patientName}`,
+      subject: `Action Needed – Dr. ${doctorName} Declined on ${apptDate}`,
       html,
     });
   } catch (error) {
@@ -603,7 +603,7 @@ async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLi
   try {
     await resend.emails.send({
       from: EMAIL_FROM, to: finalEmail,
-      subject: `BookMySlot – You're Invited to Join ${clinicName}`,
+      subject: `${clinicName} – You're Invited to Join`,
       html,
     });
   } catch (error) {
@@ -656,7 +656,7 @@ async function sendDoctorWelcomeEmail(email: string, doctorName: string, clinicN
   try {
     await resend.emails.send({
       from: EMAIL_FROM, to: finalEmail,
-      subject: `BookMySlot – Your Login Credentials · ${clinicName}`,
+      subject: `${clinicName} – Your Login Credentials`,
       html,
     });
   } catch (error) {
@@ -724,7 +724,7 @@ async function sendRescheduleEmail(
   try {
     await resend.emails.send({
       from: EMAIL_FROM, to: finalEmail,
-      subject: `BookMySlot – Appointment Rescheduled · ${clinicName}`,
+      subject: `${clinicName} – Appointment Rescheduled`,
       html,
     });
   } catch (error) {
