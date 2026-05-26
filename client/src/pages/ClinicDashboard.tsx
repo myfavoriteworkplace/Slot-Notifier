@@ -4846,65 +4846,17 @@ export default function ClinicDashboard() {
 
           {/* INVENTORY PANEL */}
           {activePanel === 'inventory' && (
-            <div className="space-y-5">
-              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-                <div className="flex">
-                  <div className="w-1.5 bg-emerald-500/60 shrink-0" />
-                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-emerald-500/[0.06] to-transparent flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                      <Package className="h-[18px] w-[18px] text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-semibold tracking-tight">Inventory</h2>
-                      <p className="text-xs text-muted-foreground mt-0.5">Supplies & stock management</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <InventoryPanel clinicId={clinic.id} />
-            </div>
+            <InventoryPanel clinicId={clinic.id} />
           )}
 
           {/* ANALYTICS PANEL */}
           {activePanel === 'analytics' && (
-            <div className="space-y-5">
-              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-                <div className="flex">
-                  <div className="w-1.5 bg-violet-500/60 shrink-0" />
-                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-violet-500/[0.06] to-transparent flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-                      <TrendingUp className="h-[18px] w-[18px] text-violet-600 dark:text-violet-400" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-semibold tracking-tight">Analytics</h2>
-                      <p className="text-xs text-muted-foreground mt-0.5">Insights & trends</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <ClinicAnalyticsPanel />
-            </div>
+            <ClinicAnalyticsPanel />
           )}
 
           {/* WEBSITE PANEL */}
           {activePanel === 'website' && (
-            <div className="space-y-5">
-              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-                <div className="flex">
-                  <div className="w-1.5 bg-sky-500/60 shrink-0" />
-                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-sky-500/[0.06] to-transparent flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
-                      <Globe className="h-[18px] w-[18px] text-sky-600 dark:text-sky-400" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-semibold tracking-tight">Clinic Website</h2>
-                      <p className="text-xs text-muted-foreground mt-0.5">Manage your public clinic page</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <WebsiteConfigPanel clinic={clinic} />
-            </div>
+            <WebsiteConfigPanel clinic={clinic} />
           )}
 
           {/* ACCOUNTS PANEL */}

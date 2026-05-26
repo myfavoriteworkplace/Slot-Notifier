@@ -811,51 +811,56 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     <div className="space-y-5">
 
       {/* ── Top header ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
-            <Globe className="h-[18px] w-[18px] text-sky-600 dark:text-sky-400" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold tracking-tight">Clinic Website</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Configure your public clinic page. Patients can browse it before booking.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {previewUrl && (
-            <>
-              {/* Mobile: open preview in-app sheet */}
+      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+        <div className="flex">
+          <div className="w-1.5 bg-sky-500/60 shrink-0" />
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-sky-500/[0.06] to-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+                <Globe className="h-[18px] w-[18px] text-sky-600 dark:text-sky-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold tracking-tight">Clinic Website</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Configure your public clinic page. Patients can browse it before booking.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {previewUrl && (
+                <>
+                  {/* Mobile: open preview in-app sheet */}
+                  <Button
+                    variant="outline"
+                    className="gap-2 rounded-xl min-h-[44px] sm:hidden"
+                    onClick={() => setPreviewSheetOpen(true)}
+                    data-testid="button-preview-mobile"
+                  >
+                    <Smartphone className="h-3.5 w-3.5" />
+                    Preview
+                  </Button>
+                  {/* Desktop: open in new tab */}
+                  <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="hidden sm:block">
+                    <Button variant="outline" className="gap-2 rounded-xl min-h-[44px]">
+                      <Eye className="h-3.5 w-3.5" />
+                      Preview
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </a>
+                </>
+              )}
               <Button
-                variant="outline"
-                className="gap-2 rounded-xl min-h-[44px] sm:hidden"
-                onClick={() => setPreviewSheetOpen(true)}
-                data-testid="button-preview-mobile"
+                className="gap-2 rounded-xl min-h-[44px]"
+                onClick={handleSave}
+                disabled={saveMutation.isPending}
+                data-testid="button-save-website"
               >
-                <Smartphone className="h-3.5 w-3.5" />
-                Preview
+                <Save className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Save Website</span>
+                <span className="sm:hidden">Save</span>
               </Button>
-              {/* Desktop: open in new tab */}
-              <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="hidden sm:block">
-                <Button variant="outline" className="gap-2 rounded-xl min-h-[44px]">
-                  <Eye className="h-3.5 w-3.5" />
-                  Preview
-                  <ExternalLink className="h-3 w-3" />
-                </Button>
-              </a>
-            </>
-          )}
-          <Button
-            className="gap-2 rounded-xl min-h-[44px]"
-            onClick={handleSave}
-            disabled={saveMutation.isPending}
-            data-testid="button-save-website"
-          >
-            <Save className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Save Website</span>
-            <span className="sm:hidden">Save</span>
-          </Button>
+            </div>
+          </div>
         </div>
       </div>
 
