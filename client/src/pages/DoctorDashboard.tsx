@@ -790,10 +790,20 @@ export default function DoctorDashboard() {
 
               <div className="space-y-5" ref={appointmentsSectionRef}>
 
-              {/* Page heading */}
-              <div>
-                <h2 className="text-xl md:text-2xl font-semibold">Appointments</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Your confirmed appointments across all clinics.</p>
+              {/* Panel header */}
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                <div className="flex">
+                  <div className="w-1.5 bg-primary/60 shrink-0" />
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                      <Calendar className="h-[18px] w-[18px] text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold tracking-tight">Appointments</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">Your confirmed appointments across all clinics.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Desktop card grid */}
@@ -1159,10 +1169,20 @@ export default function DoctorDashboard() {
             return (
               <div className="space-y-5 animate-in fade-in duration-200">
 
-                {/* Page heading */}
-                <div>
-                  <h2 className="text-xl md:text-2xl font-semibold">My Profile</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Manage your public profile visible to patients and clinics.</p>
+                {/* Panel header */}
+                <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                  <div className="flex">
+                    <div className="w-1.5 bg-violet-500/60 shrink-0" />
+                    <div className="flex-1 px-5 py-4 bg-gradient-to-r from-violet-500/[0.06] to-transparent flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                        <User className="h-[18px] w-[18px] text-violet-600 dark:text-violet-400" />
+                      </div>
+                      <div>
+                        <h2 className="text-base font-semibold tracking-tight">My Profile</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">Manage your public profile visible to patients and clinics.</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* ── Live Preview Banner ── */}
@@ -1537,10 +1557,20 @@ export default function DoctorDashboard() {
           {/* ─────────────── LEAVE MANAGEMENT ─────────────── */}
           {activeTab === "leaves" && (
             <div className="space-y-5">
-              {/* Page header */}
-              <div>
-                <h2 className="text-xl font-semibold">Leave Management</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Mark dates when you are unavailable. Clinic admins will see a warning when trying to assign you on these dates.</p>
+              {/* Panel header */}
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                <div className="flex">
+                  <div className="w-1.5 bg-amber-500/60 shrink-0" />
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-amber-500/[0.06] to-transparent flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                      <CalendarOff className="h-[18px] w-[18px] text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold tracking-tight">Leave Management</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">Mark dates when you are unavailable. Clinic admins will see a warning when trying to assign you on these dates.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5">
@@ -1822,14 +1852,24 @@ export default function DoctorDashboard() {
           {/* ─────────────── CERTIFICATIONS ─────────────── */}
           {activeTab === "certifications" && (
             <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl md:text-2xl font-semibold">Certifications & Achievements</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Highlight your credentials — these appear on your public profile.</p>
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                <div className="flex">
+                  <div className="w-1.5 bg-blue-500/60 shrink-0" />
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-blue-500/[0.06] to-transparent flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                        <Award className="h-[18px] w-[18px] text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <h2 className="text-base font-semibold tracking-tight">Certifications & Achievements</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">Highlight your credentials — these appear on your public profile.</p>
+                      </div>
+                    </div>
+                    <Button onClick={openNewCert} className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0">
+                      <Plus className="h-4 w-4 mr-2" />Add Certification
+                    </Button>
+                  </div>
                 </div>
-                <Button onClick={openNewCert} className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20">
-                  <Plus className="h-4 w-4 mr-2" />Add Certification
-                </Button>
               </div>
               {isCertsLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -1890,14 +1930,24 @@ export default function DoctorDashboard() {
           {/* ─────────────── CASES ─────────────── */}
           {activeTab === "cases" && (
             <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl md:text-2xl font-semibold">Case Studies</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Share your clinical cases with descriptions and media. Visible on your public profile.</p>
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                <div className="flex">
+                  <div className="w-1.5 bg-teal-500/60 shrink-0" />
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-teal-500/[0.06] to-transparent flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+                        <BookOpen className="h-[18px] w-[18px] text-teal-600 dark:text-teal-400" />
+                      </div>
+                      <div>
+                        <h2 className="text-base font-semibold tracking-tight">Case Studies</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">Share your clinical cases with descriptions and media. Visible on your public profile.</p>
+                      </div>
+                    </div>
+                    <Button onClick={openNewCase} className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0">
+                      <Plus className="h-4 w-4 mr-2" />Add Case
+                    </Button>
+                  </div>
                 </div>
-                <Button onClick={openNewCase} className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20">
-                  <Plus className="h-4 w-4 mr-2" />Add Case
-                </Button>
               </div>
               {isCasesLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

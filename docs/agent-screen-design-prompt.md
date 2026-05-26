@@ -252,6 +252,81 @@ Simple `grid-cols-2` / `grid-cols-3` grids for card layouts are fine — the con
 
 ---
 
+## DASHBOARD PANEL HEADER — MANDATORY PATTERN
+
+Every panel in the **Clinic Dashboard** and **Doctor Dashboard** must begin with this card-stripe header. No exceptions. Never use a plain `<div>` heading, a bare `<h2>`, or any other ad-hoc header style inside these dashboards.
+
+### Structure (copy this exactly)
+
+```tsx
+<div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+  <div className="flex">
+    {/* Coloured left accent bar — matches the panel's accent colour */}
+    <div className="w-1.5 bg-[colour]/60 shrink-0" />
+    {/* Gradient row — use justify-between when action buttons are present */}
+    <div className="flex-1 px-5 py-4 bg-gradient-to-r from-[colour]/[0.06] to-transparent flex items-center gap-3">
+      {/* Icon box */}
+      <div className="h-9 w-9 rounded-xl bg-[colour]/10 border border-[colour]/20 flex items-center justify-center shrink-0">
+        <Icon className="h-[18px] w-[18px] text-[colour] dark:text-[colour]" />
+      </div>
+      {/* Title + subtitle */}
+      <div>
+        <h2 className="text-base font-semibold tracking-tight">Panel Title</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">Static description — never dynamic counts here.</p>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+### When the panel has action buttons (Add, Export, Toggle)
+
+Add `justify-between` to the gradient row and wrap the title+icon in a `flex items-center gap-3` inner div. Place the button(s) on the right side of the same row — never below the header card:
+
+```tsx
+<div className="flex-1 px-5 py-4 bg-gradient-to-r from-[colour]/[0.06] to-transparent flex items-center justify-between gap-3">
+  <div className="flex items-center gap-3">
+    {/* icon box + title/subtitle as above */}
+  </div>
+  <Button className="shrink-0">Action</Button>
+</div>
+```
+
+### Accent colour reference — do NOT deviate from this table
+
+#### Clinic Dashboard
+
+| Panel | Accent | Left bar | Gradient from | Icon colour |
+|---|---|---|---|---|
+| Bookings | sky | `bg-sky-500/60` | `from-sky-500/[0.06]` | `text-sky-600 dark:text-sky-400` |
+| Configure Slots | blue | `bg-blue-500/60` | `from-blue-500/[0.06]` | `text-blue-600 dark:text-blue-400` |
+| Manage Doctors | teal | `bg-teal-500/60` | `from-teal-500/[0.06]` | `text-teal-600 dark:text-teal-400` |
+| Inventory | emerald | `bg-emerald-500/60` | `from-emerald-500/[0.06]` | `text-emerald-600 dark:text-emerald-400` |
+| Clinic Website | sky | `bg-sky-500/60` | `from-sky-500/[0.06]` | `text-sky-600 dark:text-sky-400` |
+| Accounts | primary | `bg-primary/60` | `from-primary/[0.06]` | `text-primary` |
+| Patients | rose | `bg-rose-500/60` | `from-rose-500/[0.06]` | `text-rose-500` |
+| Analytics | violet | `bg-violet-500/60` | `from-violet-500/[0.06]` | `text-violet-600 dark:text-violet-400` |
+
+#### Doctor Dashboard
+
+| Panel | Accent | Left bar | Gradient from | Icon colour |
+|---|---|---|---|---|
+| Appointments | primary | `bg-primary/60` | `from-primary/[0.06]` | `text-primary` |
+| My Profile | violet | `bg-violet-500/60` | `from-violet-500/[0.06]` | `text-violet-600 dark:text-violet-400` |
+| Certifications | blue | `bg-blue-500/60` | `from-blue-500/[0.06]` | `text-blue-600 dark:text-blue-400` |
+| Case Studies | teal | `bg-teal-500/60` | `from-teal-500/[0.06]` | `text-teal-600 dark:text-teal-400` |
+| Leave Management | amber | `bg-amber-500/60` | `from-amber-500/[0.06]` | `text-amber-600 dark:text-amber-400` |
+
+### Rules
+
+1. **Title font**: always `text-base font-semibold tracking-tight` — never `text-xl` or `text-2xl`.
+2. **Subtitle**: always a static, plain-English description of what the panel does. Never dynamic counts (e.g. "3 patients") — those belong in stat cards below.
+3. **Icon size**: always `h-[18px] w-[18px]` inside a `h-9 w-9 rounded-xl` box.
+4. **No new accent colours**: pick from the table above. Adding a new panel means picking the closest unused colour and adding a row to the table.
+5. **New panels**: add the new panel's row to the correct dashboard table above before writing any code.
+
+---
+
 ## QUICK CHECKLIST BEFORE SUBMITTING ANY NEW SCREEN
 
 - [ ] Desktop layout looks correct at 1280 px
