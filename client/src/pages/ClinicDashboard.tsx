@@ -4846,19 +4846,63 @@ export default function ClinicDashboard() {
 
           {/* INVENTORY PANEL */}
           {activePanel === 'inventory' && (
-            <InventoryPanel clinicId={clinic.id} />
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                <div className="flex">
+                  <div className="w-1.5 bg-emerald-500/60 shrink-0" />
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-emerald-500/[0.06] to-transparent flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                      <Package className="h-[18px] w-[18px] text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold tracking-tight">Inventory</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">Supplies & stock management</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <InventoryPanel clinicId={clinic.id} />
+            </div>
           )}
 
           {/* ANALYTICS PANEL */}
           {activePanel === 'analytics' && (
-            <div className="p-4 sm:p-6 max-w-7xl mx-auto w-full">
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                <div className="flex">
+                  <div className="w-1.5 bg-violet-500/60 shrink-0" />
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-violet-500/[0.06] to-transparent flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                      <TrendingUp className="h-[18px] w-[18px] text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold tracking-tight">Analytics</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">Insights & trends</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <ClinicAnalyticsPanel />
             </div>
           )}
 
           {/* WEBSITE PANEL */}
           {activePanel === 'website' && (
-            <div className="p-6 sm:p-8">
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                <div className="flex">
+                  <div className="w-1.5 bg-sky-500/60 shrink-0" />
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-sky-500/[0.06] to-transparent flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+                      <Globe className="h-[18px] w-[18px] text-sky-600 dark:text-sky-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold tracking-tight">Clinic Website</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">Manage your public clinic page</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <WebsiteConfigPanel clinic={clinic} />
             </div>
           )}
@@ -4983,51 +5027,56 @@ export default function ClinicDashboard() {
             };
 
             return (
-              <div className="p-6 sm:p-8 space-y-6">
+              <div className="space-y-5">
 
-                {/* ── Header ── */}
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                      <IndianRupee className="h-[18px] w-[18px] text-primary" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-semibold tracking-tight">Patient Accounts</h2>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {uniquePatients} patient{uniquePatients !== 1 ? 's' : ''} · {allBills.length} receipt{allBills.length !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                    {/* View toggle */}
-                    <div className="flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5 gap-0.5">
-                      {(['ledger', 'register'] as const).map(v => (
+                {/* ── Panel header ── */}
+                <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                  <div className="flex">
+                    <div className="w-1.5 bg-primary/60 shrink-0" />
+                    <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                          <IndianRupee className="h-[18px] w-[18px] text-primary" />
+                        </div>
+                        <div>
+                          <h2 className="text-base font-semibold tracking-tight">Accounts</h2>
+                          <p className="text-xs text-muted-foreground mt-0.5">Billing &amp; payment records</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                        {/* View toggle */}
+                        <div className="flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5 gap-0.5">
+                          {(['ledger', 'register'] as const).map(v => (
+                            <button
+                              key={v}
+                              onClick={() => setAccountsView(v)}
+                              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all capitalize ${
+                                accountsView === v
+                                  ? 'bg-background shadow-sm text-foreground border border-border/60'
+                                  : 'text-muted-foreground hover:text-foreground'
+                              }`}
+                              data-testid={`accounts-view-${v}`}
+                            >
+                              {v === 'ledger' ? 'Patient Ledger' : 'Transaction Register'}
+                            </button>
+                          ))}
+                        </div>
                         <button
-                          key={v}
-                          onClick={() => setAccountsView(v)}
-                          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all capitalize ${
-                            accountsView === v
-                              ? 'bg-background shadow-sm text-foreground border border-border/60'
-                              : 'text-muted-foreground hover:text-foreground'
-                          }`}
-                          data-testid={`accounts-view-${v}`}
+                          onClick={() => exportAccountsCSV(accountsView === 'register' ? filteredRegister : allBills)}
+                          disabled={allBills.length === 0}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border/60 bg-background text-sm font-semibold text-foreground hover:bg-muted/50 hover:border-primary/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                          title="Export as CSV"
+                          data-testid="button-export-csv"
                         >
-                          {v === 'ledger' ? 'Patient Ledger' : 'Transaction Register'}
+                          <Download className="h-3.5 w-3.5 text-primary" />
+                          Export CSV
                         </button>
-                      ))}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => exportAccountsCSV(accountsView === 'register' ? filteredRegister : allBills)}
-                      disabled={allBills.length === 0}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border/60 bg-background text-sm font-semibold text-foreground hover:bg-muted/50 hover:border-primary/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                      title="Export as CSV"
-                      data-testid="button-export-csv"
-                    >
-                      <Download className="h-3.5 w-3.5 text-primary" />
-                      Export CSV
-                    </button>
                   </div>
                 </div>
+
+                <div className="space-y-6">
 
                 {/* ── Stats (shared) ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -5443,6 +5492,7 @@ export default function ClinicDashboard() {
                 )}
 
               </div>
+            </div>
             );
           })()}
 
@@ -5492,26 +5542,31 @@ export default function ClinicDashboard() {
             return (
               <>
               <div className="space-y-5">
-                {/* Header */}
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
-                      <Users className="h-[18px] w-[18px] text-rose-500" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-semibold tracking-tight">Patient Directory</h2>
-                      <p className="text-xs text-muted-foreground mt-0.5">All patients who booked via verified email</p>
+                {/* Panel header */}
+                <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                  <div className="flex">
+                    <div className="w-1.5 bg-rose-500/60 shrink-0" />
+                    <div className="flex-1 px-5 py-4 bg-gradient-to-r from-rose-500/[0.06] to-transparent flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+                          <Users className="h-[18px] w-[18px] text-rose-500" />
+                        </div>
+                        <div>
+                          <h2 className="text-base font-semibold tracking-tight">Patient Directory</h2>
+                          <p className="text-xs text-muted-foreground mt-0.5">All patients who booked via verified email</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={exportCSV}
+                        data-testid="button-export-patients"
+                        disabled={patientDirectory.length === 0}
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl border border-border/60 bg-background hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Download className="h-4 w-4" />
+                        Export CSV
+                      </button>
                     </div>
                   </div>
-                  <button
-                    onClick={exportCSV}
-                    data-testid="button-export-patients"
-                    disabled={patientDirectory.length === 0}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl border border-border/60 bg-card hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <Download className="h-4 w-4" />
-                    Export CSV
-                  </button>
                 </div>
 
                 {/* Stats row */}
