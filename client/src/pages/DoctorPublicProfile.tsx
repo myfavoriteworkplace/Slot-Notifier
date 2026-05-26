@@ -117,7 +117,7 @@ export default function DoctorPublicProfile() {
       try { await navigator.share({ title, url }); } catch (_) {}
     } else {
       await navigator.clipboard.writeText(url);
-      notify.success("Link copied!", { description: "Profile link copied to clipboard." });
+      notify.success("Copied to clipboard", { description: "Profile link copied to clipboard." });
     }
   };
 

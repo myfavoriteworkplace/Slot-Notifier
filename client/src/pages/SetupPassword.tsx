@@ -44,7 +44,7 @@ export default function SetupPassword() {
       return res.json();
     },
     onSuccess: () => {
-      notify.success("Account created!", { description: "You can now log in with your email and password." });
+      notify.success("Account created", { description: "You can now log in with your email and password." });
       setTimeout(() => setLocation("/clinic-login"), 2000);
     },
     onError: (error: any) => {

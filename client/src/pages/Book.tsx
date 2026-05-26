@@ -362,7 +362,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
     onSuccess: () => {
       setBookingPath("pending");
       setStep("success");
-      notify.success("Booking Submitted!", { description: "Your request has been sent to the clinic for approval." });
+      notify.success("Booking submitted", { description: "Your request has been sent to the clinic for approval." });
     },
     onError: (error: any) => {
       notify.apiError(error, "Booking Failed");
@@ -383,7 +383,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
       setOtpError("");
       setResendCountdown(60);
       setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
-      notify.info("Code Sent!", { description: "Check your email for the 6-digit verification code." });
+      notify.info("Code sent", { description: "Check your email for the 6-digit verification code." });
     },
     onError: (error: any) => {
       setOtpError(error.message || "Failed to send verification code. Please try again.");
@@ -403,7 +403,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
       setEmailVerified(true);
       setVerifiedToken(data.verifiedToken);
       setOtpError("");
-      notify.success("Email Verified!", { description: "You can now complete your booking." });
+      notify.success("Email verified", { description: "You can now complete your booking." });
       // Check if returning patient at this clinic
       try {
         const cId = clinicsData?.find((c: any) => c.name === selectedClinic)?.id;
@@ -462,7 +462,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
       persistentBookings.push(newBooking);
       localStorage.setItem("demo_bookings_persistent", JSON.stringify(persistentBookings));
       setStep("success");
-      notify.success("Booking Confirmed!", { description: "Your appointment has been successfully booked (Demo)." });
+      notify.success("Booking confirmed", { description: "Your appointment has been successfully booked (Demo)." });
       return;
     }
 
@@ -560,7 +560,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
             }
             setBookingPath("pay");
             setStep("success");
-            notify.success("Payment Successful!", { description: "Your slot is confirmed." });
+            notify.success("Payment successful", { description: "Your slot is confirmed." });
           } catch (err: any) {
             notify.apiError(err, "Verification Failed");
           }

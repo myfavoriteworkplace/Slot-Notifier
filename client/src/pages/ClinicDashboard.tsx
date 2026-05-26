@@ -153,7 +153,7 @@ export default function ClinicDashboard() {
       : `${window.location.origin}/clinic/${clinic.username || clinic.id}`;
     navigator.clipboard.writeText(url);
     setCopiedUrlType(type);
-    notify.success(type === 'booking' ? "Booking URL copied" : "About URL copied");
+    notify.success("Copied to clipboard");
     setTimeout(() => setCopiedUrlType(null), 2000);
   };
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);

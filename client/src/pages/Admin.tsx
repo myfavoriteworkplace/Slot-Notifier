@@ -524,7 +524,7 @@ export default function Admin() {
           }
         },
         onError: (err: any) => {
-          notify.error(err?.message || "Invalid credentials");
+          notify.apiError(err, "Invalid credentials");
         },
       }
     );
@@ -538,7 +538,7 @@ export default function Admin() {
     }
     verifyOtp(loginOtp, {
       onError: (err: any) => {
-        notify.error(err?.message || "Invalid OTP");
+        notify.apiError(err, "Invalid OTP");
       },
     });
   };
@@ -981,7 +981,7 @@ export default function Admin() {
                             size="sm"
                             onClick={() => {
                               navigator.clipboard.writeText(`${window.location.origin}/book/${clinic.id}`);
-                              notify.success("Booking URL copied");
+                              notify.success("Copied to clipboard");
                             }}
                             className="h-8 gap-1.5 text-xs"
                           >
@@ -993,7 +993,7 @@ export default function Admin() {
                             size="sm"
                             onClick={() => {
                               navigator.clipboard.writeText(`${window.location.origin}/about?clinicId=${clinic.id}`);
-                              notify.success("About URL copied");
+                              notify.success("Copied to clipboard");
                             }}
                             className="h-8 gap-1.5 text-xs"
                           >
@@ -1211,7 +1211,7 @@ export default function Admin() {
                             size="sm"
                             onClick={() => {
                               navigator.clipboard.writeText(`${window.location.origin}/book/${clinic.id}`);
-                              notify.success("Booking URL copied");
+                              notify.success("Copied to clipboard");
                             }}
                             className="h-8 gap-1.5 text-xs"
                           >
@@ -1223,7 +1223,7 @@ export default function Admin() {
                             size="sm"
                             onClick={() => {
                               navigator.clipboard.writeText(`${window.location.origin}/about?clinicId=${clinic.id}`);
-                              notify.success("About URL copied");
+                              notify.success("Copied to clipboard");
                             }}
                             className="h-8 gap-1.5 text-xs"
                           >

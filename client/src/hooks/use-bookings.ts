@@ -116,7 +116,7 @@ export function useCreateBooking() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.bookings.list.path] });
       queryClient.invalidateQueries({ queryKey: [api.slots.list.path] });
-      notify.success("Booking Confirmed!", { description: "You have successfully booked this slot." });
+      notify.success("Booking confirmed", { description: "You have successfully booked this slot." });
     },
     onError: (error) => {
       notify.apiError(error, "Booking Failed");

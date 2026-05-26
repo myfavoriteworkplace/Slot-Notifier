@@ -435,7 +435,7 @@ export default function DoctorDashboard() {
     const url = `${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`;
     navigator.clipboard.writeText(url).then(() => {
       setLinkCopied(true);
-      notify.success("Link copied!", { description: url });
+      notify.success("Copied to clipboard");
       setTimeout(() => setLinkCopied(false), 2500);
     });
   }
