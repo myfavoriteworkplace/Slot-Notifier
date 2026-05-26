@@ -2141,7 +2141,7 @@ export default function ClinicDashboard() {
                         <CalendarIcon className="h-3.5 w-3.5 text-sky-500" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground leading-tight">Today</p>
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings Today</p>
                         <p className="text-base sm:text-xl font-bold text-sky-600 dark:text-sky-400 leading-tight">{todaysBookingsCount}</p>
                       </div>
                       {quickFilter === 'today' && (
@@ -2171,7 +2171,7 @@ export default function ClinicDashboard() {
                         <TrendingUp className="h-3.5 w-3.5 text-primary" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground leading-tight">Upcoming</p>
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">All Upcoming Bookings</p>
                         <p className="text-base sm:text-xl font-bold text-primary leading-tight">{futureBookingsCount}</p>
                       </div>
                       {quickFilter === 'upcoming' && (
@@ -2201,7 +2201,7 @@ export default function ClinicDashboard() {
                         <History className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground leading-tight">Past</p>
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">All Past Bookings</p>
                         <p className="text-base sm:text-xl font-bold text-muted-foreground leading-tight">{pastBookingsCount}</p>
                       </div>
                       {quickFilter === 'past' && (
@@ -2216,7 +2216,7 @@ export default function ClinicDashboard() {
               </Tooltip>
             </TooltipProvider>
 
-            {/* All — resets all filters; doubles as "Showing" when a filter is active */}
+            {/* All — resets all filters */}
             <TooltipProvider delayDuration={300}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -2235,9 +2235,7 @@ export default function ClinicDashboard() {
                         <Filter className={`h-3.5 w-3.5 ${quickFilter === 'all' && !filterDate ? 'text-violet-500' : 'text-amber-500'}`} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground leading-tight">
-                          {quickFilter === 'all' && !filterDate ? 'All' : 'Showing'}
-                        </p>
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings</p>
                         <p className={`text-base sm:text-xl font-bold leading-tight ${quickFilter === 'all' && !filterDate ? 'text-violet-600' : 'text-amber-600'}`}>
                           {filteredBookings?.length || 0}
                         </p>

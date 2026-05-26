@@ -762,9 +762,9 @@ export default function DoctorDashboard() {
               {/* Mobile sticky filter bar — must live OUTSIDE space-y-5 to avoid phantom top margin */}
               <div className="flex items-center gap-2 overflow-x-auto sm:hidden -mx-4 px-4 py-2.5 sticky top-0 z-10 bg-muted/60 backdrop-blur-md border-b border-border/30" style={{ scrollbarWidth: "none" }}>
                 {([
-                  { filter: "all"      as QuickFilter, label: "All" },
-                  { filter: "today"    as QuickFilter, label: "Today" },
-                  { filter: "upcoming" as QuickFilter, label: "Upcoming" },
+                  { filter: "all"      as QuickFilter, label: "All Bookings" },
+                  { filter: "today"    as QuickFilter, label: "All Bookings Today" },
+                  { filter: "upcoming" as QuickFilter, label: "All Upcoming Bookings" },
                   { filter: "awaiting" as QuickFilter, label: "Awaiting", badge: awaitingBookings.length },
                 ] as { filter: QuickFilter; label: string; badge?: number }[]).map(({ filter, label, badge }) => {
                   const isActive = quickFilter === filter;
@@ -813,7 +813,7 @@ export default function DoctorDashboard() {
                             <ClipboardList className="h-4 w-4 text-slate-500" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-medium text-muted-foreground">Total</p>
+                            <p className="text-xs font-medium text-muted-foreground">All Bookings</p>
                             <p className="text-xl font-bold text-slate-600 dark:text-slate-400">{confirmedBookings.length}</p>
                           </div>
                           {quickFilter === 'all' && (
@@ -841,7 +841,7 @@ export default function DoctorDashboard() {
                             <Calendar className="h-4 w-4 text-sky-500" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-medium text-muted-foreground">Today</p>
+                            <p className="text-xs font-medium text-muted-foreground">All Bookings Today</p>
                             <p className="text-xl font-bold text-sky-600 dark:text-sky-400">{todayBookings.length}</p>
                           </div>
                           {quickFilter === 'today' && (
@@ -869,7 +869,7 @@ export default function DoctorDashboard() {
                             <TrendingUp className="h-4 w-4 text-primary" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-medium text-muted-foreground">Upcoming</p>
+                            <p className="text-xs font-medium text-muted-foreground">All Upcoming Bookings</p>
                             <p className="text-xl font-bold text-primary">{upcomingBookings.length}</p>
                           </div>
                           {quickFilter === 'upcoming' && (
@@ -962,7 +962,7 @@ export default function DoctorDashboard() {
               </div>
 
               <p className="text-xs text-muted-foreground px-1">
-                Showing <span className="font-semibold text-foreground">{filteredBookings.length}</span> appointment{filteredBookings.length !== 1 ? "s" : ""}
+                <span className="font-semibold text-foreground">{filteredBookings.length}</span> appointment{filteredBookings.length !== 1 ? "s" : ""}
                 {quickFilter === "awaiting" && <span className="ml-1 text-amber-600 font-medium">· Awaiting your approval</span>}
                 {quickFilter === "today" && <span className="ml-1 text-primary font-medium">· Today</span>}
                 {quickFilter === "upcoming" && <span className="ml-1 text-primary font-medium">· Upcoming</span>}
