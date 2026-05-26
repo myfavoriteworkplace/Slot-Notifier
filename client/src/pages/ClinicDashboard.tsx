@@ -1821,22 +1821,32 @@ export default function ClinicDashboard() {
           {/* ── Live stats row ── */}
           <div className="relative mt-5 pt-4 border-t border-white/[0.10] grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {([
-              { label: "Today Confirmed", value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-300", bg: "bg-sky-400/10", border: "border-sky-400/20" },
-              { label: "Pending Next 7 Days", value: pendingNext7Count, Icon: Clock, text: "text-amber-300", bg: "bg-amber-400/10", border: "border-amber-400/20" },
-              { label: "Total Pending", value: totalPendingCount, Icon: TrendingUp, text: "text-rose-300", bg: "bg-rose-400/10", border: "border-rose-400/20" },
-              { label: "Confirmed This Week", value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
-            ] as const).map(({ label, value, Icon, text, bg, border }, i) => (
-              <div key={i} className={`flex items-center gap-2.5 px-2 py-2 sm:px-3 sm:py-2.5 rounded-xl border bg-white/[0.04] ${border}`}>
-                <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg`}>
-                  <Icon className="h-3.5 w-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-base sm:text-lg font-extrabold text-white leading-none tabular-nums">
-                    {bookingsLoading ? "—" : value}
-                  </p>
-                  <p className={`text-xs font-medium mt-0.5 ${text} truncate`}>{label}</p>
-                </div>
-              </div>
+              { label: "Confirmed Bookings Today",            tooltip: "Appointments scheduled for today that have been confirmed by the clinic.",                                             value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
+              { label: "Pending Confirmations (Next 7 Days)", tooltip: "Bookings in the next 7 days that are still waiting for clinic confirmation. These need your attention.",               value: pendingNext7Count,   Icon: Clock,        text: "text-amber-300",  bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+              { label: "All Pending Bookings",                tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.",             value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-300",   bg: "bg-rose-400/10",    border: "border-rose-400/20" },
+              { label: "Confirmed Bookings (Next 7 Days)",    tooltip: "Confirmed appointments scheduled within the next 7 days. These are locked in.",                                        value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+            ] as const).map(({ label, tooltip, value, Icon, text, bg, border }, i) => (
+              <TooltipProvider key={i} delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={`flex items-center gap-2 px-2 py-2 sm:px-3 sm:py-2.5 rounded-xl border bg-white/[0.04] ${border} cursor-default`}>
+                      <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg`}>
+                        <Icon className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base sm:text-lg font-extrabold text-white leading-none tabular-nums">
+                          {bookingsLoading ? "—" : value}
+                        </p>
+                        <p className={`text-[11px] font-medium mt-0.5 ${text} leading-tight`}>{label}</p>
+                      </div>
+                      <Info className={`h-3 w-3 ${text} opacity-50 shrink-0 self-start mt-0.5`} />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
+                    {tooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ))}
           </div>
         </div>

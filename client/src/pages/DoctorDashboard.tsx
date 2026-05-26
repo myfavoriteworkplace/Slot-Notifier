@@ -575,20 +575,30 @@ export default function DoctorDashboard() {
             {/* RIGHT — Schedule overview stats */}
             <div className="flex-1 grid grid-cols-4 gap-2.5 items-center">
               {[
-                { label: "Today Confirmed",  count: todayBookings.length,    Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
-                { label: "Total Pending",    count: awaitingBookings.length, Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
-                { label: "Pending 7 Days",   count: pendingNext7Count,       Icon: TrendingUp,    text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
-                { label: "Confirmed 7 Days", count: confirmedNext7Count,     Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
-              ].map(({ label, count, Icon, text, bg, border }) => (
-                <div key={label} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border bg-white/[0.04] ${border}`}>
-                  <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg`}>
-                    <Icon className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-lg font-extrabold text-white leading-none tabular-nums">{count}</p>
-                    <p className={`text-xs font-medium mt-0.5 ${text} truncate`}>{label}</p>
-                  </div>
-                </div>
+                { label: "Confirmed Bookings Today",            tooltip: "Appointments assigned to you today that have been confirmed.",                                              count: todayBookings.length,    Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
+                { label: "All Pending Bookings",                tooltip: "Total bookings assigned to you that are still awaiting your approval — across all dates.",                 count: awaitingBookings.length, Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+                { label: "Pending Confirmations (Next 7 Days)", tooltip: "Bookings in the next 7 days that are still waiting for your approval. These need your attention.",         count: pendingNext7Count,       Icon: TrendingUp,    text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+                { label: "Confirmed Bookings (Next 7 Days)",    tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                        count: confirmedNext7Count,     Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+              ].map(({ label, tooltip, count, Icon, text, bg, border }) => (
+                <TooltipProvider key={label} delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border bg-white/[0.04] ${border} cursor-default`}>
+                        <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg`}>
+                          <Icon className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-lg font-extrabold text-white leading-none tabular-nums">{count}</p>
+                          <p className={`text-[11px] font-medium mt-0.5 ${text} leading-tight`}>{label}</p>
+                        </div>
+                        <Info className={`h-3 w-3 ${text} opacity-50 shrink-0 self-start mt-0.5`} />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
+                      {tooltip}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               ))}
             </div>
 
@@ -631,10 +641,10 @@ export default function DoctorDashboard() {
             {/* 2×2 stats grid */}
             <div className="px-3 pb-3 grid grid-cols-2 gap-2">
               {[
-                { label: "Today",            count: todayBookings.length,    color: "bg-sky-400/20 border-sky-300/30",    text: "text-white" },
-                { label: "Total Pending",    count: awaitingBookings.length, color: "bg-amber-400/20 border-amber-300/30", text: "text-white" },
-                { label: "Pending (7 days)", count: pendingNext7Count,        color: "bg-amber-400/20 border-amber-300/30", text: "text-white" },
-                { label: "Confirmed (7 days)", count: confirmedNext7Count,   color: "bg-emerald-400/20 border-emerald-300/30", text: "text-white" },
+                { label: "Confirmed Today",    count: todayBookings.length,    color: "bg-sky-400/20 border-sky-300/30",         text: "text-white" },
+                { label: "All Pending",        count: awaitingBookings.length, color: "bg-amber-400/20 border-amber-300/30",     text: "text-white" },
+                { label: "Pending (7 Days)",   count: pendingNext7Count,       color: "bg-amber-400/20 border-amber-300/30",     text: "text-white" },
+                { label: "Confirmed (7 Days)", count: confirmedNext7Count,     color: "bg-emerald-400/20 border-emerald-300/30", text: "text-white" },
               ].map(({ label, count, color, text }) => (
                 <div key={label} className={`flex flex-col rounded-xl border px-2 py-1.5 min-h-[44px] justify-center ${color}`}>
                   <span className={`text-lg font-extrabold leading-none ${text}`}>{count}</span>
