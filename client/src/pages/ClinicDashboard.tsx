@@ -1836,18 +1836,18 @@ export default function ClinicDashboard() {
           </div>
 
           {/* ── Live stats row ── */}
-          <div className="relative mt-5 pt-4 border-t border-white/[0.10] grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="relative mt-5 pt-4 border-t border-white/[0.10] grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
-              { label: "Confirmed Bookings Today",            filter: 'today-confirmed' as const,  tooltip: "Appointments scheduled for today that have been confirmed by the clinic.",                                             value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-300",      bg: "bg-sky-400/10",     border: "border-sky-400/20" },
-              { label: "Pending Confirmations (Next 7 Days)", filter: 'pending-7days' as const,    tooltip: "Bookings in the next 7 days that are still waiting for clinic confirmation. These need your attention.",               value: pendingNext7Count,   Icon: Clock,        text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
-              { label: "All Pending Bookings",                filter: 'all-pending' as const,      tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.",             value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
-              { label: "Confirmed Bookings (Next 7 Days)",    filter: 'confirmed-7days' as const,  tooltip: "Confirmed appointments scheduled within the next 7 days. These are locked in.",                                        value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
-            ].map(({ label, filter, tooltip, value, Icon, text, bg, border }, i) => (
+              { label: "Confirmed Bookings Today",            shortLabel: "Confirmed Today",       subTag: null,          filter: 'today-confirmed' as const,  tooltip: "Appointments scheduled for today that have been confirmed by the clinic.",                                             value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-300",      bg: "bg-sky-400/10",     border: "border-sky-400/20" },
+              { label: "Pending Confirmations (Next 7 Days)", shortLabel: "Pending Confirmations", subTag: "Next 7 Days", filter: 'pending-7days' as const,    tooltip: "Bookings in the next 7 days that are still waiting for clinic confirmation. These need your attention.",               value: pendingNext7Count,   Icon: Clock,        text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+              { label: "All Pending Bookings",                shortLabel: "All Pending",           subTag: null,          filter: 'all-pending' as const,      tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.",             value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
+              { label: "Confirmed Bookings (Next 7 Days)",    shortLabel: "Confirmed Bookings",    subTag: "Next 7 Days", filter: 'confirmed-7days' as const,  tooltip: "Confirmed appointments scheduled within the next 7 days. These are locked in.",                                        value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+            ].map(({ label, shortLabel, subTag, filter, tooltip, value, Icon, text, bg, border }, i) => (
               <TooltipProvider key={i} delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div
-                      className={`flex items-center gap-2 px-2 py-2 sm:px-3 sm:py-2.5 rounded-xl border bg-white/[0.04] ${border} cursor-pointer transition-all hover:bg-white/[0.09] hover:scale-[1.02] active:scale-[0.98] ${quickFilter === filter ? 'ring-1 ring-white/50 bg-white/[0.09]' : ''}`}
+                      className={`flex items-start gap-2 px-2.5 py-3 rounded-xl border bg-white/[0.04] ${border} cursor-pointer transition-all hover:bg-white/[0.09] hover:scale-[1.02] active:scale-[0.98] min-h-[44px] ${quickFilter === filter ? 'ring-1 ring-white/50 bg-white/[0.09]' : ''}`}
                       onClick={() => {
                         setFilterDate(undefined);
                         setFilterEndDate(undefined);
@@ -1857,16 +1857,19 @@ export default function ClinicDashboard() {
                       }}
                       data-testid={`stat-card-${filter}`}
                     >
-                      <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg`}>
+                      <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg mt-0.5`}>
                         <Icon className="h-3.5 w-3.5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-base sm:text-lg font-extrabold text-white leading-none tabular-nums">
+                        <p className="text-2xl sm:text-lg font-extrabold text-white leading-none tabular-nums">
                           {bookingsLoading ? "—" : value}
                         </p>
-                        <p className={`text-[11px] font-medium mt-0.5 ${text} leading-tight`}>{label}</p>
+                        <p className={`text-xs font-semibold mt-1 ${text} leading-snug`}>{shortLabel}</p>
+                        {subTag && (
+                          <span className={`inline-block text-xs font-medium ${text} opacity-60 mt-0.5 leading-none`}>{subTag}</span>
+                        )}
                       </div>
-                      <Info className={`h-3 w-3 ${text} ${quickFilter === filter ? 'opacity-80' : 'opacity-50'} shrink-0 self-start mt-0.5`} />
+                      <Info className={`h-3 w-3 ${text} ${quickFilter === filter ? 'opacity-80' : 'opacity-50'} shrink-0 mt-1`} />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
@@ -1900,7 +1903,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-semibold leading-tight ${activePanel === 'bookings' ? 'text-primary' : 'text-foreground'}`}>Bookings</p>
-                  <p className="text-[10px] text-muted-foreground">All appointments</p>
+                  <p className="text-xs text-muted-foreground">All appointments</p>
                 </div>
                 {activePanel === 'bookings' && <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
               </button>
@@ -1915,7 +1918,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-semibold leading-tight ${activePanel === 'configure-slots' ? 'text-blue-600' : 'text-foreground'}`}>Configure Slots</p>
-                  <p className="text-[10px] text-muted-foreground">Capacity &amp; cancellation</p>
+                  <p className="text-xs text-muted-foreground">Capacity &amp; cancellation</p>
                 </div>
                 {activePanel === 'configure-slots' && <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />}
               </button>
@@ -1930,7 +1933,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-semibold leading-tight ${activePanel === 'manage-doctors' ? 'text-teal-700 dark:text-teal-400' : 'text-foreground'}`}>Manage Doctors</p>
-                  <p className="text-[10px] text-muted-foreground">Add or remove doctors</p>
+                  <p className="text-xs text-muted-foreground">Add or remove doctors</p>
                 </div>
                 {activePanel === 'manage-doctors' && <div className="h-1.5 w-1.5 rounded-full bg-teal-500 shrink-0" />}
               </button>
@@ -1945,7 +1948,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-semibold leading-tight ${activePanel === 'clinic-profile' ? 'text-violet-700 dark:text-violet-400' : 'text-foreground'}`}>Clinic Profile</p>
-                  <p className="text-[10px] text-muted-foreground">Edit public about page</p>
+                  <p className="text-xs text-muted-foreground">Edit public about page</p>
                 </div>
                 {activePanel === 'clinic-profile' && <div className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />}
               </button>
@@ -1960,7 +1963,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-semibold leading-tight ${activePanel === 'book-a-slot' ? 'text-primary' : 'text-foreground'}`}>Book a Slot</p>
-                  <p className="text-[10px] text-muted-foreground">New patient appointment</p>
+                  <p className="text-xs text-muted-foreground">New patient appointment</p>
                 </div>
                 {activePanel === 'book-a-slot' && <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
               </button>
@@ -1975,7 +1978,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-semibold leading-tight ${activePanel === 'export-data' ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'}`}>Export Data</p>
-                  <p className="text-[10px] text-muted-foreground">Download patient records</p>
+                  <p className="text-xs text-muted-foreground">Download patient records</p>
                 </div>
                 {activePanel === 'export-data' && <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />}
               </button>
@@ -1990,7 +1993,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-semibold leading-tight ${activePanel === 'inventory' ? 'text-emerald-700 dark:text-emerald-400' : 'text-foreground'}`}>Inventory</p>
-                  <p className="text-[10px] text-muted-foreground">Stock, assets & alerts</p>
+                  <p className="text-xs text-muted-foreground">Stock, assets & alerts</p>
                 </div>
                 {activePanel === 'inventory' && <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />}
               </button>
@@ -2005,7 +2008,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-semibold leading-tight ${activePanel === 'website' ? 'text-sky-700 dark:text-sky-400' : 'text-foreground'}`}>Clinic Website</p>
-                  <p className="text-[10px] text-muted-foreground">Theme & content</p>
+                  <p className="text-xs text-muted-foreground">Theme & content</p>
                 </div>
                 {activePanel === 'website' && <div className="h-1.5 w-1.5 rounded-full bg-sky-500 shrink-0" />}
               </button>
@@ -2020,7 +2023,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-semibold leading-tight ${activePanel === 'accounts' ? 'text-primary' : 'text-foreground'}`}>Accounts</p>
-                  <p className="text-[10px] text-muted-foreground">All patient billing history</p>
+                  <p className="text-xs text-muted-foreground">All patient billing history</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {allBills.length > 0 && (
@@ -2040,7 +2043,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-semibold leading-tight ${activePanel === 'patients' ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'}`}>Patients</p>
-                  <p className="text-[10px] text-muted-foreground">Patient directory</p>
+                  <p className="text-xs text-muted-foreground">Patient directory</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {patientDirectory.length > 0 && (
@@ -2060,7 +2063,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-semibold leading-tight ${activePanel === 'analytics' ? 'text-violet-700 dark:text-violet-400' : 'text-foreground'}`}>Analytics</p>
-                  <p className="text-[10px] text-muted-foreground">Clinic performance</p>
+                  <p className="text-xs text-muted-foreground">Clinic performance</p>
                 </div>
                 {activePanel === 'analytics' && <div className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />}
               </button>
@@ -2072,7 +2075,7 @@ export default function ClinicDashboard() {
           {clinic && (
             <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden mt-3">
               <div className="px-3 pt-3 pb-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Scan &amp; Share</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Scan &amp; Share</p>
               </div>
               <div className="px-3 pb-3 flex flex-col items-center gap-3">
                 {/* QR Code */}
@@ -2125,7 +2128,7 @@ export default function ClinicDashboard() {
           {activePanel === 'bookings' && (
             <div className="space-y-5" ref={bookingsSectionRef}>
           {/* Stats Cards — click to filter */}
-          <div className="grid grid-cols-4 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             {/* Today */}
             <TooltipProvider delayDuration={300}>
               <Tooltip>
@@ -2136,7 +2139,7 @@ export default function ClinicDashboard() {
                     data-testid="card-filter-today"
                   >
                     <div className="h-1 bg-gradient-to-r from-sky-400 to-cyan-400" />
-                    <CardContent className="p-2.5 sm:p-4 text-center sm:text-left flex flex-col sm:flex-row items-center gap-1 sm:gap-3">
+                    <CardContent className="p-3 sm:p-4 text-left flex flex-row items-center gap-2 sm:gap-3">
                       <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-sky-400/20' : 'bg-sky-400/10'}`}>
                         <CalendarIcon className="h-3.5 w-3.5 text-sky-500" />
                       </div>
@@ -2166,7 +2169,7 @@ export default function ClinicDashboard() {
                     data-testid="card-filter-upcoming"
                   >
                     <div className="h-1 bg-gradient-to-r from-primary to-accent" />
-                    <CardContent className="p-2.5 sm:p-4 text-center sm:text-left flex flex-col sm:flex-row items-center gap-1 sm:gap-3">
+                    <CardContent className="p-3 sm:p-4 text-left flex flex-row items-center gap-2 sm:gap-3">
                       <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-primary/20' : 'bg-primary/10'}`}>
                         <TrendingUp className="h-3.5 w-3.5 text-primary" />
                       </div>
@@ -2196,7 +2199,7 @@ export default function ClinicDashboard() {
                     data-testid="card-filter-past"
                   >
                     <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
-                    <CardContent className="p-2.5 sm:p-4 text-center sm:text-left flex flex-col sm:flex-row items-center gap-1 sm:gap-3">
+                    <CardContent className="p-3 sm:p-4 text-left flex flex-row items-center gap-2 sm:gap-3">
                       <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'past' ? 'bg-muted' : 'bg-muted'}`}>
                         <History className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
@@ -2230,7 +2233,7 @@ export default function ClinicDashboard() {
                     data-testid="card-filter-all"
                   >
                     <div className={`h-1 bg-gradient-to-r ${quickFilter === 'all' && !filterDate ? 'from-violet-500 to-purple-400' : 'from-amber-500 to-orange-400'}`} />
-                    <CardContent className="p-2.5 sm:p-4 text-center sm:text-left flex flex-col sm:flex-row items-center gap-1 sm:gap-3">
+                    <CardContent className="p-3 sm:p-4 text-left flex flex-row items-center gap-2 sm:gap-3">
                       <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'all' && !filterDate ? 'bg-violet-500/20' : 'bg-amber-500/10'}`}>
                         <Filter className={`h-3.5 w-3.5 ${quickFilter === 'all' && !filterDate ? 'text-violet-500' : 'text-amber-500'}`} />
                       </div>
