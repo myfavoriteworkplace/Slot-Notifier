@@ -807,7 +807,7 @@ export default function DoctorDashboard() {
               </div>
 
               {/* Desktop card grid */}
-              <div className="hidden sm:grid sm:grid-cols-4 gap-3">
+              <div className="hidden sm:grid sm:grid-cols-4 gap-2 sm:gap-3 min-w-0">
                 {/* Today */}
                 <TooltipProvider delayDuration={300}>
                   <Tooltip>
@@ -818,16 +818,16 @@ export default function DoctorDashboard() {
                         data-testid="stat-today"
                       >
                         <div className="h-1 bg-gradient-to-r from-sky-400 to-cyan-400" />
-                        <CardContent className="p-4 text-left flex items-center gap-3">
-                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-sky-400/20' : 'bg-sky-400/10'}`}>
-                            <Calendar className="h-4 w-4 text-sky-500" />
+                        <CardContent className="p-3 sm:p-4 text-left flex items-center gap-2 sm:gap-3">
+                          <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-sky-400/20' : 'bg-sky-400/10'}`}>
+                            <Calendar className="h-3.5 w-3.5 text-sky-500" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-medium text-muted-foreground">All Bookings Today</p>
-                            <p className="text-xl font-bold text-sky-600 dark:text-sky-400">{todayBookings.length}</p>
+                            <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings Today</p>
+                            <p className="text-base sm:text-xl font-bold text-sky-600 dark:text-sky-400 leading-tight">{todayBookings.length}</p>
                           </div>
                           {quickFilter === 'today' && (
-                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                            <span className="hidden sm:inline ml-auto text-[10px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                           )}
                         </CardContent>
                       </Card>
@@ -846,16 +846,16 @@ export default function DoctorDashboard() {
                         data-testid="stat-upcoming"
                       >
                         <div className="h-1 bg-gradient-to-r from-primary to-accent" />
-                        <CardContent className="p-4 text-left flex items-center gap-3">
-                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-primary/20' : 'bg-primary/10'}`}>
-                            <TrendingUp className="h-4 w-4 text-primary" />
+                        <CardContent className="p-3 sm:p-4 text-left flex items-center gap-2 sm:gap-3">
+                          <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-primary/20' : 'bg-primary/10'}`}>
+                            <TrendingUp className="h-3.5 w-3.5 text-primary" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-medium text-muted-foreground">All Upcoming Bookings</p>
-                            <p className="text-xl font-bold text-primary">{upcomingBookings.length}</p>
+                            <p className="text-xs font-medium text-muted-foreground leading-tight">All Upcoming Bookings</p>
+                            <p className="text-base sm:text-xl font-bold text-primary leading-tight">{upcomingBookings.length}</p>
                           </div>
                           {quickFilter === 'upcoming' && (
-                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                            <span className="hidden sm:inline ml-auto text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                           )}
                         </CardContent>
                       </Card>
@@ -874,16 +874,16 @@ export default function DoctorDashboard() {
                         data-testid="stat-awaiting"
                       >
                         <div className={`h-1 bg-gradient-to-r ${awaitingBookings.length > 0 ? 'from-amber-400 to-yellow-400' : 'from-slate-300 to-slate-200'}`} />
-                        <CardContent className="p-4 text-left flex items-center gap-3">
-                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'awaiting' ? 'bg-amber-400/20' : awaitingBookings.length > 0 ? 'bg-amber-400/10' : 'bg-muted'}`}>
-                            <AlertCircle className={`h-4 w-4 ${awaitingBookings.length > 0 ? 'text-amber-500' : 'text-muted-foreground'}`} />
+                        <CardContent className="p-3 sm:p-4 text-left flex items-center gap-2 sm:gap-3">
+                          <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'awaiting' ? 'bg-amber-400/20' : awaitingBookings.length > 0 ? 'bg-amber-400/10' : 'bg-muted'}`}>
+                            <AlertCircle className={`h-3.5 w-3.5 ${awaitingBookings.length > 0 ? 'text-amber-500' : 'text-muted-foreground'}`} />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-medium text-muted-foreground">Awaiting</p>
-                            <p className={`text-xl font-bold ${awaitingBookings.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>{awaitingBookings.length}</p>
+                            <p className="text-xs font-medium text-muted-foreground leading-tight">Awaiting Approval</p>
+                            <p className={`text-base sm:text-xl font-bold leading-tight ${awaitingBookings.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>{awaitingBookings.length}</p>
                           </div>
                           {quickFilter === 'awaiting' && (
-                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                            <span className="hidden sm:inline ml-auto text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                           )}
                           {awaitingBookings.length > 0 && quickFilter !== 'awaiting' && (
                             <span className="ml-auto text-[9px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none shrink-0">{awaitingBookings.length}</span>
@@ -905,16 +905,16 @@ export default function DoctorDashboard() {
                         data-testid="stat-all"
                       >
                         <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
-                        <CardContent className="p-4 text-left flex items-center gap-3">
-                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'all' ? 'bg-slate-400/20' : 'bg-slate-400/10'}`}>
-                            <ClipboardList className="h-4 w-4 text-slate-500" />
+                        <CardContent className="p-3 sm:p-4 text-left flex items-center gap-2 sm:gap-3">
+                          <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'all' ? 'bg-slate-400/20' : 'bg-slate-400/10'}`}>
+                            <ClipboardList className="h-3.5 w-3.5 text-slate-500" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-medium text-muted-foreground">All Bookings</p>
-                            <p className="text-xl font-bold text-slate-600 dark:text-slate-400">{confirmedBookings.length}</p>
+                            <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings</p>
+                            <p className="text-base sm:text-xl font-bold text-slate-600 dark:text-slate-400 leading-tight">{confirmedBookings.length}</p>
                           </div>
                           {quickFilter === 'all' && (
-                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                            <span className="hidden sm:inline ml-auto text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                           )}
                         </CardContent>
                       </Card>
