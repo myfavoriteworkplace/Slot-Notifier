@@ -38,11 +38,9 @@ export default defineConfig({
       deny: ["**/.*"],
     },
     sourcemapIgnoreList: false,
-    proxy: {
-      "/api": {
-        target: "http://localhost:5001",
-        changeOrigin: true,
-      },
+    allowedHosts: true,
+    hmr: {
+      clientPort: 443,
     },
   },
 });
