@@ -35,7 +35,7 @@ import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/sc
 import { format } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
 
-type QuickFilter = "all" | "today" | "upcoming" | "awaiting";
+type QuickFilter = "all" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days";
 type Tab = "appointments" | "profile" | "certifications" | "cases" | "leaves";
 
 function isVideo(url: string) {
@@ -67,6 +67,7 @@ export default function DoctorDashboard() {
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
+  const appointmentsSectionRef = useRef<HTMLDivElement>(null);
 
   const [profName, setProfName] = useState("");
   const [profSpecialization, setProfSpecialization] = useState("");
@@ -472,13 +473,15 @@ export default function DoctorDashboard() {
 
   const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setAppointmentDateFilter(""); };
 
-  const filteredBookings = (quickFilter === "awaiting" ? awaitingBookings : confirmedBookings).filter((b: any) => {
+  const filteredBookings = (quickFilter === "awaiting" || quickFilter === "pending-7days" ? awaitingBookings : confirmedBookings).filter((b: any) => {
     const matchesClinic = appointmentClinicFilter === "all" || b.clinicId === parseInt(appointmentClinicFilter);
     const bd = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
     const bdt = b.slot?.startTime ? new Date(b.slot.startTime) : null;
     let matchesDate = true;
     if (quickFilter === "today") matchesDate = bd === todayStr;
     else if (quickFilter === "upcoming") matchesDate = bdt ? bdt >= new Date() : false;
+    else if (quickFilter === "pending-7days") matchesDate = bdt ? bdt >= now && bdt <= next7 : false;
+    else if (quickFilter === "confirmed-7days") matchesDate = bdt ? bdt >= now && bdt <= next7 : false;
     else matchesDate = !appointmentDateFilter || bd === appointmentDateFilter;
     return matchesClinic && matchesDate;
   });
@@ -575,15 +578,23 @@ export default function DoctorDashboard() {
             {/* RIGHT — Schedule overview stats */}
             <div className="flex-1 grid grid-cols-4 gap-2.5 items-center">
               {[
-                { label: "Confirmed Bookings Today",            tooltip: "Appointments assigned to you today that have been confirmed.",                                              count: todayBookings.length,    Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
-                { label: "All Pending Bookings",                tooltip: "Total bookings assigned to you that are still awaiting your approval — across all dates.",                 count: awaitingBookings.length, Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
-                { label: "Pending Confirmations (Next 7 Days)", tooltip: "Bookings in the next 7 days that are still waiting for your approval. These need your attention.",         count: pendingNext7Count,       Icon: TrendingUp,    text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
-                { label: "Confirmed Bookings (Next 7 Days)",    tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                        count: confirmedNext7Count,     Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
-              ].map(({ label, tooltip, count, Icon, text, bg, border }) => (
+                { label: "Confirmed Bookings Today",            filter: "today" as QuickFilter,           tooltip: "Appointments assigned to you today that have been confirmed.",                                              count: todayBookings.length,    Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
+                { label: "All Pending Bookings",                filter: "awaiting" as QuickFilter,        tooltip: "Total bookings assigned to you that are still awaiting your approval — across all dates.",                 count: awaitingBookings.length, Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+                { label: "Pending Confirmations (Next 7 Days)", filter: "pending-7days" as QuickFilter,   tooltip: "Bookings in the next 7 days that are still waiting for your approval. These need your attention.",         count: pendingNext7Count,       Icon: TrendingUp,    text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+                { label: "Confirmed Bookings (Next 7 Days)",    filter: "confirmed-7days" as QuickFilter, tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                        count: confirmedNext7Count,     Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+              ].map(({ label, filter, tooltip, count, Icon, text, bg, border }) => (
                 <TooltipProvider key={label} delayDuration={300}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border bg-white/[0.04] ${border} cursor-default`}>
+                      <div
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border bg-white/[0.04] ${border} cursor-pointer transition-all hover:bg-white/[0.09] hover:scale-[1.02] active:scale-[0.98] ${quickFilter === filter ? 'ring-1 ring-white/50 bg-white/[0.09]' : ''}`}
+                        onClick={() => {
+                          setActiveTab("appointments");
+                          handleQuickFilter(filter);
+                          setTimeout(() => appointmentsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+                        }}
+                        data-testid={`stat-card-${filter}`}
+                      >
                         <div className={`shrink-0 ${text} ${bg} p-1.5 rounded-lg`}>
                           <Icon className="h-3.5 w-3.5" />
                         </div>
@@ -591,7 +602,7 @@ export default function DoctorDashboard() {
                           <p className="text-lg font-extrabold text-white leading-none tabular-nums">{count}</p>
                           <p className={`text-[11px] font-medium mt-0.5 ${text} leading-tight`}>{label}</p>
                         </div>
-                        <Info className={`h-3 w-3 ${text} opacity-50 shrink-0 self-start mt-0.5`} />
+                        <Info className={`h-3 w-3 ${text} ${quickFilter === filter ? 'opacity-80' : 'opacity-50'} shrink-0 self-start mt-0.5`} />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
@@ -641,12 +652,21 @@ export default function DoctorDashboard() {
             {/* 2×2 stats grid */}
             <div className="px-3 pb-3 grid grid-cols-2 gap-2">
               {[
-                { label: "Confirmed Today",    count: todayBookings.length,    color: "bg-sky-400/20 border-sky-300/30",         text: "text-white" },
-                { label: "All Pending",        count: awaitingBookings.length, color: "bg-amber-400/20 border-amber-300/30",     text: "text-white" },
-                { label: "Pending (7 Days)",   count: pendingNext7Count,       color: "bg-amber-400/20 border-amber-300/30",     text: "text-white" },
-                { label: "Confirmed (7 Days)", count: confirmedNext7Count,     color: "bg-emerald-400/20 border-emerald-300/30", text: "text-white" },
-              ].map(({ label, count, color, text }) => (
-                <div key={label} className={`flex flex-col rounded-xl border px-2 py-1.5 min-h-[44px] justify-center ${color}`}>
+                { label: "Confirmed Today",    filter: "today" as QuickFilter,           count: todayBookings.length,    color: "bg-sky-400/20 border-sky-300/30",         text: "text-white" },
+                { label: "All Pending",        filter: "awaiting" as QuickFilter,        count: awaitingBookings.length, color: "bg-amber-400/20 border-amber-300/30",     text: "text-white" },
+                { label: "Pending (7 Days)",   filter: "pending-7days" as QuickFilter,   count: pendingNext7Count,       color: "bg-amber-400/20 border-amber-300/30",     text: "text-white" },
+                { label: "Confirmed (7 Days)", filter: "confirmed-7days" as QuickFilter, count: confirmedNext7Count,     color: "bg-emerald-400/20 border-emerald-300/30", text: "text-white" },
+              ].map(({ label, filter, count, color, text }) => (
+                <div
+                  key={label}
+                  onClick={() => {
+                    setActiveTab("appointments");
+                    handleQuickFilter(filter);
+                    setTimeout(() => appointmentsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+                  }}
+                  className={`flex flex-col rounded-xl border px-2 py-1.5 min-h-[44px] justify-center cursor-pointer transition-all active:scale-[0.97] ${color} ${quickFilter === filter ? 'ring-2 ring-white/40' : ''}`}
+                  data-testid={`stat-card-mobile-${filter}`}
+                >
                   <span className={`text-lg font-extrabold leading-none ${text}`}>{count}</span>
                   <span className={`text-xs font-semibold mt-1 leading-tight ${text} opacity-80`}>{label}</span>
                 </div>
@@ -768,7 +788,7 @@ export default function DoctorDashboard() {
                 })}
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-5" ref={appointmentsSectionRef}>
 
               {/* Page heading */}
               <div>
