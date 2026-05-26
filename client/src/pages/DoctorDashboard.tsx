@@ -762,10 +762,10 @@ export default function DoctorDashboard() {
               {/* Mobile sticky filter bar — must live OUTSIDE space-y-5 to avoid phantom top margin */}
               <div className="flex items-center gap-2 overflow-x-auto sm:hidden -mx-4 px-4 py-2.5 sticky top-0 z-10 bg-muted/60 backdrop-blur-md border-b border-border/30" style={{ scrollbarWidth: "none" }}>
                 {([
-                  { filter: "all"      as QuickFilter, label: "All Bookings" },
                   { filter: "today"    as QuickFilter, label: "All Bookings Today" },
                   { filter: "upcoming" as QuickFilter, label: "All Upcoming Bookings" },
                   { filter: "awaiting" as QuickFilter, label: "Awaiting", badge: awaitingBookings.length },
+                  { filter: "all"      as QuickFilter, label: "All Bookings" },
                 ] as { filter: QuickFilter; label: string; badge?: number }[]).map(({ filter, label, badge }) => {
                   const isActive = quickFilter === filter;
                   return (
@@ -798,34 +798,6 @@ export default function DoctorDashboard() {
 
               {/* Desktop card grid */}
               <div className="hidden sm:grid sm:grid-cols-4 gap-3">
-                {/* Total */}
-                <TooltipProvider delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Card
-                        className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-[0.98] ${quickFilter === 'all' ? 'ring-2 ring-slate-400 border-slate-400/60' : 'border-border/50'}`}
-                        onClick={() => { setActiveTab("appointments"); handleQuickFilter("all"); }}
-                        data-testid="stat-all"
-                      >
-                        <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
-                        <CardContent className="p-4 text-left flex items-center gap-3">
-                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'all' ? 'bg-slate-400/20' : 'bg-slate-400/10'}`}>
-                            <ClipboardList className="h-4 w-4 text-slate-500" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium text-muted-foreground">All Bookings</p>
-                            <p className="text-xl font-bold text-slate-600 dark:text-slate-400">{confirmedBookings.length}</p>
-                          </div>
-                          {quickFilter === 'all' && (
-                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    <TooltipContent>All confirmed appointments</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
                 {/* Today */}
                 <TooltipProvider delayDuration={300}>
                   <Tooltip>
@@ -910,6 +882,34 @@ export default function DoctorDashboard() {
                       </Card>
                     </TooltipTrigger>
                     <TooltipContent>Appointments needing your approval</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* Total */}
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card
+                        className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-[0.98] ${quickFilter === 'all' ? 'ring-2 ring-slate-400 border-slate-400/60' : 'border-border/50'}`}
+                        onClick={() => { setActiveTab("appointments"); handleQuickFilter("all"); }}
+                        data-testid="stat-all"
+                      >
+                        <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
+                        <CardContent className="p-4 text-left flex items-center gap-3">
+                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'all' ? 'bg-slate-400/20' : 'bg-slate-400/10'}`}>
+                            <ClipboardList className="h-4 w-4 text-slate-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-muted-foreground">All Bookings</p>
+                            <p className="text-xl font-bold text-slate-600 dark:text-slate-400">{confirmedBookings.length}</p>
+                          </div>
+                          {quickFilter === 'all' && (
+                            <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent>All confirmed appointments</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>

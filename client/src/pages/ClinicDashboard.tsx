@@ -2237,7 +2237,7 @@ export default function ClinicDashboard() {
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings</p>
                         <p className={`text-base sm:text-xl font-bold leading-tight ${quickFilter === 'all' && !filterDate ? 'text-violet-600' : 'text-amber-600'}`}>
-                          {filteredBookings?.length || 0}
+                          {bookings?.length || 0}
                         </p>
                       </div>
                       {quickFilter === 'all' && !filterDate && (
@@ -2392,6 +2392,10 @@ export default function ClinicDashboard() {
                     : quickFilter === 'past' ? "Past Bookings"
                     : quickFilter === 'this-week' ? "This Week"
                     : quickFilter === 'next-week' ? "Next Week"
+                    : quickFilter === 'today-confirmed' ? "Confirmed Bookings Today"
+                    : quickFilter === 'pending-7days' ? "Pending Confirmations (Next 7 Days)"
+                    : quickFilter === 'all-pending' ? "All Pending Bookings"
+                    : quickFilter === 'confirmed-7days' ? "Confirmed Bookings (Next 7 Days)"
                     : filterDate ? "Filtered Bookings"
                     : "Bookings"}
                 </h2>
@@ -2401,6 +2405,10 @@ export default function ClinicDashboard() {
                     : quickFilter === 'past' ? "Previous appointments"
                     : quickFilter === 'this-week' ? "Appointments Mon – Sun"
                     : quickFilter === 'next-week' ? "Appointments for next week"
+                    : quickFilter === 'today-confirmed' ? "Confirmed appointments scheduled for today"
+                    : quickFilter === 'pending-7days' ? "Pending confirmations in the next 7 days"
+                    : quickFilter === 'all-pending' ? "All unconfirmed bookings across all dates"
+                    : quickFilter === 'confirmed-7days' ? "Confirmed appointments in the next 7 days"
                     : filterDate ? "Showing custom date range"
                     : "All patient appointments"}
                 </p>
