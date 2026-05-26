@@ -1,0 +1,149 @@
+Enhanced & Comprehensive Error Handling for BookMySlot (Dental App)
+Your current list is solid. Below is an optimized and expanded version tailored specifically for a dental booking application, including new scenarios that are very common in real-world dental/clinic apps.
+Comprehensive Error Scenarios + User-Friendly Messages
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CategoryError ScenarioRecommended User MessageAction Buttons / UX TipsNetworkNo Internet"You're offline. Please check your connection."Retry, View Cached AppointmentsNetworkPoor Connection / Slow"Connection is slow. This might take a moment..."Retry, Continue with cached dataServer / APIServer Down / Maintenance"We're doing some maintenance. We'll be back shortly."Retry, Check back in 30 minsBooking FlowNo slots available"Sorry, no slots available for this date. Would you like to try another day?"Show next 7 days, Waitlist optionBooking FlowSlot already taken"This slot was just taken. Here are other available times."Show alternative slots instantlyBooking FlowDouble booking (same day)"You already have an appointment on this day. Do you want to book another?"Show existing appointment + proceed optionPatient DataInvalid Phone / OTP"Please enter a valid 10-digit mobile number."Auto-focus fieldPatient DataAge restriction (Pediatric)"This service is for children below 14 years."Redirect to pediatric sectionAuthenticationSession expired"Your session has expired. Please log in again."Auto-redirect to loginPaymentPayment Failed"Payment failed. No amount was deducted. Try another method?"Retry + List alternative methods (UPI, Card)PaymentUPI Payment Timeout"UPI payment timed out. Would you like to try again?"Retry with same / different UPIFormMissing mandatory fields"Please fill all required fields marked with *"Highlight fields in redDocumentFile upload failed"Failed to upload document. Please try a smaller file (max 5MB)."Retry + File size guidanceAvailabilityClinic closed on selected date"The clinic is closed on this date. Please choose another day."Show working daysAccountAccount not verified"Please verify your mobile number to book appointments."Direct to verification flowSystemHigh traffic / Queue"We're experiencing high demand. You're in queue. Thank you for waiting!"Show queue positionMedicalEmergency case"For dental emergencies, please call us directly: {{CLINIC_PHONE}}"Prominent Call buttonGeneralUnexpected Error"Something went wrong. Our team has been notified."Retry + "Contact Support"
+
+Additional Recommended Scenarios
+
+Location Permission Denied
+→ "Location access is needed to show nearby clinics. You can still search manually."
+Doctor on Leave
+→ "Dr. X is on leave. Here are other available doctors on this date."
+Appointment Cancellation Limit Reached
+→ "You have reached the maximum cancellations for this month."
+Prescription Upload (Follow-up)
+→ "Please upload your previous prescription for better consultation."
+Age Validation (Senior Citizen Discount)
+→ "Senior citizen discount applied for patients above 60 years."
+
+
+Design & UX Principles (Notification Layer)
+
+Tone: Empathetic, calm, and solution-oriented (never robotic).
+Visuals: Use soft icons (warning, info, error) + consistent color coding.
+Red/Orange → Critical
+Yellow → Warning
+Cyan/Blue → Info
+
+Structure: Icon + Short Title + Helpful Message + Action Button(s)
+Persistence: Important errors (payment failed, session expired) should not auto-dismiss.
+Offline Mode: Allow browsing past bookings even when offline.
