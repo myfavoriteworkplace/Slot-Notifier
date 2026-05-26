@@ -8,7 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { compressImage } from "@/lib/imageCompression";
 import {
   Loader2, Building2, Mail, Phone, MapPin, Hash,
@@ -119,14 +119,12 @@ function DocUpload({ label, value, onChange, testId }: {
   const [uploading, setUploading] = useState(false);
   const [optimising, setOptimising] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
-
   const handleFile = useCallback(async (file: File) => {
     const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
     const ALLOWED_EXT = [".jpg", ".jpeg", ".png", ".webp", ".pdf"];
     const ext = "." + file.name.split(".").pop()?.toLowerCase();
     if (!ALLOWED_TYPES.includes(file.type) && !ALLOWED_EXT.includes(ext)) {
-      toast({ title: "Invalid file type", description: "Please upload a PDF, JPG, PNG or WebP file.", variant: "destructive" });
+      notify.error("Invalid file type", { description: "Please upload a PDF, JPG, PNG or WebP file." });
       return;
     }
     // Compress images if over 5 MB; PDFs cannot be compressed via Canvas
@@ -137,18 +135,18 @@ function DocUpload({ label, value, onChange, testId }: {
         try {
           fileToUpload = await compressImage(file, 5 * 1024 * 1024, 2000);
           if (fileToUpload.size > 5 * 1024 * 1024) {
-            toast({ title: "File too large", description: "Could not compress this image below 5 MB. Please use a smaller file.", variant: "destructive" });
+            notify.error("File too large", { description: "Could not compress this image below 5 MB. Please use a smaller file." });
             setOptimising(false);
             return;
           }
         } catch {
-          toast({ title: "File too large", description: "Document must be under 5 MB. Please compress or split the file.", variant: "destructive" });
+          notify.error("File too large", { description: "Document must be under 5 MB. Please compress or split the file." });
           setOptimising(false);
           return;
         }
         setOptimising(false);
       } else {
-        toast({ title: "File too large", description: "Document must be under 5 MB. Please compress or split the PDF.", variant: "destructive" });
+        notify.error("File too large", { description: "Document must be under 5 MB. Please compress or split the PDF." });
         return;
       }
     }
@@ -165,17 +163,13 @@ function DocUpload({ label, value, onChange, testId }: {
       const putRes = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": fileToUpload.type }, body: fileToUpload });
       if (!putRes.ok) throw new Error("Upload failed");
       onChange(publicUrl);
-      toast({ title: "File uploaded", description: fileToUpload.name });
+      notify.success("File uploaded", { description: fileToUpload.name });
     } catch (err: any) {
-      toast({
-        title: "Upload unavailable",
-        description: "File storage isn't configured yet — you can upload this from your dashboard after approval.",
-        variant: "destructive",
-      });
+      notify.warning("Upload unavailable", { description: "File storage isn't configured yet — you can upload this from your dashboard after approval." });
     } finally {
       setUploading(false);
     }
-  }, [onChange, toast]);
+  }, [onChange]);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (file) handleFile(file); e.target.value = "";
@@ -333,7 +327,6 @@ function LockedField({ locked, nudgeMessage, onLockedClick, children }: {
 
 export default function RegisterClinic() {
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // OTP
@@ -418,7 +411,7 @@ export default function RegisterClinic() {
     onSuccess: () => {
       setOtpSent(true); setOtpError(""); setResendCountdown(60);
       setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
-      toast({ title: "Code sent", description: "Check your email for the 6-digit code." });
+      notify.info("Code sent", { description: "Check your email for the 6-digit code." });
     },
     onError: (e: any) => setOtpError(e.message || "Failed to send code. Please try again."),
   });
@@ -431,7 +424,7 @@ export default function RegisterClinic() {
     },
     onSuccess: (data) => {
       setEmailVerified(true); setVerifiedToken(data.verifiedToken); setOtpError("");
-      toast({ title: "Email verified", description: "You can now complete your registration." });
+      notify.success("Email verified", { description: "You can now complete your registration." });
     },
     onError: (e: any) => setOtpError(e.message || "Invalid code. Please try again."),
   });
@@ -462,11 +455,11 @@ export default function RegisterClinic() {
 
   async function onSubmit(data: InsertClinic) {
     if (!emailVerified || !verifiedToken) {
-      toast({ title: "Email verification required", description: "Please verify your email before submitting.", variant: "destructive" });
+      notify.warning("Email verification required", { description: "Please verify your email before submitting." });
       return;
     }
     if (!selectedPlan) {
-      toast({ title: "Plan selection required", description: "Please choose a subscription plan before submitting.", variant: "destructive" });
+      notify.warning("Plan selection required", { description: "Please choose a subscription plan before submitting." });
       return;
     }
     setIsSubmitting(true);
@@ -479,10 +472,10 @@ export default function RegisterClinic() {
         clinicRegCertUrl: clinicRegCertUrl || undefined,
         plan: selectedPlan,
       });
-      toast({ title: "Registration submitted", description: "We'll review your details and email your login credentials once approved." });
+      notify.success("Registration submitted", { description: "We'll review your details and email your login credentials once approved." });
       setLocation("/getting-started");
     } catch (err: any) {
-      toast({ title: "Registration failed", description: err.message || "Something went wrong.", variant: "destructive" });
+      notify.apiError(err, "Registration failed");
     } finally {
       setIsSubmitting(false);
     }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { format } from "date-fns";
 import {
   Loader2, Plus, Pencil, Trash2, Download, FileText, Stethoscope,
@@ -108,7 +108,6 @@ interface ClinicalRecordsTabProps {
 export default function ClinicalRecordsTab({
   bookingId, clinicId, patientName, patientPhone, doctorName, mode, clinicName,
 }: ClinicalRecordsTabProps) {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -148,10 +147,10 @@ export default function ClinicalRecordsTab({
     },
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey });
-      toast({ title: "Record saved", description: "Clinical record added successfully." });
+      notify.success("Record saved", { description: "Clinical record added successfully." });
       resetForm();
     },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: any) => notify.apiError(e, "Failed to save record"),
   });
 
   const updateMutation = useMutation({
@@ -167,10 +166,10 @@ export default function ClinicalRecordsTab({
     },
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey });
-      toast({ title: "Record updated" });
+      notify.success("Record updated");
       resetForm();
     },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: any) => notify.apiError(e, "Failed to update record"),
   });
 
   const deleteMutation = useMutation({
@@ -180,9 +179,9 @@ export default function ClinicalRecordsTab({
     },
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey });
-      toast({ title: "Record deleted" });
+      notify.success("Record deleted");
     },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: any) => notify.apiError(e, "Failed to delete record"),
   });
 
   const resetForm = () => {

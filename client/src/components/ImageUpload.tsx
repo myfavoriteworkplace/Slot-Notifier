@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Camera, X, User, Sparkles } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { compressImage } from "@/lib/imageCompression";
 
 interface ImageUploadProps {
@@ -21,7 +21,6 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
   const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
 
   const busy = uploadPhase !== "idle";
 
@@ -35,11 +34,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
         "image/jpeg": "JPG", "image/png": "PNG", "image/webp": "WebP", "image/svg+xml": "SVG",
       };
       const allowed = validTypes.map(t => typeLabels[t] ?? t).join(", ");
-      toast({
-        title: "Invalid file type",
-        description: `Only ${allowed} files are accepted here.`,
-        variant: "destructive",
-      });
+      notify.error("Invalid file type", { description: `Only ${allowed} files are accepted here.` });
       return;
     }
 
@@ -47,29 +42,18 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
     let fileToUpload = file;
     if (file.size > maxBytes) {
       setUploadPhase("optimising");
+      const label = (maxSizeKb ?? 2048) >= 1024
+        ? `${((maxSizeKb ?? 2048) / 1024).toFixed(0)} MB`
+        : `${maxSizeKb ?? 2048} KB`;
       try {
         fileToUpload = await compressImage(file, maxBytes, 1500);
         if (fileToUpload.size > maxBytes) {
-          const label = (maxSizeKb ?? 2048) >= 1024
-            ? `${((maxSizeKb ?? 2048) / 1024).toFixed(0)} MB`
-            : `${maxSizeKb ?? 2048} KB`;
-          toast({
-            title: "File too large",
-            description: `Could not compress this image below ${label}. Please use a smaller image.`,
-            variant: "destructive",
-          });
+          notify.error("File too large", { description: `Could not compress this image below ${label}. Please use a smaller image.` });
           setUploadPhase("idle");
           return;
         }
       } catch {
-        const label = (maxSizeKb ?? 2048) >= 1024
-          ? `${((maxSizeKb ?? 2048) / 1024).toFixed(0)} MB`
-          : `${maxSizeKb ?? 2048} KB`;
-        toast({
-          title: "File too large",
-          description: `Maximum allowed size is ${label}. Please resize or compress the image.`,
-          variant: "destructive",
-        });
+        notify.error("File too large", { description: `Maximum allowed size is ${label}. Please resize or compress the image.` });
         setUploadPhase("idle");
         return;
       }
@@ -104,13 +88,9 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
       }
 
       onImageUploaded(key);
-      toast({ title: "Image uploaded successfully" });
+      notify.success("Image uploaded");
     } catch (err: any) {
-      toast({ 
-        title: "Upload failed", 
-        description: err.message,
-        variant: "destructive" 
-      });
+      notify.apiError(err, "Upload failed");
       setPreviewUrl(currentImage || null);
     } finally {
       setUploadPhase("idle");
@@ -144,7 +124,7 @@ export function ImageUpload({ currentImage, onImageUploaded, folder, fallbackTex
             })()}
           </AvatarFallback>
         </Avatar>
-        
+
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-2xl">
           {uploadPhase === "optimising" ? (
             <div className="flex flex-col items-center gap-0.5">

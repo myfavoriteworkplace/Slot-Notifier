@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Loader2, CalendarDays, CheckCircle2, Building2, User, Phone, Mail,
@@ -99,7 +99,6 @@ function BookingShell({
 }
 
 export default function Book(props: { params: { clinicId?: string } }) {
-  const { toast } = useToast();
   const isMobile = useIsMobile();
   const [location] = useLocation();
   const params = new URLSearchParams(window.location.search);
@@ -363,10 +362,10 @@ export default function Book(props: { params: { clinicId?: string } }) {
     onSuccess: () => {
       setBookingPath("pending");
       setStep("success");
-      toast({ title: "Booking Submitted!", description: "Your request has been sent to the clinic for approval." });
+      notify.success("Booking Submitted!", { description: "Your request has been sent to the clinic for approval." });
     },
     onError: (error: any) => {
-      toast({ title: "Booking Failed", description: error.message || "Failed to create booking", variant: "destructive" });
+      notify.apiError(error, "Booking Failed");
     },
   });
 
@@ -384,7 +383,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
       setOtpError("");
       setResendCountdown(60);
       setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
-      toast({ title: "Code Sent!", description: "Check your email for the 6-digit verification code." });
+      notify.info("Code Sent!", { description: "Check your email for the 6-digit verification code." });
     },
     onError: (error: any) => {
       setOtpError(error.message || "Failed to send verification code. Please try again.");
@@ -404,7 +403,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
       setEmailVerified(true);
       setVerifiedToken(data.verifiedToken);
       setOtpError("");
-      toast({ title: "Email Verified!", description: "You can now complete your booking." });
+      notify.success("Email Verified!", { description: "You can now complete your booking." });
       // Check if returning patient at this clinic
       try {
         const cId = clinicsData?.find((c: any) => c.name === selectedClinic)?.id;
@@ -435,7 +434,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const handleBook = () => {
     if (!selectedSlot || !customerName || !customerPhone || !customerEmail || !selectedClinic) return;
     if (!emailVerified || !verifiedToken) {
-      toast({ title: "Email Verification Required", description: "Please verify your email before booking.", variant: "destructive" });
+      notify.warning("Email Verification Required", { description: "Please verify your email before booking." });
       return;
     }
     const slotInfo = slotTimings.find(s => s.id === selectedSlot);
@@ -463,14 +462,14 @@ export default function Book(props: { params: { clinicId?: string } }) {
       persistentBookings.push(newBooking);
       localStorage.setItem("demo_bookings_persistent", JSON.stringify(persistentBookings));
       setStep("success");
-      toast({ title: "Booking Confirmed!", description: "Your appointment has been successfully booked (Demo)." });
+      notify.success("Booking Confirmed!", { description: "Your appointment has been successfully booked (Demo)." });
       return;
     }
 
     const selectedClinicData = clinicsData?.find(c => c.name === selectedClinic);
     const clinicId = selectedClinicData?.id;
     if (!clinicId) {
-      toast({ title: "Error", description: "Please select a valid clinic", variant: "destructive" });
+      notify.error("Please select a valid clinic");
       return;
     }
     createBookingMutation.mutate({
@@ -498,7 +497,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const handlePayAndConfirm = async () => {
     if (!selectedSlot || !customerName || !customerPhone || !customerEmail || !selectedClinic) return;
     if (!emailVerified || !verifiedToken) {
-      toast({ title: "Email Verification Required", description: "Please verify your email before booking.", variant: "destructive" });
+      notify.warning("Email Verification Required", { description: "Please verify your email before booking." });
       return;
     }
     const slotInfo = slotTimings.find(s => s.id === selectedSlot);
@@ -512,7 +511,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
     const selectedClinicData = clinicsData?.find(c => c.name === selectedClinic);
     const clinicId = selectedClinicData?.id;
     if (!clinicId) {
-      toast({ title: "Error", description: "Please select a valid clinic", variant: "destructive" });
+      notify.error("Please select a valid clinic");
       return;
     }
 
@@ -561,9 +560,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
             }
             setBookingPath("pay");
             setStep("success");
-            toast({ title: "Payment Successful!", description: "Your slot is confirmed." });
+            notify.success("Payment Successful!", { description: "Your slot is confirmed." });
           } catch (err: any) {
-            toast({ title: "Verification Failed", description: err.message, variant: "destructive" });
+            notify.apiError(err, "Verification Failed");
           }
         },
         modal: {
@@ -574,12 +573,12 @@ export default function Book(props: { params: { clinicId?: string } }) {
       const rzp = new (window as any).Razorpay(options);
       rzp.on("payment.failed", () => {
         setPaymentLoading(false);
-        toast({ title: "Payment Failed", description: "Please try again or choose clinic approval.", variant: "destructive" });
+        notify.critical("Payment Failed", { description: "Please try again or choose clinic approval." });
       });
       rzp.open();
     } catch (err: any) {
       setPaymentLoading(false);
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      notify.apiError(err);
     }
   };
 

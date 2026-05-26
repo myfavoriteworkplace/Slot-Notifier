@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,7 +69,6 @@ const FEATURE_EMOJI: Record<string, string> = {
 type Section = "theme" | "hero" | "about" | "features" | "stats" | "services" | "gallery" | "testimonials" | "hours" | "social";
 
 export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) {
-  const { toast } = useToast();
   const existing: ClinicWebsiteConfig = (clinic as any)?.websiteConfig ?? { theme: "classic" };
 
   const [theme, setTheme] = useState<ClinicWebsiteConfig["theme"]>(existing.theme ?? "classic");
@@ -152,10 +151,10 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/me"] });
-      toast({ title: "Website saved", description: "Your clinic website has been updated." });
+      notify.success("Website saved", { description: "Your clinic website has been updated." });
     },
     onError: (err: any) => {
-      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+      notify.apiError(err, "Save failed");
     },
   });
 

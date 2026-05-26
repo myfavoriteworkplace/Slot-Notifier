@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { format, differenceInDays } from "date-fns";
 import {
   Package, Plus, Search, AlertTriangle, CheckCircle2, Clock,
@@ -432,7 +432,6 @@ function AddItemSheet({
   categories: InventoryCategory[];
   onSuccess: () => void;
 }) {
-  const { toast } = useToast();
   const [form, setForm] = useState({
     name: "", trackingType: "consumable", unit: "units", categoryId: "",
     currentQty: "", reorderLevel: "", criticalLevel: "",
@@ -446,12 +445,12 @@ function AddItemSheet({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clinic/inventory/items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clinic/inventory/transactions"] });
-      toast({ title: "Item added", description: `${form.name} added to inventory.` });
+      notify.success("Item added", { description: `${form.name} added to inventory.` });
       setForm({ name: "", trackingType: "consumable", unit: "units", categoryId: "", currentQty: "", reorderLevel: "", criticalLevel: "", expiryDate: "", warrantyExpiry: "", nextServiceDate: "", notes: "" });
       onSuccess();
       onOpenChange(false);
     },
-    onError: () => toast({ title: "Error", description: "Failed to add item.", variant: "destructive" }),
+    onError: () => notify.error("Failed to add item"),
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -618,7 +617,6 @@ function StockActionDialog({
   item: InventoryItem | null;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
   const [qty, setQty] = useState("");
   const [type, setType] = useState<"add" | "deduct" | "adjust">("deduct");
   const [reason, setReason] = useState("");
@@ -629,10 +627,10 @@ function StockActionDialog({
       queryClient.invalidateQueries({ queryKey: ["/api/clinic/inventory/items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clinic/inventory/transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clinic/inventory/alerts"] });
-      toast({ title: "Stock updated", description: "Inventory has been updated." });
+      notify.success("Stock updated", { description: "Inventory has been updated." });
       onClose();
     },
-    onError: () => toast({ title: "Error", description: "Failed to update stock.", variant: "destructive" }),
+    onError: () => notify.error("Failed to update stock"),
   });
 
   if (!item) return null;
@@ -817,7 +815,6 @@ function ItemDetailDialog({
 // ─── Main InventoryPanel ─────────────────────────────────────────────────────
 
 export function InventoryPanel({ clinicId }: { clinicId: number }) {
-  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"stock" | "alerts" | "log">("stock");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -867,9 +864,9 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
     mutationFn: (id: number) => apiRequest("DELETE", `/api/clinic/inventory/items/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clinic/inventory/items"] });
-      toast({ title: "Item removed", description: "Item deleted from inventory." });
+      notify.success("Item removed", { description: "Item deleted from inventory." });
     },
-    onError: () => toast({ title: "Error", description: "Failed to delete item.", variant: "destructive" }),
+    onError: () => notify.error("Failed to delete item"),
   });
 
   const dismissMutation = useMutation({

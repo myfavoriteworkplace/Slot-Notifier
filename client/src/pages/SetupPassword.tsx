@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,6 @@ import { Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Lock } from "lucide-re
 
 export default function SetupPassword() {
   const [_, setLocation] = useLocation();
-  const { toast } = useToast();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -45,18 +44,11 @@ export default function SetupPassword() {
       return res.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Account created successfully!",
-        description: "You can now log in with your email and password.",
-      });
+      notify.success("Account created!", { description: "You can now log in with your email and password." });
       setTimeout(() => setLocation("/clinic-login"), 2000);
     },
     onError: (error: any) => {
-      toast({
-        title: "Failed to set up password",
-        description: error.message,
-        variant: "destructive",
-      });
+      notify.apiError(error, "Failed to set up password");
     },
   });
 
@@ -64,20 +56,12 @@ export default function SetupPassword() {
     e.preventDefault();
 
     if (password.length < 8) {
-      toast({
-        title: "Password too short",
-        description: "Password must be at least 8 characters long.",
-        variant: "destructive",
-      });
+      notify.warning("Password too short", { description: "Password must be at least 8 characters long." });
       return;
     }
 
     if (password !== confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please make sure both passwords are the same.",
-        variant: "destructive",
-      });
+      notify.warning("Passwords don't match", { description: "Please make sure both passwords are the same." });
       return;
     }
 
@@ -155,7 +139,7 @@ export default function SetupPassword() {
           </div>
           <CardTitle>Set Up Your Password</CardTitle>
           <CardDescription>
-            Welcome to <span className="font-semibold">{inviteData?.clinicName}</span>! 
+            Welcome to <span className="font-semibold">{inviteData?.clinicName}</span>!
             Please create a password for your account.
           </CardDescription>
         </CardHeader>

@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Clinic, SmileDeal } from "@shared/schema";
 import { Switch } from "@/components/ui/switch";
@@ -47,7 +47,6 @@ function trustBandColor(score: number): string {
 export default function Admin() {
   const { user, loading: authLoading, logout, login, isLoggingIn, loginError, verifyOtp, isVerifyingOtp, verifyOtpError } = useAuth();
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -177,10 +176,10 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/smile-deals'] });
       resetDealForm();
-      toast({ title: "Smile Deal added successfully" });
+      notify.success("Smile Deal added");
     },
     onError: (error: any) => {
-      toast({ title: "Failed to add deal", description: error.message, variant: "destructive" });
+      notify.apiError(error, "Failed to add deal");
     }
   });
 
@@ -191,7 +190,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/smile-deals'] });
-      toast({ title: "Smile Deal updated" });
+      notify.success("Smile Deal updated");
     }
   });
 
@@ -201,7 +200,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/smile-deals'] });
-      toast({ title: "Smile Deal deleted" });
+      notify.success("Smile Deal deleted");
     }
   });
 
@@ -211,7 +210,7 @@ export default function Admin() {
 
     const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (!ALLOWED.includes(file.type)) {
-      toast({ title: "Invalid file type", description: "Please upload a JPG, PNG or WebP image.", variant: "destructive" });
+      notify.error("Invalid file type", { description: "Please upload a JPG, PNG or WebP image." });
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -222,13 +221,13 @@ export default function Admin() {
       try {
         fileToUpload = await compressImage(file, 2 * 1024 * 1024, 1500);
         if (fileToUpload.size > 2 * 1024 * 1024) {
-          toast({ title: "File too large", description: "Could not compress this image below 2 MB. Please use a smaller image.", variant: "destructive" });
+          notify.error("File too large", { description: "Could not compress this image below 2 MB. Please use a smaller image." });
           if (fileInputRef.current) fileInputRef.current.value = "";
           setIsOptimising(false);
           return;
         }
       } catch {
-        toast({ title: "File too large", description: "Deal image must be under 2 MB. Please resize or compress the image.", variant: "destructive" });
+        notify.error("File too large", { description: "Deal image must be under 2 MB. Please resize or compress the image." });
         if (fileInputRef.current) fileInputRef.current.value = "";
         setIsOptimising(false);
         return;
@@ -257,9 +256,9 @@ export default function Admin() {
       if (!uploadRes.ok) throw new Error("R2 Upload failed");
 
       setDealImageUrl(publicUrl);
-      toast({ title: "Image uploaded successfully" });
+      notify.success("Image uploaded");
     } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+      notify.apiError(err, "Upload failed");
     } finally {
       setIsUploading(false);
     }
@@ -379,14 +378,10 @@ export default function Admin() {
       setNewClinicDoctors([]);
       setNewClinicUsername("");
       setNewClinicPassword("");
-      toast({ title: "Clinic added successfully" });
+      notify.success("Clinic added");
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Failed to add clinic", 
-        description: error.message,
-        variant: "destructive" 
-      });
+      notify.apiError(error, "Failed to add clinic");
     },
   });
 
@@ -408,7 +403,7 @@ export default function Admin() {
       setSelectedClinic(null);
       setEditUsername("");
       setEditPassword("");
-      toast({ title: "Credentials updated successfully" });
+      notify.success("Credentials updated");
     },
   });
 
@@ -418,7 +413,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      toast({ title: "Clinic archived" });
+      notify.success("Clinic archived");
     }
   });
 
@@ -428,7 +423,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      toast({ title: "Clinic restored" });
+      notify.success("Clinic restored");
     }
   });
 
@@ -452,7 +447,7 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
       setEditClinicDialogOpen(false);
       setSelectedClinic(null);
-      toast({ title: "Clinic updated successfully" });
+      notify.success("Clinic updated");
     }
   });
 
@@ -467,7 +462,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      toast({ title: "Clinic approved", description: "Credentials and payment activation link have been sent to the clinic." });
+      notify.success("Clinic approved", { description: "Credentials and payment activation link have been sent to the clinic." });
     }
   });
 
@@ -479,7 +474,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      toast({ title: "Marked as paid", description: "Clinic subscription is now active." });
+      notify.success("Marked as paid", { description: "Clinic subscription is now active." });
     }
   });
 
@@ -491,7 +486,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
-      toast({ title: "Registration rejected", description: "The clinic has been removed from the pending queue." });
+      notify.success("Registration rejected", { description: "The clinic has been removed from the pending queue." });
     }
   });
 
@@ -505,7 +500,7 @@ export default function Admin() {
   };
 
   const handleFlagForReview = (clinicName: string) => {
-    toast({ title: "Flagged for manual review", description: `${clinicName} has been flagged — it will remain in the pending queue for further review.` });
+    notify.info("Flagged for manual review", { description: `${clinicName} has been flagged — it will remain in the pending queue for further review.` });
   };
 
   const handleAdminLogout = () => {
@@ -515,7 +510,7 @@ export default function Admin() {
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) {
-      toast({ title: "Please fill in all fields", variant: "destructive" });
+      notify.warning("Please fill in all fields");
       return;
     }
     login(
@@ -525,11 +520,11 @@ export default function Admin() {
           if (data?.step === "otp_required") {
             setLoginStep("otp");
             setLoginOtp("");
-            toast({ title: "OTP sent", description: "Check your admin email for the 6-digit code." });
+            notify.info("OTP sent", { description: "Check your admin email for the 6-digit code." });
           }
         },
         onError: (err: any) => {
-          toast({ title: err?.message || "Invalid credentials", variant: "destructive" });
+          notify.error(err?.message || "Invalid credentials");
         },
       }
     );
@@ -538,22 +533,22 @@ export default function Admin() {
   const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault();
     if (loginOtp.length !== 6) {
-      toast({ title: "Enter the 6-digit code from your email", variant: "destructive" });
+      notify.warning("Enter the 6-digit code from your email");
       return;
     }
     verifyOtp(loginOtp, {
       onError: (err: any) => {
-        toast({ title: err?.message || "Invalid OTP", variant: "destructive" });
+        notify.error(err?.message || "Invalid OTP");
       },
     });
   };
 
   useEffect(() => {
     if (!authLoading && user && user.role !== 'superuser') {
-      toast({ title: "Access Denied", variant: "destructive" });
+      notify.critical("Access Denied");
       setLocation("/dashboard");
     }
-  }, [authLoading, user, setLocation, toast]);
+  }, [authLoading, user, setLocation]);
 
   if (authLoading) {
     return (
@@ -986,7 +981,7 @@ export default function Admin() {
                             size="sm"
                             onClick={() => {
                               navigator.clipboard.writeText(`${window.location.origin}/book/${clinic.id}`);
-                              toast({ title: "Booking URL copied" });
+                              notify.success("Booking URL copied");
                             }}
                             className="h-8 gap-1.5 text-xs"
                           >
@@ -998,7 +993,7 @@ export default function Admin() {
                             size="sm"
                             onClick={() => {
                               navigator.clipboard.writeText(`${window.location.origin}/about?clinicId=${clinic.id}`);
-                              toast({ title: "About URL copied" });
+                              notify.success("About URL copied");
                             }}
                             className="h-8 gap-1.5 text-xs"
                           >
@@ -1216,7 +1211,7 @@ export default function Admin() {
                             size="sm"
                             onClick={() => {
                               navigator.clipboard.writeText(`${window.location.origin}/book/${clinic.id}`);
-                              toast({ title: "Booking URL copied" });
+                              notify.success("Booking URL copied");
                             }}
                             className="h-8 gap-1.5 text-xs"
                           >
@@ -1228,7 +1223,7 @@ export default function Admin() {
                             size="sm"
                             onClick={() => {
                               navigator.clipboard.writeText(`${window.location.origin}/about?clinicId=${clinic.id}`);
-                              toast({ title: "About URL copied" });
+                              notify.success("About URL copied");
                             }}
                             className="h-8 gap-1.5 text-xs"
                           >

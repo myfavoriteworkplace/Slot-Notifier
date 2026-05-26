@@ -5,7 +5,7 @@ import SignaturePad from "signature_pad";
 import { format } from "date-fns";
 import { CheckCircle2, Loader2, Pen, RotateCcw, AlertCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { API_BASE_URL } from "@/lib/queryClient";
 
 interface ConsentData {
@@ -21,7 +21,6 @@ interface ConsentData {
 
 export default function ConsentForm() {
   const { token } = useParams<{ token: string }>();
-  const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sigPadRef = useRef<SignaturePad | null>(null);
   const [signed, setSigned] = useState(false);
@@ -72,7 +71,7 @@ export default function ConsentForm() {
       return res.json();
     },
     onSuccess: () => setSigned(true),
-    onError: (err: any) => toast({ title: "Submission failed", description: err.message, variant: "destructive" }),
+    onError: (err: any) => notify.apiError(err, "Submission failed"),
   });
 
   const handleClear = () => {
@@ -82,7 +81,7 @@ export default function ConsentForm() {
 
   const handleSubmit = () => {
     if (!sigPadRef.current || sigPadRef.current.isEmpty()) {
-      toast({ title: "Signature required", description: "Please sign before submitting.", variant: "destructive" });
+      notify.warning("Signature required", { description: "Please sign before submitting." });
       return;
     }
     const dataUrl = sigPadRef.current.toDataURL("image/png");

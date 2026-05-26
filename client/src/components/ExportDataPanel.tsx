@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { format, formatDistanceToNow } from "date-fns";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -115,7 +115,6 @@ function generateCSV(rows: (string | number | null | undefined)[][], headers: st
 
 
 export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelProps) {
-  const { toast } = useToast();
   const qc = useQueryClient();
 
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>("xlsx");
@@ -167,7 +166,7 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
     setSnoozeOpen(false);
     if (snooze) {
       const label = snooze === "1d" ? "1 day" : snooze === "3d" ? "3 days" : "1 week";
-      toast({ title: `Reminder snoozed for ${label}` });
+      notify.info(`Reminder snoozed for ${label}`);
     }
   }
 
@@ -296,9 +295,9 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
         recordCount: scopeRecordCount,
       });
 
-      toast({ title: "Export complete", description: `${fileName} downloaded successfully.` });
+      notify.success("Export complete", { description: `${fileName} downloaded successfully.` });
     } catch (err: any) {
-      toast({ title: "Export failed", description: err.message, variant: "destructive" });
+      notify.apiError(err, "Export failed");
     } finally {
       setExporting(false);
       setProgress(0);

@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/schema";
 import { format } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
@@ -61,7 +61,6 @@ function MediaThumb({ url }: { url: string }) {
 export default function DoctorDashboard() {
   const { doctor, isLoading, isAuthenticated, logout, isLoggingOut } = useDoctorAuth();
   const [_, setLocation] = useLocation();
-  const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<Tab>("appointments");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
@@ -177,14 +176,14 @@ export default function DoctorDashboard() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Password changed", description: "Your password has been updated successfully." });
+      notify.success("Password changed", { description: "Your password has been updated successfully." });
       setChangePwdOpen(false);
       setChangePwdCurrent("");
       setChangePwdNew("");
       setChangePwdConfirm("");
       queryClient.invalidateQueries({ queryKey: ["/api/auth/doctor/me"] });
     },
-    onError: (e: any) => toast({ title: "Failed to change password", description: e.message, variant: "destructive" }),
+    onError: (e: any) => notify.apiError(e, "Failed to change password"),
   });
 
   const addLeaveMutation = useMutation({
@@ -194,9 +193,9 @@ export default function DoctorDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/doctor/leaves"] });
       setLeavePickerDate(undefined);
       setLeaveReason("");
-      toast({ title: "Leave marked", description: "You are marked out of office for that date." });
+      notify.success("Leave marked", { description: "You are marked out of office for that date." });
     },
-    onError: () => toast({ title: "Failed to mark leave", variant: "destructive" }),
+    onError: () => notify.error("Failed to mark leave"),
   });
 
   const addLeavesBatchMutation = useMutation({
@@ -211,63 +210,63 @@ export default function DoctorDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/doctor/leaves"] });
       setPendingDates([]);
       setLeaveReason("");
-      toast({ title: `${vars.dates.length} ${vars.dates.length === 1 ? "day" : "days"} marked`, description: "You are marked out of office for those dates." });
+      notify.success(`${vars.dates.length} ${vars.dates.length === 1 ? "day" : "days"} marked`, { description: "You are marked out of office for those dates." });
     },
-    onError: () => toast({ title: "Failed to mark some leaves", variant: "destructive" }),
+    onError: () => notify.error("Failed to mark some leaves"),
   });
 
   const removeLeaveMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/doctor/leaves/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/doctor/leaves"] });
-      toast({ title: "Leave removed" });
+      notify.success("Leave removed");
     },
-    onError: () => toast({ title: "Failed to remove leave", variant: "destructive" }),
+    onError: () => notify.error("Failed to remove leave"),
   });
 
   const updateProfileMutation = useMutation({
     mutationFn: (data: any) => apiRequest("PATCH", "/api/doctor/profile", data),
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/me"] });
-      toast({ title: "Profile updated", description: "Your profile has been saved." });
+      notify.success("Profile updated", { description: "Your profile has been saved." });
     },
-    onError: () => toast({ title: "Failed to update profile", variant: "destructive" }),
+    onError: () => notify.error("Failed to update profile"),
   });
 
   const createCertMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/doctor/certifications", data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/doctor/certifications"] }); closeCertSheet(); },
-    onError: () => toast({ title: "Failed to add certification", variant: "destructive" }),
+    onError: () => notify.error("Failed to add certification"),
   });
 
   const updateCertMutation = useMutation({
     mutationFn: ({ id, ...data }: any) => apiRequest("PATCH", `/api/doctor/certifications/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/doctor/certifications"] }); closeCertSheet(); },
-    onError: () => toast({ title: "Failed to update certification", variant: "destructive" }),
+    onError: () => notify.error("Failed to update certification"),
   });
 
   const deleteCertMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/doctor/certifications/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/doctor/certifications"] }),
-    onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
+    onError: () => notify.error("Failed to delete certification"),
   });
 
   const createCaseMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/doctor/cases", data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/doctor/cases"] }); closeCaseSheet(); },
-    onError: () => toast({ title: "Failed to add case", variant: "destructive" }),
+    onError: () => notify.error("Failed to add case"),
   });
 
   const updateCaseMutation = useMutation({
     mutationFn: ({ id, ...data }: any) => apiRequest("PATCH", `/api/doctor/cases/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/doctor/cases"] }); closeCaseSheet(); },
-    onError: () => toast({ title: "Failed to update case", variant: "destructive" }),
+    onError: () => notify.error("Failed to update case"),
   });
 
   const deleteCaseMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/doctor/cases/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/doctor/cases"] }),
-    onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
+    onError: () => notify.error("Failed to delete case"),
   });
 
   const saveNotesMutation = useMutation({
@@ -275,27 +274,27 @@ export default function DoctorDashboard() {
       apiRequest("PATCH", `/api/doctor/bookings/${id}/clinical-status`, { clinicalStatus }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
-      toast({ title: "Status saved" });
+      notify.success("Status saved");
     },
-    onError: () => toast({ title: "Failed to save status", variant: "destructive" }),
+    onError: () => notify.error("Failed to save status"),
   });
 
   const approveMutation = useMutation({
     mutationFn: (id: number) => apiRequest("PATCH", `/api/doctor/bookings/${id}/approve`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
-      toast({ title: "Appointment accepted", description: "The appointment is now in your schedule." });
+      notify.success("Appointment accepted", { description: "The appointment is now in your schedule." });
     },
-    onError: () => toast({ title: "Failed to accept appointment", variant: "destructive" }),
+    onError: () => notify.error("Failed to accept appointment"),
   });
 
   const declineMutation = useMutation({
     mutationFn: (id: number) => apiRequest("PATCH", `/api/doctor/bookings/${id}/decline`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
-      toast({ title: "Appointment declined", description: "The clinic admin has been notified." });
+      notify.success("Appointment declined", { description: "The clinic admin has been notified." });
     },
-    onError: () => toast({ title: "Failed to decline appointment", variant: "destructive" }),
+    onError: () => notify.error("Failed to decline appointment"),
   });
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -303,7 +302,7 @@ export default function DoctorDashboard() {
     if (!file) return;
     const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (!ALLOWED.includes(file.type)) {
-      toast({ title: "Invalid file type", description: "Please upload a JPG, PNG or WebP image.", variant: "destructive" });
+      notify.error("Invalid file type", { description: "Please upload a JPG, PNG or WebP image." });
       if (photoInputRef.current) photoInputRef.current.value = "";
       return;
     }
@@ -313,13 +312,13 @@ export default function DoctorDashboard() {
       try {
         fileToUpload = await compressImage(file, 1 * 1024 * 1024, 1200);
         if (fileToUpload.size > 1 * 1024 * 1024) {
-          toast({ title: "File too large", description: "Could not compress this image below 1 MB. Please use a smaller photo.", variant: "destructive" });
+          notify.error("File too large", { description: "Could not compress this image below 1 MB. Please use a smaller photo." });
           if (photoInputRef.current) photoInputRef.current.value = "";
           setProfOptimising(false);
           return;
         }
       } catch {
-        toast({ title: "File too large", description: "Profile photo must be under 1 MB. Please resize or compress the image.", variant: "destructive" });
+        notify.error("File too large", { description: "Profile photo must be under 1 MB. Please resize or compress the image." });
         if (photoInputRef.current) photoInputRef.current.value = "";
         setProfOptimising(false);
         return;
@@ -338,12 +337,12 @@ export default function DoctorDashboard() {
       const saveRes = await apiRequest("PATCH", "/api/doctor/profile", { imageUrl: publicUrl });
       if (saveRes.ok) {
         queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/me"] });
-        toast({ title: "Photo saved", description: "Your profile photo has been updated." });
+        notify.success("Photo saved", { description: "Your profile photo has been updated." });
       } else {
-        toast({ title: "Photo uploaded", description: "Click Save Profile to keep this photo.", variant: "destructive" });
+        notify.warning("Photo uploaded", { description: "Click Save Profile to keep this photo." });
       }
     } catch {
-      toast({ title: "Upload failed", description: "Could not upload photo.", variant: "destructive" });
+      notify.error("Upload failed", { description: "Could not upload photo." });
     } finally {
       setProfUploading(false);
       if (photoInputRef.current) photoInputRef.current.value = "";
@@ -376,7 +375,7 @@ export default function DoctorDashboard() {
     const ref = slot === "before" ? caseBeforeInputRef : caseAfterInputRef;
     const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (!ALLOWED.includes(file.type)) {
-      toast({ title: "Invalid file type", description: "Please upload a JPG, PNG or WebP image.", variant: "destructive" });
+      notify.error("Invalid file type", { description: "Please upload a JPG, PNG or WebP image." });
       if (ref.current) ref.current.value = "";
       return;
     }
@@ -387,13 +386,13 @@ export default function DoctorDashboard() {
       try {
         fileToUpload = await compressImage(file, 3 * 1024 * 1024, 2000);
         if (fileToUpload.size > 3 * 1024 * 1024) {
-          toast({ title: "File too large", description: "Could not compress this image below 3 MB. Please use a smaller photo.", variant: "destructive" });
+          notify.error("File too large", { description: "Could not compress this image below 3 MB. Please use a smaller photo." });
           if (ref.current) ref.current.value = "";
           setOptimising(false);
           return;
         }
       } catch {
-        toast({ title: "File too large", description: "Case photo must be under 3 MB. Please resize or compress the image.", variant: "destructive" });
+        notify.error("File too large", { description: "Case photo must be under 3 MB. Please resize or compress the image." });
         if (ref.current) ref.current.value = "";
         setOptimising(false);
         return;
@@ -408,9 +407,9 @@ export default function DoctorDashboard() {
       const uploadRes = await fetch(uploadUrl, { method: "PUT", body: fileToUpload });
       if (!uploadRes.ok) throw new Error();
       setUrl(publicUrl);
-      toast({ title: `${slot === "before" ? "Before" : "After"} photo uploaded` });
+      notify.success(`${slot === "before" ? "Before" : "After"} photo uploaded`);
     } catch {
-      toast({ title: "Upload failed", description: "Could not upload photo.", variant: "destructive" });
+      notify.error("Upload failed", { description: "Could not upload photo." });
     } finally {
       setUploading(false);
       if (ref.current) ref.current.value = "";
@@ -436,7 +435,7 @@ export default function DoctorDashboard() {
     const url = `${window.location.origin}/doctor/${(doctor as any).username || (doctor as any).id}`;
     navigator.clipboard.writeText(url).then(() => {
       setLinkCopied(true);
-      toast({ title: "Link copied!", description: url });
+      notify.success("Link copied!", { description: url });
       setTimeout(() => setLinkCopied(false), 2500);
     });
   }

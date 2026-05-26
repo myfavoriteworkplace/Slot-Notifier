@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { format } from "date-fns";
 import {
   IndianRupee, FileText, Trash2, Loader2, Plus, CheckCircle2,
@@ -55,7 +55,6 @@ function StatusBadge({ status }: { status: string }) {
 export function BillingHistoryPanel({
   bookingId, patientName, patientPhone, patientEmail, patientCode, onGenerateReceipt, onPrintBill, onConsolidatedReceipt,
 }: BillingHistoryPanelProps) {
-  const { toast } = useToast();
   const [addDesc, setAddDesc] = useState("");
   const [addAmount, setAddAmount] = useState("");
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
@@ -156,9 +155,9 @@ export function BillingHistoryPanel({
       invalidate();
       setAddDesc("");
       setAddAmount("");
-      toast({ title: "Charge added", description: `₹${vars.amount} for "${vars.description}" saved.` });
+      notify.success("Charge added", { description: `₹${vars.amount} for "${vars.description}" saved.` });
     },
-    onError: () => toast({ title: "Could not add charge", variant: "destructive" }),
+    onError: () => notify.error("Could not add charge"),
   });
 
   const updateItemsMutation = useMutation({
@@ -175,7 +174,7 @@ export function BillingHistoryPanel({
       return res.json();
     },
     onSuccess: () => { invalidate(); },
-    onError: () => toast({ title: "Could not update status", variant: "destructive" }),
+    onError: () => notify.error("Could not update status"),
   });
 
   const deleteItemMutation = useMutation({
@@ -193,7 +192,7 @@ export function BillingHistoryPanel({
       return res.json();
     },
     onSuccess: () => invalidate(),
-    onError: () => toast({ title: "Could not remove item", variant: "destructive" }),
+    onError: () => notify.error("Could not remove item"),
   });
 
   const deleteBillMutation = useMutation({
@@ -201,14 +200,14 @@ export function BillingHistoryPanel({
       const res = await apiRequest("DELETE", `/api/auth/clinic/bills/${id}`);
       if (!res.ok) throw new Error("Failed to delete");
     },
-    onSuccess: () => { invalidate(); toast({ title: "Bill deleted" }); },
-    onError: () => toast({ title: "Could not delete bill", variant: "destructive" }),
+    onSuccess: () => { invalidate(); notify.success("Bill deleted"); },
+    onError: () => notify.error("Could not delete bill"),
   });
 
   const handleAddCharge = () => {
     const amount = parseFloat(addAmount);
     if (!addDesc.trim() || isNaN(amount) || amount <= 0) {
-      toast({ title: "Enter a description and valid amount", variant: "destructive" });
+      notify.warning("Enter a description and a valid amount");
       return;
     }
     addChargeMutation.mutate({ description: addDesc.trim(), amount });

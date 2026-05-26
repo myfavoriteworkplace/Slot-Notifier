@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 
 interface SlotTiming {
   id: string;
@@ -57,7 +57,6 @@ export default function Dashboard() {
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingTimings, setEditingTimings] = useState<SlotTiming[]>(slotTimings);
-  const { toast } = useToast();
 
   const { data: slots, isLoading: slotsLoading } = useSlots({ 
     ownerId: user?.id 
@@ -140,10 +139,7 @@ export default function Dashboard() {
     setSlotTimings(editingTimings);
     localStorage.setItem('slotTimings', JSON.stringify(editingTimings));
     setIsSettingsOpen(false);
-    toast({
-      title: "Settings Saved",
-      description: "Time slot settings have been updated successfully.",
-    });
+    notify.success("Settings Saved", { description: "Time slot settings have been updated." });
   };
 
   const updateTiming = (index: number, field: keyof SlotTiming, value: number | string) => {
@@ -466,9 +462,9 @@ export default function Dashboard() {
                                       apiRequest('PATCH', `/api/clinic/bookings/${booking.id}/assign-doctor`, { doctorName: value })
                                         .then(() => {
                                           queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
-                                          toast({ title: "Doctor assigned successfully" });
+                                          notify.success("Doctor assigned successfully");
                                         })
-                                        .catch((err) => toast({ title: "Assignment failed", description: err.message, variant: "destructive" }));
+                                        .catch((err) => notify.apiError(err, "Assignment failed"));
                                     }}
                                   >
                                     <SelectTrigger className="w-full">

@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 
 function isVideo(url: string) {
   return /\.(mp4|webm|ogg|mov)$/i.test(url) || url.includes("youtube.com") || url.includes("youtu.be") || url.includes("vimeo.com");
@@ -102,7 +102,6 @@ function ProfileSkeleton() {
 export default function DoctorPublicProfile() {
   const params = useParams<{ id: string }>();
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const { toast } = useToast();
 
   const { data, isLoading, isError, refetch } = useQuery<{
     doctor: any;
@@ -118,7 +117,7 @@ export default function DoctorPublicProfile() {
       try { await navigator.share({ title, url }); } catch (_) {}
     } else {
       await navigator.clipboard.writeText(url);
-      toast({ title: "Link copied!", description: "Profile link copied to clipboard." });
+      notify.success("Link copied!", { description: "Profile link copied to clipboard." });
     }
   };
 

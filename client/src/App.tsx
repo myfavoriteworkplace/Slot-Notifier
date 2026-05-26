@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { Header } from "@/components/Header";
+import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { useState, useEffect } from "react";
 import { Server, Database, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -174,6 +175,7 @@ function AppLayout() {
           <Header />
         </div>
       )}
+      <NetworkStatusBanner />
       <main className="relative z-10">
         <Router />
       </main>

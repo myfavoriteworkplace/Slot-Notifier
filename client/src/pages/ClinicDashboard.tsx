@@ -14,7 +14,7 @@ import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import {
   Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X,
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText,
@@ -98,7 +98,6 @@ type BookingWithSlot = Booking & {
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut, refetch: refetchClinic } = useClinicAuth();
   const [_, setLocation] = useLocation();
-  const { toast } = useToast();
 
   const updateLogoMutation = useMutation({
     mutationFn: async (logoUrl: string) => {
@@ -108,7 +107,7 @@ export default function ClinicDashboard() {
     },
     onSuccess: () => {
       if (refetchClinic) refetchClinic();
-      toast({ title: "Logo updated successfully" });
+      notify.success("Logo updated");
     },
   });
 
@@ -121,10 +120,10 @@ export default function ClinicDashboard() {
     onSuccess: () => {
       if (refetchClinic) refetchClinic();
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/me'] });
-      toast({ title: "Profile updated", description: "Your clinic profile has been saved." });
+      notify.success("Profile updated", { description: "Your clinic profile has been saved." });
     },
     onError: (err: any) => {
-      toast({ title: "Update failed", description: err.message, variant: "destructive" });
+      notify.apiError(err, "Update failed");
     },
   });
 
@@ -154,7 +153,7 @@ export default function ClinicDashboard() {
       : `${window.location.origin}/clinic/${clinic.username || clinic.id}`;
     navigator.clipboard.writeText(url);
     setCopiedUrlType(type);
-    toast({ title: type === 'booking' ? "Booking URL copied" : "About URL copied" });
+    notify.success(type === 'booking' ? "Booking URL copied" : "About URL copied");
     setTimeout(() => setCopiedUrlType(null), 2000);
   };
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
@@ -335,18 +334,18 @@ export default function ClinicDashboard() {
       apiRequest('PATCH', `/api/auth/clinic/bills/${id}`, { paymentStatus }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bills'] });
-      toast({ title: 'Status updated', description: 'Bill payment status has been saved.' });
+      notify.success("Status updated", { description: "Bill payment status has been saved." });
     },
-    onError: () => toast({ title: 'Error', description: 'Failed to update bill status.', variant: 'destructive' }),
+    onError: () => notify.error("Failed to update bill status"),
   });
 
   const deleteBillMutation = useMutation({
     mutationFn: (id: number) => apiRequest('DELETE', `/api/auth/clinic/bills/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bills'] });
-      toast({ title: 'Receipt deleted', description: 'The bill record has been removed.' });
+      notify.success("Receipt deleted", { description: "The bill record has been removed." });
     },
-    onError: () => toast({ title: 'Error', description: 'Failed to delete bill.', variant: 'destructive' }),
+    onError: () => notify.error("Failed to delete bill"),
   });
 
   const [billDeleteConfirm, setBillDeleteConfirm] = useState<number | null>(null);
@@ -366,10 +365,10 @@ export default function ClinicDashboard() {
       setNewDoctorEmail("");
       setNewDoctorImageUrl(null);
       setShowAddDoctorForm(false);
-      toast({ title: "Doctor added successfully", description: "A welcome email with login credentials has been sent." });
+      notify.success("Doctor added", { description: "A welcome email with login credentials has been sent." });
     },
     onError: (error: any) => {
-      toast({ title: "Failed to add doctor", description: error.message, variant: "destructive" });
+      notify.apiError(error, "Failed to add doctor");
     },
   });
 
@@ -380,12 +379,12 @@ export default function ClinicDashboard() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Password reset", description: "The doctor's password has been updated." });
+      notify.success("Password reset", { description: "The doctor's password has been updated." });
       setResetPwdOpen(false);
       setResetPwdNew("");
       setResetPwdConfirm("");
     },
-    onError: (e: any) => toast({ title: "Failed to reset password", description: e.message, variant: "destructive" }),
+    onError: (e: any) => notify.apiError(e, "Failed to reset password"),
   });
 
   const removeDoctorMutation = useMutation({
@@ -397,16 +396,16 @@ export default function ClinicDashboard() {
     onSuccess: () => {
       if (refetchClinicData) refetchClinicData();
       if (refetchClinic) refetchClinic();
-      toast({ title: "Doctor removed successfully" });
+      notify.success("Doctor removed");
     },
     onError: (error: any) => {
-      toast({ title: "Failed to remove doctor", description: error.message, variant: "destructive" });
+      notify.apiError(error, "Failed to remove doctor");
     },
   });
 
   const handleAddDoctor = () => {
     if (!newDoctorName || !newDoctorSpecialization || !newDoctorEmail) {
-      toast({ title: "Please fill in name, specialization and email", variant: "destructive" });
+      notify.warning("Please fill in name, specialization and email");
       return;
     }
     const existingDoctors = clinicData?.doctors || [];
@@ -415,11 +414,7 @@ export default function ClinicDashboard() {
       (d) => d.email && d.email.trim().toLowerCase() === emailLower
     );
     if (emailDuplicate) {
-      toast({
-        title: "Doctor already in your clinic",
-        description: "A doctor with this email is already part of your clinic.",
-        variant: "destructive",
-      });
+      notify.warning("Doctor already in your clinic", { description: "A doctor with this email is already part of your clinic." });
       return;
     }
     addDoctorMutation.mutate({
@@ -442,10 +437,10 @@ export default function ClinicDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
-      toast({ title: "Slot configuration updated" });
+      notify.success("Slot configuration updated");
     },
     onError: (error: any) => {
-      toast({ title: "Failed to update configuration", description: error.message, variant: "destructive" });
+      notify.apiError(error, "Failed to update configuration");
     },
   });
 
@@ -532,11 +527,11 @@ export default function ClinicDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
-      toast({ title: "Booking cancelled successfully" });
+      notify.success("Booking cancelled");
       setCancellingBookingId(null);
     },
     onError: () => {
-      toast({ title: "Failed to cancel booking", variant: "destructive" });
+      notify.error("Failed to cancel booking");
       setCancellingBookingId(null);
     },
   });
@@ -553,17 +548,10 @@ export default function ClinicDashboard() {
     onSuccess: () => {
       setBookingSuccess(true);
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
-      toast({
-        title: "Booking Created!",
-        description: "The appointment has been successfully booked.",
-      });
+      notify.success("Booking Created!", { description: "The appointment has been successfully booked." });
     },
     onError: (error: any) => {
-      toast({
-        title: "Booking Failed",
-        description: error.message || "Failed to create booking",
-        variant: "destructive",
-      });
+      notify.apiError(error, "Booking Failed");
     },
   });
 
@@ -844,10 +832,10 @@ export default function ClinicDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
-      toast({ title: "Doctor assigned successfully" });
+      notify.success("Doctor assigned");
     },
     onError: (error: any) => {
-      toast({ title: "Failed to assign doctor", description: error.message, variant: "destructive" });
+      notify.apiError(error, "Failed to assign doctor");
     },
   });
 
@@ -866,10 +854,10 @@ export default function ClinicDashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
       setRescheduleBookingId(null);
       setRescheduleSlot(null);
-      toast({ title: "Booking rescheduled successfully" });
+      notify.success("Booking rescheduled");
     },
     onError: (error: any) => {
-      toast({ title: "Failed to reschedule booking", description: error.message, variant: "destructive" });
+      notify.apiError(error, "Failed to reschedule booking");
     },
   });
 
@@ -881,10 +869,10 @@ export default function ClinicDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
-      toast({ title: "Clinical status updated" });
+      notify.success("Clinical status updated");
     },
     onError: (error: any) => {
-      toast({ title: "Failed to update clinical status", description: error.message, variant: "destructive" });
+      notify.apiError(error, "Failed to update clinical status");
     },
   });
 
@@ -899,10 +887,10 @@ export default function ClinicDashboard() {
     },
     onSuccess: (data, bookingId) => {
       setConsentUrls(prev => ({ ...prev, [bookingId]: data.consentUrl }));
-      toast({ title: "Consent request sent", description: "WhatsApp link sent to the patient." });
+      notify.success("Consent request sent", { description: "WhatsApp link sent to the patient." });
     },
     onError: (error: any) => {
-      toast({ title: "Failed to send consent request", description: error.message, variant: "destructive" });
+      notify.apiError(error, "Failed to send consent request");
     },
   });
 
@@ -917,10 +905,10 @@ export default function ClinicDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
-      toast({ title: "Booking Confirmed", description: "A confirmation email has been sent to the patient." });
+      notify.success("Booking Confirmed", { description: "A confirmation email has been sent to the patient." });
     },
     onError: (error: any) => {
-      toast({ title: "Failed to confirm booking", description: error.message, variant: "destructive" });
+      notify.apiError(error, "Failed to confirm booking");
     },
   });
 
@@ -1250,7 +1238,7 @@ export default function ClinicDashboard() {
     }
 
     setIsBillingOpen(false);
-    toast({ title: "Receipt Downloaded", description: billingDetails.printOnly ? "Consolidated PDF downloaded." : "PDF downloaded and saved to billing history." });
+    notify.success("Receipt Downloaded", { description: billingDetails.printOnly ? "Consolidated PDF downloaded." : "PDF downloaded and saved to billing history." });
   };
 
   const printBillFromRecord = (bill: PatientBill) => {
@@ -1410,7 +1398,7 @@ export default function ClinicDashboard() {
     doc.text("Powered by BookMySlot", pageWidth / 2, pageHeight - 3, {align:"center"});
 
     doc.save(`receipt_${bill.patientName.replace(/\s+/g,"_")}_${format(new Date(), "yyyyMMdd")}.pdf`);
-    toast({ title: "Receipt Printed", description: `${bill.billNumber} downloaded.` });
+    notify.success("Receipt Printed", { description: `${bill.billNumber} downloaded.` });
   };
 
   const generateConsentPdf = (booking: BookingWithSlot) => {
@@ -1645,14 +1633,14 @@ export default function ClinicDashboard() {
 
     const fileName = `consent_${booking.customerName.replace(/\s+/g, "_")}_${format(new Date(booking.slot.startTime), "yyyyMMdd")}.pdf`;
     doc.save(fileName);
-    toast({ title: "Consent PDF Downloaded", description: `${fileName} saved successfully.` });
+    notify.success("Consent PDF Downloaded", { description: `${fileName} saved successfully.` });
   };
 
   const handleLogout = async () => {
     try {
       await logout();
       setLocation("/clinic-login");
-      toast({ title: "Logged out successfully" });
+      notify.success("Logged out");
     } catch (error: any) {
       console.error("[CLINIC-DASHBOARD] Logout error:", error);
       // Even if API fails, clear local state and redirect
@@ -1662,7 +1650,7 @@ export default function ClinicDashboard() {
 
   const downloadExcel = () => {
     if (!filteredBookings || filteredBookings.length === 0) {
-      toast({ title: "No bookings to download", variant: "destructive" });
+      notify.warning("No bookings to download");
       return;
     }
 
@@ -3263,7 +3251,7 @@ export default function ClinicDashboard() {
                                             throw new Error("Invalid slot ID received from server");
                                           }
                                         } catch (error: any) {
-                                          toast({ title: "Failed to reschedule", description: error.message, variant: "destructive" });
+                                          notify.apiError(error, "Failed to reschedule");
                                         }
                                       }}
                                       data-testid="button-confirm-reschedule"
@@ -4888,7 +4876,7 @@ export default function ClinicDashboard() {
               const a = document.createElement("a"); a.href = url;
               a.download = `billing_history_${format(new Date(), "yyyyMMdd")}.csv`;
               a.click(); URL.revokeObjectURL(url);
-              toast({ title: "CSV exported", description: `${rows.length} record${rows.length !== 1 ? "s" : ""} downloaded.` });
+              notify.success("CSV exported", { description: `${rows.length} record${rows.length !== 1 ? "s" : ""} downloaded.` });
             };
 
             // ── Aging label helper ───────────────────────────────────────

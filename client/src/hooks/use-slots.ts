@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import { type InsertSlot } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 import { z } from "zod";
 
 export function useSlots(filters?: { ownerId?: string; date?: string }) {
@@ -9,19 +9,18 @@ export function useSlots(filters?: { ownerId?: string; date?: string }) {
   return useQuery({
     queryKey,
     queryFn: async () => {
-      // Build query params
       const params = new URLSearchParams();
       if (filters?.ownerId) params.append("ownerId", filters.ownerId);
       if (filters?.date) params.append("date", filters.date);
 
       const url = `${api.slots.list.path}?${params.toString()}`;
       const res = await fetch(url, { credentials: "include" });
-      
+
       if (!res.ok) {
         if (res.status === 401) throw new Error("Unauthorized");
         throw new Error("Failed to fetch slots");
       }
-      
+
       return api.slots.list.responses[200].parse(await res.json());
     },
   });
@@ -29,7 +28,6 @@ export function useSlots(filters?: { ownerId?: string; date?: string }) {
 
 export function useCreateSlot() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (data: InsertSlot) => {
@@ -54,28 +52,23 @@ export function useCreateSlot() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.slots.list.path] });
-      toast({ title: "Success", description: "Slot created successfully" });
+      notify.success("Slot created successfully");
     },
     onError: (error) => {
-      toast({ 
-        title: "Error", 
-        description: error.message, 
-        variant: "destructive" 
-      });
+      notify.apiError(error, "Failed to create slot");
     },
   });
 }
 
 export function useDeleteSlot() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.slots.delete.path, { id });
-      const res = await fetch(url, { 
+      const res = await fetch(url, {
         method: api.slots.delete.method,
-        credentials: "include" 
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -86,14 +79,10 @@ export function useDeleteSlot() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.slots.list.path] });
-      toast({ title: "Success", description: "Slot deleted" });
+      notify.success("Slot removed");
     },
     onError: (error) => {
-      toast({ 
-        title: "Error", 
-        description: error.message, 
-        variant: "destructive" 
-      });
+      notify.apiError(error, "Failed to delete slot");
     },
   });
 }
