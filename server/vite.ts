@@ -15,7 +15,6 @@ export async function setupVite(server: Server, app: Express) {
     ? {
         server,
         host: replitDomain,
-        port: 443,
         clientPort: 443,
         protocol: "wss" as const,
       }
