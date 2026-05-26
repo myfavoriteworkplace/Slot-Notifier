@@ -134,6 +134,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [pendingBookingPath, setPendingBookingPath] = useState<"pay" | "pending" | null>(null);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [isAccordionExpanded, setIsAccordionExpanded] = useState(true);
 
   // OTP verification state
   const [otpSent, setOtpSent]               = useState(false);
@@ -271,12 +273,6 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const countForCategory = (cat: typeof DENTAL_CATEGORIES[0]) =>
     cat.subIssues.filter(s => selectedSubIssues.includes(s)).length;
 
-  // Auto-open first category accordion panel when email is verified
-  useEffect(() => {
-    if (emailVerified && !openCategory) {
-      setOpenCategory(DENTAL_CATEGORIES[0].category);
-    }
-  }, [emailVerified]);
 
   useEffect(() => {
     const saved = localStorage.getItem("slotTimings");
@@ -605,6 +601,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
     setShowAllCategories(false);
     setShowReview(false);
     setPendingBookingPath(null);
+    setIsEditingDetails(false);
+    setIsAccordionExpanded(true);
     setStep("details");
     resetOtpState();
     sessionStorage.removeItem("bms_name");
@@ -1313,7 +1311,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                   /* STEP 1: Patient details */
                   <div className="space-y-4">
 
-                    {emailVerified ? (
+                    {emailVerified && !isEditingDetails ? (
                       /* ─── Verified summary: collapse all inputs ─── */
                       <div className="flex items-start gap-3 p-3.5 rounded-2xl border border-emerald-400/20 bg-emerald-500/5 animate-in fade-in duration-300" data-testid="section-patient-summary">
                         <div className="h-9 w-9 rounded-xl bg-emerald-500/15 border border-emerald-400/20 flex items-center justify-center shrink-0 mt-0.5">
@@ -1324,11 +1322,11 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             <p className="text-sm font-bold text-foreground leading-tight">{customerName}</p>
                             <button
                               type="button"
-                              onClick={() => resetOtpState()}
-                              className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors shrink-0"
+                              onClick={() => setIsEditingDetails(true)}
+                              className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors shrink-0 flex items-center gap-1"
                               data-testid="button-edit-details"
                             >
-                              Edit
+                              ✏ Edit
                             </button>
                           </div>
                           <p className="text-xs text-muted-foreground">
@@ -1425,23 +1423,44 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     {/* Email */}
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-muted-foreground">Your email address <span className="text-destructive">*</span></label>
-                      <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
-                        <div className="flex items-center justify-center h-10 w-10 shrink-0 border-r border-border/40 bg-muted/30">
-                          <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                      {isEditingDetails && emailVerified ? (
+                        /* ── Locked email row when editing other details ── */
+                        <div className="flex items-center rounded-xl border border-emerald-400/30 bg-emerald-500/8 overflow-hidden">
+                          <div className="flex items-center justify-center h-10 w-10 shrink-0 border-r border-emerald-400/20 bg-emerald-500/10">
+                            <Lock className="h-3.5 w-3.5 text-emerald-600" />
+                          </div>
+                          <span className="flex-1 px-3 text-sm text-foreground font-medium truncate">{customerEmail}</span>
+                          <span className="mr-3 text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border border-emerald-400/20 px-1.5 py-0.5 rounded-full whitespace-nowrap">✓ verified</span>
                         </div>
-                        <input
-                          type="email"
-                          value={customerEmail}
-                          onChange={e => handleEmailChange(e.target.value)}
-                          placeholder="you@example.com"
-                          className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
-                          data-testid="input-email"
-                        />
-                      </div>
+                      ) : (
+                        <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
+                          <div className="flex items-center justify-center h-10 w-10 shrink-0 border-r border-border/40 bg-muted/30">
+                            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                          </div>
+                          <input
+                            type="email"
+                            value={customerEmail}
+                            onChange={e => handleEmailChange(e.target.value)}
+                            placeholder="you@example.com"
+                            className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
+                            data-testid="input-email"
+                          />
+                        </div>
+                      )}
+                      {isEditingDetails && emailVerified && (
+                        <button
+                          type="button"
+                          onClick={() => { resetOtpState(); setIsEditingDetails(false); }}
+                          className="text-[11px] text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1 mt-0.5"
+                          data-testid="button-change-email"
+                        >
+                          <Mail className="h-3 w-3" /> Change email address (requires new verification)
+                        </button>
+                      )}
                     </div>
 
-                    {/* Verification block — only appears once a valid email is entered */}
-                    {isEmailValid && (
+                    {/* Verification block — only appears once a valid email is entered and not in edit mode */}
+                    {isEmailValid && !isEditingDetails && (
                       <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-300">
 
                         {/* Contextual hint — shown only before OTP is sent */}
@@ -1585,6 +1604,17 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         </div>
                       </div>
                     )}
+                    {/* Done editing button — only shown when editing details */}
+                    {isEditingDetails && emailVerified && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingDetails(false)}
+                        className="w-full h-10 rounded-xl border border-primary/30 bg-primary/8 text-primary text-xs font-bold hover:bg-primary/15 transition-all flex items-center justify-center gap-1.5"
+                        data-testid="button-done-editing"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Done — save changes
+                      </button>
+                    )}
                     </>
                     )}
 
@@ -1593,28 +1623,56 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-400">
 
                         {/* Chief complaints — accordion */}
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
+
+                          {/* Section heading */}
                           <div className="flex items-center justify-between">
-                            <label className="text-xs font-semibold text-muted-foreground">
-                              What brings you in? <span className="text-destructive">*</span>
-                            </label>
+                            <div>
+                              <p className="text-sm font-bold text-foreground">
+                                What brings you in today? <span className="text-destructive">*</span>
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                                <Stethoscope className="h-3 w-3 text-primary/60 shrink-0" />
+                                Tap a category below to expand it, then select your symptom(s)
+                              </p>
+                            </div>
                             {selectedSubIssues.length > 0 && (
-                              <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                              <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0 ml-2">
                                 {selectedSubIssues.length} selected
                               </span>
                             )}
                           </div>
 
-                          {/* Helper message */}
-                          <div className="flex items-center gap-1.5">
-                            <Stethoscope className="h-3 w-3 text-primary/60 shrink-0" />
-                            <p className="text-xs text-muted-foreground">Helps us assign the right specialist for your visit</p>
-                          </div>
-
-                          <div className={`rounded-xl border overflow-hidden transition-all duration-300 ${
-                            selectedSubIssues.length > 0 ? "border-primary/30" : "border-border/60"
-                          }`}>
-                            <div className="max-h-[300px] overflow-y-auto overscroll-contain">
+                          {/* ── Chip summary view (when issues are selected and accordion is collapsed) ── */}
+                          {selectedSubIssues.length > 0 && !isAccordionExpanded ? (
+                            <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 animate-in fade-in duration-200">
+                              <div className="flex items-start gap-2">
+                                <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                                  {selectedSubIssues.map(issue => (
+                                    <span
+                                      key={issue}
+                                      className="inline-flex items-center gap-1 text-xs font-medium bg-primary/15 border border-primary/30 text-primary px-2 py-1 rounded-full"
+                                    >
+                                      <span className="text-emerald-600">✓</span> {issue}
+                                    </span>
+                                  ))}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsAccordionExpanded(true)}
+                                  className="shrink-0 h-8 w-8 rounded-lg bg-background border border-border/60 hover:border-primary/40 hover:bg-primary/5 flex items-center justify-center text-muted-foreground hover:text-primary transition-all"
+                                  title="Edit symptom selection"
+                                  data-testid="button-edit-symptoms"
+                                >
+                                  ✏
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* ── Full accordion picker ── */
+                            <div className={`rounded-xl border overflow-hidden transition-all duration-300 ${
+                              selectedSubIssues.length > 0 ? "border-primary/30" : "border-border/60"
+                            }`}>
                               <Accordion
                                 type="single"
                                 collapsible
@@ -1666,18 +1724,29 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                   );
                                 })}
                               </Accordion>
+                              {!showAllCategories && (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAllCategories(true)}
+                                  className="w-full py-2.5 text-xs font-semibold text-primary hover:text-accent transition-colors border-t border-border/40 bg-muted/10 hover:bg-muted/30"
+                                  data-testid="button-show-more-categories"
+                                >
+                                  Show {DENTAL_CATEGORIES.length - 4} more categories ↓
+                                </button>
+                              )}
+                              {/* Done selecting — collapses to chip view */}
+                              {selectedSubIssues.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setIsAccordionExpanded(false); setOpenCategory(""); }}
+                                  className="w-full py-2.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition-colors border-t border-emerald-400/30 bg-emerald-500/8 hover:bg-emerald-500/15 flex items-center justify-center gap-1.5"
+                                  data-testid="button-done-selecting"
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> Done selecting · {selectedSubIssues.length} symptom{selectedSubIssues.length !== 1 ? "s" : ""} chosen
+                                </button>
+                              )}
                             </div>
-                            {!showAllCategories && (
-                              <button
-                                type="button"
-                                onClick={() => setShowAllCategories(true)}
-                                className="w-full py-2.5 text-xs font-semibold text-primary hover:text-accent transition-colors border-t border-border/40 bg-muted/10 hover:bg-muted/30"
-                                data-testid="button-show-more-categories"
-                              >
-                                Show {DENTAL_CATEGORIES.length - 4} more categories ↓
-                              </button>
-                            )}
-                          </div>
+                          )}
                         </div>
 
                         {/* Additional Notes (optional) */}
