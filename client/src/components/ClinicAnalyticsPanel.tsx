@@ -288,11 +288,16 @@ export default function ClinicAnalyticsPanel() {
 
       {/* ── Header row ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold">Analytics Dashboard</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            All metrics are scoped to your clinic for the selected period.
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+            <TrendingUp className="h-[18px] w-[18px] text-violet-600 dark:text-violet-400" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold tracking-tight">Analytics Dashboard</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              All metrics are scoped to your clinic for the selected period.
+            </p>
+          </div>
         </div>
         {/* Range filter pills */}
         <div

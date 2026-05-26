@@ -2127,6 +2127,21 @@ export default function ClinicDashboard() {
           {/* BOOKINGS PANEL */}
           {activePanel === 'bookings' && (
             <div className="space-y-5" ref={bookingsSectionRef}>
+          {/* Panel header */}
+          <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+            <div className="flex">
+              <div className="w-1.5 bg-sky-500/60 shrink-0" />
+              <div className="flex-1 px-5 py-4 bg-gradient-to-r from-sky-500/[0.06] to-transparent flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+                  <CalendarIcon className="h-[18px] w-[18px] text-sky-600 dark:text-sky-400" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold tracking-tight">Bookings</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Manage all patient appointments</p>
+                </div>
+              </div>
+            </div>
+          </div>
           {/* Stats Cards — click to filter */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             {/* Today */}
@@ -3693,11 +3708,16 @@ export default function ClinicDashboard() {
           {/* CONFIGURE SLOTS PANEL */}
           {activePanel === 'configure-slots' && (
             <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-4 flex items-center gap-3">
-                <Clock className="h-5 w-5 text-white" />
-                <div>
-                  <h2 className="text-lg font-bold text-white tracking-tight">Configure Slots</h2>
-                  <p className="text-white/70 text-[11px] mt-0.5">Set capacity and manage cancellations</p>
+              <div className="flex border-b border-border/40">
+                <div className="w-1.5 bg-blue-500/60 shrink-0" />
+                <div className="flex-1 px-5 py-4 bg-gradient-to-r from-blue-500/[0.06] to-transparent flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                    <Clock className="h-[18px] w-[18px] text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold tracking-tight">Configure Slots</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Set capacity and manage cancellations</p>
+                  </div>
                 </div>
               </div>
               <div className="p-5">
@@ -3770,17 +3790,22 @@ export default function ClinicDashboard() {
           {/* MANAGE DOCTORS PANEL */}
           {activePanel === 'manage-doctors' && (
             <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Stethoscope className="h-5 w-5 text-white" />
-                  <div>
-                    <h2 className="text-lg font-bold text-white tracking-tight">Manage Doctors</h2>
-                    <p className="text-white/70 text-xs mt-0.5">Add and manage practitioners</p>
+              <div className="flex border-b border-border/40">
+                <div className="w-1.5 bg-teal-500/60 shrink-0" />
+                <div className="flex-1 px-5 py-4 bg-gradient-to-r from-teal-500/[0.06] to-transparent flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+                      <Stethoscope className="h-[18px] w-[18px] text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold tracking-tight">Manage Doctors</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">Add and manage practitioners</p>
+                    </div>
                   </div>
+                  <Badge variant="outline" className="text-xs border-teal-500/30 text-teal-700 dark:text-teal-400 bg-teal-500/[0.08] shrink-0">
+                    {clinicData?.doctors?.length || 0} {(clinicData?.doctors?.length || 0) === 1 ? 'doctor' : 'doctors'}
+                  </Badge>
                 </div>
-                <Badge className="bg-white/20 text-white border-white/30 text-xs hover:bg-white/20">
-                  {clinicData?.doctors?.length || 0} {(clinicData?.doctors?.length || 0) === 1 ? 'doctor' : 'doctors'}
-                </Badge>
               </div>
               <div className="p-5 space-y-4">
                 <div className="border-t border-border/30">
@@ -4190,26 +4215,29 @@ export default function ClinicDashboard() {
 
               {/* Panel header */}
               <div className="rounded-2xl overflow-hidden border border-border/50 shadow-sm">
-                <div className="bg-gradient-to-r from-violet-600 to-violet-400 px-5 py-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 rounded-xl">
-                      <Building2 className="h-5 w-5 text-white" />
+                <div className="flex border-b border-border/40">
+                  <div className="w-1.5 bg-violet-500/60 shrink-0" />
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-violet-500/[0.06] to-transparent flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                        <Building2 className="h-[18px] w-[18px] text-violet-600 dark:text-violet-400" />
+                      </div>
+                      <div>
+                        <h2 className="text-base font-semibold tracking-tight">Clinic Profile</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">Update your public About page details</p>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="text-lg font-bold text-white tracking-tight">Clinic Profile</h2>
-                      <p className="text-white/70 text-[11px] mt-0.5">Update your public About page details</p>
-                    </div>
+                    <a
+                      href={`/clinic/${clinic?.username || clinic?.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-testid="link-preview-about"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 transition-colors text-violet-700 dark:text-violet-400 text-xs font-semibold min-h-[36px]"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Preview
+                    </a>
                   </div>
-                  <a
-                    href={`/clinic/${clinic?.username || clinic?.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    data-testid="link-preview-about"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors text-white text-xs font-semibold"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Preview
-                  </a>
                 </div>
 
                 {/* Locked identity row */}
@@ -4412,11 +4440,16 @@ export default function ClinicDashboard() {
           {/* BOOK A SLOT PANEL */}
           {activePanel === 'book-a-slot' && (
             <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center gap-3">
-                <Plus className="h-5 w-5 text-white" />
-                <div>
-                  <h2 className="text-lg font-bold text-white tracking-tight">Book a Slot</h2>
-                  <p className="text-white/70 text-[11px] mt-0.5">Create a new patient appointment</p>
+              <div className="flex border-b border-border/40">
+                <div className="w-1.5 bg-primary/60 shrink-0" />
+                <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <Plus className="h-[18px] w-[18px] text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold tracking-tight">Book a Slot</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Create a new patient appointment</p>
+                  </div>
                 </div>
               </div>
               <div className="p-5">
@@ -4792,7 +4825,23 @@ export default function ClinicDashboard() {
 
           {/* EXPORT DATA PANEL */}
           {activePanel === 'export-data' && (
-            <ExportDataPanel clinic={clinic} bookings={bookings} />
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                <div className="flex">
+                  <div className="w-1.5 bg-amber-500/60 shrink-0" />
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-amber-500/[0.06] to-transparent flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                      <Download className="h-[18px] w-[18px] text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold tracking-tight">Export Data</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">Download patient records and reports</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <ExportDataPanel clinic={clinic} bookings={bookings} />
+            </div>
           )}
 
           {/* INVENTORY PANEL */}
@@ -4938,11 +4987,16 @@ export default function ClinicDashboard() {
 
                 {/* ── Header ── */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div>
-                    <h2 className="text-xl font-bold tracking-tight">Patient Accounts</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {uniquePatients} patient{uniquePatients !== 1 ? 's' : ''} · {allBills.length} receipt{allBills.length !== 1 ? 's' : ''}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                      <IndianRupee className="h-[18px] w-[18px] text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold tracking-tight">Patient Accounts</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {uniquePatients} patient{uniquePatients !== 1 ? 's' : ''} · {allBills.length} receipt{allBills.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">
                     {/* View toggle */}
@@ -5440,12 +5494,14 @@ export default function ClinicDashboard() {
               <div className="space-y-5">
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div>
-                    <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                      <Users className="h-5 w-5 text-rose-500" />
-                      Patient Directory
-                    </h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">All patients who booked via verified email</p>
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+                      <Users className="h-[18px] w-[18px] text-rose-500" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold tracking-tight">Patient Directory</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">All patients who booked via verified email</p>
+                    </div>
                   </div>
                   <button
                     onClick={exportCSV}

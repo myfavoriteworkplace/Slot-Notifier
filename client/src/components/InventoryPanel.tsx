@@ -902,13 +902,15 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
       <div className="flex flex-col gap-5 h-full">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-              <Package className="h-5 w-5 text-emerald-600" />
-              Inventory
-            </h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Track consumables, instruments, and equipment</p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+              <Package className="h-[18px] w-[18px] text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold tracking-tight">Inventory</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Track consumables, instruments, and equipment</p>
+            </div>
           </div>
           <Button
             data-testid="btn-add-item"

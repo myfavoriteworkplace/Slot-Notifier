@@ -812,14 +812,16 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
 
       {/* ── Top header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Globe className="h-5 w-5 text-primary" />
-            Clinic Website
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Configure your public clinic page. Patients can browse it before booking.
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+            <Globe className="h-[18px] w-[18px] text-sky-600 dark:text-sky-400" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold tracking-tight">Clinic Website</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Configure your public clinic page. Patients can browse it before booking.
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {previewUrl && (
