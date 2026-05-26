@@ -189,7 +189,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <TooltipProvider>
+        <TooltipProvider delayDuration={700}>
           <AppLayout />
         </TooltipProvider>
       </ThemeProvider>

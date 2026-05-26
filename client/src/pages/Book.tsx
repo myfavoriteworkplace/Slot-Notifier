@@ -380,6 +380,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
     },
     onSuccess: () => {
       setOtpSent(true);
+      setOtpCode("");
       setOtpError("");
       setResendCountdown(60);
       setTimeout(() => otpInputRefs.current[0]?.focus(), 100);

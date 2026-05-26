@@ -576,18 +576,18 @@ export default function DoctorDashboard() {
             <div className="w-px bg-white/10 shrink-0 self-stretch" />
 
             {/* RIGHT — Schedule overview stats */}
-            <div className="flex-1 grid grid-cols-4 gap-2.5 items-center">
+            <div className="flex-1 grid grid-cols-4 gap-2.5 items-stretch">
               {[
-                { label: "Confirmed Bookings Today",            filter: "today" as QuickFilter,           tooltip: "Appointments assigned to you today that have been confirmed.",                                              count: todayBookings.length,    Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
-                { label: "All Pending Bookings",                filter: "awaiting" as QuickFilter,        tooltip: "Total bookings assigned to you that are still awaiting your approval — across all dates.",                 count: awaitingBookings.length, Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
-                { label: "Pending Confirmations (Next 7 Days)", filter: "pending-7days" as QuickFilter,   tooltip: "Bookings in the next 7 days that are still waiting for your approval. These need your attention.",         count: pendingNext7Count,       Icon: TrendingUp,    text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
-                { label: "Confirmed Bookings (Next 7 Days)",    filter: "confirmed-7days" as QuickFilter, tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                        count: confirmedNext7Count,     Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
-              ].map(({ label, filter, tooltip, count, Icon, text, bg, border }) => (
-                <TooltipProvider key={label} delayDuration={300}>
+                { label: "Confirmed Bookings Today",   shortLabel: "Confirmed Today",       filter: "today" as QuickFilter,           tooltip: "Appointments assigned to you today that have been confirmed.",                                          count: todayBookings.length,    Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
+                { label: "All Pending Bookings",        shortLabel: "All Pending",           filter: "awaiting" as QuickFilter,        tooltip: "Total bookings assigned to you that are still awaiting your approval — across all dates.",             count: awaitingBookings.length, Icon: Clock,         text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+                { label: "Pending (Next 7 Days)",       shortLabel: "Pending · 7 Days",      filter: "pending-7days" as QuickFilter,   tooltip: "Bookings in the next 7 days that are still waiting for your approval. These need your attention.",     count: pendingNext7Count,       Icon: TrendingUp,    text: "text-amber-300",   bg: "bg-amber-400/10",   border: "border-amber-400/20" },
+                { label: "Confirmed (Next 7 Days)",     shortLabel: "Confirmed · 7 Days",    filter: "confirmed-7days" as QuickFilter, tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                    count: confirmedNext7Count,     Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+              ].map(({ label, shortLabel, filter, tooltip, count, Icon, text, bg, border }) => (
+                <TooltipProvider key={label} delayDuration={700}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border bg-white/[0.04] ${border} cursor-pointer transition-all hover:bg-white/[0.09] hover:scale-[1.02] active:scale-[0.98] ${quickFilter === filter ? 'ring-1 ring-white/50 bg-white/[0.09]' : ''}`}
+                        className={`h-full flex items-center gap-2 px-3 py-2.5 rounded-xl border bg-white/[0.04] ${border} cursor-pointer transition-all hover:bg-white/[0.09] hover:scale-[1.02] active:scale-[0.98] ${quickFilter === filter ? 'ring-1 ring-white/50 bg-white/[0.09]' : ''}`}
                         onClick={() => {
                           setActiveTab("appointments");
                           handleQuickFilter(filter);
@@ -600,12 +600,12 @@ export default function DoctorDashboard() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-lg font-extrabold text-white leading-none tabular-nums">{count}</p>
-                          <p className={`text-[11px] font-medium mt-0.5 ${text} leading-tight`}>{label}</p>
+                          <p className={`text-[11px] font-medium mt-0.5 ${text} leading-tight`}>{shortLabel}</p>
                         </div>
                         <Info className={`h-3 w-3 ${text} ${quickFilter === filter ? 'opacity-80' : 'opacity-50'} shrink-0 self-start mt-0.5`} />
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
+                    <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
                       {tooltip}
                     </TooltipContent>
                   </Tooltip>
@@ -809,7 +809,7 @@ export default function DoctorDashboard() {
               {/* Desktop card grid */}
               <div className="hidden sm:grid sm:grid-cols-4 gap-2 sm:gap-3 min-w-0">
                 {/* Today */}
-                <TooltipProvider delayDuration={300}>
+                <TooltipProvider delayDuration={700}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Card
@@ -818,17 +818,19 @@ export default function DoctorDashboard() {
                         data-testid="stat-today"
                       >
                         <div className="h-1 bg-gradient-to-r from-sky-400 to-cyan-400" />
-                        <CardContent className="p-3 sm:p-4 text-left flex items-center gap-2 sm:gap-3">
+                        <CardContent className="p-3 sm:p-4 text-left flex items-center gap-2 sm:gap-3 min-h-[64px]">
                           <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-sky-400/20' : 'bg-sky-400/10'}`}>
                             <Calendar className="h-3.5 w-3.5 text-sky-500" />
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings Today</p>
                             <p className="text-base sm:text-xl font-bold text-sky-600 dark:text-sky-400 leading-tight">{todayBookings.length}</p>
                           </div>
-                          {quickFilter === 'today' && (
-                            <span className="hidden sm:inline ml-auto text-[10px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                          )}
+                          <div className="shrink-0 w-14 flex justify-end">
+                            {quickFilter === 'today' && (
+                              <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full">Active</span>
+                            )}
+                          </div>
                         </CardContent>
                       </Card>
                     </TooltipTrigger>
@@ -837,7 +839,7 @@ export default function DoctorDashboard() {
                 </TooltipProvider>
 
                 {/* Upcoming */}
-                <TooltipProvider delayDuration={300}>
+                <TooltipProvider delayDuration={700}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Card
@@ -846,17 +848,19 @@ export default function DoctorDashboard() {
                         data-testid="stat-upcoming"
                       >
                         <div className="h-1 bg-gradient-to-r from-primary to-accent" />
-                        <CardContent className="p-3 sm:p-4 text-left flex items-center gap-2 sm:gap-3">
+                        <CardContent className="p-3 sm:p-4 text-left flex items-center gap-2 sm:gap-3 min-h-[64px]">
                           <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-primary/20' : 'bg-primary/10'}`}>
                             <TrendingUp className="h-3.5 w-3.5 text-primary" />
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="text-xs font-medium text-muted-foreground leading-tight">All Upcoming Bookings</p>
                             <p className="text-base sm:text-xl font-bold text-primary leading-tight">{upcomingBookings.length}</p>
                           </div>
-                          {quickFilter === 'upcoming' && (
-                            <span className="hidden sm:inline ml-auto text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                          )}
+                          <div className="shrink-0 w-14 flex justify-end">
+                            {quickFilter === 'upcoming' && (
+                              <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">Active</span>
+                            )}
+                          </div>
                         </CardContent>
                       </Card>
                     </TooltipTrigger>
@@ -865,7 +869,7 @@ export default function DoctorDashboard() {
                 </TooltipProvider>
 
                 {/* Awaiting */}
-                <TooltipProvider delayDuration={300}>
+                <TooltipProvider delayDuration={700}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Card
@@ -874,20 +878,21 @@ export default function DoctorDashboard() {
                         data-testid="stat-awaiting"
                       >
                         <div className={`h-1 bg-gradient-to-r ${awaitingBookings.length > 0 ? 'from-amber-400 to-yellow-400' : 'from-slate-300 to-slate-200'}`} />
-                        <CardContent className="p-3 sm:p-4 text-left flex items-center gap-2 sm:gap-3">
+                        <CardContent className="p-3 sm:p-4 text-left flex items-center gap-2 sm:gap-3 min-h-[64px]">
                           <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'awaiting' ? 'bg-amber-400/20' : awaitingBookings.length > 0 ? 'bg-amber-400/10' : 'bg-muted'}`}>
                             <AlertCircle className={`h-3.5 w-3.5 ${awaitingBookings.length > 0 ? 'text-amber-500' : 'text-muted-foreground'}`} />
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="text-xs font-medium text-muted-foreground leading-tight">Awaiting Approval</p>
                             <p className={`text-base sm:text-xl font-bold leading-tight ${awaitingBookings.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>{awaitingBookings.length}</p>
                           </div>
-                          {quickFilter === 'awaiting' && (
-                            <span className="hidden sm:inline ml-auto text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                          )}
-                          {awaitingBookings.length > 0 && quickFilter !== 'awaiting' && (
-                            <span className="ml-auto text-[9px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none shrink-0">{awaitingBookings.length}</span>
-                          )}
+                          <div className="shrink-0 w-14 flex justify-end">
+                            {quickFilter === 'awaiting' ? (
+                              <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full">Active</span>
+                            ) : awaitingBookings.length > 0 ? (
+                              <span className="text-[9px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none">{awaitingBookings.length}</span>
+                            ) : null}
+                          </div>
                         </CardContent>
                       </Card>
                     </TooltipTrigger>
@@ -896,7 +901,7 @@ export default function DoctorDashboard() {
                 </TooltipProvider>
 
                 {/* Total */}
-                <TooltipProvider delayDuration={300}>
+                <TooltipProvider delayDuration={700}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Card
@@ -905,17 +910,19 @@ export default function DoctorDashboard() {
                         data-testid="stat-all"
                       >
                         <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
-                        <CardContent className="p-3 sm:p-4 text-left flex items-center gap-2 sm:gap-3">
+                        <CardContent className="p-3 sm:p-4 text-left flex items-center gap-2 sm:gap-3 min-h-[64px]">
                           <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'all' ? 'bg-slate-400/20' : 'bg-slate-400/10'}`}>
                             <ClipboardList className="h-3.5 w-3.5 text-slate-500" />
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings</p>
                             <p className="text-base sm:text-xl font-bold text-slate-600 dark:text-slate-400 leading-tight">{confirmedBookings.length}</p>
                           </div>
-                          {quickFilter === 'all' && (
-                            <span className="hidden sm:inline ml-auto text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                          )}
+                          <div className="shrink-0 w-14 flex justify-end">
+                            {quickFilter === 'all' && (
+                              <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full">Active</span>
+                            )}
+                          </div>
                         </CardContent>
                       </Card>
                     </TooltipTrigger>

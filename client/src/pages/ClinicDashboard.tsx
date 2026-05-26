@@ -1843,7 +1843,7 @@ export default function ClinicDashboard() {
               { label: "All Pending Bookings",                shortLabel: "All Pending",           subTag: null,          filter: 'all-pending' as const,      tooltip: "Total bookings across all dates that have not yet been confirmed — includes past and future appointments.",             value: totalPendingCount,   Icon: TrendingUp,   text: "text-rose-300",    bg: "bg-rose-400/10",    border: "border-rose-400/20" },
               { label: "Confirmed Bookings (Next 7 Days)",    shortLabel: "Confirmed Bookings",    subTag: "Next 7 Days", filter: 'confirmed-7days' as const,  tooltip: "Confirmed appointments scheduled within the next 7 days. These are locked in.",                                        value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
             ].map(({ label, shortLabel, subTag, filter, tooltip, value, Icon, text, bg, border }, i) => (
-              <TooltipProvider key={i} delayDuration={300}>
+              <TooltipProvider key={i} delayDuration={700}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div
@@ -2145,7 +2145,7 @@ export default function ClinicDashboard() {
           {/* Stats Cards — click to filter */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             {/* Today */}
-            <TooltipProvider delayDuration={300}>
+            <TooltipProvider delayDuration={700}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Card
@@ -2175,7 +2175,7 @@ export default function ClinicDashboard() {
             </TooltipProvider>
 
             {/* Upcoming */}
-            <TooltipProvider delayDuration={300}>
+            <TooltipProvider delayDuration={700}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Card
@@ -2205,7 +2205,7 @@ export default function ClinicDashboard() {
             </TooltipProvider>
 
             {/* Past */}
-            <TooltipProvider delayDuration={300}>
+            <TooltipProvider delayDuration={700}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Card
@@ -2235,7 +2235,7 @@ export default function ClinicDashboard() {
             </TooltipProvider>
 
             {/* All — resets all filters */}
-            <TooltipProvider delayDuration={300}>
+            <TooltipProvider delayDuration={700}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Card
@@ -2340,7 +2340,7 @@ export default function ClinicDashboard() {
           {/* Week filter chips */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-medium text-muted-foreground">Quick week:</span>
-            <TooltipProvider delayDuration={300}>
+            <TooltipProvider delayDuration={700}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -2364,7 +2364,7 @@ export default function ClinicDashboard() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <TooltipProvider delayDuration={300}>
+            <TooltipProvider delayDuration={700}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -2638,7 +2638,7 @@ export default function ClinicDashboard() {
 
                                 {/* Consent signed pill */}
                                 {booking.consentSignedAt && (
-                                  <TooltipProvider delayDuration={200}>
+                                  <TooltipProvider delayDuration={700}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 px-1.5 py-0.5 rounded-full cursor-default">
@@ -3481,7 +3481,7 @@ export default function ClinicDashboard() {
                                           </button>
                                         );
                                         return outOfOffice ? (
-                                          <TooltipProvider key="lead" delayDuration={100}>
+                                          <TooltipProvider key="lead" delayDuration={500}>
                                             <Tooltip>
                                               <TooltipTrigger asChild>{btn}</TooltipTrigger>
                                               <TooltipContent side="top" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">
@@ -3534,7 +3534,7 @@ export default function ClinicDashboard() {
                                           </button>
                                         );
                                         return outOfOffice ? (
-                                          <TooltipProvider key={idx} delayDuration={100}>
+                                          <TooltipProvider key={idx} delayDuration={500}>
                                             <Tooltip>
                                               <TooltipTrigger asChild>{btn}</TooltipTrigger>
                                               <TooltipContent side="top" className="text-xs max-w-[200px] bg-amber-900 text-amber-100 border-amber-700">

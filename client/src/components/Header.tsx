@@ -639,7 +639,7 @@ export function Header() {
 
             {/* Stealth admin — unauthenticated only */}
             {isNoone && (
-              <TooltipProvider delayDuration={400}>
+              <TooltipProvider delayDuration={700}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link href="/admin">
@@ -674,7 +674,7 @@ export function Header() {
             )}
 
             {/* Theme toggle */}
-            <TooltipProvider delayDuration={300}>
+            <TooltipProvider delayDuration={700}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
