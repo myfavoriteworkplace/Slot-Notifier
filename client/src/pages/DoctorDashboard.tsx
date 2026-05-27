@@ -518,14 +518,14 @@ export default function DoctorDashboard() {
       {/* ═══ PAGE CONTAINER — single wrapper for hero + content (matches ClinicDashboard) ═══ */}
       <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-8">
 
-      {/* ═══ DOCTOR HERO BAR — desktop only ═══ */}
-      <div className="hidden lg:block rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
+      {/* ═══ DOCTOR HERO BAR ═══ */}
+      <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
 
         {/* Top neon accent bar */}
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
 
         {/* Main hero band */}
-        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-5 py-5 sm:px-7 sm:py-6 overflow-hidden">
+        <div className="relative bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-4 py-4 sm:px-7 sm:py-6 overflow-hidden">
 
           {/* Grid texture overlay */}
           <div
@@ -545,16 +545,16 @@ export default function DoctorDashboard() {
           <div className="relative flex items-start justify-between gap-4">
 
             {/* Left: avatar + identity */}
-            <div className="flex items-center gap-4 sm:gap-5 min-w-0">
-              <Avatar className="h-16 w-16 ring-2 ring-white/30 shadow-md shrink-0">
+            <div className="flex items-center gap-3 sm:gap-5 min-w-0">
+              <Avatar className="h-12 w-12 sm:h-16 sm:w-16 ring-2 ring-white/30 shadow-md shrink-0">
                 <AvatarImage src={(doctor as any).imageUrl || undefined} />
-                <AvatarFallback className="bg-white/20 text-white font-bold text-xl">
+                <AvatarFallback className="bg-white/20 text-white font-bold text-lg sm:text-xl">
                   {(doctor as any).name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
                 <p className="text-xs text-white/50 font-medium mb-0.5">Good {greet},</p>
-                <h1 className="text-lg sm:text-3xl font-extrabold text-white tracking-tight leading-tight truncate">
+                <h1 className="text-base sm:text-3xl font-extrabold text-white tracking-tight leading-tight truncate">
                   Dr. {(doctor as any).name}
                 </h1>
                 <div className="flex items-center gap-2 mt-2.5 flex-wrap">
@@ -637,57 +637,6 @@ export default function DoctorDashboard() {
 
       {/* Two-column layout */}
       <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
-
-        {/* ── MOBILE-ONLY: profile card with stats grid ── */}
-        <div className="lg:hidden w-full">
-          <div className="bg-gradient-to-r from-[#085041] via-primary to-accent rounded-2xl shadow-md overflow-hidden">
-            {/* Identity row */}
-            <div className="px-4 pt-3 pb-2 flex items-center gap-3">
-              <Avatar className="h-12 w-12 ring-2 ring-white/30 shrink-0">
-                <AvatarImage src={(doctor as any).imageUrl || undefined} />
-                <AvatarFallback className="bg-white/20 text-white font-bold text-lg">
-                  {(doctor as any).name.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm text-white leading-tight">Dr. {(doctor as any).name}</p>
-                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                  {(doctor as any).specialization && (
-                    <span className="text-xs font-semibold bg-white/20 text-white/90 px-2 py-0.5 rounded-full border border-white/20">
-                      {(doctor as any).specialization}
-                    </span>
-                  )}
-                  {(doctor as any).clinicName && (
-                    <span className="text-xs text-white/65 truncate">{(doctor as any).clinicName}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-            {/* 2×2 stats grid */}
-            <div className="px-3 pb-3 grid grid-cols-2 gap-2">
-              {[
-                { label: "Confirmed Today",        filter: "today" as QuickFilter,           count: todayBookings.length,    color: "bg-sky-400/20 border-sky-300/30",         text: "text-white" },
-                { label: "Confirmed Bookings",     filter: "confirmed-7days" as QuickFilter, count: confirmedNext7Count,     color: "bg-emerald-400/20 border-emerald-300/30", text: "text-white" },
-                { label: "Pending Confirmations",  filter: "pending-7days" as QuickFilter,   count: pendingNext7Count,       color: "bg-amber-400/20 border-amber-300/30",     text: "text-white" },
-                { label: "All Pending",            filter: "awaiting" as QuickFilter,        count: awaitingBookings.length, color: "bg-rose-400/20 border-rose-300/30",       text: "text-white" },
-              ].map(({ label, filter, count, color, text }) => (
-                <div
-                  key={label}
-                  onClick={() => {
-                    setActiveTab("appointments");
-                    handleQuickFilter(filter);
-                    setTimeout(() => appointmentsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
-                  }}
-                  className={`flex flex-col rounded-xl border px-2 py-1.5 min-h-[44px] justify-center cursor-pointer transition-all active:scale-[0.97] ${color} ${quickFilter === filter ? 'ring-2 ring-white/40' : ''}`}
-                  data-testid={`stat-card-mobile-${filter}`}
-                >
-                  <span className={`text-lg font-extrabold leading-none ${text}`}>{count}</span>
-                  <span className={`text-xs font-semibold mt-1 leading-tight ${text} opacity-80`}>{label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
 
         {/* ── LEFT SIDEBAR (desktop only) ── */}
         <aside className="hidden lg:flex lg:flex-col lg:w-60 shrink-0 lg:sticky lg:top-[70px] space-y-3">
