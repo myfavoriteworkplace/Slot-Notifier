@@ -158,6 +158,8 @@ export default function ClinicDashboard() {
     setTimeout(() => setCopiedUrlType(null), 2000);
   };
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelReasonOther, setCancelReasonOther] = useState("");
 
   // Modal tab state — keyed by booking id
   const [modalTabs, setModalTabs] = useState<Record<number, 'overview' | 'clinical' | 'notes' | 'actions' | 'billing'>>({});
@@ -520,9 +522,9 @@ export default function ClinicDashboard() {
   };
 
   const cancelBookingMutation = useMutation({
-    mutationFn: async (bookingId: number) => {
-      setCancellingBookingId(bookingId);
-      const res = await apiRequest('DELETE', `/api/auth/clinic/bookings/${bookingId}`);
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
+      setCancellingBookingId(id);
+      const res = await apiRequest('DELETE', `/api/auth/clinic/bookings/${id}`, { reason });
       if (!res.ok) throw new Error('Failed to cancel booking');
       return res.json();
     },
@@ -530,6 +532,8 @@ export default function ClinicDashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
       notify.success("Booking cancelled");
       setCancellingBookingId(null);
+      setCancelReason("");
+      setCancelReasonOther("");
     },
     onError: () => {
       notify.error("Failed to cancel booking");
@@ -3610,14 +3614,44 @@ export default function ClinicDashboard() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Permanently remove {booking.customerName}'s appointment.
+                                  This will cancel {booking.customerName}'s appointment and send them a cancellation email.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
+                              <div className="px-1 py-2 space-y-3">
+                                <div className="space-y-1.5">
+                                  <label className="text-sm font-medium text-foreground">Reason for cancellation</label>
+                                  <select
+                                    value={cancelReason}
+                                    onChange={e => { setCancelReason(e.target.value); setCancelReasonOther(""); }}
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                  >
+                                    <option value="">Select a reason…</option>
+                                    <option value="Patient requested cancellation">Patient requested cancellation</option>
+                                    <option value="Doctor unavailable">Doctor unavailable</option>
+                                    <option value="Clinic closure / emergency">Clinic closure / emergency</option>
+                                    <option value="Patient no-show">Patient no-show</option>
+                                    <option value="Rescheduled to another slot">Rescheduled to another slot</option>
+                                    <option value="Other">Other</option>
+                                  </select>
+                                </div>
+                                {cancelReason === "Other" && (
+                                  <div className="space-y-1.5">
+                                    <label className="text-sm font-medium text-foreground">Please specify</label>
+                                    <Input
+                                      value={cancelReasonOther}
+                                      onChange={e => setCancelReasonOther(e.target.value)}
+                                      placeholder="Enter reason…"
+                                      autoFocus
+                                    />
+                                  </div>
+                                )}
+                              </div>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Back</AlertDialogCancel>
+                                <AlertDialogCancel onClick={() => { setCancelReason(""); setCancelReasonOther(""); }}>Back</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => cancelBookingMutation.mutate(booking.id)}
+                                  onClick={() => cancelBookingMutation.mutate({ id: booking.id, reason: cancelReason === "Other" ? cancelReasonOther.trim() : cancelReason })}
                                   className="bg-destructive text-destructive-foreground"
+                                  disabled={!cancelReason || (cancelReason === "Other" && !cancelReasonOther.trim())}
                                 >
                                   Cancel Booking
                                 </AlertDialogAction>
@@ -3677,14 +3711,44 @@ export default function ClinicDashboard() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Permanently remove {booking.customerName}'s appointment.
+                              This will cancel {booking.customerName}'s appointment and send them a cancellation email.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
+                          <div className="px-1 py-2 space-y-3">
+                            <div className="space-y-1.5">
+                              <label className="text-sm font-medium text-foreground">Reason for cancellation</label>
+                              <select
+                                value={cancelReason}
+                                onChange={e => { setCancelReason(e.target.value); setCancelReasonOther(""); }}
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                              >
+                                <option value="">Select a reason…</option>
+                                <option value="Patient requested cancellation">Patient requested cancellation</option>
+                                <option value="Doctor unavailable">Doctor unavailable</option>
+                                <option value="Clinic closure / emergency">Clinic closure / emergency</option>
+                                <option value="Patient no-show">Patient no-show</option>
+                                <option value="Rescheduled to another slot">Rescheduled to another slot</option>
+                                <option value="Other">Other</option>
+                              </select>
+                            </div>
+                            {cancelReason === "Other" && (
+                              <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-foreground">Please specify</label>
+                                <Input
+                                  value={cancelReasonOther}
+                                  onChange={e => setCancelReasonOther(e.target.value)}
+                                  placeholder="Enter reason…"
+                                  autoFocus
+                                />
+                              </div>
+                            )}
+                          </div>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Back</AlertDialogCancel>
+                            <AlertDialogCancel onClick={() => { setCancelReason(""); setCancelReasonOther(""); }}>Back</AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={() => cancelBookingMutation.mutate(booking.id)}
+                              onClick={() => cancelBookingMutation.mutate({ id: booking.id, reason: cancelReason === "Other" ? cancelReasonOther.trim() : cancelReason })}
                               className="bg-destructive text-destructive-foreground"
+                              disabled={!cancelReason || (cancelReason === "Other" && !cancelReasonOther.trim())}
                             >
                               Cancel Booking
                             </AlertDialogAction>

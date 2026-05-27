@@ -294,6 +294,9 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='razorpay_payment_id') THEN
             ALTER TABLE bookings ADD COLUMN razorpay_payment_id varchar(255);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='cancellation_reason') THEN
+            ALTER TABLE bookings ADD COLUMN cancellation_reason text;
+          END IF;
         END $$;
       `);
       log("bookings columns verified/updated", "system");

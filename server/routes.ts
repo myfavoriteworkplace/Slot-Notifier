@@ -390,24 +390,26 @@ async function sendConfirmationEmail(
   }
 }
 
-async function sendCancellationEmail(email: string, name: string, date: Date, clinic: string, clinicPhone?: string | null, bookingId?: number | null) {
+async function sendCancellationEmail(email: string, name: string, date: Date, clinic: string, clinicPhone?: string | null, bookingId?: number | null, reason?: string | null) {
   if (!resend) return;
   const finalEmail = RESEND_MODE === 'PRODUCTION' ? email : TEST_EMAIL;
   const apptDate   = date.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const apptTime   = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   const refNum     = bookingId ? `BMS-${bookingId}` : '—';
+  const detailRows: { label: string; value: string; strikethrough?: boolean }[] = [
+    { label: 'Clinic',        value: clinic },
+    { label: 'Reference',     value: refNum },
+    { label: 'Was scheduled', value: apptDate, strikethrough: true },
+    { label: 'Time',          value: apptTime, strikethrough: true },
+  ];
+  if (reason) detailRows.push({ label: 'Reason', value: reason });
   const html = emailShell(
     'linear-gradient(90deg,#dc2626,#ef4444)',
     `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
     <tr><td style="padding:24px 40px 0;">
       <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">Appointment cancelled</p>
       <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">Hi <strong style="color:#0d1f1a;">${name}</strong>, we're sorry to let you know that your appointment has been cancelled.</p>
-      ${detailCard([
-        { label: 'Clinic',        value: clinic },
-        { label: 'Reference',     value: refNum },
-        { label: 'Was scheduled', value: apptDate, strikethrough: true },
-        { label: 'Time',          value: apptTime, strikethrough: true },
-      ], '#e05050', '#fff5f5', '#fca5a5')}
+      ${detailCard(detailRows, '#e05050', '#fff5f5', '#fca5a5')}
       <div style="margin-top:16px;">${infoBanner('green', `To book a new appointment, please contact <strong>${clinic}</strong>${clinicPhone ? ` at <strong>${clinicPhone}</strong>` : ' directly'}. Their team will be happy to help you find a suitable time.`)}</div>
       <p style="margin:20px 0 0;font-size:13px;color:#8fa89a;line-height:1.6;">We apologise for any inconvenience caused.</p>
     </td></tr>`
@@ -2940,7 +2942,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(403).json({ message: "Not authorised to cancel this booking" });
       }
 
-      await storage.cancelBooking(bookingId);
+      const { reason } = req.body as { reason?: string };
+      await storage.cancelBooking(bookingId, reason);
 
       // Send cancellation email to patient (fire-and-forget)
       if (booking.customerEmail) {
@@ -2953,6 +2956,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           clinic?.name || slot?.clinicName || 'the clinic',
           clinicPhone,
           bookingId,
+          reason || null,
         ).catch((err) => console.error('[EMAIL ERROR] Cancellation email failed:', err));
       }
 
