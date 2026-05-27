@@ -2734,10 +2734,17 @@ export default function ClinicDashboard() {
                                   </span>
                                 )}
                                 {isCancelled && (
-                                  <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800 shrink-0">
-                                    <X className="h-2.5 w-2.5" />
-                                    Cancelled
-                                  </span>
+                                  <>
+                                    <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800 shrink-0">
+                                      <X className="h-2.5 w-2.5" />
+                                      Cancelled
+                                    </span>
+                                    {(booking as any).cancellationReason && (
+                                      <span className="text-xs text-muted-foreground/70 italic truncate max-w-[160px]">
+                                        {(booking as any).cancellationReason}
+                                      </span>
+                                    )}
+                                  </>
                                 )}
                                 {isConfirmed && booking.confirmedBy === 'admin' && booking.doctorApprovalStatus !== 'admin_confirmed' && (
                                   <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 shrink-0">
@@ -2797,10 +2804,17 @@ export default function ClinicDashboard() {
                                 )}
                                 {/* Booking-status badge */}
                                 {isCancelled ? (
-                                  <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800 shrink-0">
-                                    <X className="h-2.5 w-2.5" />
-                                    Cancelled
-                                  </span>
+                                  <div className="flex flex-col items-end gap-0.5">
+                                    <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800 shrink-0">
+                                      <X className="h-2.5 w-2.5" />
+                                      Cancelled
+                                    </span>
+                                    {(booking as any).cancellationReason && (
+                                      <span className="text-[10px] text-muted-foreground/60 italic text-right leading-tight max-w-[120px] truncate">
+                                        {(booking as any).cancellationReason}
+                                      </span>
+                                    )}
+                                  </div>
                                 ) : isConfirmed ? (
                                   <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 shrink-0">
                                     <CheckCircle2 className="h-2.5 w-2.5" />
