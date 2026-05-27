@@ -2923,6 +2923,58 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // DELETE /api/auth/clinic/bookings/:id — cancel a booking (soft cancel, keeps record with status 'cancelled')
+  app.delete("/api/auth/clinic/bookings/:id", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.verificationStatus === 'cancelled') return res.status(400).json({ message: "Booking is already cancelled" });
+
+      // Verify ownership — the booking's slot must belong to this clinic
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot || (slot.clinicId !== sess.clinicId && sess.role !== 'superuser')) {
+        return res.status(403).json({ message: "Not authorised to cancel this booking" });
+      }
+
+      await storage.cancelBooking(bookingId);
+
+      // Send cancellation email to patient (fire-and-forget)
+      if (booking.customerEmail) {
+        const [clinic] = await db.select().from(clinics).where(eq(clinics.id, sess.clinicId || slot.clinicId));
+        const clinicPhone = (clinic as any)?.phone ?? null;
+        sendCancellationEmail(
+          booking.customerEmail,
+          booking.customerName,
+          slot ? new Date(slot.startTime) : new Date(),
+          clinic?.name || slot?.clinicName || 'the clinic',
+          clinicPhone,
+          bookingId,
+        ).catch((err) => console.error('[EMAIL ERROR] Cancellation email failed:', err));
+      }
+
+      // In-app notification for clinic (WebSocket push)
+      try {
+        const clinicId = sess.clinicId || slot.clinicId;
+        const notif = await storage.createNotification({
+          userId: String(clinicId),
+          message: `Booking for ${booking.customerName} has been cancelled`,
+          read: false,
+        });
+        broadcastToClinic(String(clinicId), { type: "booking_cancelled", notification: notif });
+      } catch (e: any) {
+        console.error('[NOTIFICATION] Cancel notification failed:', e.message);
+      }
+
+      res.json({ message: "Booking cancelled successfully" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.patch("/api/clinic/bookings/:id/assign-doctor", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });

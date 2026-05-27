@@ -528,12 +528,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async cancelBooking(id: number): Promise<void> {
-    const booking = await this.getBookingById(id);
-    if (booking) {
-      await db.delete(bookings).where(eq(bookings.id, id));
-      // Also delete the associated slot
-      await this.deleteSlot(booking.slotId);
-    }
+    await db.update(bookings)
+      .set({ verificationStatus: 'cancelled' })
+      .where(eq(bookings.id, id));
   }
 
   async updateBookingVerification(id: number, code: string, expiresAt: Date): Promise<Booking> {
