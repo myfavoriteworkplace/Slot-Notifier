@@ -2158,13 +2158,13 @@ export default function ClinicDashboard() {
                     data-testid="card-filter-today"
                   >
                     <div className="h-1 bg-gradient-to-r from-sky-400 to-cyan-400" />
-                    <CardContent className="p-3 sm:p-4 text-left flex flex-row items-center gap-2 sm:gap-3">
-                      <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'today' ? 'bg-sky-400/20' : 'bg-sky-400/10'}`}>
+                    <CardContent className="p-3 sm:p-4 text-left flex flex-row items-start gap-2 sm:gap-3">
+                      <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${quickFilter === 'today' ? 'bg-sky-400/20' : 'bg-sky-400/10'}`}>
                         <CalendarIcon className="h-3.5 w-3.5 text-sky-500" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings Today</p>
                         <p className="text-base sm:text-xl font-bold text-sky-600 dark:text-sky-400 leading-tight">{todaysBookingsCount}</p>
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings Today</p>
                       </div>
                       {quickFilter === 'today' && (
                         <span className="hidden sm:inline ml-auto text-xs font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
@@ -2188,13 +2188,13 @@ export default function ClinicDashboard() {
                     data-testid="card-filter-upcoming"
                   >
                     <div className="h-1 bg-gradient-to-r from-primary to-accent" />
-                    <CardContent className="p-3 sm:p-4 text-left flex flex-row items-center gap-2 sm:gap-3">
-                      <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'upcoming' ? 'bg-primary/20' : 'bg-primary/10'}`}>
+                    <CardContent className="p-3 sm:p-4 text-left flex flex-row items-start gap-2 sm:gap-3">
+                      <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${quickFilter === 'upcoming' ? 'bg-primary/20' : 'bg-primary/10'}`}>
                         <TrendingUp className="h-3.5 w-3.5 text-primary" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground leading-tight">All Upcoming Bookings</p>
                         <p className="text-base sm:text-xl font-bold text-primary leading-tight">{futureBookingsCount}</p>
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">All Upcoming Bookings</p>
                       </div>
                       {quickFilter === 'upcoming' && (
                         <span className="hidden sm:inline ml-auto text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
@@ -2218,13 +2218,13 @@ export default function ClinicDashboard() {
                     data-testid="card-filter-past"
                   >
                     <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
-                    <CardContent className="p-3 sm:p-4 text-left flex flex-row items-center gap-2 sm:gap-3">
-                      <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'past' ? 'bg-muted' : 'bg-muted'}`}>
+                    <CardContent className="p-3 sm:p-4 text-left flex flex-row items-start gap-2 sm:gap-3">
+                      <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${quickFilter === 'past' ? 'bg-muted' : 'bg-muted'}`}>
                         <History className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground leading-tight">All Past Bookings</p>
                         <p className="text-base sm:text-xl font-bold text-muted-foreground leading-tight">{pastBookingsCount}</p>
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">All Past Bookings</p>
                       </div>
                       {quickFilter === 'past' && (
                         <span className="hidden sm:inline ml-auto text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
@@ -2252,15 +2252,15 @@ export default function ClinicDashboard() {
                     data-testid="card-filter-all"
                   >
                     <div className={`h-1 bg-gradient-to-r ${quickFilter === 'all' && !filterDate ? 'from-violet-500 to-purple-400' : 'from-amber-500 to-orange-400'}`} />
-                    <CardContent className="p-3 sm:p-4 text-left flex flex-row items-center gap-2 sm:gap-3">
-                      <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${quickFilter === 'all' && !filterDate ? 'bg-violet-500/20' : 'bg-amber-500/10'}`}>
+                    <CardContent className="p-3 sm:p-4 text-left flex flex-row items-start gap-2 sm:gap-3">
+                      <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${quickFilter === 'all' && !filterDate ? 'bg-violet-500/20' : 'bg-amber-500/10'}`}>
                         <Filter className={`h-3.5 w-3.5 ${quickFilter === 'all' && !filterDate ? 'text-violet-500' : 'text-amber-500'}`} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings</p>
                         <p className={`text-base sm:text-xl font-bold leading-tight ${quickFilter === 'all' && !filterDate ? 'text-violet-600' : 'text-amber-600'}`}>
                           {bookings?.length || 0}
                         </p>
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings</p>
                       </div>
                       {quickFilter === 'all' && !filterDate && (
                         <span className="hidden sm:inline ml-auto text-xs font-bold uppercase tracking-wider text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
