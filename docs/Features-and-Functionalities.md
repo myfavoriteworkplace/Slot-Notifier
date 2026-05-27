@@ -338,15 +338,28 @@ Accessed at `/clinic-dashboard` after login. Full sidebar navigation on desktop;
 
 The default panel on login. Central command for all appointment activity.
 
-**Stat Tiles (top row):**
+**Hero Stat Tiles (dark banner, top row):**
+
+Four clickable mini-cards inside the dark green clinic header. Each one filters the booking list when clicked.
+
 | Tile | Meaning | Colour |
 |---|---|---|
-| Today | Appointments on today's date | Sky blue |
-| Upcoming | Future appointments beyond today | Primary green |
-| Past | Completed / past appointments | Slate grey |
-| Pending | Unconfirmed / awaiting action | Amber |
+| Confirmed Today | Confirmed bookings on today's date | Sky |
+| Confirmed Bookings (Next 7 Days) | Confirmed appointments in the next 7 days | Emerald |
+| Pending Confirmations (Next 7 Days) | Unconfirmed bookings in the next 7 days — need attention | Amber |
+| All Pending | All unconfirmed bookings across all dates | Rose |
 
-Each tile is clickable and acts as a quick filter on the list below.
+**Quick Filter Cards (below the header):**
+
+A second row of white clickable cards provides broader date-range filters:
+
+| Filter | Meaning |
+|---|---|
+| Today | All bookings on today's date |
+| Upcoming | All future bookings beyond today |
+| Past | All past / completed bookings |
+| This Week | All bookings Mon – Sun of the current week |
+| Next Week | All bookings in the following Mon – Sun week |
 
 **Booking List Features:**
 - Search by patient name, phone, or reference number
@@ -361,6 +374,8 @@ Each tile is clickable and acts as a quick filter on the list below.
 
 **Actions per booking:**
 - Confirm / Cancel booking
+  - Cancellation requires selecting a **reason** from a dropdown: Doctor unavailable · Patient request · Slot conflict · Emergency · Other
+  - Reason is stored in `bookings.cancellation_reason`, displayed on the booking card beneath the Cancelled badge, and included in the cancellation email sent to the patient
 - Reschedule to a different date/slot
 - Assign or reassign a doctor — with smart specialist suggestion (see below)
 - Request digital consent → generates WhatsApp link
@@ -480,8 +495,31 @@ Accessed at `/doctor-dashboard` after login. The doctor's personal workspace for
 ### 6.2 Appointments Tab
 
 **Stat Section:**
-- **Desktop**: 4-column card grid (Total / Today / Upcoming / Awaiting) — matches clinic admin tile style with gradient stripe, icon, count, "Active" pill
-- **Mobile**: Compact horizontal scrollable chip strip — icon + label + count, 44px tap target
+
+Two distinct sets of clickable stat cards:
+
+*Hero banner mini-cards* (inside the dark green doctor header) — same naming and colour convention as the Clinic Dashboard:
+
+| Card | Meaning | Colour |
+|---|---|---|
+| Confirmed Today | Confirmed appointments assigned to you today | Sky |
+| Confirmed Bookings (Next 7 Days) | Confirmed appointments in the next 7 days | Emerald |
+| Pending Confirmations (Next 7 Days) | Bookings awaiting your approval in the next 7 days | Amber |
+| All Pending | All bookings awaiting your approval across all dates | Rose |
+
+*Desktop filter cards* (white cards below the Appointments panel header):
+
+| Card | Filter applied |
+|---|---|
+| All Bookings Today | All appointments on today's date |
+| All Upcoming Bookings | Future appointments beyond today |
+| Awaiting Approval | Bookings needing doctor accept/decline |
+| All Bookings | Complete unfiltered appointment list |
+
+- **Mobile**: Compact 2×2 grid in the profile banner — same order and labels as the hero mini-cards above, 44px tap target per cell
+
+**Dynamic Section Heading:**
+A green gradient heading card (`from-primary to-accent`) appears above the appointment card grid and updates its title and subtitle based on the active filter — e.g. "All Pending Bookings", "Confirmed Bookings (Next 7 Days)", "Today's Appointments". A live count of filtered appointments is shown on the right.
 
 **Filters:**
 - Date picker (shown only in "Total" / "All" mode)
@@ -653,7 +691,7 @@ Configured via `RESEND_API_KEY`. Two modes:
 | Trigger | Recipient | Content |
 |---|---|---|
 | Patient books a slot | Patient | Booking confirmation with date, time, clinic, REF number |
-| Booking cancelled | Patient | Cancellation notice |
+| Booking cancelled | Patient | Cancellation notice — includes the cancellation reason when one was recorded |
 | Doctor invited to clinic | Doctor | Welcome email with login credentials |
 | Clinic registration | Clinic owner | Account activation link |
 | OTP verification | Patient | 6-digit code with expiry notice |
@@ -712,7 +750,7 @@ All tables are in PostgreSQL managed via Drizzle ORM. Schema lives in `shared/sc
 | `doctors` | Doctor profiles — specialisation, degree, bio, photo, languages, experience |
 | `clinic_doctors` | Join table linking clinics to doctors (many-to-many) |
 | `slots` | Daily availability windows per clinic (morning / afternoon / evening) |
-| `bookings` | Patient appointment records — links slot, clinic, doctor, patient |
+| `bookings` | Patient appointment records — links slot, clinic, doctor, patient. Key columns: `verification_status`, `cancellation_reason`, `consent_signature`, `consent_signed_at`, `assigned_doctor`, `assigned_doctor_email`, `doctor_notes`, `clinical_status` |
 | `patients` | Patient CRM records — name, phone, email, PAT code, identity |
 | `clinical_records` | Medical notes, diagnoses (JSONB), prescriptions per visit |
 | `patient_bills` | Invoice records — services, subtotal, discount, tax, total, payment status |
@@ -762,7 +800,7 @@ All tables are in PostgreSQL managed via Drizzle ORM. Schema lives in `shared/sc
 |---|---|---|---|
 | `GET` | `/api/auth/clinic/bookings` | Clinic | List all clinic bookings |
 | `PATCH` | `/api/auth/clinic/bookings/:id` | Clinic | Update booking (confirm/cancel/reschedule/assign doctor) |
-| `DELETE` | `/api/auth/clinic/bookings/:id` | Clinic | Delete a booking |
+| `DELETE` | `/api/auth/clinic/bookings/:id` | Clinic | Soft-cancel a booking (sets status to `cancelled`, stores optional cancellation reason, sends cancellation email to patient) |
 | `POST` | `/api/auth/clinic/slots/configure` | Clinic | Set slot capacity and availability |
 | `GET` | `/api/auth/clinic/linked-doctors` | Clinic | List doctors linked to the clinic |
 | `POST` | `/api/auth/clinic/doctors` | Clinic | Invite and add a new doctor |
@@ -868,4 +906,4 @@ All screens follow the `docs/agent-screen-design-prompt.md` specification:
 
 ---
 
-*Document generated: May 2026 — reflects the current production codebase state.*
+*Document last updated: 27 May 2026 — reflects the current production codebase state.*
