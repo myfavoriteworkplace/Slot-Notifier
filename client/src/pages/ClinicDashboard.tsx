@@ -3893,7 +3893,7 @@ export default function ClinicDashboard() {
                   {clinicData?.doctors && clinicData.doctors.length > 0 ? (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Current Doctors</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your Practice Team</p>
                         <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full">
                           <Stethoscope className="h-3 w-3" />
                           {clinicData.doctors.length} {clinicData.doctors.length === 1 ? "doctor" : "doctors"}
@@ -4625,21 +4625,30 @@ export default function ClinicDashboard() {
 
                     {/* Chief Complaints Section */}
                     <div className="space-y-3 py-2">
-                      <Label className="text-sm font-semibold text-left block">CHIEF COMPLAINTS</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {CHIEF_COMPLAINTS.map((complaint) => {
-                          const isSelected = bookingDescription.split(", ").includes(complaint);
-                          return (
-                            <Badge
-                              key={complaint}
-                              variant={isSelected ? "default" : "outline"}
-                              className="cursor-pointer transition-all hover:scale-105 active:scale-95 px-3 py-1"
-                              onClick={() => handleComplaintClick(complaint)}
-                            >
-                              {complaint}
-                            </Badge>
-                          );
-                        })}
+                      <Label className="text-sm font-semibold text-left block">Chief Complaints</Label>
+                      <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                        {DENTAL_CATEGORIES.map((cat) => (
+                          <div key={cat.category}>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                              <span>{cat.emoji}</span> {cat.category}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {cat.subIssues.map((complaint) => {
+                                const isSelected = bookingDescription.split(", ").includes(complaint);
+                                return (
+                                  <Badge
+                                    key={complaint}
+                                    variant={isSelected ? "default" : "outline"}
+                                    className="cursor-pointer transition-all hover:scale-105 active:scale-95 px-2.5 py-0.5 text-[11px]"
+                                    onClick={() => handleComplaintClick(complaint)}
+                                  >
+                                    {complaint}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
 

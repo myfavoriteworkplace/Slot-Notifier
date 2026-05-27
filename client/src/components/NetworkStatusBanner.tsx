@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { WifiOff, ServerCrash, RefreshCw } from "lucide-react";
+import { WifiOff, ServerCrash, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/lib/queryClient";
 
-type BannerState = "offline" | "server-down" | null;
+type BannerState = "offline" | "server-down" | "recovered" | null;
 
 export function NetworkStatusBanner() {
   const [state, setState] = useState<BannerState>(null);
@@ -13,7 +13,13 @@ export function NetworkStatusBanner() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/health`, { cache: "no-store" });
       if (res.ok) {
-        setState(null);
+        setState(prev => {
+          if (prev === "server-down" || prev === "offline") {
+            setTimeout(() => setState(null), 3000);
+            return "recovered";
+          }
+          return null;
+        });
       } else {
         setState("server-down");
       }
@@ -21,6 +27,12 @@ export function NetworkStatusBanner() {
       setState(navigator.onLine ? "server-down" : "offline");
     }
   }
+
+  useEffect(() => {
+    if (state !== "offline" && state !== "server-down") return;
+    const iv = setInterval(checkServer, 30000);
+    return () => clearInterval(iv);
+  }, [state]);
 
   useEffect(() => {
     function handleOffline() { setState("offline"); }
@@ -45,6 +57,18 @@ export function NetworkStatusBanner() {
 
   if (!state) return null;
 
+  if (state === "recovered") {
+    return (
+      <div
+        role="alert"
+        className="fixed top-0 left-0 right-0 z-[200] flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium shadow-md bg-emerald-500 text-white animate-in fade-in duration-300"
+      >
+        <CheckCircle2 className="h-4 w-4 shrink-0" />
+        Connection restored — you're back online.
+      </div>
+    );
+  }
+
   const isOffline = state === "offline";
 
   return (
@@ -63,8 +87,8 @@ export function NetworkStatusBanner() {
           <ServerCrash className="h-4 w-4 shrink-0" />
         )}
         {isOffline
-          ? "You're offline — please check your internet connection."
-          : "Server is unreachable — we're working on it. Please try again."}
+          ? "You appear to be offline — please check your internet connection."
+          : "Having trouble reaching the server — please try again in a moment."}
       </span>
       <Button
         size="sm"

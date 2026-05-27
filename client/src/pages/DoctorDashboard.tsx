@@ -769,6 +769,29 @@ export default function DoctorDashboard() {
                 </div>
               </div>
 
+              {/* Awaiting approval banner — shown above stat cards so it's the first thing seen */}
+              {awaitingBookings.length > 0 && (
+                <div className="flex items-center gap-3 rounded-2xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700/40 px-4 py-3">
+                  <div className="h-8 w-8 rounded-xl bg-amber-400/20 flex items-center justify-center shrink-0">
+                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-amber-700 dark:text-amber-400 leading-tight">
+                      {awaitingBookings.length} appointment{awaitingBookings.length !== 1 ? "s" : ""} awaiting your approval
+                    </p>
+                    <p className="text-xs text-amber-600/70 dark:text-amber-500/70 mt-0.5">Review and accept or decline before they expire.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs bg-amber-500 hover:bg-amber-600 text-white shrink-0"
+                    onClick={() => handleQuickFilter("awaiting")}
+                    data-testid="button-view-awaiting"
+                  >
+                    Review <ArrowRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </div>
+              )}
+
               {/* Desktop card grid */}
               <div className="hidden sm:grid sm:grid-cols-4 gap-2 sm:gap-3 min-w-0">
                 {/* Today */}
@@ -893,29 +916,6 @@ export default function DoctorDashboard() {
                   </Tooltip>
                 </TooltipProvider>
               </div>
-
-              {/* Awaiting approval banner */}
-              {awaitingBookings.length > 0 && (
-                <div className="flex items-center gap-3 rounded-2xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700/40 px-4 py-3">
-                  <div className="h-8 w-8 rounded-xl bg-amber-400/20 flex items-center justify-center shrink-0">
-                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-amber-700 dark:text-amber-400 leading-tight">
-                      {awaitingBookings.length} appointment{awaitingBookings.length !== 1 ? "s" : ""} awaiting your approval
-                    </p>
-                    <p className="text-xs text-amber-600/70 dark:text-amber-500/70 mt-0.5">Review and accept or decline before they expire.</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="h-8 text-xs bg-amber-500 hover:bg-amber-600 text-white shrink-0"
-                    onClick={() => handleQuickFilter("awaiting")}
-                    data-testid="button-view-awaiting"
-                  >
-                    Review <ArrowRight className="h-3 w-3 ml-1" />
-                  </Button>
-                </div>
-              )}
 
               {/* Filters — date + clinic side-by-side */}
               <div className="flex flex-wrap gap-2 items-center sm:justify-end">

@@ -319,52 +319,6 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
   return (
     <div className="space-y-5">
 
-      {/* ── STATS ROW ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card className="border-border/50 shadow-sm overflow-hidden">
-          <div className="h-1 bg-gradient-to-r from-violet-500 to-indigo-500" />
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
-              <Users className="h-4 w-4 text-violet-600" />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-muted-foreground">Total Patients</p>
-              <p className="text-2xl font-bold text-violet-600" data-testid="stat-total-patients">{uniquePatients.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm overflow-hidden">
-          <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-              <Clock className="h-4 w-4 text-emerald-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-medium text-muted-foreground">Last Export</p>
-              {lastExport ? (
-                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400 truncate" data-testid="stat-last-export">
-                  {format(new Date(lastExport.createdAt!), "dd MMM yyyy")}
-                </p>
-              ) : (
-                <p className="text-sm font-medium text-muted-foreground italic" data-testid="stat-last-export">Never</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm overflow-hidden">
-          <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
-              <History className="h-4 w-4 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-muted-foreground">Total Exports</p>
-              <p className="text-2xl font-bold text-amber-600" data-testid="stat-total-exports">{totalExports}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* ── REMINDER BANNER ── */}
       {reminderVisible && (
         <div className="rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/30 overflow-hidden relative">
@@ -415,6 +369,52 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
           </div>
         </div>
       )}
+
+      {/* ── STATS ROW ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Card className="border-border/50 shadow-sm overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-violet-500 to-indigo-500" />
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
+              <Users className="h-4 w-4 text-violet-600" />
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-muted-foreground">Total Patients</p>
+              <p className="text-2xl font-bold text-violet-600" data-testid="stat-total-patients">{uniquePatients.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 shadow-sm overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+              <Clock className="h-4 w-4 text-emerald-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium text-muted-foreground">Last Export</p>
+              {lastExport ? (
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400 truncate" data-testid="stat-last-export">
+                  {format(new Date(lastExport.createdAt!), "dd MMM yyyy")}
+                </p>
+              ) : (
+                <p className="text-sm font-medium text-muted-foreground italic" data-testid="stat-last-export">Never</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 shadow-sm overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+              <History className="h-4 w-4 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-muted-foreground">Total Exports</p>
+              <p className="text-2xl font-bold text-amber-600" data-testid="stat-total-exports">{totalExports}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* ── MAIN GRID ── */}
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5 items-start">
