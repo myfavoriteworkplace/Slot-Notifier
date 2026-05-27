@@ -515,8 +515,10 @@ export default function DoctorDashboard() {
         </div>
       )}
 
+      {/* ═══ PAGE CONTAINER — single wrapper for hero + content (matches ClinicDashboard) ═══ */}
+      <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-8">
+
       {/* ═══ DOCTOR HERO BAR — desktop only ═══ */}
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-6">
       <div className="hidden lg:block rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
 
         {/* Top neon accent bar */}
@@ -622,10 +624,9 @@ export default function DoctorDashboard() {
         {/* Bottom accent line */}
         <div className="h-[2px] bg-gradient-to-r from-accent via-primary to-accent opacity-60" />
       </div>
-      </div>
 
       {/* Two-column layout */}
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pb-24 lg:pb-8 flex flex-col lg:flex-row gap-6 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
 
         {/* ── MOBILE-ONLY: profile card with stats grid ── */}
         <div className="lg:hidden w-full">
@@ -2058,6 +2059,7 @@ export default function DoctorDashboard() {
             </div>
           )}
         </main>
+      </div>
       </div>
 
       {/* ── MOBILE BOTTOM NAV BAR ── */}
