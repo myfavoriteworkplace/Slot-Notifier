@@ -1,7 +1,8 @@
 # BookMySlot — Features & Functionalities
 
 > **Version**: May 2026  
-> **Stack**: React 18 + TypeScript · Vite · Express.js · PostgreSQL · Drizzle ORM · TanStack Query · shadcn/ui · Tailwind CSS
+> **Stack**: React 18 + TypeScript · Vite · Express.js · PostgreSQL · Drizzle ORM · TanStack Query · shadcn/ui · Tailwind CSS  
+> **Changelog**: See [§13 Recent Changes](#13-recent-changes)
 
 ---
 
@@ -20,6 +21,7 @@
 10. [Database Schema Reference](#10-database-schema-reference)
 11. [API Endpoints Reference](#11-api-endpoints-reference)
 12. [Key Design Decisions](#12-key-design-decisions)
+13. [Recent Changes](#13-recent-changes)
 
 ---
 
@@ -903,6 +905,113 @@ All screens follow the `docs/agent-screen-design-prompt.md` specification:
 - Minimum 44px tap targets on all interactive elements
 - CSS variables + Tailwind semantic classes only (no hardcoded hex values)
 - Loading, empty, and error states on every data-fetching section
+
+---
+
+## 13. Recent Changes
+
+A reverse-chronological log of significant feature additions and changes. Update this section whenever a new feature is shipped or an existing one is materially changed.
+
+---
+
+### 27 May 2026
+
+**Dashboard stat card reorder (Clinic + Doctor)**
+- Clinic Dashboard hero stat tiles reordered to: Confirmed Today → Confirmed Bookings (Next 7 Days) → Pending Confirmations (Next 7 Days) → All Pending. Colours: sky / emerald / amber / rose.
+- Doctor Dashboard hero banner mini-cards brought into full parity with the Clinic Dashboard — same order, same labels, same `subTag` ("Next 7 Days"), same colour palette. Previously used different labels ("Confirmed · 7 Days", "Pending · 7 Days", "All Pending" in amber).
+- Doctor Dashboard mobile 2×2 stat grid updated to match the new order and labels. "All Pending" recoloured from amber to rose for consistency.
+
+**Doctor Dashboard — dynamic appointment section heading**
+- Added a `from-primary to-accent` gradient heading card above the appointment grid. Title and subtitle update dynamically based on the active quick filter (e.g. "All Pending Bookings", "Confirmed Bookings (Next 7 Days)", "Today's Appointments"). Live filtered count shown on the right.
+
+**Documentation update**
+- `docs/Features-and-Functionalities.md` updated: corrected stat tile tables (§5.1, §6.2), added cancellation reason feature (§5.1), added dynamic section heading (§6.2), corrected DELETE booking endpoint description (§11), expanded `bookings` table column list (§10), added cancellation reason note to email table (§9.1).
+
+---
+
+### 13 May 2026
+
+**Booking cancellation reason**
+- Clinic admins must now select a reason when cancelling a booking: Doctor unavailable · Patient request · Slot conflict · Emergency · Other.
+- Reason stored in new `bookings.cancellation_reason` column (added via startup migration).
+- Displayed on the booking card below the Cancelled badge (badge pill row and booking-status area).
+- Included in the cancellation email sent to the patient via Resend.
+- `DELETE /api/auth/clinic/bookings/:id` updated to accept optional `{ reason }` in request body.
+
+**Booking cancellation — soft-cancel fix**
+- `cancelBooking()` in `server/storage.ts` corrected from hard delete to soft-cancel: sets `verificationStatus` → `'cancelled'` and persists `cancellationReason`. Booking record is preserved for history and billing.
+
+---
+
+### 13 April 2026
+
+**Patient email OTP verification**
+- Patients must verify their email via a 6-digit OTP before viewing available slots or submitting a booking.
+- OTP is sent via Resend; expires with a short code window.
+- `verifiedToken` issued on successful verification — required to call `POST /api/public/bookings`.
+- OTP is cleared and re-generated on every resend request.
+- New `email_otps` table created at startup to store tokens.
+
+**App startup / workflow fix**
+- Installed missing runtime dependency; configured app workflow on port 5000.
+- Added `/api/health` and `/api/notifications` root endpoints required by the frontend.
+- Local `.env` files excluded from version control.
+
+---
+
+### 6 April 2026
+
+**Digital Consent Workflow (full implementation)**
+- Three new API routes: `POST /api/auth/clinic/bookings/:id/request-consent`, `GET /api/consent/:token`, `POST /api/consent/:token/sign`.
+- Storage methods added for token generation, retrieval, and signature storage.
+- Patient signing page at `/consent/:token` — public, no login required. Shows clinic/doctor info, appointment summary, consent declaration, and signature pad.
+- Clinic dashboard panel on each booking card: "Request Consent →" / "Resend →" button, consent URL with copy + open buttons, green "Signed ✓" badge once patient has signed.
+- Columns added to `bookings`: `consent_signature`, `consent_signed_at`, `assigned_doctor_email`, `doctor_notes`, `clinical_status` (via isolated migration blocks in `db.ts`).
+
+---
+
+### 30 March 2026
+
+**Doctor profile enhancements**
+- Profile photo replaced URL input with direct file upload (Cloudflare R2).
+- Added: years of experience field, languages multi-select (English / Malayalam / Tamil / Hindi / Kannada), profile completeness progress bar, Preview Profile button (opens public page in new tab).
+- New columns added to `doctors` table: `years_of_experience` (integer), `languages` (TEXT[]).
+- Public doctor profile page (`/doctor/:id`) updated to display both new fields.
+
+---
+
+### 8 March 2026
+
+**Auth & admin fixes**
+- Added `GET /api/auth/user` endpoint for superuser session checks.
+- Fixed superadmin logout flow.
+- Expanded Pending Clinics tab in the Super Admin dashboard with full clinic card layout (matching Active tab).
+
+---
+
+### 6 March 2026
+
+**Smile Deals image upload fix**
+- Allowed `smile-deals/` as a valid R2 upload folder in the signed-URL endpoint. Previously uploads to the Smile Deals form were being rejected.
+
+---
+
+### 5 March 2026
+
+**Smile Deals marketplace**
+- New `smile_deals` table with full schema: title, description, imageUrl, bookingLink, price, originalPrice, category, subcategory, isFlash, isFeatured, startsAt, expiresAt, videoUrl, viewCount, clickCount.
+- Super Admin CRUD interface for creating, editing, and deleting deals.
+- Public Smile Deals page (`/deals`) — full dark theme, Sora font, ambient glow orbs, stats row, subcategory filter pills, featured hero card, Flash Deals scroll strip, countdown timer, 3-column tilt card grid, referral promo, loyalty teaser.
+
+**Resend email integration**
+- Booking confirmation, booking cancellation, and doctor invitation emails wired to Resend API.
+- `RESEND=PRODUCTION` / `RESEND=DEV` environment variable controls whether real or test emails are sent.
+
+**Super Admin dashboard — tabbed navigation**
+- Admin panel tabbed into Active / Pending / Archived clinic tabs and Smile Deals tab.
+
+**Pricing — Indian Rupee**
+- All prices across the platform standardised to ₹ (Indian Rupee).
 
 ---
 
