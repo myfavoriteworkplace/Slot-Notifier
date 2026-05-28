@@ -20,7 +20,8 @@ import {
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText,
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
   Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, CreditCard,
-  Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon
+  Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
+  ChevronLeft, ChevronRight, Save
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -48,6 +49,7 @@ import { Input } from "@/components/ui/input";
 import { SpecializationInput } from "@/components/SpecializationInput";
 import { Label } from "@/components/ui/label";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,10 +81,17 @@ interface SlotTiming {
 }
 
 const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
-  { id: "1", label: "Morning", startHour: 9, startMinute: 0, endHour: 12, endMinute: 0 },
-  { id: "2", label: "Afternoon", startHour: 14, startMinute: 0, endHour: 16, endMinute: 0 },
-  { id: "3", label: "Evening", startHour: 16, startMinute: 0, endHour: 18, endMinute: 0 },
+  { id: "1", label: "Early Morning", startHour: 8,  startMinute: 0,  endHour: 10, endMinute: 0  },
+  { id: "2", label: "Late Morning",  startHour: 10, startMinute: 0,  endHour: 12, endMinute: 30 },
+  { id: "3", label: "Midday",        startHour: 12, startMinute: 30, endHour: 14, endMinute: 0  },
+  { id: "4", label: "Afternoon",     startHour: 14, startMinute: 0,  endHour: 17, endMinute: 0  },
+  { id: "5", label: "Evening",       startHour: 17, startMinute: 0,  endHour: 19, endMinute: 30 },
 ];
+
+const DEFAULT_SECTION_CAPACITY: Record<string, number> = { "1": 6, "2": 6, "3": 4, "4": 4, "5": 2 };
+
+type SectionConfig = { maxBookings: number; isCancelled: boolean };
+type DayConfig    = { isClosed: boolean; sections: Record<string, SectionConfig> };
 
 type BookingWithSlot = Booking & { 
   slot: Slot; 
@@ -247,8 +256,10 @@ export default function ClinicDashboard() {
   // Slot Configuration state
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [configDate, setConfigDate] = useState<Date>(startOfToday());
-  const [configMaxBookings, setConfigMaxBookings] = useState(3);
-  const [configIsCancelled, setConfigIsCancelled] = useState(false);
+  const [dayConfigCache, setDayConfigCache] = useState<Record<string, DayConfig>>({});
+  const [calendarWeekStart, setCalendarWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [isBulkApplying, setIsBulkApplying] = useState(false);
 
   // Doctor Management state
   const [isDoctorsOpen, setIsDoctorsOpen] = useState(false);
@@ -429,62 +440,132 @@ export default function ClinicDashboard() {
     });
   };
 
-  const configureSlotMutation = useMutation({
-    mutationFn: async (data: { startTime: string; maxBookings: number; isCancelled: boolean }) => {
-      const response = await apiRequest('POST', '/api/auth/clinic/slots/configure', data);
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({}));
-        throw new Error(errorBody.message || `Failed to update slot configuration (${response.status})`);
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
-      notify.success("Slot configuration updated");
-    },
-    onError: (error: any) => {
-      notify.apiError(error, "Failed to update configuration");
-    },
-  });
+  const getDefaultSectionsForDate = (date: Date) => Object.fromEntries(
+    slotTimings.map(s => {
+      const slotTime = new Date(date);
+      slotTime.setHours(s.startHour, s.startMinute, 0, 0);
+      const isoStr = slotTime.toISOString();
+      const match = bookings?.find(b => new Date(b.slot.startTime).toISOString() === isoStr);
+      return [s.id, {
+        maxBookings: match?.slot.maxBookings ?? DEFAULT_SECTION_CAPACITY[s.id] ?? 3,
+        isCancelled: match?.slot.isCancelled ?? false,
+      }];
+    })
+  );
 
-  const handleConfigureSlot = () => {
-    if (!selectedSlot || !clinic) return;
-    const slotInfo = slotTimings.find(s => s.id === selectedSlot);
-    if (!slotInfo) return;
+  const getConfigForDate = (date: Date): DayConfig => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return dayConfigCache[dateStr] ?? {
+      isClosed: date.getDay() === 0,
+      sections: getDefaultSectionsForDate(date),
+    };
+  };
 
-    const startTime = new Date(configDate);
-    startTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
-
-    configureSlotMutation.mutate({
-      startTime: startTime.toISOString(),
-      maxBookings: configMaxBookings,
-      isCancelled: configIsCancelled
+  const updateDayClosedState = (date: Date, isClosed: boolean) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    setDayConfigCache(prev => {
+      const existing = prev[dateStr] ?? { isClosed: date.getDay() === 0, sections: getDefaultSectionsForDate(date) };
+      return { ...prev, [dateStr]: { ...existing, isClosed } };
     });
   };
 
-  // Load existing configuration when slot or date changes
-  useEffect(() => {
-    if (localStorage.getItem("demo_clinic_active") === "true" && selectedSlot) {
-      const slotInfo = slotTimings.find(s => s.id === selectedSlot);
-      if (slotInfo) {
+  const updateSectionCapacity = (date: Date, slotId: string, value: number) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    setDayConfigCache(prev => {
+      const existing = prev[dateStr] ?? { isClosed: date.getDay() === 0, sections: getDefaultSectionsForDate(date) };
+      return {
+        ...prev,
+        [dateStr]: {
+          ...existing,
+          sections: {
+            ...existing.sections,
+            [slotId]: { ...(existing.sections[slotId] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slotId] ?? 3, isCancelled: false }), maxBookings: value }
+          }
+        }
+      };
+    });
+  };
+
+  const updateSectionCancelled = (date: Date, slotId: string, isCancelled: boolean) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    setDayConfigCache(prev => {
+      const existing = prev[dateStr] ?? { isClosed: date.getDay() === 0, sections: getDefaultSectionsForDate(date) };
+      return {
+        ...prev,
+        [dateStr]: {
+          ...existing,
+          sections: {
+            ...existing.sections,
+            [slotId]: { ...(existing.sections[slotId] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slotId] ?? 3, isCancelled: false }), isCancelled }
+          }
+        }
+      };
+    });
+  };
+
+  const saveDayConfiguration = async () => {
+    if (!clinic) return;
+    setIsSavingConfig(true);
+    try {
+      const cfg = getConfigForDate(configDate);
+      for (const slot of slotTimings) {
         const startTime = new Date(configDate);
-        startTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
-        const isoString = startTime.toISOString();
-
-        const stored = localStorage.getItem("demo_slot_configs");
-        const configs = stored ? JSON.parse(stored) : {};
-        const config = configs[isoString];
-
-        if (config) {
-          setConfigMaxBookings(config.maxBookings);
-          setConfigIsCancelled(config.isCancelled);
-        } else {
-          setConfigMaxBookings(3);
-          setConfigIsCancelled(false);
+        startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+        const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
+        const response = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
+          startTime: startTime.toISOString(),
+          maxBookings: secCfg.maxBookings,
+          isCancelled: cfg.isClosed || secCfg.isCancelled,
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.message || 'Failed to save slot');
         }
       }
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      notify.success(`${format(configDate, 'd MMM')} configuration saved`);
+    } catch (e: any) {
+      notify.apiError(e, "Failed to save configuration");
+    } finally {
+      setIsSavingConfig(false);
     }
-  }, [selectedSlot, configDate, slotTimings]);
+  };
+
+  const applyBulkConfig = async (type: 'weekdays' | 'weekends') => {
+    if (!clinic) return;
+    setIsBulkApplying(true);
+    try {
+      const sourceCfg = getConfigForDate(configDate);
+      const targetDates = Array.from({ length: 14 }, (_, i) => addDays(startOfToday(), i)).filter(d => {
+        const day = d.getDay();
+        return type === 'weekdays' ? (day >= 1 && day <= 5) : (day === 0 || day === 6);
+      });
+      for (const date of targetDates) {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        setDayConfigCache(prev => ({ ...prev, [dateStr]: { ...sourceCfg } }));
+        for (const slot of slotTimings) {
+          const startTime = new Date(date);
+          startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+          const secCfg = sourceCfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
+          const response = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
+            startTime: startTime.toISOString(),
+            maxBookings: secCfg.maxBookings,
+            isCancelled: sourceCfg.isClosed || secCfg.isCancelled,
+          });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || 'Failed to apply bulk config');
+          }
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      notify.success(`Configuration applied to all ${type} in the next 14 days`);
+    } catch (e: any) {
+      notify.apiError(e, "Failed to apply bulk configuration");
+    } finally {
+      setIsBulkApplying(false);
+    }
+  };
 
   const validateIndianPhone = (phone: string): boolean => {
     const cleaned = phone.replace(/[\s\-\(\)]/g, '');
@@ -3274,7 +3355,7 @@ export default function ClinicDashboard() {
                                     </div>
                                     <div className="space-y-1.5">
                                       <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
-                                      <div className="grid grid-cols-3 gap-1.5">
+                                      <div className="grid grid-cols-5 gap-1.5">
                                         {slotTimings.map((slot) => {
                                           const slotTime = new Date(rescheduleDate);
                                           slotTime.setHours(slot.startHour, slot.startMinute, 0, 0);
@@ -3282,14 +3363,15 @@ export default function ClinicDashboard() {
                                           const currentBookings = bookings?.filter(b =>
                                             new Date(b.slot.startTime).toISOString() === isoString && b.id !== booking.id
                                           ).length || 0;
-                                          const isFull = currentBookings >= 3;
+                                          const slotMaxBookings = bookings?.find(b => new Date(b.slot.startTime).toISOString() === isoString)?.slot.maxBookings ?? DEFAULT_SECTION_CAPACITY[slot.id] ?? 3;
+                                          const isFull = currentBookings >= slotMaxBookings;
                                           const isSelected = rescheduleSlot === slot.id;
                                           return (
                                             <button
                                               key={slot.id}
                                               onClick={() => !isFull && setRescheduleSlot(slot.id)}
                                               disabled={isFull}
-                                              className={`relative flex flex-col items-center justify-center h-12 rounded-xl border text-center transition-all active:scale-[0.96] ${
+                                              className={`relative flex flex-col items-center justify-center h-14 rounded-xl border text-center transition-all active:scale-[0.96] ${
                                                 isSelected
                                                   ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20'
                                                   : isFull
@@ -3298,10 +3380,10 @@ export default function ClinicDashboard() {
                                               }`}
                                               data-testid={`reschedule-slot-${slot.id}`}
                                             >
-                                              <span className="text-xs font-bold leading-tight">{slot.label}</span>
-                                              <span className="text-xs opacity-70 leading-tight">{formatTime(slot.startHour, slot.startMinute)}</span>
+                                              <span className="text-[10px] font-bold leading-tight px-1 text-center">{slot.label}</span>
+                                              <span className="text-[9px] opacity-60 leading-tight mt-0.5">{formatTime(slot.startHour, slot.startMinute)}</span>
                                               {isFull && (
-                                                <span className="absolute -top-1.5 -right-1.5 text-xs font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
+                                                <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
                                               )}
                                             </button>
                                           );
@@ -3794,73 +3876,255 @@ export default function ClinicDashboard() {
                   </div>
                   <div>
                     <h2 className="text-base font-semibold tracking-tight">Configure Slots</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">Set capacity and manage cancellations</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Set capacity per time block, close days, and apply bulk schedules</p>
                   </div>
                 </div>
               </div>
-              <div className="p-5">
-                <div className="space-y-5">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2 text-left">
-                      <Label className="block">Max Bookings</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={configMaxBookings}
-                        onChange={(e) => setConfigMaxBookings(parseInt(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div className="flex items-center space-x-2 pt-8">
-                      <input
-                        type="checkbox"
-                        id="is-cancelled"
-                        checked={configIsCancelled}
-                        onChange={(e) => setConfigIsCancelled(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                      />
-                      <Label htmlFor="is-cancelled">Cancel this slot</Label>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-left block">Select Date &amp; Time</Label>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                      <ScrollArea className="w-full whitespace-nowrap pb-2">
-                        <div className="flex space-x-3 px-1 py-1">
-                          {dates.map((date) => (
-                            <button
-                              key={date.toISOString()}
-                              onClick={() => setConfigDate(date)}
-                              className={`flex flex-col items-center justify-center min-w-[4.5rem] h-16 rounded-xl border transition-all ${isSameDay(date, configDate) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card'}`}
-                            >
-                              <span className="text-[10px] uppercase">{format(date, "EEE")}</span>
-                              <span className="text-lg font-bold">{format(date, "d")}</span>
-                            </button>
-                          ))}
-                        </div>
-                        <ScrollBar orientation="horizontal" />
-                      </ScrollArea>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 mt-4">
-                      {slotTimings.map((slot) => (
-                        <Button
-                          key={slot.id}
-                          variant={selectedSlot === slot.id ? "default" : "outline"}
-                          className="h-12"
-                          onClick={() => setSelectedSlot(slot.id)}
-                        >
-                          {slot.label}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
+              <div className="p-5 space-y-5">
+
+                {/* Week Navigation */}
+                <div className="flex items-center justify-between gap-2">
                   <Button
-                    className="w-full"
-                    onClick={handleConfigureSlot}
-                    disabled={!selectedSlot || configureSlotMutation.isPending}
+                    variant="outline" size="sm"
+                    onClick={() => setCalendarWeekStart(prev => addDays(prev, -7))}
+                    className="h-8 w-8 p-0 shrink-0"
+                    data-testid="button-prev-week"
                   >
-                    {configureSlotMutation.isPending ? <Loader2 className="animate-spin" /> : "Update Configuration"}
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm font-semibold text-center tabular-nums">
+                    {format(calendarWeekStart, "d MMM")} – {format(addDays(calendarWeekStart, 6), "d MMM yyyy")}
+                  </span>
+                  <Button
+                    variant="outline" size="sm"
+                    onClick={() => setCalendarWeekStart(prev => addDays(prev, 7))}
+                    className="h-8 w-8 p-0 shrink-0"
+                    data-testid="button-next-week"
+                  >
+                    <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
+
+                {/* Calendar Grid */}
+                {(() => {
+                  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(calendarWeekStart, i));
+                  return (
+                    <div className="overflow-x-auto rounded-xl border border-border/40">
+                      <div className="min-w-[580px]">
+                        {/* Day header row */}
+                        <div className="grid border-b border-border/40 bg-muted/30" style={{ gridTemplateColumns: '100px repeat(7, 1fr)' }}>
+                          <div className="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Section</div>
+                          {weekDays.map((day, i) => {
+                            const isSun = day.getDay() === 0;
+                            const isSat = day.getDay() === 6;
+                            const isToday = isSameDay(day, new Date());
+                            const isSelected = isSameDay(day, configDate);
+                            const dayCfg = getConfigForDate(day);
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => setConfigDate(day)}
+                                data-testid={`calendar-day-${format(day, 'yyyy-MM-dd')}`}
+                                className={`px-1 py-2 text-center border-l border-border/30 transition-all ${
+                                  isSelected
+                                    ? 'bg-blue-500/12 ring-1 ring-inset ring-blue-400/30'
+                                    : 'hover:bg-muted/50'
+                                }`}
+                              >
+                                <div className={`text-[10px] uppercase tracking-wide font-medium ${
+                                  isSun || isSat ? 'text-rose-500' : isToday ? 'text-primary' : 'text-muted-foreground'
+                                }`}>{format(day, 'EEE')}</div>
+                                <div className={`text-sm font-bold mt-0.5 leading-none ${
+                                  isToday
+                                    ? 'h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center mx-auto text-[11px]'
+                                    : isSun || isSat ? 'text-rose-500' : ''
+                                }`}>
+                                  {format(day, 'd')}
+                                </div>
+                                {dayCfg.isClosed && (
+                                  <div className="text-[8px] font-bold uppercase text-rose-500 mt-0.5 leading-none">closed</div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Section rows */}
+                        {slotTimings.map((slot) => (
+                          <div
+                            key={slot.id}
+                            className="grid border-b border-border/20 last:border-0"
+                            style={{ gridTemplateColumns: '100px repeat(7, 1fr)' }}
+                          >
+                            <div className="px-3 py-2.5 bg-muted/10 border-r border-border/20 flex flex-col justify-center">
+                              <span className="text-xs font-semibold leading-tight">{slot.label}</span>
+                              <span className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                                {formatTime(slot.startHour, slot.startMinute)}–{formatTime(slot.endHour, slot.endMinute)}
+                              </span>
+                            </div>
+                            {weekDays.map((day, di) => {
+                              const cfg = getConfigForDate(day);
+                              const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
+                              const isClosed = cfg.isClosed || secCfg.isCancelled;
+                              const isSelected = isSameDay(day, configDate);
+                              const isToday = isSameDay(day, new Date());
+                              return (
+                                <button
+                                  key={di}
+                                  onClick={() => setConfigDate(day)}
+                                  className={`px-1 py-2 border-l border-border/20 flex flex-col items-center justify-center min-h-[44px] transition-all ${
+                                    isSelected ? 'bg-blue-500/8' : isToday ? 'bg-primary/3' : 'hover:bg-muted/25'
+                                  }`}
+                                >
+                                  {isClosed ? (
+                                    <span className="text-[9px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 px-1.5 py-0.5 rounded-full leading-none">Closed</span>
+                                  ) : (
+                                    <>
+                                      <span className="text-sm font-bold text-foreground leading-none">{secCfg.maxBookings}</span>
+                                      <span className="text-[9px] text-muted-foreground mt-0.5 leading-none">slots</span>
+                                    </>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Day Editor */}
+                {(() => {
+                  const cfg = getConfigForDate(configDate);
+                  const isSunday = configDate.getDay() === 0;
+                  return (
+                    <div className="rounded-xl border border-border/50 bg-card p-4 space-y-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold">{format(configDate, 'EEEE, d MMMM yyyy')}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Configure time blocks for this day</p>
+                        </div>
+                        {isSunday && (
+                          <Badge variant="outline" className="text-[10px] border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 shrink-0">
+                            Sunday — closed by default
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Day Closed toggle */}
+                      <div className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                        cfg.isClosed
+                          ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30'
+                          : 'bg-muted/20 border-border/40'
+                      }`}>
+                        <Switch
+                          checked={cfg.isClosed}
+                          onCheckedChange={(val) => updateDayClosedState(configDate, val)}
+                          data-testid="toggle-day-closed"
+                        />
+                        <div>
+                          <p className="text-sm font-semibold">Day Closed</p>
+                          <p className="text-xs text-muted-foreground">All time blocks on this day will be unavailable</p>
+                        </div>
+                      </div>
+
+                      {/* Per-section capacity */}
+                      {!cfg.isClosed && (
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Capacity per time block</p>
+                          {slotTimings.map((slot) => {
+                            const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
+                            return (
+                              <div
+                                key={slot.id}
+                                className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                                  secCfg.isCancelled
+                                    ? 'bg-muted/30 border-border/30 opacity-70'
+                                    : 'bg-background border-border/40 hover:border-border/70'
+                                }`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium leading-tight">{slot.label}</p>
+                                  <p className="text-xs text-muted-foreground">{formatTime(slot.startHour, slot.startMinute)} – {formatTime(slot.endHour, slot.endMinute)}</p>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Max</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={30}
+                                    value={secCfg.maxBookings}
+                                    onChange={(e) => updateSectionCapacity(configDate, slot.id, parseInt(e.target.value) || 0)}
+                                    className="w-14 h-8 text-center text-sm px-1"
+                                    disabled={secCfg.isCancelled}
+                                    data-testid={`input-capacity-${slot.id}`}
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <input
+                                    type="checkbox"
+                                    id={`close-slot-${slot.id}`}
+                                    checked={secCfg.isCancelled}
+                                    onChange={(e) => updateSectionCancelled(configDate, slot.id, e.target.checked)}
+                                    className="h-3.5 w-3.5 rounded border-border text-rose-500 focus:ring-rose-400 cursor-pointer"
+                                    data-testid={`checkbox-close-${slot.id}`}
+                                  />
+                                  <Label htmlFor={`close-slot-${slot.id}`} className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">Close</Label>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Bulk Apply */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          variant="outline" size="sm"
+                          className="text-xs h-9 border-dashed"
+                          onClick={() => applyBulkConfig('weekdays')}
+                          disabled={isBulkApplying}
+                          data-testid="button-apply-weekdays"
+                        >
+                          {isBulkApplying
+                            ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                            : <CalendarDays className="h-3 w-3 mr-1.5" />
+                          }
+                          Apply to weekdays
+                        </Button>
+                        <Button
+                          variant="outline" size="sm"
+                          className="text-xs h-9 border-dashed"
+                          onClick={() => applyBulkConfig('weekends')}
+                          disabled={isBulkApplying}
+                          data-testid="button-apply-weekends"
+                        >
+                          {isBulkApplying
+                            ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                            : <CalendarOff className="h-3 w-3 mr-1.5" />
+                          }
+                          Apply to weekends
+                        </Button>
+                      </div>
+
+                      {/* Save Button */}
+                      <Button
+                        className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-md shadow-blue-500/20 dark:bg-blue-500 dark:hover:bg-blue-600"
+                        onClick={saveDayConfiguration}
+                        disabled={isSavingConfig}
+                        data-testid="button-save-day-config"
+                      >
+                        {isSavingConfig ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</>
+                        ) : (
+                          <><Save className="h-4 w-4 mr-2" /> Save {format(configDate, "d MMMM")} Configuration</>
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })()}
+
               </div>
             </div>
           )}
@@ -4751,13 +5015,14 @@ export default function ClinicDashboard() {
                           const startTime = new Date(bookingDate);
                           startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
                           const isoString = startTime.toISOString();
+                          const defaultCap = DEFAULT_SECTION_CAPACITY[slot.id] ?? 3;
                           let isFull = false;
-                          let spotsLeft = 3;
-                          let maxBookings = 3;
+                          let spotsLeft = defaultCap;
+                          let maxBookings = defaultCap;
                           if (localStorage.getItem("demo_clinic_active") === "true") {
                             const storedConfigs = localStorage.getItem("demo_slot_configs");
                             const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
-                            maxBookings = configs[isoString]?.maxBookings ?? 3;
+                            maxBookings = configs[isoString]?.maxBookings ?? defaultCap;
                             const currentBookings = bookings?.filter(b =>
                               new Date(b.slot.startTime).toISOString() === isoString
                             ).length || 0;
@@ -4770,7 +5035,7 @@ export default function ClinicDashboard() {
                             const existingBookingWithSlot = bookings?.find(b =>
                               new Date(b.slot.startTime).toISOString() === isoString
                             );
-                            maxBookings = existingBookingWithSlot?.slot.maxBookings ?? 3;
+                            maxBookings = existingBookingWithSlot?.slot.maxBookings ?? defaultCap;
                             spotsLeft = Math.max(0, maxBookings - currentBookings);
                             isFull = currentBookings >= maxBookings;
                           }
