@@ -37,27 +37,32 @@ Full qualified domain names (GoDaddy host values are relative to `mossaic.in`):
 
 ## 2. Complete DNS Records Reference
 
+> **Source:** GoDaddy zone export for `mossaic.in` — last verified **2026-05-28 09:42:34 UTC**
+> All records below are taken directly from the exported zone file. TTL values are in seconds.
+
+---
+
 ### A Records — Root domain → GitHub Pages
 
-| Type | Host | Value | Purpose |
-|---|---|---|---|
-| A | `@` | `185.199.108.153` | GitHub Pages IP |
-| A | `@` | `185.199.109.153` | GitHub Pages IP |
-| A | `@` | `185.199.110.153` | GitHub Pages IP |
-| A | `@` | `185.199.111.153` | GitHub Pages IP |
+| Type | Host | TTL | Value | Purpose |
+|---|---|---|---|---|
+| A | `@` | 600 | `185.199.108.153` | GitHub Pages IP #1 |
+| A | `@` | 600 | `185.199.109.153` | GitHub Pages IP #2 |
+| A | `@` | 600 | `185.199.110.153` | GitHub Pages IP #3 |
+| A | `@` | 600 | `185.199.111.153` | GitHub Pages IP #4 |
 
-> These serve `mossaic.in` as a static GitHub Pages site (the Mossaic company homepage). This is unrelated to the BookMySlot application.
+> These serve `mossaic.in` as a static GitHub Pages site (the Mossaic company homepage). This is unrelated to the BookMySlot application. The short TTL (600 s = 10 min) means changes propagate quickly.
 
 ---
 
 ### CNAME Records — Subdomains → Hosting providers
 
-| Type | Host | Value | Purpose |
-|---|---|---|---|
-| CNAME | `www` | `myfavoriterworkplace.github.io` | GitHub Pages www alias |
-| CNAME | `bookmyslot.dental` | `book-my-slot-client.onrender.com` | **BookMySlot frontend** |
-| CNAME | `api.bookmyslot.dental` | `book-my-slot-1.onrender.com` | **BookMySlot backend API** |
-| CNAME | `_domainconnect` | `_domainconnect.gd.domaincontrol.com` | GoDaddy internal service |
+| Type | Host | TTL | Value | Purpose |
+|---|---|---|---|---|
+| CNAME | `bookmyslot.dental` | 3600 | `book-my-slot-client.onrender.com` | **BookMySlot frontend** (Render Static Site) |
+| CNAME | `api.bookmyslot.dental` | 3600 | `book-my-slot-1.onrender.com` | **BookMySlot backend API** (Render Web Service) |
+| CNAME | `www` | 3600 | `myfavoriteworkplace.github.io` | GitHub Pages www alias |
+| CNAME | `_domainconnect` | 3600 | `_domainconnect.gd.domaincontrol.com` | GoDaddy internal service |
 
 > **Important for Render custom domain setup:** Both `bookmyslot.dental.mossaic.in` and `api.bookmyslot.dental.mossaic.in` must be added as custom domains inside the respective Render services (Static Site and Web Service) for Render to issue TLS certificates and route traffic correctly.
 
@@ -65,40 +70,52 @@ Full qualified domain names (GoDaddy host values are relative to `mossaic.in`):
 
 ### MX Records — Email routing
 
-| Type | Host | Value | Priority | Purpose |
-|---|---|---|---|---|
-| MX | `mail` | `mx1.improvmx.com` | 10 | Improvmx forwarding for `mail.mossaic.in` |
-| MX | `mail` | `mx2.improvmx.com` | 20 | Improvmx forwarding fallback |
-| MX | `send.bookmyslot.dental` | `feedback-smtp.ap-northeast-1.amazonses.com` | 10 | Bounce/complaint feedback loop for Resend/SES |
+| Type | Host | TTL | Priority | Value | Purpose |
+|---|---|---|---|---|---|
+| MX | `mail` | 3600 | 10 | `mx1.improvmx.com` | Improvmx primary — forwards `*@mail.mossaic.in` to Zoho |
+| MX | `mail` | 3600 | 20 | `mx2.improvmx.com` | Improvmx fallback |
+| MX | `send.bookmyslot.dental` | 3600 | 10 | `feedback-smtp.ap-northeast-1.amazonses.com` | SES bounce/complaint feedback loop for Resend |
 
-> `mail.mossaic.in` is a **forwarding-only** subdomain — all emails to `*@mail.mossaic.in` are forwarded to the Zoho Mail inbox.
+> `mail.mossaic.in` is a **forwarding-only** subdomain — all emails to `*@mail.mossaic.in` are forwarded to the Zoho Mail inbox. This is where `bookmyslot@mail.mossaic.in` (the app's support address) lands.
 >
-> `send.bookmyslot.dental.mossaic.in` is the **sending** subdomain used by Resend for transactional email. It is not a receiving inbox.
+> `send.bookmyslot.dental.mossaic.in` is the **sending** subdomain used by Resend. It is not a receiving inbox — the MX record here is only for bounce/complaint feedback to Amazon SES.
 >
-> ⚠️ **The root domain `@mossaic.in` has NO MX records.** Emails to `someone@mossaic.in` are undeliverable. See Section 6 for the Meta verification implication.
+> ⚠️ **The root domain `@mossaic.in` has NO MX records.** Emails sent directly to `someone@mossaic.in` are undeliverable. See Section 6 for the Meta verification implication.
 
 ---
 
 ### TXT Records — Email authentication
 
-| Type | Host | Value | Purpose |
-|---|---|---|---|
-| TXT | `mail` | `v=spf1 include:spf.improvmx.com ~all` | SPF for Improvmx (`mail.mossaic.in`) |
-| TXT | `send.bookmyslot.dental` | `v=spf1 include:amazonses.com ~all` | SPF for Resend/SES sending domain |
-| TXT | `resend._domainkey.bookmyslot.dental` | `p=MIGfMA0GCSq...` | DKIM signature for Resend/SES |
-| TXT | `_dmarc` | `v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:dmarc_rua@oneseeserver.net` | DMARC policy — quarantine suspicious mail |
+| Type | Host | TTL | Value | Purpose |
+|---|---|---|---|---|
+| TXT | `send.bookmyslot.dental` | 3600 | `v=spf1 include:amazonses.com ~all` | SPF — authorises SES to send from this subdomain |
+| TXT | `resend._domainkey.bookmyslot.dental` | 3600 | `p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC1YAyVzB79jim/Q8cmb0YFSwvurq9b7YS8jTyoRCU4kBxe62sdb0ujItzH/OyJMZ63dg+iIq6aFBj5vO07iv32uI9svrrZ3yYKa5O2KCnZ+Wa1wTSKipjxBTIWZSJHgGvrHISwaQcSS4vOG5kw9wkhaHABsI6SOpszTWJwQPA4JwIDAQAB` | DKIM public key for Resend/SES |
+| TXT | `_dmarc` | 3600 | `v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:dmarc_rua@onsecureserver.net;` | DMARC — quarantine suspicious mail, send reports to onsecureserver.net |
 
 > The DKIM key is scoped to `bookmyslot.dental.mossaic.in` via the `resend._domainkey.bookmyslot.dental` selector. This means **all transactional emails must be sent from an address under `@bookmyslot.dental.mossaic.in`** for DKIM to pass. Sending from `@mossaic.in` directly will fail DKIM.
+>
+> ⚠️ **SPF for `mail.mossaic.in` is not present in the exported zone file.** If Improvmx requires `v=spf1 include:spf.improvmx.com ~all` on the `mail` host for forwarding to work correctly, this record may need to be added in GoDaddy. Verify in the Improvmx dashboard under domain settings.
 
 ---
 
-### NS and SOA Records
+### NS Records — GoDaddy nameservers
 
-| Type | Host | Value |
-|---|---|---|
-| NS | `@` | `ns17.domaincontrol.com` |
-| NS | `@` | `ns18.domaincontrol.com` |
-| SOA | `@` | `ns17.domaincontrol.com` |
+| Type | Host | TTL | Value | Purpose |
+|---|---|---|---|---|
+| NS | `@` | 3600 | `ns17.domaincontrol.com` | GoDaddy primary nameserver |
+| NS | `@` | 3600 | `ns18.domaincontrol.com` | GoDaddy secondary nameserver |
+
+> GoDaddy default nameservers. These must remain unchanged as long as DNS is managed inside GoDaddy. Replacing these with another provider's NS records (e.g. Cloudflare) would move DNS management out of GoDaddy entirely.
+
+---
+
+### SOA Record — Zone authority
+
+| Type | Host | TTL | Primary NS | Admin email | Serial | Refresh | Retry | Expire | Min TTL |
+|---|---|---|---|---|---|---|---|---|---|
+| SOA | `@` | 3600 | `ns17.domaincontrol.com` | `dns.jomax.net` | 2026050900 | 28800 | 7200 | 604800 | 3600 |
+
+> **Serial** `2026050900` — increments on every zone change (format: YYYYMMDDNN). **Refresh** 28800 s (8 h) — how often secondary nameservers check for updates. **Retry** 7200 s (2 h) — how long before retrying a failed refresh. **Expire** 604800 s (7 days) — how long secondaries serve the zone if primary is unreachable. **Min TTL** 3600 s (1 h) — negative caching TTL.
 
 ---
 
