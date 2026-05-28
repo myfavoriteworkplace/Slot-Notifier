@@ -219,9 +219,9 @@ These are places in the codebase where a domain is baked in as a fallback. They 
 | `server/index.ts` | 32–35 | `bookmyslot.dental.mossaic.in`, `book-my-slot-client.onrender.com` | CORS whitelist |
 | `server/index.ts` | 24 | `https://book-my-slot-client.onrender.com` | Default `FRONTEND_URL` in production |
 | `server/routes.ts` | 255, 459, 507, 558, 617, 750, 1087, 1198, 2310, 2339, 3576 | `https://bookmyslot.dental.mossaic.in` | Fallback for email link base URL |
-| `server/routes.ts` | 101 | `support@bookmyslot.in` | Email footer support address |
+| `server/routes.ts` | 101 | `bookmyslot@mail.mossaic.in` | Email footer support address |
 
-> ⚠️ **Note on `support@bookmyslot.in`**: This address uses a **different domain** (`bookmyslot.in`) that is not part of the `mossaic.in` DNS setup documented here. Emails to `support@bookmyslot.in` will only work if `bookmyslot.in` has MX records pointing to a working inbox. Verify this domain is active or update the footer to `support@bookmyslot.dental.mossaic.in`.
+> All support contact links now use `bookmyslot@mail.mossaic.in`, which is covered by the Improvmx MX records on `mail.mossaic.in` and forwards to the Zoho Mail inbox.
 
 ---
 

@@ -277,7 +277,7 @@ When a clinic logs into their dashboard before completing payment, they see an a
 > **"Subscription payment pending"**
 > Your clinic is approved but your subscription is not yet active. Check your email for an activation link to complete payment, or contact support.
 
-There is also a **"Contact support"** link that opens an email to `support@bookmyslot.in`.
+There is also a **"Contact support"** link that opens an email to `bookmyslot@mail.mossaic.in`.
 
 This banner disappears automatically once the clinic's `subscriptionStatus` changes to `"active"` (either via webhook or Mark as Paid).
 

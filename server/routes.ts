@@ -98,7 +98,7 @@ function emailShell(accentColor: string, body: string): string {
         <tr><td style="padding:18px 40px;border-top:1px solid #edf2ef;">
           <p style="margin:0;font-size:11px;color:#a8b8b0;text-align:center;line-height:1.6;">
             bookMySlot Dental &nbsp;&middot;&nbsp; Automated message &nbsp;&middot;&nbsp;
-            <a href="mailto:support@bookmyslot.in" style="color:#1a9e6f;text-decoration:none;">support@bookmyslot.in</a>
+            <a href="mailto:bookmyslot@mail.mossaic.in" style="color:#1a9e6f;text-decoration:none;">bookmyslot@mail.mossaic.in</a>
           </p>
         </td></tr>
       </table>
@@ -850,7 +850,7 @@ async function sendPasswordChangedEmail(toEmail: string, userType: "clinic" | "d
       <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">Password changed ✓</p>
       <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">Your bookMySlot Dental password was successfully changed on <strong style="color:#0d1f1a;">${changedAt}</strong>.</p>
       ${infoBanner('green', '&#10003; &nbsp;Your account is secure. No further action is needed.')}
-      <div style="margin-top:12px;">${infoBanner('red', '&#128274; <strong>Didn\'t make this change?</strong> Contact us immediately at <a href="mailto:support@bookmyslot.in" style="color:#dc2626;text-decoration:none;font-weight:600;">support@bookmyslot.in</a> to secure your account.')}</div>
+      <div style="margin-top:12px;">${infoBanner('red', '&#128274; <strong>Didn\'t make this change?</strong> Contact us immediately at <a href="mailto:bookmyslot@mail.mossaic.in" style="color:#dc2626;text-decoration:none;font-weight:600;">bookmyslot@mail.mossaic.in</a> to secure your account.')}</div>
     </td></tr>`
   );
   try {
@@ -1419,7 +1419,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0d1f1a;letter-spacing:-.3px;">We've received your submission ✓</p>
           <p style="margin:0 0 24px;font-size:15px;color:#5a7a6a;line-height:1.5;">Hi <strong style="color:#0d1f1a;">${companyName}</strong>, thank you for your interest in partnering with bookMySlot Dental.</p>
           ${infoBanner('blue', '<strong style="font-size:13px;">&#128203; &nbsp;What happens next</strong><br/>Our team will review your submission and get back to you within <strong>2 working days</strong>. We\'ll reach out to the email or phone number you provided to discuss next steps.')}
-          <p style="margin:20px 0 0;font-size:13px;color:#8fa89a;line-height:1.6;">If you have any questions in the meantime, write to us at <a href="mailto:support@bookmyslot.in" style="color:#1a9e6f;text-decoration:none;">support@bookmyslot.in</a>.</p>
+          <p style="margin:20px 0 0;font-size:13px;color:#8fa89a;line-height:1.6;">If you have any questions in the meantime, write to us at <a href="mailto:bookmyslot@mail.mossaic.in" style="color:#1a9e6f;text-decoration:none;">bookmyslot@mail.mossaic.in</a>.</p>
         </td></tr>`
       );
 
@@ -2028,7 +2028,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           </table>
           <p style="margin:20px 0 0;font-size:12px;color:#4a7060;line-height:1.6;">Never share this code. If you did not request this, your password may be compromised.</p>
         </td></tr>
-        <tr><td style="padding:16px 40px;border-top:1px solid #1a3a28;"><p style="margin:0;font-size:11px;color:#3a5a48;text-align:center;">bookMySlot Dental &nbsp;&middot;&nbsp; Internal use only &nbsp;&middot;&nbsp; <a href="mailto:support@bookmyslot.in" style="color:#5dcaa5;text-decoration:none;">support@bookmyslot.in</a></p></td></tr>
+        <tr><td style="padding:16px 40px;border-top:1px solid #1a3a28;"><p style="margin:0;font-size:11px;color:#3a5a48;text-align:center;">bookMySlot Dental &nbsp;&middot;&nbsp; Internal use only &nbsp;&middot;&nbsp; <a href="mailto:bookmyslot@mail.mossaic.in" style="color:#5dcaa5;text-decoration:none;">bookmyslot@mail.mossaic.in</a></p></td></tr>
       </table>
     </td></tr>
   </table>

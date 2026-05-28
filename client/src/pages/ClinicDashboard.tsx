@@ -1819,7 +1819,7 @@ export default function ClinicDashboard() {
             </p>
           </div>
           <a
-            href="mailto:support@bookmyslot.in"
+            href="mailto:bookmyslot@mail.mossaic.in"
             className="shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 transition-colors mt-0.5"
             data-testid="link-subscription-support"
           >

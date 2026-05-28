@@ -16,7 +16,7 @@ emailShell(accentColor: string, body: string): string
 This produces a white card (max 600 px, centered, `border-radius:14px`) with:
 - A **4 px gradient accent bar** at the very top — the only element whose colour changes between emails
 - The **body** HTML rows in the middle
-- A **consistent footer** with `support@bookmyslot.in`
+- A **consistent footer** with `bookmyslot@mail.mossaic.in`
 
 The accent bar is the single visual cue that tells the recipient what kind of email this is, at a glance, before they read a word.
 

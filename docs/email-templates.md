@@ -396,7 +396,7 @@ All emails are sent via the **Resend** API from `server/routes.ts`. Every email 
 **Body:**
 > Your BookMySlot {Clinic Account / Doctor Account} password was successfully changed.
 >
-> If you did not make this change, please contact support immediately at [support@bookmyslot.in](mailto:support@bookmyslot.in).
+> If you did not make this change, please contact support immediately at [bookmyslot@mail.mossaic.in](mailto:bookmyslot@mail.mossaic.in).
 
 **CTA:** None
 
