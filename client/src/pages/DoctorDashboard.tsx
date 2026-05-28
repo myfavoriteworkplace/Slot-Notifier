@@ -1272,7 +1272,7 @@ export default function DoctorDashboard() {
                           data-testid="input-prof-name"
                           value={profName}
                           onChange={e => setProfName(e.target.value)}
-                          placeholder="Dr. John Smith"
+                          placeholder="e.g. Dr. Ananya Krishnan"
                           onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                         />
                       </div>
@@ -1334,7 +1334,7 @@ export default function DoctorDashboard() {
                           data-testid="input-prof-college"
                           value={profCollege}
                           onChange={e => setProfCollege(e.target.value)}
-                          placeholder="AIIMS New Delhi"
+                          placeholder="e.g. Apollo Hospital, Chennai"
                           onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                         />
                       </div>
@@ -1413,7 +1413,7 @@ export default function DoctorDashboard() {
                             data-testid="input-prof-username"
                             value={profUsername}
                             onChange={e => setProfUsername(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                            placeholder="dr-your-name"
+                            placeholder="e.g. dr-ananya-krishnan"
                             className="pl-[70px] font-mono text-sm"
                             onFocus={e => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                           />
@@ -2326,7 +2326,7 @@ export default function DoctorDashboard() {
                 <Input
                   id="cp-current"
                   type="password"
-                  placeholder="Your current password"
+                  placeholder="Current password"
                   value={changePwdCurrent}
                   onChange={e => setChangePwdCurrent(e.target.value)}
                 />
@@ -2337,7 +2337,7 @@ export default function DoctorDashboard() {
               <Input
                 id="cp-new"
                 type="password"
-                placeholder="Minimum 8 characters"
+                placeholder="Min. 8 characters"
                 value={changePwdNew}
                 onChange={e => setChangePwdNew(e.target.value)}
               />
@@ -2347,7 +2347,7 @@ export default function DoctorDashboard() {
               <Input
                 id="cp-confirm"
                 type="password"
-                placeholder="Repeat new password"
+                placeholder="Re-enter new password"
                 value={changePwdConfirm}
                 onChange={e => setChangePwdConfirm(e.target.value)}
               />

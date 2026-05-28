@@ -91,6 +91,12 @@
     font-family: var(--font-display);
     @apply font-bold tracking-tight text-foreground;
   }
+
+  /* Global placeholder style — italic + lighter so it's never confused with real input */
+  ::placeholder {
+    font-style: italic;
+    opacity: 0.6;
+  }
 }
 
 /* Glassmorphism utilities */

@@ -339,3 +339,85 @@ Add `justify-between` to the gradient row and wrap the title+icon in a `flex ite
 - [ ] Inputs have correct `type` attribute and `onFocus` scroll-into-view
 - [ ] No `backdrop-filter` on structural/functional elements
 - [ ] No `position: fixed` inside a scroll container
+- [ ] All placeholder text is italic, visually lighter than real input, never acting as the sole label, uses Indian names/formats, and follows the Placeholder Conventions section below
+
+---
+
+## PLACEHOLDER CONVENTIONS
+
+### Visual Style (enforced globally)
+All `<Input>` and `<Textarea>` base components use `placeholder:text-muted-foreground/60 placeholder:italic`.
+A global `::placeholder { font-style: italic; opacity: 0.6; }` rule in `index.css` covers raw `<input>`/`<textarea>` elements that bypass shadcn.
+
+**Never** override with higher opacity or remove italic — the distinction from real input is intentional.
+
+### Content Rules
+
+**Rule 1 — Never use a placeholder as the only label.**
+If there is no visible `<Label>` above the field, the placeholder must use the `"e.g. "` prefix so it clearly reads as an example, not a label.
+
+| Wrong | Right |
+|---|---|
+| `placeholder="Clinic Name"` | `placeholder="e.g. Bright Smiles Dental"` |
+| `placeholder="Doctor email"` | `placeholder="e.g. doctor@clinic.com"` |
+| `placeholder="Amount"` | `placeholder="e.g. 800"` |
+
+**Rule 2 — No Western fake names. Use Indian example names with `"e.g. "` prefix.**
+
+| Wrong | Right |
+|---|---|
+| `placeholder="John Doe"` | `placeholder="e.g. Rahul Verma"` |
+| `placeholder="Dr. John Smith"` | `placeholder="e.g. Dr. Ananya Krishnan"` |
+| `placeholder="Jane Smith"` | `placeholder="e.g. Dr. Arun Menon"` |
+
+**Rule 3 — No imperative / label-style instructions.**
+Placeholders describe what a value looks like — not what to do.
+
+| Wrong | Right |
+|---|---|
+| `placeholder="Enter reason…"` | `placeholder="e.g. Patient requested cancellation"` |
+| `placeholder="Describe patient issue..."` | `placeholder="e.g. Toothache, sensitivity to cold"` |
+| `placeholder="Your current password"` | `placeholder="Current password"` |
+| `placeholder="Minimum 8 characters"` | `placeholder="Min. 8 characters"` |
+| `placeholder="Repeat new password"` | `placeholder="Re-enter new password"` |
+
+**Rule 4 — Phone numbers must use Indian format.**
+
+| Wrong | Right |
+|---|---|
+| `placeholder="+1 (555) 000-0000"` | `placeholder="+91 98765 43210"` |
+
+**Rule 5 — Format-shaped hints need no `"e.g. "` prefix** (already clearly non-data):
+`placeholder="••••••••"` · `placeholder="+91 98765 43210"` (with label above) · `placeholder="https://..."`
+
+### Approved Placeholder Quick Reference
+
+| Field | Placeholder |
+|---|---|
+| Patient / person name | `e.g. Rahul Verma` |
+| Doctor name | `e.g. Dr. Ananya Krishnan` |
+| Lead / profile doctor | `e.g. Dr. Arun Menon` |
+| Walk-in patient name | `e.g. Ravi Kumar` |
+| Admin-added doctor | `e.g. Dr. Suresh Iyer` |
+| Email (with label) | `e.g. clinic@example.com` |
+| Email (no label) | `e.g. doctor@clinic.com` |
+| Phone (with label) | `+91 98765 43210` |
+| Phone (no label) | `e.g. +91 98765 43210` |
+| Password (new) | `Min. 8 characters` |
+| Password (confirm) | `Re-enter to confirm` |
+| Password (current, with label) | `Current password` |
+| Search input | `Search by name, email…` |
+| Address | `e.g. 12 MG Road, Ernakulam` |
+| Receipt / ID | `e.g. RCP-001` |
+| Date (text input) | `e.g. 27 May 2026` |
+| Service description | `e.g. Scaling & Polishing` |
+| Amount ₹ | `e.g. 800` |
+| Payment method | `e.g. UPI / Cash` |
+| Cancel reason | `e.g. Patient requested cancellation` |
+| Alt cancel reason | `e.g. Emergency, personal reasons` |
+| Medical complaint | `e.g. Toothache, sensitivity to cold` |
+| Clinic name | `e.g. Bright Smiles Dental` |
+| Hospital | `e.g. Apollo Hospital, Chennai` |
+| Specialization | `e.g. General Dentist` |
+| Degree | `e.g. BDS, MDS` |
+| Profile URL slug | `e.g. dr-ananya-krishnan` |

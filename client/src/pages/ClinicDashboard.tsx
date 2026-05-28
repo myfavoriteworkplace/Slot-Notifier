@@ -3654,7 +3654,7 @@ export default function ClinicDashboard() {
                                     <Input
                                       value={cancelReasonOther}
                                       onChange={e => setCancelReasonOther(e.target.value)}
-                                      placeholder="Enter reason…"
+                                      placeholder="e.g. Patient requested cancellation"
                                       autoFocus
                                     />
                                   </div>
@@ -3751,7 +3751,7 @@ export default function ClinicDashboard() {
                                 <Input
                                   value={cancelReasonOther}
                                   onChange={e => setCancelReasonOther(e.target.value)}
-                                  placeholder="Enter reason…"
+                                  placeholder="e.g. Emergency, personal reasons"
                                   autoFocus
                                 />
                               </div>
@@ -4219,7 +4219,7 @@ export default function ClinicDashboard() {
                                 value={newDoctorName}
                                 onChange={(e) => setNewDoctorName(e.target.value)}
                                 onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                                placeholder="John Smith"
+                                placeholder="e.g. Dr. Priya Sharma"
                                 data-testid="input-doctor-name"
                                 required
                               />
@@ -4256,7 +4256,7 @@ export default function ClinicDashboard() {
                                   value={newDoctorDegree}
                                   onChange={(e) => setNewDoctorDegree(e.target.value)}
                                   onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                                  placeholder="BDS, MDS"
+                                  placeholder="e.g. BDS, MDS"
                                   data-testid="input-doctor-degree"
                                 />
                               </div>
@@ -4473,7 +4473,7 @@ export default function ClinicDashboard() {
                         id="profile-doctor-name"
                         value={profileDoctorName}
                         onChange={(e) => setProfileDoctorName(e.target.value)}
-                        placeholder="Jane Smith"
+                        placeholder="e.g. Dr. Arun Menon"
                         data-testid="input-profile-doctor-name"
                       />
                       <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
@@ -4590,7 +4590,7 @@ export default function ClinicDashboard() {
                           id="booking-name"
                           value={bookingName}
                           onChange={(e) => setBookingName(e.target.value)}
-                          placeholder="John Doe"
+                          placeholder="e.g. Rahul Verma"
                           data-testid="input-booking-name"
                         />
                       </div>
@@ -4658,7 +4658,7 @@ export default function ClinicDashboard() {
                         id="booking-description"
                         value={bookingDescription}
                         onChange={(e) => setBookingDescription(e.target.value)}
-                        placeholder="Describe patient issue..."
+                        placeholder="e.g. Toothache, sensitivity to cold"
                         className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </div>
@@ -6010,7 +6010,7 @@ export default function ClinicDashboard() {
                   <Input
                     value={billingDetails.clinicName}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicName: e.target.value }))}
-                    placeholder="Clinic Name"
+                    placeholder="e.g. Bright Smiles Dental"
                     className="h-9"
                   />
                 </div>
@@ -6019,7 +6019,7 @@ export default function ClinicDashboard() {
                   <Input
                     value={billingDetails.clinicEmail}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicEmail: e.target.value }))}
-                    placeholder="Clinic Email"
+                    placeholder="e.g. clinic@example.com"
                     className="h-9"
                   />
                 </div>
@@ -6028,7 +6028,7 @@ export default function ClinicDashboard() {
                   <Input
                     value={billingDetails.clinicPhone}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicPhone: e.target.value }))}
-                    placeholder="Clinic Phone"
+                    placeholder="e.g. +91 98765 43210"
                     className="h-9"
                   />
                 </div>
@@ -6037,7 +6037,7 @@ export default function ClinicDashboard() {
                   <Input
                     value={billingDetails.clinicAddress}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicAddress: e.target.value }))}
-                    placeholder="Clinic Address"
+                    placeholder="e.g. 12 MG Road, Ernakulam"
                     className="h-9"
                   />
                 </div>
@@ -6051,7 +6051,7 @@ export default function ClinicDashboard() {
                 <Input
                   value={billingDetails.receiptNumber}
                   onChange={(e) => setBillingDetails(prev => ({ ...prev, receiptNumber: e.target.value }))}
-                  placeholder="Receipt #"
+                  placeholder="e.g. RCP-001"
                   className="h-9 text-sm"
                 />
                 <div className="flex items-center gap-2">
@@ -6059,7 +6059,7 @@ export default function ClinicDashboard() {
                   <Input
                     value={billingDetails.date}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, date: e.target.value }))}
-                    placeholder="Date"
+                    placeholder="e.g. 27 May 2026"
                     className="h-9 text-sm"
                   />
                 </div>
@@ -6075,7 +6075,7 @@ export default function ClinicDashboard() {
                   <Input
                     value={billingDetails.patientName}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, patientName: e.target.value }))}
-                    placeholder="Patient Name"
+                    placeholder="e.g. Rahul Verma"
                     className="h-9"
                   />
                 </div>
@@ -6084,7 +6084,7 @@ export default function ClinicDashboard() {
                   <Input
                     value={billingDetails.patientPhone}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, patientPhone: e.target.value }))}
-                    placeholder="Phone"
+                    placeholder="e.g. +91 98765 43210"
                     className="h-9"
                   />
                 </div>
@@ -6093,7 +6093,7 @@ export default function ClinicDashboard() {
                   <Input
                     value={billingDetails.patientEmail}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, patientEmail: e.target.value }))}
-                    placeholder="Email"
+                    placeholder="e.g. patient@example.com"
                     className="h-9"
                   />
                 </div>
@@ -6116,7 +6116,7 @@ export default function ClinicDashboard() {
                       <Input
                         value={service.description}
                         onChange={(e) => updateService(index, "description", e.target.value)}
-                        placeholder="Service Description"
+                        placeholder="e.g. Scaling & Polishing"
                         className="h-9 text-sm"
                       />
                     </div>
@@ -6125,7 +6125,7 @@ export default function ClinicDashboard() {
                         type="number"
                         value={service.amount}
                         onChange={(e) => updateService(index, "amount", e.target.value)}
-                        placeholder="Amount"
+                        placeholder="e.g. 800"
                         className="h-9 text-sm"
                       />
                     </div>
@@ -6174,7 +6174,7 @@ export default function ClinicDashboard() {
                   <Input
                     value={billingDetails.paymentMethod}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                    placeholder="Cash / UPI / Card"
+                    placeholder="e.g. UPI / Cash"
                     className="h-9 text-sm"
                   />
                 </div>
@@ -6273,7 +6273,7 @@ export default function ClinicDashboard() {
               <Input
                 id="reset-pwd-new"
                 type="password"
-                placeholder="Enter new password"
+                placeholder="Min. 8 characters"
                 value={resetPwdNew}
                 onChange={e => setResetPwdNew(e.target.value)}
               />
@@ -6283,7 +6283,7 @@ export default function ClinicDashboard() {
               <Input
                 id="reset-pwd-confirm"
                 type="password"
-                placeholder="Confirm new password"
+                placeholder="Re-enter to confirm"
                 value={resetPwdConfirm}
                 onChange={e => setResetPwdConfirm(e.target.value)}
               />

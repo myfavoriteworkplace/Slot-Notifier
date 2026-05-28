@@ -192,7 +192,7 @@ export function SlotCard({ slot, customerName, customerPhone }: SlotCardProps) {
                 value={localName}
                 onChange={(e) => setLocalName(e.target.value)}
                 className="col-span-3"
-                placeholder="John Doe"
+                placeholder="e.g. Ravi Kumar"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -204,7 +204,7 @@ export function SlotCard({ slot, customerName, customerPhone }: SlotCardProps) {
                 value={localPhone}
                 onChange={(e) => setLocalPhone(e.target.value)}
                 className="col-span-3"
-                placeholder="+1 (555) 000-0000"
+                placeholder="+91 98765 43210"
               />
             </div>
           </div>

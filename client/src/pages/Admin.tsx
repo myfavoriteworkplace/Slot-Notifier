@@ -787,7 +787,7 @@ export default function Admin() {
                           </Button>
                         </div>
                         <Input
-                          placeholder="Doctor name"
+                          placeholder="e.g. Dr. Suresh Iyer"
                           value={doctor.name}
                           onChange={(e) => {
                             const updated = [...newClinicDoctors];
@@ -799,7 +799,7 @@ export default function Admin() {
                           required
                         />
                         <Input
-                          placeholder="Doctor email"
+                          placeholder="e.g. doctor@clinic.com"
                           type="email"
                           value={doctor.email || ""}
                           onChange={(e) => {
@@ -813,7 +813,7 @@ export default function Admin() {
                         />
                         <div className="grid grid-cols-2 gap-2">
                           <SpecializationInput
-                            placeholder="Specialization"
+                            placeholder="e.g. General Dentist"
                             value={doctor.specialization}
                             onChange={(val) => {
                               const updated = [...newClinicDoctors];
@@ -825,7 +825,7 @@ export default function Admin() {
                             required
                           />
                           <Input
-                            placeholder="Degree"
+                            placeholder="e.g. BDS, MDS"
                             value={doctor.degree}
                             onChange={(e) => {
                               const updated = [...newClinicDoctors];
