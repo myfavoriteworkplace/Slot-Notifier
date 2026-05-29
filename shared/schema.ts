@@ -27,6 +27,11 @@ export type ClinicWebsiteConfig = {
   featuresImageUrl?: string;
 };
 
+export type DefaultSlotConfig = {
+  isClosed: boolean;
+  sections: Record<string, { maxBookings: number; isCancelled: boolean }>;
+};
+
 export const clinics = pgTable("clinics", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -59,6 +64,7 @@ export const clinics = pgTable("clinics", {
   billingCycle: varchar("billing_cycle", { length: 10 }).default("monthly"), // monthly, annual
   razorpaySubscriptionId: varchar("razorpay_subscription_id", { length: 255 }),
   websiteConfig: jsonb("website_config").$type<ClinicWebsiteConfig>(),
+  defaultSlotConfig: jsonb("default_slot_config").$type<DefaultSlotConfig>(),
 });
 
 export const slots = pgTable("slots", {

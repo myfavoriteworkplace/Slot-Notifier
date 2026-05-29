@@ -227,6 +227,9 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='razorpay_subscription_id') THEN
             ALTER TABLE clinics ADD COLUMN razorpay_subscription_id varchar(255);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinics' AND column_name='default_slot_config') THEN
+            ALTER TABLE clinics ADD COLUMN default_slot_config jsonb;
+          END IF;
         END $$;
       `);
       log("clinics columns verified/updated", "system");

@@ -602,11 +602,26 @@ export default function ClinicDashboard() {
     try {
       const sourceCfg = getConfigForDate(configDate);
       const today = startOfToday();
+
+      if (type === 'future-days') {
+        // Save as the clinic-level default — 1 DB write, works forever, no row generation
+        const response = await apiRequest('PATCH', '/api/auth/clinic/default-config', {
+          isClosed: sourceCfg.isClosed,
+          sections: sourceCfg.sections,
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.message || 'Failed to save default config');
+        }
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/default-config'] });
+        notify.success('Default schedule saved — applies to all future dates automatically');
+        return;
+      }
+
+      // sundays-this-month — still uses bulk row upsert (targeted, bounded set)
       const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
       const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      const targetDates = type === 'future-days'
-        ? Array.from({ length: 30 }, (_, i) => addDays(today, i))
-        : getDatesInRange(monthStart, monthEnd).filter(d => d.getDay() === 0);
+      const targetDates = getDatesInRange(monthStart, monthEnd).filter(d => d.getDay() === 0);
       setDayConfigCache(prev => {
         const updates: Record<string, typeof sourceCfg> = {};
         for (const date of targetDates) updates[format(date, 'yyyy-MM-dd')] = { ...sourceCfg };
@@ -627,11 +642,7 @@ export default function ClinicDashboard() {
       }
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/slots/configs'] });
-      const labels: Record<string, string> = {
-        'future-days': 'Applied to all future dates (next 30 days)',
-        'sundays-this-month': `Applied to all Sundays in ${format(today, 'MMMM yyyy')}`,
-      };
-      notify.success(labels[type]);
+      notify.success(`Applied to all Sundays in ${format(today, 'MMMM yyyy')}`);
     } catch (e: any) {
       notify.apiError(e, "Failed to apply bulk configuration");
     } finally {

@@ -683,4 +683,331 @@ Run through this before submitting any new panel or section in either dashboard:
 
 ---
 
+## 15. Configure Slots Panel — Full Logic Reference
+
+### Overview
+
+The Configure Slots panel lets a clinic admin define how many bookings each time block can accept per day, close specific days or time blocks, and push bulk schedules. It lives at panel key `configure-slots` in `ClinicDashboard.tsx`.
+
+---
+
+### Two-layer configuration model
+
+| Layer | Storage location | Scope | Written by |
+|---|---|---|---|
+| **Explicit slot rows** | `slots` table (one row per time block per date) | Specific date or date range override | Save button / All Sundays bulk apply |
+| **Default slot config** | `clinics.default_slot_config` JSONB | All future dates with no explicit row | "Apply to future days" button |
+
+**Precedence rule (booking page):** When a patient checks availability for a date+time, the backend first looks for an explicit `slots` row for that exact timestamp. If one exists, its `maxBookings` and `isCancelled` values are used. If none exists, the backend reads `clinic.defaultSlotConfig` and resolves the matching section by key (`slotIndex + 1`). If no default is set either, the hardcoded fallback is `maxBookings = 3`, `isCancelled = false`.
+
+---
+
+### Time block definitions
+
+Fixed across the whole app. Section keys `"1"` – `"5"` are the canonical IDs used in DB storage. `slotIndex` (0–4) is the array index used in the public API call — map via `sectionKey = String(slotIndex + 1)`.
+
+| Section key | Label | Start | End | Default max bookings |
+|---|---|---|---|---|
+| `"1"` | Early Morning | 08:00 | 10:00 | 6 |
+| `"2"` | Late Morning | 10:00 | 12:30 | 6 |
+| `"3"` | Midday | 12:30 | 14:00 | 4 |
+| `"4"` | Afternoon | 14:00 | 17:00 | 4 |
+| `"5"` | Evening | 17:00 | 19:30 | 2 |
+
+Defined as `slotTimings` constant in `ClinicDashboard.tsx`. Do not duplicate or redefine elsewhere.
+
+---
+
+### Local state
+
+| Variable | Type | Purpose |
+|---|---|---|
+| `dayConfigCache` | `Record<string, DayConfig>` | In-memory edits keyed by `"yyyy-MM-dd"`. All UI changes write here first; API is only called on explicit save. |
+| `rangeStart` | `Date \| null` | First selected date (defaults to today) |
+| `rangeEnd` | `Date \| null` | Last date in a range selection (null = single date) |
+| `configDate` | `Date` | Date whose config is shown in the Day Editor — always equals `rangeStart` |
+| `weekStart` | `Date` | Monday of the currently visible 7-day grid; navigated by `←`/`→` buttons |
+| `isBulkApplying` | `boolean` | Loading flag shared by both bulk-apply buttons |
+| `isSavingConfig` | `boolean` | Loading flag for the Save button |
+
+```typescript
+type SectionConfig = { maxBookings: number; isCancelled: boolean };
+type DayConfig = { isClosed: boolean; sections: Record<string, SectionConfig> };
+```
+
+`getConfigForDate(date)` reads from `dayConfigCache` for the formatted date, falling back to a sensible open-day default if the date has never been edited.
+
+---
+
+### UI layout
+
+Two-column layout on `xl:` breakpoint, stacked below:
+
+```
+┌──────────────────────────────────────┬────────────────────────────┐
+│  LEFT: Date picker + Week grid       │  RIGHT: Day Editor         │
+│  (flex-1)                            │  (xl:w-80, sticky)         │
+│                                      │                            │
+│  [Pick a date or range ▾]  Clear     │  Thu, 29 May 2025          │
+│                                      │  Configure time blocks     │
+│  ← Mon 26 May – Sun 1 Jun 2025 →     │                            │
+│                                      │  Day Closed  [toggle]      │
+│  ┌──────┬──────┬──────┬──────┬──────┐│                            │
+│  │      │ Mon  │ Tue  │ Wed  │ Thu  ││  Early Morning     [6]  □  │
+│  ├──────┼──────┼──────┼──────┼──────┤│  Late Morning      [6]  □  │
+│  │Early │  6   │  6   │  6   │  6   ││  Midday            [4]  □  │
+│  ├──────┼──────┼──────┼──────┼──────┤│  Afternoon         [4]  □  │
+│  │...   │      │      │      │      ││  Evening           [2]  □  │
+│  └──────┴──────┴──────┴──────┴──────┘│                            │
+│                                      │  Apply this config to:     │
+│                                      │  [Apply to future days]    │
+│                                      │  [All Sundays this month]  │
+│                                      │                            │
+│                                      │  [Save Thu 29 May Config]  │
+└──────────────────────────────────────┴────────────────────────────┘
+```
+
+---
+
+### Date range picker
+
+**Component:** shadcn `Calendar` (`mode="range"`) inside a `Popover`.
+
+**Button label logic:**
+
+| State | Label |
+|---|---|
+| Single date | `Thursday, 29 May 2025` |
+| Range active | `29 May → 4 Jun · 7 days` (rendered in blue) |
+| Nothing | `Pick a date or range` (muted placeholder) |
+
+**Interaction:**
+1. First click → sets `rangeStart`, `rangeEnd = null`, popover stays open
+2. Second click on a different date → sets `rangeEnd`, popover closes automatically
+3. "Clear range" link → resets `rangeEnd = null`
+
+---
+
+### Week grid — column highlight rules
+
+When a date column falls within `[rangeStart, rangeEnd]` (inclusive), every cell in that column (header and all 5 section rows) receives a blue tint. Edge columns (the start and end dates of the range) receive a stronger tint.
+
+| State | Header cell classes | Section cell classes |
+|---|---|---|
+| Edge column (start or end of range) | `bg-blue-500/15 ring-1 ring-inset ring-blue-400/40` | `bg-blue-500/8` |
+| Mid-range column | `bg-blue-500/8` | `bg-blue-500/8` |
+| Today (not selected) | Normal + `bg-primary` circle on date number | `bg-primary/3` |
+| Hovered | `hover:bg-muted/50` | `hover:bg-muted/25` |
+
+Clicking any cell calls `handleSlotDateClick(day)` → sets `rangeStart = day`, `rangeEnd = null`, `configDate = day`.
+
+A small `CLOSED` badge in `text-rose-500` text appears below the date number when `dayCfg.isClosed === true`.
+
+---
+
+### Day Editor — capacity inputs
+
+For each of the 5 time blocks in the Day Editor:
+- A numeric `<input type="number" min={0} max={30}>` for `maxBookings`
+- A `<Checkbox>` to set `isCancelled = true` for just that block
+
+"Day Closed" toggle at the top sets `isClosed = true` for the whole day — this turns the editor card background rose and marks all blocks as cancelled when saved.
+
+All edits are **purely local** until the user clicks Save. Changes write to `dayConfigCache` via `setDayConfigCache`.
+
+---
+
+### Bulk apply buttons
+
+#### Button 1 — Apply to future days
+
+**What it does:** Saves the current `configDate`'s config as the clinic's **default slot config** — a single JSONB value written to `clinics.default_slot_config`.
+
+**API:** `PATCH /api/auth/clinic/default-config`  
+**Body:** `{ isClosed: boolean, sections: Record<string, { maxBookings, isCancelled }> }`  
+**DB cost:** 1 `UPDATE` on the `clinics` row. Zero new slot rows.  
+**Effect:** Every future date that has no explicit `slots` row falls back to this config when patients check availability. No expiry; no re-application needed.
+
+#### Button 2 — All Sundays this month
+
+**What it does:** Creates explicit slot rows for every Sunday in the current calendar month.
+
+**API:** `POST /api/auth/clinic/slots/configure-bulk`  
+**DB cost:** Up to `4 Sundays × 5 blocks = 20 upserts`.  
+**Use case:** Clinics with a special Sunday schedule (closed, or reduced hours) that should override the default.
+
+---
+
+### Save button
+
+**API:** `POST /api/auth/clinic/slots/configure-bulk`
+
+For a **single date** → saves 5 slot rows (one per time block).  
+For a **range** → saves `N dates × 5 blocks` rows.
+
+The save reads from `dayConfigCache` using the source date (`configDate`) and projects that config across every date in the range.
+
+**Button label:**
+- Single date: `Save 29 May Configuration`
+- Range: `Save Range (7 days)`
+
+---
+
+### API reference — Configure Slots
+
+#### `POST /api/auth/clinic/slots/configure-bulk`
+
+Creates or updates explicit slot rows for specific dates.
+
+**Auth:** Clinic admin session (`sess.clinicId` required).
+
+**Request body (Zod-validated):**
+```json
+{
+  "slots": [
+    { "startTime": "2025-05-29T08:00:00.000Z", "maxBookings": 6, "isCancelled": false }
+  ]
+}
+```
+Constraints: `maxBookings` 0–30, `startTime` valid ISO string, array non-empty.
+
+**Response:** `{ "saved": N }` — count of rows inserted or updated.
+
+**Upsert logic:** Finds the `[minTime, maxTime]` window across all incoming slots. Queries existing rows for this clinic in that window. For each incoming slot: if a matching row exists (within ±1 min of the timestamp), `UPDATE` its `maxBookings` and `isCancelled`; otherwise `INSERT` a new row. Runs in a single transaction.
+
+---
+
+#### `GET /api/auth/clinic/slots/configs`
+
+Returns configured slot rows for a date range — used to populate the week grid on panel open.
+
+**Auth:** Clinic admin session required.
+
+**Query params:**
+
+| Param | Type | Default |
+|---|---|---|
+| `from` | ISO date string | now |
+| `to` | ISO date string | now + 32 days |
+
+`to` is clamped to end-of-day (23:59:59). Returns 400 for invalid date strings.
+
+**Response:** Array of `{ startTime, maxBookings, isCancelled }` de-duplicated by timestamp (latest row by ID wins).
+
+---
+
+#### `GET /api/auth/clinic/default-config`
+
+Returns the clinic's saved default slot config.
+
+**Auth:** Clinic admin session required.
+
+**Response:** `{ "defaultSlotConfig": DefaultSlotConfig | null }`
+
+`null` means no default has been saved — the booking page uses hardcoded defaults.
+
+---
+
+#### `PATCH /api/auth/clinic/default-config`
+
+Saves the clinic's default slot config. Single DB row write.
+
+**Auth:** Clinic admin session required.
+
+**Request body (Zod-validated):**
+```json
+{
+  "isClosed": false,
+  "sections": {
+    "1": { "maxBookings": 6, "isCancelled": false },
+    "2": { "maxBookings": 6, "isCancelled": false },
+    "3": { "maxBookings": 4, "isCancelled": false },
+    "4": { "maxBookings": 4, "isCancelled": false },
+    "5": { "maxBookings": 2, "isCancelled": false }
+  }
+}
+```
+
+`maxBookings` must be 0–30. Section keys `"1"`–`"5"` correspond to the 5 time blocks in order.
+
+**Response:** `{ "ok": true }`
+
+---
+
+#### `POST /api/public/slot-availability`
+
+Used by the public booking page to check spots remaining per time block on a given date.
+
+**Auth:** None (public endpoint).
+
+**Request body:**
+```json
+{
+  "clinicId": 12,
+  "slots": [
+    { "slotIndex": 0, "label": "Early Morning", "startTimeISO": "2025-06-10T08:00:00.000Z" }
+  ]
+}
+```
+
+**Fallback resolution for each requested slot:**
+
+```
+1. Query slots table — explicit row for this clinic+timestamp (±1 min)?
+   Yes → use configSlot.maxBookings, configSlot.isCancelled
+   No  →
+2. Read clinic.defaultSlotConfig
+   sectionKey = String(slotIndex + 1)    // 0→"1", 1→"2", etc.
+   Use defaultSlotConfig.sections[sectionKey].maxBookings / isCancelled
+   isCancelled also inherits defaultSlotConfig.isClosed (day-level closure)
+   No default set →
+3. Hardcoded fallback: maxBookings = 3, isCancelled = false
+```
+
+**Response per slot:**
+```json
+{ "slotIndex": 0, "label": "Early Morning", "startTimeISO": "...", "count": 1, "max": 6, "isCancelled": false, "spotsLeft": 5 }
+```
+
+---
+
+### Data flow diagram
+
+```
+Clinic admin saves specific date(s) or range
+  └─► POST /configure-bulk → INSERT/UPDATE slots rows (N rows)
+        └─► Week grid re-reads via GET /slots/configs
+
+Clinic admin clicks "Apply to future days"
+  └─► PATCH /default-config → UPDATE clinics.default_slot_config (1 row)
+        └─► Zero new slot rows created
+
+Clinic admin clicks "All Sundays this month"
+  └─► POST /configure-bulk → INSERT/UPDATE up to 20 slot rows
+        └─► These override the default for Sunday dates this month
+
+Patient visits /book, selects a date
+  └─► POST /slot-availability (one call, all 5 blocks in parallel)
+        ├─► Explicit slot row found for this date+time? → use it
+        └─► No row → read clinic.defaultSlotConfig → resolve by sectionKey
+              └─► No default → hardcoded fallback (3 max, all open)
+```
+
+---
+
+### TypeScript types (defined in `shared/schema.ts`)
+
+```typescript
+export type DefaultSlotConfig = {
+  isClosed: boolean;
+  sections: Record<string, { maxBookings: number; isCancelled: boolean }>;
+};
+```
+
+Column on clinics table: `defaultSlotConfig: jsonb("default_slot_config").$type<DefaultSlotConfig>()`
+
+DB migration: added as an `IF NOT EXISTS` block in `server/index.ts` alongside the other clinics column migrations.
+
+---
+
 *Document created: 27 May 2026 — update this file whenever a new panel pattern is introduced to either dashboard.*

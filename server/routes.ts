@@ -1767,8 +1767,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             ))
             .limit(1);
 
-          const max         = configSlot?.maxBookings ?? 3;
-          const isCancelled = configSlot?.isCancelled ?? false;
+          // Fall back to clinic-level default config when no explicit slot row exists
+          const defaultCfg = (clinic as any).defaultSlotConfig;
+          const sectionKey = String(s.slotIndex + 1);
+          const defaultSection = defaultCfg?.sections?.[sectionKey];
+          const max         = configSlot?.maxBookings ?? defaultSection?.maxBookings ?? 3;
+          const isCancelled = configSlot?.isCancelled ?? defaultCfg?.isClosed ?? defaultSection?.isCancelled ?? false;
           const count       = await storage.countVerifiedBookingsForClinicTime(clinic.id, clinic.name, startTime);
           const spotsLeft   = Math.max(0, max - count);
 
@@ -2823,6 +2827,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       });
       res.json({ saved });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/auth/clinic/default-config", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      const clinic = await storage.getClinic(sess.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+      res.json({ defaultSlotConfig: (clinic as any).defaultSlotConfig ?? null });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/auth/clinic/default-config", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    const defaultConfigSchema = z.object({
+      isClosed: z.boolean(),
+      sections: z.record(z.object({
+        maxBookings: z.number().int().min(0).max(30),
+        isCancelled: z.boolean(),
+      })),
+    });
+    const parsed = defaultConfigSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message ?? "Invalid config" });
+    try {
+      await storage.updateClinic(sess.clinicId, { defaultSlotConfig: parsed.data } as any);
+      res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
