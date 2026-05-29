@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay, differenceInCalendarDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
+import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay, differenceInCalendarDays, startOfWeek, endOfWeek, addWeeks, isAfter } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -261,6 +261,7 @@ export default function ClinicDashboard() {
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [isBulkApplying, setIsBulkApplying] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [endDatePickerOpen, setEndDatePickerOpen] = useState(false);
   const [rangeStart, setRangeStart] = useState<Date | null>(startOfToday());
   const [rangeEnd, setRangeEnd] = useState<Date | null>(null);
 
@@ -3969,48 +3970,92 @@ export default function ClinicDashboard() {
                   {/* LEFT: Grid & Selection */}
                   <div className="flex-1 min-w-0 space-y-4">
 
-                {/* Date Picker */}
-                <div className="flex items-center gap-3 flex-wrap">
-                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline" size="sm"
-                        className="h-9 gap-2 text-sm font-normal min-w-[220px] justify-start"
-                        data-testid="button-date-picker"
-                      >
-                        <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                        {rangeStart && rangeEnd
-                          ? <span className="text-blue-600 dark:text-blue-400 font-medium">{format(rangeStart, 'd MMM')} → {format(rangeEnd, 'd MMM')} · {differenceInCalendarDays(rangeEnd, rangeStart) + 1} days</span>
-                          : rangeStart
-                          ? format(rangeStart, 'EEEE, d MMMM yyyy')
-                          : <span className="text-muted-foreground">Pick a date or range</span>
-                        }
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="range"
-                        selected={{ from: rangeStart ?? undefined, to: rangeEnd ?? undefined }}
-                        onSelect={(range) => {
-                          const from = range?.from ?? null;
-                          const to = range?.to ?? null;
-                          setRangeStart(from);
-                          setRangeEnd(to);
-                          if (from) setConfigDate(from);
-                          if (from && to) setDatePickerOpen(false);
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                {/* Date Range Selection */}
+                <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
+                  {/* Start Date */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">From</span>
+                    <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline" size="sm"
+                          className="h-9 gap-2 text-sm font-normal min-w-[155px] justify-start"
+                          data-testid="button-start-date"
+                        >
+                          <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                          {rangeStart ? format(rangeStart, 'd MMM yyyy') : <span className="text-muted-foreground">Start date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={rangeStart ?? undefined}
+                          onSelect={(day) => {
+                            if (!day) return;
+                            setRangeStart(day);
+                            setConfigDate(day);
+                            if (rangeEnd && day > rangeEnd) setRangeEnd(null);
+                            setDatePickerOpen(false);
+                          }}
+                          disabled={{ before: startOfToday() }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <ChevronRight className="h-4 w-4 text-muted-foreground mb-2 hidden sm:block shrink-0" />
+
+                  {/* End Date */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">To <span className="normal-case font-normal">(optional)</span></span>
+                    <div className="flex items-center gap-1">
+                      <Popover open={endDatePickerOpen} onOpenChange={setEndDatePickerOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline" size="sm"
+                            className={`h-9 gap-2 text-sm font-normal min-w-[155px] justify-start ${rangeEnd ? 'text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-500/5' : ''}`}
+                            data-testid="button-end-date"
+                          >
+                            <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                            {rangeEnd ? format(rangeEnd, 'd MMM yyyy') : <span className="text-muted-foreground">End date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={rangeEnd ?? undefined}
+                            onSelect={(day) => {
+                              if (!day) return;
+                              setRangeEnd(day);
+                              setEndDatePickerOpen(false);
+                            }}
+                            disabled={{ before: rangeStart ?? startOfToday() }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      {rangeEnd && (
+                        <button
+                          onClick={() => setRangeEnd(null)}
+                          className="h-9 w-9 flex items-center justify-center rounded-md border border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/50 active:scale-95 transition-all"
+                          data-testid="button-clear-end-date"
+                          aria-label="Clear end date"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Range badge */}
                   {rangeStart && rangeEnd && (
-                    <button
-                      onClick={() => { setRangeEnd(null); }}
-                      className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-                      data-testid="button-clear-range"
-                    >
-                      Clear range
-                    </button>
+                    <div className="mb-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 self-end">
+                      <CalendarDays className="h-3.5 w-3.5 text-blue-500" />
+                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                        {differenceInCalendarDays(rangeEnd, rangeStart) + 1} days selected
+                      </span>
+                    </div>
                   )}
                 </div>
 
@@ -4020,6 +4065,7 @@ export default function ClinicDashboard() {
                     variant="outline" size="sm"
                     onClick={() => setCalendarWeekStart(prev => addDays(prev, -7))}
                     className="h-8 w-8 p-0 shrink-0"
+                    disabled={!isAfter(calendarWeekStart, startOfWeek(startOfToday(), { weekStartsOn: 1 }))}
                     data-testid="button-prev-week"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -4058,14 +4104,17 @@ export default function ClinicDashboard() {
                                 key={i}
                                 onClick={() => handleSlotDateClick(day)}
                                 data-testid={`calendar-day-${format(day, 'yyyy-MM-dd')}`}
-                                className={`px-1 py-2 text-center border-l border-border/30 transition-all ${
+                                className={`relative px-1 py-2 text-center border-l border-border/30 transition-all ${
                                   isEdge
-                                    ? 'bg-blue-500/15 ring-1 ring-inset ring-blue-400/40'
+                                    ? 'bg-blue-500/25 ring-1 ring-inset ring-blue-400/50'
                                     : isSelected
-                                    ? 'bg-blue-500/8'
+                                    ? 'bg-blue-500/15'
                                     : 'hover:bg-muted/50'
                                 }`}
                               >
+                                {(isEdge || isSelected) && (
+                                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-400/70 rounded-b-sm" />
+                                )}
                                 <div className={`text-[10px] uppercase tracking-wide font-medium ${
                                   isSun || isSat ? 'text-rose-500' : isToday ? 'text-primary' : 'text-muted-foreground'
                                 }`}>{format(day, 'EEE')}</div>
@@ -4108,7 +4157,7 @@ export default function ClinicDashboard() {
                                   key={di}
                                   onClick={() => handleSlotDateClick(day)}
                                   className={`px-1 py-2 border-l border-border/20 flex flex-col items-center justify-center min-h-[44px] transition-all ${
-                                    isSelected ? 'bg-blue-500/8' : isToday ? 'bg-primary/3' : 'hover:bg-muted/25'
+                                    isSelected ? 'bg-blue-500/15' : isToday ? 'bg-primary/5' : 'hover:bg-muted/25'
                                   }`}
                                 >
                                   {isClosed ? (
@@ -4140,139 +4189,157 @@ export default function ClinicDashboard() {
                   const cfg = getConfigForDate(configDate);
                   const isSunday = configDate.getDay() === 0;
                   return (
-                    <div className="rounded-xl border border-border/50 bg-card p-4 space-y-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold">
-                            {rangeStart && rangeEnd
-                              ? `${format(rangeStart, 'EEE d MMM')} – ${format(rangeEnd, 'EEE d MMM yyyy')}`
-                              : format(configDate, 'EEEE, d MMMM yyyy')}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {rangeStart && rangeEnd
-                              ? `Config will be applied to all ${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days in this range`
-                              : 'Configure time blocks for this day'}
-                          </p>
-                        </div>
-                        {isSunday && (
-                          <Badge variant="outline" className="text-[10px] border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 shrink-0">
-                            Sunday — closed by default
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Day Closed toggle */}
-                      <div className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                    <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                      {/* Header band */}
+                      <div className={`px-4 py-3 border-b transition-colors ${
                         cfg.isClosed
-                          ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30'
-                          : 'bg-muted/20 border-border/40'
+                          ? 'bg-gradient-to-r from-rose-500/[0.08] to-transparent border-rose-200/50 dark:border-rose-500/20'
+                          : 'bg-gradient-to-r from-blue-500/[0.08] to-transparent border-blue-200/40 dark:border-blue-500/15'
                       }`}>
-                        <Switch
-                          checked={cfg.isClosed}
-                          onCheckedChange={(val) => updateDayClosedState(configDate, val)}
-                          data-testid="toggle-day-closed"
-                        />
-                        <div>
-                          <p className="text-sm font-semibold">Day Closed</p>
-                          <p className="text-xs text-muted-foreground">All time blocks on this day will be unavailable</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold leading-tight">
+                              {rangeStart && rangeEnd
+                                ? `${format(rangeStart, 'EEE d MMM')} – ${format(rangeEnd, 'EEE d MMM yyyy')}`
+                                : format(configDate, 'EEEE, d MMMM yyyy')}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {rangeStart && rangeEnd
+                                ? `Config applied to all ${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days in range`
+                                : 'Configure time blocks for this day'}
+                            </p>
+                          </div>
+                          {isSunday && (
+                            <Badge variant="outline" className="text-[10px] border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 shrink-0">
+                              Sunday
+                            </Badge>
+                          )}
                         </div>
                       </div>
 
-                      {/* Per-section capacity */}
-                      {!cfg.isClosed && (
-                        <div className="space-y-2">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Capacity per time block</p>
-                          {slotTimings.map((slot) => {
-                            const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
-                            return (
-                              <div
-                                key={slot.id}
-                                className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                                  secCfg.isCancelled
-                                    ? 'bg-muted/30 border-border/30 opacity-70'
-                                    : 'bg-background border-border/40 hover:border-border/70'
-                                }`}
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium leading-tight">{slot.label}</p>
-                                  <p className="text-xs text-muted-foreground">{formatTime(slot.startHour, slot.startMinute)} – {formatTime(slot.endHour, slot.endMinute)}</p>
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Max</Label>
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    max={30}
-                                    value={secCfg.maxBookings}
-                                    onChange={(e) => updateSectionCapacity(configDate, slot.id, parseInt(e.target.value) || 0)}
-                                    className="w-14 h-8 text-center text-sm px-1"
-                                    disabled={secCfg.isCancelled}
-                                    data-testid={`input-capacity-${slot.id}`}
-                                  />
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <input
-                                    type="checkbox"
-                                    id={`close-slot-${slot.id}`}
-                                    checked={secCfg.isCancelled}
-                                    onChange={(e) => updateSectionCancelled(configDate, slot.id, e.target.checked)}
-                                    className="h-3.5 w-3.5 rounded border-border text-rose-500 focus:ring-rose-400 cursor-pointer"
-                                    data-testid={`checkbox-close-${slot.id}`}
-                                  />
-                                  <Label htmlFor={`close-slot-${slot.id}`} className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">Close</Label>
-                                </div>
-                              </div>
-                            );
-                          })}
+                      <div className="p-4 space-y-4">
+                        {/* Day Closed toggle */}
+                        <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                          cfg.isClosed
+                            ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30'
+                            : 'bg-muted/20 border-border/40'
+                        }`}>
+                          <Switch
+                            checked={cfg.isClosed}
+                            onCheckedChange={(val) => updateDayClosedState(configDate, val)}
+                            data-testid="toggle-day-closed"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold leading-tight">Day Closed</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">No bookings accepted on this day</p>
+                          </div>
+                          {cfg.isClosed && <Badge className="text-[10px] bg-rose-500 text-white border-0 shrink-0">Closed</Badge>}
                         </div>
-                      )}
 
-                      {/* Bulk Apply */}
-                      <div className="space-y-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Apply this config to</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            variant="outline" size="sm"
-                            className="text-xs h-9 border-dashed"
+                        {/* Per-section capacity */}
+                        {!cfg.isClosed && (
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Capacity per time block</p>
+                            {slotTimings.map((slot) => {
+                              const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
+                              return (
+                                <div
+                                  key={slot.id}
+                                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all ${
+                                    secCfg.isCancelled
+                                      ? 'bg-muted/20 border-border/20 opacity-60'
+                                      : 'bg-background border-border/40 hover:border-blue-300/50 dark:hover:border-blue-500/30'
+                                  }`}
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium leading-tight">{slot.label}</p>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">{formatTime(slot.startHour, slot.startMinute)}–{formatTime(slot.endHour, slot.endMinute)}</p>
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <span className="text-[10px] text-muted-foreground font-medium">Max</span>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      max={30}
+                                      value={secCfg.maxBookings}
+                                      onChange={(e) => updateSectionCapacity(configDate, slot.id, parseInt(e.target.value) || 0)}
+                                      className="w-12 h-7 text-center text-sm px-1 font-semibold"
+                                      disabled={secCfg.isCancelled}
+                                      data-testid={`input-capacity-${slot.id}`}
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0 border-l border-border/30 pl-2.5">
+                                    <Switch
+                                      checked={secCfg.isCancelled}
+                                      onCheckedChange={(val) => updateSectionCancelled(configDate, slot.id, val)}
+                                      className="scale-[0.75] data-[state=checked]:bg-rose-500"
+                                      data-testid={`switch-close-${slot.id}`}
+                                    />
+                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">Close</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Bulk Apply */}
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Apply this config to</p>
+
+                          <button
                             onClick={() => applyBulkConfig('future-days')}
                             disabled={isBulkApplying}
+                            className="w-full flex items-center gap-3 p-3 rounded-xl border border-primary/20 bg-primary/[0.04] hover:bg-primary/[0.08] hover:border-primary/30 active:scale-[0.98] transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                             data-testid="button-apply-all-future"
                           >
-                            {isBulkApplying
-                              ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                              : <CalendarDays className="h-3 w-3 mr-1.5" />
-                            }
-                            Apply to future days
-                          </Button>
-                          <Button
-                            variant="outline" size="sm"
-                            className="text-xs h-9 border-dashed"
+                            <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                              {isBulkApplying
+                                ? <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                                : <CalendarDays className="h-4 w-4 text-primary" />
+                              }
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-primary leading-tight">Set as Default Schedule</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Applies to all future unscheduled dates</p>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                          </button>
+
+                          <button
                             onClick={() => applyBulkConfig('sundays-this-month')}
                             disabled={isBulkApplying}
+                            className="w-full flex items-center gap-3 p-3 rounded-xl border border-amber-500/20 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-500/30 active:scale-[0.98] transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                             data-testid="button-apply-sundays"
                           >
-                            {isBulkApplying
-                              ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                              : <Sun className="h-3 w-3 mr-1.5" />
-                            }
-                            All Sundays this month
-                          </Button>
+                            <div className="h-9 w-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                              {isBulkApplying
+                                ? <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
+                                : <Sun className="h-4 w-4 text-amber-500" />
+                              }
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-amber-600 dark:text-amber-400 leading-tight">All Sundays This Month</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Sundays in {format(new Date(), 'MMMM yyyy')}</p>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                          </button>
                         </div>
-                      </div>
 
-                      {/* Save Button */}
-                      <Button
-                        className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-md shadow-blue-500/20 dark:bg-blue-500 dark:hover:bg-blue-600"
-                        onClick={saveDayConfiguration}
-                        disabled={isSavingConfig}
-                        data-testid="button-save-day-config"
-                      >
-                        {isSavingConfig ? (
-                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</>
-                        ) : (
-                          <><Save className="h-4 w-4 mr-2" /> {rangeStart && rangeEnd ? `Save Range (${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days)` : `Save ${format(configDate, 'd MMMM')} Configuration`}</>
-                        )}
-                      </Button>
+                        {/* Save Button */}
+                        <Button
+                          className="w-full h-11 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white border-0 shadow-md shadow-blue-500/20 dark:bg-blue-500 dark:hover:bg-blue-600 transition-all"
+                          onClick={saveDayConfiguration}
+                          disabled={isSavingConfig}
+                          data-testid="button-save-day-config"
+                        >
+                          {isSavingConfig ? (
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</>
+                          ) : (
+                            <><Save className="h-4 w-4 mr-2" /> {rangeStart && rangeEnd ? `Save Range (${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days)` : `Save ${format(configDate, 'd MMMM')} Config`}</>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   );
                 })()}
