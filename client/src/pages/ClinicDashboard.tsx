@@ -215,6 +215,8 @@ export default function ClinicDashboard() {
   const [bookingShowReview, setBookingShowReview] = useState(false);
   const [bookingSlotPanelOpen, setBookingSlotPanelOpen] = useState(false);
   const [bookingOpenCategory, setBookingOpenCategory] = useState<string | null>(null);
+  const [complaintsExpanded, setComplaintsExpanded] = useState(false);
+  const COMPLAINTS_INITIAL_VISIBLE = 4;
   const [slotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
   const DENTAL_CATEGORIES = [
@@ -5453,7 +5455,7 @@ export default function ClinicDashboard() {
                       </div>
 
                       {/* Mobile + Email */}
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                           <Label htmlFor="booking-phone" className="block">Mobile <span className="text-destructive">*</span></Label>
                           <Input
@@ -5479,6 +5481,7 @@ export default function ClinicDashboard() {
                             onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                             data-testid="input-booking-email"
                           />
+                          <p className="text-xs text-muted-foreground">Confirmation will be sent if provided</p>
                         </div>
                       </div>
 
@@ -5518,41 +5521,76 @@ export default function ClinicDashboard() {
 
                       {/* Chief Complaints */}
                       <div className="space-y-2">
-                        <Label className="block">Chief Complaints <span className="text-xs font-normal text-muted-foreground">(select all that apply)</span></Label>
-                        <div className="rounded-xl border border-border/40 divide-y divide-border/30 max-h-72 overflow-y-auto">
-                          {DENTAL_CATEGORIES.map((cat) => {
+                        <div>
+                          <Label className="block">Chief Complaints <span className="text-xs font-normal text-muted-foreground">(select all that apply)</span></Label>
+                          <p className="text-xs text-muted-foreground mt-0.5">Tap a category to expand and select specific issues</p>
+                        </div>
+
+                        {/* Selected chips — shown at top when any are picked */}
+                        {bookingDescription && (
+                          <div className="flex flex-wrap gap-1 p-2.5 rounded-xl bg-primary/5 border border-primary/20">
+                            <p className="w-full text-xs font-semibold text-primary mb-1">Selected complaints:</p>
+                            {bookingDescription.split(", ").filter(Boolean).map(issue => (
+                              <span key={issue} className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full flex items-center gap-1 min-h-[28px]">
+                                {issue}
+                                <button
+                                  type="button"
+                                  onClick={() => handleComplaintClick(issue)}
+                                  className="hover:text-destructive active:text-destructive transition-colors ml-0.5"
+                                  data-testid={`remove-complaint-${issue.replace(/[^\w]+/g, '-').toLowerCase()}`}
+                                  aria-label={`Remove ${issue}`}
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Category accordion — first COMPLAINTS_INITIAL_VISIBLE shown by default */}
+                        <div className="rounded-xl border border-border/40 divide-y divide-border/30">
+                          {DENTAL_CATEGORIES.slice(0, complaintsExpanded ? DENTAL_CATEGORIES.length : COMPLAINTS_INITIAL_VISIBLE).map((cat) => {
                             const isOpen = bookingOpenCategory === cat.category;
                             const hasSelected = cat.subIssues.some(s => bookingDescription.split(", ").includes(s));
                             return (
                               <div key={cat.category}>
                                 <button
                                   type="button"
-                                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-muted/30 active:bg-muted/40 transition-colors min-h-[44px]"
+                                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-muted/30 active:bg-muted/50 transition-colors min-h-[44px]"
                                   onClick={() => setBookingOpenCategory(isOpen ? null : cat.category)}
                                   data-testid={`complaint-cat-${cat.category.replace(/[^\w]+/g, '-').toLowerCase()}`}
                                 >
                                   <span className="flex items-center gap-2 text-sm font-medium">
                                     <span className="text-base leading-none">{cat.emoji}</span>
                                     <span className="text-left leading-snug">{cat.category}</span>
-                                    {hasSelected && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+                                    {hasSelected && (
+                                      <span className="inline-flex items-center gap-0.5 bg-primary/10 text-primary border border-primary/20 text-xs px-1.5 py-0.5 rounded-full leading-none font-semibold">
+                                        {cat.subIssues.filter(s => bookingDescription.split(", ").includes(s)).length} selected
+                                      </span>
+                                    )}
                                   </span>
                                   <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isOpen && (
-                                  <div className="px-3 pb-3 pt-2 bg-muted/10">
+                                  <div className="px-3 pb-3 pt-2 bg-muted/10 border-t border-border/20">
+                                    <p className="text-xs text-muted-foreground mb-2">Tap to select all that apply</p>
                                     <div className="flex flex-wrap gap-1.5">
                                       {cat.subIssues.map((complaint) => {
                                         const isSelected = bookingDescription.split(", ").includes(complaint);
                                         return (
-                                          <Badge
+                                          <button
                                             key={complaint}
-                                            variant={isSelected ? "default" : "outline"}
-                                            className="cursor-pointer transition-all hover:scale-105 active:scale-95 text-xs"
+                                            type="button"
                                             onClick={() => handleComplaintClick(complaint)}
                                             data-testid={`complaint-${complaint.replace(/[^\w]+/g, '-').toLowerCase()}`}
+                                            className={`text-xs px-2.5 py-1.5 rounded-full border transition-all min-h-[32px] font-medium ${
+                                              isSelected
+                                                ? 'bg-primary text-primary-foreground border-primary shadow-sm active:scale-95'
+                                                : 'bg-background text-foreground border-border/60 hover:border-primary/40 hover:bg-primary/5 active:scale-95'
+                                            }`}
                                           >
-                                            {complaint}
-                                          </Badge>
+                                            {isSelected && <span className="mr-1">✓</span>}{complaint}
+                                          </button>
                                         );
                                       })}
                                     </div>
@@ -5562,23 +5600,19 @@ export default function ClinicDashboard() {
                             );
                           })}
                         </div>
-                        {bookingDescription && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {bookingDescription.split(", ").filter(Boolean).map(issue => (
-                              <span key={issue} className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                {issue}
-                                <button
-                                  type="button"
-                                  onClick={() => handleComplaintClick(issue)}
-                                  className="hover:text-destructive transition-colors"
-                                  data-testid={`remove-complaint-${issue.replace(/[^\w]+/g, '-').toLowerCase()}`}
-                                >
-                                  <X className="h-2.5 w-2.5" />
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
+
+                        {/* Show more / fewer toggle */}
+                        <button
+                          type="button"
+                          onClick={() => setComplaintsExpanded(v => !v)}
+                          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 active:bg-muted/60 active:scale-[0.99] transition-all text-xs font-semibold text-muted-foreground min-h-[44px]"
+                          data-testid="button-complaints-expand"
+                        >
+                          {complaintsExpanded
+                            ? <><ChevronUp className="h-3.5 w-3.5" /> Show fewer categories</>
+                            : <><ChevronDown className="h-3.5 w-3.5" /> Show {DENTAL_CATEGORIES.length - COMPLAINTS_INITIAL_VISIBLE} more categories</>
+                          }
+                        </button>
                       </div>
                     </div>
 
@@ -5631,7 +5665,7 @@ export default function ClinicDashboard() {
                                       : 'bg-card border-border/50 hover:border-primary/50 hover:bg-primary/5'
                                   }`}
                                 >
-                                  <span className={`text-[9px] font-semibold uppercase tracking-wide ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{format(date, "EEE")}</span>
+                                  <span className={`text-xs font-semibold uppercase tracking-wide ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{format(date, "EEE")}</span>
                                   <span className="text-sm font-bold leading-none mt-0.5">{format(date, "d")}</span>
                                 </button>
                               );
@@ -5718,7 +5752,7 @@ export default function ClinicDashboard() {
                             <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-semibold text-primary">{format(bookingDate, 'd MMM')} · {info.label}</p>
-                              <p className="text-[10px] text-muted-foreground">{formatTime(info.startHour, info.startMinute)} – {formatTime(info.endHour, info.endMinute)}</p>
+                              <p className="text-xs text-muted-foreground">{formatTime(info.startHour, info.startMinute)} – {formatTime(info.endHour, info.endMinute)}</p>
                             </div>
                             <button
                               type="button"
@@ -5737,7 +5771,7 @@ export default function ClinicDashboard() {
                         <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                           <div className="rounded-xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
                             <div className="px-3 py-2.5 bg-muted/20">
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Patient</p>
+                              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Patient</p>
                               <p className="text-sm font-bold mt-0.5">{bookingName}</p>
                               <p className="text-xs text-muted-foreground">
                                 {bookingPhone}
@@ -5750,7 +5784,7 @@ export default function ClinicDashboard() {
                               const reviewSlot = slotTimings.find(s => s.id === selectedSlot);
                               return reviewSlot ? (
                                 <div className="px-3 py-2.5">
-                                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Appointment</p>
+                                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Appointment</p>
                                   <p className="text-sm font-bold mt-0.5">{format(bookingDate, "EEE, d MMM yyyy")}</p>
                                   <p className="text-xs text-muted-foreground">{reviewSlot.label} · {formatTime(reviewSlot.startHour, reviewSlot.startMinute)}–{formatTime(reviewSlot.endHour, reviewSlot.endMinute)}</p>
                                 </div>
@@ -5758,7 +5792,7 @@ export default function ClinicDashboard() {
                             })()}
                             {bookingDescription && (
                               <div className="px-3 py-2.5">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Complaints</p>
+                                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Complaints</p>
                                 <div className="flex flex-wrap gap-1 mt-1">
                                   {bookingDescription.split(", ").filter(Boolean).map(issue => (
                                     <span key={issue} className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">{issue}</span>
