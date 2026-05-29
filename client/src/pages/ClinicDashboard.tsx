@@ -310,6 +310,41 @@ export default function ClinicDashboard() {
     enabled: isAuthenticated,
   });
 
+  // Slot configs from DB — populates the calendar grid on load
+  const { data: savedSlotConfigs } = useQuery<{ startTime: string; maxBookings: number; isCancelled: boolean }[]>({
+    queryKey: ['/api/auth/clinic/slots/configs'],
+    queryFn: async () => {
+      const from = format(addDays(startOfToday(), -1), 'yyyy-MM-dd');
+      const to = format(addDays(startOfToday(), 31), 'yyyy-MM-dd');
+      const res = await apiRequest('GET', `/api/auth/clinic/slots/configs?from=${from}&to=${to}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isAuthenticated,
+  });
+
+  useEffect(() => {
+    if (!savedSlotConfigs?.length) return;
+    const newEntries: Record<string, { isClosed: boolean; sections: Record<string, { maxBookings: number; isCancelled: boolean }> }> = {};
+    for (const slot of savedSlotConfigs) {
+      const dt = new Date(slot.startTime);
+      const dateStr = format(dt, 'yyyy-MM-dd');
+      const matchedTiming = DEFAULT_SLOT_TIMINGS.find(st =>
+        st.startHour === dt.getHours() && st.startMinute === dt.getMinutes()
+      );
+      if (!matchedTiming) continue;
+      if (!newEntries[dateStr]) newEntries[dateStr] = { isClosed: dt.getDay() === 0, sections: {} };
+      newEntries[dateStr].sections[matchedTiming.id] = { maxBookings: slot.maxBookings, isCancelled: slot.isCancelled };
+    }
+    for (const [dateStr, cfg] of Object.entries(newEntries)) {
+      const allCancelled = Object.values(cfg.sections).length === DEFAULT_SLOT_TIMINGS.length &&
+        Object.values(cfg.sections).every(s => s.isCancelled);
+      if (allCancelled) newEntries[dateStr].isClosed = true;
+    }
+    // Merge: any unsaved local edits already in prev take precedence
+    setDayConfigCache(prev => ({ ...newEntries, ...prev }));
+  }, [savedSlotConfigs]);
+
   // All clinic bills (for Accounts tab)
   const { data: allBills = [] } = useQuery<PatientBill[]>({
     queryKey: ['/api/auth/clinic/bills'],
@@ -550,23 +585,21 @@ export default function ClinicDashboard() {
         ? getDatesInRange(rangeStart, rangeEnd)
         : [configDate];
       const cfg = getConfigForDate(configDate);
-      for (const date of datesToSave) {
-        for (const slot of slotTimings) {
+      const slotsPayload = datesToSave.flatMap(date =>
+        slotTimings.map(slot => {
           const startTime = new Date(date);
           startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
           const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
-          const response = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
-            startTime: startTime.toISOString(),
-            maxBookings: secCfg.maxBookings,
-            isCancelled: cfg.isClosed || secCfg.isCancelled,
-          });
-          if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            throw new Error(err.message || 'Failed to save slot');
-          }
-        }
+          return { startTime: startTime.toISOString(), maxBookings: secCfg.maxBookings, isCancelled: cfg.isClosed || secCfg.isCancelled };
+        })
+      );
+      const response = await apiRequest('POST', '/api/auth/clinic/slots/configure-bulk', { slots: slotsPayload });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to save slot');
       }
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/slots/configs'] });
       const label = slotSelectionMode === 'range' && rangeStart && rangeEnd
         ? `Range ${format(rangeStart, 'd MMM')} – ${format(rangeEnd, 'd MMM')} saved`
         : `${format(configDate, 'd MMM')} configuration saved`;
@@ -589,25 +622,27 @@ export default function ClinicDashboard() {
         if (type === 'weekdays') return d.getDay() >= 1 && d.getDay() <= 5;
         return true;
       });
-      for (const date of targetDates) {
-        const dateStr = format(date, 'yyyy-MM-dd');
-        setDayConfigCache(prev => ({ ...prev, [dateStr]: { ...sourceCfg } }));
-        for (const slot of slotTimings) {
+      // Update local cache immediately so the grid reflects the change
+      setDayConfigCache(prev => {
+        const updates: Record<string, typeof sourceCfg> = {};
+        for (const date of targetDates) updates[format(date, 'yyyy-MM-dd')] = { ...sourceCfg };
+        return { ...prev, ...updates };
+      });
+      const slotsPayload = targetDates.flatMap(date =>
+        slotTimings.map(slot => {
           const startTime = new Date(date);
           startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
           const secCfg = sourceCfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
-          const response = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
-            startTime: startTime.toISOString(),
-            maxBookings: secCfg.maxBookings,
-            isCancelled: sourceCfg.isClosed || secCfg.isCancelled,
-          });
-          if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            throw new Error(err.message || 'Failed to apply bulk config');
-          }
-        }
+          return { startTime: startTime.toISOString(), maxBookings: secCfg.maxBookings, isCancelled: sourceCfg.isClosed || secCfg.isCancelled };
+        })
+      );
+      const response = await apiRequest('POST', '/api/auth/clinic/slots/configure-bulk', { slots: slotsPayload });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to apply bulk config');
       }
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/slots/configs'] });
       const labels: Record<string, string> = {
         'same-weekday': `Applied to all ${format(configDate, 'EEEE')}s in the next 30 days`,
         'weekdays': 'Applied to all weekdays in the next 30 days',
@@ -3998,7 +4033,7 @@ export default function ClinicDashboard() {
                       <div className="min-w-[580px]">
                         {/* Day header row */}
                         <div className="grid border-b border-border/40 bg-muted/30" style={{ gridTemplateColumns: '100px repeat(7, 1fr)' }}>
-                          <div className="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Section</div>
+                          <div className="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Time Block</div>
                           {weekDays.map((day, i) => {
                             const isSun = day.getDay() === 0;
                             const isSat = day.getDay() === 6;

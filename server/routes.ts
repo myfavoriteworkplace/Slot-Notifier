@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sql, eq, and, gte, lte } from "drizzle-orm";
+import { sql, eq, and, gte, lte, desc } from "drizzle-orm";
 import { api, errorSchemas } from "@shared/routes";
 import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, notifications, doctorInvites, doctors, clinicDoctors, siteSettings, smileDeals, emailOtps, activationTokens } from "@shared/schema";
 import { z } from "zod";
@@ -2792,6 +2792,80 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         isCancelled: isCancelled ?? false,
       } as any);
       res.status(201).json(slot);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/auth/clinic/slots/configure-bulk", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    const { slots: slotConfigs } = req.body;
+    if (!Array.isArray(slotConfigs) || slotConfigs.length === 0) {
+      return res.status(400).json({ message: "slots array is required" });
+    }
+    try {
+      const clinic = await storage.getClinic(sess.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+      const parsedSlots = slotConfigs.map((s: any) => ({
+        startTime: new Date(s.startTime),
+        endTime: new Date(new Date(s.startTime).getTime() + 30 * 60 * 1000),
+        maxBookings: s.maxBookings ?? 3,
+        isCancelled: s.isCancelled ?? false,
+      }));
+      const minTime = new Date(Math.min(...parsedSlots.map((s: any) => s.startTime.getTime())));
+      const maxTime = new Date(Math.max(...parsedSlots.map((s: any) => s.startTime.getTime())));
+      const existing = await db.select({ id: slots.id, startTime: slots.startTime })
+        .from(slots)
+        .where(and(eq(slots.clinicId, sess.clinicId), gte(slots.startTime, minTime), lte(slots.startTime, maxTime)))
+        .orderBy(desc(slots.id));
+      const existingMap = new Map<string, number>();
+      for (const row of existing) {
+        const key = new Date(row.startTime).toISOString();
+        if (!existingMap.has(key)) existingMap.set(key, row.id);
+      }
+      let saved = 0;
+      await db.transaction(async (tx) => {
+        for (const s of parsedSlots) {
+          const key = s.startTime.toISOString();
+          const existingId = existingMap.get(key);
+          if (existingId) {
+            await tx.update(slots).set({ maxBookings: s.maxBookings, isCancelled: s.isCancelled }).where(eq(slots.id, existingId));
+          } else {
+            await tx.insert(slots).values({
+              ownerId: null, startTime: s.startTime, endTime: s.endTime,
+              clinicName: clinic.name, clinicId: clinic.id,
+              isBooked: false, maxBookings: s.maxBookings, isCancelled: s.isCancelled,
+            } as any);
+          }
+          saved++;
+        }
+      });
+      res.json({ saved });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/auth/clinic/slots/configs", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    const { from, to } = req.query;
+    try {
+      const fromDate = from ? new Date(from as string) : new Date();
+      const toDate = to ? new Date(new Date(to as string).getTime() + 48 * 60 * 60 * 1000) : new Date(Date.now() + 32 * 24 * 60 * 60 * 1000);
+      const rows = await db.select({ startTime: slots.startTime, maxBookings: slots.maxBookings, isCancelled: slots.isCancelled })
+        .from(slots)
+        .where(and(eq(slots.clinicId, sess.clinicId), gte(slots.startTime, fromDate), lte(slots.startTime, toDate)))
+        .orderBy(desc(slots.id));
+      const seen = new Set<string>();
+      const deduped = rows.filter(row => {
+        const key = new Date(row.startTime).toISOString();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      res.json(deduped);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
