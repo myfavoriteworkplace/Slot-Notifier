@@ -331,6 +331,12 @@ export default function ClinicDashboard() {
     enabled: isAuthenticated,
   });
 
+  const { data: defaultConfigData } = useQuery<{ defaultSlotConfig: object | null }>({
+    queryKey: ['/api/auth/clinic/default-config'],
+    enabled: isAuthenticated,
+  });
+  const hasDefaultConfig = !!defaultConfigData?.defaultSlotConfig;
+
   useEffect(() => {
     if (!savedSlotConfigs?.length) return;
     const newEntries: Record<string, { isClosed: boolean; sections: Record<string, { maxBookings: number; isCancelled: boolean }> }> = {};
@@ -4004,6 +4010,20 @@ export default function ClinicDashboard() {
                   </div>
                 </div>
               </div>
+              {/* No default config warning — shown only until the clinic saves one via "All Future Days" */}
+              {defaultConfigData !== undefined && !hasDefaultConfig && (
+                <div className="flex items-start gap-3 px-5 py-3.5 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/25">
+                  <div className="h-7 w-7 rounded-lg bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 leading-tight">No default schedule set</p>
+                    <p className="text-xs text-amber-700/80 dark:text-amber-400/80 mt-0.5 leading-relaxed">
+                      Your booking page currently shows only <span className="font-semibold">3 slots</span> per session as a fallback. Configure your capacity below, then click <span className="font-semibold">All Future Days</span> to apply it as your clinic's default.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="p-5">
                 <div className="flex flex-col xl:flex-row gap-5 items-start">
 
