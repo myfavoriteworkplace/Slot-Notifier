@@ -260,8 +260,8 @@ export default function ClinicDashboard() {
   const [calendarWeekStart, setCalendarWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [isBulkApplying, setIsBulkApplying] = useState(false);
-  const [slotSelectionMode, setSlotSelectionMode] = useState<'single' | 'range'>('single');
-  const [rangeStart, setRangeStart] = useState<Date | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [rangeStart, setRangeStart] = useState<Date | null>(startOfToday());
   const [rangeEnd, setRangeEnd] = useState<Date | null>(null);
 
   // Doctor Management state
@@ -550,28 +550,13 @@ export default function ClinicDashboard() {
   };
 
   const handleSlotDateClick = (day: Date) => {
-    if (slotSelectionMode === 'single') {
-      setConfigDate(day);
-      setRangeStart(null);
-      setRangeEnd(null);
-    } else {
-      if (!rangeStart || (rangeStart && rangeEnd)) {
-        setRangeStart(day); setRangeEnd(null); setConfigDate(day);
-      } else {
-        if (isSameDay(day, rangeStart)) {
-          setRangeStart(null); setRangeEnd(null);
-        } else if (day < rangeStart) {
-          setRangeEnd(rangeStart); setRangeStart(day); setConfigDate(day);
-        } else {
-          setRangeEnd(day);
-        }
-      }
-    }
+    setConfigDate(day);
+    setRangeStart(day);
+    setRangeEnd(null);
   };
 
   const isDateInSelection = (day: Date): boolean => {
-    if (slotSelectionMode === 'single') return isSameDay(day, configDate);
-    if (!rangeStart) return false;
+    if (!rangeStart) return isSameDay(day, configDate);
     if (!rangeEnd) return isSameDay(day, rangeStart);
     const d = startOfDay(day);
     return d >= startOfDay(rangeStart) && d <= startOfDay(rangeEnd);
@@ -581,7 +566,7 @@ export default function ClinicDashboard() {
     if (!clinic) return;
     setIsSavingConfig(true);
     try {
-      const datesToSave = slotSelectionMode === 'range' && rangeStart && rangeEnd
+      const datesToSave = rangeStart && rangeEnd
         ? getDatesInRange(rangeStart, rangeEnd)
         : [configDate];
       const cfg = getConfigForDate(configDate);
@@ -600,7 +585,7 @@ export default function ClinicDashboard() {
       }
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/slots/configs'] });
-      const label = slotSelectionMode === 'range' && rangeStart && rangeEnd
+      const label = rangeStart && rangeEnd
         ? `Range ${format(rangeStart, 'd MMM')} – ${format(rangeEnd, 'd MMM')} saved`
         : `${format(configDate, 'd MMM')} configuration saved`;
       notify.success(label);
@@ -611,18 +596,17 @@ export default function ClinicDashboard() {
     }
   };
 
-  const applyBulkConfig = async (type: 'same-weekday' | 'weekdays' | 'all') => {
+  const applyBulkConfig = async (type: 'future-days' | 'sundays-this-month') => {
     if (!clinic) return;
     setIsBulkApplying(true);
     try {
       const sourceCfg = getConfigForDate(configDate);
-      const selectedDow = configDate.getDay();
-      const targetDates = Array.from({ length: 30 }, (_, i) => addDays(startOfToday(), i)).filter(d => {
-        if (type === 'same-weekday') return d.getDay() === selectedDow;
-        if (type === 'weekdays') return d.getDay() >= 1 && d.getDay() <= 5;
-        return true;
-      });
-      // Update local cache immediately so the grid reflects the change
+      const today = startOfToday();
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const targetDates = type === 'future-days'
+        ? Array.from({ length: 30 }, (_, i) => addDays(today, i))
+        : getDatesInRange(monthStart, monthEnd).filter(d => d.getDay() === 0);
       setDayConfigCache(prev => {
         const updates: Record<string, typeof sourceCfg> = {};
         for (const date of targetDates) updates[format(date, 'yyyy-MM-dd')] = { ...sourceCfg };
@@ -644,9 +628,8 @@ export default function ClinicDashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/slots/configs'] });
       const labels: Record<string, string> = {
-        'same-weekday': `Applied to all ${format(configDate, 'EEEE')}s in the next 30 days`,
-        'weekdays': 'Applied to all weekdays in the next 30 days',
-        'all': 'Applied to all dates in the next 30 days',
+        'future-days': 'Applied to all future dates (next 30 days)',
+        'sundays-this-month': `Applied to all Sundays in ${format(today, 'MMMM yyyy')}`,
       };
       notify.success(labels[type]);
     } catch (e: any) {
@@ -3975,30 +3958,48 @@ export default function ClinicDashboard() {
                   {/* LEFT: Grid & Selection */}
                   <div className="flex-1 min-w-0 space-y-4">
 
-                {/* Selection Mode Toggle */}
+                {/* Date Picker */}
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex rounded-lg border border-border/50 p-0.5 bg-muted/30 shrink-0">
+                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline" size="sm"
+                        className="h-9 gap-2 text-sm font-normal min-w-[220px] justify-start"
+                        data-testid="button-date-picker"
+                      >
+                        <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        {rangeStart && rangeEnd
+                          ? <span className="text-blue-600 dark:text-blue-400 font-medium">{format(rangeStart, 'd MMM')} → {format(rangeEnd, 'd MMM')} · {differenceInCalendarDays(rangeEnd, rangeStart) + 1} days</span>
+                          : rangeStart
+                          ? format(rangeStart, 'EEEE, d MMMM yyyy')
+                          : <span className="text-muted-foreground">Pick a date or range</span>
+                        }
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="range"
+                        selected={{ from: rangeStart ?? undefined, to: rangeEnd ?? undefined }}
+                        onSelect={(range) => {
+                          const from = range?.from ?? null;
+                          const to = range?.to ?? null;
+                          setRangeStart(from);
+                          setRangeEnd(to);
+                          if (from) setConfigDate(from);
+                          if (from && to) setDatePickerOpen(false);
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {rangeStart && rangeEnd && (
                     <button
-                      onClick={() => { setSlotSelectionMode('single'); setRangeStart(null); setRangeEnd(null); }}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${slotSelectionMode === 'single' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                      data-testid="button-mode-single"
-                    >Single day</button>
-                    <button
-                      onClick={() => setSlotSelectionMode('range')}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${slotSelectionMode === 'range' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                      data-testid="button-mode-range"
-                    >Date range</button>
-                  </div>
-                  {slotSelectionMode === 'range' && !rangeStart && (
-                    <span className="text-xs text-muted-foreground italic">Click a start date in the grid</span>
-                  )}
-                  {slotSelectionMode === 'range' && rangeStart && !rangeEnd && (
-                    <span className="text-xs text-muted-foreground italic">From {format(rangeStart, 'd MMM')} — click an end date</span>
-                  )}
-                  {slotSelectionMode === 'range' && rangeStart && rangeEnd && (
-                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                      {format(rangeStart, 'd MMM')} → {format(rangeEnd, 'd MMM')} · {differenceInCalendarDays(rangeEnd, rangeStart) + 1} days selected
-                    </span>
+                      onClick={() => { setRangeEnd(null); }}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                      data-testid="button-clear-range"
+                    >
+                      Clear range
+                    </button>
                   )}
                 </div>
 
@@ -4039,7 +4040,7 @@ export default function ClinicDashboard() {
                             const isSat = day.getDay() === 6;
                             const isToday = isSameDay(day, new Date());
                             const isSelected = isDateInSelection(day);
-                            const isEdge = isSameDay(day, configDate) || (rangeEnd !== null && isSameDay(day, rangeEnd));
+                            const isEdge = isSameDay(day, rangeStart ?? configDate) || (rangeEnd !== null && isSameDay(day, rangeEnd));
                             const dayCfg = getConfigForDate(day);
                             return (
                               <button
@@ -4132,12 +4133,12 @@ export default function ClinicDashboard() {
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="text-sm font-semibold">
-                            {slotSelectionMode === 'range' && rangeStart && rangeEnd
+                            {rangeStart && rangeEnd
                               ? `${format(rangeStart, 'EEE d MMM')} – ${format(rangeEnd, 'EEE d MMM yyyy')}`
                               : format(configDate, 'EEEE, d MMMM yyyy')}
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {slotSelectionMode === 'range' && rangeStart && rangeEnd
+                            {rangeStart && rangeEnd
                               ? `Config will be applied to all ${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days in this range`
                               : 'Configure time blocks for this day'}
                           </p>
@@ -4218,37 +4219,11 @@ export default function ClinicDashboard() {
                       {/* Bulk Apply */}
                       <div className="space-y-1.5">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Apply this config to</p>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-2 gap-2">
                           <Button
                             variant="outline" size="sm"
                             className="text-xs h-9 border-dashed"
-                            onClick={() => applyBulkConfig('same-weekday')}
-                            disabled={isBulkApplying}
-                            data-testid="button-apply-same-weekday"
-                          >
-                            {isBulkApplying
-                              ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                              : <CalendarDays className="h-3 w-3 mr-1.5" />
-                            }
-                            All {format(configDate, 'EEE')}s
-                          </Button>
-                          <Button
-                            variant="outline" size="sm"
-                            className="text-xs h-9 border-dashed"
-                            onClick={() => applyBulkConfig('weekdays')}
-                            disabled={isBulkApplying}
-                            data-testid="button-apply-weekdays"
-                          >
-                            {isBulkApplying
-                              ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                              : <CalendarDays className="h-3 w-3 mr-1.5" />
-                            }
-                            All weekdays
-                          </Button>
-                          <Button
-                            variant="outline" size="sm"
-                            className="text-xs h-9 border-dashed"
-                            onClick={() => applyBulkConfig('all')}
+                            onClick={() => applyBulkConfig('future-days')}
                             disabled={isBulkApplying}
                             data-testid="button-apply-all-future"
                           >
@@ -4256,7 +4231,20 @@ export default function ClinicDashboard() {
                               ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
                               : <CalendarDays className="h-3 w-3 mr-1.5" />
                             }
-                            All future dates
+                            Apply to future days
+                          </Button>
+                          <Button
+                            variant="outline" size="sm"
+                            className="text-xs h-9 border-dashed"
+                            onClick={() => applyBulkConfig('sundays-this-month')}
+                            disabled={isBulkApplying}
+                            data-testid="button-apply-sundays"
+                          >
+                            {isBulkApplying
+                              ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                              : <Sun className="h-3 w-3 mr-1.5" />
+                            }
+                            All Sundays this month
                           </Button>
                         </div>
                       </div>
@@ -4271,7 +4259,7 @@ export default function ClinicDashboard() {
                         {isSavingConfig ? (
                           <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</>
                         ) : (
-                          <><Save className="h-4 w-4 mr-2" /> {slotSelectionMode === 'range' && rangeStart && rangeEnd ? `Save Range (${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days)` : `Save ${format(configDate, 'd MMMM')} Configuration`}</>
+                          <><Save className="h-4 w-4 mr-2" /> {rangeStart && rangeEnd ? `Save Range (${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days)` : `Save ${format(configDate, 'd MMMM')} Configuration`}</>
                         )}
                       </Button>
                     </div>

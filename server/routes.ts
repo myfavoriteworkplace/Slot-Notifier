@@ -2771,39 +2771,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.post("/api/auth/clinic/slots/configure", isAuthenticated, async (req, res) => {
-    const sess = req.session as any;
-    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
-    const { startTime, maxBookings, isCancelled } = req.body;
-    if (!startTime) return res.status(400).json({ message: "startTime is required" });
-    try {
-      const clinic = await storage.getClinic(sess.clinicId);
-      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
-      const start = new Date(startTime);
-      const end = new Date(start.getTime() + 30 * 60 * 1000);
-      const slot = await storage.createSlot({
-        ownerId: null,
-        startTime: start,
-        endTime: end,
-        clinicName: clinic.name,
-        clinicId: clinic.id,
-        isBooked: false,
-        maxBookings: maxBookings ?? 3,
-        isCancelled: isCancelled ?? false,
-      } as any);
-      res.status(201).json(slot);
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
+  const bulkConfigBodySchema = z.object({
+    slots: z.array(z.object({
+      startTime: z.string().refine(v => !isNaN(new Date(v).getTime()), { message: "startTime must be a valid ISO date string" }),
+      maxBookings: z.number().int().min(0).max(30).default(3),
+      isCancelled: z.boolean().default(false),
+    })).min(1, "slots array must not be empty"),
   });
 
   app.post("/api/auth/clinic/slots/configure-bulk", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
-    const { slots: slotConfigs } = req.body;
-    if (!Array.isArray(slotConfigs) || slotConfigs.length === 0) {
-      return res.status(400).json({ message: "slots array is required" });
-    }
+    const parsed = bulkConfigBodySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message ?? "Invalid request body" });
+    const { slots: slotConfigs } = parsed.data;
     try {
       const clinic = await storage.getClinic(sess.clinicId);
       if (!clinic) return res.status(404).json({ message: "Clinic not found" });
@@ -2853,7 +2834,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const { from, to } = req.query;
     try {
       const fromDate = from ? new Date(from as string) : new Date();
-      const toDate = to ? new Date(new Date(to as string).getTime() + 48 * 60 * 60 * 1000) : new Date(Date.now() + 32 * 24 * 60 * 60 * 1000);
+      const rawTo = to ? new Date(to as string) : new Date(Date.now() + 32 * 24 * 60 * 60 * 1000);
+      if (isNaN(fromDate.getTime()) || isNaN(rawTo.getTime())) {
+        return res.status(400).json({ message: "Invalid from/to date parameters" });
+      }
+      const toDate = new Date(rawTo);
+      toDate.setHours(23, 59, 59, 999);
       const rows = await db.select({ startTime: slots.startTime, maxBookings: slots.maxBookings, isCancelled: slots.isCancelled })
         .from(slots)
         .where(and(eq(slots.clinicId, sess.clinicId), gte(slots.startTime, fromDate), lte(slots.startTime, toDate)))
