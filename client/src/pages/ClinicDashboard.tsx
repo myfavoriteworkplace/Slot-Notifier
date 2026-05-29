@@ -260,6 +260,9 @@ export default function ClinicDashboard() {
   const [calendarWeekStart, setCalendarWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [isBulkApplying, setIsBulkApplying] = useState(false);
+  const [slotSelectionMode, setSlotSelectionMode] = useState<'single' | 'range'>('single');
+  const [rangeStart, setRangeStart] = useState<Date | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<Date | null>(null);
 
   // Doctor Management state
   const [isDoctorsOpen, setIsDoctorsOpen] = useState(false);
@@ -503,27 +506,71 @@ export default function ClinicDashboard() {
     });
   };
 
+  const getDatesInRange = (start: Date, end: Date): Date[] => {
+    const dates: Date[] = [];
+    let cur = startOfDay(start);
+    const last = startOfDay(end);
+    while (cur <= last) { dates.push(new Date(cur)); cur = addDays(cur, 1); }
+    return dates;
+  };
+
+  const handleSlotDateClick = (day: Date) => {
+    if (slotSelectionMode === 'single') {
+      setConfigDate(day);
+      setRangeStart(null);
+      setRangeEnd(null);
+    } else {
+      if (!rangeStart || (rangeStart && rangeEnd)) {
+        setRangeStart(day); setRangeEnd(null); setConfigDate(day);
+      } else {
+        if (isSameDay(day, rangeStart)) {
+          setRangeStart(null); setRangeEnd(null);
+        } else if (day < rangeStart) {
+          setRangeEnd(rangeStart); setRangeStart(day); setConfigDate(day);
+        } else {
+          setRangeEnd(day);
+        }
+      }
+    }
+  };
+
+  const isDateInSelection = (day: Date): boolean => {
+    if (slotSelectionMode === 'single') return isSameDay(day, configDate);
+    if (!rangeStart) return false;
+    if (!rangeEnd) return isSameDay(day, rangeStart);
+    const d = startOfDay(day);
+    return d >= startOfDay(rangeStart) && d <= startOfDay(rangeEnd);
+  };
+
   const saveDayConfiguration = async () => {
     if (!clinic) return;
     setIsSavingConfig(true);
     try {
+      const datesToSave = slotSelectionMode === 'range' && rangeStart && rangeEnd
+        ? getDatesInRange(rangeStart, rangeEnd)
+        : [configDate];
       const cfg = getConfigForDate(configDate);
-      for (const slot of slotTimings) {
-        const startTime = new Date(configDate);
-        startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
-        const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
-        const response = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
-          startTime: startTime.toISOString(),
-          maxBookings: secCfg.maxBookings,
-          isCancelled: cfg.isClosed || secCfg.isCancelled,
-        });
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          throw new Error(err.message || 'Failed to save slot');
+      for (const date of datesToSave) {
+        for (const slot of slotTimings) {
+          const startTime = new Date(date);
+          startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+          const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
+          const response = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
+            startTime: startTime.toISOString(),
+            maxBookings: secCfg.maxBookings,
+            isCancelled: cfg.isClosed || secCfg.isCancelled,
+          });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || 'Failed to save slot');
+          }
         }
       }
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
-      notify.success(`${format(configDate, 'd MMM')} configuration saved`);
+      const label = slotSelectionMode === 'range' && rangeStart && rangeEnd
+        ? `Range ${format(rangeStart, 'd MMM')} – ${format(rangeEnd, 'd MMM')} saved`
+        : `${format(configDate, 'd MMM')} configuration saved`;
+      notify.success(label);
     } catch (e: any) {
       notify.apiError(e, "Failed to save configuration");
     } finally {
@@ -531,14 +578,16 @@ export default function ClinicDashboard() {
     }
   };
 
-  const applyBulkConfig = async (type: 'weekdays' | 'weekends') => {
+  const applyBulkConfig = async (type: 'same-weekday' | 'weekdays' | 'all') => {
     if (!clinic) return;
     setIsBulkApplying(true);
     try {
       const sourceCfg = getConfigForDate(configDate);
-      const targetDates = Array.from({ length: 14 }, (_, i) => addDays(startOfToday(), i)).filter(d => {
-        const day = d.getDay();
-        return type === 'weekdays' ? (day >= 1 && day <= 5) : (day === 0 || day === 6);
+      const selectedDow = configDate.getDay();
+      const targetDates = Array.from({ length: 30 }, (_, i) => addDays(startOfToday(), i)).filter(d => {
+        if (type === 'same-weekday') return d.getDay() === selectedDow;
+        if (type === 'weekdays') return d.getDay() >= 1 && d.getDay() <= 5;
+        return true;
       });
       for (const date of targetDates) {
         const dateStr = format(date, 'yyyy-MM-dd');
@@ -559,7 +608,12 @@ export default function ClinicDashboard() {
         }
       }
       queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
-      notify.success(`Configuration applied to all ${type} in the next 14 days`);
+      const labels: Record<string, string> = {
+        'same-weekday': `Applied to all ${format(configDate, 'EEEE')}s in the next 30 days`,
+        'weekdays': 'Applied to all weekdays in the next 30 days',
+        'all': 'Applied to all dates in the next 30 days',
+      };
+      notify.success(labels[type]);
     } catch (e: any) {
       notify.apiError(e, "Failed to apply bulk configuration");
     } finally {
@@ -3882,6 +3936,33 @@ export default function ClinicDashboard() {
               </div>
               <div className="p-5 space-y-5">
 
+                {/* Selection Mode Toggle */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex rounded-lg border border-border/50 p-0.5 bg-muted/30 shrink-0">
+                    <button
+                      onClick={() => { setSlotSelectionMode('single'); setRangeStart(null); setRangeEnd(null); }}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${slotSelectionMode === 'single' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      data-testid="button-mode-single"
+                    >Single day</button>
+                    <button
+                      onClick={() => setSlotSelectionMode('range')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${slotSelectionMode === 'range' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      data-testid="button-mode-range"
+                    >Date range</button>
+                  </div>
+                  {slotSelectionMode === 'range' && !rangeStart && (
+                    <span className="text-xs text-muted-foreground italic">Click a start date in the grid</span>
+                  )}
+                  {slotSelectionMode === 'range' && rangeStart && !rangeEnd && (
+                    <span className="text-xs text-muted-foreground italic">From {format(rangeStart, 'd MMM')} — click an end date</span>
+                  )}
+                  {slotSelectionMode === 'range' && rangeStart && rangeEnd && (
+                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                      {format(rangeStart, 'd MMM')} → {format(rangeEnd, 'd MMM')} · {differenceInCalendarDays(rangeEnd, rangeStart) + 1} days selected
+                    </span>
+                  )}
+                </div>
+
                 {/* Week Navigation */}
                 <div className="flex items-center justify-between gap-2">
                   <Button
@@ -3918,16 +3999,19 @@ export default function ClinicDashboard() {
                             const isSun = day.getDay() === 0;
                             const isSat = day.getDay() === 6;
                             const isToday = isSameDay(day, new Date());
-                            const isSelected = isSameDay(day, configDate);
+                            const isSelected = isDateInSelection(day);
+                            const isEdge = isSameDay(day, configDate) || (rangeEnd !== null && isSameDay(day, rangeEnd));
                             const dayCfg = getConfigForDate(day);
                             return (
                               <button
                                 key={i}
-                                onClick={() => setConfigDate(day)}
+                                onClick={() => handleSlotDateClick(day)}
                                 data-testid={`calendar-day-${format(day, 'yyyy-MM-dd')}`}
                                 className={`px-1 py-2 text-center border-l border-border/30 transition-all ${
-                                  isSelected
-                                    ? 'bg-blue-500/12 ring-1 ring-inset ring-blue-400/30'
+                                  isEdge
+                                    ? 'bg-blue-500/15 ring-1 ring-inset ring-blue-400/40'
+                                    : isSelected
+                                    ? 'bg-blue-500/8'
                                     : 'hover:bg-muted/50'
                                 }`}
                               >
@@ -3966,12 +4050,12 @@ export default function ClinicDashboard() {
                               const cfg = getConfigForDate(day);
                               const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
                               const isClosed = cfg.isClosed || secCfg.isCancelled;
-                              const isSelected = isSameDay(day, configDate);
+                              const isSelected = isDateInSelection(day);
                               const isToday = isSameDay(day, new Date());
                               return (
                                 <button
                                   key={di}
-                                  onClick={() => setConfigDate(day)}
+                                  onClick={() => handleSlotDateClick(day)}
                                   className={`px-1 py-2 border-l border-border/20 flex flex-col items-center justify-center min-h-[44px] transition-all ${
                                     isSelected ? 'bg-blue-500/8' : isToday ? 'bg-primary/3' : 'hover:bg-muted/25'
                                   }`}
@@ -4002,8 +4086,16 @@ export default function ClinicDashboard() {
                     <div className="rounded-xl border border-border/50 bg-card p-4 space-y-4">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-sm font-semibold">{format(configDate, 'EEEE, d MMMM yyyy')}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Configure time blocks for this day</p>
+                          <p className="text-sm font-semibold">
+                            {slotSelectionMode === 'range' && rangeStart && rangeEnd
+                              ? `${format(rangeStart, 'EEE d MMM')} – ${format(rangeEnd, 'EEE d MMM yyyy')}`
+                              : format(configDate, 'EEEE, d MMMM yyyy')}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {slotSelectionMode === 'range' && rangeStart && rangeEnd
+                              ? `Config will be applied to all ${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days in this range`
+                              : 'Configure time blocks for this day'}
+                          </p>
                         </div>
                         {isSunday && (
                           <Badge variant="outline" className="text-[10px] border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 shrink-0">
@@ -4079,33 +4171,49 @@ export default function ClinicDashboard() {
                       )}
 
                       {/* Bulk Apply */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          variant="outline" size="sm"
-                          className="text-xs h-9 border-dashed"
-                          onClick={() => applyBulkConfig('weekdays')}
-                          disabled={isBulkApplying}
-                          data-testid="button-apply-weekdays"
-                        >
-                          {isBulkApplying
-                            ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                            : <CalendarDays className="h-3 w-3 mr-1.5" />
-                          }
-                          Apply to weekdays
-                        </Button>
-                        <Button
-                          variant="outline" size="sm"
-                          className="text-xs h-9 border-dashed"
-                          onClick={() => applyBulkConfig('weekends')}
-                          disabled={isBulkApplying}
-                          data-testid="button-apply-weekends"
-                        >
-                          {isBulkApplying
-                            ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                            : <CalendarOff className="h-3 w-3 mr-1.5" />
-                          }
-                          Apply to weekends
-                        </Button>
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Apply this config to</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <Button
+                            variant="outline" size="sm"
+                            className="text-xs h-9 border-dashed"
+                            onClick={() => applyBulkConfig('same-weekday')}
+                            disabled={isBulkApplying}
+                            data-testid="button-apply-same-weekday"
+                          >
+                            {isBulkApplying
+                              ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                              : <CalendarDays className="h-3 w-3 mr-1.5" />
+                            }
+                            All {format(configDate, 'EEE')}s
+                          </Button>
+                          <Button
+                            variant="outline" size="sm"
+                            className="text-xs h-9 border-dashed"
+                            onClick={() => applyBulkConfig('weekdays')}
+                            disabled={isBulkApplying}
+                            data-testid="button-apply-weekdays"
+                          >
+                            {isBulkApplying
+                              ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                              : <CalendarDays className="h-3 w-3 mr-1.5" />
+                            }
+                            All weekdays
+                          </Button>
+                          <Button
+                            variant="outline" size="sm"
+                            className="text-xs h-9 border-dashed"
+                            onClick={() => applyBulkConfig('all')}
+                            disabled={isBulkApplying}
+                            data-testid="button-apply-all-future"
+                          >
+                            {isBulkApplying
+                              ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                              : <CalendarDays className="h-3 w-3 mr-1.5" />
+                            }
+                            All future dates
+                          </Button>
+                        </div>
                       </div>
 
                       {/* Save Button */}
@@ -4118,7 +4226,7 @@ export default function ClinicDashboard() {
                         {isSavingConfig ? (
                           <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</>
                         ) : (
-                          <><Save className="h-4 w-4 mr-2" /> Save {format(configDate, "d MMMM")} Configuration</>
+                          <><Save className="h-4 w-4 mr-2" /> {slotSelectionMode === 'range' && rangeStart && rangeEnd ? `Save Range (${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days)` : `Save ${format(configDate, 'd MMMM')} Configuration`}</>
                         )}
                       </Button>
                     </div>
