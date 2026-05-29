@@ -4272,14 +4272,14 @@ export default function ClinicDashboard() {
                   {showHowItWorks && (
                     <div className="px-4 pb-4 pt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 border-t border-border/30 bg-muted/10">
                       {([
-                        { icon: "📅", text: "Click any date in the grid to open its configuration panel on the right." },
-                        { icon: "↔️", text: "Drag-select a range: click the start day, then hold Shift and click the end day to configure multiple days at once." },
-                        { icon: "🔴", text: "Day Closed blocks all bookings for the selected date(s) — applies to the whole range when one is active." },
-                        { icon: "🔢", text: "Adjust the Max number per time block (Morning / Afternoon / Evening) to control how many patients fit each slot." },
-                        { icon: "🔕", text: "The Close switch on each time block cancels just that session without closing the full day." },
-                        { icon: "💾", text: "Save (single day) is instant. Save Range will ask you to confirm before writing to all selected days." },
-                        { icon: "📋", text: "Set as Default saves the current config as your clinic's template for all future unscheduled dates." },
-                        { icon: "☀️", text: "All Sundays This Month applies the current config to every Sunday this month — useful for weekly closures." },
+                        { icon: "📅", text: "Click any column in the grid to load that day's configuration in the editor panel on the right." },
+                        { icon: "↔️", text: "To configure a date range: use the From and To date pickers above the grid. The entire range gets the same config when saved." },
+                        { icon: "🔴", text: "Close All Slots blocks all bookings for the selected day(s) — use it for holidays, leaves, or clinic-wide closures." },
+                        { icon: "🔢", text: "Adjust Max per time block to control how many patients can book each session (e.g. Early Morning, Afternoon, Evening)." },
+                        { icon: "🔕", text: "The Close switch on each time block cancels just that one session without closing the whole day." },
+                        { icon: "💾", text: "Save writes the config to the selected date(s). For a range, a confirmation step shows exactly what will be overwritten." },
+                        { icon: "📋", text: "All Future Days saves this config as your clinic's default — applies to any future date that has no individual config saved." },
+                        { icon: "☀️", text: "All Sundays This Month writes this config explicitly to every Sunday this month — ideal for weekly closures or reduced Sunday hours." },
                       ] as { icon: string; text: string }[]).map(({ icon, text }) => (
                         <div key={text} className="flex items-start gap-2">
                           <span className="text-sm shrink-0 leading-5 mt-0.5">{icon}</span>
@@ -4342,14 +4342,49 @@ export default function ClinicDashboard() {
                             data-testid="toggle-day-closed"
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold leading-tight">Day Closed</p>
+                            <p className="text-sm font-semibold leading-tight">Close All Slots</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {rangeStart && rangeEnd
-                                ? 'Bookings will be closed for the entire selected date range'
-                                : 'Bookings will be closed for this day'}
+                                ? 'Turns off all booking slots for every day in the selected range'
+                                : 'Turns off all booking slots for this day — patients cannot book any session'}
                             </p>
                           </div>
                           {cfg.isClosed && <Badge className="text-[10px] bg-rose-500 text-white border-0 shrink-0">Closed</Badge>}
+                        </div>
+
+                        {/* Apply this configuration to — moved here, directly below Close All Slots */}
+                        <div className="space-y-2">
+                          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                            Apply this configuration to
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => setPendingBulkAction('future-days')}
+                              disabled={isBulkApplying}
+                              className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 border-primary/30 bg-primary/[0.04] hover:bg-primary/[0.10] hover:border-primary/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              data-testid="button-apply-all-future"
+                            >
+                              {isBulkApplying
+                                ? <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                                : <CalendarDays className="h-4 w-4 text-primary" />
+                              }
+                              <span className="text-xs font-bold text-primary text-center leading-tight">All Future Days</span>
+                              <span className="text-[10px] text-primary/60 text-center leading-tight">Default for all unscheduled dates</span>
+                            </button>
+                            <button
+                              onClick={() => setPendingBulkAction('sundays-this-month')}
+                              disabled={isBulkApplying}
+                              className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 border-amber-500/30 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-500/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              data-testid="button-apply-sundays"
+                            >
+                              {isBulkApplying
+                                ? <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
+                                : <Sun className="h-4 w-4 text-amber-500" />
+                              }
+                              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 text-center leading-tight">All Sundays This Month</span>
+                              <span className="text-[10px] text-amber-600/60 dark:text-amber-400/60 text-center leading-tight">Explicit slots for each Sunday</span>
+                            </button>
+                          </div>
                         </div>
 
                         {/* Per-section capacity */}
@@ -4357,7 +4392,7 @@ export default function ClinicDashboard() {
                           <div className="space-y-2">
                             <div>
                               <p className="text-xs font-bold text-foreground leading-tight">Slot configuration</p>
-                              <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">
+                              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                                 {rangeStart && rangeEnd
                                   ? 'Adjust the values below, then click Save Range to apply to the selected date range'
                                   : 'Adjust the values below, then click Save to apply'}
@@ -4376,10 +4411,10 @@ export default function ClinicDashboard() {
                                 >
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium leading-tight">{slot.label}</p>
-                                    <p className="text-[11px] text-muted-foreground mt-0.5">{formatTime(slot.startHour, slot.startMinute)}–{formatTime(slot.endHour, slot.endMinute)}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">{formatTime(slot.startHour, slot.startMinute)}–{formatTime(slot.endHour, slot.endMinute)}</p>
                                   </div>
                                   <div className="flex items-center gap-1 shrink-0">
-                                    <span className="text-[10px] text-muted-foreground font-medium">Max</span>
+                                    <span className="text-xs text-muted-foreground font-medium">Max</span>
                                     <Input
                                       type="number"
                                       min={0}
@@ -4398,48 +4433,13 @@ export default function ClinicDashboard() {
                                       className="scale-[0.75] data-[state=checked]:bg-rose-500"
                                       data-testid={`switch-close-${slot.id}`}
                                     />
-                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">Close</span>
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">Close</span>
                                   </div>
                                 </div>
                               );
                             })}
                           </div>
                         )}
-
-                        {/* Bulk Apply */}
-                        <div className="space-y-2">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Also apply the above configuration to
-                          </p>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              onClick={() => setPendingBulkAction('future-days')}
-                              disabled={isBulkApplying}
-                              className="flex flex-col items-center justify-center gap-2 px-3 py-3.5 rounded-xl border-2 border-primary/30 bg-primary/[0.04] hover:bg-primary/[0.10] hover:border-primary/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                              data-testid="button-apply-all-future"
-                            >
-                              {isBulkApplying
-                                ? <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                                : <CalendarDays className="h-4 w-4 text-primary" />
-                              }
-                              <span className="text-[11px] font-semibold text-primary text-center leading-snug">Set as Default Schedule</span>
-                            </button>
-
-                            <button
-                              onClick={() => setPendingBulkAction('sundays-this-month')}
-                              disabled={isBulkApplying}
-                              className="flex flex-col items-center justify-center gap-2 px-3 py-3.5 rounded-xl border-2 border-amber-500/30 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-500/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                              data-testid="button-apply-sundays"
-                            >
-                              {isBulkApplying
-                                ? <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
-                                : <Sun className="h-4 w-4 text-amber-500" />
-                              }
-                              <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 text-center leading-snug">All Sundays This Month</span>
-                            </button>
-                          </div>
-                        </div>
 
                         {/* Save Button */}
                         <Button
@@ -4469,7 +4469,7 @@ export default function ClinicDashboard() {
                                 {/* Header */}
                                 <div className={`px-5 pt-5 pb-4 border-b border-border/40 ${cfg.isClosed ? 'bg-rose-50/60 dark:bg-rose-500/10' : 'bg-primary/[0.03]'}`}>
                                   <DialogTitle className="text-base font-bold leading-tight">
-                                    {isDefaultAction ? 'Set as Default Schedule?' : `Apply to All Sundays in ${format(today, 'MMMM yyyy')}?`}
+                                    {isDefaultAction ? 'Apply to All Future Days?' : `Apply to All Sundays in ${format(today, 'MMMM yyyy')}?`}
                                   </DialogTitle>
                                   <DialogDescription className="text-xs text-muted-foreground mt-1">
                                     {isDefaultAction
