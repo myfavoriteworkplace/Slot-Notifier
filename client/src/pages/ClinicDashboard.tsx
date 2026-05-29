@@ -3934,7 +3934,11 @@ export default function ClinicDashboard() {
                   </div>
                 </div>
               </div>
-              <div className="p-5 space-y-5">
+              <div className="p-5">
+                <div className="flex flex-col xl:flex-row gap-5 items-start">
+
+                  {/* LEFT: Grid & Selection */}
+                  <div className="flex-1 min-w-0 space-y-4">
 
                 {/* Selection Mode Toggle */}
                 <div className="flex items-center gap-3 flex-wrap">
@@ -4077,6 +4081,12 @@ export default function ClinicDashboard() {
                     </div>
                   );
                 })()}
+
+                  </div>{/* end left col */}
+
+                  {/* RIGHT: Day Editor */}
+                  <div className="w-full xl:w-72 shrink-0">
+                    <div className="sticky top-[70px]">
 
                 {/* Day Editor */}
                 {(() => {
@@ -4233,6 +4243,9 @@ export default function ClinicDashboard() {
                   );
                 })()}
 
+                    </div>{/* end sticky */}
+                  </div>{/* end right col */}
+                </div>{/* end flex row */}
               </div>
             </div>
           )}
