@@ -1,0 +1,59 @@
+What you're asking for — and what it actually involves
+You want:
+* Booking received notification → Meta WhatsApp Cloud API
+* Consent form link → stays on Twilio
+* Booking confirmation → stays on Twilio
+That is a clean split. Here is exactly what is needed to make it work.
+
+Part 1 — The most important thing to know before writing any code
+The steps you shared cover webhook setup — that is for Meta to send events to you (delivery receipts, incoming replies). That is half the picture.
+The other half is sending the notification to the patient. Meta's Cloud API has a hard rule that Twilio does not have:
+You cannot send a free-form text message to a patient who has never WhatsApp-messaged your business number. Meta calls this an "outside the 24-hour window" scenario. For all first-contact outbound messages, you must use a pre-approved Message Template.
+The current Twilio booking message is free-form:
+Hello {name}! Your appointment request at {clinic} has been received.
+Date: ... Time: ...
+
+That exact content must be converted into a Meta-registered template with numbered variables ({{1}}, {{2}}, etc.), submitted to Meta, and approved by Meta before it can be used. Approval is usually fast (minutes to a few hours) but it is a manual step in the Meta Business portal — no code can bypass it.
+
+Part 2 — What changes in the code
+New file: server/meta-whatsapp.service.ts
+A dedicated service that:
+* Reads WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID from env vars
+* Falls back silently (with a log) if either is missing — booking never fails
+* Formats the patient's phone to E.164 (reuses the same logic as Twilio)
+* Calls POST https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages with the approved template
+* Logs success (with Meta's message ID) or failure
+Changes to server/routes.ts
+Add 2 new routes for Meta webhook:
+* GET /api/whatsapp-webhook — Meta calls this once to verify your endpoint. Checks hub.verify_token against WHATSAPP_VERIFY_TOKEN env var, responds with hub.challenge
+* POST /api/whatsapp-webhook — receives delivery/read status events and logs them (no business logic needed right now)
+Replace 3 call sites — only sendWhatsAppBookingNotification is swapped, the other two functions stay on Twilio:
+Line	Current	After
+1599	sendWhatsAppBookingNotification(...) (Twilio)	sendMetaWhatsAppBookingNotification(...) (Meta)
+1721	sendWhatsAppBookingNotification(...) (Twilio)	sendMetaWhatsAppBookingNotification(...) (Meta)
+2542	sendWhatsAppBookingNotification(...) (Twilio)	sendMetaWhatsAppBookingNotification(...) (Meta)
+sendWhatsAppConsentLink and sendWhatsAppConfirmationNotification in twilio.service.ts — untouched.
+
+Part 3 — New environment variables needed (on Render backend)
+Variable	What it is	Where to get it
+WHATSAPP_ACCESS_TOKEN	Permanent system user token	Meta Business Manager → System Users → Generate token with whatsapp_business_messaging permission
+WHATSAPP_PHONE_NUMBER_ID	Internal Meta ID for your WhatsApp number (not the phone number itself)	Meta Developer Portal → Your App → WhatsApp → API Setup → Phone Number ID field
+WHATSAPP_VERIFY_TOKEN	Any secret string you choose	You invent this — e.g. bms_wh_2026 — must match what you type in Meta portal Verify Token field
+WHATSAPP_TEMPLATE_NAME	Exact name of your approved template	Meta Developer Portal → WhatsApp → Message Templates → name you give it
+Part 4 — Prerequisites you need to complete in Meta portal BEFORE the code will work
+These are account-level steps, not code:
+1. Create a Meta Developer App with WhatsApp product added at developers.facebook.com
+2. Add your WhatsApp Business phone number and verify it
+3. Create and submit a Message Template — the template body will be:Hello {{1}}! 👋  Your appointment request at *{{2}}* has been received.  📅 {{3}} 🕐 {{4}}  We'll send you another message once the clinic confirms your slot.  — BookMySlot 🦷     Where {{1}} = patient name, {{2}} = clinic name, {{3}} = date, {{4}} = time
+4. Wait for Meta approval — usually minutes, occasionally hours
+5. Set webhook URL in Meta Developer Portal to https://api.bookmyslot.dental.mossaic.in/api/whatsapp-webhook and enter your WHATSAPP_VERIFY_TOKEN
+
+Part 5 — Scope summary
+Item	Type	Count
+New file server/meta-whatsapp.service.ts	New	1
+New webhook routes (GET + POST /api/whatsapp-webhook)	New routes in routes.ts	2
+Swap sendWhatsAppBookingNotification → Meta at booking call sites	Edit routes.ts	3 lines
+New import line in routes.ts	Edit	1 line
+twilio.service.ts	Untouched	—
+New env vars on Render	Config (not code)	4
+Do you have the Meta template already approved, or would you li
