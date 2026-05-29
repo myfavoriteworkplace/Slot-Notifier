@@ -311,9 +311,53 @@ WHATSAPP_CONSENT_TEMPLATE=consent_request
 
 Save and Render will restart the backend automatically.
 
-### 4.8 Verify It's Working
+### 4.8 Test with cURL Before Switching Provider
 
-Check your Render logs for:
+Before setting `WHATSAPP_PROVIDER=meta` in Render, you can confirm that your credentials and phone number ID are correct by sending Meta's built-in pre-approved `hello_world` template directly from the terminal. No booking needs to happen and no code changes are required.
+
+```bash
+curl -X POST "https://graph.facebook.com/v19.0/YOUR_PHONE_NUMBER_ID/messages" \
+  -H "Authorization: Bearer YOUR_WHATSAPP_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messaging_product": "whatsapp",
+    "to": "919xxxxxxxxx",
+    "type": "template",
+    "template": {
+      "name": "hello_world",
+      "language": { "code": "en_US" }
+    }
+  }'
+```
+
+Replace three values:
+- `YOUR_PHONE_NUMBER_ID` — the numeric ID from Meta Developer Portal → WhatsApp → API Setup
+- `YOUR_WHATSAPP_ACCESS_TOKEN` — the access token from the same page
+- `919xxxxxxxxx` — the recipient number in E.164 format, no `+`, no spaces (e.g. `919876543210` for an Indian number)
+
+**Success response:**
+```json
+{
+  "messaging_product": "whatsapp",
+  "contacts": [{ "input": "919xxxxxxxxx", "wa_id": "919xxxxxxxxx" }],
+  "messages": [{ "id": "wamid.HBgM..." }]
+}
+```
+
+If you receive a `messages[0].id` in the response and the message arrives on the phone, your credentials are valid and Meta is fully connected.
+
+**Common error codes:**
+
+| Code | Meaning | Fix |
+|---|---|---|
+| `190` | Invalid or expired access token | Regenerate token from Meta Developer Portal |
+| `100` | Invalid `PHONE_NUMBER_ID` | Copy it again from WhatsApp → API Setup |
+| `131030` | Recipient number not on WhatsApp | Try a different number |
+| `132000` | Template `hello_world` not found | Check Meta → WhatsApp → Message Templates |
+
+### 4.9 Verify It's Working After Going Live
+
+Once you have set `WHATSAPP_PROVIDER=meta` in Render and a real booking is made, check your Render logs for:
 ```
 [WHATSAPP-META] Meta Cloud API client ready.
 [WHATSAPP] Active provider: meta
