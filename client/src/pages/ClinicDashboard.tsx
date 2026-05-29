@@ -4089,6 +4089,29 @@ export default function ClinicDashboard() {
                   </Button>
                 </div>
 
+                {/* Grid legend */}
+                <div className="flex items-center justify-between gap-3 px-1 py-1">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-blue-500/30 border border-blue-400/60 inline-block" />
+                      Selected
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] font-medium text-rose-500">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-rose-500/20 border border-rose-400/40 inline-block" />
+                      Closed
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+                      <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded text-[9px] font-bold bg-muted border border-border/60 text-foreground leading-none">3</span>
+                      max bookings
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground/50">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-muted/60 border border-border/30 inline-block" />
+                      Past — locked
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0 hidden sm:block">Click a date to configure →</span>
+                </div>
+
                 {/* Calendar Grid */}
                 {(() => {
                   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(calendarWeekStart, i));
@@ -4102,36 +4125,42 @@ export default function ClinicDashboard() {
                             const isSun = day.getDay() === 0;
                             const isSat = day.getDay() === 6;
                             const isToday = isSameDay(day, new Date());
-                            const isSelected = isDateInSelection(day);
-                            const isEdge = isSameDay(day, rangeStart ?? configDate) || (rangeEnd !== null && isSameDay(day, rangeEnd));
+                            const isPast = !isToday && startOfDay(day) < startOfToday();
+                            const isSelected = !isPast && isDateInSelection(day);
+                            const isEdge = !isPast && (isSameDay(day, rangeStart ?? configDate) || (rangeEnd !== null && isSameDay(day, rangeEnd)));
                             const dayCfg = getConfigForDate(day);
                             return (
                               <button
                                 key={i}
-                                onClick={() => handleSlotDateClick(day)}
+                                onClick={isPast ? undefined : () => handleSlotDateClick(day)}
+                                disabled={isPast}
                                 data-testid={`calendar-day-${format(day, 'yyyy-MM-dd')}`}
                                 className={`relative px-1 py-2 text-center border-l border-border/30 transition-all ${
-                                  isEdge
+                                  isPast
+                                    ? 'opacity-40 cursor-not-allowed bg-muted/30'
+                                    : isEdge
                                     ? 'bg-blue-500/25 ring-1 ring-inset ring-blue-400/50'
                                     : isSelected
                                     ? 'bg-blue-500/15'
                                     : 'hover:bg-muted/50'
                                 }`}
                               >
-                                {(isEdge || isSelected) && (
+                                {!isPast && (isEdge || isSelected) && (
                                   <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-400/70 rounded-b-sm" />
                                 )}
                                 <div className={`text-[10px] uppercase tracking-wide font-medium ${
-                                  isSun || isSat ? 'text-rose-500' : isToday ? 'text-primary' : 'text-muted-foreground'
+                                  isPast ? 'text-muted-foreground/50' : isSun || isSat ? 'text-rose-500' : isToday ? 'text-primary' : 'text-muted-foreground'
                                 }`}>{format(day, 'EEE')}</div>
                                 <div className={`text-sm font-bold mt-0.5 leading-none ${
-                                  isToday
+                                  isPast
+                                    ? 'text-muted-foreground/50'
+                                    : isToday
                                     ? 'h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center mx-auto text-[11px]'
                                     : isSun || isSat ? 'text-rose-500' : ''
                                 }`}>
                                   {format(day, 'd')}
                                 </div>
-                                {dayCfg.isClosed && (
+                                {!isPast && dayCfg.isClosed && (
                                   <div className="text-[8px] font-bold uppercase text-rose-500 mt-0.5 leading-none">closed</div>
                                 )}
                               </button>
@@ -4158,19 +4187,27 @@ export default function ClinicDashboard() {
                               const isClosed = cfg.isClosed || secCfg.isCancelled;
                               const isSelected = isDateInSelection(day);
                               const isToday = isSameDay(day, new Date());
+                              const isPast = !isToday && startOfDay(day) < startOfToday();
                               return (
                                 <button
                                   key={di}
-                                  onClick={() => handleSlotDateClick(day)}
+                                  onClick={isPast ? undefined : () => handleSlotDateClick(day)}
+                                  disabled={isPast}
                                   className={`px-1 py-2 border-l border-border/20 flex flex-col items-center justify-center min-h-[44px] transition-all ${
-                                    isSelected ? 'bg-blue-500/15' : isToday ? 'bg-primary/5' : 'hover:bg-muted/25'
+                                    isPast
+                                      ? 'opacity-35 cursor-not-allowed bg-muted/20'
+                                      : isSelected ? 'bg-blue-500/15' : isToday ? 'bg-primary/5' : 'hover:bg-muted/25'
                                   }`}
                                 >
                                   {isClosed ? (
-                                    <span className="text-[9px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 px-1.5 py-0.5 rounded-full leading-none">Closed</span>
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                                      isPast
+                                        ? 'text-muted-foreground/60 bg-muted border border-border/30'
+                                        : 'text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25'
+                                    }`}>Closed</span>
                                   ) : (
                                     <>
-                                      <span className="text-sm font-bold text-foreground leading-none">{secCfg.maxBookings}</span>
+                                      <span className={`text-sm font-bold leading-none ${isPast ? 'text-muted-foreground/50' : 'text-foreground'}`}>{secCfg.maxBookings}</span>
                                       <span className="text-[9px] text-muted-foreground mt-0.5 leading-none">slots</span>
                                     </>
                                   )}
@@ -4284,7 +4321,14 @@ export default function ClinicDashboard() {
                         {/* Per-section capacity */}
                         {!cfg.isClosed && (
                           <div className="space-y-2">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Capacity per time block</p>
+                            <div>
+                              <p className="text-xs font-bold text-foreground leading-tight">Slot configuration</p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">
+                                {rangeStart && rangeEnd
+                                  ? `Adjust values below and click Save Range to apply to all ${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days (${format(rangeStart, 'd MMM')}–${format(rangeEnd, 'd MMM')})`
+                                  : `Adjust values below and click Save to apply to ${format(configDate, 'EEEE, d MMM')}`}
+                              </p>
+                            </div>
                             {slotTimings.map((slot) => {
                               const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
                               return (
