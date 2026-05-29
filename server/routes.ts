@@ -12,7 +12,7 @@ import { Resend } from 'resend';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
 import ExcelJS from "exceljs";
-import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./twilio.service";
+import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
 import Razorpay from "razorpay";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -1895,6 +1895,36 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       res.status(500).json({ message: "Failed to delete deal", error: err.message });
     }
+  });
+
+  app.get("/api/whatsapp-webhook", (req, res) => {
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
+    if (mode === "subscribe" && verifyToken && token === verifyToken) {
+      console.log("[WHATSAPP-META] Webhook verified by Meta.");
+      res.status(200).send(challenge);
+    } else {
+      console.warn("[WHATSAPP-META] Webhook verification failed — token mismatch or missing.");
+      res.sendStatus(403);
+    }
+  });
+
+  app.post("/api/whatsapp-webhook", (req, res) => {
+    const body = req.body;
+    if (body?.object === "whatsapp_business_account") {
+      const entries = body.entry ?? [];
+      for (const entry of entries) {
+        for (const change of entry.changes ?? []) {
+          const statuses = change.value?.statuses ?? [];
+          for (const status of statuses) {
+            console.log(`[WHATSAPP-META] Delivery event: id=${status.id} status=${status.status} to=${status.recipient_id}`);
+          }
+        }
+      }
+    }
+    res.sendStatus(200);
   });
 
   app.get("/api/health/backend", (req, res) => {
