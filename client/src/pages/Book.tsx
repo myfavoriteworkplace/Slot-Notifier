@@ -180,6 +180,22 @@ export default function Book(props: { params: { clinicId?: string } }) {
   };
 
   const handleSendOtp = () => {
+    if (!customerName) {
+      setOtpError("Please enter your name first.");
+      return;
+    }
+    if (!isAgeValid) {
+      setOtpError("Please enter a valid age (1–120) first.");
+      return;
+    }
+    if (!customerGender) {
+      setOtpError("Please select your gender first.");
+      return;
+    }
+    if (!isPhoneValid) {
+      setOtpError("Please enter a valid phone number first.");
+      return;
+    }
     if (!isEmailValid) {
       setOtpError("Please enter a valid email address first.");
       return;
@@ -1507,7 +1523,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                   <Button
                                     type="button"
                                     onClick={handleSendOtp}
-                                    disabled={!isEmailValid || sendOtpMutation.isPending}
+                                    disabled={!customerName || !isAgeValid || !customerGender || !isPhoneValid || !isEmailValid || sendOtpMutation.isPending}
                                     className="w-full h-10 text-xs font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 rounded-xl shadow-md shadow-primary/15"
                                     data-testid="button-send-otp"
                                   >
