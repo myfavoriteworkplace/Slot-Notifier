@@ -4283,7 +4283,7 @@ export default function ClinicDashboard() {
                             </p>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {rangeStart && rangeEnd
-                                ? `Settings apply to all ${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days — click Save Range to confirm`
+                                ? 'Configure time blocks for the selected date range — click Save Range to confirm'
                                 : 'Configure time blocks for this day'}
                             </p>
                           </div>
@@ -4311,8 +4311,8 @@ export default function ClinicDashboard() {
                             <p className="text-sm font-semibold leading-tight">Day Closed</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {rangeStart && rangeEnd
-                                ? `No bookings on any of the ${differenceInCalendarDays(rangeEnd, rangeStart) + 1} selected days`
-                                : 'No bookings accepted on this day'}
+                                ? 'Bookings will be closed for the entire selected date range'
+                                : 'Bookings will be closed for this day'}
                             </p>
                           </div>
                           {cfg.isClosed && <Badge className="text-[10px] bg-rose-500 text-white border-0 shrink-0">Closed</Badge>}
@@ -4325,8 +4325,8 @@ export default function ClinicDashboard() {
                               <p className="text-xs font-bold text-foreground leading-tight">Slot configuration</p>
                               <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">
                                 {rangeStart && rangeEnd
-                                  ? `Adjust values below and click Save Range to apply to all ${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days (${format(rangeStart, 'd MMM')}–${format(rangeEnd, 'd MMM')})`
-                                  : `Adjust values below and click Save to apply to ${format(configDate, 'EEEE, d MMM')}`}
+                                  ? 'Adjust the values below, then click Save Range to apply to the selected date range'
+                                  : 'Adjust the values below, then click Save to apply'}
                               </p>
                             </div>
                             {slotTimings.map((slot) => {
@@ -4375,48 +4375,36 @@ export default function ClinicDashboard() {
                         {/* Bulk Apply */}
                         <div className="space-y-2">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            {rangeStart && rangeEnd
-                              ? `Extend ${format(rangeStart, 'd MMM')}–${format(rangeEnd, 'd MMM')} config to`
-                              : `Extend ${format(configDate, 'd MMM')} config to`}
+                            Also apply the above configuration to
                           </p>
 
-                          <button
-                            onClick={() => setPendingBulkAction('future-days')}
-                            disabled={isBulkApplying}
-                            className="w-full flex items-center gap-3 p-3 rounded-xl border border-primary/20 bg-primary/[0.04] hover:bg-primary/[0.08] hover:border-primary/30 active:scale-[0.98] transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                            data-testid="button-apply-all-future"
-                          >
-                            <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => setPendingBulkAction('future-days')}
+                              disabled={isBulkApplying}
+                              className="flex flex-col items-center justify-center gap-2 px-3 py-3.5 rounded-xl border-2 border-primary/30 bg-primary/[0.04] hover:bg-primary/[0.10] hover:border-primary/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              data-testid="button-apply-all-future"
+                            >
                               {isBulkApplying
                                 ? <Loader2 className="h-4 w-4 text-primary animate-spin" />
                                 : <CalendarDays className="h-4 w-4 text-primary" />
                               }
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-primary leading-tight">Set as Default Schedule</p>
-                              <p className="text-[11px] text-muted-foreground mt-0.5">Applies to all future unscheduled dates</p>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                          </button>
+                              <span className="text-[11px] font-semibold text-primary text-center leading-snug">Set as Default Schedule</span>
+                            </button>
 
-                          <button
-                            onClick={() => setPendingBulkAction('sundays-this-month')}
-                            disabled={isBulkApplying}
-                            className="w-full flex items-center gap-3 p-3 rounded-xl border border-amber-500/20 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-500/30 active:scale-[0.98] transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                            data-testid="button-apply-sundays"
-                          >
-                            <div className="h-9 w-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                            <button
+                              onClick={() => setPendingBulkAction('sundays-this-month')}
+                              disabled={isBulkApplying}
+                              className="flex flex-col items-center justify-center gap-2 px-3 py-3.5 rounded-xl border-2 border-amber-500/30 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-500/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              data-testid="button-apply-sundays"
+                            >
                               {isBulkApplying
                                 ? <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
                                 : <Sun className="h-4 w-4 text-amber-500" />
                               }
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-amber-600 dark:text-amber-400 leading-tight">All Sundays This Month</p>
-                              <p className="text-[11px] text-muted-foreground mt-0.5">Sundays in {format(new Date(), 'MMMM yyyy')}</p>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                          </button>
+                              <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 text-center leading-snug">All Sundays This Month</span>
+                            </button>
+                          </div>
                         </div>
 
                         {/* Save Button */}
