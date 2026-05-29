@@ -39,9 +39,11 @@ interface SlotTiming {
 }
 
 const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
-  { id: "1", label: "Morning",   startHour: 9,  startMinute: 0, endHour: 12, endMinute: 0 },
-  { id: "2", label: "Afternoon", startHour: 14, startMinute: 0, endHour: 16, endMinute: 0 },
-  { id: "3", label: "Evening",   startHour: 16, startMinute: 0, endHour: 18, endMinute: 0 },
+  { id: "1", label: "Early Morning", startHour: 8,  startMinute: 0,  endHour: 10, endMinute: 0  },
+  { id: "2", label: "Late Morning",  startHour: 10, startMinute: 0,  endHour: 12, endMinute: 30 },
+  { id: "3", label: "Midday",        startHour: 12, startMinute: 30, endHour: 14, endMinute: 0  },
+  { id: "4", label: "Afternoon",     startHour: 14, startMinute: 0,  endHour: 17, endMinute: 0  },
+  { id: "5", label: "Evening",       startHour: 17, startMinute: 0,  endHour: 19, endMinute: 30 },
 ];
 
 const DENTAL_CATEGORIES = [
