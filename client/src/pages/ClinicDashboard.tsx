@@ -260,6 +260,8 @@ export default function ClinicDashboard() {
   const [calendarWeekStart, setCalendarWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [isBulkApplying, setIsBulkApplying] = useState(false);
+  const [pendingBulkAction, setPendingBulkAction] = useState<'future-days' | 'sundays-this-month' | null>(null);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [endDatePickerOpen, setEndDatePickerOpen] = useState(false);
   const [rangeStart, setRangeStart] = useState<Date | null>(startOfToday());
@@ -4288,7 +4290,7 @@ export default function ClinicDashboard() {
                           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Apply this config to</p>
 
                           <button
-                            onClick={() => applyBulkConfig('future-days')}
+                            onClick={() => setPendingBulkAction('future-days')}
                             disabled={isBulkApplying}
                             className="w-full flex items-center gap-3 p-3 rounded-xl border border-primary/20 bg-primary/[0.04] hover:bg-primary/[0.08] hover:border-primary/30 active:scale-[0.98] transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                             data-testid="button-apply-all-future"
@@ -4307,7 +4309,7 @@ export default function ClinicDashboard() {
                           </button>
 
                           <button
-                            onClick={() => applyBulkConfig('sundays-this-month')}
+                            onClick={() => setPendingBulkAction('sundays-this-month')}
                             disabled={isBulkApplying}
                             className="w-full flex items-center gap-3 p-3 rounded-xl border border-amber-500/20 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-500/30 active:scale-[0.98] transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                             data-testid="button-apply-sundays"
@@ -4339,6 +4341,160 @@ export default function ClinicDashboard() {
                             <><Save className="h-4 w-4 mr-2" /> {rangeStart && rangeEnd ? `Save Range (${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days)` : `Save ${format(configDate, 'd MMMM')} Config`}</>
                           )}
                         </Button>
+
+                        {/* ── How this screen works — collapsible guide ── */}
+                        <div className="rounded-xl border border-border/40 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setShowHowItWorks(h => !h)}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
+                            data-testid="button-toggle-how-it-works"
+                          >
+                            <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-xs font-semibold text-muted-foreground flex-1">How this screen works</span>
+                            {showHowItWorks
+                              ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                              : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                          </button>
+                          {showHowItWorks && (
+                            <div className="px-3 pb-3 pt-2 space-y-2.5 border-t border-border/30 bg-muted/10">
+                              {([
+                                { icon: "📅", text: "Select any date on the calendar to open its configuration here." },
+                                { icon: "🔴", text: "Day Closed blocks all bookings for that date only — patients cannot book." },
+                                { icon: "🔢", text: "Set the Max number per time block to control how many patients fit each slot (Morning / Afternoon / Evening)." },
+                                { icon: "🔕", text: "The Close switch on each time block cancels just that session without closing the full day." },
+                                { icon: "📋", text: "Set as Default saves this config as the template for all future dates you haven't individually configured." },
+                                { icon: "☀️", text: "All Sundays This Month applies current settings to every Sunday this month — useful for recurring weekly closures." },
+                              ] as { icon: string; text: string }[]).map(({ icon, text }) => (
+                                <div key={text} className="flex items-start gap-2">
+                                  <span className="text-sm shrink-0 leading-5">{icon}</span>
+                                  <p className="text-xs text-muted-foreground leading-relaxed">{text}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ── Bulk Apply Confirmation Dialog ── */}
+                        {(() => {
+                          const today = new Date();
+                          const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                          const monthEnd   = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                          const sundaysThisMonth = getDatesInRange(monthStart, monthEnd).filter((d: Date) => d.getDay() === 0);
+                          const isDefaultAction  = pendingBulkAction === 'future-days';
+
+                          return (
+                            <Dialog open={!!pendingBulkAction} onOpenChange={(open) => { if (!open) setPendingBulkAction(null); }}>
+                              <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden gap-0">
+                                {/* Header */}
+                                <div className={`px-5 pt-5 pb-4 border-b border-border/40 ${cfg.isClosed ? 'bg-rose-50/60 dark:bg-rose-500/10' : 'bg-primary/[0.03]'}`}>
+                                  <DialogTitle className="text-base font-bold leading-tight">
+                                    {isDefaultAction ? 'Set as Default Schedule?' : `Apply to All Sundays in ${format(today, 'MMMM yyyy')}?`}
+                                  </DialogTitle>
+                                  <DialogDescription className="text-xs text-muted-foreground mt-1">
+                                    {isDefaultAction
+                                      ? "This updates your clinic's default template for future dates."
+                                      : `This overwrites slot config for every Sunday in ${format(today, 'MMMM yyyy')}.`}
+                                  </DialogDescription>
+                                </div>
+
+                                <div className="px-5 py-4 space-y-3">
+                                  {/* What will be applied */}
+                                  <div className={`rounded-xl border p-3 space-y-1.5 ${
+                                    cfg.isClosed
+                                      ? 'border-rose-300/60 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10'
+                                      : 'border-primary/25 bg-primary/[0.04]'
+                                  }`}>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">What will be applied</p>
+                                    {cfg.isClosed ? (
+                                      <div className="flex items-center gap-2">
+                                        <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                                        <p className="text-sm font-semibold text-rose-700 dark:text-rose-400">Day Closed — no bookings accepted</p>
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                                          <p className="text-sm font-semibold text-primary">Day Open — bookings accepted</p>
+                                        </div>
+                                        {slotTimings.map(slot => {
+                                          const secCfg = cfg.sections[slot.id] ?? { maxBookings: 3, isCancelled: false };
+                                          return (
+                                            <p key={slot.id} className="text-xs text-muted-foreground pl-4">
+                                              {secCfg.isCancelled
+                                                ? `${slot.label}: Closed`
+                                                : `${slot.label}: up to ${secCfg.maxBookings} patient${secCfg.maxBookings !== 1 ? 's' : ''}`}
+                                            </p>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Scope */}
+                                  <div className="rounded-xl border border-border/40 bg-muted/20 p-3 space-y-2">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Applies to</p>
+                                    {isDefaultAction ? (
+                                      <p className="text-sm text-foreground leading-relaxed">
+                                        All future dates that <span className="font-semibold">haven't been individually configured</span>. Dates you've already saved separately will not be changed.
+                                      </p>
+                                    ) : (
+                                      <div className="space-y-1.5">
+                                        <p className="text-sm text-foreground">
+                                          {sundaysThisMonth.length} Sunday{sundaysThisMonth.length !== 1 ? 's' : ''} in {format(today, 'MMMM yyyy')}:
+                                        </p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {sundaysThisMonth.map(d => (
+                                            <span key={d.toISOString()} className="text-[11px] font-medium bg-background border border-border/60 px-2 py-0.5 rounded-full">
+                                              {format(d, 'EEE d MMM')}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Safety note */}
+                                  <div className="flex items-start gap-2 px-0.5">
+                                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-muted-foreground">
+                                      Bookings already confirmed on those dates will <span className="font-semibold">not</span> be cancelled automatically.
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Footer */}
+                                <div className="px-5 pb-5 flex gap-2.5">
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => setPendingBulkAction(null)}
+                                    className="flex-1"
+                                    data-testid="button-bulk-cancel"
+                                  >
+                                    Go Back
+                                  </Button>
+                                  <Button
+                                    onClick={() => { if (pendingBulkAction) { applyBulkConfig(pendingBulkAction); setPendingBulkAction(null); } }}
+                                    disabled={isBulkApplying}
+                                    className={`flex-1 border-0 shadow-sm ${
+                                      cfg.isClosed
+                                        ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/20'
+                                        : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20'
+                                    }`}
+                                    data-testid="button-bulk-confirm"
+                                  >
+                                    {isBulkApplying
+                                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Applying…</>
+                                      : isDefaultAction
+                                        ? 'Yes, Set as Default'
+                                        : `Yes, Apply to ${sundaysThisMonth.length} Sunday${sundaysThisMonth.length !== 1 ? 's' : ''}`}
+                                  </Button>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          );
+                        })()}
+
                       </div>
                     </div>
                   );
