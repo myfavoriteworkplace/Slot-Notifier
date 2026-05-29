@@ -205,12 +205,16 @@ export default function ClinicDashboard() {
   const [bookingName, setBookingName] = useState("");
   const [bookingPhone, setBookingPhone] = useState("");
   const [bookingEmail, setBookingEmail] = useState("");
+  const [bookingAge, setBookingAge] = useState("");
+  const [bookingGender, setBookingGender] = useState("");
   const [bookingDescription, setBookingDescription] = useState("");
   const [bookingDate, setBookingDate] = useState<Date>(startOfToday());
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState("");
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingShowReview, setBookingShowReview] = useState(false);
+  const [bookingSlotPanelOpen, setBookingSlotPanelOpen] = useState(false);
+  const [bookingOpenCategory, setBookingOpenCategory] = useState<string | null>(null);
   const [slotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
   const DENTAL_CATEGORIES = [
@@ -684,12 +688,16 @@ export default function ClinicDashboard() {
     setBookingName("");
     setBookingPhone("");
     setBookingEmail("");
+    setBookingAge("");
+    setBookingGender("");
     setBookingDescription("");
     setBookingDate(startOfToday());
     setSelectedSlot(null);
     setPhoneError("");
     setBookingSuccess(false);
     setBookingShowReview(false);
+    setBookingSlotPanelOpen(false);
+    setBookingOpenCategory(null);
   };
 
   const cancelBookingMutation = useMutation({
@@ -741,6 +749,11 @@ export default function ClinicDashboard() {
     const endTime = new Date(bookingDate);
     endTime.setHours(slotInfo.endHour, slotInfo.endMinute, 0, 0);
 
+    const descParts: string[] = [];
+    if (bookingAge) descParts.push(`Age: ${bookingAge}`);
+    if (bookingGender) descParts.push(`Gender: ${bookingGender}`);
+    if (bookingDescription) descParts.push(bookingDescription);
+
     createBookingMutation.mutate({
       customerName: bookingName,
       customerPhone: bookingPhone,
@@ -749,11 +762,32 @@ export default function ClinicDashboard() {
       clinicName: clinic.name,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
-      description: bookingDescription
+      description: descParts.join(' | ')
     } as any);
   };
 
   const dates = Array.from({ length: 14 }, (_, i) => addDays(startOfToday(), i));
+
+  type AdminSlotAvailRow = { slotIndex: number; label: string; startTimeISO: string; count: number; max: number; isCancelled: boolean; spotsLeft: number };
+  const { data: adminSlotAvailability, isFetching: adminSlotFetching } = useQuery<AdminSlotAvailRow[]>({
+    queryKey: ['admin-slot-availability', clinic?.id, format(bookingDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      if (!clinic) return [];
+      const payload = {
+        clinicId: clinic.id,
+        slots: slotTimings.map((slot, idx) => {
+          const t = new Date(bookingDate);
+          t.setHours(slot.startHour, slot.startMinute, 0, 0);
+          return { slotIndex: idx, label: slot.label, startTimeISO: t.toISOString() };
+        }),
+      };
+      const res = await apiRequest('POST', '/api/public/slot-availability', payload);
+      if (!res.ok) throw new Error('Failed to fetch slot availability');
+      return res.json();
+    },
+    enabled: !!clinic && bookingSlotPanelOpen,
+    staleTime: 30_000,
+  });
 
   const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
     queryKey: ['/api/auth/clinic/bookings'],
@@ -5327,7 +5361,6 @@ export default function ClinicDashboard() {
                 </div>
               </div>
               <div className="p-5">
-              <div className="border-t border-border/30 px-4 pb-4 pt-3">
                 {bookingSuccess ? (
                   <div className="py-10 flex flex-col items-center gap-5 text-center">
                     <div className="relative">
@@ -5377,134 +5410,177 @@ export default function ClinicDashboard() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-6">
-                    {/* Patient Details */}
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="booking-name" className="text-left block">Patient Name</Label>
+                  <div className="flex flex-col lg:flex-row gap-6">
+
+                    {/* ── LEFT: Patient Details ── */}
+                    <div className="flex-1 min-w-0 space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-border/30">
+                        <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Patient Details</span>
+                      </div>
+
+                      {/* Name */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="booking-name" className="block">Patient Name <span className="text-destructive">*</span></Label>
                         <Input
                           id="booking-name"
                           value={bookingName}
                           onChange={(e) => setBookingName(e.target.value)}
                           placeholder="e.g. Rahul Verma"
+                          onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                           data-testid="input-booking-name"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="booking-phone" className="text-left block">Phone Number</Label>
-                        <div className="space-y-1">
+
+                      {/* Mobile + Email */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="booking-phone" className="block">Mobile <span className="text-destructive">*</span></Label>
                           <Input
                             id="booking-phone"
+                            type="tel"
                             value={bookingPhone}
                             onChange={(e) => handleBookingPhoneChange(e.target.value)}
                             className={phoneError ? "border-destructive" : ""}
-                            placeholder="+91 9876543210"
+                            placeholder="+91 98765 43210"
+                            onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                             data-testid="input-booking-phone"
                           />
-                          {phoneError && (
-                            <p className="text-xs text-destructive">{phoneError}</p>
-                          )}
+                          {phoneError && <p className="text-xs text-destructive mt-1">{phoneError}</p>}
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="booking-email" className="block">Email <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+                          <Input
+                            id="booking-email"
+                            type="email"
+                            value={bookingEmail}
+                            onChange={(e) => setBookingEmail(e.target.value)}
+                            placeholder="e.g. patient@example.com"
+                            onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                            data-testid="input-booking-email"
+                          />
                         </div>
                       </div>
+
+                      {/* Age + Gender */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="booking-age" className="block">Age <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+                          <Input
+                            id="booking-age"
+                            type="number"
+                            inputMode="numeric"
+                            min={1}
+                            max={120}
+                            value={bookingAge}
+                            onChange={(e) => setBookingAge(e.target.value)}
+                            placeholder="e.g. 32"
+                            onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                            data-testid="input-booking-age"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="booking-gender" className="block">Gender <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+                          <select
+                            id="booking-gender"
+                            value={bookingGender}
+                            onChange={(e) => setBookingGender(e.target.value)}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            data-testid="select-booking-gender"
+                          >
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Chief Complaints */}
                       <div className="space-y-2">
-                        <Label htmlFor="booking-email" className="text-left block">Email <span className="text-muted-foreground font-normal text-xs">(optional — for confirmation)</span></Label>
-                        <Input
-                          id="booking-email"
-                          type="email"
-                          value={bookingEmail}
-                          onChange={(e) => setBookingEmail(e.target.value)}
-                          placeholder="patient@example.com"
-                          data-testid="input-booking-email"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Chief Complaints Section */}
-                    <div className="space-y-3 py-2">
-                      <Label className="text-sm font-semibold text-left block">Chief Complaints</Label>
-                      <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-                        {DENTAL_CATEGORIES.map((cat) => (
-                          <div key={cat.category}>
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                              <span>{cat.emoji}</span> {cat.category}
-                            </p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {cat.subIssues.map((complaint) => {
-                                const isSelected = bookingDescription.split(", ").includes(complaint);
-                                return (
-                                  <Badge
-                                    key={complaint}
-                                    variant={isSelected ? "default" : "outline"}
-                                    className="cursor-pointer transition-all hover:scale-105 active:scale-95 px-2.5 py-0.5 text-[11px]"
-                                    onClick={() => handleComplaintClick(complaint)}
-                                  >
-                                    {complaint}
-                                  </Badge>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="booking-description" className="text-left block">Description</Label>
-                      <textarea
-                        id="booking-description"
-                        value={bookingDescription}
-                        onChange={(e) => setBookingDescription(e.target.value)}
-                        placeholder="e.g. Toothache, sensitivity to cold"
-                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                    </div>
-
-                    {/* Date Selection */}
-                    <div className="space-y-2">
-                      <Label className="text-left block">Select Date</Label>
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                        <div className="flex-1 w-full overflow-hidden">
-                          <ScrollArea className="w-full whitespace-nowrap pb-2">
-                            <div className="flex space-x-3 px-1 py-1">
-                              {dates.map((date) => {
-                                const isSelected = isSameDay(date, bookingDate);
-                                return (
-                                  <button
-                                    key={date.toISOString()}
-                                    onClick={() => setBookingDate(date)}
-                                    data-testid={`booking-date-${format(date, 'yyyy-MM-dd')}`}
-                                    className={`
-                                      flex flex-col items-center justify-center min-w-[4.5rem] h-16 rounded-xl border transition-all duration-200
-                                      ${isSelected
-                                        ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105'
-                                        : 'bg-card hover:border-primary/50 hover:bg-muted/50'}
-                                    `}
-                                  >
-                                    <span className="text-[10px] font-medium uppercase mb-0.5 opacity-80">
-                                      {format(date, "EEE")}
-                                    </span>
-                                    <span className="text-lg font-bold">
-                                      {format(date, "d")}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <ScrollBar orientation="horizontal" />
-                          </ScrollArea>
+                        <Label className="block">Chief Complaints <span className="text-xs font-normal text-muted-foreground">(select all that apply)</span></Label>
+                        <div className="rounded-xl border border-border/40 divide-y divide-border/30 max-h-72 overflow-y-auto">
+                          {DENTAL_CATEGORIES.map((cat) => {
+                            const isOpen = bookingOpenCategory === cat.category;
+                            const hasSelected = cat.subIssues.some(s => bookingDescription.split(", ").includes(s));
+                            return (
+                              <div key={cat.category}>
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-muted/30 active:bg-muted/40 transition-colors min-h-[44px]"
+                                  onClick={() => setBookingOpenCategory(isOpen ? null : cat.category)}
+                                  data-testid={`complaint-cat-${cat.category.replace(/[^\w]+/g, '-').toLowerCase()}`}
+                                >
+                                  <span className="flex items-center gap-2 text-sm font-medium">
+                                    <span className="text-base leading-none">{cat.emoji}</span>
+                                    <span className="text-left leading-snug">{cat.category}</span>
+                                    {hasSelected && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+                                  </span>
+                                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                {isOpen && (
+                                  <div className="px-3 pb-3 pt-2 bg-muted/10">
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {cat.subIssues.map((complaint) => {
+                                        const isSelected = bookingDescription.split(", ").includes(complaint);
+                                        return (
+                                          <Badge
+                                            key={complaint}
+                                            variant={isSelected ? "default" : "outline"}
+                                            className="cursor-pointer transition-all hover:scale-105 active:scale-95 text-xs"
+                                            onClick={() => handleComplaintClick(complaint)}
+                                            data-testid={`complaint-${complaint.replace(/[^\w]+/g, '-').toLowerCase()}`}
+                                          >
+                                            {complaint}
+                                          </Badge>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
+                        {bookingDescription && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {bookingDescription.split(", ").filter(Boolean).map(issue => (
+                              <span key={issue} className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                {issue}
+                                <button
+                                  type="button"
+                                  onClick={() => handleComplaintClick(issue)}
+                                  className="hover:text-destructive transition-colors"
+                                  data-testid={`remove-complaint-${issue.replace(/[^\w]+/g, '-').toLowerCase()}`}
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-                        <div className="flex-shrink-0 pb-2">
+                    {/* ── Dividers ── */}
+                    <div className="hidden lg:block w-px bg-border/40 self-stretch" />
+                    <div className="lg:hidden h-px w-full bg-border/40" />
+
+                    {/* ── RIGHT: Date & Slot Selection ── */}
+                    <div className="lg:w-[320px] shrink-0 space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-border/30">
+                        <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Select Appointment</span>
+                      </div>
+
+                      {/* Date strip */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground font-medium">{format(bookingDate, "EEE, d MMM yyyy")}</span>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-16 w-full sm:w-14 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-muted/50 transition-all"
-                                data-testid="button-booking-calendar"
-                              >
-                                <CalendarIcon className="h-5 w-5 text-muted-foreground mr-2 sm:mr-0" />
-                                <span className="sm:hidden font-medium">Choose from calendar</span>
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground" data-testid="button-booking-calendar">
+                                <CalendarIcon className="h-3.5 w-3.5" /> Pick date
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0 rounded-xl shadow-2xl border-border/50" align="end">
@@ -5512,7 +5588,7 @@ export default function ClinicDashboard() {
                                 mode="single"
                                 selected={bookingDate}
                                 onSelect={(date) => {
-                                  if (date) setBookingDate(date);
+                                  if (date) { setBookingDate(date); setSelectedSlot(null); setBookingSlotPanelOpen(true); }
                                 }}
                                 disabled={(date) => date < startOfToday()}
                                 initialFocus
@@ -5520,191 +5596,181 @@ export default function ClinicDashboard() {
                             </PopoverContent>
                           </Popover>
                         </div>
+                        <ScrollArea className="w-full whitespace-nowrap pb-2">
+                          <div className="flex space-x-2 px-0.5">
+                            {dates.map((date) => {
+                              const isSelected = isSameDay(date, bookingDate);
+                              return (
+                                <button
+                                  key={date.toISOString()}
+                                  onClick={() => { setBookingDate(date); setSelectedSlot(null); setBookingSlotPanelOpen(true); }}
+                                  data-testid={`booking-date-${format(date, 'yyyy-MM-dd')}`}
+                                  className={`flex flex-col items-center justify-center min-w-[3.25rem] h-14 rounded-xl border transition-all duration-200 ${
+                                    isSelected
+                                      ? 'bg-primary text-primary-foreground border-primary shadow-md scale-105'
+                                      : 'bg-card border-border/50 hover:border-primary/50 hover:bg-primary/5'
+                                  }`}
+                                >
+                                  <span className={`text-[9px] font-semibold uppercase tracking-wide ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{format(date, "EEE")}</span>
+                                  <span className="text-sm font-bold leading-none mt-0.5">{format(date, "d")}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
                       </div>
-                    </div>
 
-                    {/* Time Slot Selection */}
-                    <div className="space-y-2">
-                      <Label className="text-left block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Select Time Slot</Label>
-                      <div className="space-y-2">
-                        {slotTimings.filter(slot => {
-                          const startTime = new Date(bookingDate);
-                          startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
-                          const isoString = startTime.toISOString();
-                          if (localStorage.getItem("demo_clinic_active") === "true") {
-                            const storedConfigs = localStorage.getItem("demo_slot_configs");
-                            const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
-                            if (configs[isoString]?.isCancelled) return false;
-                            return true;
-                          } else {
-                            const existingBookingWithSlot = bookings?.find(b =>
-                              new Date(b.slot.startTime).toISOString() === isoString
-                            );
-                            if (existingBookingWithSlot?.slot.isCancelled) return false;
-                            return true;
-                          }
-                        }).map((slot) => {
-                          const startTime = new Date(bookingDate);
-                          startTime.setHours(slot.startHour, slot.startMinute, 0, 0);
-                          const isoString = startTime.toISOString();
-                          const defaultCap = DEFAULT_SECTION_CAPACITY[slot.id] ?? 3;
-                          let isFull = false;
-                          let spotsLeft = defaultCap;
-                          let maxBookings = defaultCap;
-                          if (localStorage.getItem("demo_clinic_active") === "true") {
-                            const storedConfigs = localStorage.getItem("demo_slot_configs");
-                            const configs = storedConfigs ? JSON.parse(storedConfigs) : {};
-                            maxBookings = configs[isoString]?.maxBookings ?? defaultCap;
-                            const currentBookings = bookings?.filter(b =>
-                              new Date(b.slot.startTime).toISOString() === isoString
-                            ).length || 0;
-                            spotsLeft = Math.max(0, maxBookings - currentBookings);
-                            isFull = currentBookings >= maxBookings;
-                          } else {
-                            const currentBookings = bookings?.filter(b =>
-                              new Date(b.slot.startTime).toISOString() === isoString
-                            ).length || 0;
-                            const existingBookingWithSlot = bookings?.find(b =>
-                              new Date(b.slot.startTime).toISOString() === isoString
-                            );
-                            maxBookings = existingBookingWithSlot?.slot.maxBookings ?? defaultCap;
-                            spotsLeft = Math.max(0, maxBookings - currentBookings);
-                            isFull = currentBookings >= maxBookings;
-                          }
-                          const isSelected = selectedSlot === slot.id;
-                          const slotIcon = slot.startHour < 12
-                            ? { Icon: Sun, color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-400/30" }
-                            : slot.startHour < 16
-                            ? { Icon: Clock, color: "text-sky-500", bg: "bg-sky-500/10", border: "border-sky-400/30" }
-                            : { Icon: Moon, color: "text-primary", bg: "bg-primary/10", border: "border-primary/30" };
-                          const { Icon, color, bg, border } = slotIcon;
-                          return (
-                            <TooltipProvider key={slot.id}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
+                      {/* Slot reveal — shown after first date tap */}
+                      {!bookingSlotPanelOpen ? (
+                        <div className="flex flex-col items-center justify-center py-8 rounded-xl border border-dashed border-border/50 gap-2 text-center">
+                          <CalendarDays className="h-6 w-6 text-muted-foreground/40" />
+                          <p className="text-sm text-muted-foreground">Tap a date above to see available slots</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block">Available Time Slots</span>
+                          {adminSlotFetching ? (
+                            <div className="space-y-2">
+                              {[0, 1, 2].map(i => (
+                                <div key={i} className="h-[60px] rounded-xl border border-border/40 bg-muted/30 animate-pulse" />
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {slotTimings.map((slot, slotIdx) => {
+                                const avail = adminSlotAvailability?.find(a => a.slotIndex === slotIdx);
+                                const isSlotCancelled = avail?.isCancelled ?? false;
+                                if (isSlotCancelled) return null;
+                                const spotsLeft = avail?.spotsLeft ?? DEFAULT_SECTION_CAPACITY[slot.id] ?? 3;
+                                const isFull = avail ? avail.spotsLeft === 0 : false;
+                                const isSelected = selectedSlot === slot.id;
+                                const slotIcon = slot.startHour < 12
+                                  ? { Icon: Sun, color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-400/30" }
+                                  : slot.startHour < 16
+                                  ? { Icon: Clock, color: "text-sky-500", bg: "bg-sky-500/10", border: "border-sky-400/30" }
+                                  : { Icon: Moon, color: "text-primary", bg: "bg-primary/10", border: "border-primary/30" };
+                                const { Icon, color, bg, border } = slotIcon;
+                                return (
                                   <button
+                                    key={slot.id}
                                     onClick={() => !isFull && setSelectedSlot(slot.id)}
                                     disabled={isFull}
                                     data-testid={`booking-slot-${slot.id}`}
-                                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left relative overflow-hidden ${
+                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
                                       isSelected
-                                        ? "bg-primary/10 border-primary/40 ring-2 ring-primary/20 shadow-md shadow-primary/10"
+                                        ? "bg-primary/10 border-primary/40 ring-2 ring-primary/20 shadow-sm"
                                         : isFull
-                                        ? "bg-muted/30 border-border/40 opacity-50 cursor-not-allowed"
-                                        : "bg-card border-border/50 hover:border-primary/30 hover:bg-primary/4 hover:shadow-md"
+                                        ? "bg-muted/20 border-border/30 opacity-50 cursor-not-allowed"
+                                        : "bg-card border-border/50 hover:border-primary/30 hover:bg-primary/5"
                                     }`}
                                   >
-                                    {isSelected && (
-                                      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-accent/5 pointer-events-none" />
-                                    )}
-                                    <div className={`relative h-11 w-11 rounded-xl ${bg} border ${border} flex items-center justify-center shrink-0`}>
-                                      <Icon className={`h-5 w-5 ${color}`} />
+                                    <div className={`h-9 w-9 rounded-lg ${bg} border ${border} flex items-center justify-center shrink-0`}>
+                                      <Icon className={`h-4 w-4 ${color}`} />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="font-bold text-sm">{slot.label}</p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {formatTime(slot.startHour, slot.startMinute)} → {formatTime(slot.endHour, slot.endMinute)}
-                                      </p>
+                                      <p className="text-sm font-semibold leading-tight">{slot.label}</p>
+                                      <p className="text-xs text-muted-foreground">{formatTime(slot.startHour, slot.startMinute)} – {formatTime(slot.endHour, slot.endMinute)}</p>
                                     </div>
-                                    <div className="shrink-0 text-right">
+                                    <div className="shrink-0">
                                       {isFull ? (
-                                        <span className="text-xs font-bold bg-destructive/10 text-destructive border border-destructive/20 px-2 py-1 rounded-lg">FULL</span>
+                                        <span className="text-xs font-bold bg-destructive/10 text-destructive border border-destructive/20 px-2 py-0.5 rounded-lg">Full</span>
                                       ) : (
-                                        <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
-                                          spotsLeft <= 1 ? "bg-amber-500/10 text-amber-600 border border-amber-400/20" : "bg-emerald-500/10 text-emerald-600 border border-emerald-400/20"
-                                        }`}>
+                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-lg border ${spotsLeft <= 1 ? "bg-amber-500/10 text-amber-600 border-amber-400/20" : "bg-emerald-500/10 text-emerald-600 border-emerald-400/20"}`}>
                                           {spotsLeft} left
                                         </span>
                                       )}
                                     </div>
-                                    {isSelected && (
-                                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                                    )}
+                                    {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
                                   </button>
-                                </TooltipTrigger>
-                                {isFull && (
-                                  <TooltipContent><p>This slot is fully booked</p></TooltipContent>
-                                )}
-                              </Tooltip>
-                            </TooltipProvider>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Review & Submit */}
-                    {bookingShowReview ? (
-                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="text-center space-y-0.5 pb-1">
-                          <p className="text-sm font-bold text-foreground">Review Booking</p>
-                          <p className="text-xs text-muted-foreground">Double-check everything before confirming</p>
-                        </div>
-                        <div className="rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
-                          <div className="px-4 py-3 space-y-0.5">
-                            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Patient</p>
-                            <p className="text-sm font-bold text-foreground">{bookingName}</p>
-                            <p className="text-xs text-muted-foreground">{bookingPhone}{bookingEmail ? ` · ${bookingEmail}` : ""}</p>
-                          </div>
-                          {(() => {
-                            const reviewSlot = slotTimings.find(s => s.id === selectedSlot);
-                            return reviewSlot ? (
-                              <div className="px-4 py-3 space-y-0.5">
-                                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Appointment</p>
-                                <p className="text-sm font-bold text-foreground">{format(bookingDate, "EEEE, d MMMM yyyy")}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {reviewSlot.label} · {formatTime(reviewSlot.startHour, reviewSlot.startMinute)}–{formatTime(reviewSlot.endHour, reviewSlot.endMinute)}
-                                </p>
-                              </div>
-                            ) : null;
-                          })()}
-                          {bookingDescription && (
-                            <div className="px-4 py-3 space-y-1.5">
-                              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Chief Complaints</p>
-                              <div className="flex flex-wrap gap-1">
-                                {bookingDescription.split(", ").filter(Boolean).map(issue => (
-                                  <span key={issue} className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">{issue}</span>
-                                ))}
-                              </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
-                        <div className="flex gap-2.5">
-                          <button
-                            type="button"
-                            onClick={() => setBookingShowReview(false)}
-                            className="flex-1 h-11 rounded-xl border border-border/60 bg-muted/20 text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-border transition-all"
-                            data-testid="button-admin-review-back"
-                          >
-                            ← Go back
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCreateBooking}
-                            disabled={createBookingMutation.isPending}
-                            className="flex-1 h-11 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-bold shadow-md shadow-primary/20 hover:from-primary/90 hover:to-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            data-testid="button-create-booking"
-                          >
-                            {createBookingMutation.isPending
-                              ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Creating…</span>
-                              : "Confirm & Create →"}
-                          </button>
+                      )}
+
+                      {/* Selected slot summary strip */}
+                      {selectedSlot && (() => {
+                        const info = slotTimings.find(s => s.id === selectedSlot);
+                        return info ? (
+                          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-primary/8 border border-primary/20">
+                            <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-primary">{format(bookingDate, 'd MMM')} · {info.label}</p>
+                              <p className="text-[10px] text-muted-foreground">{formatTime(info.startHour, info.startMinute)} – {formatTime(info.endHour, info.endMinute)}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSlot(null)}
+                              className="h-5 w-5 rounded-full flex items-center justify-center hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                              data-testid="button-clear-slot"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : null;
+                      })()}
+
+                      {/* Review / Confirm */}
+                      {bookingShowReview ? (
+                        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                          <div className="rounded-xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
+                            <div className="px-3 py-2.5 bg-muted/20">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Patient</p>
+                              <p className="text-sm font-bold mt-0.5">{bookingName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {bookingPhone}
+                                {bookingAge ? ` · Age ${bookingAge}` : ""}
+                                {bookingGender ? ` · ${bookingGender}` : ""}
+                                {bookingEmail ? ` · ${bookingEmail}` : ""}
+                              </p>
+                            </div>
+                            {(() => {
+                              const reviewSlot = slotTimings.find(s => s.id === selectedSlot);
+                              return reviewSlot ? (
+                                <div className="px-3 py-2.5">
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Appointment</p>
+                                  <p className="text-sm font-bold mt-0.5">{format(bookingDate, "EEE, d MMM yyyy")}</p>
+                                  <p className="text-xs text-muted-foreground">{reviewSlot.label} · {formatTime(reviewSlot.startHour, reviewSlot.startMinute)}–{formatTime(reviewSlot.endHour, reviewSlot.endMinute)}</p>
+                                </div>
+                              ) : null;
+                            })()}
+                            {bookingDescription && (
+                              <div className="px-3 py-2.5">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Complaints</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {bookingDescription.split(", ").filter(Boolean).map(issue => (
+                                    <span key={issue} className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">{issue}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => setBookingShowReview(false)} className="flex-1 h-10 rounded-xl border border-border/60 bg-muted/20 text-sm font-semibold text-muted-foreground hover:text-foreground transition-all" data-testid="button-admin-review-back">← Back</button>
+                            <button type="button" onClick={handleCreateBooking} disabled={createBookingMutation.isPending} className="flex-1 h-10 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-bold shadow-md shadow-primary/20 hover:from-primary/90 hover:to-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed" data-testid="button-create-booking">
+                              {createBookingMutation.isPending
+                                ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Creating…</span>
+                                : "Confirm & Book →"}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <Button
-                        onClick={() => setBookingShowReview(true)}
-                        disabled={!bookingName || !isPhoneValid || !selectedSlot}
-                        className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
-                        data-testid="button-review-booking"
-                      >
-                        Review Booking →
-                      </Button>
-                    )}
+                      ) : (
+                        <Button
+                          onClick={() => setBookingShowReview(true)}
+                          disabled={!bookingName || !isPhoneValid || !selectedSlot}
+                          className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
+                          data-testid="button-review-booking"
+                        >
+                          Review Booking →
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
-          </div>
           )}
 
           {/* EXPORT DATA PANEL */}
