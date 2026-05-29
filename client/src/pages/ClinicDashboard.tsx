@@ -4264,7 +4264,7 @@ export default function ClinicDashboard() {
                     data-testid="button-toggle-how-it-works"
                   >
                     <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-xs font-semibold text-muted-foreground flex-1">How this screen works</span>
+                    <span className="text-xs font-semibold text-muted-foreground flex-1">How to configure slots</span>
                     {showHowItWorks
                       ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
                       : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
@@ -4346,7 +4346,7 @@ export default function ClinicDashboard() {
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {rangeStart && rangeEnd
                                 ? 'Turns off all booking slots for every day in the selected range'
-                                : 'Turns off all booking slots for this day — patients cannot book any session'}
+                                : 'Turns off all booking slots for the selected day — patients cannot book any session'}
                             </p>
                           </div>
                           {cfg.isClosed && <Badge className="text-[10px] bg-rose-500 text-white border-0 shrink-0">Closed</Badge>}
@@ -4355,7 +4355,7 @@ export default function ClinicDashboard() {
                         {/* Apply this configuration to — moved here, directly below Close All Slots */}
                         <div className="space-y-2">
                           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                            Apply this configuration to
+                            Apply the below configuration to
                           </p>
                           <div className="grid grid-cols-2 gap-2">
                             <button
