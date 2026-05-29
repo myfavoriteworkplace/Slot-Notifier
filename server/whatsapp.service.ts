@@ -11,9 +11,20 @@ import {
   sendWhatsAppConsentLink as twilioConsent,
 } from "./twilio.service";
 
+import {
+  isZavuConfigured,
+  sendZavuWhatsAppBookingNotification,
+  sendZavuWhatsAppConfirmationNotification,
+  sendZavuWhatsAppConsentLink,
+} from "./zavu-whatsapp.service";
+
 const PROVIDER = (process.env.WHATSAPP_PROVIDER || "twilio").toLowerCase().trim();
 
-console.log(`[WHATSAPP] Active provider: ${PROVIDER}${PROVIDER === "meta" && !isMetaConfigured ? " (Meta credentials missing — will fall back to Twilio)" : ""}`);
+console.log(
+  `[WHATSAPP] Active provider: ${PROVIDER}` +
+  (PROVIDER === "meta" && !isMetaConfigured ? " (Meta credentials missing — will fall back to Twilio)" : "") +
+  (PROVIDER === "zavu" && !isZavuConfigured ? " (ZAVUDEV_API_KEY missing — will fall back to Twilio)" : "")
+);
 
 async function withFallback(
   label: string,
@@ -38,6 +49,13 @@ export async function sendWhatsAppBookingNotification(
   clinicName: string,
   appointmentTime: Date
 ): Promise<void> {
+  if (PROVIDER === "zavu" && isZavuConfigured) {
+    return withFallback(
+      "booking-received",
+      () => sendZavuWhatsAppBookingNotification(toPhone, patientName, clinicName, appointmentTime),
+      () => twilioBooking(toPhone, patientName, clinicName, appointmentTime)
+    );
+  }
   if (PROVIDER === "meta" && isMetaConfigured) {
     return withFallback(
       "booking-received",
@@ -59,6 +77,13 @@ export async function sendWhatsAppConfirmationNotification(
   mapsLink?: string | null,
   bookingRef?: string | null
 ): Promise<void> {
+  if (PROVIDER === "zavu" && isZavuConfigured) {
+    return withFallback(
+      "booking-confirmed",
+      () => sendZavuWhatsAppConfirmationNotification(toPhone, patientName, clinicName, appointmentTime, doctorName, clinicAddress, clinicPhone, mapsLink, bookingRef),
+      () => twilioConfirmation(toPhone, patientName, clinicName, appointmentTime, doctorName, clinicAddress, clinicPhone, mapsLink, bookingRef)
+    );
+  }
   if (PROVIDER === "meta" && isMetaConfigured) {
     return withFallback(
       "booking-confirmed",
@@ -75,6 +100,13 @@ export async function sendWhatsAppConsentLink(
   clinicName: string,
   consentUrl: string
 ): Promise<void> {
+  if (PROVIDER === "zavu" && isZavuConfigured) {
+    return withFallback(
+      "consent-request",
+      () => sendZavuWhatsAppConsentLink(toPhone, patientName, clinicName, consentUrl),
+      () => twilioConsent(toPhone, patientName, clinicName, consentUrl)
+    );
+  }
   if (PROVIDER === "meta" && isMetaConfigured) {
     return withFallback(
       "consent-request",

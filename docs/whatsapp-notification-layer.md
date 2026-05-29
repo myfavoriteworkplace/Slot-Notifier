@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document covers how WhatsApp notifications work in BookMySlot, how to configure each provider, and exactly what steps to complete in the Twilio and Meta dashboards to make messages go through.
+This document covers how WhatsApp notifications work in BookMySlot, how to configure each provider, and exactly what steps to complete in each provider's dashboard to make messages go through.
 
 ---
 
@@ -15,8 +15,9 @@ The WhatsApp layer is **provider-agnostic**. Routes in the application call thre
 | File | Role |
 |---|---|
 | `server/whatsapp.service.ts` | **Public interface** — the only file `routes.ts` imports. Reads `WHATSAPP_PROVIDER`, routes calls to the right provider, handles fallback. |
-| `server/meta-whatsapp.service.ts` | **Meta Cloud API implementation** — sends template messages via `graph.facebook.com`. |
 | `server/twilio.service.ts` | **Twilio implementation** — sends free-form text messages via Twilio SDK. Always the fallback. |
+| `server/meta-whatsapp.service.ts` | **Meta Cloud API implementation** — sends template messages via `graph.facebook.com`. |
+| `server/zavu-whatsapp.service.ts` | **Zavu implementation** — sends free-form text via `@zavudev/sdk`. No templates required. |
 
 ### The Three Functions
 
@@ -39,16 +40,21 @@ sendWhatsAppConsentLink(toPhone, patientName, clinicName, consentUrl)
 ### Provider Selection & Fallback
 
 ```
+WHATSAPP_PROVIDER=zavu  AND  ZAVUDEV_API_KEY present
+  → Send via Zavu (free-form text, no templates, any number)
+  → If Zavu fails → automatically retry via Twilio
+  → If Twilio also unconfigured → log [WHATSAPP MOCK] and continue
+
 WHATSAPP_PROVIDER=meta  AND  Meta credentials present
-  → Send via Meta Cloud API
+  → Send via Meta Cloud API (template messages)
   → If Meta API returns an error → automatically retry via Twilio
-  → If Twilio also unconfigured → log [WHATSAPP MOCK] and continue (booking never fails)
+  → If Twilio also unconfigured → log [WHATSAPP MOCK] and continue
 
 WHATSAPP_PROVIDER=twilio  (or WHATSAPP_PROVIDER not set — this is the default)
   → Send via Twilio
   → If Twilio unconfigured → log [WHATSAPP MOCK] and continue
 
-Both providers unconfigured
+All providers unconfigured
   → Silently skipped with a log line. No error, booking succeeds normally.
 ```
 
@@ -80,9 +86,9 @@ All variables below are set on the **backend service** in Render (`Book-My-Slot-
 
 | Variable | Values | Default | Effect |
 |---|---|---|---|
-| `WHATSAPP_PROVIDER` | `twilio` or `meta` | `twilio` | Selects which provider is used as primary |
+| `WHATSAPP_PROVIDER` | `twilio`, `meta`, or `zavu` | `twilio` | Selects which provider is used as primary |
 
-### Twilio Variables (existing)
+### Twilio Variables
 
 | Variable | Required for Twilio | Description |
 |---|---|---|
@@ -90,7 +96,7 @@ All variables below are set on the **backend service** in Render (`Book-My-Slot-
 | `TWILIO_AUTH_TOKEN` | Yes | Your Twilio Auth Token |
 | `TWILIO_WHATSAPP_NUMBER` | Yes (production) | The WhatsApp-enabled number in E.164 format. Defaults to `+14155238886` (sandbox) if not set — **change this for production** |
 
-### Meta Variables (new — only needed when `WHATSAPP_PROVIDER=meta`)
+### Meta Variables (only needed when `WHATSAPP_PROVIDER=meta`)
 
 | Variable | Required | Description |
 |---|---|---|
@@ -100,6 +106,12 @@ All variables below are set on the **backend service** in Render (`Book-My-Slot-
 | `WHATSAPP_BOOKING_TEMPLATE` | No | Name of approved "booking received" template. Defaults to `booking_received` |
 | `WHATSAPP_CONFIRM_TEMPLATE` | No | Name of approved "booking confirmed" template. Defaults to `booking_confirmed` |
 | `WHATSAPP_CONSENT_TEMPLATE` | No | Name of approved "consent link" template. Defaults to `consent_request` |
+
+### Zavu Variables (only needed when `WHATSAPP_PROVIDER=zavu`)
+
+| Variable | Required | Description |
+|---|---|---|
+| `ZAVUDEV_API_KEY` | Yes | Your live API key from the Zavu dashboard — starts with `zv_live_` |
 
 ---
 
@@ -155,7 +167,7 @@ If you see:
 
 ## 4. Meta Cloud API Setup — Step by Step
 
-Meta is the optional primary provider. Complete all steps below before setting `WHATSAPP_PROVIDER=meta`.
+Meta is an optional primary provider. Complete all steps below before setting `WHATSAPP_PROVIDER=meta`.
 
 ### 4.1 Create a Meta Developer App
 
@@ -313,7 +325,7 @@ Save and Render will restart the backend automatically.
 
 ### 4.8 Test with cURL Before Switching Provider
 
-Before setting `WHATSAPP_PROVIDER=meta` in Render, you can confirm that your credentials and phone number ID are correct by sending Meta's built-in pre-approved `hello_world` template directly from the terminal. No booking needs to happen and no code changes are required.
+Before setting `WHATSAPP_PROVIDER=meta` in Render, you can confirm credentials by sending Meta's built-in pre-approved `hello_world` template directly:
 
 ```bash
 curl -X POST "https://graph.facebook.com/v19.0/YOUR_PHONE_NUMBER_ID/messages" \
@@ -330,31 +342,6 @@ curl -X POST "https://graph.facebook.com/v19.0/YOUR_PHONE_NUMBER_ID/messages" \
   }'
 ```
 
-Replace three values:
-- `YOUR_PHONE_NUMBER_ID` — the numeric ID from Meta Developer Portal → WhatsApp → API Setup
-- `YOUR_WHATSAPP_ACCESS_TOKEN` — the access token from the same page
-- `919xxxxxxxxx` — the recipient number in E.164 format, no `+`, no spaces (e.g. `919876543210` for an Indian number)
-
-**Success response:**
-```json
-{
-  "messaging_product": "whatsapp",
-  "contacts": [{ "input": "919xxxxxxxxx", "wa_id": "919xxxxxxxxx" }],
-  "messages": [{ "id": "wamid.HBgM..." }]
-}
-```
-
-If you receive a `messages[0].id` in the response and the message arrives on the phone, your credentials are valid and Meta is fully connected.
-
-**Common error codes:**
-
-| Code | Meaning | Fix |
-|---|---|---|
-| `190` | Invalid or expired access token | Regenerate token from Meta Developer Portal |
-| `100` | Invalid `PHONE_NUMBER_ID` | Copy it again from WhatsApp → API Setup |
-| `131030` | Recipient number not on WhatsApp | Try a different number |
-| `132000` | Template `hello_world` not found | Check Meta → WhatsApp → Message Templates |
-
 ### 4.9 Verify It's Working After Going Live
 
 Once you have set `WHATSAPP_PROVIDER=meta` in Render and a real booking is made, check your Render logs for:
@@ -365,33 +352,88 @@ Once you have set `WHATSAPP_PROVIDER=meta` in Render and a real booking is made,
 [WHATSAPP-META] (booking-received) Sent. Message ID: wamid... → +91...
 ```
 
-If you see a fallback message:
+---
+
+## 5. Zavu Setup — Step by Step
+
+Zavu is the simplest provider to configure — no template approval, no business registration, and a live key works for any customer number immediately.
+
+### 5.1 Create a Live API Key
+
+1. Log in to your Zavu dashboard at [zavu.dev](https://zavu.dev).
+2. Go to **API Keys → + Create API Key**.
+3. Choose **Live** (not Test).
+4. Give it a name (e.g. `BookMySlot Prod`).
+5. Copy the key — it starts with `zv_live_`. This is your `ZAVUDEV_API_KEY`.
+
+> **Note:** A Test key (`zv_test_...`) only works for pre-verified numbers. Use a Live key for production so messages reach any customer.
+
+### 5.2 Configure a Sender
+
+1. Go to **Senders → Add Sender**.
+2. Assign a phone number (purchase via Zavu or connect your own).
+3. Set it as the **default sender** for WhatsApp.
+
+This is the number your patients will see the message from.
+
+### 5.3 Set the Environment Variables in Render
+
+Add the following to `Book-My-Slot-1` → Environment:
+
 ```
-[WHATSAPP] Primary provider failed for "booking-received": <error>. Falling back to Twilio.
+WHATSAPP_PROVIDER=zavu
+ZAVUDEV_API_KEY=zv_live_...
 ```
-— check that your templates are approved and `WHATSAPP_PHONE_NUMBER_ID` is correct.
+
+Save — Render restarts the backend automatically.
+
+### 5.4 Verify It's Working
+
+After the next booking, check your Render logs for:
+```
+[WHATSAPP-ZAVU] Zavu client initialized successfully.
+[WHATSAPP] Active provider: zavu
+[WHATSAPP-ZAVU] (booking-received) Sending to +91...
+[WHATSAPP-ZAVU] (booking-received) Sent → +91...
+```
+
+If you see:
+```
+[WHATSAPP-ZAVU] ZAVUDEV_API_KEY not set — Zavu provider unavailable.
+[WHATSAPP] Primary provider failed for "booking-received": ... Falling back to Twilio.
+```
+— the API key is missing or incorrect in Render.
+
+### 5.5 Free Tier & Scaling
+
+- Free plan: **2,000 WhatsApp messages/month**
+- No per-message template fee (unlike Meta)
+- If you exceed free tier, add credits or upgrade in the Zavu dashboard
 
 ---
 
-## 5. Switching Between Providers
+## 6. Switching Between Providers
 
 | Goal | Action |
 |---|---|
 | Use Twilio only | Set `WHATSAPP_PROVIDER=twilio` (or delete the variable) |
 | Use Meta with Twilio fallback | Set `WHATSAPP_PROVIDER=meta` and all `WHATSAPP_*` Meta vars |
-| Disable WhatsApp entirely | Remove both Twilio and Meta credentials — messages are silently skipped |
+| Use Zavu with Twilio fallback | Set `WHATSAPP_PROVIDER=zavu` and `ZAVUDEV_API_KEY` |
+| Disable WhatsApp entirely | Remove all Twilio, Meta, and Zavu credentials — messages are silently skipped |
 
 Changing `WHATSAPP_PROVIDER` takes effect on the next Render deploy/restart. No code changes required.
 
 ---
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `[WHATSAPP MOCK] Twilio not configured` | `TWILIO_ACCOUNT_SID` or `TWILIO_AUTH_TOKEN` missing | Add them in Render backend environment |
 | `[WHATSAPP-META] Meta credentials not set` | `WHATSAPP_ACCESS_TOKEN` or `WHATSAPP_PHONE_NUMBER_ID` missing | Add them in Render backend environment |
+| `[WHATSAPP-ZAVU] ZAVUDEV_API_KEY not set` | `ZAVUDEV_API_KEY` missing | Add it in Render backend environment |
 | Meta message fails, Twilio fallback activates | Template not approved yet, or wrong template name | Wait for Meta approval; verify template name matches exactly |
+| Zavu message fails, Twilio fallback activates | Wrong API key, or no sender configured in Zavu dashboard | Check key starts with `zv_live_` and a default sender is set |
 | Twilio SID returned but patient gets no message | Phone not joined to Twilio sandbox (test mode) | Patient must send join code to `+14155238886` first |
 | Webhook verify fails (Render log: 403) | `WHATSAPP_VERIFY_TOKEN` in Render doesn't match what you entered in Meta portal | Make both values identical |
 | `Meta API error (401)` | Access token expired or wrong | Regenerate system user token in Meta Business Manager |
