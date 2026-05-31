@@ -3,6 +3,7 @@ import { useRoute, useLocation } from "wouter";
 import { Loader2, CheckCircle2, AlertCircle, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { apiRequest } from "@/lib/queryClient";
 
 declare global {
   interface Window {
@@ -38,7 +39,7 @@ export default function Activate() {
 
   useEffect(() => {
     if (!token) { setStatus("error"); setErrorMsg("Invalid activation link."); return; }
-    fetch(`/api/activate/${token}`)
+    apiRequest("GET", `/api/activate/${token}`)
       .then(async (res) => {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));

@@ -668,7 +668,7 @@ function GetListedForm({ c }: { c: Palette }) {
     if (!email || !/\S+@\S+\.\S+/.test(email)) { setError("Please enter a valid business email."); return; }
     setLoading(true);
     try {
-      const r = await fetch("/api/public/otp/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, purpose: "supplier-listing" }) });
+      const r = await apiRequest("POST", "/api/public/otp/send", { email, purpose: "supplier-listing" });
       const data = await r.json();
       if (!r.ok) throw new Error(data.message || "Failed to send verification code");
       setStep("otp-sent");
@@ -681,7 +681,7 @@ function GetListedForm({ c }: { c: Palette }) {
     setError("");
     setLoading(true);
     try {
-      const r = await fetch("/api/public/otp/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, purpose: "supplier-listing" }) });
+      const r = await apiRequest("POST", "/api/public/otp/send", { email, purpose: "supplier-listing" });
       const data = await r.json();
       if (!r.ok) throw new Error(data.message || "Failed to send code");
       setCountdown(60);
@@ -695,14 +695,11 @@ function GetListedForm({ c }: { c: Palette }) {
     if (otpCode.length !== 6) { setError("Please enter the 6-digit code."); return; }
     setLoading(true);
     try {
-      const vr = await fetch("/api/public/otp/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, code: otpCode, purpose: "supplier-listing" }) });
+      const vr = await apiRequest("POST", "/api/public/otp/verify", { email, code: otpCode, purpose: "supplier-listing" });
       const vdata = await vr.json();
       if (!vr.ok) throw new Error(vdata.message || "Invalid or expired code");
       const verifiedToken = vdata.verifiedToken;
-      const sr = await fetch("/api/public/supplier-listing-request/submit", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verifiedToken, companyName, email, phone, category, description, website }),
-      });
+      const sr = await apiRequest("POST", "/api/public/supplier-listing-request/submit", { verifiedToken, companyName, email, phone, category, description, website });
       const sdata = await sr.json();
       if (!sr.ok) throw new Error(sdata.message || "Submission failed");
       setStep("submitted");

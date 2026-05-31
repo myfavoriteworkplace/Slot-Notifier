@@ -4,6 +4,7 @@ import { Loader2, CheckCircle2, AlertCircle, Lock, Eye, EyeOff, KeyRound } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function ResetPassword() {
   const [, navigate] = useLocation();
@@ -39,11 +40,7 @@ export default function ResetPassword() {
     }
     setStatus("submitting");
     try {
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, type, newPassword }),
-      });
+      const res = await apiRequest("POST", "/api/auth/reset-password", { token, type, newPassword });
       const data = await res.json();
       if (!res.ok) {
         setErrorMsg(data.message || "Something went wrong. Please try again.");
