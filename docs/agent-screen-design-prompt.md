@@ -6,10 +6,22 @@ Paste this at the start of every new screen or component request.
 
 ## STACK
 
-React 18 + TypeScript · Vite · Wouter (no nested routes, no `<Outlet>`, no loader functions) · TanStack Query v5 · shadcn/ui + Radix UI · Tailwind CSS · Lucide icons · Node / Express / Drizzle ORM / PostgreSQL.
+React 18 + TypeScript · Vite · Wouter (no nested routes, no `<Outlet>`, no loader functions) · TanStack Query v5 · shadcn/ui + Radix UI · Tailwind CSS · Lucide icons · react-icons · Node / Express / Drizzle ORM / PostgreSQL.
 
 Fonts: **DM Sans** (body, default everywhere) + **Outfit** (`font-display` class, display headings only — sparingly).
 Animations: Tailwind `animate-in`, `slide-in-from-*`, `fade-in` utilities only. No Framer Motion. Max 200 ms. Always respect `prefers-reduced-motion`.
+
+### Icon Library Convention
+
+Three icon sources — use each for its designated role:
+
+| Source | Import path | Use for |
+|--------|-------------|---------|
+| **Lucide** | `lucide-react` | All UI chrome: navigation, close/back, search, chevrons, status indicators, action buttons |
+| **Line Awesome (LIA)** | `react-icons/lia` | Domain/content icons: dental categories, body parts, medical conditions, smiley/health/child/bone icons |
+| **Material Design (MD)** | `react-icons/md` | Fallback where LIA has no match: warnings, build/repair, swap, remove, medical services |
+
+**Never** use emoji strings (`cat.emoji`, `"🦷"`) as icons in production components — always use a React icon component. Size all icons consistently: `h-4 w-4` for inline content icons, `h-3.5 w-3.5` for compact UI chrome, `h-5 w-5` or larger for standalone decorative icons.
 
 ---
 

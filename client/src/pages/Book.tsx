@@ -9,6 +9,8 @@ import {
   MapPin, Sun, Moon, Clock, Shield, Sparkles, Search, Stethoscope, X, ChevronDown,
   CreditCard, ClipboardCheck, Info, Lock, AlertTriangle, ChevronRight, Plus, Users,
 } from "lucide-react";
+import { LiaToothSolid, LiaSmileSolid, LiaBandAidSolid, LiaChildSolid, LiaBoneSolid } from "react-icons/lia";
+import { MdWarning, MdBuild, MdSwapHoriz, MdRemoveCircle, MdMedicalServices, MdHealthAndSafety } from "react-icons/md";
 import ClinicInfoSheet from "@/components/ClinicInfoSheet";
 import type { Clinic } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
@@ -48,18 +50,18 @@ const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
 ];
 
 const DENTAL_CATEGORIES = [
-  { category: "Tooth Pain or Sensitivity",      emoji: "🦷", subIssues: ["Sensitivity to hot/cold/sweet", "Sharp or throbbing pain", "Pain while chewing", "Pain at night"],                          specialists: ["Endodontist", "General Dentist"] },
-  { category: "Gum Problems",                   emoji: "🩸", subIssues: ["Bleeding gums", "Swollen or red gums", "Receding gums", "Bad breath or bad taste"],                                     specialists: ["Periodontist", "General Dentist"] },
-  { category: "Tooth Decay / Cavities",         emoji: "🕳️", subIssues: ["Visible hole or black spot", "Pain when eating or drinking", "Food getting stuck"],                                      specialists: ["General Dentist", "Endodontist"] },
-  { category: "Broken, Chipped or Cracked Tooth", emoji: "💔", subIssues: ["Chipped or broken tooth", "Cracked tooth", "Worn down teeth"],                                                         specialists: ["Prosthodontist", "General Dentist"] },
-  { category: "Alignment or Bite Issues",       emoji: "🔀", subIssues: ["Crooked or crowded teeth", "Gaps between teeth", "Bite feels off or jaw discomfort"],                                    specialists: ["Orthodontist"] },
-  { category: "Missing Teeth",                  emoji: "🫥", subIssues: ["One tooth missing", "Multiple teeth missing", "Want replacement options"],                                               specialists: ["Prosthodontist", "Oral Surgeon"] },
-  { category: "Cosmetic / Smile Concerns",      emoji: "✨", subIssues: ["Yellow or stained teeth", "Want a whiter smile", "Uneven teeth shape", "Gaps I want closed"],                           specialists: ["Cosmetic Dentist", "Prosthodontist"] },
-  { category: "Swelling or Infection",          emoji: "🤒", subIssues: ["Swollen face or gum", "Pus or abscess", "Severe pain with swelling"],                                                   specialists: ["Endodontist", "Oral Surgeon", "General Dentist"] },
-  { category: "Child's Dental Issues",          emoji: "👶", subIssues: ["Tooth decay in baby teeth", "Child complains of pain", "Thumb sucking habits", "Delayed tooth eruption"],              specialists: ["Pedodontist"] },
-  { category: "Jaw Pain or Other",              emoji: "🦴", subIssues: ["Jaw pain or clicking (TMJ)", "Dry mouth", "Mouth ulcers", "Suspicious growth or lump"],                                specialists: ["Oral Medicine Specialist", "Oral Surgeon", "General Dentist"] },
-  { category: "Wisdom Tooth Problems",          emoji: "😬", subIssues: ["Pain from wisdom tooth", "Swelling near wisdom tooth", "Difficulty opening mouth"],                                    specialists: ["Oral Surgeon", "General Dentist"] },
-  { category: "Preventive / Routine Care",      emoji: "🧹", subIssues: ["Regular checkup", "Cleaning or scaling", "Fluoride treatment"],                                                         specialists: ["General Dentist", "Dental Hygienist"] },
+  { category: "Tooth Pain or Sensitivity",        Icon: LiaToothSolid,     subIssues: ["Sensitivity to hot/cold/sweet", "Sharp or throbbing pain", "Pain while chewing", "Pain at night"],                          specialists: ["Endodontist", "General Dentist"] },
+  { category: "Gum Problems",                     Icon: LiaBandAidSolid,   subIssues: ["Bleeding gums", "Swollen or red gums", "Receding gums", "Bad breath or bad taste"],                                        specialists: ["Periodontist", "General Dentist"] },
+  { category: "Tooth Decay / Cavities",           Icon: MdWarning,         subIssues: ["Visible hole or black spot", "Pain when eating or drinking", "Food getting stuck"],                                         specialists: ["General Dentist", "Endodontist"] },
+  { category: "Broken, Chipped or Cracked Tooth", Icon: MdBuild,           subIssues: ["Chipped or broken tooth", "Cracked tooth", "Worn down teeth"],                                                              specialists: ["Prosthodontist", "General Dentist"] },
+  { category: "Alignment or Bite Issues",         Icon: MdSwapHoriz,       subIssues: ["Crooked or crowded teeth", "Gaps between teeth", "Bite feels off or jaw discomfort"],                                       specialists: ["Orthodontist"] },
+  { category: "Missing Teeth",                    Icon: MdRemoveCircle,    subIssues: ["One tooth missing", "Multiple teeth missing", "Want replacement options"],                                                  specialists: ["Prosthodontist", "Oral Surgeon"] },
+  { category: "Cosmetic / Smile Concerns",        Icon: LiaSmileSolid,     subIssues: ["Yellow or stained teeth", "Want a whiter smile", "Uneven teeth shape", "Gaps I want closed"],                              specialists: ["Cosmetic Dentist", "Prosthodontist"] },
+  { category: "Swelling or Infection",            Icon: MdMedicalServices, subIssues: ["Swollen face or gum", "Pus or abscess", "Severe pain with swelling"],                                                      specialists: ["Endodontist", "Oral Surgeon", "General Dentist"] },
+  { category: "Child's Dental Issues",            Icon: LiaChildSolid,     subIssues: ["Tooth decay in baby teeth", "Child complains of pain", "Thumb sucking habits", "Delayed tooth eruption"],                  specialists: ["Pedodontist"] },
+  { category: "Jaw Pain or Other",                Icon: LiaBoneSolid,      subIssues: ["Jaw pain or clicking (TMJ)", "Dry mouth", "Mouth ulcers", "Suspicious growth or lump"],                                    specialists: ["Oral Medicine Specialist", "Oral Surgeon", "General Dentist"] },
+  { category: "Wisdom Tooth Problems",            Icon: LiaToothSolid,     subIssues: ["Pain from wisdom tooth", "Swelling near wisdom tooth", "Difficulty opening mouth"],                                         specialists: ["Oral Surgeon", "General Dentist"] },
+  { category: "Preventive / Routine Care",        Icon: MdHealthAndSafety, subIssues: ["Regular checkup", "Cleaning or scaling", "Fluoride treatment"],                                                             specialists: ["General Dentist", "Dental Hygienist"] },
 ];
 
 const getSlotMeta = (startHour: number) => {
@@ -135,6 +137,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   const razorpayScriptRef = useRef(false);
   const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const dateStripRef = useRef<HTMLDivElement>(null);
+  const accordionItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [pendingBookingPath, setPendingBookingPath] = useState<"pay" | "pending" | null>(null);
@@ -287,6 +291,15 @@ export default function Book(props: { params: { clinicId?: string } }) {
     sessionStorage.setItem("bms_sub_issues", JSON.stringify(selectedSubIssues));
     if (additionalNotes) sessionStorage.setItem("bms_notes", additionalNotes);
   }, [customerName, customerPhone, customerEmail, selectedSubIssues, additionalNotes]);
+
+  // Scroll date strip into view after clinic selection animation completes
+  useEffect(() => {
+    if (!selectedClinic) return;
+    const timer = setTimeout(() => {
+      dateStripRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [selectedClinic]);
 
   const handleSubIssueToggle = (subIssue: string) => {
     setSelectedSubIssues(prev =>
@@ -808,7 +821,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     setSearchQuery("");
                     setIsDropdownOpen(false);
                   }}
-                  className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+                  className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap active:scale-[0.98] ${
                     clinicMode === id
                       ? "bg-gradient-to-r from-primary to-accent text-white shadow-md shadow-primary/20"
                       : "text-muted-foreground hover:text-foreground"
@@ -865,7 +878,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     {/* Panel */}
                     <div className="absolute top-full left-0 right-0 z-20 mt-2 rounded-xl border border-border/60 bg-card shadow-xl shadow-black/10 overflow-hidden">
                       <div className="px-3 py-2 border-b border-border/40 bg-muted/30">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                           {clinics.length} verified clinic{clinics.length !== 1 ? "s" : ""}
                         </p>
                       </div>
@@ -892,7 +905,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                               {/* Info */}
                               <div className="flex-1 min-w-0">
                                 <p className={`text-sm font-semibold truncate ${isSelected ? "text-primary" : ""}`}>{clinic.name}</p>
-                                <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+                                <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
                                   {clinic.doctorName && <><Stethoscope className="h-2.5 w-2.5 shrink-0" />Dr. {clinic.doctorName}</>}
                                   {clinic.address && <><MapPin className="h-2.5 w-2.5 shrink-0 ml-1" />{[(clinic as any).city, clinic.address].filter(Boolean).join(", ")}</>}
                                 </p>
@@ -972,7 +985,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             >
                               <button
                                 onClick={() => setSelectedClinic(clinic.name)}
-                                className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-primary/5 transition-all rounded-lg -mx-1 px-1 py-0.5"
+                                className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-primary/5 active:scale-[0.98] transition-all rounded-lg -mx-1 px-1 py-0.5"
                                 data-testid={`clinic-search-result-${clinic.id}`}
                               >
                                 <div className={`h-9 w-9 rounded-xl shrink-0 flex items-center justify-center text-sm font-black text-white ${
@@ -984,7 +997,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className={`text-sm font-semibold truncate ${isSelected ? "text-primary" : ""}`}>{clinic.name}</p>
-                                  <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                                     {clinic.doctorName && <><Stethoscope className="h-2.5 w-2.5 shrink-0" />Dr. {clinic.doctorName} · </>}
                                     {[(clinic as any).city, clinic.address].filter(Boolean).join(", ")}
                                   </p>
@@ -993,7 +1006,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setInfoClinic(clinic); setIsClinicSheetOpen(true); }}
-                                className="h-7 w-7 shrink-0 rounded-lg bg-primary/8 hover:bg-primary/15 flex items-center justify-center text-primary/60 hover:text-primary transition-all border border-primary/15 hover:border-primary/30"
+                                className="h-10 w-10 shrink-0 rounded-lg bg-primary/8 hover:bg-primary/15 flex items-center justify-center text-primary/60 hover:text-primary transition-all border border-primary/15 hover:border-primary/30"
                                 title="View clinic details"
                                 data-testid={`button-clinic-info-${clinic.id}`}
                               >
@@ -1028,7 +1041,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                 </div>
                 {/* Info */}
                 <div className="flex-1 min-w-0 overflow-hidden">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/55 mb-0.5">Booking At</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/55 mb-0.5">Booking At</p>
                   <p className="text-white font-extrabold text-base sm:text-lg leading-tight truncate">{selectedClinic}</p>
                   {selectedClinicObj?.doctorName && (
                     <p className="text-white/60 text-xs mt-0.5 flex items-center gap-1 overflow-hidden">
@@ -1066,7 +1079,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
         {/* ── DATE STRIP ──────────────────────────────────── */}
         {selectedClinic && (
-          <div className="animate-in fade-in slide-in-from-top-2 duration-400">
+          <div ref={dateStripRef} className="animate-in fade-in slide-in-from-top-2 duration-400">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <CalendarDays className="h-3.5 w-3.5 text-primary" /> Select Date
@@ -1121,7 +1134,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                   setIsDetailsOpen(true);
                                 }}
                                 data-testid={`date-button-${format(date, "yyyy-MM-dd")}`}
-                                className={`flex flex-col items-center justify-center min-w-[3.5rem] sm:min-w-[4rem] h-14 sm:h-[4.5rem] rounded-2xl border transition-all duration-200 relative ${
+                                className={`flex flex-col items-center justify-center min-w-[3.5rem] sm:min-w-[4rem] h-14 sm:h-[4.5rem] rounded-2xl border transition-all duration-200 relative active:scale-[0.98] ${
                                   isSelected
                                     ? "bg-gradient-to-b from-primary to-accent text-white border-primary shadow-lg shadow-primary/25 scale-105"
                                     : isDayFull
@@ -1129,13 +1142,13 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                     : "bg-card border-border/50 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md"
                                 }`}
                               >
-                                <span className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${isSelected ? "text-white/70" : "text-muted-foreground"}`}>
+                                <span className={`text-xs font-bold uppercase tracking-wider mb-0.5 ${isSelected ? "text-white/70" : "text-muted-foreground"}`}>
                                   {format(date, "EEE")}
                                 </span>
                                 <span className="text-base sm:text-xl font-black leading-none">
                                   {format(date, "d")}
                                 </span>
-                                <span className={`hidden sm:block text-[8px] mt-0.5 ${isSelected ? "text-white/50" : "text-muted-foreground/60"}`}>
+                                <span className={`hidden sm:block text-xs mt-0.5 ${isSelected ? "text-white/50" : "text-muted-foreground/60"}`}>
                                   {format(date, "MMM")}
                                 </span>
                                 <div className={`h-1.5 w-1.5 rounded-full mt-1 transition-colors ${
@@ -1146,7 +1159,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                     : "bg-emerald-400"
                                 }`} />
                                 {isDayFull && (
-                                  <span className="absolute -top-1.5 -right-1.5 text-[8px] font-bold bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded-full">
+                                  <span className="absolute -top-1.5 -right-1.5 text-xs font-bold bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded-full">
                                     FULL
                                   </span>
                                 )}
@@ -1191,7 +1204,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
             </div>
 
             {/* Hint */}
-            <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1.5">
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/50" />
               Tap any date to see available time slots
             </p>
@@ -1235,14 +1248,14 @@ export default function Book(props: { params: { clinicId?: string } }) {
               <div className="w-full rounded-2xl border border-border/60 bg-muted/20 overflow-hidden">
                 <div className="px-4 py-2.5 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                   <CalendarDays className="h-3 w-3 text-primary" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Booking Summary</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Booking Summary</span>
                   {bookingPath === "pay" && (
-                    <span className="ml-auto text-[9px] font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-400/25 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="ml-auto text-xs font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-400/25 px-2 py-0.5 rounded-full flex items-center gap-1">
                       <CreditCard className="h-2.5 w-2.5" /> ₹1 Paid
                     </span>
                   )}
                   {bookingPath === "pending" && (
-                    <span className="ml-auto text-[9px] font-bold bg-amber-500/15 text-amber-600 border border-amber-400/25 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="ml-auto text-xs font-bold bg-amber-500/15 text-amber-600 border border-amber-400/25 px-2 py-0.5 rounded-full flex items-center gap-1">
                       <ClipboardCheck className="h-2.5 w-2.5" /> Pending Approval
                     </span>
                   )}
@@ -1312,7 +1325,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         ? "bg-white/20 border-white/30 text-white"
                         : "bg-white/8 border-white/15 text-white/45"
                     }`}>
-                      <span className="h-3.5 w-3.5 rounded-full bg-white/30 flex items-center justify-center text-[9px] font-black">1</span>
+                      <span className="h-3.5 w-3.5 rounded-full bg-white/30 flex items-center justify-center text-xs font-black">1</span>
                       Your Details
                     </div>
                     <div className="h-px w-4 bg-white/20" />
@@ -1321,7 +1334,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         ? "bg-white/20 border-white/30 text-white"
                         : "bg-white/8 border-white/15 text-white/45"
                     }`}>
-                      <span className="h-3.5 w-3.5 rounded-full bg-white/30 flex items-center justify-center text-[9px] font-black">2</span>
+                      <span className="h-3.5 w-3.5 rounded-full bg-white/30 flex items-center justify-center text-xs font-black">2</span>
                       Pick a Slot
                     </div>
                     <div className="h-px w-4 bg-white/20" />
@@ -1330,7 +1343,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         ? "bg-white/20 border-white/30 text-white"
                         : "bg-white/8 border-white/15 text-white/45"
                     }`}>
-                      <span className="h-3.5 w-3.5 rounded-full bg-white/30 flex items-center justify-center text-[9px] font-black">3</span>
+                      <span className="h-3.5 w-3.5 rounded-full bg-white/30 flex items-center justify-center text-xs font-black">3</span>
                       Review
                     </div>
                   </div>
@@ -1568,7 +1581,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         <input
                           value={customerName}
                           onChange={e => setCustomerName(e.target.value)}
-                          placeholder="Your full name"
+                          placeholder="e.g. Rahul Verma"
+                          onFocus={e => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" })}
                           className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
                           data-testid="input-name"
                         />
@@ -1584,11 +1598,13 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden w-28 shrink-0">
                           <input
                             type="number"
+                            inputMode="numeric"
                             min={1}
                             max={120}
                             value={customerAge}
                             onChange={e => setCustomerAge(e.target.value)}
                             placeholder="Age"
+                            onFocus={e => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" })}
                             className="w-full h-10 bg-transparent pl-3 pr-2 text-sm outline-none placeholder:text-muted-foreground"
                             data-testid="input-age"
                           />
@@ -1624,9 +1640,11 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
                         <input
+                          type="tel"
                           value={customerPhone}
                           onChange={e => handlePhoneChange(e.target.value)}
                           placeholder="+91 9876543210"
+                          onFocus={e => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" })}
                           className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
                           data-testid="input-phone"
                         />
@@ -1646,7 +1664,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             <Lock className="h-3.5 w-3.5 text-emerald-600" />
                           </div>
                           <span className="flex-1 px-3 text-sm text-foreground font-medium truncate">{customerEmail}</span>
-                          <span className="mr-3 text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border border-emerald-400/20 px-1.5 py-0.5 rounded-full whitespace-nowrap">✓ verified</span>
+                          <span className="mr-3 text-xs font-bold text-emerald-600 bg-emerald-500/10 border border-emerald-400/20 px-1.5 py-0.5 rounded-full whitespace-nowrap">✓ verified</span>
                         </div>
                       ) : (
                         <div className="flex items-center rounded-xl border border-border/60 bg-muted/20 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 transition-all overflow-hidden">
@@ -1658,6 +1676,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                             value={customerEmail}
                             onChange={e => handleEmailChange(e.target.value)}
                             placeholder="you@example.com"
+                            onFocus={e => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "center" })}
                             className="flex-1 h-10 bg-transparent pl-3 pr-3 text-sm outline-none placeholder:text-muted-foreground"
                             data-testid="input-email"
                           />
@@ -1667,7 +1686,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         <button
                           type="button"
                           onClick={() => { resetOtpState(); setIsEditingDetails(false); }}
-                          className="text-[11px] text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1 mt-0.5"
+                          className="text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1 mt-0.5"
                           data-testid="button-change-email"
                         >
                           <Mail className="h-3 w-3" /> Change email address (requires new verification)
@@ -1893,20 +1912,27 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                 type="single"
                                 collapsible
                                 value={openCategory}
-                                onValueChange={setOpenCategory}
+                                onValueChange={val => {
+                                  setOpenCategory(val);
+                                  if (val) {
+                                    setTimeout(() => {
+                                      accordionItemRefs.current[val]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                    }, 150);
+                                  }
+                                }}
                                 className="divide-y divide-border/40"
                               >
                                 {(showAllCategories ? DENTAL_CATEGORIES : DENTAL_CATEGORIES.slice(0, 4)).map((cat) => {
                                   const count = countForCategory(cat);
                                   return (
-                                    <AccordionItem key={cat.category} value={cat.category} className="border-0">
+                                    <AccordionItem key={cat.category} value={cat.category} className="border-0" ref={el => { accordionItemRefs.current[cat.category] = el; }}>
                                       <AccordionTrigger
                                         className="px-3 py-2.5 hover:no-underline hover:bg-muted/30 transition-colors [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-muted-foreground"
                                         data-testid={`accordion-${cat.category}`}
                                       >
                                         <div className="flex items-center gap-2 min-w-0">
-                                          <span className="text-base leading-none shrink-0">{cat.emoji}</span>
-                                          <span className="text-[12px] font-semibold text-foreground text-left leading-tight">{cat.category}</span>
+                                          <cat.Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                          <span className="text-xs font-semibold text-foreground text-left leading-tight">{cat.category}</span>
                                           {count > 0 && (
                                             <span className="shrink-0 text-xs font-bold text-primary bg-primary/12 border border-primary/25 px-1.5 py-0.5 rounded-full">
                                               {count}
@@ -1974,7 +2000,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           <textarea
                             value={additionalNotes}
                             onChange={e => setAdditionalNotes(e.target.value)}
-                            placeholder="Anything else you'd like the clinic to know…"
+                            placeholder="e.g. Allergies, previous treatments, other concerns…"
                             rows={2}
                             className="w-full rounded-xl border border-border/60 bg-muted/20 focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/10 px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground resize-none transition-all"
                             data-testid="textarea-additional-notes"
