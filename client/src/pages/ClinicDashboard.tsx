@@ -4027,7 +4027,7 @@ export default function ClinicDashboard() {
                 </div>
               )}
               <div className="p-5">
-                <div className="flex flex-col xl:flex-row gap-5 items-start">
+                <div className="flex flex-col lg:flex-row gap-5 items-start">
 
                   {/* LEFT: Grid & Selection */}
                   <div className="flex-1 min-w-0 space-y-4">
@@ -4041,12 +4041,12 @@ export default function ClinicDashboard() {
                 <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
                   {/* Start Date */}
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">From</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From</span>
                     <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline" size="sm"
-                          className="h-9 gap-2 text-sm font-normal min-w-[155px] justify-start"
+                          className="h-11 gap-2 text-sm font-normal w-full sm:w-auto sm:min-w-[155px] justify-start"
                           data-testid="button-start-date"
                         >
                           <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -4075,13 +4075,13 @@ export default function ClinicDashboard() {
 
                   {/* End Date */}
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">To <span className="normal-case font-normal">(optional)</span></span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">To <span className="normal-case font-normal">(optional)</span></span>
                     <div className="flex items-center gap-1">
                       <Popover open={endDatePickerOpen} onOpenChange={setEndDatePickerOpen}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline" size="sm"
-                            className={`h-9 gap-2 text-sm font-normal min-w-[155px] justify-start ${rangeEnd ? 'text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-500/5' : ''}`}
+                            className={`h-11 gap-2 text-sm font-normal w-full sm:w-auto sm:min-w-[155px] justify-start ${rangeEnd ? 'text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-500/5' : ''}`}
                             data-testid="button-end-date"
                           >
                             <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -4105,7 +4105,7 @@ export default function ClinicDashboard() {
                       {rangeEnd && (
                         <button
                           onClick={() => setRangeEnd(null)}
-                          className="h-9 w-9 flex items-center justify-center rounded-md border border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/50 active:scale-95 transition-all"
+                          className="h-11 w-11 flex items-center justify-center rounded-md border border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/50 active:scale-95 transition-all"
                           data-testid="button-clear-end-date"
                           aria-label="Clear end date"
                         >
@@ -4132,20 +4132,20 @@ export default function ClinicDashboard() {
                   <Button
                     variant="outline" size="sm"
                     onClick={() => setCalendarWeekStart(prev => addDays(prev, -7))}
-                    className="h-8 w-8 p-0 shrink-0"
+                    className="h-10 w-10 p-0 shrink-0"
                     disabled={!isAfter(calendarWeekStart, startOfWeek(startOfToday(), { weekStartsOn: 1 }))}
                     data-testid="button-prev-week"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <span className="text-sm font-semibold text-center tabular-nums flex flex-col items-center leading-tight">
-                    <span className="text-[10px] font-normal text-muted-foreground uppercase tracking-wider">Viewing week</span>
+                    <span className="text-xs font-normal text-muted-foreground uppercase tracking-wide">Viewing week</span>
                     {format(calendarWeekStart, "d MMM")} – {format(addDays(calendarWeekStart, 6), "d MMM yyyy")}
                   </span>
                   <Button
                     variant="outline" size="sm"
                     onClick={() => setCalendarWeekStart(prev => addDays(prev, 7))}
-                    className="h-8 w-8 p-0 shrink-0"
+                    className="h-10 w-10 p-0 shrink-0"
                     data-testid="button-next-week"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -4155,24 +4155,24 @@ export default function ClinicDashboard() {
                 {/* Grid legend */}
                 <div className="flex items-center justify-between gap-3 px-1 py-1">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400">
+                    <span className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
                       <span className="h-2.5 w-2.5 rounded-sm bg-blue-500/30 border border-blue-400/60 inline-block" />
                       Selected
                     </span>
-                    <span className="flex items-center gap-1 text-[10px] font-medium text-rose-500">
+                    <span className="flex items-center gap-1 text-xs font-medium text-rose-500">
                       <span className="h-2.5 w-2.5 rounded-sm bg-rose-500/20 border border-rose-400/40 inline-block" />
                       Closed
                     </span>
-                    <span className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+                    <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                       <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded text-[9px] font-bold bg-muted border border-border/60 text-foreground leading-none">3</span>
                       max bookings
                     </span>
-                    <span className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground/50">
+                    <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground/50">
                       <span className="h-2.5 w-2.5 rounded-sm bg-muted/60 border border-border/30 inline-block" />
                       Past — locked
                     </span>
                   </div>
-                  <span className="text-[11px] font-medium text-primary/70 whitespace-nowrap shrink-0">Click a date header below to configure, then Save to apply</span>
+                  <span className="text-xs font-medium text-primary/70 whitespace-nowrap shrink-0">Click a date header below to configure, then Save to apply</span>
                 </div>
 
                 {/* Calendar Grid */}
@@ -4183,7 +4183,7 @@ export default function ClinicDashboard() {
                       <div className="min-w-[580px]">
                         {/* Day header row */}
                         <div className="grid border-b-2 border-border/60 bg-muted/60" style={{ gridTemplateColumns: '100px repeat(7, 1fr)' }}>
-                          <div className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-r border-border/40 flex items-center">Slots</div>
+                          <div className="px-3 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-r border-border/40 flex items-center">Slots</div>
                           {weekDays.map((day, i) => {
                             const isSun = day.getDay() === 0;
                             const isSat = day.getDay() === 6;
@@ -4211,7 +4211,7 @@ export default function ClinicDashboard() {
                                 {!isPast && (isEdge || isSelected) && (
                                   <div className="absolute top-0 left-0 right-0 h-[3px] bg-blue-500/70 rounded-b-sm" />
                                 )}
-                                <div className={`text-[11px] uppercase tracking-wide font-bold ${
+                                <div className={`text-xs uppercase tracking-wide font-bold ${
                                   isPast ? 'text-muted-foreground/40' : isSun || isSat ? 'text-rose-500' : isToday ? 'text-primary' : 'text-foreground/70'
                                 }`}>{format(day, 'EEE')}</div>
                                 <div className={`text-base font-black mt-0.5 leading-none ${
@@ -4224,7 +4224,7 @@ export default function ClinicDashboard() {
                                   {format(day, 'd')}
                                 </div>
                                 {!isPast && dayCfg.isClosed && (
-                                  <div className="text-[8px] font-bold uppercase text-rose-500 mt-0.5 leading-none">closed</div>
+                                  <div className="text-[9px] font-bold uppercase text-rose-500 mt-0.5 leading-none">closed</div>
                                 )}
                               </button>
                             );
@@ -4240,7 +4240,7 @@ export default function ClinicDashboard() {
                           >
                             <div className="px-3 py-2.5 bg-muted/10 border-r border-border/20 flex flex-col justify-center">
                               <span className="text-xs font-semibold leading-tight">{slot.label}</span>
-                              <span className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                              <span className="text-xs text-muted-foreground leading-tight mt-0.5">
                                 {formatTime(slot.startHour, slot.startMinute)}–{formatTime(slot.endHour, slot.endMinute)}
                               </span>
                             </div>
@@ -4259,11 +4259,11 @@ export default function ClinicDashboard() {
                                   className={`px-1 py-2 border-l border-border/20 flex flex-col items-center justify-center min-h-[44px] transition-all ${
                                     isPast
                                       ? 'opacity-35 cursor-not-allowed bg-muted/20'
-                                      : isSelected ? 'bg-blue-500/15' : isToday ? 'bg-primary/5' : 'hover:bg-muted/25'
+                                      : isSelected ? 'bg-blue-500/15 active:bg-blue-500/25' : isToday ? 'bg-primary/5 active:bg-primary/10' : 'hover:bg-muted/25 active:bg-muted/40'
                                   }`}
                                 >
                                   {isClosed ? (
-                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
                                       isPast
                                         ? 'text-muted-foreground/60 bg-muted border border-border/30'
                                         : 'text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25'
@@ -4271,7 +4271,7 @@ export default function ClinicDashboard() {
                                   ) : (
                                     <>
                                       <span className={`text-sm font-bold leading-none ${isPast ? 'text-muted-foreground/50' : 'text-foreground'}`}>{secCfg.maxBookings}</span>
-                                      <span className="text-[9px] text-muted-foreground mt-0.5 leading-none">slots</span>
+                                      <span className="text-[10px] text-muted-foreground mt-0.5 leading-none">slots</span>
                                     </>
                                   )}
                                 </button>
@@ -4378,7 +4378,7 @@ export default function ClinicDashboard() {
                   </div>{/* end left col */}
 
                   {/* RIGHT: Day Editor */}
-                  <div className="w-full xl:w-72 shrink-0">
+                  <div className="w-full lg:w-72 shrink-0 order-first lg:order-none">
                     <div className="sticky top-[70px]">
 
                 {/* Day Editor */}
@@ -4391,7 +4391,7 @@ export default function ClinicDashboard() {
                       <div className={`px-4 py-3 border-b transition-colors ${
                         cfg.isClosed
                           ? 'bg-gradient-to-r from-rose-500/[0.08] to-transparent border-rose-200/50 dark:border-rose-500/20'
-                          : 'bg-gradient-to-r from-blue-500/[0.08] to-transparent border-blue-200/40 dark:border-blue-500/15'
+                          : 'bg-gradient-to-r from-blue-500/[0.08] to-transparent border-blue-200/40 dark:border-blue-500/25'
                       }`}>
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -4426,8 +4426,8 @@ export default function ClinicDashboard() {
                               {/* Column header row — sits directly above the slot cards */}
                               <div className="flex items-center px-3 pb-0.5">
                                 <div className="flex-1" />
-                                <span className="w-12 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Max</span>
-                                <span className="w-10 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Close</span>
+                                <span className="w-12 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Max</span>
+                                <span className="w-10 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Close</span>
                               </div>
                               {slotTimings.map((slot) => {
                                 const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
@@ -4452,6 +4452,8 @@ export default function ClinicDashboard() {
                                         value={secCfg.maxBookings}
                                         onChange={(e) => { const v = parseInt(e.target.value) || 0; getActiveDates().forEach(d => updateSectionCapacity(d, slot.id, v)); }}
                                         className="w-12 h-8 text-center text-sm px-1 font-semibold"
+                                        inputMode="numeric"
+                                        onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                                         disabled={secCfg.isCancelled}
                                         data-testid={`input-capacity-${slot.id}`}
                                       />
