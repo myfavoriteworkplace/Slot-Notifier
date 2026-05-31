@@ -4172,7 +4172,7 @@ export default function ClinicDashboard() {
                       Past — locked
                     </span>
                   </div>
-                  <span className="text-xs font-medium text-primary/70 whitespace-nowrap shrink-0">Click a date header below to configure, then Save to apply</span>
+                  <span className="hidden sm:block text-xs font-medium text-primary/70 whitespace-nowrap shrink-0">Click a date header below to configure, then Save to apply</span>
                 </div>
 
                 {/* Calendar Grid */}
@@ -4378,7 +4378,7 @@ export default function ClinicDashboard() {
                   </div>{/* end left col */}
 
                   {/* RIGHT: Day Editor */}
-                  <div className="w-full lg:w-72 shrink-0 order-first lg:order-none">
+                  <div className="w-full lg:w-72 shrink-0">
                     <div className="sticky top-[70px]">
 
                 {/* Day Editor */}
