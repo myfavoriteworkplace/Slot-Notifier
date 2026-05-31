@@ -1,0 +1,68 @@
+Slot Availability Analysis
+
+How the system works (the full chain)
+Patient picks a date
+→ Book.tsx calls POST /api/public/slot-availability
+→ routes.ts loops through each session (Morning/Afternoon/Evening)
+→ Looks up config slot (isBooked: false) for maxBookings
+→ Falls back to clinic defaultSlotConfig if no explicit row
+→ Calls storage.countVerifiedBookingsForClinicTime()
+→ Counts bookings WHERE verificationStatus = 'verified'
+→ spotsLeft = max - count
+→ Returns [{label, max, count, spotsLeft, isCancelled}]
+→ Book.tsx shows "3 left", "1 left", or "FULL" badge per session
+
+
+🔴 Critical Bug — The Counter Is Always Wrong
+The entire availability system is broken for all new bookings due to a status mismatch.
+What the counter counts:
+// storage.ts line 603
+const isVerified = r.booking.verificationStatus === 'verified';
+
+It only counts bookings with status 'verified'.
+What new bookings actually get:
+Path	Status set at creation	Status after admin confirms
+Free booking (OTP flow)	'email_verified'	'confirmed'
+Paid booking (Razorpay)	'email_verified'	'confirmed'
+The status 'verified' is never written anywhere in the current codebase. It exists only in old data from a previous version of the flow.
+What this means in practice:
+* A patient books Morning slot → booking is created with email_verified
+* Another patient opens Book page → counter returns 0 (only counts verified) → shows "3 left"
+* They book the same slot → another booking created → counter still 0
+* This repeats indefinitely — the slot never shows as full, regardless of how many patients book it
+Admin confirming does not help either. When the clinic admin confirms, the status moves from email_verified → confirmed. The counter still finds 0 because it only counts verified.
+
+Where This Affects the App
+Location	API call	Same bug?
+Patient booking page (Book.tsx)	POST /api/public/slot-availability	✅ Yes
+Clinic admin booking overview (ClinicDashboard.tsx line 781)	POST /api/public/slot-availability	✅ Same endpoint, same bug
+Calendar grid (configure-slots panel) — shows slot counts per cell	Reads from dayConfig (local state, not API)	✅ Not affected — this is config, not booking count
+Both the patient and the clinic admin look at the same broken count. The calendar grid in the slot config panel is fine — it shows maxBookings (the capacity), not live booking counts.
+
+Secondary Issue — Slot Lookup Uses isBooked: false Filter
+When checking capacity, the route looks for a config slot with isBooked: false:
+// routes.ts line 1764
+eq(slots.isBooked, false)
+
+But when a patient books, a new slot row is created with isBooked: true. These booked slot rows don't interfere with config lookup — the config row (created by the clinic via "Configure Slots") stays separate with isBooked: false. This part is working correctly.
+
+The Fix
+One targeted change in storage.ts. The counter needs to include all "active" booking statuses — anything that is not cancelled:
+// CURRENT (broken):
+const isVerified = r.booking.verificationStatus === 'verified';
+
+// CORRECT:
+const isActive = ['email_verified', 'verified', 'confirmed'].includes(
+r.booking.verificationStatus ?? ''
+);
+
+This means:
+* A booking someone just submitted (email_verified) → counts against the slot ✅
+* A booking the admin confirmed → still counts ✅
+* A cancelled booking → does NOT count (patient can rebook) ✅
+
+Summary
+#	Issue	Severity	Location
+1	Counter only counts verified — but no new booking is ever set to verified	🔴 Critical — slots never fill up	storage.ts line 603
+2	Admin confirming a booking has zero effect on slot availability	🔴 Consequence of #1	routes.ts — confirm route
+3	Both patient page and clinic admin dashboard use the same broken endpoint	🔴 Affects all users	Book.tsx, ClinicDashboard.tsx
