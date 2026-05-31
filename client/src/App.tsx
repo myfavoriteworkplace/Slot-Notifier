@@ -6,6 +6,7 @@ import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/comp
 import { ThemeProvider } from "next-themes";
 import { Header } from "@/components/Header";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useState, useEffect } from "react";
 import { Server, Database, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -190,7 +191,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <TooltipProvider delayDuration={700}>
-          <AppLayout />
+          <ErrorBoundary>
+            <AppLayout />
+          </ErrorBoundary>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

@@ -13,6 +13,7 @@ import ClinicInfoSheet from "@/components/ClinicInfoSheet";
 import type { Clinic } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -635,14 +636,44 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
   if (clinicsLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-3">
-        <div className="relative">
-          <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-accent/20 to-primary/20 blur-md animate-pulse" />
-          <div className="relative h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <CalendarDays className="h-7 w-7 text-white" />
+      <div className="min-h-screen bg-background overflow-x-hidden">
+        {/* Hero banner skeleton */}
+        <div className="bg-foreground dark:bg-background">
+          <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
+          <div className="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-3">
+            <Skeleton className="h-4 w-32 bg-white/10" />
+            <Skeleton className="h-8 w-3/4 bg-white/10" />
+            <Skeleton className="h-4 w-1/2 bg-white/10" />
           </div>
         </div>
-        <p className="text-sm text-muted-foreground font-medium">Loading clinics…</p>
+        {/* Form skeleton */}
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+          {/* Clinic selector skeleton */}
+          <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-11 w-full rounded-xl" />
+            {/* Three clinic option skeletons */}
+            {[0, 1, 2].map(i => (
+              <div key={i} className="flex items-center gap-3 px-1 py-1">
+                <Skeleton className="h-8 w-8 rounded-lg shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-40" />
+                  <Skeleton className="h-2.5 w-28" />
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Patient details skeleton */}
+          <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-3">
+            <Skeleton className="h-4 w-28" />
+            <div className="grid grid-cols-2 gap-3">
+              <Skeleton className="h-11 rounded-xl" />
+              <Skeleton className="h-11 rounded-xl" />
+            </div>
+            <Skeleton className="h-11 w-full rounded-xl" />
+            <Skeleton className="h-11 w-full rounded-xl" />
+          </div>
+        </div>
       </div>
     );
   }
