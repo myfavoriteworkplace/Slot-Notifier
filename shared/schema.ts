@@ -190,6 +190,8 @@ export const patients = pgTable("patients", {
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }),
   phone: varchar("phone", { length: 50 }),
+  age: integer("age"),
+  gender: varchar("gender", { length: 20 }),
   doctorId: integer("doctor_id").references(() => doctors.id),
   clinicId: integer("clinic_id").references(() => clinics.id),
   patientCode: varchar("patient_code", { length: 20 }),

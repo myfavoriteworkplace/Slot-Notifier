@@ -1639,6 +1639,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── PUBLIC: All patient profiles by email + clinicId (family/multi-profile picker) ─
+  app.get("/api/public/patients-by-email", async (req, res) => {
+    try {
+      const { email, clinicId } = req.query;
+      if (!email || !clinicId) return res.status(400).json({ message: "email and clinicId required" });
+      const profiles = await storage.getPatientsByEmail(parseInt(clinicId as string), (email as string).toLowerCase().trim());
+      res.json(profiles);
+    } catch (err: any) {
+      res.status(500).json({ message: "Lookup failed" });
+    }
+  });
+
+  // ── CLINIC AUTH: Search patients by name / email / phone for admin autocomplete ─
+  app.get("/api/auth/clinic/patients/search", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    try {
+      const q = ((req.query.q as string) || "").trim();
+      if (q.length < 2) return res.json([]);
+      const results = await storage.searchPatients(sess.clinicId, q);
+      res.json(results);
+    } catch (err: any) {
+      res.status(500).json({ message: "Search failed" });
+    }
+  });
+
   // ── PUBLIC BOOKING: clinic-approval path (pending) ─────────────────────────
   app.post("/api/public/bookings", async (req, res) => {
     try {

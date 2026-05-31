@@ -67,7 +67,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { Slot, Booking, PatientBill, ClinicalRecord, Patient } from "@shared/schema";
 import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload, KeyRound, CalendarOff } from "lucide-react";
 
@@ -207,6 +207,10 @@ export default function ClinicDashboard() {
   const [bookingEmail, setBookingEmail] = useState("");
   const [bookingAge, setBookingAge] = useState("");
   const [bookingGender, setBookingGender] = useState("");
+  const [patientSuggestions, setPatientSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [bookingDescription, setBookingDescription] = useState("");
   const [bookingDate, setBookingDate] = useState<Date>(startOfToday());
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -727,6 +731,36 @@ export default function ClinicDashboard() {
       setCancellingBookingId(null);
     },
   });
+
+  const fetchPatientSuggestions = useCallback(async (q: string) => {
+    if (q.length < 2) { setPatientSuggestions([]); setShowSuggestions(false); return; }
+    setSuggestionsLoading(true);
+    try {
+      const res = await apiRequest('GET', `/api/auth/clinic/patients/search?q=${encodeURIComponent(q)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPatientSuggestions(data);
+        setShowSuggestions(data.length > 0);
+      }
+    } catch { /* non-fatal */ }
+    finally { setSuggestionsLoading(false); }
+  }, []);
+
+  const handleBookingNameChange = (val: string) => {
+    setBookingName(val);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => fetchPatientSuggestions(val), 300);
+  };
+
+  const applyPatientSuggestion = (p: any) => {
+    setBookingName(p.name || "");
+    setBookingPhone(p.phone || "");
+    setBookingEmail(p.email || "");
+    setBookingAge(p.age ? String(p.age) : "");
+    setBookingGender(p.gender || "");
+    setPatientSuggestions([]);
+    setShowSuggestions(false);
+  };
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -5451,17 +5485,59 @@ export default function ClinicDashboard() {
                         <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Patient Details</span>
                       </div>
 
-                      {/* Name */}
+                      {/* Name — with patient autocomplete */}
                       <div className="space-y-1.5">
                         <Label htmlFor="booking-name" className="block">Patient Name <span className="text-destructive">*</span></Label>
-                        <Input
-                          id="booking-name"
-                          value={bookingName}
-                          onChange={(e) => setBookingName(e.target.value)}
-                          placeholder="e.g. Rahul Verma"
-                          onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                          data-testid="input-booking-name"
-                        />
+                        <div className="relative">
+                          <Input
+                            id="booking-name"
+                            value={bookingName}
+                            onChange={(e) => handleBookingNameChange(e.target.value)}
+                            placeholder="e.g. Rahul Verma"
+                            onFocus={(e) => {
+                              e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              if (bookingName.length >= 2) fetchPatientSuggestions(bookingName);
+                            }}
+                            onBlur={() => setTimeout(() => setShowSuggestions(false), 180)}
+                            autoComplete="off"
+                            data-testid="input-booking-name"
+                          />
+                          {suggestionsLoading && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                            </div>
+                          )}
+                          {showSuggestions && patientSuggestions.length > 0 && (
+                            <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-xl border border-border/60 bg-card shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                              <div className="px-3 py-1.5 border-b border-border/40 bg-muted/30">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Existing patients</p>
+                              </div>
+                              {patientSuggestions.map((p: any) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onMouseDown={() => applyPatientSuggestion(p)}
+                                  className="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-primary/5 active:bg-primary/10 transition-colors min-h-[44px] border-b border-border/30 last:border-0"
+                                  data-testid={`suggestion-patient-${p.id}`}
+                                >
+                                  <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 font-bold text-primary text-xs">
+                                    {(p.name || "?").charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold leading-tight truncate">{p.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {p.patientCode && <span className="font-mono">{p.patientCode}</span>}
+                                      {p.age && <span> · {p.age}y</span>}
+                                      {p.gender && <span> · {p.gender}</span>}
+                                      {p.phone && <span> · {p.phone}</span>}
+                                    </p>
+                                  </div>
+                                  <span className="text-xs text-primary shrink-0 font-medium">Fill →</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Mobile + Email */}

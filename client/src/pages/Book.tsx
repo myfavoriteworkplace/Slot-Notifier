@@ -7,7 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Loader2, CalendarDays, CheckCircle2, Building2, User, Phone, Mail,
   MapPin, Sun, Moon, Clock, Shield, Sparkles, Search, Stethoscope, X, ChevronDown,
-  CreditCard, ClipboardCheck, Info, Lock, AlertTriangle,
+  CreditCard, ClipboardCheck, Info, Lock, AlertTriangle, ChevronRight, Plus, Users,
 } from "lucide-react";
 import ClinicInfoSheet from "@/components/ClinicInfoSheet";
 import type { Clinic } from "@shared/schema";
@@ -130,7 +130,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [bookingPath, setBookingPath]           = useState<"pay" | "pending" | null>(null);
   const [isClinicSheetOpen, setIsClinicSheetOpen] = useState(false);
   const [infoClinic, setInfoClinic] = useState<Clinic | null>(null);
-  const [returningPatient, setReturningPatient] = useState<{ name: string; visitCount: number; patientCode: string } | null>(null);
+  const [patientProfiles, setPatientProfiles] = useState<any[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<number | 'new' | null>(null);
   const razorpayScriptRef = useRef(false);
   const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [showAllCategories, setShowAllCategories] = useState(false);
@@ -175,6 +176,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
     setVerifiedToken("");
     setOtpError("");
     setResendCountdown(0);
+    setPatientProfiles([]);
+    setSelectedProfileId(null);
   };
 
   const handleEmailChange = (value: string) => {
@@ -424,16 +427,16 @@ export default function Book(props: { params: { clinicId?: string } }) {
       setVerifiedToken(data.verifiedToken);
       setOtpError("");
       notify.success("Email verified", { description: "You can now complete your booking." });
-      // Check if returning patient at this clinic
+      // Fetch all patient profiles for this email at this clinic
       try {
         const cId = clinicsData?.find((c: any) => c.name === selectedClinic)?.id;
         if (cId) {
           const lookup = await fetch(
-            `/api/public/patient-lookup?email=${encodeURIComponent(customerEmail.toLowerCase())}&clinicId=${cId}`
+            `/api/public/patients-by-email?email=${encodeURIComponent(customerEmail.toLowerCase())}&clinicId=${cId}`
           );
           if (lookup.ok) {
-            const result = await lookup.json();
-            if (result.found && result.visitCount > 0) setReturningPatient(result);
+            const profiles = await lookup.json();
+            setPatientProfiles(Array.isArray(profiles) ? profiles : []);
           }
         }
       } catch { /* non-fatal */ }
@@ -1336,24 +1339,93 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
               {/* ── DIALOG BODY ─────────────────────────────── */}
               <div className="overflow-y-auto flex-1 p-5">
-                {emailVerified && returningPatient && !showSlots && (
-                  <div className="mb-4 p-3 rounded-xl bg-primary/8 border border-primary/20 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-400">
-                    <div className="h-8 w-8 rounded-lg bg-primary/15 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="text-base">👋</span>
+                {/* ── Patient profile picker — shown after OTP when profiles exist ── */}
+                {emailVerified && patientProfiles.length > 0 && !showSlots && selectedProfileId === null && (
+                  <div className="mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <Users className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Who is this appointment for?</p>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-primary leading-tight">
-                        Welcome back, {returningPatient.name.split(" ")[0]}!
-                      </p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        This is your <span className="font-semibold text-foreground">visit #{returningPatient.visitCount + 1}</span> at this clinic
-                        {returningPatient.patientCode && (
-                          <span className="ml-1.5 font-mono text-[9px] uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-md">
-                            {returningPatient.patientCode}
-                          </span>
-                        )}
-                      </p>
+                    <div className="space-y-2">
+                      {patientProfiles.map((p: any) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedProfileId(p.id);
+                            setCustomerName(p.name || "");
+                            if (p.phone) setCustomerPhone(p.phone);
+                            if (p.age) setCustomerAge(String(p.age));
+                            if (p.gender) setCustomerGender(p.gender as any);
+                          }}
+                          className="w-full text-left p-3 rounded-xl border border-border/60 bg-card hover:bg-primary/5 hover:border-primary/30 active:scale-[0.98] transition-all flex items-center gap-3 min-h-[52px]"
+                          data-testid={`btn-select-patient-${p.id}`}
+                        >
+                          <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 font-bold text-primary text-sm">
+                            {(p.name || "?").charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold leading-tight">{p.name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {p.patientCode && <span className="font-mono">{p.patientCode}</span>}
+                              {p.age && <span> · {p.age}y</span>}
+                              {p.gender && <span> · {p.gender}</span>}
+                              <span className="text-primary/70"> · Visit #{(p.visitCount ?? 0) + 1}</span>
+                            </p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedProfileId('new');
+                          setCustomerName("");
+                          setCustomerPhone("");
+                          setCustomerAge("");
+                          setCustomerGender("");
+                        }}
+                        className="w-full text-left p-3 rounded-xl border border-dashed border-border/50 hover:border-primary/30 hover:bg-primary/5 active:scale-[0.98] transition-all flex items-center gap-3 min-h-[52px]"
+                        data-testid="btn-select-patient-new"
+                      >
+                        <div className="h-9 w-9 rounded-xl bg-muted border border-border/50 flex items-center justify-center shrink-0">
+                          <Plus className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold">Someone new</p>
+                          <p className="text-xs text-muted-foreground">New patient — fill details below</p>
+                        </div>
+                      </button>
                     </div>
+                  </div>
+                )}
+                {/* Selected profile indicator */}
+                {emailVerified && patientProfiles.length > 0 && selectedProfileId !== null && !showSlots && (
+                  <div className="mb-4 p-3 rounded-xl bg-primary/8 border border-primary/20 flex items-center gap-3 animate-in fade-in duration-200">
+                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      {selectedProfileId === 'new' ? (
+                        <p className="text-sm font-semibold text-primary">New patient</p>
+                      ) : (
+                        <p className="text-sm font-semibold text-primary">
+                          {patientProfiles.find((p: any) => p.id === selectedProfileId)?.name ?? ""}
+                          {patientProfiles.find((p: any) => p.id === selectedProfileId)?.patientCode && (
+                            <span className="ml-1.5 font-mono text-xs bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded">
+                              {patientProfiles.find((p: any) => p.id === selectedProfileId)?.patientCode}
+                            </span>
+                          )}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-0.5">Details auto-filled — edit below if needed</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProfileId(null)}
+                      className="text-xs text-primary underline underline-offset-2 shrink-0 min-h-[44px] px-2"
+                      data-testid="btn-change-patient-profile"
+                    >
+                      Change
+                    </button>
                   </div>
                 )}
                 {!showSlots ? (

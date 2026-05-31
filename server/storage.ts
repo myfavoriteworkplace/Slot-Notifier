@@ -109,6 +109,8 @@ export interface IStorage {
   upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
   upsertPatientByPhone(clinicId: number, phone: string, name: string): Promise<Patient>;
   getPatientByEmail(clinicId: number, email: string): Promise<Patient | null>;
+  getPatientsByEmail(clinicId: number, email: string): Promise<Patient[]>;
+  searchPatients(clinicId: number, query: string): Promise<Patient[]>;
   getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]>;
   getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }>;
 
@@ -1179,6 +1181,24 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(patients.clinicId, clinicId), eq(patients.email, email.toLowerCase().trim())))
       .limit(1);
     return patient ?? null;
+  }
+
+  async getPatientsByEmail(clinicId: number, email: string): Promise<Patient[]> {
+    return db.select().from(patients)
+      .where(and(eq(patients.clinicId, clinicId), eq(patients.email, email.toLowerCase().trim())))
+      .orderBy(desc(patients.lastVisitAt));
+  }
+
+  async searchPatients(clinicId: number, query: string): Promise<Patient[]> {
+    const q = `%${query.toLowerCase()}%`;
+    return db.select().from(patients)
+      .where(and(
+        eq(patients.clinicId, clinicId),
+        sql`(LOWER(${patients.name}) LIKE ${q} OR LOWER(COALESCE(${patients.email}, '')) LIKE ${q} OR COALESCE(${patients.phone}, '') LIKE ${q})`,
+        sql`${patients.patientCode} IS NOT NULL`
+      ))
+      .orderBy(desc(patients.lastVisitAt))
+      .limit(10);
   }
 
   async getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]> {

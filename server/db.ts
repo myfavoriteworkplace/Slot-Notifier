@@ -422,6 +422,17 @@ export async function ensureSessionTable() {
     console.error("[DATABASE] Error ensuring doctors.username column:", err.message);
   }
 
+  // patients age/gender columns
+  try {
+    await pool.query(`
+      ALTER TABLE IF EXISTS "patients" ADD COLUMN IF NOT EXISTS "age" integer;
+      ALTER TABLE IF EXISTS "patients" ADD COLUMN IF NOT EXISTS "gender" varchar(20);
+    `);
+    console.log("[DATABASE] Patient age/gender columns ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error ensuring patient age/gender columns:", err.message);
+  }
+
   // login_events audit table
   try {
     await pool.query(`
