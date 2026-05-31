@@ -4307,74 +4307,6 @@ export default function ClinicDashboard() {
                   );
                 })()}
 
-                {/* ── Apply slot configuration to ── */}
-                <div className="space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Apply slot configuration to <ChevronRight className="h-3.5 w-3.5 inline-block" />
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setPendingBulkAction('future-days')}
-                      disabled={isBulkApplying}
-                      className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 border-primary/30 bg-primary/[0.04] hover:bg-primary/[0.10] hover:border-primary/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      data-testid="button-apply-all-future"
-                    >
-                      {isBulkApplying
-                        ? <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                        : <CalendarDays className="h-4 w-4 text-primary" />}
-                      <span className="text-xs font-bold text-primary text-center leading-tight">All Future Days</span>
-                      <span className="text-[10px] text-primary/60 text-center leading-tight">Default for all unscheduled dates</span>
-                    </button>
-                    <button
-                      onClick={() => setPendingBulkAction('sundays-this-month')}
-                      disabled={isBulkApplying}
-                      className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 border-amber-500/30 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-500/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      data-testid="button-apply-sundays"
-                    >
-                      {isBulkApplying
-                        ? <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
-                        : <Sun className="h-4 w-4 text-amber-500" />}
-                      <span className="text-xs font-bold text-amber-600 dark:text-amber-400 text-center leading-tight">All Sundays This Month</span>
-                      <span className="text-[10px] text-amber-600/60 dark:text-amber-400/60 text-center leading-tight">Explicit slots for each Sunday</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* ── How this screen works — below grid ── */}
-                <div className="rounded-xl border border-border/40 overflow-hidden mt-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowHowItWorks(h => !h)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
-                    data-testid="button-toggle-how-it-works"
-                  >
-                    <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-xs font-semibold text-muted-foreground flex-1">How to configure slots</span>
-                    {showHowItWorks
-                      ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                      : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-                  </button>
-                  {showHowItWorks && (
-                    <div className="px-4 pb-4 pt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 border-t border-border/30 bg-muted/10">
-                      {([
-                        { icon: "📅", node: <>Click any column in the grid to load that day's configuration in the editor panel on the right.</> },
-                        { icon: "↔️", node: <>To configure a date range: use the <strong className="text-foreground">From</strong> and <strong className="text-foreground">To</strong> date pickers above the grid. The entire range gets the same config when saved.</> },
-                        { icon: "🔴", node: <><strong className="text-foreground font-bold">Close Bookings</strong> toggle (below the grid) blocks all bookings for the selected date(s) — use it for holidays, leaves, or clinic-wide closures.</> },
-                        { icon: "🔢", node: <>Adjust <strong className="text-foreground">Max</strong> per slot to control how many patients can book each session (e.g. Early Morning, Afternoon, Evening).</> },
-                        { icon: "🔕", node: <>The <strong className="text-foreground">Close</strong> switch on each slot cancels just that one session without closing the whole day.</> },
-                        { icon: "💾", node: <><strong className="text-foreground">Save</strong> writes the config to the selected date(s). For a range, a confirmation step shows exactly what will be overwritten.</> },
-                        { icon: "📋", node: <><strong className="text-primary font-bold">All Future Days</strong> saves this config as your clinic's default — applies to any future date that has no individual config saved.</> },
-                        { icon: "☀️", node: <><strong className="text-amber-600 dark:text-amber-400 font-bold">All Sundays This Month</strong> writes this config explicitly to every Sunday this month — ideal for weekly closures or reduced Sunday hours.</> },
-                      ] as { icon: string; node: React.ReactNode }[]).map(({ icon, node }, idx) => (
-                        <div key={idx} className="flex items-start gap-2">
-                          <span className="text-sm shrink-0 leading-5 mt-0.5">{icon}</span>
-                          <p className="text-xs text-muted-foreground leading-relaxed">{node}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
                   </div>{/* end left col */}
 
                   {/* RIGHT: Day Editor */}
@@ -4486,6 +4418,74 @@ export default function ClinicDashboard() {
                             <><Save className="h-4 w-4 mr-2" /> Save Slot Configuration</>
                           )}
                         </Button>
+
+                        {/* ── Apply slot configuration to ── */}
+                        <div className="border-t border-border/30 pt-3 space-y-2">
+                          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                            Apply to <ChevronRight className="h-3.5 w-3.5 inline-block" />
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => setPendingBulkAction('future-days')}
+                              disabled={isBulkApplying}
+                              className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 border-primary/30 bg-primary/[0.04] hover:bg-primary/[0.10] hover:border-primary/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              data-testid="button-apply-all-future"
+                            >
+                              {isBulkApplying
+                                ? <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                                : <CalendarDays className="h-4 w-4 text-primary" />}
+                              <span className="text-xs font-bold text-primary text-center leading-tight">All Future Days</span>
+                              <span className="text-xs text-primary/60 text-center leading-tight">Default for all dates</span>
+                            </button>
+                            <button
+                              onClick={() => setPendingBulkAction('sundays-this-month')}
+                              disabled={isBulkApplying}
+                              className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 border-amber-500/30 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-500/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              data-testid="button-apply-sundays"
+                            >
+                              {isBulkApplying
+                                ? <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
+                                : <Sun className="h-4 w-4 text-amber-500" />}
+                              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 text-center leading-tight">All Sundays</span>
+                              <span className="text-xs text-amber-600/60 dark:text-amber-400/60 text-center leading-tight">This month</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* ── How to configure slots ── */}
+                        <div className="rounded-xl border border-border/40 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setShowHowItWorks(h => !h)}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/30 active:bg-muted/50 transition-colors"
+                            data-testid="button-toggle-how-it-works"
+                          >
+                            <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-xs font-semibold text-muted-foreground flex-1">How to configure slots</span>
+                            {showHowItWorks
+                              ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                              : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                          </button>
+                          {showHowItWorks && (
+                            <div className="px-4 pb-4 pt-2.5 grid grid-cols-1 gap-y-2.5 border-t border-border/30 bg-muted/10">
+                              {([
+                                { icon: "📅", node: <>Tap any column in the grid above to load that day's config here.</> },
+                                { icon: "↔️", node: <>For a date range: use the <strong className="text-foreground">From</strong> and <strong className="text-foreground">To</strong> pickers above the grid.</> },
+                                { icon: "🔴", node: <><strong className="text-foreground font-bold">Close Bookings</strong> blocks all slots on the selected date(s).</> },
+                                { icon: "🔢", node: <>Adjust <strong className="text-foreground">Max</strong> to control how many patients can book each session.</> },
+                                { icon: "🔕", node: <>The <strong className="text-foreground">Close</strong> switch cancels a single session without closing the whole day.</> },
+                                { icon: "💾", node: <><strong className="text-foreground">Save</strong> writes the config to the selected date(s).</> },
+                                { icon: "📋", node: <><strong className="text-primary font-bold">All Future Days</strong> sets this as your clinic's default schedule.</> },
+                                { icon: "☀️", node: <><strong className="text-amber-600 dark:text-amber-400 font-bold">All Sundays</strong> writes this config to every Sunday this month.</> },
+                              ] as { icon: string; node: React.ReactNode }[]).map(({ icon, node }, idx) => (
+                                <div key={idx} className="flex items-start gap-2">
+                                  <span className="text-sm shrink-0 leading-5 mt-0.5">{icon}</span>
+                                  <p className="text-xs text-muted-foreground leading-relaxed">{node}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
 
                         {/* ── Bulk Apply Confirmation Dialog ── */}
                         {(() => {
