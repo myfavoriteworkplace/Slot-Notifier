@@ -141,6 +141,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [isAccordionExpanded, setIsAccordionExpanded] = useState(true);
   const [dropdownHighlighted, setDropdownHighlighted] = useState(false);
+  const [newPatientSnapshot, setNewPatientSnapshot] = useState<{name: string, phone: string, age: string, gender: any} | null>(null);
 
   // OTP verification state
   const [otpSent, setOtpSent]               = useState(false);
@@ -1451,6 +1452,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                   type="button"
                                   data-testid={`btn-select-patient-${p.id}`}
                                   onClick={() => {
+                                    if (selectedProfileId === null || selectedProfileId === 'new') {
+                                      setNewPatientSnapshot({ name: customerName, phone: customerPhone, age: customerAge, gender: customerGender });
+                                    }
                                     setSelectedProfileId(p.id);
                                     setCustomerName(p.name || "");
                                     if (p.phone) setCustomerPhone(p.phone);
@@ -1480,9 +1484,14 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                 type="button"
                                 data-testid="btn-select-patient-new"
                                 onClick={() => {
+                                  if (newPatientSnapshot) {
+                                    setCustomerName(newPatientSnapshot.name);
+                                    setCustomerPhone(newPatientSnapshot.phone);
+                                    setCustomerAge(newPatientSnapshot.age);
+                                    setCustomerGender(newPatientSnapshot.gender);
+                                  }
                                   setSelectedProfileId('new');
                                   setIsPatientDropdownOpen(false);
-                                  setIsEditingDetails(true);
                                 }}
                                 className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-primary/8 active:bg-primary/12 transition-all text-left"
                               >
@@ -1491,7 +1500,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <p className="text-sm font-semibold leading-tight">{customerName || "New patient"}</p>
+                                    <p className="text-sm font-semibold leading-tight">{newPatientSnapshot?.name || customerName || "New patient"}</p>
                                     <span className="text-[9px] font-bold bg-primary/15 text-primary border border-primary/25 px-1.5 py-0.5 rounded-full uppercase tracking-wide leading-none">NEW</span>
                                   </div>
                                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -1514,6 +1523,34 @@ export default function Book(props: { params: { clinicId?: string } }) {
                               </button>
                             </PopoverContent>
                           </Popover>
+                          {selectedProfileId === 'new' && (
+                            <div className="mt-3 flex items-start gap-3 p-3.5 rounded-2xl border border-emerald-400/20 bg-emerald-500/5 animate-in fade-in duration-300">
+                              <div className="h-9 w-9 rounded-xl bg-emerald-500/15 border border-emerald-400/20 flex items-center justify-center shrink-0 mt-0.5">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                              </div>
+                              <div className="flex-1 min-w-0 space-y-0.5">
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="text-sm font-bold text-foreground leading-tight">{customerName}</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsEditingDetails(true)}
+                                    className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors shrink-0 flex items-center gap-1"
+                                    data-testid="button-edit-new-patient"
+                                  >
+                                    ✏ Edit
+                                  </button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {customerAge} yrs · {customerGender ? customerGender.charAt(0).toUpperCase() + customerGender.slice(1) : ""}
+                                </p>
+                                <p className="text-xs text-muted-foreground">{customerPhone}</p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs text-muted-foreground">{customerEmail}</span>
+                                  <span className="text-xs font-bold text-emerald-600 bg-emerald-500/10 border border-emerald-400/20 px-1.5 py-0.5 rounded-full">✓ verified</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                       </>
