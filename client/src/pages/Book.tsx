@@ -1347,41 +1347,13 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
               {/* ── DIALOG BODY ─────────────────────────────── */}
               <div className="overflow-y-auto flex-1 p-5">
-                {/* Selected profile indicator */}
-                {emailVerified && patientProfiles.length > 0 && selectedProfileId !== null && !showSlots && (
-                  <div className="mb-4 p-3 rounded-xl bg-primary/8 border border-primary/20 flex items-center gap-3 animate-in fade-in duration-200">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      {selectedProfileId === 'new' ? (
-                        <p className="text-sm font-semibold text-primary">New patient</p>
-                      ) : (
-                        <p className="text-sm font-semibold text-primary">
-                          {patientProfiles.find((p: any) => p.id === selectedProfileId)?.name ?? ""}
-                          {patientProfiles.find((p: any) => p.id === selectedProfileId)?.patientCode && (
-                            <span className="ml-1.5 font-mono text-xs bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded">
-                              {patientProfiles.find((p: any) => p.id === selectedProfileId)?.patientCode}
-                            </span>
-                          )}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-0.5">Details auto-filled — edit below if needed</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedProfileId(null)}
-                      className="text-xs text-primary underline underline-offset-2 shrink-0 min-h-[44px] px-2"
-                      data-testid="btn-change-patient-profile"
-                    >
-                      Change
-                    </button>
-                  </div>
-                )}
                 {!showSlots ? (
                   /* STEP 1: Patient details */
                   <div className="space-y-4">
 
                     {emailVerified && !isEditingDetails ? (
                       <> {/* ─── Verified summary + patient picker ─── */}
+                      {patientProfiles.length === 0 && (
                       <div className="flex items-start gap-3 p-3.5 rounded-2xl border border-emerald-400/20 bg-emerald-500/5 animate-in fade-in duration-300" data-testid="section-patient-summary">
                         <div className="h-9 w-9 rounded-xl bg-emerald-500/15 border border-emerald-400/20 flex items-center justify-center shrink-0 mt-0.5">
                           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -1408,9 +1380,10 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           </div>
                         </div>
                       </div>
+                      )}
 
-                      {/* ── Patient profile picker — rendered below the verified summary ── */}
-                      {patientProfiles.length > 0 && selectedProfileId === null && (
+                      {/* ── Patient profile picker — always visible when profiles exist ── */}
+                      {patientProfiles.length > 0 && (
                         <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-300">
                           <div className="mb-2">
                             <div className="flex items-center gap-1.5 mb-0.5">
@@ -1426,14 +1399,42 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                 data-testid="btn-patient-dropdown-trigger"
                                 onClick={() => setDropdownHighlighted(false)}
                                 className={`w-full flex items-center justify-between gap-2 px-3 h-11 rounded-xl border bg-muted/20 hover:border-primary/40 hover:bg-primary/5 transition-all ${
-                                  dropdownHighlighted
+                                  selectedProfileId !== null
+                                    ? "border-primary/40 bg-primary/5"
+                                    : dropdownHighlighted
                                     ? "border-amber-400 ring-2 ring-amber-400/40 animate-pulse"
                                     : "border-border/60"
                                 }`}
                               >
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                  <span className="text-sm text-muted-foreground truncate">Select patient…</span>
+                                  {selectedProfileId === null ? (
+                                    <>
+                                      <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                      <span className="text-sm text-muted-foreground truncate">Select patient…</span>
+                                    </>
+                                  ) : selectedProfileId === 'new' ? (
+                                    <>
+                                      <div className="h-6 w-6 rounded-md bg-muted border border-border/50 flex items-center justify-center shrink-0">
+                                        <Plus className="h-3 w-3 text-muted-foreground" />
+                                      </div>
+                                      <span className="text-sm font-medium text-foreground truncate">{customerName || "New patient"}</span>
+                                      <span className="text-[9px] font-bold bg-primary/15 text-primary border border-primary/25 px-1.5 py-0.5 rounded-full uppercase tracking-wide leading-none shrink-0">NEW</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="h-6 w-6 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 font-bold text-primary text-xs">
+                                        {(patientProfiles.find((p: any) => p.id === selectedProfileId)?.name || "?").charAt(0).toUpperCase()}
+                                      </div>
+                                      <span className="text-sm font-medium text-foreground truncate">
+                                        {patientProfiles.find((p: any) => p.id === selectedProfileId)?.name}
+                                      </span>
+                                      {patientProfiles.find((p: any) => p.id === selectedProfileId)?.patientCode && (
+                                        <span className="font-mono text-xs bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded shrink-0">
+                                          {patientProfiles.find((p: any) => p.id === selectedProfileId)?.patientCode}
+                                        </span>
+                                      )}
+                                    </>
+                                  )}
                                 </div>
                                 <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200 ${isPatientDropdownOpen ? "rotate-180" : ""}`} />
                               </button>
@@ -1481,6 +1482,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                                 onClick={() => {
                                   setSelectedProfileId('new');
                                   setIsPatientDropdownOpen(false);
+                                  setIsEditingDetails(true);
                                 }}
                                 className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-primary/8 active:bg-primary/12 transition-all text-left"
                               >
