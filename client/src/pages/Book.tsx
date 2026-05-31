@@ -1341,91 +1341,6 @@ export default function Book(props: { params: { clinicId?: string } }) {
 
               {/* ── DIALOG BODY ─────────────────────────────── */}
               <div className="overflow-y-auto flex-1 p-5">
-                {/* ── Patient profile picker — shown after OTP when profiles exist ── */}
-                {emailVerified && patientProfiles.length > 0 && !showSlots && selectedProfileId === null && (
-                  <div className="mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="mb-2.5">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <Users className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <p className="text-xs font-bold text-foreground">Patients previously booked at this clinic with this email</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground pl-5">Select a returning patient or continue as new</p>
-                    </div>
-                    <Popover open={isPatientDropdownOpen} onOpenChange={setIsPatientDropdownOpen}>
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          data-testid="btn-patient-dropdown-trigger"
-                          className="w-full flex items-center justify-between gap-2 px-3 h-11 rounded-xl border border-border/60 bg-muted/20 hover:border-primary/40 hover:bg-primary/5 transition-all"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-sm text-muted-foreground truncate">Select patient…</span>
-                          </div>
-                          <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200 ${isPatientDropdownOpen ? "rotate-180" : ""}`} />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        align="start"
-                        sideOffset={4}
-                        className="p-1 rounded-xl shadow-xl border-border/60"
-                        style={{ width: "var(--radix-popover-trigger-width)" }}
-                      >
-                        {patientProfiles.map((p: any) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            data-testid={`btn-select-patient-${p.id}`}
-                            onClick={() => {
-                              setSelectedProfileId(p.id);
-                              setCustomerName(p.name || "");
-                              if (p.phone) setCustomerPhone(p.phone);
-                              if (p.age) setCustomerAge(String(p.age));
-                              if (p.gender) setCustomerGender(p.gender as any);
-                              setIsPatientDropdownOpen(false);
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-primary/8 active:bg-primary/12 transition-all text-left"
-                          >
-                            <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 font-bold text-primary text-sm">
-                              {(p.name || "?").charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold leading-tight truncate">{p.name}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                                {p.patientCode && <span className="font-mono">{p.patientCode}</span>}
-                                {p.age && <span> · {p.age}y</span>}
-                                {p.gender && <span> · {p.gender}</span>}
-                                {p.visitCount != null && <span className="text-primary/70"> · Visit #{p.visitCount + 1}</span>}
-                              </p>
-                            </div>
-                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          </button>
-                        ))}
-                        <div className="h-px bg-border/50 mx-2 my-1" />
-                        <button
-                          type="button"
-                          data-testid="btn-select-patient-new"
-                          onClick={() => {
-                            setSelectedProfileId('new');
-                            setIsPatientDropdownOpen(false);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-primary/8 active:bg-primary/12 transition-all text-left"
-                        >
-                          <div className="h-8 w-8 rounded-lg bg-muted border border-border/50 flex items-center justify-center shrink-0">
-                            <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="text-sm font-semibold leading-tight">{customerName || "New patient"}</p>
-                              <span className="text-[9px] font-bold bg-primary/15 text-primary border border-primary/25 px-1.5 py-0.5 rounded-full uppercase tracking-wide leading-none">NEW</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">Continue with the details you entered</p>
-                          </div>
-                        </button>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                )}
                 {/* Selected profile indicator */}
                 {emailVerified && patientProfiles.length > 0 && selectedProfileId !== null && !showSlots && (
                   <div className="mb-4 p-3 rounded-xl bg-primary/8 border border-primary/20 flex items-center gap-3 animate-in fade-in duration-200">
@@ -1460,7 +1375,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                   <div className="space-y-4">
 
                     {emailVerified && !isEditingDetails ? (
-                      /* ─── Verified summary: collapse all inputs ─── */
+                      <> {/* ─── Verified summary + patient picker ─── */}
                       <div className="flex items-start gap-3 p-3.5 rounded-2xl border border-emerald-400/20 bg-emerald-500/5 animate-in fade-in duration-300" data-testid="section-patient-summary">
                         <div className="h-9 w-9 rounded-xl bg-emerald-500/15 border border-emerald-400/20 flex items-center justify-center shrink-0 mt-0.5">
                           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -1487,6 +1402,109 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           </div>
                         </div>
                       </div>
+
+                      {/* ── Patient profile picker — rendered below the verified summary ── */}
+                      {patientProfiles.length > 0 && selectedProfileId === null && (
+                        <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                          <div className="mb-2">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <Users className="h-3.5 w-3.5 text-primary shrink-0" />
+                              <p className="text-xs font-bold text-foreground">Patients previously booked at this clinic with this email</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground pl-5">Select a returning patient or continue as new</p>
+                          </div>
+                          <Popover open={isPatientDropdownOpen} onOpenChange={setIsPatientDropdownOpen}>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                data-testid="btn-patient-dropdown-trigger"
+                                className="w-full flex items-center justify-between gap-2 px-3 h-11 rounded-xl border border-border/60 bg-muted/20 hover:border-primary/40 hover:bg-primary/5 transition-all"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <span className="text-sm text-muted-foreground truncate">Select patient…</span>
+                                </div>
+                                <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200 ${isPatientDropdownOpen ? "rotate-180" : ""}`} />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              align="start"
+                              sideOffset={4}
+                              className="p-1 rounded-xl shadow-xl border-border/60"
+                              style={{ width: "var(--radix-popover-trigger-width)" }}
+                            >
+                              {patientProfiles.map((p: any) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  data-testid={`btn-select-patient-${p.id}`}
+                                  onClick={() => {
+                                    setSelectedProfileId(p.id);
+                                    setCustomerName(p.name || "");
+                                    if (p.phone) setCustomerPhone(p.phone);
+                                    if (p.age) setCustomerAge(String(p.age));
+                                    if (p.gender) setCustomerGender(p.gender as any);
+                                    setIsPatientDropdownOpen(false);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-primary/8 active:bg-primary/12 transition-all text-left"
+                                >
+                                  <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 font-bold text-primary text-sm">
+                                    {(p.name || "?").charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold leading-tight truncate">{p.name}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                                      {p.patientCode && <span className="font-mono">{p.patientCode}</span>}
+                                      {p.age && <span> · {p.age}y</span>}
+                                      {p.gender && <span> · {p.gender}</span>}
+                                      {p.visitCount != null && <span className="text-primary/70"> · Visit #{p.visitCount + 1}</span>}
+                                    </p>
+                                  </div>
+                                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                </button>
+                              ))}
+                              <div className="h-px bg-border/50 mx-2 my-1" />
+                              <button
+                                type="button"
+                                data-testid="btn-select-patient-new"
+                                onClick={() => {
+                                  setSelectedProfileId('new');
+                                  setIsPatientDropdownOpen(false);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-primary/8 active:bg-primary/12 transition-all text-left"
+                              >
+                                <div className="h-8 w-8 rounded-lg bg-muted border border-border/50 flex items-center justify-center shrink-0">
+                                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="text-sm font-semibold leading-tight">{customerName || "New patient"}</p>
+                                    <span className="text-[9px] font-bold bg-primary/15 text-primary border border-primary/25 px-1.5 py-0.5 rounded-full uppercase tracking-wide leading-none">NEW</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                    <p className="text-xs text-muted-foreground">Continue with the details you entered</p>
+                                    <button
+                                      type="button"
+                                      data-testid="btn-new-patient-edit-details"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        setSelectedProfileId('new');
+                                        setIsPatientDropdownOpen(false);
+                                        setIsEditingDetails(true);
+                                      }}
+                                      className="text-xs font-semibold text-primary hover:text-accent underline underline-offset-2 transition-colors leading-none"
+                                    >
+                                      Edit details
+                                    </button>
+                                  </div>
+                                </div>
+                              </button>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      )}
+                      </> {/* end Fragment */}
+
                     ) : (
                     <>
 
