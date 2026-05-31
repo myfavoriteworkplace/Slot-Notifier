@@ -431,7 +431,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
       try {
         const cId = clinicsData?.find((c: any) => c.name === selectedClinic)?.id;
         if (cId) {
-          const lookup = await fetch(
+          const lookup = await apiRequest(
+            "GET",
             `/api/public/patients-by-email?email=${encodeURIComponent(customerEmail.toLowerCase())}&clinicId=${cId}`
           );
           if (lookup.ok) {
