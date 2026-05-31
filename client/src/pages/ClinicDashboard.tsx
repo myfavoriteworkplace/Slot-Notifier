@@ -4036,7 +4036,7 @@ export default function ClinicDashboard() {
                 <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <CalendarDays className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <p className="text-xs font-semibold text-foreground">Select a date or date range to configure</p>
+                  <p className="text-xs font-semibold text-foreground">Select a date or date range, then Save to apply</p>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
                   {/* Start Date */}
@@ -4172,7 +4172,7 @@ export default function ClinicDashboard() {
                       Past — locked
                     </span>
                   </div>
-                  <span className="text-[11px] font-medium text-primary/70 whitespace-nowrap shrink-0">↓ Click a date header below to configure</span>
+                  <span className="text-[11px] font-medium text-primary/70 whitespace-nowrap shrink-0">Click a date header below to configure, then Save to apply</span>
                 </div>
 
                 {/* Calendar Grid */}
@@ -4284,8 +4284,64 @@ export default function ClinicDashboard() {
                   );
                 })()}
 
+                {/* ── Close Bookings for Selected Date(s) ── */}
+                {(() => {
+                  const cbCfg = getConfigForDate(configDate);
+                  return (
+                    <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                      cbCfg.isClosed
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30'
+                        : 'bg-muted/20 border-border/40'
+                    }`}>
+                      <Switch
+                        checked={cbCfg.isClosed}
+                        onCheckedChange={(val) => getActiveDates().forEach(d => updateDayClosedState(d, val))}
+                        data-testid="toggle-day-closed"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold leading-tight">Close Bookings for Selected Date(s)</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Prevents patients from booking any slot on the selected date(s)</p>
+                      </div>
+                      {cbCfg.isClosed && <Badge className="text-[10px] bg-rose-500 text-white border-0 shrink-0">Closed</Badge>}
+                    </div>
+                  );
+                })()}
+
+                {/* ── Apply slot configuration to ── */}
+                <div className="space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    Apply slot configuration to <ChevronRight className="h-3.5 w-3.5 inline-block" />
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setPendingBulkAction('future-days')}
+                      disabled={isBulkApplying}
+                      className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 border-primary/30 bg-primary/[0.04] hover:bg-primary/[0.10] hover:border-primary/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      data-testid="button-apply-all-future"
+                    >
+                      {isBulkApplying
+                        ? <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                        : <CalendarDays className="h-4 w-4 text-primary" />}
+                      <span className="text-xs font-bold text-primary text-center leading-tight">All Future Days</span>
+                      <span className="text-[10px] text-primary/60 text-center leading-tight">Default for all unscheduled dates</span>
+                    </button>
+                    <button
+                      onClick={() => setPendingBulkAction('sundays-this-month')}
+                      disabled={isBulkApplying}
+                      className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 border-amber-500/30 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-500/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      data-testid="button-apply-sundays"
+                    >
+                      {isBulkApplying
+                        ? <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
+                        : <Sun className="h-4 w-4 text-amber-500" />}
+                      <span className="text-xs font-bold text-amber-600 dark:text-amber-400 text-center leading-tight">All Sundays This Month</span>
+                      <span className="text-[10px] text-amber-600/60 dark:text-amber-400/60 text-center leading-tight">Explicit slots for each Sunday</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* ── How this screen works — below grid ── */}
-                <div className="rounded-xl border border-border/40 overflow-hidden mt-3">
+                <div className="rounded-xl border border-border/40 overflow-hidden mt-1">
                   <button
                     type="button"
                     onClick={() => setShowHowItWorks(h => !h)}
@@ -4303,7 +4359,7 @@ export default function ClinicDashboard() {
                       {([
                         { icon: "📅", node: <>Click any column in the grid to load that day's configuration in the editor panel on the right.</> },
                         { icon: "↔️", node: <>To configure a date range: use the <strong className="text-foreground">From</strong> and <strong className="text-foreground">To</strong> date pickers above the grid. The entire range gets the same config when saved.</> },
-                        { icon: "🔴", node: <><strong className="text-foreground font-bold">Close All Slots</strong> button blocks all bookings for the selected day(s) — use it for holidays, leaves, or clinic-wide closures.</> },
+                        { icon: "🔴", node: <><strong className="text-foreground font-bold">Close Bookings</strong> toggle (below the grid) blocks all bookings for the selected date(s) — use it for holidays, leaves, or clinic-wide closures.</> },
                         { icon: "🔢", node: <>Adjust <strong className="text-foreground">Max</strong> per slot to control how many patients can book each session (e.g. Early Morning, Afternoon, Evening).</> },
                         { icon: "🔕", node: <>The <strong className="text-foreground">Close</strong> switch on each slot cancels just that one session without closing the whole day.</> },
                         { icon: "💾", node: <><strong className="text-foreground">Save</strong> writes the config to the selected date(s). For a range, a confirmation step shows exactly what will be overwritten.</> },
@@ -4344,11 +4400,7 @@ export default function ClinicDashboard() {
                                 ? `${format(rangeStart, 'EEE d MMM')} – ${format(rangeEnd, 'EEE d MMM yyyy')}`
                                 : format(configDate, 'EEEE, d MMMM yyyy')}
                             </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {rangeStart && rangeEnd
-                                ? 'Configure time blocks for the selected date range — click Save Range to confirm'
-                                : 'Configure time blocks for this day'}
-                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Configure slots for the selected date(s) and click Save to apply</p>
                           </div>
                           {isSunday && (
                             <Badge variant="outline" className="text-[10px] border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 shrink-0">
@@ -4358,121 +4410,67 @@ export default function ClinicDashboard() {
                         </div>
                       </div>
 
-                      <div className="p-4 space-y-4">
-                        {/* Day Closed toggle */}
-                        <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                          cfg.isClosed
-                            ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30'
-                            : 'bg-muted/20 border-border/40'
-                        }`}>
-                          <Switch
-                            checked={cfg.isClosed}
-                            onCheckedChange={(val) => getActiveDates().forEach(d => updateDayClosedState(d, val))}
-                            data-testid="toggle-day-closed"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold leading-tight">Close All Slots</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {rangeStart && rangeEnd
-                                ? 'Turns off all booking slots for every day in the selected range'
-                                : 'Turns off all booking slots for the selected day — patients cannot book any session'}
-                            </p>
-                          </div>
-                          {cfg.isClosed && <Badge className="text-[10px] bg-rose-500 text-white border-0 shrink-0">Closed</Badge>}
-                        </div>
-
-                        {/* Apply this configuration to — moved here, directly below Close All Slots */}
+                      <div className="p-4 space-y-3">
+                        {/* Slots configuration */}
                         <div className="space-y-2">
-                          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                            Apply the below configuration to
-                          </p>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              onClick={() => setPendingBulkAction('future-days')}
-                              disabled={isBulkApplying}
-                              className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 border-primary/30 bg-primary/[0.04] hover:bg-primary/[0.10] hover:border-primary/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                              data-testid="button-apply-all-future"
-                            >
-                              {isBulkApplying
-                                ? <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                                : <CalendarDays className="h-4 w-4 text-primary" />
-                              }
-                              <span className="text-xs font-bold text-primary text-center leading-tight">All Future Days</span>
-                              <span className="text-[10px] text-primary/60 text-center leading-tight">Default for all unscheduled dates</span>
-                            </button>
-                            <button
-                              onClick={() => setPendingBulkAction('sundays-this-month')}
-                              disabled={isBulkApplying}
-                              className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 border-amber-500/30 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-500/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                              data-testid="button-apply-sundays"
-                            >
-                              {isBulkApplying
-                                ? <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
-                                : <Sun className="h-4 w-4 text-amber-500" />
-                              }
-                              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 text-center leading-tight">All Sundays This Month</span>
-                              <span className="text-[10px] text-amber-600/60 dark:text-amber-400/60 text-center leading-tight">Explicit slots for each Sunday</span>
-                            </button>
+                          <div>
+                            <p className="text-xs font-bold text-foreground leading-tight">Slots configuration</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">Adjust values below, then click Save to apply</p>
                           </div>
-                        </div>
-
-                        {/* Per-section capacity */}
-                        {!cfg.isClosed && (
-                          <div className="space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <p className="text-xs font-bold text-foreground leading-tight">Slots configuration</p>
-                                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                                  {rangeStart && rangeEnd
-                                    ? 'Adjust values below, then click Save Range to apply'
-                                    : 'Adjust values below, then click Save to apply'}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-3 shrink-0 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider pt-0.5 pr-1">
-                                <span>Max</span>
-                                <span>Close</span>
-                              </div>
+                          {cfg.isClosed ? (
+                            <div className="py-4 px-3 text-center rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10">
+                              <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 leading-relaxed">All bookings closed for selected date(s)</p>
+                              <p className="text-[11px] text-rose-500/70 mt-1">Toggle "Close Bookings" below the grid to re-enable slots</p>
                             </div>
-                            {slotTimings.map((slot) => {
-                              const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
-                              return (
-                                <div
-                                  key={slot.id}
-                                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${
-                                    secCfg.isCancelled
-                                      ? 'bg-muted/20 border-border/20 opacity-60'
-                                      : 'bg-background border-border/40 hover:border-blue-300/50 dark:hover:border-blue-500/30'
-                                  }`}
-                                >
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold leading-tight truncate">{slot.label}</p>
-                                    <p className="text-xs text-muted-foreground mt-0.5">{formatTime(slot.startHour, slot.startMinute)}–{formatTime(slot.endHour, slot.endMinute)}</p>
+                          ) : (
+                            <>
+                              {/* Column header row — sits directly above the slot cards */}
+                              <div className="flex items-center px-3 pb-0.5">
+                                <div className="flex-1" />
+                                <span className="w-12 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Max</span>
+                                <span className="w-10 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Close</span>
+                              </div>
+                              {slotTimings.map((slot) => {
+                                const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
+                                return (
+                                  <div
+                                    key={slot.id}
+                                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${
+                                      secCfg.isCancelled
+                                        ? 'bg-muted/20 border-border/20 opacity-60'
+                                        : 'bg-background border-border/40 hover:border-blue-300/50 dark:hover:border-blue-500/30'
+                                    }`}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold leading-tight truncate">{slot.label}</p>
+                                      <p className="text-xs text-muted-foreground mt-0.5">{formatTime(slot.startHour, slot.startMinute)}–{formatTime(slot.endHour, slot.endMinute)}</p>
+                                    </div>
+                                    <div className="flex items-center shrink-0">
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        max={30}
+                                        value={secCfg.maxBookings}
+                                        onChange={(e) => { const v = parseInt(e.target.value) || 0; getActiveDates().forEach(d => updateSectionCapacity(d, slot.id, v)); }}
+                                        className="w-12 h-8 text-center text-sm px-1 font-semibold"
+                                        disabled={secCfg.isCancelled}
+                                        data-testid={`input-capacity-${slot.id}`}
+                                      />
+                                    </div>
+                                    <div className="flex items-center justify-center w-10 shrink-0 border-l border-border/30">
+                                      <Switch
+                                        checked={secCfg.isCancelled}
+                                        onCheckedChange={(val) => getActiveDates().forEach(d => updateSectionCancelled(d, slot.id, val))}
+                                        className="scale-[0.80] data-[state=checked]:bg-rose-500"
+                                        data-testid={`switch-close-${slot.id}`}
+                                      />
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      max={30}
-                                      value={secCfg.maxBookings}
-                                      onChange={(e) => { const v = parseInt(e.target.value) || 0; getActiveDates().forEach(d => updateSectionCapacity(d, slot.id, v)); }}
-                                      className="w-12 h-8 text-center text-sm px-1 font-semibold"
-                                      disabled={secCfg.isCancelled}
-                                      data-testid={`input-capacity-${slot.id}`}
-                                    />
-                                  </div>
-                                  <div className="flex items-center shrink-0 border-l border-border/30 pl-2">
-                                    <Switch
-                                      checked={secCfg.isCancelled}
-                                      onCheckedChange={(val) => getActiveDates().forEach(d => updateSectionCancelled(d, slot.id, val))}
-                                      className="scale-[0.80] data-[state=checked]:bg-rose-500"
-                                      data-testid={`switch-close-${slot.id}`}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                                );
+                              })}
+                            </>
+                          )}
+                        </div>
 
                         {/* Save Button */}
                         <Button
@@ -4484,7 +4482,7 @@ export default function ClinicDashboard() {
                           {isSavingConfig ? (
                             <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</>
                           ) : (
-                            <><Save className="h-4 w-4 mr-2" /> {rangeStart && rangeEnd ? `Save Range (${differenceInCalendarDays(rangeEnd, rangeStart) + 1} days)` : `Save ${format(configDate, 'd MMMM')} Config`}</>
+                            <><Save className="h-4 w-4 mr-2" /> Save Slot Configuration</>
                           )}
                         </Button>
 
