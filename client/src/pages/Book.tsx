@@ -140,6 +140,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [pendingBookingPath, setPendingBookingPath] = useState<"pay" | "pending" | null>(null);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [isAccordionExpanded, setIsAccordionExpanded] = useState(true);
+  const [dropdownHighlighted, setDropdownHighlighted] = useState(false);
 
   // OTP verification state
   const [otpSent, setOtpSent]               = useState(false);
@@ -168,7 +169,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const otpDigits = Array.from({ length: 6 }, (_, index) => otpCode[index] || "");
   const isOtpComplete = otpCode.length === 6;
   const isAgeValid = Boolean(customerAge && Number(customerAge) >= 1 && Number(customerAge) <= 120);
-  const canProceedToSlots = Boolean(customerName && isAgeValid && customerGender && isPhoneValid && isEmailValid && selectedClinic && emailVerified && verifiedToken && selectedSubIssues.length > 0);
+  const canProceedToSlots = Boolean(customerName && isAgeValid && customerGender && isPhoneValid && isEmailValid && selectedClinic && emailVerified && verifiedToken && selectedSubIssues.length > 0 && (patientProfiles.length === 0 || selectedProfileId !== null));
 
   const resetOtpState = () => {
     setOtpSent(false);
@@ -438,7 +439,12 @@ export default function Book(props: { params: { clinicId?: string } }) {
           );
           if (lookup.ok) {
             const profiles = await lookup.json();
-            setPatientProfiles(Array.isArray(profiles) ? profiles : []);
+            const profileList = Array.isArray(profiles) ? profiles : [];
+            setPatientProfiles(profileList);
+            if (profileList.length > 0) {
+              setDropdownHighlighted(true);
+              setTimeout(() => setDropdownHighlighted(false), 3000);
+            }
           }
         }
       } catch { /* non-fatal */ }
@@ -1409,16 +1415,21 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           <div className="mb-2">
                             <div className="flex items-center gap-1.5 mb-0.5">
                               <Users className="h-3.5 w-3.5 text-primary shrink-0" />
-                              <p className="text-xs font-bold text-foreground">Patients previously booked at this clinic with this email</p>
+                              <p className="text-xs font-bold text-foreground">Who is this appointment for?</p>
                             </div>
-                            <p className="text-xs text-muted-foreground pl-5">Select a returning patient or continue as new</p>
+                            <p className="text-xs text-muted-foreground pl-5">Pick one from the list or select the one you already added</p>
                           </div>
                           <Popover open={isPatientDropdownOpen} onOpenChange={setIsPatientDropdownOpen}>
                             <PopoverTrigger asChild>
                               <button
                                 type="button"
                                 data-testid="btn-patient-dropdown-trigger"
-                                className="w-full flex items-center justify-between gap-2 px-3 h-11 rounded-xl border border-border/60 bg-muted/20 hover:border-primary/40 hover:bg-primary/5 transition-all"
+                                onClick={() => setDropdownHighlighted(false)}
+                                className={`w-full flex items-center justify-between gap-2 px-3 h-11 rounded-xl border bg-muted/20 hover:border-primary/40 hover:bg-primary/5 transition-all ${
+                                  dropdownHighlighted
+                                    ? "border-amber-400 ring-2 ring-amber-400/40 animate-pulse"
+                                    : "border-border/60"
+                                }`}
                               >
                                 <div className="flex items-center gap-2 min-w-0">
                                   <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -1784,8 +1795,8 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     </>
                     )}
 
-                    {/* Chief complaints + Additional Notes — revealed after email verify */}
-                    {emailVerified && (
+                    {/* Chief complaints + Additional Notes — revealed after email verify + patient selected */}
+                    {emailVerified && (patientProfiles.length === 0 || selectedProfileId !== null) && (
                       <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-400">
 
                         {/* Chief complaints — accordion */}
