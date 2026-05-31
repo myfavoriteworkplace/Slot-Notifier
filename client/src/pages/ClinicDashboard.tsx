@@ -4008,7 +4008,7 @@ export default function ClinicDashboard() {
                   </div>
                   <div>
                     <h2 className="text-base font-semibold tracking-tight">Configure Slots</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">Set capacity per time block, close days, and apply bulk schedules</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Set capacity per slot, close days, and apply bulk schedules</p>
                   </div>
                 </div>
               </div>
@@ -4033,6 +4033,11 @@ export default function ClinicDashboard() {
                   <div className="flex-1 min-w-0 space-y-4">
 
                 {/* Date Range Selection */}
+                <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <p className="text-xs font-semibold text-foreground">Select a date or date range to configure</p>
+                </div>
                 <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
                   {/* Start Date */}
                   <div className="flex flex-col gap-1">
@@ -4120,6 +4125,7 @@ export default function ClinicDashboard() {
                     </div>
                   )}
                 </div>
+                </div>
 
                 {/* Week Navigation */}
                 <div className="flex items-center justify-between gap-2">
@@ -4132,7 +4138,8 @@ export default function ClinicDashboard() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm font-semibold text-center tabular-nums">
+                  <span className="text-sm font-semibold text-center tabular-nums flex flex-col items-center leading-tight">
+                    <span className="text-[10px] font-normal text-muted-foreground uppercase tracking-wider">Viewing week</span>
                     {format(calendarWeekStart, "d MMM")} – {format(addDays(calendarWeekStart, 6), "d MMM yyyy")}
                   </span>
                   <Button
@@ -4165,7 +4172,7 @@ export default function ClinicDashboard() {
                       Past — locked
                     </span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0 hidden sm:block">Click a date to configure →</span>
+                  <span className="text-[11px] font-medium text-primary/70 whitespace-nowrap shrink-0">↓ Click a date header below to configure</span>
                 </div>
 
                 {/* Calendar Grid */}
@@ -4175,8 +4182,8 @@ export default function ClinicDashboard() {
                     <div className="overflow-x-auto rounded-xl border border-border/40">
                       <div className="min-w-[580px]">
                         {/* Day header row */}
-                        <div className="grid border-b border-border/40 bg-muted/30" style={{ gridTemplateColumns: '100px repeat(7, 1fr)' }}>
-                          <div className="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Time Block</div>
+                        <div className="grid border-b-2 border-border/60 bg-muted/60" style={{ gridTemplateColumns: '100px repeat(7, 1fr)' }}>
+                          <div className="px-3 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-r border-border/40 flex items-center">Slots</div>
                           {weekDays.map((day, i) => {
                             const isSun = day.getDay() === 0;
                             const isSat = day.getDay() === 6;
@@ -4191,28 +4198,28 @@ export default function ClinicDashboard() {
                                 onClick={isPast ? undefined : () => handleSlotDateClick(day)}
                                 disabled={isPast}
                                 data-testid={`calendar-day-${format(day, 'yyyy-MM-dd')}`}
-                                className={`relative px-1 py-2 text-center border-l border-border/30 transition-all ${
+                                className={`relative px-1 py-2.5 text-center border-l border-border/40 transition-all ${
                                   isPast
-                                    ? 'opacity-40 cursor-not-allowed bg-muted/30'
+                                    ? 'opacity-40 cursor-not-allowed bg-muted/40'
                                     : isEdge
-                                    ? 'bg-blue-500/25 ring-1 ring-inset ring-blue-400/50'
+                                    ? 'bg-blue-500/30 ring-1 ring-inset ring-blue-400/60'
                                     : isSelected
                                     ? 'bg-blue-500/15'
-                                    : 'hover:bg-muted/50'
+                                    : 'hover:bg-primary/5 cursor-pointer'
                                 }`}
                               >
                                 {!isPast && (isEdge || isSelected) && (
-                                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-400/70 rounded-b-sm" />
+                                  <div className="absolute top-0 left-0 right-0 h-[3px] bg-blue-500/70 rounded-b-sm" />
                                 )}
-                                <div className={`text-[10px] uppercase tracking-wide font-medium ${
-                                  isPast ? 'text-muted-foreground/50' : isSun || isSat ? 'text-rose-500' : isToday ? 'text-primary' : 'text-muted-foreground'
+                                <div className={`text-[11px] uppercase tracking-wide font-bold ${
+                                  isPast ? 'text-muted-foreground/40' : isSun || isSat ? 'text-rose-500' : isToday ? 'text-primary' : 'text-foreground/70'
                                 }`}>{format(day, 'EEE')}</div>
-                                <div className={`text-sm font-bold mt-0.5 leading-none ${
+                                <div className={`text-base font-black mt-0.5 leading-none ${
                                   isPast
-                                    ? 'text-muted-foreground/50'
+                                    ? 'text-muted-foreground/40'
                                     : isToday
-                                    ? 'h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center mx-auto text-[11px]'
-                                    : isSun || isSat ? 'text-rose-500' : ''
+                                    ? 'h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center mx-auto text-[13px] font-bold'
+                                    : isSun || isSat ? 'text-rose-500' : 'text-foreground'
                                 }`}>
                                   {format(day, 'd')}
                                 </div>
@@ -4294,18 +4301,18 @@ export default function ClinicDashboard() {
                   {showHowItWorks && (
                     <div className="px-4 pb-4 pt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 border-t border-border/30 bg-muted/10">
                       {([
-                        { icon: "📅", text: "Click any column in the grid to load that day's configuration in the editor panel on the right." },
-                        { icon: "↔️", text: "To configure a date range: use the From and To date pickers above the grid. The entire range gets the same config when saved." },
-                        { icon: "🔴", text: "Close All Slots blocks all bookings for the selected day(s) — use it for holidays, leaves, or clinic-wide closures." },
-                        { icon: "🔢", text: "Adjust Max per time block to control how many patients can book each session (e.g. Early Morning, Afternoon, Evening)." },
-                        { icon: "🔕", text: "The Close switch on each time block cancels just that one session without closing the whole day." },
-                        { icon: "💾", text: "Save writes the config to the selected date(s). For a range, a confirmation step shows exactly what will be overwritten." },
-                        { icon: "📋", text: "All Future Days saves this config as your clinic's default — applies to any future date that has no individual config saved." },
-                        { icon: "☀️", text: "All Sundays This Month writes this config explicitly to every Sunday this month — ideal for weekly closures or reduced Sunday hours." },
-                      ] as { icon: string; text: string }[]).map(({ icon, text }) => (
-                        <div key={text} className="flex items-start gap-2">
+                        { icon: "📅", node: <>Click any column in the grid to load that day's configuration in the editor panel on the right.</> },
+                        { icon: "↔️", node: <>To configure a date range: use the <strong className="text-foreground">From</strong> and <strong className="text-foreground">To</strong> date pickers above the grid. The entire range gets the same config when saved.</> },
+                        { icon: "🔴", node: <><strong className="text-foreground font-bold">Close All Slots</strong> button blocks all bookings for the selected day(s) — use it for holidays, leaves, or clinic-wide closures.</> },
+                        { icon: "🔢", node: <>Adjust <strong className="text-foreground">Max</strong> per slot to control how many patients can book each session (e.g. Early Morning, Afternoon, Evening).</> },
+                        { icon: "🔕", node: <>The <strong className="text-foreground">Close</strong> switch on each slot cancels just that one session without closing the whole day.</> },
+                        { icon: "💾", node: <><strong className="text-foreground">Save</strong> writes the config to the selected date(s). For a range, a confirmation step shows exactly what will be overwritten.</> },
+                        { icon: "📋", node: <><strong className="text-primary font-bold">All Future Days</strong> saves this config as your clinic's default — applies to any future date that has no individual config saved.</> },
+                        { icon: "☀️", node: <><strong className="text-amber-600 dark:text-amber-400 font-bold">All Sundays This Month</strong> writes this config explicitly to every Sunday this month — ideal for weekly closures or reduced Sunday hours.</> },
+                      ] as { icon: string; node: React.ReactNode }[]).map(({ icon, node }, idx) => (
+                        <div key={idx} className="flex items-start gap-2">
                           <span className="text-sm shrink-0 leading-5 mt-0.5">{icon}</span>
-                          <p className="text-xs text-muted-foreground leading-relaxed">{text}</p>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{node}</p>
                         </div>
                       ))}
                     </div>
@@ -4364,7 +4371,7 @@ export default function ClinicDashboard() {
                             data-testid="toggle-day-closed"
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold leading-tight">Close All Slots</p>
+                            <p className="text-sm font-bold leading-tight">Close All Slots</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {rangeStart && rangeEnd
                                 ? 'Turns off all booking slots for every day in the selected range'
@@ -4412,50 +4419,54 @@ export default function ClinicDashboard() {
                         {/* Per-section capacity */}
                         {!cfg.isClosed && (
                           <div className="space-y-2">
-                            <div>
-                              <p className="text-xs font-bold text-foreground leading-tight">Slot configuration</p>
-                              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                                {rangeStart && rangeEnd
-                                  ? 'Adjust the values below, then click Save Range to apply to the selected date range'
-                                  : 'Adjust the values below, then click Save to apply'}
-                              </p>
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="text-xs font-bold text-foreground leading-tight">Slots configuration</p>
+                                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                                  {rangeStart && rangeEnd
+                                    ? 'Adjust values below, then click Save Range to apply'
+                                    : 'Adjust values below, then click Save to apply'}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-3 shrink-0 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider pt-0.5 pr-1">
+                                <span>Max</span>
+                                <span>Close</span>
+                              </div>
                             </div>
                             {slotTimings.map((slot) => {
                               const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
                               return (
                                 <div
                                   key={slot.id}
-                                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all ${
+                                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${
                                     secCfg.isCancelled
                                       ? 'bg-muted/20 border-border/20 opacity-60'
                                       : 'bg-background border-border/40 hover:border-blue-300/50 dark:hover:border-blue-500/30'
                                   }`}
                                 >
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium leading-tight">{slot.label}</p>
+                                    <p className="text-sm font-semibold leading-tight truncate">{slot.label}</p>
                                     <p className="text-xs text-muted-foreground mt-0.5">{formatTime(slot.startHour, slot.startMinute)}–{formatTime(slot.endHour, slot.endMinute)}</p>
                                   </div>
                                   <div className="flex items-center gap-1 shrink-0">
-                                    <span className="text-xs text-muted-foreground font-medium">Max</span>
                                     <Input
                                       type="number"
                                       min={0}
                                       max={30}
                                       value={secCfg.maxBookings}
                                       onChange={(e) => { const v = parseInt(e.target.value) || 0; getActiveDates().forEach(d => updateSectionCapacity(d, slot.id, v)); }}
-                                      className="w-12 h-7 text-center text-sm px-1 font-semibold"
+                                      className="w-12 h-8 text-center text-sm px-1 font-semibold"
                                       disabled={secCfg.isCancelled}
                                       data-testid={`input-capacity-${slot.id}`}
                                     />
                                   </div>
-                                  <div className="flex items-center gap-1.5 shrink-0 border-l border-border/30 pl-2.5">
+                                  <div className="flex items-center shrink-0 border-l border-border/30 pl-2">
                                     <Switch
                                       checked={secCfg.isCancelled}
                                       onCheckedChange={(val) => getActiveDates().forEach(d => updateSectionCancelled(d, slot.id, val))}
-                                      className="scale-[0.75] data-[state=checked]:bg-rose-500"
+                                      className="scale-[0.80] data-[state=checked]:bg-rose-500"
                                       data-testid={`switch-close-${slot.id}`}
                                     />
-                                    <span className="text-xs text-muted-foreground whitespace-nowrap">Close</span>
                                   </div>
                                 </div>
                               );
