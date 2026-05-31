@@ -4026,11 +4026,11 @@ export default function ClinicDashboard() {
                   </div>
                 </div>
               )}
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 <div className="flex flex-col lg:flex-row gap-5 lg:items-start">
 
                   {/* LEFT: Grid & Selection */}
-                  <div className="w-full flex-1 min-w-0 space-y-4">
+                  <div className="w-full flex-1 min-w-0 space-y-3 sm:space-y-4">
 
                 {/* Date Range Selection */}
                 <div className="space-y-2">
@@ -4038,7 +4038,7 @@ export default function ClinicDashboard() {
                   <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Date range</span>
                 </div>
-                <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
                   {/* Start Date */}
                   <div className="flex flex-col gap-1">
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From</span>
@@ -4046,7 +4046,7 @@ export default function ClinicDashboard() {
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline" size="sm"
-                          className="h-11 gap-2 text-sm font-normal w-full sm:w-auto sm:min-w-[155px] justify-start"
+                          className="h-11 gap-2 text-sm font-normal w-full sm:min-w-[155px] justify-start"
                           data-testid="button-start-date"
                         >
                           <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -4081,7 +4081,7 @@ export default function ClinicDashboard() {
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline" size="sm"
-                            className={`h-11 gap-2 text-sm font-normal w-full sm:w-auto sm:min-w-[155px] justify-start ${rangeEnd ? 'text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-500/5' : ''}`}
+                            className={`h-11 gap-2 text-sm font-normal w-full sm:min-w-[155px] justify-start ${rangeEnd ? 'text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-500/5' : ''}`}
                             data-testid="button-end-date"
                           >
                             <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -4117,7 +4117,7 @@ export default function ClinicDashboard() {
 
                   {/* Range badge */}
                   {rangeStart && rangeEnd && (
-                    <div className="mb-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 self-end">
+                    <div className="col-span-2 sm:col-span-1 mb-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 sm:self-end">
                       <CalendarDays className="h-3.5 w-3.5 text-blue-500" />
                       <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
                         {differenceInCalendarDays(rangeEnd, rangeStart) + 1} days selected
@@ -4132,7 +4132,7 @@ export default function ClinicDashboard() {
                   <Button
                     variant="outline" size="sm"
                     onClick={() => setCalendarWeekStart(prev => addDays(prev, -7))}
-                    className="h-10 w-10 p-0 shrink-0"
+                    className="h-11 w-11 p-0 shrink-0"
                     disabled={!isAfter(calendarWeekStart, startOfWeek(startOfToday(), { weekStartsOn: 1 }))}
                     data-testid="button-prev-week"
                   >
@@ -4145,7 +4145,7 @@ export default function ClinicDashboard() {
                   <Button
                     variant="outline" size="sm"
                     onClick={() => setCalendarWeekStart(prev => addDays(prev, 7))}
-                    className="h-10 w-10 p-0 shrink-0"
+                    className="h-11 w-11 p-0 shrink-0"
                     data-testid="button-next-week"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -4302,7 +4302,7 @@ export default function ClinicDashboard() {
                         <p className="text-sm font-bold leading-tight">Close Bookings for Selected Date(s)</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Prevents patients from booking any slot on the selected date(s)</p>
                       </div>
-                      {cbCfg.isClosed && <Badge className="text-[10px] bg-rose-500 text-white border-0 shrink-0">Closed</Badge>}
+                      {cbCfg.isClosed && <Badge className="text-xs bg-rose-500 text-white border-0 shrink-0">Closed</Badge>}
                     </div>
                   );
                 })()}

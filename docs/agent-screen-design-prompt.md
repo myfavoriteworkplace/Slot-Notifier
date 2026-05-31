@@ -70,6 +70,65 @@ Animations: Tailwind `animate-in`, `slide-in-from-*`, `fade-in` utilities only. 
 
 ---
 
+## MOBILE PROPORTIONALITY
+
+Apply every rule in this section whenever building or editing any screen that appears on mobile.
+
+### Spacing & Padding
+- **Card outer padding:** `p-3 sm:p-5` — never a flat `p-5` across all breakpoints for dashboard cards.
+- **Column / section gap:** `space-y-3 sm:space-y-4` — never a flat `space-y-4` inside left/right columns on mobile.
+- **Two-column layout gap:** keep `gap-5` on mobile (used as the vertical gap when columns stack) and `lg:gap-6` on desktop.
+
+### Touch Targets — Hard Floor
+- Every tappable element (button, toggle, icon button, date picker trigger): `min-h-[44px]`.
+- Icon-only buttons (prev/next, close, clear): **`h-11 w-11`** — never `h-10 w-10` (40 px is 4 px below the floor).
+- Navigation chevrons inside date or week pickers must also be `h-11 w-11`.
+
+### Date / Time Pickers on Mobile
+- **Never** stack FROM and TO date pickers as two full-width rows on mobile — the visual weight is disproportionate.
+- Use a **2-column grid on mobile, flex-row on sm+**:
+  ```jsx
+  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
+    {/* FROM picker wrapper */}
+    {/* TO picker wrapper */}
+    {/* conditional badge — must be col-span-2 sm:col-span-1 */}
+  </div>
+  ```
+- Any conditional item (e.g. "N days selected" badge) that follows the pickers in the grid needs `col-span-2 sm:col-span-1` so it spans the full row on mobile but flows inline on sm+.
+- Button widths inside the grid cells: `w-full` (fills its half-width cell on mobile) + `sm:min-w-[155px]` (enforces a readable minimum on desktop).
+
+### Font Size Floor — No Exceptions
+- **Minimum font size in any production UI: `text-xs` (12 px).**
+- Never use `text-[10px]`, `text-[9px]`, or any sub-xs arbitrary value — including badge labels, sub-labels inside buttons, and tooltip-style text.
+- The **only** permitted exception is the bottom-nav bar label (`text-[10px]`) inside the fixed 60 px tab bar where space is structurally constrained — this is explicitly documented in the bottom-nav pattern.
+
+### Text Size Reference for Buttons & Compact Components
+| Element | Class |
+|---|---|
+| Primary/secondary button label | `text-sm` |
+| Sub-label inside an action button | `text-xs` |
+| Badge / status chip | `text-xs` |
+| Card heading | `text-sm font-semibold` |
+| ALL-CAPS section label | `text-xs font-semibold uppercase tracking-wide text-muted-foreground` |
+| Secondary / meta text | `text-xs text-muted-foreground` |
+| Tooltip / help text | `text-xs text-muted-foreground` |
+
+### Narrow Panels (e.g. Day Editor, 288 px right column)
+- Multi-column grids inside narrow panels must use `grid-cols-1`, **not** `sm:grid-cols-2`. The panel is already narrow at the `sm` breakpoint when stacked on mobile.
+- Prefer `space-y-2.5` or `space-y-3` inside narrow panels; never `space-y-5`.
+
+### Mobile Proportionality Checklist
+Before finishing any mobile layout change, verify:
+- [ ] Date/time pickers use `grid grid-cols-2` on mobile, not stacked full-width
+- [ ] All icon/nav buttons are `h-11 w-11` minimum
+- [ ] Card outer padding is `p-3 sm:p-5`, not flat `p-5`
+- [ ] Section gap is `space-y-3 sm:space-y-4`, not flat `space-y-4`
+- [ ] No `text-[Xpx]` below `text-xs` anywhere (except bottom-nav label)
+- [ ] Narrow panels (≤ 288 px) use `grid-cols-1` for any internal multi-column layout
+- [ ] Conditional spanning items in a CSS grid have `col-span-2` on mobile
+
+---
+
 ## TOUCH & INTERACTION
 
 - Every tappable element (button, link, toggle, icon button): `min-h-[44px]`. Icon-only buttons: add at least `p-2`.
