@@ -597,11 +597,13 @@ export class DatabaseStorage implements IStorage {
       )
     );
 
-    // Filter by clinic and count only verified bookings
+    // Filter by clinic and count all active bookings (anything that isn't cancelled or pending)
     const verifiedBookings = results.filter(r => {
       const isMatchingClinic = r.slot.clinicId === clinicId || r.slot.clinicName === clinicName;
-      const isVerified = r.booking.verificationStatus === 'verified';
-      return isMatchingClinic && isVerified;
+      const isActive = ['email_verified', 'verified', 'confirmed'].includes(
+        r.booking.verificationStatus ?? ''
+      );
+      return isMatchingClinic && isActive;
     });
 
     return verifiedBookings.length;
