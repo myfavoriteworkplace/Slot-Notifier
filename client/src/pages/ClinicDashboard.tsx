@@ -4027,10 +4027,10 @@ export default function ClinicDashboard() {
                 </div>
               )}
               <div className="p-5">
-                <div className="flex flex-col lg:flex-row gap-5 items-start">
+                <div className="flex flex-col lg:flex-row gap-5 lg:items-start">
 
                   {/* LEFT: Grid & Selection */}
-                  <div className="flex-1 min-w-0 space-y-4">
+                  <div className="w-full flex-1 min-w-0 space-y-4">
 
                 {/* Date Range Selection */}
                 <div className="space-y-2">
@@ -4138,9 +4138,9 @@ export default function ClinicDashboard() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm font-semibold text-center tabular-nums flex flex-col items-center leading-tight">
+                  <span className="min-w-0 text-sm font-semibold text-center tabular-nums flex flex-col items-center leading-tight">
                     <span className="text-xs font-normal text-muted-foreground uppercase tracking-wide">Viewing week</span>
-                    {format(calendarWeekStart, "d MMM")} – {format(addDays(calendarWeekStart, 6), "d MMM yyyy")}
+                    <span className="truncate w-full text-center">{format(calendarWeekStart, "d MMM")} – {format(addDays(calendarWeekStart, 6), "d MMM yyyy")}</span>
                   </span>
                   <Button
                     variant="outline" size="sm"
@@ -4179,7 +4179,7 @@ export default function ClinicDashboard() {
                 {(() => {
                   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(calendarWeekStart, i));
                   return (
-                    <div className="overflow-x-auto rounded-xl border border-border/40">
+                    <div className="w-full overflow-x-auto rounded-xl border border-border/40">
                       <div className="min-w-[580px]">
                         {/* Day header row */}
                         <div className="grid border-b-2 border-border/60 bg-muted/60" style={{ gridTemplateColumns: '100px repeat(7, 1fr)' }}>
