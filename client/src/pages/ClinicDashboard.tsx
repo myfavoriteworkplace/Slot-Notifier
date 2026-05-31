@@ -4034,9 +4034,9 @@ export default function ClinicDashboard() {
 
                 {/* Date Range Selection */}
                 <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <p className="text-xs font-semibold text-foreground">Select a date or date range, then Save to apply</p>
+                <div className="flex items-center gap-1.5">
+                  <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Date range</span>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
                   {/* Start Date */}
@@ -4400,7 +4400,6 @@ export default function ClinicDashboard() {
                                 ? `${format(rangeStart, 'EEE d MMM')} – ${format(rangeEnd, 'EEE d MMM yyyy')}`
                                 : format(configDate, 'EEEE, d MMMM yyyy')}
                             </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">Configure slots for the selected date(s) and click Save to apply</p>
                           </div>
                           {isSunday && (
                             <Badge variant="outline" className="text-[10px] border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 shrink-0">
