@@ -1503,7 +1503,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           </Popover>
                         </div>
                       )}
-                      </> {/* end Fragment */}
+                      </>
 
                     ) : (
                     <>
