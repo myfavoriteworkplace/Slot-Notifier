@@ -7363,12 +7363,13 @@ export default function ClinicDashboard() {
           </SheetHeader>
           <div className="grid grid-cols-2 gap-2 pb-6">
             {([
-              { key: 'clinic-profile' as const, label: 'Clinic Profile', desc: 'Edit details & logo',      Icon: Building2,   cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
-              { key: 'book-a-slot'    as const, label: 'Book a Slot',    desc: 'New patient booking',      Icon: Plus,        cls: 'bg-primary/10 border-primary/20 text-primary' },
-              { key: 'inventory'      as const, label: 'Inventory',      desc: 'Supplies & stock',          Icon: Package,     cls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' },
-              { key: 'website'        as const, label: 'Website',        desc: 'Public clinic page',        Icon: Globe,       cls: 'bg-sky-500/10 border-sky-500/20 text-sky-600' },
-              { key: 'export-data'   as const, label: 'Export Data',    desc: 'Download reports',          Icon: Download,    cls: 'bg-amber-500/10 border-amber-500/20 text-amber-600' },
-              { key: 'analytics'     as const, label: 'Analytics',      desc: 'Insights & trends',         Icon: TrendingUp,  cls: 'bg-rose-500/10 border-rose-500/20 text-rose-600' },
+              { key: 'clinic-profile' as const, label: 'Clinic Profile', desc: 'Edit public about page',   Icon: Building2,   cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
+              { key: 'book-a-slot'    as const, label: 'Book a Slot',    desc: 'New patient appointment',  Icon: Plus,        cls: 'bg-primary/10 border-primary/20 text-primary' },
+              { key: 'inventory'      as const, label: 'Inventory',      desc: 'Stock, assets & alerts',   Icon: Package,     cls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' },
+              { key: 'website'        as const, label: 'Website',        desc: 'Theme & content',           Icon: Globe,       cls: 'bg-sky-500/10 border-sky-500/20 text-sky-600' },
+              { key: 'export-data'   as const, label: 'Export Data',    desc: 'Download patient records',  Icon: Download,    cls: 'bg-amber-500/10 border-amber-500/20 text-amber-600' },
+              { key: 'patients'       as const, label: 'Patients',       desc: 'Patient directory',         Icon: Users,       cls: 'bg-rose-500/10 border-rose-500/20 text-rose-600' },
+              { key: 'analytics'     as const, label: 'Analytics',      desc: 'Clinic performance',        Icon: TrendingUp,  cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
             ]).map(({ key, label, desc, Icon, cls }) => (
               <button
                 key={key}
