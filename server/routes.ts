@@ -3945,7 +3945,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }
 
   // GET /api/clinic/inventory/categories
-  app.get("/api/clinic/inventory/categories", async (req, res) => {
+  app.get("/api/clinic/inventory/categories", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -3955,7 +3955,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // POST /api/clinic/inventory/categories
-  app.post("/api/clinic/inventory/categories", async (req, res) => {
+  app.post("/api/clinic/inventory/categories", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -3967,7 +3967,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // GET /api/clinic/inventory/items
-  app.get("/api/clinic/inventory/items", async (req, res) => {
+  app.get("/api/clinic/inventory/items", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -3977,7 +3977,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // POST /api/clinic/inventory/items
-  app.post("/api/clinic/inventory/items", async (req, res) => {
+  app.post("/api/clinic/inventory/items", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4013,7 +4013,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // PATCH /api/clinic/inventory/items/:id
-  app.patch("/api/clinic/inventory/items/:id", async (req, res) => {
+  app.patch("/api/clinic/inventory/items/:id", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4029,7 +4029,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // DELETE /api/clinic/inventory/items/:id
-  app.delete("/api/clinic/inventory/items/:id", async (req, res) => {
+  app.delete("/api/clinic/inventory/items/:id", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4041,7 +4041,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // GET /api/clinic/inventory/transactions
-  app.get("/api/clinic/inventory/transactions", async (req, res) => {
+  app.get("/api/clinic/inventory/transactions", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4051,7 +4051,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // POST /api/clinic/inventory/transactions  (add / deduct / adjust stock)
-  app.post("/api/clinic/inventory/transactions", async (req, res) => {
+  app.post("/api/clinic/inventory/transactions", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4091,7 +4091,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // GET /api/clinic/inventory/alerts
-  app.get("/api/clinic/inventory/alerts", async (req, res) => {
+  app.get("/api/clinic/inventory/alerts", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4101,7 +4101,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // PATCH /api/clinic/inventory/alerts/:id/dismiss
-  app.patch("/api/clinic/inventory/alerts/:id/dismiss", async (req, res) => {
+  app.patch("/api/clinic/inventory/alerts/:id/dismiss", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
