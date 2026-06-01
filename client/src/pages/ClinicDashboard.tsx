@@ -838,10 +838,10 @@ export default function ClinicDashboard() {
       if (!res.ok) throw new Error('Failed to fetch bookings');
       return res.json();
     },
-    enabled: isAuthenticated,
-    refetchOnMount: 'always',
-    refetchInterval: 30000,
-    staleTime: 0,
+    enabled: isAuthenticated && activePanel === 'bookings',
+    refetchOnMount: true,
+    refetchInterval: activePanel === 'bookings' ? 30_000 : false,
+    staleTime: 30_000,
   });
 
   useEffect(() => {

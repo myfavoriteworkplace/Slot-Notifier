@@ -1011,3 +1011,101 @@ DB migration: added as an `IF NOT EXISTS` block in `server/index.ts` alongside t
 ---
 
 *Document created: 27 May 2026 — update this file whenever a new panel pattern is introduced to either dashboard.*
+
+---
+
+## 15. Performance — Clinic Admin Dashboard
+
+### Background
+
+`GET /api/auth/clinic/bookings` is the heaviest query in the dashboard. It does a three-table JOIN (`bookings ⟶ slots ⟶ clinics ⟶ patients`) and returns every booking the clinic has ever had — no date limit, no pagination.
+
+---
+
+### ✅ Implemented (01 Jun 2026)
+
+#### Fix 1 — Strip clinic object from booking response
+**File:** `server/storage.ts` → `getClinicBookings()`
+
+The original query joined `clinics` and embedded the full clinic row (including the large `websiteConfig` JSONB blob) into **every** booking object. For a clinic with 300 bookings this duplicated the same large object 300 times — pushing the response to 2–5 MB.
+
+**Change:** Removed the `clinics` join from `getClinicBookings()`. The clinic data is already available to the frontend via the separate `/api/auth/clinic/me` query.
+
+Before:
+```ts
+.leftJoin(clinics, eq(slots.clinicId, clinics.id))
+// …returned: { ...booking, slot, clinic, patientCode }
+```
+After:
+```ts
+// clinics join removed
+// …returns: { ...booking, slot, patientCode }
+```
+
+#### Fix 2 — Gate bookings fetch on active panel
+**File:** `client/src/pages/ClinicDashboard.tsx`
+
+The booking query was `enabled: isAuthenticated` — it fired immediately when the dashboard opened, regardless of which panel was visible. All stats cards and booking list are rendered only inside `{activePanel === 'bookings' && ...}`, so there is no reason to load data until the user visits that panel.
+
+**Change:** `enabled: isAuthenticated && activePanel === 'bookings'`
+
+This matches the already-correct pattern used by `patientDirectory`:
+```ts
+enabled: isAuthenticated && activePanel === 'patients'  // existing — correct
+enabled: isAuthenticated && activePanel === 'bookings'  // now matches
+```
+
+#### Fix 3 — Conditional 30-second poll
+**File:** `client/src/pages/ClinicDashboard.tsx`
+
+The query previously polled every 30 seconds unconditionally. This meant the large bookings payload was re-fetched every 30 s even when the user was on the Slots, Doctors, or Accounts panel.
+
+**Change:** `refetchInterval: activePanel === 'bookings' ? 30_000 : false`
+
+The poll only runs while the Bookings panel is visible.
+
+#### Fix 4 — Raise staleTime
+**File:** `client/src/pages/ClinicDashboard.tsx`
+
+`staleTime: 0` caused a re-fetch every time the component mounted (e.g. navigating away and back within the same session).
+
+**Change:** `staleTime: 30_000`
+
+Data is considered fresh for 30 seconds; switching panels and back within that window uses the cached response.
+
+---
+
+### 📋 Planned (future work)
+
+#### Plan A — Booking summary endpoint (next high-value item)
+Add `GET /api/auth/clinic/bookings/summary` returning only:
+```json
+{ "today": 4, "upcoming": 12, "past": 88, "thisWeek": 7, "nextWeek": 3, "pendingNext7Days": 2, "confirmedNext7Days": 5, "allPending": 9 }
+```
+The stat cards on the Bookings panel can load instantly from this tiny response while the full booking list loads in the background. Eliminates the loading skeleton on the stats row.
+
+**Scope:** 1 new storage method, 1 new route, update `enabled` logic on the full bookings query to fire after summary is shown.
+
+#### Plan B — Date-windowed default load
+Instead of loading all bookings ever, default the API to return bookings within a rolling window (e.g. 90 days back + all future). Older records load only when the user explicitly picks a past date range beyond the window.
+
+**Scope:** Add `?from=` / `?to=` query params to the bookings route. Frontend passes a default window on initial load and widens it on demand.
+
+**Caution:** The `pastBookingsCount` stat card shows the total count of all historical bookings — this would need to come from the summary endpoint (Plan A) rather than the windowed list, so Plan A is a prerequisite.
+
+#### Plan C — Paginated booking list
+For clinics with 500+ bookings, render a paginated list (e.g. 50 per page) instead of all at once. The current `filteredBookings?.flatMap(...)` renderer iterates everything in a single render pass.
+
+**Scope:** Add `?page=` / `?limit=` to the route, or implement cursor-based pagination. Requires changes to all 6 `queryClient.invalidateQueries` call sites that flush `['/api/auth/clinic/bookings']`.
+
+#### Plan D — `allBills` panel gate
+`useQuery` for `/api/auth/clinic/bills` currently has `enabled: isAuthenticated` with no panel guard. The sidebar Accounts button shows `allBills.length` as a count badge — the only cross-panel dependency.
+
+Options:
+1. Add a `GET /api/auth/clinic/bills/count` endpoint → gate full bills list on `activePanel === 'accounts'`, show count from the lightweight endpoint.
+2. Accept the current behaviour (bills data is much smaller than bookings — typically tens of rows).
+
+#### Plan E — WebSocket-driven invalidation instead of polling
+The app already has a WebSocket server (`/ws/notifications`) with a `clinicSockets` map. When a new booking is created, the server could emit a `bookings:updated` event to the clinic's socket, triggering `queryClient.invalidateQueries` on the client. This would replace the 30-second poll entirely with push-based invalidation.
+
+**Scope:** Emit from `POST /api/public/bookings` and `DELETE /api/auth/clinic/bookings/:id`. Add a `useEffect` listener in `ClinicDashboard` to call `invalidateQueries` on the event.

@@ -387,20 +387,18 @@ export class DatabaseStorage implements IStorage {
     return await (query as any).orderBy(slots.startTime);
   }
 
-  async getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot; clinic: Clinic; patientCode?: string | null })[]> {
+  async getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot; patientCode?: string | null })[]> {
     const results = await db.select({
       booking: bookings,
       slot: slots,
-      clinic: clinics,
       patientCode: patients.patientCode,
     })
     .from(bookings)
     .innerJoin(slots, eq(bookings.slotId, slots.id))
-    .leftJoin(clinics, eq(slots.clinicId, clinics.id))
     .leftJoin(patients, eq(bookings.patientId, patients.id))
     .where(eq(slots.clinicId, Number(clinicId)));
     
-    return results.map(r => ({ ...r.booking, slot: r.slot, clinic: r.clinic!, patientCode: r.patientCode }));
+    return results.map(r => ({ ...r.booking, slot: r.slot, patientCode: r.patientCode }));
   }
 
   async getBooking(id: number): Promise<Booking | undefined> {
