@@ -140,6 +140,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const dateStripRef = useRef<HTMLDivElement>(null);
   const accordionItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const dialogBodyRef = useRef<HTMLDivElement>(null);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [pendingBookingPath, setPendingBookingPath] = useState<"pay" | "pending" | null>(null);
@@ -1363,14 +1364,22 @@ export default function Book(props: { params: { clinicId?: string } }) {
               </div>
 
               {/* ── DIALOG BODY ─────────────────────────────── */}
-              <div className="overflow-y-auto flex-1 p-5">
+              <div ref={dialogBodyRef} className="overflow-y-auto flex-1 p-5">
                 {!showSlots ? (
                   /* STEP 1: Patient details */
                   <div className="space-y-4">
 
                     {emailVerified && !isEditingDetails ? (
                       <> {/* ─── Verified summary + patient picker ─── */}
-                      {patientProfiles.length === 0 && (
+                      {!profilesFetched && (
+                        <div className="flex items-center gap-2.5 p-3.5 rounded-2xl border border-border/50 bg-muted/30 animate-in fade-in duration-200" data-testid="section-profiles-loading">
+                          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                          </div>
+                          <p className="text-xs text-muted-foreground">Checking records…</p>
+                        </div>
+                      )}
+                      {profilesFetched && patientProfiles.length === 0 && (
                       <div className="flex items-start gap-3 p-3.5 rounded-2xl border border-emerald-400/20 bg-emerald-500/5 animate-in fade-in duration-300" data-testid="section-patient-summary">
                         <div className="h-9 w-9 rounded-xl bg-emerald-500/15 border border-emerald-400/20 flex items-center justify-center shrink-0 mt-0.5">
                           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -1847,10 +1856,10 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       <button
                         type="button"
                         onClick={() => setIsEditingDetails(false)}
-                        className="w-full h-10 rounded-xl border border-primary/30 bg-primary/8 text-primary text-xs font-bold hover:bg-primary/15 transition-all flex items-center justify-center gap-1.5"
+                        className="w-full h-10 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-xs font-bold hover:from-primary/90 hover:to-accent/90 shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-1.5"
                         data-testid="button-done-editing"
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Done — save changes
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Save Changes
                       </button>
                     )}
                     </>
@@ -2019,7 +2028,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                         <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-primary/50 to-accent/50 blur-sm animate-pulse pointer-events-none" />
                       )}
                       <Button
-                        onClick={() => setShowSlots(true)}
+                        onClick={() => { setShowSlots(true); setTimeout(() => dialogBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" }), 50); }}
                         disabled={!canProceedToSlots}
                         className={`relative w-full h-12 font-bold rounded-xl border-0 transition-all duration-300 flex items-center justify-center gap-2 ${
                           canProceedToSlots
