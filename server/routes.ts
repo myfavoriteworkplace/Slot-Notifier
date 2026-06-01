@@ -3735,7 +3735,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // POST /api/auth/clinic/bookings/:id/request-consent
   // Generates a consent token and sends the WhatsApp link to the patient
-  app.post("/api/auth/clinic/bookings/:id/request-consent", async (req, res) => {
+  app.post("/api/auth/clinic/bookings/:id/request-consent", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId) return res.status(403).json({ message: "Forbidden" });
     try {
@@ -4183,7 +4183,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // POST /api/auth/clinic/bills — create a new bill
-  app.post("/api/auth/clinic/bills", async (req, res) => {
+  app.post("/api/auth/clinic/bills", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4214,7 +4214,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // PATCH /api/auth/clinic/bills/:id — update a bill
-  app.patch("/api/auth/clinic/bills/:id", async (req, res) => {
+  app.patch("/api/auth/clinic/bills/:id", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4226,7 +4226,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // DELETE /api/auth/clinic/bills/:id — delete a bill
-  app.delete("/api/auth/clinic/bills/:id", async (req, res) => {
+  app.delete("/api/auth/clinic/bills/:id", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
