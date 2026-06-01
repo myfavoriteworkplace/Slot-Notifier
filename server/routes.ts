@@ -2194,7 +2194,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/auth/me", isAuthenticated, (req, res) => res.json((req as any).user));
 
-  app.get("/api/auth/clinic/me", async (req, res) => {
+  app.get("/api/auth/clinic/me", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess?.adminLoggedIn || !sess.clinicId || sess.role !== 'owner') return res.json(null);
     try {
@@ -4115,7 +4115,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── PATIENT BILLS ──────────────────────────────────────────────────────────
 
   // GET /api/auth/clinic/bills — all bills for this clinic
-  app.get("/api/auth/clinic/bills", async (req, res) => {
+  app.get("/api/auth/clinic/bills", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4125,7 +4125,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // GET /api/auth/clinic/bills/patient/:phone — all bills for a patient by phone across all bookings
-  app.get("/api/auth/clinic/bills/patient/:phone", async (req, res) => {
+  app.get("/api/auth/clinic/bills/patient/:phone", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4137,7 +4137,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // GET /api/auth/clinic/bills/patient-by-email/:email — all bills for a patient by email (primary identifier)
-  app.get("/api/auth/clinic/bills/patient-by-email/:email", async (req, res) => {
+  app.get("/api/auth/clinic/bills/patient-by-email/:email", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4149,7 +4149,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // GET /api/auth/clinic/patients — all patient profiles for this clinic
-  app.get("/api/auth/clinic/patients", async (req, res) => {
+  app.get("/api/auth/clinic/patients", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4159,7 +4159,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // GET /api/auth/clinic/patients/:patientId/history — full history for one patient
-  app.get("/api/auth/clinic/patients/:patientId/history", async (req, res) => {
+  app.get("/api/auth/clinic/patients/:patientId/history", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4171,7 +4171,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // GET /api/auth/clinic/bills/booking/:bookingId — bills for a specific booking
-  app.get("/api/auth/clinic/bills/booking/:bookingId", async (req, res) => {
+  app.get("/api/auth/clinic/bills/booking/:bookingId", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
@@ -4239,7 +4239,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ── CLINIC ANALYTICS ──────────────────────────────────────────────────────
   // GET /api/auth/clinic/analytics?range=30d
-  app.get("/api/auth/clinic/analytics", async (req, res) => {
+  app.get("/api/auth/clinic/analytics", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
