@@ -3840,7 +3840,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── CLINICAL RECORDS ────────────────────────────────────────────────────────
 
   // GET /api/clinical-records/booking/:bookingId — doctor or clinic admin
-  app.get("/api/clinical-records/booking/:bookingId", async (req, res) => {
+  app.get("/api/clinical-records/booking/:bookingId", isAuthenticated, async (req, res) => {
     try {
       const session = req.session as any;
       console.log("[CLINICAL-RECORDS-GET] session doctorLoggedIn:", session?.doctorLoggedIn, "adminLoggedIn:", session?.adminLoggedIn, "role:", session?.role);
@@ -3859,7 +3859,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // POST /api/clinical-records — doctor only
-  app.post("/api/clinical-records", async (req, res) => {
+  app.post("/api/clinical-records", isAuthenticated, async (req, res) => {
     try {
       const session = req.session as any;
       if (!session?.doctorLoggedIn) {
@@ -3898,7 +3898,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // PATCH /api/clinical-records/:id — doctor only, update latest
-  app.patch("/api/clinical-records/:id", async (req, res) => {
+  app.patch("/api/clinical-records/:id", isAuthenticated, async (req, res) => {
     try {
       const session = req.session as any;
       if (!session?.doctorLoggedIn) {
@@ -3920,7 +3920,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // DELETE /api/clinical-records/:id — doctor only, soft delete
-  app.delete("/api/clinical-records/:id", async (req, res) => {
+  app.delete("/api/clinical-records/:id", isAuthenticated, async (req, res) => {
     try {
       const session = req.session as any;
       if (!session?.doctorLoggedIn) {
