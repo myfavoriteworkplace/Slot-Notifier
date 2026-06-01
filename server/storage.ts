@@ -110,6 +110,9 @@ export interface IStorage {
   upsertPatientByPhone(clinicId: number, phone: string, name: string): Promise<Patient>;
   getPatientByEmail(clinicId: number, email: string): Promise<Patient | null>;
   getPatientsByEmail(clinicId: number, email: string): Promise<Patient[]>;
+  getPatientById(clinicId: number, patientId: number): Promise<Patient | null>;
+  createNewPatient(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
+  incrementPatientVisit(patientId: number): Promise<Patient>;
   searchPatients(clinicId: number, query: string): Promise<Patient[]>;
   getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]>;
   getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }>;
@@ -1179,6 +1182,38 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(patients.clinicId, clinicId), eq(patients.email, email.toLowerCase().trim())))
       .limit(1);
     return patient ?? null;
+  }
+
+  async getPatientById(clinicId: number, patientId: number): Promise<Patient | null> {
+    const [patient] = await db.select().from(patients)
+      .where(and(eq(patients.id, patientId), eq(patients.clinicId, clinicId)))
+      .limit(1);
+    return patient ?? null;
+  }
+
+  async incrementPatientVisit(patientId: number): Promise<Patient> {
+    const [updated] = await db.update(patients)
+      .set({ visitCount: sql`${patients.visitCount} + 1`, lastVisitAt: new Date() })
+      .where(eq(patients.id, patientId))
+      .returning();
+    return updated;
+  }
+
+  async createNewPatient(clinicId: number, email: string, name: string, phone: string): Promise<Patient> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const countRows = await db.select({ count: sql<number>`COUNT(*)::int` }).from(patients).where(eq(patients.clinicId, clinicId));
+    const seq = (Number(countRows[0]?.count) ?? 0) + 1;
+    const patientCode = `PAT-${String(seq).padStart(4, '0')}`;
+    const [newPatient] = await db.insert(patients).values({
+      clinicId,
+      email: normalizedEmail,
+      name,
+      phone: phone || null,
+      patientCode,
+      visitCount: 1,
+      lastVisitAt: new Date(),
+    } as any).returning();
+    return newPatient;
   }
 
   async getPatientsByEmail(clinicId: number, email: string): Promise<Patient[]> {

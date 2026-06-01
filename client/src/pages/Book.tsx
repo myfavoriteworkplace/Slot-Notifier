@@ -529,6 +529,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
       startTime: startTime.toISOString(), endTime: endTime.toISOString(),
       description: [selectedSubIssues.join(", "), additionalNotes].filter(Boolean).join(" — "),
       verifiedToken,
+      patientId: selectedProfileId !== null ? selectedProfileId : undefined,
     });
   };
 

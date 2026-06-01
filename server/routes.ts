@@ -1582,12 +1582,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         razorpayPaymentId: razorpay_payment_id,
       });
 
-      // Upsert patient profile and link to booking
+      // Link booking to the correct patient profile
       try {
-        const patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+        const bodyPatientId = req.body.patientId;
+        const isNewProfile = bodyPatientId === 'new';
+        const selectedId = (!isNewProfile && bodyPatientId) ? parseInt(bodyPatientId) : NaN;
+        let patient;
+        if (!isNaN(selectedId)) {
+          const existing = await storage.getPatientById(clinic.id, selectedId);
+          patient = existing
+            ? await storage.incrementPatientVisit(existing.id)
+            : await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+        } else if (isNewProfile) {
+          patient = await storage.createNewPatient(clinic.id, customerEmail, customerName, customerPhone);
+        } else {
+          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+        }
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
       } catch (e: any) {
-        console.error('[PATIENT PROFILE] Failed to upsert:', e.message);
+        console.error('[PATIENT PROFILE] Failed to link:', e.message);
       }
 
       // Consume the OTP token — one token, one booking
@@ -1730,12 +1743,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         verificationStatus: 'email_verified',
       });
 
-      // Upsert patient profile and link to booking
+      // Link booking to the correct patient profile
       try {
-        const patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+        const bodyPatientId = req.body.patientId;
+        const isNewProfile = bodyPatientId === 'new';
+        const selectedId = (!isNewProfile && bodyPatientId) ? parseInt(bodyPatientId) : NaN;
+        let patient;
+        if (!isNaN(selectedId)) {
+          const existing = await storage.getPatientById(clinic.id, selectedId);
+          patient = existing
+            ? await storage.incrementPatientVisit(existing.id)
+            : await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+        } else if (isNewProfile) {
+          patient = await storage.createNewPatient(clinic.id, customerEmail, customerName, customerPhone);
+        } else {
+          patient = await storage.upsertPatientByEmail(clinic.id, customerEmail, customerName, customerPhone);
+        }
         await db.update(bookings).set({ patientId: patient.id } as any).where(eq(bookings.id, booking.id));
       } catch (e: any) {
-        console.error('[PATIENT PROFILE] Failed to upsert:', e.message);
+        console.error('[PATIENT PROFILE] Failed to link:', e.message);
       }
 
       // Consume the OTP token — one token, one booking
