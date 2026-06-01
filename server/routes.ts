@@ -14,6 +14,7 @@ import { generateSignedUploadUrl } from "./signedUrl.service";
 import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
 import Razorpay from "razorpay";
+import rateLimit from "express-rate-limit";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
@@ -424,6 +425,14 @@ async function sendCancellationEmail(email: string, name: string, date: Date, cl
     console.error('[EMAIL ERROR] Failed to send cancellation email:', error);
   }
 }
+
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many login attempts, please try again after 15 minutes" },
+});
 
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   const sess = req.session as any;
@@ -2047,7 +2056,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.post("/api/auth/clinic/login", async (req, res) => {
+  app.post("/api/auth/clinic/login", loginRateLimiter, async (req, res) => {
     const { username, password } = req.body;
     const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
     const ua = req.headers["user-agent"] || null;
@@ -2076,7 +2085,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.post("/api/auth/admin/login", async (req, res) => {
+  app.post("/api/auth/admin/login", loginRateLimiter, async (req, res) => {
     const { email, password } = req.body;
     if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -2323,7 +2332,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.post("/api/auth/doctor/login", async (req, res) => {
+  app.post("/api/auth/doctor/login", loginRateLimiter, async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
     const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
