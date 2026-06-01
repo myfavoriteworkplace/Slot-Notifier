@@ -133,6 +133,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
   const [isClinicSheetOpen, setIsClinicSheetOpen] = useState(false);
   const [infoClinic, setInfoClinic] = useState<Clinic | null>(null);
   const [patientProfiles, setPatientProfiles] = useState<any[]>([]);
+  const [profilesFetched, setProfilesFetched] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState<number | 'new' | null>(null);
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   const razorpayScriptRef = useRef(false);
@@ -184,6 +185,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
     setOtpError("");
     setResendCountdown(0);
     setPatientProfiles([]);
+    setProfilesFetched(false);
     setSelectedProfileId(null);
   };
 
@@ -455,6 +457,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
             const profiles = await lookup.json();
             const profileList = Array.isArray(profiles) ? profiles : [];
             setPatientProfiles(profileList);
+            setProfilesFetched(true);
             if (profileList.length > 0) {
               setDropdownHighlighted(true);
               setTimeout(() => setDropdownHighlighted(false), 3000);
@@ -1854,7 +1857,7 @@ export default function Book(props: { params: { clinicId?: string } }) {
                     )}
 
                     {/* Chief complaints + Additional Notes — revealed after email verify + patient selected */}
-                    {emailVerified && (patientProfiles.length === 0 || selectedProfileId !== null) && (
+                    {emailVerified && !isEditingDetails && profilesFetched && (patientProfiles.length === 0 || selectedProfileId !== null) && (
                       <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-400">
 
                         {/* Chief complaints — accordion */}
