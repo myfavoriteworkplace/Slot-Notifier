@@ -1,0 +1,402 @@
+# Billing & Accounting Module
+
+**BookMySlot Dental — Technical Reference**
+Last updated: June 2026
+
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Data Model](#data-model)
+3. [Bill Lifecycle](#bill-lifecycle)
+4. [Frontend: BillingHistoryPanel](#frontend-billinghistorypanel)
+5. [Backend: API Endpoints](#backend-api-endpoints)
+6. [Accounting Linkages](#accounting-linkages)
+7. [Audit Trail](#audit-trail)
+8. [Pharmacy Integration](#pharmacy-integration)
+9. [Prescription Auto-Billing](#prescription-auto-billing)
+10. [PDF & Receipt Generation](#pdf--receipt-generation)
+11. [Known Rules & Guards](#known-rules--guards)
+12. [Future Accounting Integrations](#future-accounting-integrations)
+
+---
+
+## Overview
+
+The billing module lets clinic staff create itemised bills against a patient booking, record payment, and generate PDF receipts. It is tightly coupled to three other modules:
+
+| Connected Module | How it links |
+|---|---|
+| **Bookings** | Every bill has a `bookingId` foreign key. A booking can have multiple bills (e.g. one per visit). |
+| **Pharmacy / Stock** | Prescription items are auto-priced by matching drug names against the `pharmacy_stock` catalog. |
+| **Clinical Records** | The doctor's prescription (stored as JSON in `clinical_records.prescription`) is the source of truth for pharmacy line items. |
+| **Patients** | Bills carry `patientName`, `patientPhone`, and `patientEmail` for receipt generation and patient lookup across visits. |
+| **Notifications** | On payment, a "bill paid" notification is dispatched to the patient via the notification service. |
+
+---
+
+## Data Model
+
+### `patient_bills` table (`shared/schema.ts → patientBills`)
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | serial PK | Auto-incremented bill ID |
+| `bookingId` | integer FK | Links to `bookings.id` |
+| `clinicId` | integer FK | Links to `clinics.id` |
+| `billNumber` | text | Human-readable bill reference (e.g. `DFT-42-1712345678901`) |
+| `patientName` | text | Snapshot of patient name at time of billing |
+| `patientPhone` | text | Patient phone for lookup and receipts |
+| `patientEmail` | text | Patient email for receipt delivery |
+| `services` | jsonb | Array of `ServiceItem` objects — the line items |
+| `subtotal` | numeric | Sum of all line item amounts before discount/tax |
+| `discountPct` | numeric | Discount percentage (0–100) |
+| `taxPct` | numeric | Tax percentage (0–100, e.g. GST 18) |
+| `total` | numeric | Final amount after discount and tax |
+| `paymentStatus` | text | `draft` / `pending` / `partial` / `paid` |
+| `paymentMethod` | text | `Cash` / `UPI` / `Card` / `Insurance` / `Online` |
+| `amountReceived` | numeric | Actual cash/transfer received |
+| `cashierId` | text | Name of staff who recorded the payment |
+| `cashierNotes` | text | Free-text notes from the cashier |
+| `createdAt` | timestamp | Auto-set on insert |
+| `updatedAt` | timestamp | Auto-updated on every change |
+
+#### `ServiceItem` (stored inside `services` JSONB array)
+
+```ts
+interface ServiceItem {
+  description: string;   // Display name on receipt
+  category: string;      // "Consultation" | "Procedure" | "Treatment" | "Pharmacy" | "Consumable" | "Other"
+  amount: number;        // Total amount for this line (= qty × unitPrice)
+  paid: boolean;         // True once the bill is marked paid
+  qty?: number;          // Quantity (optional, shown as "3×₹50")
+  unitPrice?: number;    // Price per unit (optional, for qty-based items)
+}
+```
+
+---
+
+### `billing_audit_logs` table (`shared/schema.ts → billingAuditLogs`)
+
+Immutable log of every significant billing event.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | serial PK | Auto-incremented log ID |
+| `clinicId` | integer | Clinic context |
+| `bookingId` | integer (nullable) | Booking the log entry belongs to |
+| `billId` | integer (nullable) | Specific bill affected (nullable for booking-level events) |
+| `action` | text | Machine-readable action key (see table below) |
+| `details` | jsonb | Arbitrary detail payload (amounts, names, etc.) |
+| `performedBy` | text (nullable) | Staff identifier (cashier name, doctor name) |
+| `createdAt` | timestamp | Auto-set on insert |
+
+#### Audit action keys
+
+| Action key | Meaning |
+|---|---|
+| `prescription_loaded` | Rx items imported into a bill from clinical records |
+| `item_added` | A manual line item was added |
+| `item_removed` | A line item was deleted |
+| `item_amount_changed` | An item amount was inline-edited |
+| `bill_confirmed` | Draft bill was confirmed to pending/active |
+| `bill_paid` | Bill marked fully paid (includes cashier + method) |
+| `bill_deleted` | Unpaid bill was deleted |
+
+---
+
+## Bill Lifecycle
+
+```
+[No bill]
+    │
+    ├─ "Load Prescription" or "Add New Entry"
+    │
+    ▼
+[DRAFT]  ──── items can be added/removed/edited freely
+    │
+    ├─ "Confirm Bill" button
+    ▼
+[PENDING]  ──── outstanding, items still editable (unpaid only)
+    │
+    ├─ partial payment recorded
+    ▼
+[PARTIAL]  ──── some items paid; paid items are locked
+    │
+    ├─ "Mark Paid" → cashier form submitted
+    ▼
+[PAID]  ──── fully settled; all items locked; bill cannot be deleted
+```
+
+**Key invariants enforced in code:**
+
+- A `paid` bill is **never** modified. `findActiveBill()` skips paid bills entirely.
+- Individual line items inside a paid bill have `paid: true` and display a 🔒 lock icon — they cannot be deleted.
+- The cashier form pre-fills with the **unpaid items total** (not `bill.total`) so partial payments are handled correctly.
+- If all existing bills are paid and new items need to be added (e.g. loading prescription after payment), a **new draft bill** is created automatically.
+
+---
+
+## Frontend: BillingHistoryPanel
+
+**File:** `client/src/components/BillingHistoryPanel.tsx`
+
+The panel is embedded inside the booking card on the Clinic Dashboard (`ClinicDashboard.tsx`). It receives:
+
+```ts
+interface BillingHistoryPanelProps {
+  bookingId: number;
+  clinicId: number;
+  patientName: string;
+  patientPhone?: string;
+  patientEmail?: string;
+  patientCode?: string;
+  onGenerateReceipt: (existingBill?: PatientBill) => void;
+  onPrintBill: (bill: PatientBill) => void;
+  onConsolidatedReceipt?: (bills: PatientBill[]) => void;
+}
+```
+
+### Sections rendered
+
+| Section | Purpose |
+|---|---|
+| **Invoice Preview** | Grouped view of all current-visit line items (Consultation, Pharmacy, Other). Inline amount editing (pencil icon). Discount % and Tax % inputs. Totals bar. |
+| **Unpriced pharmacy warning** | Amber banner when any pharmacy line item has amount = ₹0 (awaiting catalog price). |
+| **Action buttons** | "Load Prescription" (auto-imports from clinical record) and "Add New Entry" (manual form). |
+| **Add Entry form** | Description, category dropdown, qty, unit price. Collapses after save. |
+| **Bills list** | Grouped by date. Each bill shows: bill number, status badge, item count, total, expand/collapse, cashier form, confirm/delete actions. |
+| **Previous visits** | Past bills for the same patient (by email or phone) across other bookings. Collapsed by default. |
+| **Past prescriptions** | Prescriptions from earlier visits — each has a "Load" button to re-import into the current bill. |
+| **Audit trail** | Collapsible log of all billing events for this booking (lazy-loaded on first open). |
+| **Invoice Preview Modal** | Full-screen printable preview with categorised groups and totals. |
+
+### Data queries (TanStack Query v5)
+
+| Query key | Endpoint | Purpose |
+|---|---|---|
+| `["/api/auth/clinic/bills/booking", bookingId]` | GET | All bills for current booking |
+| `["/api/auth/clinic/bills/patient-by-email", email]` | GET | Patient history across visits |
+| `["/api/auth/clinic/pharmacy"]` | GET | Catalog for auto-pricing |
+| `["/api/auth/clinic/clinical-records/patient", phone]` | GET | Past prescriptions |
+| `["/api/auth/clinic/billing-audit/booking", bookingId]` | GET | Audit trail (lazy) |
+
+---
+
+## Backend: API Endpoints
+
+All billing routes are under `/api/auth/clinic/` and require clinic authentication (`isAuthenticated` middleware).
+
+### Bill CRUD
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/auth/clinic/bills/booking/:bookingId` | All bills for a booking |
+| `GET` | `/api/auth/clinic/bills/patient-by-email/:email` | All bills for a patient email |
+| `GET` | `/api/auth/clinic/bills/patient/:phone` | All bills for a patient phone |
+| `POST` | `/api/auth/clinic/bills` | Create a new bill |
+| `PATCH` | `/api/auth/clinic/bills/:id` | Update bill (items, status, totals) |
+| `DELETE` | `/api/auth/clinic/bills/:id` | Delete a bill (unpaid only) |
+| `POST` | `/api/auth/clinic/bills/:id/notify-paid` | Send "paid" notification to patient |
+
+### Audit logs
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/auth/clinic/billing-audit` | Create audit log entry |
+| `GET` | `/api/auth/clinic/billing-audit/booking/:bookingId` | Fetch audit trail for a booking |
+
+---
+
+## Accounting Linkages
+
+The billing module does not yet connect to an external accounting system (e.g. Tally, QuickBooks, Zoho Books), but the data structure is designed to support it cleanly.
+
+### How totals are computed
+
+```
+subtotal = sum of all service item amounts
+discount = subtotal × (discountPct / 100)
+tax      = (subtotal − discount) × (taxPct / 100)
+total    = subtotal − discount + tax
+```
+
+These three figures (`subtotal`, `discountPct`/`taxPct`, `total`) are stored on the bill record, making it trivial to export them to any accounting system.
+
+### Revenue recognition
+
+| Status | Accounting treatment |
+|---|---|
+| `draft` | Not yet a receivable — do not book |
+| `pending` | Recognised as accounts receivable |
+| `partial` | Split: `amountReceived` = cash received; `total − amountReceived` = outstanding receivable |
+| `paid` | Revenue fully recognised; debit Cash/Bank, credit Revenue |
+
+### Category → Revenue account mapping (recommended)
+
+When exporting to an accounting system, map the `category` field of each service item to a ledger account:
+
+| Category | Suggested ledger account |
+|---|---|
+| `Consultation` | Professional Fees Income |
+| `Procedure` | Procedure Revenue |
+| `Treatment` | Treatment Revenue |
+| `Pharmacy` | Pharmacy / Drug Sales |
+| `Consumable` | Consumables Revenue |
+| `Other` | Miscellaneous Income |
+
+### GST / Tax
+
+`taxPct` is stored per-bill. When India GST is applicable:
+- Set `taxPct = 18` (standard rate) or `5` (reduced, for certain dental services)
+- The computed `tax` amount is the GST collected
+- For filing returns: sum `tax` across all `paid` bills for the period
+
+### Daily collection summary (manual query)
+
+```sql
+SELECT
+  DATE(updated_at)      AS date,
+  payment_method,
+  COUNT(*)              AS bill_count,
+  SUM(amount_received)  AS cash_collected,
+  SUM(total)            AS total_billed,
+  SUM(total - amount_received) AS outstanding
+FROM patient_bills
+WHERE clinic_id = <clinic_id>
+  AND payment_status = 'paid'
+  AND updated_at >= NOW() - INTERVAL '30 days'
+GROUP BY DATE(updated_at), payment_method
+ORDER BY date DESC;
+```
+
+---
+
+## Audit Trail
+
+Every material billing event is written to `billing_audit_logs` by the frontend (via `POST /api/auth/clinic/billing-audit`). This is a **non-blocking** call — if it fails, the main operation still succeeds.
+
+The audit trail is surfaced in the panel under the collapsible "Audit Trail" section at the bottom of each booking's billing card. It lazy-loads only when the user expands the section.
+
+**Why non-blocking:** The audit log is supplementary. A network error writing the log should never prevent a payment from being recorded.
+
+**What's captured per entry:**
+
+- Action key (see table above)
+- Affected bill ID + booking ID
+- Details payload (e.g. `{ description, amount, cashierName, paymentMethod }`)
+- Timestamp (auto)
+- Clinic ID (for multi-tenant isolation)
+
+---
+
+## Pharmacy Integration
+
+When a doctor saves a prescription in the Clinical Records tab, it is stored as a JSON array in `clinical_records.prescription`:
+
+```json
+[
+  { "name": "Amoxicillin", "dosage": "500mg", "qty": "14", "frequency": "Twice daily", "duration": "7 days" },
+  { "name": "Ibuprofen", "dosage": "400mg", "qty": "10", "frequency": "As needed", "duration": "5 days" }
+]
+```
+
+When staff click **Load Prescription** in the billing panel:
+
+1. The active clinical record for the booking is fetched.
+2. Each drug name is matched (case-insensitive, exact) against `pharmacy_stock.medicineName`.
+3. If a match is found, `unitPrice` is pulled from the catalog and `amount = qty × unitPrice`.
+4. If no match, `amount = 0` — the item appears with an amber "needs pricing" warning.
+5. Duplicate detection: items already on the bill (matched by first word of description + category = Pharmacy) are skipped.
+6. Items are added to the active (non-paid) draft bill, or a new draft is created if all existing bills are paid.
+
+### Keeping the catalog current
+
+Prices in `pharmacy_stock` are maintained by the clinic via the **Pharmacy Stock** tab on the dashboard. For auto-pricing to work accurately, medicine names must match exactly (including spelling) between the prescription and the catalog.
+
+---
+
+## Prescription Auto-Billing
+
+The full flow from doctor to billing:
+
+```
+Doctor saves prescription (Clinical Records tab)
+      │
+      ▼
+clinical_records.prescription = JSON array
+      │
+      ▼ (staff clicks "Load Prescription")
+BillingHistoryPanel → GET /api/clinical-records/booking/:id
+      │
+      ▼
+Match each drug against pharmacy_stock catalog
+      │
+      ├─ match found  → amount = qty × catalog unitPrice
+      └─ no match     → amount = 0 (amber warning shown)
+      │
+      ▼
+Items appended to active draft bill
+(or new draft bill created if all bills are paid)
+      │
+      ▼
+Staff reviews, edits amounts if needed, confirms bill
+      │
+      ▼
+Patient pays → cashier records payment → "Mark Paid"
+      │
+      ▼
+Patient notified + audit log entry written
+```
+
+---
+
+## PDF & Receipt Generation
+
+Receipt generation is handled by the parent component (`ClinicDashboard.tsx`) via the callbacks passed into `BillingHistoryPanel`:
+
+| Callback | Triggered by | What it does |
+|---|---|---|
+| `onGenerateReceipt(bill)` | "Receipt" button on single bill | Opens the receipt PDF generator with that bill's data |
+| `onPrintBill(bill)` | "Print" button on expanded bill | Direct print of the individual bill |
+| `onConsolidatedReceipt(bills[])` | "Consolidated PDF" button (multi-bill) | Combines all bills for the visit into one PDF |
+
+The panel itself handles the **Invoice Preview Modal** (click "Preview" in the header) which renders a categorised summary inside a `Dialog` — useful for a quick screen-only review before printing.
+
+---
+
+## Known Rules & Guards
+
+These are enforced in code and must be maintained:
+
+1. **Never modify a paid bill.** `findActiveBill()` in `BillingHistoryPanel.tsx` explicitly skips bills with `paymentStatus === "paid"`. Any new prescription load or manual add goes to an unpaid bill or creates a new draft.
+
+2. **Paid line items are locked.** Each `ServiceItem` with `paid: true` (or whose parent bill is paid) renders a 🔒 lock icon instead of a delete button. The delete handler also checks this client-side.
+
+3. **Cashier form pre-fills unpaid total.** The "Amount Received" field is initialised to `services.filter(s => !s.paid).reduce(sum of amounts)`, not `bill.total`. This handles the partial-payment case correctly.
+
+4. **Deduplication on prescription load.** Checked by matching the **first word** of the description (lowercased) within the `Pharmacy` category. This prevents the same drug being double-loaded if "Load Prescription" is clicked twice.
+
+5. **Unique bill numbers.** Generated as `DFT-{bookingId}-{Date.now()}`. The `Date.now()` suffix ensures no two bills for the same booking ever share a number.
+
+6. **Draft bills are not receivables.** The "Confirm Bill" button transitions a bill from `draft` → `pending`/`partial`. Only confirmed bills should appear in any accounts receivable report.
+
+---
+
+## Future Accounting Integrations
+
+The following integrations are planned or straightforward to add:
+
+| Integration | Approach |
+|---|---|
+| **Tally ERP** | Export daily paid bills as a CSV in Tally-compatible format (voucher type: Sales, ledger mapping by category) |
+| **Zoho Books / QuickBooks** | Use their REST APIs; map `patient_bills` rows to `Invoice` objects; use `paymentMethod` for payment mode |
+| **GST e-invoicing (India)** | Add `gstNumber` to clinic profile; populate IRN/QR on PDF receipts using the GST e-Invoice API |
+| **Stripe / Razorpay** | Store `paymentGatewayRef` on the bill; webhook updates `paymentStatus` to `paid` automatically |
+| **Bank reconciliation** | Aggregate `amountReceived` by `paymentMethod = 'UPI'/'Card'` daily; cross-check against bank statement imports |
+
+To add any of these, the primary extension points are:
+- A new column on `patient_bills` for the external reference ID
+- A webhook/cron route in `server/routes.ts` that calls the external API after a bill is marked paid
+- An export endpoint (e.g. `GET /api/auth/clinic/billing/export?from=&to=&format=csv`) that serialises bills with full ledger mapping
