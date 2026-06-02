@@ -365,7 +365,7 @@ export default function ClinicDashboard() {
     setDayConfigCache(prev => ({ ...newEntries, ...prev }));
   }, [savedSlotConfigs]);
 
-  // All clinic bills (for Accounts tab)
+  // All clinic bills — loaded on demand only when the Accounts panel is open
   const { data: allBills = [] } = useQuery<PatientBill[]>({
     queryKey: ['/api/auth/clinic/bills'],
     queryFn: async () => {
@@ -373,7 +373,7 @@ export default function ClinicDashboard() {
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && activePanel === 'accounts',
   });
 
   // Patient directory
@@ -992,11 +992,20 @@ export default function ClinicDashboard() {
     setBillingBooking(booking);
     const receiptDate = format(new Date(), "yyyyMMdd");
 
-    // If no bill was explicitly passed (e.g. quick-action buttons), look up the
-    // active (unpaid/partial) bill for this booking from the already-fetched list.
-    const resolvedBill = existingBill
-      ?? allBills.find(b => b.bookingId === booking.id && b.paymentStatus !== "paid")
-      ?? allBills.find(b => b.bookingId === booking.id);
+    // If no bill was explicitly passed (e.g. quick-action button), fetch this
+    // booking's bills on demand — avoids any dependency on the eager allBills list.
+    let resolvedBill: PatientBill | undefined = existingBill;
+    if (!resolvedBill) {
+      try {
+        const billsRes = await apiRequest("GET", `/api/auth/clinic/bills/booking/${booking.id}`);
+        const bookingBills: PatientBill[] = billsRes.ok ? await billsRes.json() : [];
+        resolvedBill =
+          bookingBills.find(b => b.paymentStatus !== "paid")
+          ?? bookingBills[0];
+      } catch {
+        // fetch failed — proceed with a blank new bill
+      }
+    }
 
     let loadedServices: { description: string; amount: string }[];
     let loadedRemarks = resolvedBill?.notes || "";
