@@ -403,6 +403,10 @@ export const emailOtps = pgTable("email_otps", {
   verifiedToken: varchar("verified_token", { length: 64 }),
   purpose: varchar("purpose", { length: 50 }).notNull().default("booking"),
   createdAt: timestamp("created_at").defaultNow(),
+  attempts: integer("attempts").default(0).notNull(),
+  lockedUntil: timestamp("locked_until"),
+  sendCount: integer("send_count").default(1).notNull(),
+  sendWindowStart: timestamp("send_window_start").defaultNow(),
 });
 
 export type EmailOtp = typeof emailOtps.$inferSelect;

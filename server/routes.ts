@@ -1273,6 +1273,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ── OTP: send verification code ────────────────────────────────────────────
   app.post("/api/public/otp/send", async (req, res) => {
+    const OTP_SEND_MAX = 3;
+    const OTP_SEND_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
     try {
       const { email, purpose = "booking" } = req.body;
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -1280,39 +1282,78 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       const normalizedEmail = email.toLowerCase();
 
-      // Rate-limit: if an OTP was created < 60 seconds ago for same email+purpose, block
-      const [recent] = await db.select().from(emailOtps)
+      // Check existing OTP row for send-rate enforcement
+      const [existing] = await db.select().from(emailOtps)
         .where(and(
           eq(emailOtps.email, normalizedEmail),
           eq(emailOtps.purpose, purpose),
-          sql`${emailOtps.expiresAt} > NOW() + INTERVAL '4 minutes'`
+          eq(emailOtps.verified, false),
         ))
         .limit(1);
 
-      if (recent) {
-        return res.status(429).json({ message: "Please wait before requesting a new code" });
+      if (existing) {
+        const windowStart = existing.sendWindowStart ? new Date(existing.sendWindowStart).getTime() : 0;
+        const windowExpired = Date.now() - windowStart > OTP_SEND_WINDOW_MS;
+        const currentCount = windowExpired ? 0 : (existing.sendCount ?? 1);
+
+        if (!windowExpired && currentCount >= OTP_SEND_MAX) {
+          const retryAfterSec = Math.ceil((windowStart + OTP_SEND_WINDOW_MS - Date.now()) / 1000);
+          return res.status(429).json({
+            message: `Too many codes sent. Please wait ${Math.ceil(retryAfterSec / 60)} minute(s) before requesting another.`,
+            retryAfterSeconds: retryAfterSec,
+          });
+        }
+
+        // Within the 60-second cooldown per send attempt
+        const lastSentAt = existing.createdAt ? new Date(existing.createdAt).getTime() : 0;
+        if (!windowExpired && Date.now() - lastSentAt < 60_000) {
+          return res.status(429).json({ message: "Please wait at least 60 seconds before requesting a new code" });
+        }
+
+        // Issue fresh OTP — reset attempts + lock, update send count
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpHash = await bcrypt.hash(code, 10);
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+        const newSendWindowStart = windowExpired ? new Date() : existing.sendWindowStart;
+        const newSendCount = windowExpired ? 1 : currentCount + 1;
+
+        await db.update(emailOtps)
+          .set({
+            otpHash,
+            expiresAt,
+            attempts: 0,
+            lockedUntil: null,
+            createdAt: new Date(),
+            sendCount: newSendCount,
+            sendWindowStart: newSendWindowStart,
+          })
+          .where(eq(emailOtps.id, existing.id));
+
+        if (resend && RESEND_MODE === 'PRODUCTION') {
+          await resend.emails.send({ from: EMAIL_FROM, to: email, subject: "Your BookMySlot verification code", html: sendOtpEmail(code) });
+        } else {
+          console.log(`[OTP DEV] Resend for ${email}: ${code}`);
+        }
+        return res.json({ success: true, message: "New verification code sent to your email" });
       }
 
-      // Remove any previous OTPs for this email+purpose combination
-      await db.delete(emailOtps).where(and(
-        eq(emailOtps.email, normalizedEmail),
-        eq(emailOtps.purpose, purpose),
-      ));
-
-      // Generate 6-digit code and hash it
+      // No existing row — fresh send
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       const otpHash = await bcrypt.hash(code, 10);
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-      await db.insert(emailOtps).values({ email: normalizedEmail, otpHash, expiresAt, purpose });
+      await db.insert(emailOtps).values({
+        email: normalizedEmail,
+        otpHash,
+        expiresAt,
+        purpose,
+        attempts: 0,
+        sendCount: 1,
+        sendWindowStart: new Date(),
+      });
 
       if (resend && RESEND_MODE === 'PRODUCTION') {
-        await resend.emails.send({
-          from: EMAIL_FROM,
-          to: email,
-          subject: "Your BookMySlot verification code",
-          html: sendOtpEmail(code),
-        });
+        await resend.emails.send({ from: EMAIL_FROM, to: email, subject: "Your BookMySlot verification code", html: sendOtpEmail(code) });
       } else {
         console.log(`[OTP DEV] Code for ${email}: ${code}`);
       }
@@ -1326,6 +1367,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ── OTP: verify code and return session token ──────────────────────────────
   app.post("/api/public/otp/verify", async (req, res) => {
+    const OTP_MAX_ATTEMPTS = 5;
+    const OTP_LOCK_DURATION_MS = 30 * 60 * 1000; // 30 minutes
     try {
       const { email, code, purpose = "booking" } = req.body;
       if (!email || !code) {
@@ -1346,14 +1389,47 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ message: "No valid code found. Please request a new one." });
       }
 
-      const isMatch = await bcrypt.compare(code.toString(), otpRow.otpHash);
-      if (!isMatch) {
-        return res.status(400).json({ message: "Incorrect code. Please try again." });
+      // Check if currently locked
+      if (otpRow.lockedUntil && new Date(otpRow.lockedUntil) > new Date()) {
+        const lockedUntilSec = Math.ceil((new Date(otpRow.lockedUntil).getTime() - Date.now()) / 1000);
+        return res.status(429).json({
+          message: `Too many incorrect attempts. Please request a new code or try again in ${Math.ceil(lockedUntilSec / 60)} minute(s).`,
+          lockedUntilSeconds: lockedUntilSec,
+          locked: true,
+        });
       }
 
+      const isMatch = await bcrypt.compare(code.toString(), otpRow.otpHash);
+
+      if (!isMatch) {
+        const newAttempts = (otpRow.attempts ?? 0) + 1;
+        const shouldLock = newAttempts >= OTP_MAX_ATTEMPTS;
+        const lockedUntil = shouldLock ? new Date(Date.now() + OTP_LOCK_DURATION_MS) : null;
+
+        await db.update(emailOtps)
+          .set({ attempts: newAttempts, lockedUntil })
+          .where(eq(emailOtps.id, otpRow.id));
+
+        const attemptsLeft = OTP_MAX_ATTEMPTS - newAttempts;
+
+        if (shouldLock) {
+          return res.status(429).json({
+            message: "Too many incorrect attempts. Your code is locked for 30 minutes. You can also request a new code to reset the lock immediately.",
+            lockedUntilSeconds: Math.ceil(OTP_LOCK_DURATION_MS / 1000),
+            locked: true,
+          });
+        }
+
+        return res.status(400).json({
+          message: `Incorrect code. ${attemptsLeft} attempt${attemptsLeft === 1 ? "" : "s"} remaining before lock.`,
+          attemptsLeft,
+        });
+      }
+
+      // Correct code — mark verified, clear lock state
       const verifiedToken = crypto.randomBytes(32).toString("hex");
       await db.update(emailOtps)
-        .set({ verified: true, verifiedToken })
+        .set({ verified: true, verifiedToken, attempts: 0, lockedUntil: null })
         .where(eq(emailOtps.id, otpRow.id));
 
       res.json({ success: true, verifiedToken });

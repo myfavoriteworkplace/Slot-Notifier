@@ -538,6 +538,18 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_otps' AND column_name='purpose') THEN
             ALTER TABLE email_otps ADD COLUMN purpose VARCHAR(50) NOT NULL DEFAULT 'booking';
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_otps' AND column_name='attempts') THEN
+            ALTER TABLE email_otps ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_otps' AND column_name='locked_until') THEN
+            ALTER TABLE email_otps ADD COLUMN locked_until TIMESTAMP;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_otps' AND column_name='send_count') THEN
+            ALTER TABLE email_otps ADD COLUMN send_count INTEGER NOT NULL DEFAULT 1;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_otps' AND column_name='send_window_start') THEN
+            ALTER TABLE email_otps ADD COLUMN send_window_start TIMESTAMP DEFAULT NOW();
+          END IF;
         END $$;
       `);
       log("email_otps table verified/created", "system");
