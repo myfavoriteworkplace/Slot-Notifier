@@ -41,6 +41,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { format, startOfDay, endOfDay, startOfToday, addDays, isSameDay, differenceInCalendarDays, startOfWeek, endOfWeek, addWeeks, isAfter } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -105,6 +106,90 @@ type BookingWithSlot = Booking & {
   clinicDoctors?: { name: string; specialization: string; degree: string; email?: string }[];
   patientCode?: string | null;
 };
+
+function BookingCardSkeleton() {
+  return (
+    <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+      <div className="h-1 bg-muted/40 rounded-t-2xl" />
+      <div className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-28 rounded-md" />
+              <Skeleton className="h-3 w-20 rounded-md" />
+            </div>
+          </div>
+          <Skeleton className="h-5 w-20 rounded-full" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-3.5 w-3.5 rounded-sm shrink-0" />
+          <Skeleton className="h-3.5 w-44 rounded-md" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-3.5 w-3.5 rounded-sm shrink-0" />
+          <Skeleton className="h-3.5 w-24 rounded-md" />
+        </div>
+        <div className="pt-2 border-t border-border/40 flex gap-3">
+          <Skeleton className="h-9 flex-1 rounded-xl" />
+          <Skeleton className="h-9 flex-1 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClinicDashboardSkeleton() {
+  return (
+    <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-8">
+      {/* Header skeleton — mirrors dark gradient hero */}
+      <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
+        <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
+        <div className="bg-gradient-to-br from-[#052B22] via-[#085041] to-[#0A5540] px-5 py-3 sm:px-7 sm:py-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4 sm:gap-5">
+              <Skeleton className="h-16 w-16 rounded-2xl bg-white/10 shrink-0" />
+              <div className="space-y-2.5">
+                <Skeleton className="h-7 w-40 rounded-lg bg-white/10" />
+                <div className="flex gap-2 flex-wrap">
+                  <Skeleton className="h-6 w-28 rounded-full bg-white/10" />
+                  <Skeleton className="h-6 w-14 rounded-full bg-white/10" />
+                </div>
+              </div>
+            </div>
+            <Skeleton className="h-9 w-24 rounded-lg bg-white/10 shrink-0" />
+          </div>
+          <div className="mt-5 pt-4 border-t border-white/[0.10] grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-16 rounded-xl bg-white/10" />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tab nav skeleton */}
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+        {[...Array(4)].map((_, i) => (
+          <Skeleton key={i} className="h-10 w-28 rounded-xl shrink-0" />
+        ))}
+      </div>
+
+      {/* Filter bar skeleton */}
+      <div className="flex gap-2 mb-5">
+        <Skeleton className="h-9 w-36 rounded-xl" />
+        <Skeleton className="h-9 w-24 rounded-xl" />
+        <Skeleton className="h-9 w-24 rounded-xl" />
+      </div>
+
+      {/* Booking cards grid skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[...Array(6)].map((_, i) => (
+          <BookingCardSkeleton key={i} />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut, refetch: refetchClinic } = useClinicAuth();
@@ -1203,11 +1288,7 @@ export default function ClinicDashboard() {
   });
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <ClinicDashboardSkeleton />;
   }
 
   const addServiceRow = () => {
@@ -2755,8 +2836,10 @@ export default function ClinicDashboard() {
           )}
 
           {bookingsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <BookingCardSkeleton key={i} />
+              ))}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
