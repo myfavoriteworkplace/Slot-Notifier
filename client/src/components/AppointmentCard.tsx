@@ -357,16 +357,17 @@ export function AppointmentCard({
                   <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-px">
                     <Stethoscope className="h-2.5 w-2.5 text-primary" />
                   </div>
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-medium text-primary">Dr. {booking.assignedDoctor}</span>
-                      {drStatus}
-                    </div>
+                  <div className="grid grid-cols-[auto_1fr] items-baseline gap-x-1.5 gap-y-0.5">
+                    <span className="font-medium text-primary">Dr. {booking.assignedDoctor}</span>
+                    <span>{drStatus}</span>
                     {adminConfirmed && (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">Confirmed</span>
-                        <span className="italic text-muted-foreground/60">by Admin</span>
-                      </span>
+                      <>
+                        <span />
+                        <span className="inline-flex items-center gap-1">
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">Confirmed</span>
+                          <span className="italic text-muted-foreground/60">by Admin</span>
+                        </span>
+                      </>
                     )}
                   </div>
                 </div>
