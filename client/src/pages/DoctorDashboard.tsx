@@ -34,6 +34,7 @@ import { notify } from "@/lib/notify";
 import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/schema";
 import { format, differenceInCalendarDays } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
+import { AppointmentCard } from "@/components/AppointmentCard";
 
 type QuickFilter = "all" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days";
 type Tab = "appointments" | "profile" | "certifications" | "cases" | "leaves";
@@ -1014,206 +1015,22 @@ export default function DoctorDashboard() {
                       ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
                       : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
                     return (
-                      <div
+                      <AppointmentCard
                         key={booking.id}
-                        className={`rounded-2xl border border-border/50 bg-background shadow-sm overflow-hidden flex flex-col hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group cursor-pointer ${isApptPast ? "opacity-75" : ""} ${apptLeftBorder}`}
-                        onClick={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
-                        data-testid={`card-booking-${booking.id}`}
-                      >
-                        {/* Top accent bar */}
-                        <div className={`h-[3px] ${apptAccentBar}`} />
-
-                        {/* Card Header */}
-                        <div className={`px-4 pt-2.5 pb-2 ${apptHeaderBg} transition-colors group-hover:brightness-[0.97]`}>
-                          <div className="flex items-start justify-between gap-2">
-                            {/* Avatar + name block */}
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                              <div className="shrink-0 h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 dark:border-primary/30 flex items-center justify-center">
-                                <span className="text-sm font-bold text-primary dark:text-primary/70 leading-none">
-                                  {booking.customerName?.[0]?.toUpperCase() ?? "?"}
-                                </span>
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
-                                  <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
-                                    #{String(booking.id).padStart(2, '0')}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
-                                  <Phone className="h-2.5 w-2.5 shrink-0" />
-                                  <span className="truncate">{booking.customerPhone || "—"}</span>
-                                  {(booking.customerAge || booking.customerGender) && (
-                                    <>
-                                      <span className="opacity-30">·</span>
-                                      <span className="truncate">
-                                        {booking.customerAge ? `${booking.customerAge}y` : ""}
-                                        {booking.customerAge && booking.customerGender ? " · " : ""}
-                                        {booking.customerGender ? (booking.customerGender.charAt(0).toUpperCase() + booking.customerGender.slice(1)) : ""}
-                                      </span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            {/* Status + Time pills */}
-                            <div className="flex flex-col items-end gap-1">
-                              <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium border px-1.5 py-px rounded-full cursor-default ${apptStatusClass}`}>
-                                {isApptCancelled && <X className="h-2.5 w-2.5" />}
-                                {isApptConfirmed && <CheckCircle2 className="h-2.5 w-2.5" />}
-                                {!isApptCancelled && !isApptConfirmed && (
-                                  <span className="relative flex h-1.5 w-1.5 shrink-0">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
-                                  </span>
-                                )}
-                                {apptStatusLabel}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Info rows */}
-                        <div className="px-4 py-2 space-y-1.5 flex-1">
-                          {/* Date + Time — merged single row */}
-                          {startTime && (
-                            <div className="flex items-center gap-2 text-xs min-w-0">
-                              <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                                <CalendarDays className="h-2.5 w-2.5 text-primary" />
-                              </div>
-                              <span className="font-semibold text-foreground shrink-0">
-                                {format(startTime, "EEE, d MMM")}
-                              </span>
-                              <span className="text-muted-foreground font-medium truncate min-w-0">
-                                {format(startTime, "h:mm a")}
-                                <span className="mx-1 opacity-40">→</span>
-                                {endTime ? format(endTime, "h:mm a") : ""}
-                              </span>
-                              {!isApptPast && (() => {
-                                const daysAway = differenceInCalendarDays(startTime, new Date());
-                                const dLabel = isApptToday ? "Today" : daysAway === 1 ? "Tomorrow" : `in ${daysAway}d`;
-                                const dCls = isApptToday
-                                  ? "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"
-                                  : daysAway === 1
-                                  ? "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
-                                  : "text-muted-foreground bg-muted/50 border-border/50";
-                                return (
-                                  <span className={`shrink-0 text-xs font-medium border px-1.5 py-px rounded-full ${dCls}`}>
-                                    {dLabel}
-                                  </span>
-                                );
-                              })()}
-                              {durationMin && (
-                                <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">{durationMin}m</span>
-                              )}
-                            </div>
-                          )}
-                          {/* Clinic name (City) */}
-                          <div className="flex items-center gap-2 text-xs min-w-0">
-                            <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                              <Building2 className="h-2.5 w-2.5 text-muted-foreground" />
-                            </div>
-                            <span className="text-foreground font-medium truncate">
-                              {clinicName}{clinicCity ? ` (${clinicCity})` : ""}
-                            </span>
-                          </div>
-                          {/* Chief complaint chips */}
-                          {booking.description && (() => {
-                            const chips = booking.description.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean);
-                            return chips.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {chips.slice(0, 3).map((c: string, i: number) => (
-                                  <span key={i} className="inline-flex items-center text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
-                                    {c}
-                                  </span>
-                                ))}
-                                {chips.length > 3 && (
-                                  <span className="text-xs text-muted-foreground font-medium px-1 self-center">+{chips.length - 3} more</span>
-                                )}
-                              </div>
-                            ) : null;
-                          })()}
-                          {/* Clinical status badge — doc semantic colours */}
-                          {booking.clinicalStatus && (
-                            <span className={`inline-flex items-center text-xs font-medium px-2 py-px rounded-full border
-                              ${booking.clinicalStatus === "case_closed"
-                                ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
-                                : booking.clinicalStatus === "follow_up_required"
-                                ? "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800"
-                                : booking.clinicalStatus === "revisit"
-                                ? "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800"
-                                : "bg-primary/10 text-primary border-primary/20"}`}>
-                              {booking.clinicalStatus === "first_visit" ? "First Visit" :
-                               booking.clinicalStatus === "revisit" ? "Revisit" :
-                               booking.clinicalStatus === "follow_up_required" ? "Follow-up Required" :
-                               booking.clinicalStatus === "case_closed" ? "Case Closed" :
-                               booking.clinicalStatus}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Footer */}
-                        <div className="px-4 pb-3 pt-2 border-t border-border/40 space-y-2">
-                          {/* Accept / Decline — pending only */}
-                          {booking.doctorApprovalStatus === 'pending' && (
-                            <div className="flex gap-2">
-                              <Button size="sm" className="flex-1 h-10 sm:h-9 text-xs bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-semibold"
-                                onClick={(e) => { e.stopPropagation(); approveMutation.mutate(booking.id); }}
-                                disabled={approveMutation.isPending || declineMutation.isPending}
-                                data-testid={`button-approve-${booking.id}`}
-                              >
-                                {approveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3 mr-1.5" />}
-                                Accept
-                              </Button>
-                              <Button size="sm" variant="outline" className="flex-1 h-10 sm:h-9 text-xs border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 active:scale-[0.98] font-semibold"
-                                onClick={(e) => { e.stopPropagation(); declineMutation.mutate(booking.id); }}
-                                disabled={approveMutation.isPending || declineMutation.isPending}
-                                data-testid={`button-decline-${booking.id}`}
-                              >
-                                {declineMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3 mr-1.5" />}
-                                Decline
-                              </Button>
-                            </div>
-                          )}
-                          {/* Confirmation notices */}
-                          {booking.doctorApprovalStatus === 'admin_confirmed' && (
-                            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
-                              <AlertCircle className="h-3 w-3 shrink-0" />
-                              Confirmed by clinic admin on your behalf
-                            </div>
-                          )}
-                          {booking.doctorApprovalStatus === 'approved' && (
-                            <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-1.5">
-                              <CheckCircle2 className="h-3 w-3 shrink-0" />
-                              You confirmed this appointment
-                            </div>
-                          )}
-                          {/* Action buttons — for non-pending, non-declined */}
-                          {booking.doctorApprovalStatus !== 'pending' && booking.doctorApprovalStatus !== 'declined' && (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9 text-xs font-semibold active:scale-[0.98] transition-all"
-                                onClick={(e) => { e.stopPropagation(); setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
-                                data-testid={`button-notes-${booking.id}`}
-                              >
-                                <FileText className="h-3 w-3 mr-1.5" />
-                                View Notes
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9 text-xs font-semibold bg-primary hover:bg-primary/90 active:scale-[0.98] transition-all"
-                                onClick={(e) => { e.stopPropagation(); setPatientModalId(booking.id); setPatientModalTab('records'); setStatusDraft(booking.clinicalStatus || ""); }}
-                                data-testid={`button-clinical-records-${booking.id}`}
-                              >
-                                <ClipboardList className="h-3 w-3 mr-1.5" />
-                                Issue Rx / Rec
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                        role="doctor"
+                        booking={booking}
+                        bookingNumber={String(booking.id).padStart(2, '0')}
+                        complaints={booking.description ? booking.description.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean) : []}
+                        clinicName={clinicName}
+                        clinicCity={clinicCity ?? undefined}
+                        onCardClick={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
+                        onApprove={() => approveMutation.mutate(booking.id)}
+                        onDecline={() => declineMutation.mutate(booking.id)}
+                        onOpenNotes={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
+                        onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('records'); setStatusDraft(booking.clinicalStatus || ""); }}
+                        approvePending={approveMutation.isPending}
+                        declinePending={declineMutation.isPending}
+                      />
                     );
                   })}
                 </div>
