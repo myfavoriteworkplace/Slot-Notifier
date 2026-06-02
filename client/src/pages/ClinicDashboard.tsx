@@ -2822,7 +2822,7 @@ export default function ClinicDashboard() {
                     showDivider ? (
                       <div key={`divider-group-${group}`} className="col-span-full flex items-center gap-3 mt-2 mb-1">
                         <div className="h-px flex-1 bg-border/50" />
-                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${groupCfg.textColor} ${groupCfg.bg} ${groupCfg.border}`}>
+                        <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${groupCfg.textColor} ${groupCfg.bg} ${groupCfg.border}`}>
                           {groupCfg.label}
                           <span className="font-black opacity-70">— {filteredBookings?.filter(b => getStatusGroup(b) === group).length ?? 0}</span>
                         </span>
@@ -2882,8 +2882,21 @@ export default function ClinicDashboard() {
                                 </div>
                               </div>
 
-                              {/* Time pill + Consent pill */}
+                              {/* Status + Time + Consent pills */}
                               <div className="flex flex-col items-end gap-1">
+
+                                {/* Status pill — Confirmed / Pending / Cancelled */}
+                                <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider border px-1.5 py-0.5 rounded-full cursor-default ${statusClass}`}>
+                                  {isCancelled && <X className="h-2.5 w-2.5" />}
+                                  {isConfirmed && <CheckCircle2 className="h-2.5 w-2.5" />}
+                                  {!isCancelled && !isConfirmed && (
+                                    <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
+                                    </span>
+                                  )}
+                                  {statusLabel}
+                                </span>
 
                                 {/* Time pill — when is the appointment */}
                                 <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${timeClass}`}>
@@ -3066,7 +3079,7 @@ export default function ClinicDashboard() {
                                       Cancelled
                                     </span>
                                     {(booking as any).cancellationReason && (
-                                      <span className="text-[10px] text-muted-foreground/60 italic text-right leading-tight max-w-[120px] truncate">
+                                      <span className="text-xs text-muted-foreground/60 italic text-right leading-tight max-w-[120px] truncate">
                                         {(booking as any).cancellationReason}
                                       </span>
                                     )}

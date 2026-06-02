@@ -995,7 +995,7 @@ export default function DoctorDashboard() {
                               </div>
                               <div>
                                 <p className="font-bold text-white text-sm leading-tight">{booking.customerName}</p>
-                                <div className="flex items-center gap-1 mt-0.5 text-white/55 text-[10px]">
+                                <div className="flex items-center gap-1 mt-0.5 text-white/55 text-xs">
                                   <Hash className="h-2.5 w-2.5" />
                                   <span>REF-{String(booking.id).padStart(4, "0")}</span>
                                 </div>
@@ -1003,7 +1003,7 @@ export default function DoctorDashboard() {
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               {/* Status badge */}
-                              <div className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                              <div className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
                                 booking.doctorApprovalStatus === 'approved' ? "bg-green-500/25 text-green-100" :
                                 booking.doctorApprovalStatus === 'pending'  ? "bg-amber-400/25 text-amber-100" :
                                 booking.doctorApprovalStatus === 'declined' ? "bg-red-500/25 text-red-100" :
@@ -1025,10 +1025,10 @@ export default function DoctorDashboard() {
                             <Calendar className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
                             <div>
                               <p className="text-sm font-semibold leading-tight">{startTime ? startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "—"}</p>
-                              <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
+                              <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
                                 <Clock className="h-3 w-3" />
                                 <span>{startTime ? startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}{endTime ? ` – ${endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</span>
-                                {durationMin && <span className="text-[10px] bg-primary/8 text-primary px-1.5 py-0.5 rounded-full font-medium">{durationMin} min</span>}
+                                {durationMin && <span className="text-xs bg-primary/8 text-primary px-1.5 py-0.5 rounded-full font-medium">{durationMin} min</span>}
                               </div>
                             </div>
                           </div>
@@ -1039,15 +1039,27 @@ export default function DoctorDashboard() {
                               {clinicAddress && <p className="text-muted-foreground mt-0.5 leading-tight">{clinicAddress}</p>}
                             </div>
                           </div>
-                          {booking.description && (
-                            <div className="flex items-start gap-2">
-                              <ClipboardList className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{booking.description}</p>
-                            </div>
-                          )}
+                          {booking.description && (() => {
+                            const chips = booking.description.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean);
+                            return (
+                              <div className="space-y-1">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Chief Complaint</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {chips.slice(0, 3).map((c: string, i: number) => (
+                                    <span key={i} className="inline-flex items-center text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                                      {c}
+                                    </span>
+                                  ))}
+                                  {chips.length > 3 && (
+                                    <span className="text-xs text-muted-foreground font-medium px-1 self-center">+{chips.length - 3} more</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
                           {booking.clinicalStatus && (
                             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10">
-                              <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
+                              <span className={`inline-flex items-center text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
                                 ${booking.clinicalStatus === "case_closed" ? "bg-green-500/15 text-green-600 dark:text-green-400" :
                                   booking.clinicalStatus === "follow_up_required" ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" :
                                   booking.clinicalStatus === "revisit" ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" :
@@ -1086,13 +1098,13 @@ export default function DoctorDashboard() {
 
                             {/* Confirmation notices */}
                             {booking.doctorApprovalStatus === 'admin_confirmed' && (
-                              <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
+                              <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
                                 <AlertCircle className="h-3 w-3 shrink-0" />
                                 Confirmed by clinic admin on your behalf
                               </div>
                             )}
                             {booking.doctorApprovalStatus === 'approved' && (
-                              <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-1.5">
+                              <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-1.5">
                                 <CheckCircle2 className="h-3 w-3 shrink-0" />
                                 You confirmed this appointment
                               </div>
@@ -1103,7 +1115,7 @@ export default function DoctorDashboard() {
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
-                                  className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors py-2 -my-1 pr-2"
+                                  className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors py-2 -my-1 pr-2"
                                   data-testid={`button-notes-${booking.id}`}
                                 >
                                   <FileText className="h-3 w-3" />
