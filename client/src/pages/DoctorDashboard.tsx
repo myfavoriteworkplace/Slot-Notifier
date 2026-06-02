@@ -32,7 +32,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/schema";
-import { format } from "date-fns";
+import { format, differenceInCalendarDays } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
 
 type QuickFilter = "all" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days";
@@ -1058,7 +1058,7 @@ export default function DoctorDashboard() {
                             </div>
                             {/* Status + Time pills */}
                             <div className="flex flex-col items-end gap-1">
-                              <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider border px-1.5 py-0.5 rounded-full cursor-default ${apptStatusClass}`}>
+                              <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium border px-1.5 py-px rounded-full cursor-default ${apptStatusClass}`}>
                                 {isApptCancelled && <X className="h-2.5 w-2.5" />}
                                 {isApptConfirmed && <CheckCircle2 className="h-2.5 w-2.5" />}
                                 {!isApptCancelled && !isApptConfirmed && (
@@ -1068,15 +1068,6 @@ export default function DoctorDashboard() {
                                   </span>
                                 )}
                                 {apptStatusLabel}
-                              </span>
-                              <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${apptTimeClass}`}>
-                                {isApptToday && (
-                                  <span className="relative flex h-1.5 w-1.5 shrink-0">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-sky-500" />
-                                  </span>
-                                )}
-                                {apptTimeLabel}
                               </span>
                             </div>
                           </div>
@@ -1098,8 +1089,22 @@ export default function DoctorDashboard() {
                                 <span className="mx-1 opacity-40">→</span>
                                 {endTime ? format(endTime, "h:mm a") : ""}
                               </span>
+                              {!isApptPast && (() => {
+                                const daysAway = differenceInCalendarDays(startTime, new Date());
+                                const dLabel = isApptToday ? "Today" : daysAway === 1 ? "Tomorrow" : `in ${daysAway}d`;
+                                const dCls = isApptToday
+                                  ? "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"
+                                  : daysAway === 1
+                                  ? "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
+                                  : "text-muted-foreground bg-muted/50 border-border/50";
+                                return (
+                                  <span className={`shrink-0 text-xs font-medium border px-1.5 py-px rounded-full ${dCls}`}>
+                                    {dLabel}
+                                  </span>
+                                );
+                              })()}
                               {durationMin && (
-                                <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-0.5 rounded-full">{durationMin}m</span>
+                                <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">{durationMin}m</span>
                               )}
                             </div>
                           )}
@@ -1130,7 +1135,7 @@ export default function DoctorDashboard() {
                           })()}
                           {/* Clinical status badge — doc semantic colours */}
                           {booking.clinicalStatus && (
-                            <span className={`inline-flex items-center text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border
+                            <span className={`inline-flex items-center text-xs font-medium px-2 py-px rounded-full border
                               ${booking.clinicalStatus === "case_closed"
                                 ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
                                 : booking.clinicalStatus === "follow_up_required"
