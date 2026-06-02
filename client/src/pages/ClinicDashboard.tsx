@@ -2987,7 +2987,7 @@ export default function ClinicDashboard() {
                                 data-testid={`modal-tab-${key}-${booking.id}`}
                               >
                                 {icon}
-                                <span className="text-[10px] sm:text-xs leading-none">{label}</span>
+                                <span className="text-xs leading-none">{label}</span>
                               </button>
                             );
                           })}
@@ -3004,7 +3004,7 @@ export default function ClinicDashboard() {
                               <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                   <CalendarDays className="h-3 w-3 text-primary" />
-                                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Appointment</span>
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Appointment</span>
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 divide-x divide-border/50">
                                   <div className="px-3 py-2.5">
@@ -3040,7 +3040,7 @@ export default function ClinicDashboard() {
                               <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                   <User className="h-3 w-3 text-primary" />
-                                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Patient</span>
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Patient</span>
                                 </div>
                                 <div className="divide-y divide-border/40">
                                   {((booking as any).customerAge || (booking as any).customerGender) && (
@@ -3048,7 +3048,7 @@ export default function ClinicDashboard() {
                                       {(booking as any).customerAge && (
                                         <div className="flex items-center gap-2">
                                           <div className="h-6 w-6 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                                            <span className="text-xs">🎂</span>
+                                            <CalendarDays className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                                           </div>
                                           <span className="text-sm font-medium text-foreground">{(booking as any).customerAge} years</span>
                                         </div>
@@ -3056,7 +3056,7 @@ export default function ClinicDashboard() {
                                       {(booking as any).customerGender && (
                                         <div className="flex items-center gap-2">
                                           <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                            <span className="text-xs">{(booking as any).customerGender === "male" ? "♂" : (booking as any).customerGender === "female" ? "♀" : "⊕"}</span>
+                                            <User className="h-3 w-3 text-primary" />
                                           </div>
                                           <span className="text-sm font-medium text-foreground capitalize">{(booking as any).customerGender}</span>
                                         </div>
@@ -3083,7 +3083,7 @@ export default function ClinicDashboard() {
                                 <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                                   <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                     <FlaskConical className="h-3 w-3 text-primary" />
-                                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Chief Complaint</span>
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Chief Complaint</span>
                                   </div>
                                   {complaints.length > 0 && (
                                     <div className="px-3 py-2.5 flex flex-wrap gap-1.5">
@@ -3105,10 +3105,10 @@ export default function ClinicDashboard() {
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5">
                                     <ClipboardCheck className="h-3 w-3 text-primary" />
-                                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Digital Consent</span>
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Digital Consent</span>
                                   </div>
                                   {booking.consentSignedAt ? (
-                                    <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
+                                    <span className="flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 px-2 py-0.5 rounded-full">
                                       <CheckCircle2 className="h-3 w-3" /> Signed
                                     </span>
                                   ) : null}
@@ -3177,7 +3177,7 @@ export default function ClinicDashboard() {
                               <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                   <ClipboardCheck className="h-3 w-3 text-primary" />
-                                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Clinical Status</span>
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinical Status</span>
                                 </div>
                                 <div className="px-3 py-3 flex flex-wrap gap-2">
                                   {([
@@ -3216,7 +3216,7 @@ export default function ClinicDashboard() {
                               <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                   <ClipboardList className="h-3 w-3 text-primary" />
-                                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Clinical Records</span>
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinical Records</span>
                                 </div>
                                 <div className="p-3">
                                   <ClinicalRecordsTab
@@ -3250,7 +3250,7 @@ export default function ClinicDashboard() {
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5">
                                     <CalendarDays className="h-3 w-3 text-primary" />
-                                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Reschedule Appointment</span>
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reschedule Appointment</span>
                                   </div>
                                   {rescheduleBookingId === booking.id ? (
                                     <button
@@ -3379,7 +3379,7 @@ export default function ClinicDashboard() {
                                 <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5">
                                     <ClipboardCheck className="h-3 w-3 text-primary" />
-                                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Request Digital Consent</span>
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Request Digital Consent</span>
                                   </div>
                                   {booking.consentSignedAt ? (
                                     <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
@@ -3463,7 +3463,7 @@ export default function ClinicDashboard() {
                                     <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
                                       <div className="flex items-center gap-1.5">
                                         <Stethoscope className="h-3 w-3 text-primary" />
-                                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Assign Doctor</span>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assign Doctor</span>
                                       </div>
                                       <span className="text-xs text-muted-foreground">{format(new Date(booking.slot.startTime), "MMM d · h:mm a")}</span>
                                     </div>
@@ -4144,7 +4144,7 @@ export default function ClinicDashboard() {
 
                         {/* ── Apply slot configuration to ── */}
                         <div className="border-t border-border/30 pt-3 space-y-2">
-                          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
                             Apply to <ChevronRight className="h-3.5 w-3.5 inline-block" />
                           </p>
                           <div className="grid grid-cols-2 gap-2">
@@ -5131,7 +5131,7 @@ export default function ClinicDashboard() {
                     <div className="w-full rounded-2xl border border-border/60 bg-muted/20 overflow-hidden text-left">
                       <div className="px-4 py-2.5 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                         <CalendarDays className="h-3 w-3 text-primary" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Booking Summary</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Booking Summary</span>
                       </div>
                       <div className="divide-y divide-border/40">
                         <div className="flex items-center gap-3 px-4 py-2.5">
@@ -5171,7 +5171,7 @@ export default function ClinicDashboard() {
                     <div className="flex-1 min-w-0 space-y-4">
                       <div className="flex items-center gap-2 pb-2 border-b border-border/30">
                         <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Patient Details</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Patient Details</span>
                       </div>
 
                       {/* Name — with patient autocomplete */}
@@ -5399,7 +5399,7 @@ export default function ClinicDashboard() {
                     <div className="lg:w-[320px] shrink-0 space-y-4">
                       <div className="flex items-center gap-2 pb-2 border-b border-border/30">
                         <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Select Appointment</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Select Appointment</span>
                       </div>
 
                       {/* Date strip */}
