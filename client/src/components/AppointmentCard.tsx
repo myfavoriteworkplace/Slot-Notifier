@@ -208,19 +208,42 @@ export function AppointmentCard({
               </div>
             </div>
 
-            {/* Pills column */}
-            <div className="flex flex-col items-end gap-1">
-              <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium border px-1.5 py-px rounded-full cursor-default ${statusClass}`}>
-                {(isCancelled || isApptDeclined) && <X className="h-2.5 w-2.5" />}
-                {isConfirmed && <CheckCircle2 className="h-2.5 w-2.5" />}
-                {!isCancelled && !isConfirmed && !isApptDeclined && (
+            {/* Status column — smart text, no pill backgrounds */}
+            <div className="flex flex-col items-end gap-0.5">
+              {isCancelled || isApptDeclined ? (
+                <div className="flex flex-col items-end gap-0.5">
+                  <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                    <X className="h-2.5 w-2.5" />
+                    {isApptDeclined ? "Declined" : "Cancelled"}
+                  </span>
+                  {booking.cancellationReason && (
+                    <span className="text-xs italic text-muted-foreground/70 text-right leading-tight max-w-[110px] truncate">
+                      {booking.cancellationReason}
+                    </span>
+                  )}
+                </div>
+              ) : isConfirmed ? (
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="h-2.5 w-2.5" />
+                  Confirmed
+                </span>
+              ) : booking.assignedDoctor && booking.doctorApprovalStatus === 'pending' ? (
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
                   <span className="relative flex h-1.5 w-1.5 shrink-0">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
                   </span>
-                )}
-                {statusLabel}
-              </span>
+                  Awaiting DR
+                </span>
+              ) : (
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <span className="relative flex h-1.5 w-1.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
+                  </span>
+                  Pending
+                </span>
+              )}
               {role === 'clinic' && booking.consentSignedAt && (
                 <TooltipProvider delayDuration={700}>
                   <Tooltip>
@@ -306,45 +329,32 @@ export function AppointmentCard({
                     </div>
                     <span className="font-medium text-primary">Dr. {booking.assignedDoctor}</span>
                   </div>
-                  {booking.doctorApprovalStatus === 'pending' && (
-                    <span className="text-xs font-medium px-1.5 py-px rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-                      Awaiting Dr.
+                  {!isCancelled && booking.doctorApprovalStatus === 'pending' && (
+                    <span className="text-xs italic text-amber-600 dark:text-amber-400">
+                      awaiting approval
                     </span>
                   )}
-                  {(booking.doctorApprovalStatus === 'approved' || booking.doctorApprovalStatus === 'admin_confirmed') && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-px rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
+                  {!isCancelled && (booking.doctorApprovalStatus === 'approved' || booking.doctorApprovalStatus === 'admin_confirmed') && (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                       <CheckCircle2 className="h-2.5 w-2.5" />
-                      Confirmed
+                      approved
                     </span>
                   )}
-                  {booking.doctorApprovalStatus === 'declined' && (
-                    <span className="text-xs font-medium px-1.5 py-px rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800">
-                      Declined
+                  {!isCancelled && booking.doctorApprovalStatus === 'declined' && (
+                    <span className="text-xs italic text-rose-600 dark:text-rose-400">
+                      declined
                     </span>
                   )}
-                  {isCancelled && (
-                    <>
-                      <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-px rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800 shrink-0">
-                        <X className="h-2.5 w-2.5" />
-                        Cancelled
-                      </span>
-                      {booking.cancellationReason && (
-                        <span className="text-xs text-muted-foreground/70 italic truncate max-w-[160px]">
-                          {booking.cancellationReason}
-                        </span>
-                      )}
-                    </>
-                  )}
-                  {isConfirmed && booking.confirmedBy === 'admin' && booking.doctorApprovalStatus !== 'admin_confirmed' && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-px rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 shrink-0">
+                  {!isCancelled && isConfirmed && booking.confirmedBy === 'admin' && booking.doctorApprovalStatus !== 'admin_confirmed' && (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                       <CheckCircle2 className="h-2.5 w-2.5" />
-                      Confirmed
+                      confirmed
                     </span>
                   )}
                 </div>
               );
             }
-            if (!isPast) {
+            if (!isPast && !isCancelled) {
               return (
                 <div className="flex items-center gap-2 text-xs min-w-0">
                   <div className="h-4 w-4 rounded-md bg-muted flex items-center justify-center shrink-0">
@@ -393,32 +403,6 @@ export function AppointmentCard({
                     </Popover>
                   ) : (
                     <span className="italic text-muted-foreground/60 text-xs">No doctor assigned</span>
-                  )}
-                  {isCancelled ? (
-                    <div className="flex flex-col items-end gap-0.5">
-                      <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-px rounded-full bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800 shrink-0">
-                        <X className="h-2.5 w-2.5" />
-                        Cancelled
-                      </span>
-                      {booking.cancellationReason && (
-                        <span className="text-xs text-muted-foreground/60 italic text-right leading-tight max-w-[120px] truncate">
-                          {booking.cancellationReason}
-                        </span>
-                      )}
-                    </div>
-                  ) : isConfirmed ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-px rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 shrink-0">
-                      <CheckCircle2 className="h-2.5 w-2.5" />
-                      Confirmed
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium px-1.5 py-px rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 shrink-0">
-                      <span className="relative flex h-1.5 w-1.5 shrink-0">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
-                      </span>
-                      Pending
-                    </span>
                   )}
                 </div>
               );

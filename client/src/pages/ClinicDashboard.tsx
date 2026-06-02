@@ -2875,28 +2875,47 @@ export default function ClinicDashboard() {
                                   REF-{getBookingNumber(booking).padStart(4, '0')}
                                 </span>
                               </div>
-                              {/* Badges row */}
-                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                {booking.verificationStatus === 'confirmed' && (
-                                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white border border-white/25">
+                              {/* Status text row — smart states, no pill backgrounds */}
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                {isCancelled ? (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-bold text-rose-300 flex items-center gap-1">
+                                      <X className="h-2.5 w-2.5" />
+                                      Cancelled
+                                    </span>
+                                    {booking.cancellationReason && (
+                                      <span className="text-xs italic text-white/50">
+                                        {booking.cancellationReason}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : isConfirmed ? (
+                                  <span className="text-xs font-bold text-emerald-300 flex items-center gap-1">
                                     {booking.confirmedBy === 'doctor'
                                       ? <Stethoscope className="h-2.5 w-2.5" />
                                       : <CheckCircle2 className="h-2.5 w-2.5" />}
                                     {booking.confirmedBy === 'doctor'
-                                      ? `Dr. ${booking.assignedDoctor || 'Doctor'} Confirmed`
+                                      ? `Confirmed by Dr. ${booking.assignedDoctor?.split(' ')[0] || 'Doctor'}`
                                       : booking.confirmedBy === 'admin'
-                                      ? 'Admin Confirmed'
+                                      ? 'Confirmed by Admin'
                                       : 'Payment Confirmed'}
                                   </span>
-                                )}
-                                {booking.verificationStatus !== 'confirmed' && booking.doctorApprovalStatus === 'pending' && booking.assignedDoctor && (
-                                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30">
+                                ) : booking.assignedDoctor && booking.doctorApprovalStatus === 'pending' ? (
+                                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
                                     <Clock className="h-2.5 w-2.5" />
                                     Awaiting Dr. {booking.assignedDoctor.split(' ')[0]}
                                   </span>
+                                ) : (
+                                  <span className="text-xs font-bold text-white/60 flex items-center gap-1.5">
+                                    <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400" />
+                                    </span>
+                                    Awaiting Confirmation
+                                  </span>
                                 )}
                                 {booking.consentSignedAt && (
-                                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/20">
+                                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-white/70">
                                     <PenLine className="h-2.5 w-2.5" />
                                     Consent Signed
                                   </span>
