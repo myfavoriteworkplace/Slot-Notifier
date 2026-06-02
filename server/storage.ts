@@ -270,18 +270,20 @@ export class DatabaseStorage implements IStorage {
 
   // Bookings
   async createBooking(insertBooking: any): Promise<Booking> {
-    const [booking] = await db.insert(bookings).values({
-      slotId: insertBooking.slotId,
-      customerId: insertBooking.customerId,
-      customerName: insertBooking.customerName,
-      customerPhone: insertBooking.customerPhone,
-      customerEmail: insertBooking.customerEmail,
-    }).returning();
-    
-    // Mark slot as booked
-    await this.updateSlot(booking.slotId, { isBooked: true });
+    return await db.transaction(async (tx) => {
+      const [booking] = await tx.insert(bookings).values({
+        slotId: insertBooking.slotId,
+        customerId: insertBooking.customerId,
+        customerName: insertBooking.customerName,
+        customerPhone: insertBooking.customerPhone,
+        customerEmail: insertBooking.customerEmail,
+      }).returning();
 
-    return booking;
+      // Mark slot as booked — atomic with booking insert; rolls back if this fails
+      await tx.update(slots).set({ isBooked: true }).where(eq(slots.id, booking.slotId));
+
+      return booking;
+    });
   }
 
   async getBookings(userId: string, role: string): Promise<(Booking & { slot: Slot })[]> {
@@ -409,19 +411,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBookingStatus(id: number, status: string, confirmedBy?: 'admin' | 'doctor'): Promise<Booking> {
-    const [updated] = await db.update(bookings)
-      .set({ verificationStatus: status as any, ...(confirmedBy ? { confirmedBy } : {}) })
-      .where(eq(bookings.id, id))
-      .returning();
-    
-    if (status === 'cancelled') {
-      const booking = await this.getBookingById(id);
-      if (booking) {
-        await this.updateSlot(booking.slotId, { isBooked: false });
+    return await db.transaction(async (tx) => {
+      const [updated] = await tx.update(bookings)
+        .set({ verificationStatus: status as any, ...(confirmedBy ? { confirmedBy } : {}) })
+        .where(eq(bookings.id, id))
+        .returning();
+
+      if (status === 'cancelled' && updated) {
+        // Release the slot atomically — .returning() already gives us slotId, no extra query needed
+        await tx.update(slots).set({ isBooked: false }).where(eq(slots.id, updated.slotId));
       }
-    }
-    
-    return updated;
+
+      return updated;
+    });
   }
 
   async updateBookingAssignment(id: number, doctorName: string, doctorEmail?: string | null, doctorApprovalStatus?: string | null): Promise<Booking> {
@@ -524,9 +526,11 @@ export class DatabaseStorage implements IStorage {
   async deletePendingBooking(id: number): Promise<void> {
     const booking = await this.getBookingById(id);
     if (booking) {
-      await db.delete(bookings).where(eq(bookings.id, id));
-      // Also delete the associated slot
-      await this.deleteSlot(booking.slotId);
+      await db.transaction(async (tx) => {
+        // Delete booking then slot atomically — orphan slot impossible if server crashes mid-way
+        await tx.delete(bookings).where(eq(bookings.id, id));
+        await tx.delete(slots).where(eq(slots.id, booking.slotId));
+      });
     }
   }
 
