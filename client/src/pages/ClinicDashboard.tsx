@@ -1037,7 +1037,16 @@ export default function ClinicDashboard() {
 
         // Build remarks from clinical prescription + doctor notes on the booking
         const parts: string[] = [];
-        if (record?.prescription) parts.push(`Rx: ${record.prescription}`);
+        if (record?.prescription) {
+          try {
+            const rxRows = JSON.parse(record.prescription);
+            if (Array.isArray(rxRows) && rxRows[0]?.name) {
+              parts.push(`Rx: ${rxRows.map((r: any) => `${r.name} ${r.dosage} ${r.qty} ${r.frequency} × ${r.duration}`.trim()).join('; ')}`);
+            } else {
+              parts.push(`Rx: ${record.prescription}`);
+            }
+          } catch { parts.push(`Rx: ${record.prescription}`); }
+        }
         if ((booking as any).doctorNotes) parts.push(`Notes: ${(booking as any).doctorNotes}`);
         if (parts.length > 0) loadedRemarks = parts.join(" | ");
       } catch {
@@ -6575,11 +6584,20 @@ export default function ClinicDashboard() {
                                                   ))}
                                                 </div>
                                               )}
-                                              {slotRecord.prescription && (
-                                                <p className="text-[11px] text-muted-foreground">
-                                                  <span className="font-semibold text-foreground">Rx: </span>{slotRecord.prescription}
-                                                </p>
-                                              )}
+                                              {slotRecord.prescription && (() => {
+                                                let rxText = slotRecord.prescription;
+                                                try {
+                                                  const rxRows = JSON.parse(slotRecord.prescription);
+                                                  if (Array.isArray(rxRows) && rxRows[0]?.name) {
+                                                    rxText = rxRows.map((r: any) => `${r.name}${r.dosage ? ` ${r.dosage}` : ''}${r.frequency ? ` ${r.frequency}` : ''}`).join(', ');
+                                                  }
+                                                } catch { /* use raw text */ }
+                                                return (
+                                                  <p className="text-[11px] text-muted-foreground">
+                                                    <span className="font-semibold text-foreground">Rx: </span>{rxText}
+                                                  </p>
+                                                );
+                                              })()}
                                               {slotRecord.notes && (
                                                 <p className="text-[11px] text-muted-foreground">
                                                   <span className="font-semibold text-foreground">Notes: </span>{slotRecord.notes}
