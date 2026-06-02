@@ -26,7 +26,7 @@ import {
   Info, X, Filter, BadgeCheck, RotateCcw, User, Award, BookOpen, Plus, Pencil, Trash2,
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
   Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound,
-  MoreHorizontal, CalendarOff
+  MoreHorizontal, CalendarOff, Phone
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -979,160 +979,234 @@ export default function DoctorDashboard() {
                     const durationMin = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
                     const clinicName = booking.clinic?.name || booking.clinicName || doctorClinics.find((c: any) => c.id === booking.clinicId)?.name || "Clinic";
                     const clinicAddress = booking.clinic?.address || (doctorClinics.find((c: any) => c.id === booking.clinicId) as any)?.address;
-                    const isVerified = booking.verificationStatus === "verified";
-                    return (
-                      <div key={booking.id} className="rounded-2xl border border-border/50 bg-background shadow-sm shadow-primary/5 overflow-hidden flex flex-col hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer" onClick={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}>
-                        {/* Card header */}
-                        <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-3 overflow-hidden">
-                          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
-                          <div className="relative flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-3">
-                              <div className="relative shrink-0">
-                                <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-accent/40 to-primary/30 blur-sm" />
-                                <div className="relative h-9 w-9 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-white font-bold text-sm ring-1 ring-white/10">
-                                  {booking.customerName?.[0]?.toUpperCase() ?? "?"}
-                                </div>
-                              </div>
-                              <div>
-                                <p className="font-bold text-white text-sm leading-tight">{booking.customerName}</p>
-                                <div className="flex items-center gap-1 mt-0.5 text-white/55 text-xs">
-                                  <Hash className="h-2.5 w-2.5" />
-                                  <span>REF-{String(booking.id).padStart(4, "0")}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {/* Status badge */}
-                              <div className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
-                                booking.doctorApprovalStatus === 'approved' ? "bg-green-500/25 text-green-100" :
-                                booking.doctorApprovalStatus === 'pending'  ? "bg-amber-400/25 text-amber-100" :
-                                booking.doctorApprovalStatus === 'declined' ? "bg-red-500/25 text-red-100" :
-                                isVerified ? "bg-green-500/25 text-green-100" : "bg-white/15 text-white/80"
-                              }`}>
-                                {booking.doctorApprovalStatus === 'approved' ? "Confirmed" :
-                                 booking.doctorApprovalStatus === 'pending'  ? "Pending" :
-                                 booking.doctorApprovalStatus === 'declined' ? "Declined" :
-                                 isVerified ? "Verified" : "Unverified"}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
-                        </div>
+                    const bookingDateStr = startTime ? startTime.toISOString().split("T")[0] : "";
+                    const isApptToday = bookingDateStr === todayStr;
+                    const isApptPast = startTime ? startTime < new Date(new Date().setHours(0, 0, 0, 0)) && !isApptToday : false;
+                    const isApptConfirmed = booking.doctorApprovalStatus === 'approved' || booking.doctorApprovalStatus === 'admin_confirmed';
+                    const isApptCancelled = booking.verificationStatus === 'cancelled';
+                    const clinicCity = clinicAddress ? clinicAddress.split(',').at(-1)?.trim() : null;
 
-                        {/* Card body — always fully expanded */}
-                        <div className="px-4 py-3 flex flex-col gap-2.5 flex-1">
-                          <div className="flex items-start gap-2">
-                            <Calendar className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
-                            <div>
-                              <p className="text-sm font-semibold leading-tight">{startTime ? startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "—"}</p>
-                              <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3" />
-                                <span>{startTime ? startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}{endTime ? ` – ${endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</span>
-                                {durationMin && <span className="text-xs bg-primary/8 text-primary px-1.5 py-0.5 rounded-full font-medium">{durationMin} min</span>}
+                    const apptAccentBar = isApptToday
+                      ? "bg-gradient-to-r from-sky-400 to-cyan-400"
+                      : isApptPast
+                      ? "bg-gradient-to-r from-slate-400 to-slate-300"
+                      : "bg-gradient-to-r from-primary to-accent";
+                    const apptHeaderBg = isApptToday
+                      ? "bg-gradient-to-r from-sky-500/8 to-cyan-500/5"
+                      : isApptPast
+                      ? "bg-muted/30"
+                      : "bg-gradient-to-r from-primary/5 to-accent/5";
+                    const apptLeftBorder = isApptCancelled
+                      ? "border-l-2 border-l-rose-400 dark:border-l-rose-500"
+                      : isApptConfirmed
+                      ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
+                      : "border-l-2 border-l-amber-400 dark:border-l-amber-500";
+                    const apptTimeLabel = isApptToday ? "Today" : isApptPast ? "Past" : "Upcoming";
+                    const apptTimeClass = isApptToday
+                      ? "text-sky-600 bg-sky-500/10 border-sky-500/25 dark:text-sky-400 dark:bg-sky-400/10 dark:border-sky-500/30"
+                      : isApptPast
+                      ? "text-muted-foreground bg-muted/50 border-border/50"
+                      : "text-primary bg-primary/10 border-primary/25";
+                    const apptStatusLabel = isApptCancelled ? "Cancelled" : isApptConfirmed ? "Confirmed" : "Pending";
+                    const apptStatusClass = isApptCancelled
+                      ? "text-rose-600 bg-rose-500/10 border-rose-500/25 dark:text-rose-400 dark:bg-rose-400/10 dark:border-rose-500/30"
+                      : isApptConfirmed
+                      ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
+                      : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
+                    return (
+                      <div
+                        key={booking.id}
+                        className={`rounded-2xl border border-border/50 bg-background shadow-sm overflow-hidden flex flex-col hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group cursor-pointer ${isApptPast ? "opacity-75" : ""} ${apptLeftBorder}`}
+                        onClick={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
+                        data-testid={`card-booking-${booking.id}`}
+                      >
+                        {/* Top accent bar */}
+                        <div className={`h-[3px] ${apptAccentBar}`} />
+
+                        {/* Card Header */}
+                        <div className={`px-4 pt-2.5 pb-2 ${apptHeaderBg} transition-colors group-hover:brightness-[0.97]`}>
+                          <div className="flex items-start justify-between gap-2">
+                            {/* Avatar + name block */}
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="shrink-0 h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 dark:border-primary/30 flex items-center justify-center">
+                                <span className="text-sm font-bold text-primary dark:text-primary/70 leading-none">
+                                  {booking.customerName?.[0]?.toUpperCase() ?? "?"}
+                                </span>
                               </div>
-                            </div>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <Building2 className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                            <div className="text-xs">
-                              <p className="font-medium text-foreground leading-tight">{clinicName}</p>
-                              {clinicAddress && <p className="text-muted-foreground mt-0.5 leading-tight">{clinicAddress}</p>}
-                            </div>
-                          </div>
-                          {booking.description && (() => {
-                            const chips = booking.description.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean);
-                            return (
-                              <div className="space-y-1">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Chief Complaint</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {chips.slice(0, 3).map((c: string, i: number) => (
-                                    <span key={i} className="inline-flex items-center text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
-                                      {c}
-                                    </span>
-                                  ))}
-                                  {chips.length > 3 && (
-                                    <span className="text-xs text-muted-foreground font-medium px-1 self-center">+{chips.length - 3} more</span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
+                                  <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
+                                    #{String(booking.id).padStart(2, '0')}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                                  <Phone className="h-2.5 w-2.5 shrink-0" />
+                                  <span className="truncate">{booking.customerPhone || "—"}</span>
+                                  {(booking.customerAge || booking.customerGender) && (
+                                    <>
+                                      <span className="opacity-30">·</span>
+                                      <span className="truncate">
+                                        {booking.customerAge ? `${booking.customerAge}y` : ""}
+                                        {booking.customerAge && booking.customerGender ? " · " : ""}
+                                        {booking.customerGender ? (booking.customerGender.charAt(0).toUpperCase() + booking.customerGender.slice(1)) : ""}
+                                      </span>
+                                    </>
                                   )}
                                 </div>
                               </div>
-                            );
-                          })()}
-                          {booking.clinicalStatus && (
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10">
-                              <span className={`inline-flex items-center text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
-                                ${booking.clinicalStatus === "case_closed" ? "bg-green-500/15 text-green-600 dark:text-green-400" :
-                                  booking.clinicalStatus === "follow_up_required" ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" :
-                                  booking.clinicalStatus === "revisit" ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" :
-                                  "bg-primary/15 text-primary"}`}>
-                                {booking.clinicalStatus === "first_visit" ? "First Visit" :
-                                 booking.clinicalStatus === "revisit" ? "Revisit" :
-                                 booking.clinicalStatus === "follow_up_required" ? "Follow-up Required" :
-                                 booking.clinicalStatus === "case_closed" ? "Case Closed" :
-                                 booking.clinicalStatus}
+                            </div>
+                            {/* Status + Time pills */}
+                            <div className="flex flex-col items-end gap-1">
+                              <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider border px-1.5 py-0.5 rounded-full cursor-default ${apptStatusClass}`}>
+                                {isApptCancelled && <X className="h-2.5 w-2.5" />}
+                                {isApptConfirmed && <CheckCircle2 className="h-2.5 w-2.5" />}
+                                {!isApptCancelled && !isApptConfirmed && (
+                                  <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
+                                  </span>
+                                )}
+                                {apptStatusLabel}
+                              </span>
+                              <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider border px-2 py-0.5 rounded-full cursor-default ${apptTimeClass}`}>
+                                {isApptToday && (
+                                  <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-sky-500" />
+                                  </span>
+                                )}
+                                {apptTimeLabel}
                               </span>
                             </div>
-                          )}
-
-                          <div className="pt-1 border-t border-border/40 mt-auto space-y-2">
-                            {/* Accept / Decline — shown for all pending bookings */}
-                            {booking.doctorApprovalStatus === 'pending' && (
-                              <div className="flex gap-2">
-                                <Button size="sm" className="flex-1 h-10 sm:h-8 text-xs bg-green-600 hover:bg-green-700 text-white font-semibold"
-                                  onClick={(e) => { e.stopPropagation(); approveMutation.mutate(booking.id); }}
-                                  disabled={approveMutation.isPending || declineMutation.isPending}
-                                  data-testid={`button-approve-${booking.id}`}
-                                >
-                                  {approveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3 mr-1.5" />}
-                                  Accept
-                                </Button>
-                                <Button size="sm" variant="outline" className="flex-1 h-10 sm:h-8 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 dark:hover:bg-red-950/20 font-semibold"
-                                  onClick={(e) => { e.stopPropagation(); declineMutation.mutate(booking.id); }}
-                                  disabled={approveMutation.isPending || declineMutation.isPending}
-                                  data-testid={`button-decline-${booking.id}`}
-                                >
-                                  {declineMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3 mr-1.5" />}
-                                  Decline
-                                </Button>
-                              </div>
-                            )}
-
-                            {/* Confirmation notices */}
-                            {booking.doctorApprovalStatus === 'admin_confirmed' && (
-                              <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
-                                <AlertCircle className="h-3 w-3 shrink-0" />
-                                Confirmed by clinic admin on your behalf
-                              </div>
-                            )}
-                            {booking.doctorApprovalStatus === 'approved' && (
-                              <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-1.5">
-                                <CheckCircle2 className="h-3 w-3 shrink-0" />
-                                You confirmed this appointment
-                              </div>
-                            )}
-
-                            {/* Quick-access tab shortcuts — card is also fully clickable */}
-                            {booking.doctorApprovalStatus !== 'pending' && booking.doctorApprovalStatus !== 'declined' && (
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
-                                  className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors py-2 -my-1 pr-2"
-                                  data-testid={`button-notes-${booking.id}`}
-                                >
-                                  <FileText className="h-3 w-3" />
-                                  Notes
-                                </button>
-                                <span className="text-border/60 text-xs">·</span>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setPatientModalId(booking.id); setPatientModalTab('records'); setStatusDraft(booking.clinicalStatus || ""); }}
-                                  className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors py-2 -my-1 px-2 -mx-1"
-                                  data-testid={`button-clinical-records-${booking.id}`}
-                                >
-                                  <ClipboardList className="h-3 w-3" />
-                                  Rx / Records
-                                </button>
-                              </div>
-                            )}
                           </div>
+                        </div>
+
+                        {/* Info rows */}
+                        <div className="px-4 py-2 space-y-1.5 flex-1">
+                          {/* Date + Time — merged single row */}
+                          {startTime && (
+                            <div className="flex items-center gap-2 text-xs min-w-0">
+                              <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                <CalendarDays className="h-2.5 w-2.5 text-primary" />
+                              </div>
+                              <span className="font-semibold text-foreground shrink-0">
+                                {format(startTime, "EEE, d MMM")}
+                              </span>
+                              <span className="text-muted-foreground font-medium truncate min-w-0">
+                                {format(startTime, "h:mm a")}
+                                <span className="mx-1 opacity-40">→</span>
+                                {endTime ? format(endTime, "h:mm a") : ""}
+                              </span>
+                              {durationMin && (
+                                <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-0.5 rounded-full">{durationMin}m</span>
+                              )}
+                            </div>
+                          )}
+                          {/* Clinic name (City) */}
+                          <div className="flex items-center gap-2 text-xs min-w-0">
+                            <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                              <Building2 className="h-2.5 w-2.5 text-muted-foreground" />
+                            </div>
+                            <span className="text-foreground font-medium truncate">
+                              {clinicName}{clinicCity ? ` (${clinicCity})` : ""}
+                            </span>
+                          </div>
+                          {/* Chief complaint chips */}
+                          {booking.description && (() => {
+                            const chips = booking.description.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean);
+                            return chips.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {chips.slice(0, 3).map((c: string, i: number) => (
+                                  <span key={i} className="inline-flex items-center text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                                    {c}
+                                  </span>
+                                ))}
+                                {chips.length > 3 && (
+                                  <span className="text-xs text-muted-foreground font-medium px-1 self-center">+{chips.length - 3} more</span>
+                                )}
+                              </div>
+                            ) : null;
+                          })()}
+                          {/* Clinical status badge — doc semantic colours */}
+                          {booking.clinicalStatus && (
+                            <span className={`inline-flex items-center text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border
+                              ${booking.clinicalStatus === "case_closed"
+                                ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                                : booking.clinicalStatus === "follow_up_required"
+                                ? "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800"
+                                : booking.clinicalStatus === "revisit"
+                                ? "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800"
+                                : "bg-primary/10 text-primary border-primary/20"}`}>
+                              {booking.clinicalStatus === "first_visit" ? "First Visit" :
+                               booking.clinicalStatus === "revisit" ? "Revisit" :
+                               booking.clinicalStatus === "follow_up_required" ? "Follow-up Required" :
+                               booking.clinicalStatus === "case_closed" ? "Case Closed" :
+                               booking.clinicalStatus}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-4 pb-3 pt-2 border-t border-border/40 space-y-2">
+                          {/* Accept / Decline — pending only */}
+                          {booking.doctorApprovalStatus === 'pending' && (
+                            <div className="flex gap-2">
+                              <Button size="sm" className="flex-1 h-10 sm:h-9 text-xs bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-semibold"
+                                onClick={(e) => { e.stopPropagation(); approveMutation.mutate(booking.id); }}
+                                disabled={approveMutation.isPending || declineMutation.isPending}
+                                data-testid={`button-approve-${booking.id}`}
+                              >
+                                {approveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3 mr-1.5" />}
+                                Accept
+                              </Button>
+                              <Button size="sm" variant="outline" className="flex-1 h-10 sm:h-9 text-xs border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 active:scale-[0.98] font-semibold"
+                                onClick={(e) => { e.stopPropagation(); declineMutation.mutate(booking.id); }}
+                                disabled={approveMutation.isPending || declineMutation.isPending}
+                                data-testid={`button-decline-${booking.id}`}
+                              >
+                                {declineMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3 mr-1.5" />}
+                                Decline
+                              </Button>
+                            </div>
+                          )}
+                          {/* Confirmation notices */}
+                          {booking.doctorApprovalStatus === 'admin_confirmed' && (
+                            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
+                              <AlertCircle className="h-3 w-3 shrink-0" />
+                              Confirmed by clinic admin on your behalf
+                            </div>
+                          )}
+                          {booking.doctorApprovalStatus === 'approved' && (
+                            <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-1.5">
+                              <CheckCircle2 className="h-3 w-3 shrink-0" />
+                              You confirmed this appointment
+                            </div>
+                          )}
+                          {/* Action buttons — for non-pending, non-declined */}
+                          {booking.doctorApprovalStatus !== 'pending' && booking.doctorApprovalStatus !== 'declined' && (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9 text-xs font-semibold active:scale-[0.98] transition-all"
+                                onClick={(e) => { e.stopPropagation(); setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
+                                data-testid={`button-notes-${booking.id}`}
+                              >
+                                <FileText className="h-3 w-3 mr-1.5" />
+                                View Notes
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9 text-xs font-semibold bg-primary hover:bg-primary/90 active:scale-[0.98] transition-all"
+                                onClick={(e) => { e.stopPropagation(); setPatientModalId(booking.id); setPatientModalTab('records'); setStatusDraft(booking.clinicalStatus || ""); }}
+                                data-testid={`button-clinical-records-${booking.id}`}
+                              >
+                                <ClipboardList className="h-3 w-3 mr-1.5" />
+                                Issue Rx / Rec
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

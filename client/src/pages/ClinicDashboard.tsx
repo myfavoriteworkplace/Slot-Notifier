@@ -21,7 +21,7 @@ import {
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
   Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, CreditCard,
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
-  ChevronLeft, ChevronRight, Save
+  ChevronLeft, ChevronRight, Save, Hash
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -2859,11 +2859,6 @@ export default function ClinicDashboard() {
                                     <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
                                       #{getBookingNumber(booking).padStart(2, '0')}
                                     </span>
-                                    {(booking as any).patientCode && (
-                                      <span className="font-mono text-xs uppercase tracking-wider text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md shrink-0">
-                                        {(booking as any).patientCode}
-                                      </span>
-                                    )}
                                   </div>
                                   <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
                                     <Phone className="h-2.5 w-2.5 shrink-0" />
@@ -2961,13 +2956,13 @@ export default function ClinicDashboard() {
                               })()}
                             </div>
 
-                            {/* Email — hidden on mobile, visible on sm+ */}
-                            {booking.customerEmail && (
-                              <div className="hidden sm:flex items-center gap-2 text-xs">
-                                <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                                  <Mail className="h-2.5 w-2.5 text-muted-foreground" />
+                            {/* Patient ID row */}
+                            {(booking as any).patientCode && (
+                              <div className="flex items-center gap-2 text-xs">
+                                <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                  <Hash className="h-2.5 w-2.5 text-primary" />
                                 </div>
-                                <span className="text-muted-foreground truncate">{booking.customerEmail}</span>
+                                <span className="font-mono font-semibold text-primary">{(booking as any).patientCode}</span>
                               </div>
                             )}
 
@@ -3117,6 +3112,55 @@ export default function ClinicDashboard() {
                           </div>
                         </div>
                       </DialogTrigger>
+
+                      {/* Card-face footer — Collect Bill + Cancel, outside the dialog trigger */}
+                      {!isCancelled && !isBookingPast && (
+                        <div className="px-4 pb-3 pt-2 border-t border-border/40 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                          <DialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9 text-xs font-semibold bg-primary hover:bg-primary/90 active:scale-[0.98] transition-all"
+                              onClick={() => setModalTab(booking.id, 'billing')}
+                              data-testid={`button-collect-bill-${booking.id}`}
+                            >
+                              <IndianRupee className="h-3 w-3 mr-1.5" />
+                              Collect Bill
+                            </Button>
+                          </DialogTrigger>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="min-h-[44px] sm:min-h-0 sm:h-9 px-3 text-xs font-semibold border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 dark:hover:bg-rose-950/20 active:scale-[0.98] transition-all"
+                                data-testid={`button-cancel-card-${booking.id}`}
+                              >
+                                <X className="h-3 w-3 mr-1" />
+                                Cancel
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="w-[90vw] sm:max-w-md rounded-2xl">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Cancel this appointment?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will cancel {booking.customerName}'s appointment. The patient will be notified. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Keep Appointment</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-rose-600 hover:bg-rose-700 text-white"
+                                  onClick={() => cancelBookingMutation.mutate({ id: booking.id, reason: "Cancelled by clinic admin" })}
+                                  disabled={cancelBookingMutation.isPending}
+                                >
+                                  {cancelBookingMutation.isPending && <Loader2 className="h-3 w-3 animate-spin mr-1.5" />}
+                                  Yes, Cancel
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      )}
 
                       <DialogContent className="w-[95vw] sm:max-w-[680px] rounded-2xl p-0 overflow-hidden h-[90vh] sm:h-[85vh] flex flex-col">
 
