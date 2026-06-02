@@ -85,9 +85,8 @@ export default function DoctorDashboard() {
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [linkCopied, setLinkCopied] = useState(false);
-  const [notesOpenId, setNotesOpenId] = useState<number | null>(null);
-  const [recordsOpenId, setRecordsOpenId] = useState<number | null>(null);
-  const [notesDraft, setNotesDraft] = useState("");
+  const [patientModalId, setPatientModalId] = useState<number | null>(null);
+  const [patientModalTab, setPatientModalTab] = useState<'notes' | 'records'>('notes');
   const [statusDraft, setStatusDraft] = useState("");
 
   const [certSheetOpen, setCertSheetOpen] = useState(false);
@@ -982,7 +981,7 @@ export default function DoctorDashboard() {
                     const clinicAddress = booking.clinic?.address || (doctorClinics.find((c: any) => c.id === booking.clinicId) as any)?.address;
                     const isVerified = booking.verificationStatus === "verified";
                     return (
-                      <div key={booking.id} className="rounded-2xl border border-border/50 bg-background shadow-sm shadow-primary/5 overflow-hidden flex flex-col hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300">
+                      <div key={booking.id} className="rounded-2xl border border-border/50 bg-background shadow-sm shadow-primary/5 overflow-hidden flex flex-col hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer" onClick={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}>
                         {/* Card header */}
                         <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-3 overflow-hidden">
                           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
@@ -1067,7 +1066,7 @@ export default function DoctorDashboard() {
                             {booking.doctorApprovalStatus === 'pending' && (
                               <div className="flex gap-2">
                                 <Button size="sm" className="flex-1 h-10 sm:h-8 text-xs bg-green-600 hover:bg-green-700 text-white font-semibold"
-                                  onClick={() => approveMutation.mutate(booking.id)}
+                                  onClick={(e) => { e.stopPropagation(); approveMutation.mutate(booking.id); }}
                                   disabled={approveMutation.isPending || declineMutation.isPending}
                                   data-testid={`button-approve-${booking.id}`}
                                 >
@@ -1075,7 +1074,7 @@ export default function DoctorDashboard() {
                                   Accept
                                 </Button>
                                 <Button size="sm" variant="outline" className="flex-1 h-10 sm:h-8 text-xs border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 dark:hover:bg-red-950/20 font-semibold"
-                                  onClick={() => declineMutation.mutate(booking.id)}
+                                  onClick={(e) => { e.stopPropagation(); declineMutation.mutate(booking.id); }}
                                   disabled={approveMutation.isPending || declineMutation.isPending}
                                   data-testid={`button-decline-${booking.id}`}
                                 >
@@ -1099,31 +1098,25 @@ export default function DoctorDashboard() {
                               </div>
                             )}
 
-                            {/* Notes & Records — open as slide-up sheets */}
+                            {/* Quick-access tab shortcuts — card is also fully clickable */}
                             {booking.doctorApprovalStatus !== 'pending' && booking.doctorApprovalStatus !== 'declined' && (
                               <div className="flex items-center gap-2">
                                 <button
-                                  onClick={() => {
-                                    setNotesOpenId(booking.id);
-                                    setRecordsOpenId(null);
-                                    setStatusDraft(booking.clinicalStatus || "");
-                                  }}
+                                  onClick={(e) => { e.stopPropagation(); setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
                                   className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors py-2 -my-1 pr-2"
+                                  data-testid={`button-notes-${booking.id}`}
                                 >
                                   <FileText className="h-3 w-3" />
                                   Notes
                                 </button>
                                 <span className="text-border/60 text-xs">·</span>
                                 <button
-                                  onClick={() => {
-                                    setRecordsOpenId(booking.id);
-                                    setNotesOpenId(null);
-                                  }}
+                                  onClick={(e) => { e.stopPropagation(); setPatientModalId(booking.id); setPatientModalTab('records'); setStatusDraft(booking.clinicalStatus || ""); }}
                                   className="flex items-center gap-1.5 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors py-2 -my-1 px-2 -mx-1"
                                   data-testid={`button-clinical-records-${booking.id}`}
                                 >
                                   <ClipboardList className="h-3 w-3" />
-                                  Records
+                                  Rx / Records
                                 </button>
                               </div>
                             )}
@@ -2133,79 +2126,120 @@ export default function DoctorDashboard() {
         </SheetContent>
       </Sheet>
 
-      {/* ── Notes Sheet (slide-up) ── */}
-      <Sheet open={notesOpenId !== null} onOpenChange={(o) => { if (!o) setNotesOpenId(null); }}>
-        <SheetContent side="bottom" className="h-[80vh] rounded-t-2xl overflow-y-auto">
-          <SheetHeader className="mb-4">
-            <SheetTitle className="flex items-center gap-2"><FileText className="h-4 w-4 text-primary" />Notes &amp; Clinical Status</SheetTitle>
-          </SheetHeader>
-          {notesOpenId !== null && (() => {
-            const b = myBookings.find((bk: any) => bk.id === notesOpenId);
-            return (
-              <div className="space-y-4 pb-6">
-                {b && (
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-muted/40 border border-border/30">
-                    <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                      {b.customerName?.[0]?.toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold leading-tight">{b.customerName}</p>
-                      <p className="text-[10px] text-muted-foreground">REF-{String(b.id).padStart(4, "0")}</p>
-                    </div>
-                  </div>
-                )}
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
-                  <div className="flex gap-2">
-                    <Select value={statusDraft} onValueChange={setStatusDraft}>
-                      <SelectTrigger className="h-9 text-sm flex-1"><SelectValue placeholder="Select status..." /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="first_visit">First Visit</SelectItem>
-                        <SelectItem value="revisit">Revisit</SelectItem>
-                        <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
-                        <SelectItem value="case_closed">Case Closed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button size="sm" className="h-9 px-4 text-sm shrink-0"
-                      onClick={() => saveNotesMutation.mutate({ id: notesOpenId, clinicalStatus: statusDraft })}
-                      disabled={saveNotesMutation.isPending}
-                    >
-                      {saveNotesMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
-                    </Button>
-                  </div>
-                </div>
-                <BookingNotesThread bookingId={notesOpenId} authorType="doctor" />
-              </div>
-            );
-          })()}
-        </SheetContent>
-      </Sheet>
-
-      {/* ── Records Sheet (slide-up) ── */}
-      <Sheet open={recordsOpenId !== null} onOpenChange={(o) => { if (!o) setRecordsOpenId(null); }}>
-        <SheetContent side="bottom" className="h-[90vh] rounded-t-2xl overflow-y-auto">
-          <SheetHeader className="mb-4">
-            <SheetTitle className="flex items-center gap-2"><ClipboardList className="h-4 w-4 text-primary" />Clinical Records</SheetTitle>
-          </SheetHeader>
-          {recordsOpenId !== null && (() => {
-            const b = myBookings.find((bk: any) => bk.id === recordsOpenId);
+      {/* ── Patient Detail Dialog ── */}
+      <Dialog open={patientModalId !== null} onOpenChange={(o) => { if (!o) setPatientModalId(null); }}>
+        <DialogContent className="max-w-lg w-full p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
+          {patientModalId !== null && (() => {
+            const b = myBookings.find((bk: any) => bk.id === patientModalId);
             if (!b) return null;
+            const startTime = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+            const modalClinicName = b.clinic?.name || b.clinicName || doctorClinics.find((c: any) => c.id === b.clinicId)?.name || "Clinic";
             return (
-              <div className="pb-6">
-                <ClinicalRecordsTab
-                  bookingId={recordsOpenId}
-                  clinicId={b.clinicId}
-                  patientName={b.customerName}
-                  patientPhone={b.customerPhone}
-                  doctorName={profName || b.assignedDoctor}
-                  mode="doctor"
-                  clinicName={b.clinic?.name || b.clinicName}
-                />
-              </div>
+              <>
+                {/* Header */}
+                <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-5 pt-5 pb-4 shrink-0 overflow-hidden">
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08)_0%,transparent_65%)] pointer-events-none" />
+                  <div className="relative flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-white font-bold text-base ring-1 ring-white/10 shrink-0">
+                      {b.customerName?.[0]?.toUpperCase() ?? "?"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-white text-base leading-tight">{b.customerName}</p>
+                      <div className="flex items-center gap-2 mt-0.5 text-white/60 text-[11px] flex-wrap">
+                        <span className="flex items-center gap-1"><Hash className="h-2.5 w-2.5" />REF-{String(b.id).padStart(4, "0")}</span>
+                        <span>·</span>
+                        <span className="flex items-center gap-1 truncate"><Building2 className="h-2.5 w-2.5 shrink-0" />{modalClinicName}</span>
+                      </div>
+                      {startTime && (
+                        <p className="text-white/50 text-[11px] mt-0.5">
+                          {startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
+                </div>
+
+                {/* Tab strip */}
+                <div className="shrink-0 flex border-b border-border/60 bg-card">
+                  {([
+                    { key: 'notes'   as const, label: 'Notes',                   icon: <FileText className="h-3.5 w-3.5" /> },
+                    { key: 'records' as const, label: 'Prescription / Records',   icon: <ClipboardList className="h-3.5 w-3.5" /> },
+                  ]).map(({ key, label, icon }) => {
+                    const isActive = patientModalTab === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setPatientModalTab(key)}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/30 ${
+                          isActive
+                            ? 'text-primary border-primary'
+                            : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground/30'
+                        }`}
+                        data-testid={`modal-tab-${key}-${b.id}`}
+                      >
+                        {icon}
+                        <span>{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Tab panels */}
+                <div className="overflow-y-auto flex-1">
+
+                  {/* NOTES TAB */}
+                  {patientModalTab === 'notes' && (
+                    <div className="p-4 space-y-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
+                        <div className="flex gap-2">
+                          <Select value={statusDraft} onValueChange={setStatusDraft}>
+                            <SelectTrigger className="h-9 text-sm flex-1" data-testid="select-clinical-status">
+                              <SelectValue placeholder="Select status…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="first_visit">First Visit</SelectItem>
+                              <SelectItem value="revisit">Revisit</SelectItem>
+                              <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
+                              <SelectItem value="case_closed">Case Closed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            className="h-9 px-4 text-sm shrink-0"
+                            onClick={() => saveNotesMutation.mutate({ id: b.id, clinicalStatus: statusDraft })}
+                            disabled={saveNotesMutation.isPending}
+                            data-testid="button-save-clinical-status"
+                          >
+                            {saveNotesMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                          </Button>
+                        </div>
+                      </div>
+                      <BookingNotesThread bookingId={b.id} authorType="doctor" />
+                    </div>
+                  )}
+
+                  {/* PRESCRIPTION / RECORDS TAB */}
+                  {patientModalTab === 'records' && (
+                    <div className="p-4">
+                      <ClinicalRecordsTab
+                        bookingId={b.id}
+                        clinicId={b.clinicId}
+                        patientName={b.customerName}
+                        patientPhone={b.customerPhone}
+                        doctorName={profName || b.assignedDoctor}
+                        mode="doctor"
+                        clinicName={modalClinicName}
+                      />
+                    </div>
+                  )}
+                </div>
+              </>
             );
           })()}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Certification Sheet ── */}
       <Sheet open={certSheetOpen} onOpenChange={(o) => { if (!o) closeCertSheet(); }}>
