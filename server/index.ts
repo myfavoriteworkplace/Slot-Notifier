@@ -597,6 +597,39 @@ app.use((req, res, next) => {
       `);
       log("patient_bills table verified/created", "system");
 
+      // Add cashier + amount columns to patient_bills
+      await db.execute(sql`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='patient_bills' AND column_name='cashier_id') THEN
+            ALTER TABLE patient_bills ADD COLUMN cashier_id VARCHAR(100);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='patient_bills' AND column_name='cashier_notes') THEN
+            ALTER TABLE patient_bills ADD COLUMN cashier_notes TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='patient_bills' AND column_name='amount_received') THEN
+            ALTER TABLE patient_bills ADD COLUMN amount_received REAL;
+          END IF;
+        END $$;
+      `);
+      log("patient_bills cashier columns verified/added", "system");
+
+      // Create pharmacy_stock table
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS pharmacy_stock (
+          id SERIAL PRIMARY KEY,
+          clinic_id INTEGER NOT NULL REFERENCES clinics(id),
+          medicine_name VARCHAR(255) NOT NULL,
+          dosage VARCHAR(100),
+          unit_price REAL NOT NULL DEFAULT 0,
+          available_qty INTEGER NOT NULL DEFAULT 0,
+          expiry_date VARCHAR(20),
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      log("pharmacy_stock table verified/created", "system");
+
       // ── Patient identity columns ─────────────────────────────────────────────
       await db.execute(sql`
         DO $$

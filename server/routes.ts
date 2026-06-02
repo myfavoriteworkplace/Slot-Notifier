@@ -4197,6 +4197,59 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // ── PHARMACY STOCK ─────────────────────────────────────────────────────────
+
+  // GET /api/auth/clinic/pharmacy — list all catalog items
+  app.get("/api/auth/clinic/pharmacy", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const items = await storage.getPharmacyStock(clinicId);
+      res.json(items);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // POST /api/auth/clinic/pharmacy — add item
+  app.post("/api/auth/clinic/pharmacy", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const { medicineName, dosage, unitPrice, availableQty, expiryDate } = req.body;
+      if (!medicineName) return res.status(400).json({ message: "medicineName is required" });
+      const item = await storage.createPharmacyItem({
+        clinicId, medicineName, dosage: dosage || null,
+        unitPrice: parseFloat(unitPrice) || 0,
+        availableQty: parseInt(availableQty) || 0,
+        expiryDate: expiryDate || null,
+      });
+      res.status(201).json(item);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // PATCH /api/auth/clinic/pharmacy/:id — update item
+  app.patch("/api/auth/clinic/pharmacy/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const item = await storage.updatePharmacyItem(id, clinicId, req.body);
+      res.json(item);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // DELETE /api/auth/clinic/pharmacy/:id — delete item
+  app.delete("/api/auth/clinic/pharmacy/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      await storage.deletePharmacyItem(id, clinicId);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // ── PATIENT BILLS ──────────────────────────────────────────────────────────
 
   // GET /api/auth/clinic/bills — all bills for this clinic
@@ -4319,6 +4372,76 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
       await storage.deletePatientBill(id, clinicId);
       res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // POST /api/auth/clinic/bills/:id/notify-paid — send payment confirmation to patient
+  app.post("/api/auth/clinic/bills/:id/notify-paid", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+
+      const bills = await storage.getPatientBillsByClinicId(clinicId);
+      const bill = bills.find(b => b.id === id);
+      if (!bill) return res.status(404).json({ message: "Bill not found" });
+      if (!bill.patientEmail && !bill.patientPhone) {
+        return res.json({ success: true, message: "No contact info — notification skipped" });
+      }
+
+      const clinic = await storage.getClinicById(clinicId);
+      const clinicName = clinic?.name || "Your clinic";
+
+      const services = (bill.services ?? []) as { description: string; amount: number; paid?: boolean }[];
+      const lineItems = services.map(s => `<tr><td style="padding:4px 8px">${s.description}</td><td style="padding:4px 8px;text-align:right">₹${s.amount.toFixed(0)}</td></tr>`).join('');
+
+      if (resend && bill.patientEmail) {
+        const finalEmail = RESEND_MODE === 'PRODUCTION' ? bill.patientEmail : TEST_EMAIL;
+        await resend.emails.send({
+          from: EMAIL_FROM,
+          to: finalEmail,
+          subject: `Payment Confirmed — ${clinicName}`,
+          html: `
+            <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;background:#f9fafb;border-radius:12px">
+              <div style="background:#085041;border-radius:8px;padding:20px;text-align:center;margin-bottom:20px">
+                <h2 style="color:#fff;margin:0;font-size:20px">${clinicName}</h2>
+                <p style="color:#a7f3d0;margin:6px 0 0;font-size:13px">Payment Confirmation</p>
+              </div>
+              <p style="color:#374151">Dear <strong>${bill.patientName}</strong>,</p>
+              <p style="color:#374151">Your bill <strong>${bill.billNumber}</strong> has been marked as <strong style="color:#059669">Paid</strong>.</p>
+              <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#fff;border-radius:8px;overflow:hidden">
+                <thead><tr style="background:#f3f4f6"><th style="padding:8px;text-align:left;color:#6b7280;font-size:13px">Item</th><th style="padding:8px;text-align:right;color:#6b7280;font-size:13px">Amount</th></tr></thead>
+                <tbody style="font-size:13px;color:#374151">${lineItems}</tbody>
+                <tfoot><tr style="border-top:2px solid #e5e7eb"><td style="padding:8px;font-weight:700">Total Paid</td><td style="padding:8px;text-align:right;font-weight:700;color:#059669">₹${(bill.total ?? 0).toFixed(0)}</td></tr></tfoot>
+              </table>
+              <p style="color:#6b7280;font-size:12px;text-align:center">Thank you for choosing ${clinicName}. We wish you a speedy recovery.</p>
+              <p style="color:#d1d5db;font-size:11px;text-align:center;margin-top:16px">Powered by BookMySlot</p>
+            </div>`,
+        });
+      }
+
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("notify-paid error:", err.message);
+      res.json({ success: false, error: err.message });
+    }
+  });
+
+  // GET /api/auth/clinic/clinical-records/patient — all clinical records for a patient by phone
+  app.get("/api/auth/clinic/clinical-records/patient", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const phone = typeof req.query.phone === 'string' ? req.query.phone.trim() : '';
+      if (!phone) return res.status(400).json({ message: "phone required" });
+      const { db } = await import("./db");
+      const { clinicalRecords } = await import("@shared/schema");
+      const { eq, and, desc } = await import("drizzle-orm");
+      const records = await db.select().from(clinicalRecords)
+        .where(and(eq(clinicalRecords.clinicId, clinicId), eq(clinicalRecords.patientPhone, phone)))
+        .orderBy(desc(clinicalRecords.createdAt));
+      res.json(records.filter((r: any) => !r.isDeleted));
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 

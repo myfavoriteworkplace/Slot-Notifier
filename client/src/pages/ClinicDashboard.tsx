@@ -5,6 +5,7 @@ import ExportDataPanel from "@/components/ExportDataPanel";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import { InventoryPanel } from "@/components/InventoryPanel";
+import PharmacyStockPanel from "@/components/PharmacyStockPanel";
 import WebsiteConfigPanel from "@/components/WebsiteConfigPanel";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
@@ -21,7 +22,7 @@ import {
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
   Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, CreditCard,
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
-  ChevronLeft, ChevronRight, Save, Hash
+  ChevronLeft, ChevronRight, Save, Hash, Pill
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -274,7 +275,7 @@ export default function ClinicDashboard() {
 
   // Booking form state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'website' | 'accounts' | 'patients' | 'analytics'>('bookings');
+  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'pharmacy-stock' | 'website' | 'accounts' | 'patients' | 'analytics'>('bookings');
   const [accountsSearch, setAccountsSearch] = useState("");
   const [accountsStatusFilter, setAccountsStatusFilter] = useState<'all' | 'paid' | 'pending' | 'partial' | 'overdue'>('all');
   const [accountsView, setAccountsView] = useState<'ledger' | 'register'>('ledger');
@@ -2353,6 +2354,21 @@ export default function ClinicDashboard() {
               </button>
 
               <button
+                onClick={() => setActivePanel('pharmacy-stock')}
+                data-testid="nav-pharmacy-stock"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'pharmacy-stock' ? 'bg-orange-500/10 border border-orange-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'pharmacy-stock' ? 'bg-orange-500/10 border-orange-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Pill className={`h-4 w-4 ${activePanel === 'pharmacy-stock' ? 'text-orange-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'pharmacy-stock' ? 'text-orange-700 dark:text-orange-400' : 'text-foreground'}`}>Pharmacy Stock</p>
+                  <p className="text-xs text-muted-foreground">Medicine catalog & pricing</p>
+                </div>
+                {activePanel === 'pharmacy-stock' && <div className="h-1.5 w-1.5 rounded-full bg-orange-500 shrink-0" />}
+              </button>
+
+              <button
                 onClick={() => setActivePanel('website')}
                 data-testid="nav-website"
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'website' ? 'bg-sky-500/10 border border-sky-500/20' : 'border border-transparent hover:bg-muted/50'}`}
@@ -3691,6 +3707,7 @@ export default function ClinicDashboard() {
                             <div className="p-4">
                               <BillingHistoryPanel
                                 bookingId={booking.id}
+                                clinicId={clinic.id}
                                 patientName={booking.customerName}
                                 patientPhone={booking.customerPhone}
                                 patientEmail={booking.customerEmail || ""}
@@ -5709,6 +5726,11 @@ export default function ClinicDashboard() {
           {/* INVENTORY PANEL */}
           {activePanel === 'inventory' && (
             <InventoryPanel clinicId={clinic.id} />
+          )}
+
+          {/* PHARMACY STOCK PANEL */}
+          {activePanel === 'pharmacy-stock' && (
+            <PharmacyStockPanel clinicId={clinic.id} />
           )}
 
           {/* ANALYTICS PANEL */}

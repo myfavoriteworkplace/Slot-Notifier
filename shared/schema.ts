@@ -601,7 +601,7 @@ export const patientBills = pgTable("patient_bills", {
   patientName: varchar("patient_name", { length: 255 }).notNull(),
   patientPhone: varchar("patient_phone", { length: 50 }),
   patientEmail: varchar("patient_email", { length: 255 }),
-  services: jsonb("services").$type<{ description: string; category: string; amount: number }[]>().default([]),
+  services: jsonb("services").$type<{ description: string; category: string; amount: number; paid?: boolean; qty?: number; unitPrice?: number }[]>().default([]),
   subtotal: real("subtotal").notNull().default(0),
   discountPct: real("discount_pct").notNull().default(0),
   taxPct: real("tax_pct").notNull().default(0),
@@ -609,6 +609,9 @@ export const patientBills = pgTable("patient_bills", {
   paymentMethod: varchar("payment_method", { length: 50 }).default("Cash"),
   paymentStatus: varchar("payment_status", { length: 20 }).notNull().default("paid"),
   notes: text("notes"),
+  cashierId: varchar("cashier_id", { length: 100 }),
+  cashierNotes: text("cashier_notes"),
+  amountReceived: real("amount_received"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -621,6 +624,29 @@ export const insertPatientBillSchema = createInsertSchema(patientBills).omit({
 
 export type PatientBill = typeof patientBills.$inferSelect;
 export type InsertPatientBill = z.infer<typeof insertPatientBillSchema>;
+
+// ── PHARMACY STOCK ───────────────────────────────────────────────────────────
+
+export const pharmacyStock = pgTable("pharmacy_stock", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull().references(() => clinics.id),
+  medicineName: varchar("medicine_name", { length: 255 }).notNull(),
+  dosage: varchar("dosage", { length: 100 }),
+  unitPrice: real("unit_price").notNull().default(0),
+  availableQty: integer("available_qty").notNull().default(0),
+  expiryDate: varchar("expiry_date", { length: 20 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPharmacyStockSchema = createInsertSchema(pharmacyStock).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type PharmacyStockItem = typeof pharmacyStock.$inferSelect;
+export type InsertPharmacyStockItem = z.infer<typeof insertPharmacyStockSchema>;
 
 // ────────────────────────────────────────────────────────────────────────────
 

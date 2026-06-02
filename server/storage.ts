@@ -1,7 +1,7 @@
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
   doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, clinicalRecords,
-  inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills,
+  inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -21,6 +21,7 @@ import {
   type InventoryCategory, type InsertInventoryCategory,
   type InventoryItem, type InsertInventoryItem,
   type StockTransaction, type InsertStockTransaction,
+  type PharmacyStockItem, type InsertPharmacyStockItem,
   type StockAlert, type InsertStockAlert,
   type LoginEvent, type InsertLoginEvent,
   type PatientBill, type InsertPatientBill,
@@ -191,6 +192,12 @@ export interface IStorage {
   getPatientBillsByEmail(clinicId: number, email: string): Promise<PatientBill[]>;
   updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill>;
   deletePatientBill(id: number, clinicId: number): Promise<void>;
+
+  // Pharmacy Stock
+  getPharmacyStock(clinicId: number): Promise<PharmacyStockItem[]>;
+  createPharmacyItem(data: InsertPharmacyStockItem): Promise<PharmacyStockItem>;
+  updatePharmacyItem(id: number, clinicId: number, updates: Partial<PharmacyStockItem>): Promise<PharmacyStockItem>;
+  deletePharmacyItem(id: number, clinicId: number): Promise<void>;
 
   // Analytics
   getClinicAnalytics(clinicId: number, range: string): Promise<Record<string, any>>;
@@ -1283,6 +1290,32 @@ export class DatabaseStorage implements IStorage {
   async deletePatientBill(id: number, clinicId: number): Promise<void> {
     await db.delete(patientBills)
       .where(and(eq(patientBills.id, id), eq(patientBills.clinicId, clinicId)));
+  }
+
+  // ── Pharmacy Stock ────────────────────────────────────────────────────────
+
+  async getPharmacyStock(clinicId: number): Promise<PharmacyStockItem[]> {
+    return db.select().from(pharmacyStock)
+      .where(eq(pharmacyStock.clinicId, clinicId))
+      .orderBy(pharmacyStock.medicineName);
+  }
+
+  async createPharmacyItem(data: InsertPharmacyStockItem): Promise<PharmacyStockItem> {
+    const [item] = await db.insert(pharmacyStock).values(data).returning();
+    return item;
+  }
+
+  async updatePharmacyItem(id: number, clinicId: number, updates: Partial<PharmacyStockItem>): Promise<PharmacyStockItem> {
+    const [item] = await db.update(pharmacyStock)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(pharmacyStock.id, id), eq(pharmacyStock.clinicId, clinicId)))
+      .returning();
+    return item;
+  }
+
+  async deletePharmacyItem(id: number, clinicId: number): Promise<void> {
+    await db.delete(pharmacyStock)
+      .where(and(eq(pharmacyStock.id, id), eq(pharmacyStock.clinicId, clinicId)));
   }
 
   async getClinicAnalytics(clinicId: number, range: string): Promise<Record<string, any>> {
