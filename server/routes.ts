@@ -4445,6 +4445,46 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // ── BILLING AUDIT LOGS ────────────────────────────────────────────────────
+  // POST /api/auth/clinic/billing-audit — create a log entry
+  app.post("/api/auth/clinic/billing-audit", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const { bookingId, billId, action, details, performedBy } = req.body;
+      if (!action) return res.status(400).json({ message: "action required" });
+      const { db } = await import("./db");
+      const { billingAuditLogs } = await import("@shared/schema");
+      const [entry] = await db.insert(billingAuditLogs).values({
+        clinicId,
+        bookingId: bookingId ? parseInt(bookingId) : null,
+        billId: billId ? parseInt(billId) : null,
+        action: String(action),
+        details: details ?? {},
+        performedBy: performedBy ?? null,
+      }).returning();
+      res.json(entry);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // GET /api/auth/clinic/billing-audit/booking/:bookingId — audit trail for a booking
+  app.get("/api/auth/clinic/billing-audit/booking/:bookingId", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const bookingId = parseInt(req.params.bookingId);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const { db } = await import("./db");
+      const { billingAuditLogs } = await import("@shared/schema");
+      const { eq, and, desc } = await import("drizzle-orm");
+      const logs = await db.select().from(billingAuditLogs)
+        .where(and(eq(billingAuditLogs.clinicId, clinicId), eq(billingAuditLogs.bookingId, bookingId)))
+        .orderBy(desc(billingAuditLogs.createdAt))
+        .limit(50);
+      res.json(logs);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // ── CLINIC ANALYTICS ──────────────────────────────────────────────────────
   // GET /api/auth/clinic/analytics?range=30d
   app.get("/api/auth/clinic/analytics", isAuthenticated, async (req, res) => {

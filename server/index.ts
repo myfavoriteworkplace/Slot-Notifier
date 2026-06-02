@@ -630,6 +630,21 @@ app.use((req, res, next) => {
       `);
       log("pharmacy_stock table verified/created", "system");
 
+      // Create billing_audit_logs table
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS billing_audit_logs (
+          id SERIAL PRIMARY KEY,
+          clinic_id INTEGER NOT NULL,
+          booking_id INTEGER,
+          bill_id INTEGER,
+          action VARCHAR(100) NOT NULL,
+          details JSONB DEFAULT '{}',
+          performed_by VARCHAR(100),
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      log("billing_audit_logs table verified/created", "system");
+
       // ── Patient identity columns ─────────────────────────────────────────────
       await db.execute(sql`
         DO $$

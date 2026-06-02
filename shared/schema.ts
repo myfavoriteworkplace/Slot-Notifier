@@ -648,6 +648,21 @@ export const insertPharmacyStockSchema = createInsertSchema(pharmacyStock).omit(
 export type PharmacyStockItem = typeof pharmacyStock.$inferSelect;
 export type InsertPharmacyStockItem = z.infer<typeof insertPharmacyStockSchema>;
 
+// ── BILLING AUDIT LOGS ───────────────────────────────────────────────────────
+
+export const billingAuditLogs = pgTable("billing_audit_logs", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").notNull(),
+  bookingId: integer("booking_id"),
+  billId: integer("bill_id"),
+  action: varchar("action", { length: 100 }).notNull(),
+  details: jsonb("details").$type<Record<string, unknown>>().default({}),
+  performedBy: varchar("performed_by", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type BillingAuditLog = typeof billingAuditLogs.$inferSelect;
+
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface ClinicSession {
