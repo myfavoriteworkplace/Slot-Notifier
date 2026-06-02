@@ -216,11 +216,6 @@ export function AppointmentCard({
                     <X className="h-2.5 w-2.5" />
                     {isApptDeclined ? "Declined" : "Cancelled"}
                   </span>
-                  {booking.cancellationReason && (
-                    <span className="text-xs italic text-muted-foreground/70 text-right leading-tight max-w-[110px] truncate">
-                      {booking.cancellationReason}
-                    </span>
-                  )}
                 </div>
               ) : isConfirmed ? (
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
