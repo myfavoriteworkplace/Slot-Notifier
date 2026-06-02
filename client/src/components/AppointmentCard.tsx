@@ -321,52 +321,54 @@ export function AppointmentCard({
           {/* Row 4: doctor assignment (clinic) or clinical status badge (doctor) */}
           {role === 'clinic' && (() => {
             if (booking.assignedDoctor) {
+              const drStatus = isCancelled ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="font-semibold text-rose-600 dark:text-rose-400">Cancelled</span>
+                  {booking.cancellationReason && (
+                    <span className="italic text-muted-foreground/60">· {booking.cancellationReason}</span>
+                  )}
+                </span>
+              ) : booking.doctorApprovalStatus === 'pending' ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="font-semibold text-amber-600 dark:text-amber-400">Awaiting</span>
+                  <span className="italic text-muted-foreground/60">Dr Approval</span>
+                </span>
+              ) : booking.doctorApprovalStatus === 'approved' ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">Approved</span>
+                  <span className="italic text-muted-foreground/60">by Dr</span>
+                </span>
+              ) : booking.doctorApprovalStatus === 'admin_confirmed' ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">Confirmed</span>
+                  <span className="italic text-muted-foreground/60">by Admin</span>
+                </span>
+              ) : booking.doctorApprovalStatus === 'declined' ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="font-semibold text-rose-600 dark:text-rose-400">Declined</span>
+                  <span className="italic text-muted-foreground/60">by Dr</span>
+                </span>
+              ) : null;
+
+              const adminConfirmed = !isCancelled && isConfirmed && booking.confirmedBy === 'admin' && booking.doctorApprovalStatus !== 'admin_confirmed';
+
               return (
-                <div className="flex items-center gap-2 text-xs flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                      <Stethoscope className="h-2.5 w-2.5 text-primary" />
-                    </div>
-                    <span className="font-medium text-primary">Dr. {booking.assignedDoctor}</span>
+                <div className="flex items-start gap-2 text-xs">
+                  <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-px">
+                    <Stethoscope className="h-2.5 w-2.5 text-primary" />
                   </div>
-                  {isCancelled && (
-                    <span className="inline-flex items-center gap-1 text-xs">
-                      <span className="font-semibold text-rose-600 dark:text-rose-400">Cancelled</span>
-                      {booking.cancellationReason && (
-                        <span className="italic text-muted-foreground/60">· {booking.cancellationReason}</span>
-                      )}
-                    </span>
-                  )}
-                  {!isCancelled && booking.doctorApprovalStatus === 'pending' && (
-                    <span className="inline-flex items-center gap-1 text-xs">
-                      <span className="font-semibold text-amber-600 dark:text-amber-400">Awaiting</span>
-                      <span className="italic text-muted-foreground/60">Dr Approval</span>
-                    </span>
-                  )}
-                  {!isCancelled && booking.doctorApprovalStatus === 'approved' && (
-                    <span className="inline-flex items-center gap-1 text-xs">
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Approved</span>
-                      <span className="italic text-muted-foreground/60">by Dr</span>
-                    </span>
-                  )}
-                  {!isCancelled && booking.doctorApprovalStatus === 'admin_confirmed' && (
-                    <span className="inline-flex items-center gap-1 text-xs">
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Confirmed</span>
-                      <span className="italic text-muted-foreground/60">by Admin</span>
-                    </span>
-                  )}
-                  {!isCancelled && booking.doctorApprovalStatus === 'declined' && (
-                    <span className="inline-flex items-center gap-1 text-xs">
-                      <span className="font-semibold text-rose-600 dark:text-rose-400">Declined</span>
-                      <span className="italic text-muted-foreground/60">by Dr</span>
-                    </span>
-                  )}
-                  {!isCancelled && isConfirmed && booking.confirmedBy === 'admin' && booking.doctorApprovalStatus !== 'admin_confirmed' && (
-                    <span className="inline-flex items-center gap-1 text-xs">
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Confirmed</span>
-                      <span className="italic text-muted-foreground/60">by Admin</span>
-                    </span>
-                  )}
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-medium text-primary">Dr. {booking.assignedDoctor}</span>
+                      {drStatus}
+                    </div>
+                    {adminConfirmed && (
+                      <span className="inline-flex items-center gap-1">
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">Confirmed</span>
+                        <span className="italic text-muted-foreground/60">by Admin</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               );
             }
