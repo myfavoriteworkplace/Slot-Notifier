@@ -329,26 +329,42 @@ export function AppointmentCard({
                     </div>
                     <span className="font-medium text-primary">Dr. {booking.assignedDoctor}</span>
                   </div>
-                  {!isCancelled && booking.doctorApprovalStatus === 'pending' && (
-                    <span className="text-xs italic text-amber-600 dark:text-amber-400">
-                      awaiting approval
+                  {isCancelled && (
+                    <span className="inline-flex items-center gap-1 text-xs">
+                      <span className="font-semibold text-rose-600 dark:text-rose-400">Cancelled</span>
+                      {booking.cancellationReason && (
+                        <span className="italic text-muted-foreground/60">· {booking.cancellationReason}</span>
+                      )}
                     </span>
                   )}
-                  {!isCancelled && (booking.doctorApprovalStatus === 'approved' || booking.doctorApprovalStatus === 'admin_confirmed') && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2 className="h-2.5 w-2.5" />
-                      approved
+                  {!isCancelled && booking.doctorApprovalStatus === 'pending' && (
+                    <span className="inline-flex items-center gap-1 text-xs">
+                      <span className="font-semibold text-amber-600 dark:text-amber-400">Awaiting</span>
+                      <span className="italic text-muted-foreground/60">Dr Approval</span>
+                    </span>
+                  )}
+                  {!isCancelled && booking.doctorApprovalStatus === 'approved' && (
+                    <span className="inline-flex items-center gap-1 text-xs">
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Approved</span>
+                      <span className="italic text-muted-foreground/60">by Dr</span>
+                    </span>
+                  )}
+                  {!isCancelled && booking.doctorApprovalStatus === 'admin_confirmed' && (
+                    <span className="inline-flex items-center gap-1 text-xs">
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Confirmed</span>
+                      <span className="italic text-muted-foreground/60">by Admin</span>
                     </span>
                   )}
                   {!isCancelled && booking.doctorApprovalStatus === 'declined' && (
-                    <span className="text-xs italic text-rose-600 dark:text-rose-400">
-                      declined
+                    <span className="inline-flex items-center gap-1 text-xs">
+                      <span className="font-semibold text-rose-600 dark:text-rose-400">Declined</span>
+                      <span className="italic text-muted-foreground/60">by Dr</span>
                     </span>
                   )}
                   {!isCancelled && isConfirmed && booking.confirmedBy === 'admin' && booking.doctorApprovalStatus !== 'admin_confirmed' && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2 className="h-2.5 w-2.5" />
-                      confirmed
+                    <span className="inline-flex items-center gap-1 text-xs">
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Confirmed</span>
+                      <span className="italic text-muted-foreground/60">by Admin</span>
                     </span>
                   )}
                 </div>
