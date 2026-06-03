@@ -214,22 +214,23 @@ function InvoicePreviewModal({
   patientName: string;
   patientCode?: string;
 }) {
-  const activeBills = bills.filter(b => b.paymentStatus !== "paid");
-  const allServices: ServiceItemWithMeta[] = activeBills.flatMap(b =>
+  const allServices: ServiceItemWithMeta[] = bills.flatMap(b =>
     ((b.services ?? []) as ServiceItem[]).map((s, idx) => ({
       ...s, billId: b.id, billNumber: b.billNumber, itemIndex: idx, billStatus: b.paymentStatus ?? "pending",
     }))
   );
-  const subtotal = allServices.reduce((s, i) => s + i.amount, 0);
-  const paid = allServices.filter(s => s.paid).reduce((s, i) => s + i.amount, 0);
   const { consultation, pharmacy, other } = groupByCategory(allServices);
+  const grandTotal = bills.reduce((s, b) => s + (b.total ?? 0), 0);
+  const paidTotal  = bills.filter(b => b.paymentStatus === "paid").reduce((s, b) => s + (b.total ?? 0), 0);
+  const outstanding = grandTotal - paidTotal;
+  const allSettled = outstanding === 0 && bills.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
-            <Receipt className="h-4 w-4 text-primary" /> Invoice Preview
+            <Receipt className="h-4 w-4 text-primary" /> Billing Summary
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3 text-xs">
@@ -241,7 +242,13 @@ function InvoicePreviewModal({
             </div>
             <span className="text-muted-foreground">·</span>
             <span className="text-muted-foreground">{format(new Date(), "dd MMM yyyy")}</span>
-            {activeBills.length > 1 && <><span className="text-muted-foreground">·</span><span className="text-muted-foreground">{activeBills.length} open bills</span></>}
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">{bills.length} bill{bills.length !== 1 ? "s" : ""}</span>
+            {allSettled && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                <CheckCircle2 className="h-2.5 w-2.5" /> Fully Settled
+              </span>
+            )}
           </div>
 
           {[{ label: "Consultation & Procedures", items: consultation }, { label: "Pharmacy", items: pharmacy }, { label: "Other", items: other }]
@@ -264,15 +271,20 @@ function InvoicePreviewModal({
                       <tbody className="divide-y divide-border/30">
                         {g.items.map((svc, i) => {
                           const { medicine, dosage, frequency, duration } = getPharmacyFields(svc);
+                          const isPaid = svc.paid || svc.billStatus === "paid";
                           return (
-                            <tr key={i} className="bg-background">
-                              <td className={`px-3 py-1.5 font-medium ${svc.paid ? "line-through text-muted-foreground/50" : "text-foreground"}`}>{medicine}</td>
+                            <tr key={i} className={isPaid ? "bg-emerald-50/30 dark:bg-emerald-950/10" : "bg-background"}>
+                              <td className="px-3 py-1.5 font-medium text-foreground">
+                                <span className="flex items-center gap-1">
+                                  {isPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                                  {medicine}
+                                </span>
+                              </td>
                               <td className="px-2 py-1.5 text-muted-foreground">{dosage || "—"}</td>
                               <td className="px-2 py-1.5 text-muted-foreground">{frequency || "—"}</td>
                               <td className="px-2 py-1.5 text-muted-foreground">{duration || "—"}</td>
                               <td className="px-3 py-1.5 text-right tabular-nums font-semibold">
-                                <span className={`flex items-center justify-end gap-1 ${svc.paid ? "text-emerald-600" : ""}`}>
-                                  {svc.paid && <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />}
+                                <span className={`flex items-center justify-end gap-1 ${isPaid ? "text-emerald-600" : ""}`}>
                                   ₹{svc.amount.toFixed(0)}
                                 </span>
                               </td>
@@ -283,16 +295,21 @@ function InvoicePreviewModal({
                     </table>
                   ) : (
                     <div className="divide-y divide-border/30">
-                      {g.items.map((svc, i) => (
-                        <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-background">
-                          <span className={`flex-1 ${svc.paid ? "line-through text-muted-foreground/50" : "text-foreground"}`}>{svc.description}</span>
-                          {svc.qty && svc.unitPrice ? (
-                            <span className="text-muted-foreground/50 tabular-nums shrink-0">{svc.qty}×₹{(svc.unitPrice).toFixed(0)}</span>
-                          ) : null}
-                          <span className={`font-semibold tabular-nums shrink-0 ${svc.paid ? "text-emerald-600" : ""}`}>₹{svc.amount.toFixed(0)}</span>
-                          {svc.paid && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />}
-                        </div>
-                      ))}
+                      {g.items.map((svc, i) => {
+                        const isPaid = svc.paid || svc.billStatus === "paid";
+                        return (
+                          <div key={i} className={`flex items-center gap-2 px-3 py-1.5 ${isPaid ? "bg-emerald-50/30 dark:bg-emerald-950/10" : "bg-background"}`}>
+                            <span className="flex items-center gap-1 flex-1 text-foreground">
+                              {isPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                              {svc.description}
+                            </span>
+                            {svc.qty && svc.unitPrice ? (
+                              <span className="text-muted-foreground/50 tabular-nums shrink-0">{svc.qty}×₹{(svc.unitPrice).toFixed(0)}</span>
+                            ) : null}
+                            <span className={`font-semibold tabular-nums shrink-0 ${isPaid ? "text-emerald-600" : ""}`}>₹{svc.amount.toFixed(0)}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -301,15 +318,27 @@ function InvoicePreviewModal({
           }
 
           <div className="rounded-lg bg-muted/20 border border-border/30 px-3 py-2 space-y-1">
-            <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">₹{subtotal.toFixed(0)}</span></div>
-            {paid > 0 && paid < subtotal && (
-              <div className="flex justify-between"><span className="text-muted-foreground">Collected</span><span className="tabular-nums text-emerald-600 font-semibold">₹{paid.toFixed(0)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="tabular-nums">₹{grandTotal.toFixed(0)}</span></div>
+            {paidTotal > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Collected</span>
+                <span className="tabular-nums text-emerald-600 font-semibold">₹{paidTotal.toFixed(0)}</span>
+              </div>
             )}
             <div className="flex justify-between pt-1 border-t border-border/30">
-              <span className="font-bold">Outstanding</span>
-              <span className="font-bold tabular-nums text-base text-primary">
-                ₹{activeBills.reduce((s, b) => s + (b.total ?? 0), 0).toFixed(0)}
-              </span>
+              {allSettled ? (
+                <>
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Fully Settled
+                  </span>
+                  <span className="font-bold tabular-nums text-base text-emerald-600">₹{grandTotal.toFixed(0)}</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-bold">Outstanding</span>
+                  <span className="font-bold tabular-nums text-base text-primary">₹{outstanding.toFixed(0)}</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1019,9 +1048,14 @@ export function BillingHistoryPanel({
                             const isEditing = editingKey === itemKey;
                             const isItemPaid = svc.paid || isBillPaid;
                             return (
-                              <tr key={origIdx} className="group/row bg-background hover:bg-muted/10 transition-colors"
+                              <tr key={origIdx} className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : "bg-background hover:bg-muted/10"}`}
                                 data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                                <td className={`py-1.5 pl-3 pr-2 ${isItemPaid ? "line-through text-muted-foreground" : "text-foreground"}`}>{svc.description}</td>
+                                <td className="py-1.5 pl-3 pr-2 text-foreground">
+                                  <span className="flex items-center gap-1">
+                                    {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                                    {svc.description}
+                                  </span>
+                                </td>
                                 <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
                                 <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{svc.unitPrice ? `₹${svc.unitPrice.toFixed(0)}` : "—"}</td>
                                 <td className="py-1.5 pl-2 pr-1 text-right tabular-nums font-semibold">
@@ -1099,9 +1133,14 @@ export function BillingHistoryPanel({
                             const { medicine, dosage, frequency, duration } = getPharmacyFields(svc);
                             return (
                               <tr key={origIdx}
-                                className={`group/row transition-colors ${isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "bg-background hover:bg-muted/10"}`}
+                                className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "bg-background hover:bg-muted/10"}`}
                                 data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                                <td className={`py-1.5 pl-3 pr-2 font-medium ${isItemPaid ? "line-through text-muted-foreground" : "text-foreground"}`}>{medicine}</td>
+                                <td className="py-1.5 pl-3 pr-2 font-medium text-foreground">
+                                  <span className="flex items-center gap-1">
+                                    {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                                    {medicine}
+                                  </span>
+                                </td>
                                 <td className="py-1.5 px-2 text-muted-foreground">{dosage || "—"}</td>
                                 <td className="py-1.5 px-2 text-muted-foreground">{frequency || "—"}</td>
                                 <td className="py-1.5 px-2 text-muted-foreground">{duration || "—"}</td>
@@ -1164,9 +1203,12 @@ export function BillingHistoryPanel({
                       const isEditing = editingKey === itemKey;
                       const isItemPaid = svc.paid || isBillPaid;
                       return (
-                        <div key={origIdx} className="flex items-center gap-2 px-3 py-1.5 group/row hover:bg-muted/10 border-b border-border/10 last:border-0"
+                        <div key={origIdx} className={`flex items-center gap-2 px-3 py-1.5 group/row border-b border-border/10 last:border-0 ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : "hover:bg-muted/10"}`}
                           data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                          <span className={`flex-1 text-xs min-w-0 truncate ${isItemPaid ? "line-through text-muted-foreground" : "text-foreground"}`}>{svc.description}</span>
+                          <span className="flex-1 text-xs min-w-0 truncate text-foreground flex items-center gap-1">
+                            {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                            {svc.description}
+                          </span>
                           {isEditing ? (
                             <div className="relative shrink-0">
                               <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
@@ -1449,11 +1491,6 @@ export function BillingHistoryPanel({
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <Button size="sm" variant="ghost" onClick={() => setPreviewModalOpen(true)}
-                className="h-7 px-2 text-xs gap-1 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
-                data-testid="button-settled-view">
-                <Eye className="h-3.5 w-3.5" /> View
-              </Button>
               {bills.length > 1 && onConsolidatedReceipt ? (
                 <Button size="sm" variant="ghost" onClick={() => onConsolidatedReceipt(bills)}
                   className="h-7 px-2 text-xs gap-1 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
@@ -1467,6 +1504,13 @@ export function BillingHistoryPanel({
                   <FileText className="h-3.5 w-3.5" /> PDF
                 </Button>
               ) : null}
+              <Button size="sm" variant="ghost" onClick={() => createNewBillMutation.mutate()}
+                disabled={createNewBillMutation.isPending}
+                className="h-7 px-2 text-xs gap-1 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 border border-emerald-400/30 ml-1"
+                data-testid="button-settled-new-bill">
+                {createNewBillMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                New Bill
+              </Button>
             </div>
           </div>
         </div>
@@ -1552,32 +1596,20 @@ export function BillingHistoryPanel({
         </div>
       )}
 
-      {/* ── BILLS SECTION ─────────────────────────────────────────────── */}
+      {/* ── BILLS SECTION HEADER ──────────────────────────────────────── */}
       {bills.length > 0 && (
-        <div className="flex items-center gap-1.5 pt-1">
-          <IndianRupee className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            {bills.length} Bill{bills.length !== 1 ? "s" : ""}
-          </span>
-          {bills.length > 1 && (
-            <span className="text-xs text-muted-foreground ml-1">· ₹{consolidatedTotal.toFixed(0)} total</span>
-          )}
-          <div className="ml-auto flex items-center gap-1">
-            <Button size="sm" variant="ghost"
-              onClick={() => setPreviewModalOpen(true)}
-              className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-primary"
-              data-testid="button-preview-modal">
-              <Eye className="h-3 w-3" /> Preview
-            </Button>
-            {bills.length > 1 && onConsolidatedReceipt && (
-              <Button size="sm" variant="ghost"
-                onClick={() => onConsolidatedReceipt(bills)}
-                className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-primary"
-                data-testid="button-open-consolidated-pdf">
-                <FileText className="h-3 w-3" /> PDF
-              </Button>
+        <div className="flex items-center gap-2 pt-1">
+          <div className="h-px flex-1 bg-border/40" />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <IndianRupee className="h-3 w-3 text-muted-foreground/60" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+              {bills.length} Bill{bills.length !== 1 ? "s" : ""}
+            </span>
+            {bills.length > 1 && (
+              <span className="text-[10px] text-muted-foreground/60">· ₹{consolidatedTotal.toFixed(0)}</span>
             )}
           </div>
+          <div className="h-px flex-1 bg-border/40" />
         </div>
       )}
 
