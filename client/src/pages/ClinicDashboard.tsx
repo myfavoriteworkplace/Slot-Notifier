@@ -73,6 +73,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { Slot, Booking, PatientBill, ClinicalRecord, Patient } from "@shared/schema";
 import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload, KeyRound, CalendarOff } from "lucide-react";
 import { AppointmentCard } from "@/components/AppointmentCard";
+import noBookingsImg from "@assets/Copilot_20260603_191746_1780494897553.png";
 
 interface SlotTiming {
   id: string;
@@ -2860,8 +2861,48 @@ export default function ClinicDashboard() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredBookings?.length === 0 ? (
-                <div className="col-span-full py-12 text-center bg-muted/20 rounded-2xl border border-dashed">
-                  <p className="text-muted-foreground">No bookings found for the selected date range.</p>
+                <div className="col-span-full py-14 flex flex-col items-center gap-5 text-center bg-muted/10 rounded-2xl border border-dashed border-border/60">
+                  <div className="rounded-2xl overflow-hidden bg-white/70 dark:bg-muted/20 p-2 shadow-sm">
+                    <img
+                      src={noBookingsImg}
+                      alt="No bookings found"
+                      className="w-36 h-36 object-contain dark:opacity-75"
+                      draggable={false}
+                    />
+                  </div>
+                  <div className="space-y-1.5 max-w-[260px]">
+                    <p className="text-base font-semibold text-foreground">
+                      {quickFilter !== 'all' || filterDate || filterEndDate
+                        ? "No bookings match this filter"
+                        : "No bookings yet"}
+                    </p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {quickFilter !== 'all' || filterDate || filterEndDate
+                        ? "Try adjusting the date range or filter to find what you're looking for."
+                        : "Once patients book a slot, their appointments will appear here."}
+                    </p>
+                  </div>
+                  {quickFilter !== 'all' || filterDate || filterEndDate ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs h-9"
+                      onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); }}
+                      data-testid="button-clear-filters-empty"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Clear filters
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="gap-1.5 text-xs h-9 bg-primary hover:bg-primary/90"
+                      onClick={() => setActivePanel('configure-slots')}
+                      data-testid="button-configure-slots-empty"
+                    >
+                      Configure Slots →
+                    </Button>
+                  )}
                 </div>
               ) : (
                 (() => {
