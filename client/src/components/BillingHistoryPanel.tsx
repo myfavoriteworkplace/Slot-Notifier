@@ -181,7 +181,8 @@ function InvoicePreviewModal({
   patientName: string;
   patientCode?: string;
 }) {
-  const allServices: ServiceItemWithMeta[] = bills.flatMap(b =>
+  const activeBills = bills.filter(b => b.paymentStatus !== "paid");
+  const allServices: ServiceItemWithMeta[] = activeBills.flatMap(b =>
     ((b.services ?? []) as ServiceItem[]).map((s, idx) => ({
       ...s, billId: b.id, billNumber: b.billNumber, itemIndex: idx, billStatus: b.paymentStatus ?? "pending",
     }))
@@ -207,7 +208,7 @@ function InvoicePreviewModal({
             </div>
             <span className="text-muted-foreground">·</span>
             <span className="text-muted-foreground">{format(new Date(), "dd MMM yyyy")}</span>
-            {bills.length > 1 && <><span className="text-muted-foreground">·</span><span className="text-muted-foreground">{bills.length} bills</span></>}
+            {activeBills.length > 1 && <><span className="text-muted-foreground">·</span><span className="text-muted-foreground">{activeBills.length} open bills</span></>}
           </div>
 
           {[{ label: "Consultation & Procedures", items: consultation }, { label: "Pharmacy", items: pharmacy }, { label: "Other", items: other }]
@@ -215,17 +216,59 @@ function InvoicePreviewModal({
             .map(g => (
               <div key={g.label}>
                 <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{g.label}</div>
-                <div className="divide-y divide-border/20 rounded-lg border border-border/40 overflow-hidden">
-                  {g.items.map((svc, i) => (
-                    <div key={i} className="flex items-center gap-2 px-3 py-1.5">
-                      <span className={`flex-1 ${svc.paid ? "line-through text-muted-foreground/50" : "text-foreground"}`}>{svc.description}</span>
-                      {svc.qty && svc.unitPrice ? (
-                        <span className="text-muted-foreground/50 tabular-nums shrink-0">{svc.qty}×₹{(svc.unitPrice).toFixed(0)}</span>
-                      ) : null}
-                      <span className={`font-semibold tabular-nums shrink-0 ${svc.paid ? "text-emerald-600" : ""}`}>₹{svc.amount.toFixed(0)}</span>
-                      {svc.paid && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />}
+                <div className="rounded-lg border border-border/50 overflow-hidden">
+                  {g.label === "Pharmacy" ? (
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-muted/40 border-b border-border/40">
+                          <th className="text-left px-3 py-1.5 font-semibold text-muted-foreground">Medicine</th>
+                          <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground w-20">Frequency</th>
+                          <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground w-16">Duration</th>
+                          <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground w-20">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/30">
+                        {g.items.map((svc, i) => {
+                          const { medicine, frequency, duration } = (() => {
+                            const crossIdx = svc.description.indexOf("×");
+                            if (crossIdx === -1) return { medicine: svc.description, frequency: "", duration: "" };
+                            const med = svc.description.slice(0, crossIdx).trim();
+                            const after = svc.description.slice(crossIdx + 1);
+                            const m2 = after.match(/^\d+\s*(.*)/);
+                            const sched = m2 ? m2[1].trim() : "";
+                            const dm = sched.match(/^(.*?)\s*(\d+\s+(?:days?|weeks?|months?|years?))$/i);
+                            return dm ? { medicine: med, frequency: dm[1].trim(), duration: dm[2].trim() } : { medicine: med, frequency: sched, duration: "" };
+                          })();
+                          return (
+                            <tr key={i} className="bg-background">
+                              <td className={`px-3 py-1.5 font-medium ${svc.paid ? "line-through text-muted-foreground/50" : "text-foreground"}`}>{medicine}</td>
+                              <td className="px-2 py-1.5 text-muted-foreground">{frequency || "—"}</td>
+                              <td className="px-2 py-1.5 text-muted-foreground">{duration || "—"}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums font-semibold">
+                                <span className={`flex items-center justify-end gap-1 ${svc.paid ? "text-emerald-600" : ""}`}>
+                                  {svc.paid && <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />}
+                                  ₹{svc.amount.toFixed(0)}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="divide-y divide-border/30">
+                      {g.items.map((svc, i) => (
+                        <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-background">
+                          <span className={`flex-1 ${svc.paid ? "line-through text-muted-foreground/50" : "text-foreground"}`}>{svc.description}</span>
+                          {svc.qty && svc.unitPrice ? (
+                            <span className="text-muted-foreground/50 tabular-nums shrink-0">{svc.qty}×₹{(svc.unitPrice).toFixed(0)}</span>
+                          ) : null}
+                          <span className={`font-semibold tabular-nums shrink-0 ${svc.paid ? "text-emerald-600" : ""}`}>₹{svc.amount.toFixed(0)}</span>
+                          {svc.paid && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />}
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             ))
@@ -237,9 +280,9 @@ function InvoicePreviewModal({
               <div className="flex justify-between"><span className="text-muted-foreground">Collected</span><span className="tabular-nums text-emerald-600 font-semibold">₹{paid.toFixed(0)}</span></div>
             )}
             <div className="flex justify-between pt-1 border-t border-border/30">
-              <span className="font-bold">Total</span>
-              <span className={`font-bold tabular-nums text-base ${bills.every(b => b.paymentStatus === "paid") ? "text-emerald-600" : "text-primary"}`}>
-                ₹{bills.reduce((s, b) => s + (b.total ?? 0), 0).toFixed(0)}
+              <span className="font-bold">Outstanding</span>
+              <span className="font-bold tabular-nums text-base text-primary">
+                ₹{activeBills.reduce((s, b) => s + (b.total ?? 0), 0).toFixed(0)}
               </span>
             </div>
           </div>
@@ -309,16 +352,6 @@ export function BillingHistoryPanel({
     },
   });
 
-  const { data: pastClinicalRecords = [] } = useQuery<ClinicalRecord[]>({
-    queryKey: ["/api/auth/clinic/clinical-records/patient", patientPhone],
-    queryFn: async () => {
-      if (!patientPhone) return [];
-      const res = await apiRequest("GET", `/api/auth/clinic/clinical-records/patient?phone=${encodeURIComponent(patientPhone)}`);
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!patientPhone,
-  });
 
   const { data: auditLogs = [] } = useQuery<BillingAuditLog[]>({
     queryKey: ["/api/auth/clinic/billing-audit/booking", bookingId],
@@ -333,9 +366,6 @@ export function BillingHistoryPanel({
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const previousVisitBills = patientHistory.filter(b => b.bookingId !== bookingId);
-  const pastPrescriptions = pastClinicalRecords.filter(
-    r => r.bookingId !== bookingId && r.prescription && parsePrescription(r.prescription)
-  );
 
   const allCurrentServices: ServiceItemWithMeta[] = bills.flatMap(b =>
     ((b.services ?? []) as ServiceItem[]).map((s, idx) => ({
@@ -385,13 +415,18 @@ export function BillingHistoryPanel({
     return map;
   };
 
-  const parsePharmacyDesc = (description: string): { medicine: string; schedule: string } => {
+  const parsePharmacyDesc = (description: string): { medicine: string; frequency: string; duration: string } => {
     const crossIdx = description.indexOf("×");
-    if (crossIdx === -1) return { medicine: description, schedule: "" };
+    if (crossIdx === -1) return { medicine: description, frequency: "", duration: "" };
     const medicine = description.slice(0, crossIdx).trim();
     const afterCross = description.slice(crossIdx + 1);
     const m = afterCross.match(/^\d+\s*(.*)/);
-    return { medicine, schedule: m ? m[1].trim() : "" };
+    const schedule = m ? m[1].trim() : "";
+    const durMatch = schedule.match(/^(.*?)\s*(\d+\s+(?:days?|weeks?|months?|years?))$/i);
+    if (durMatch) {
+      return { medicine, frequency: durMatch[1].trim(), duration: durMatch[2].trim() };
+    }
+    return { medicine, frequency: schedule, duration: "" };
   };
 
   /** Find the right bill to add items to. Never add to a paid bill. */
@@ -876,37 +911,47 @@ export function BillingHistoryPanel({
                       <group.icon className="h-3 w-3 text-muted-foreground/60" />
                       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{group.label}</span>
                     </div>
+                    <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="border-b border-border/20 bg-muted/10">
-                          <th className="text-left py-1 pl-3 pr-2 font-semibold text-muted-foreground/50">Description</th>
-                          <th className="text-center py-1 px-2 font-semibold text-muted-foreground/50 w-10">Qty</th>
-                          <th className="text-right py-1 pl-2 pr-2 font-semibold text-muted-foreground/50 w-20">Amount</th>
+                        <tr className="border-b border-border/40 bg-muted/40">
+                          {group.label === "Pharmacy" ? (
+                            <>
+                              <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Medicine</th>
+                              <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-20">Frequency</th>
+                              <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Duration</th>
+                            </>
+                          ) : (
+                            <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Description</th>
+                          )}
+                          <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
+                          <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-20">Amount</th>
                           <th className="w-7"></th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border/10">
+                      <tbody className="divide-y divide-border/30">
                         {group.items.map(({ svc, origIdx }) => {
                           const isItemPaid = svc.paid || isBillPaid;
-                          const { medicine, schedule } = group.label === "Pharmacy" ? parsePharmacyDesc(svc.description) : { medicine: svc.description, schedule: "" };
+                          const { medicine, frequency, duration } = group.label === "Pharmacy" ? parsePharmacyDesc(svc.description) : { medicine: svc.description, frequency: "", duration: "" };
                           return (
-                            <tr key={origIdx} className="group/row" data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                              <td className={`py-1.5 pl-3 pr-2 ${isItemPaid ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                                {group.label === "Pharmacy" ? (
-                                  <div>
-                                    <span>{medicine}</span>
-                                    {schedule && <div className="text-xs text-muted-foreground/70 leading-snug">{schedule}</div>}
-                                  </div>
-                                ) : svc.description}
-                              </td>
-                              <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground align-top pt-2">{svc.qty ?? 1}</td>
-                              <td className={`py-1.5 pl-2 pr-2 text-right tabular-nums font-semibold align-top pt-2 ${isItemPaid ? "text-emerald-600" : "text-foreground"}`}>
+                            <tr key={origIdx} className="group/row bg-background" data-testid={`billing-item-${bill.id}-${origIdx}`}>
+                              {group.label === "Pharmacy" ? (
+                                <>
+                                  <td className={`py-1.5 pl-3 pr-2 font-medium ${isItemPaid ? "line-through text-muted-foreground" : "text-foreground"}`}>{medicine}</td>
+                                  <td className="py-1.5 px-2 text-muted-foreground align-top">{frequency || "—"}</td>
+                                  <td className="py-1.5 px-2 text-muted-foreground align-top">{duration || "—"}</td>
+                                </>
+                              ) : (
+                                <td className={`py-1.5 pl-3 pr-2 ${isItemPaid ? "line-through text-muted-foreground" : "text-foreground"}`}>{svc.description}</td>
+                              )}
+                              <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground align-top">{svc.qty ?? 1}</td>
+                              <td className={`py-1.5 pl-2 pr-2 text-right tabular-nums font-semibold align-top ${isItemPaid ? "text-emerald-600" : "text-foreground"}`}>
                                 <span className="flex items-center gap-1 justify-end">
                                   {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />}
                                   ₹{svc.amount.toFixed(0)}
                                 </span>
                               </td>
-                              <td className="py-1.5 pr-2 align-top pt-2">
+                              <td className="py-1.5 pr-2 align-top">
                                 {isItemPaid ? (
                                   <Lock className="h-3 w-3 text-muted-foreground/30 mx-auto" title="Paid — cannot remove" />
                                 ) : (
@@ -924,6 +969,7 @@ export function BillingHistoryPanel({
                         })}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1324,17 +1370,18 @@ export function BillingHistoryPanel({
                     <Stethoscope className="h-3 w-3 text-muted-foreground/60" />
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">Consultation & Procedures</span>
                   </div>
+                  <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-border/20 bg-muted/10">
-                        <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground/60">Description</th>
-                        <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground/60 w-10">Qty</th>
-                        <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground/60 w-16">₹/Unit</th>
-                        <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground/60 w-16">Total</th>
+                      <tr className="border-b border-border/40 bg-muted/40">
+                        <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Description</th>
+                        <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
+                        <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground w-16">₹/Unit</th>
+                        <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
                         <th className="w-7"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border/20">
+                    <tbody className="divide-y divide-border/30">
                       {openConsultation.map((svc, idx) => {
                         const itemKey = `${svc.billId}-${svc.itemIndex}`;
                         const isEditing = editingKey === itemKey;
@@ -1378,6 +1425,7 @@ export function BillingHistoryPanel({
                       })}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
 
@@ -1388,35 +1436,37 @@ export function BillingHistoryPanel({
                     <Pill className="h-3 w-3 text-muted-foreground/60" />
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">Pharmacy</span>
                   </div>
+                  <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-border/20 bg-muted/10">
-                        <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground/60">Medicine & Schedule</th>
-                        <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground/60 w-10">Qty</th>
-                        <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground/60 w-16">₹/Unit</th>
-                        <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground/60 w-16">Total</th>
+                      <tr className="border-b border-border/40 bg-muted/40">
+                        <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Medicine</th>
+                        <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-20">Frequency</th>
+                        <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Duration</th>
+                        <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
+                        <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground w-16">₹/Unit</th>
+                        <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
                         <th className="w-7"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border/20">
+                    <tbody className="divide-y divide-border/30">
                       {openPharmacy.map((svc, idx) => {
                         const itemKey = `${svc.billId}-${svc.itemIndex}`;
                         const isEditing = editingKey === itemKey;
                         const isUnpriced = svc.amount === 0;
-                        const { medicine, schedule } = parsePharmacyDesc(svc.description);
+                        const { medicine, frequency, duration } = parsePharmacyDesc(svc.description);
                         return (
                           <tr key={idx}
-                            className={`group transition-colors ${isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "hover:bg-muted/10"}`}
+                            className={`group transition-colors ${isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "bg-background hover:bg-muted/10"}`}
                             data-testid={`preview-item-${svc.billId}-${svc.itemIndex}`}>
-                            <td className="py-2 pl-3 pr-2">
-                              <div className="font-medium text-foreground leading-snug">{medicine}</div>
-                              {schedule && <div className="text-xs text-muted-foreground mt-0.5 leading-snug">{schedule}</div>}
-                            </td>
-                            <td className="py-2 px-2 text-center tabular-nums text-muted-foreground align-top pt-2.5">{svc.qty ?? 1}</td>
-                            <td className="py-2 px-2 text-right tabular-nums text-muted-foreground align-top pt-2.5">
+                            <td className="py-2 pl-3 pr-2 font-medium text-foreground">{medicine}</td>
+                            <td className="py-2 px-2 text-muted-foreground align-top">{frequency || "—"}</td>
+                            <td className="py-2 px-2 text-muted-foreground align-top">{duration || "—"}</td>
+                            <td className="py-2 px-2 text-center tabular-nums text-muted-foreground align-top">{svc.qty ?? 1}</td>
+                            <td className="py-2 px-2 text-right tabular-nums text-muted-foreground align-top">
                               {svc.unitPrice ? `₹${svc.unitPrice.toFixed(0)}` : "—"}
                             </td>
-                            <td className="py-2 pl-2 pr-1 text-right tabular-nums font-semibold align-top pt-2.5">
+                            <td className="py-2 pl-2 pr-1 text-right tabular-nums font-semibold align-top">
                               {isEditing ? (
                                 <div className="relative inline-block">
                                   <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
@@ -1436,7 +1486,7 @@ export function BillingHistoryPanel({
                                 </button>
                               )}
                             </td>
-                            <td className="py-2 pr-2 align-top pt-2.5">
+                            <td className="py-2 pr-2 align-top">
                               <button onClick={() => { const bill = bills.find(b => b.id === svc.billId); if (bill) deleteItemMutation.mutate({ bill, itemIndex: svc.itemIndex }); }}
                                 disabled={deleteItemMutation.isPending}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500"
@@ -1449,6 +1499,7 @@ export function BillingHistoryPanel({
                       })}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
 
@@ -1729,45 +1780,6 @@ export function BillingHistoryPanel({
         </div>
       )}
 
-      {/* ── PAST PRESCRIPTIONS ──────────────────────────────────────── */}
-      {pastPrescriptions.length > 0 && (
-        <div className="border-t border-border/40 pt-3">
-          <div className="flex items-center gap-1.5 mb-2">
-            <Pill className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Past Prescriptions</span>
-            <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
-              {pastPrescriptions.length}
-            </span>
-          </div>
-          <div className="space-y-1.5">
-            {pastPrescriptions.slice(0, 5).map(r => {
-              const rows = parsePrescription(r.prescription);
-              return (
-                <div key={r.id} className="flex items-start gap-2 px-2 py-2 rounded-lg bg-muted/20 border border-border/30">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-muted-foreground mb-1">
-                      {r.createdAt ? format(new Date(r.createdAt), "dd MMM yyyy") : "—"} · {r.doctorName ?? "Doctor"}
-                    </div>
-                    <div className="text-xs text-foreground truncate">
-                      {rows?.slice(0, 2).map(rx => rx.name).join(", ")}
-                      {rows && rows.length > 2 ? ` +${rows.length - 2} more` : ""}
-                    </div>
-                  </div>
-                  <Button
-                    size="sm" variant="outline"
-                    onClick={() => handleLoadPrescription(r)}
-                    disabled={loadingPrescription}
-                    className="h-7 px-2 text-xs shrink-0 gap-1"
-                    data-testid={`button-load-past-rx-${r.id}`}
-                  >
-                    <Pill className="h-2.5 w-2.5" /> Load
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* ── AUDIT TRAIL ─────────────────────────────────────────────── */}
       <div className="border-t border-border/40 pt-3">

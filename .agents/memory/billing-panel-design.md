@@ -16,18 +16,44 @@ This grouping is used in both the open invoice section AND inside `renderBillCar
 ## Active bill card styling
 Active (open) bill card: `border-primary/40` border + `bg-primary/10` header background. Use opacity fractions supported by Tailwind (e.g. `/10`, `/20`, `/40`) — avoid `/8` which is non-standard.
 
-## Pharmacy description parsing (`parsePharmacyDesc`)
-Pharmacy line-item descriptions are stored as `"MedicineName × qty — schedule"`. `parsePharmacyDesc` splits at `×` to extract:
-- medicine name (before `×`, trimmed)
-- schedule string (after the quantity number, e.g. `1×/day · 5 days`)
+## Table styling — must match ClinicalRecordsTab prescription table
+- Wrap every category table in `<div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">`
+- `<thead>` row: `bg-muted/40 border-b border-border/40`, th text: `text-muted-foreground` (not `/60`)
+- `<tbody>`: `divide-y divide-border/30`
+- Row bg in tbody: `bg-background` (ensures contrast against dividers)
 
-**Why:** Keeps the display clean in the Pharmacy table (medicine column + schedule column) without changing the stored data format.
+## Pharmacy description format and parsing
+Pharmacy line-item descriptions are stored as a concatenated string: `"Name Dosage ×Qty Frequency Duration"` (e.g. `"Amoxicillin 500mg ×14 Twice daily 7 days"`).
+
+`parsePharmacyDesc(desc)` → `{ medicine, frequency, duration }`:
+- Split at `×` to get medicine name
+- After `×qty`, regex-extract duration pattern `/^(.*?)\s*(\d+\s+(?:days?|weeks?|months?|years?))$/i`
+- Remainder before duration = frequency
+
+Pharmacy tables always render columns: **Medicine | Frequency | Duration | Qty | ₹/Unit | Total | [del]**
+
+Non-pharmacy tables use: **Description | Qty | ₹/Unit | Total | [del]** (or Description | Qty | Amount | [del] in the bill card expanded view)
+
+## InvoicePreviewModal
+- Only show `bills.filter(b => b.paymentStatus !== "paid")` — never include paid bills in preview
+- Total label: "Outstanding" (not "Total") when showing open bills
+- Pharmacy group renders as a full table (Medicine / Frequency / Duration / Amount columns)
+- Other groups render as a flat divider list
+
+## Data scoping — critical rule
+- Bills by bookingId: `/api/auth/clinic/bills/booking/:id` — safe, exact scope
+- Patient bill history: by email then phone — OK for billing history display only (read-only)
+- **DO NOT** fetch clinical records by phone for billing context — phone collisions cause wrong-patient data to appear when family members share a number. The "Past Prescriptions" section was removed from billing for this reason.
+- Current booking prescription: `/api/clinical-records/booking/:bookingId` — safe (bookingId scoped)
+
+## Deduplication known bug
+Line-item dedup (handleLoadPrescription) matches by first word of description — "Amoxicillin 250mg" and "Amoxicillin 500mg" treated as duplicates. Low priority; no fix applied yet.
 
 ## `serviceGroups` in `renderBillCard`
-Uses `origIdx` (the item's index in the original `services` array) so deletion mutations send the correct index to the backend even after category-based filtering. Never use the filtered-array index for delete.
+Uses `origIdx` (item's index in the original `services` array) for deletion mutations — never use the filtered-array index.
 
 ## `groupByDate` for older bills
-Older bills are displayed with date-divider labels by passing them through `groupByDate()`. The date groups are collapsible via `expandedDates` state (a `Set<string>`).
+Older bills displayed with date-divider labels via `groupByDate()`. Collapsible via `expandedDates` state (a `Set<string>`).
 
 ## `previewCollapsed` state
-The open invoice body (line items + totals) is collapsible. State: `previewCollapsed` boolean, toggled by the chevron button in the sticky toolbar. Toolbar is always visible.
+The open invoice body is collapsible. State: `previewCollapsed` boolean, toggled by the chevron button in the sticky toolbar.
