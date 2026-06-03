@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
@@ -34,6 +34,13 @@ interface ServiceItem {
   paid?: boolean;
   qty?: number;
   unitPrice?: number;
+  // Structured pharmacy fields — optional, populated for new items loaded from prescription
+  medicineName?: string;
+  dosage?: string;
+  frequency?: string;
+  duration?: string;
+  route?: string;
+  remarks?: string;
 }
 
 interface ServiceItemWithMeta extends ServiceItem {
@@ -49,6 +56,10 @@ interface MedicineRow {
   qty: string;
   frequency: string;
   duration: string;
+  durationNum?: string;
+  durationUnit?: string;
+  route?: string;
+  remarks?: string;
 }
 
 interface ClinicalRecord {
@@ -131,6 +142,28 @@ function computeTotals(services: ServiceItem[], discountPct: number, taxPct: num
   return { subtotal, disc, tax, total };
 }
 
+// Returns structured pharmacy display fields — uses stored fields for new items, parses description for old items
+function getPharmacyFields(svc: ServiceItem): { medicine: string; dosage: string; frequency: string; duration: string } {
+  if (svc.medicineName) {
+    return {
+      medicine: svc.medicineName,
+      dosage: svc.dosage || "",
+      frequency: svc.frequency || "",
+      duration: svc.duration || "",
+    };
+  }
+  // Fallback: parse from description string (legacy items)
+  const crossIdx = svc.description.indexOf("×");
+  if (crossIdx === -1) return { medicine: svc.description, dosage: "", frequency: "", duration: "" };
+  const medicine = svc.description.slice(0, crossIdx).trim();
+  const afterCross = svc.description.slice(crossIdx + 1);
+  const m = afterCross.match(/^\d+\s*(.*)/);
+  const schedule = m ? m[1].trim() : "";
+  const durMatch = schedule.match(/^(.*?)\s*(\d+\s+(?:days?|weeks?|months?|years?))$/i);
+  if (durMatch) return { medicine, dosage: "", frequency: durMatch[1].trim(), duration: durMatch[2].trim() };
+  return { medicine, dosage: "", frequency: schedule, duration: "" };
+}
+
 // ── Sub-components ─────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
@@ -170,7 +203,7 @@ function AuditActionLabel({ action }: { action: string }) {
   return <span className={`text-xs font-bold ${m.color}`}>{m.label}</span>;
 }
 
-// ── Preview Modal ──────────────────────────────────────────────────────────
+// ── Invoice Preview Modal ──────────────────────────────────────────────────
 
 function InvoicePreviewModal({
   open, onClose, bills, patientName, patientCode,
@@ -222,26 +255,19 @@ function InvoicePreviewModal({
                       <thead>
                         <tr className="bg-muted/40 border-b border-border/40">
                           <th className="text-left px-3 py-1.5 font-semibold text-muted-foreground">Medicine</th>
-                          <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground w-20">Frequency</th>
+                          <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground w-14">Dosage</th>
+                          <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground w-16">Frequency</th>
                           <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground w-16">Duration</th>
                           <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground w-20">Amount</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/30">
                         {g.items.map((svc, i) => {
-                          const { medicine, frequency, duration } = (() => {
-                            const crossIdx = svc.description.indexOf("×");
-                            if (crossIdx === -1) return { medicine: svc.description, frequency: "", duration: "" };
-                            const med = svc.description.slice(0, crossIdx).trim();
-                            const after = svc.description.slice(crossIdx + 1);
-                            const m2 = after.match(/^\d+\s*(.*)/);
-                            const sched = m2 ? m2[1].trim() : "";
-                            const dm = sched.match(/^(.*?)\s*(\d+\s+(?:days?|weeks?|months?|years?))$/i);
-                            return dm ? { medicine: med, frequency: dm[1].trim(), duration: dm[2].trim() } : { medicine: med, frequency: sched, duration: "" };
-                          })();
+                          const { medicine, dosage, frequency, duration } = getPharmacyFields(svc);
                           return (
                             <tr key={i} className="bg-background">
                               <td className={`px-3 py-1.5 font-medium ${svc.paid ? "line-through text-muted-foreground/50" : "text-foreground"}`}>{medicine}</td>
+                              <td className="px-2 py-1.5 text-muted-foreground">{dosage || "—"}</td>
                               <td className="px-2 py-1.5 text-muted-foreground">{frequency || "—"}</td>
                               <td className="px-2 py-1.5 text-muted-foreground">{duration || "—"}</td>
                               <td className="px-3 py-1.5 text-right tabular-nums font-semibold">
@@ -300,19 +326,20 @@ export function BillingHistoryPanel({
 }: BillingHistoryPanelProps) {
 
   // ── Local state ───────────────────────────────────────────────────────────
-  const [addFormOpen, setAddFormOpen] = useState(false);
+  const [addFormOpen, setAddFormOpen] = useState(false);           // for "no bills" standalone form
+  const [addFormOpenInCard, setAddFormOpenInCard] = useState(false); // for active bill card form
   const [addForm, setAddForm] = useState<AddEntryForm>({ description: "", category: "Consultation", qty: "1", unitPrice: "" });
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingAmount, setEditingAmount] = useState("");
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [auditExpanded, setAuditExpanded] = useState(false);
   const [cashierForm, setCashierForm] = useState<CashierForm | null>(null);
   const [loadingPrescription, setLoadingPrescription] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [showOlderBills, setShowOlderBills] = useState(false);
-  const [previewCollapsed, setPreviewCollapsed] = useState(false);
+
+  const didAutoExpand = useRef(false);
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
@@ -352,7 +379,6 @@ export function BillingHistoryPanel({
     },
   });
 
-
   const { data: auditLogs = [] } = useQuery<BillingAuditLog[]>({
     queryKey: ["/api/auth/clinic/billing-audit/booking", bookingId],
     queryFn: async () => {
@@ -373,14 +399,8 @@ export function BillingHistoryPanel({
     }))
   );
 
-  const consolidatedSubtotal = allCurrentServices.reduce((s, i) => s + i.amount, 0);
-  const consolidatedPaid = allCurrentServices.filter(s => s.paid).reduce((s, i) => s + i.amount, 0);
   const consolidatedTotal = bills.reduce((s, b) => s + (b.total ?? 0), 0);
   const allCurrentFullyPaid = bills.length > 0 && bills.every(b => b.paymentStatus === "paid");
-
-  const { consultation: previewConsultation, pharmacy: previewPharmacy, other: previewOther } = groupByCategory(allCurrentServices);
-
-  const unpricedPharmacyItems = allCurrentServices.filter(s => s.category === "Pharmacy" && s.amount === 0);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -415,20 +435,6 @@ export function BillingHistoryPanel({
     return map;
   };
 
-  const parsePharmacyDesc = (description: string): { medicine: string; frequency: string; duration: string } => {
-    const crossIdx = description.indexOf("×");
-    if (crossIdx === -1) return { medicine: description, frequency: "", duration: "" };
-    const medicine = description.slice(0, crossIdx).trim();
-    const afterCross = description.slice(crossIdx + 1);
-    const m = afterCross.match(/^\d+\s*(.*)/);
-    const schedule = m ? m[1].trim() : "";
-    const durMatch = schedule.match(/^(.*?)\s*(\d+\s+(?:days?|weeks?|months?|years?))$/i);
-    if (durMatch) {
-      return { medicine, frequency: durMatch[1].trim(), duration: durMatch[2].trim() };
-    }
-    return { medicine, frequency: schedule, duration: "" };
-  };
-
   /** Find the right bill to add items to. Never add to a paid bill. */
   const findActiveBill = () =>
     bills.find(b => b.paymentStatus === "draft") ??
@@ -436,21 +442,18 @@ export function BillingHistoryPanel({
     bills.find(b => b.paymentStatus === "partial") ??
     null;
 
-  // ── Mutations ─────────────────────────────────────────────────────────────
+  // Auto-expand the active bill when first loaded
+  useEffect(() => {
+    if (!didAutoExpand.current && bills.length > 0) {
+      const active = findActiveBill();
+      if (active) {
+        setExpandedIds(new Set([active.id]));
+        didAutoExpand.current = true;
+      }
+    }
+  }, [bills]);
 
-  const updateItemsMutation = useMutation({
-    mutationFn: async ({ bill, services, extra }: { bill: PatientBill; services: ServiceItem[]; extra?: Partial<PatientBill> }) => {
-      const paymentStatus = bill.paymentStatus === "draft" ? "draft" : computeStatus(services);
-      const { subtotal, total } = computeTotals(services, bill.discountPct ?? 0, bill.taxPct ?? 0);
-      const res = await apiRequest("PATCH", `/api/auth/clinic/bills/${bill.id}`, {
-        services, paymentStatus, subtotal, total, ...extra,
-      });
-      if (!res.ok) throw new Error("Failed to update");
-      return res.json();
-    },
-    onSuccess: () => invalidate(),
-    onError: () => notify.error("Could not update bill"),
-  });
+  // ── Mutations ─────────────────────────────────────────────────────────────
 
   const addChargeMutation = useMutation({
     mutationFn: async ({ description, category, amount, qty, unitPrice }: {
@@ -487,6 +490,7 @@ export function BillingHistoryPanel({
       invalidate();
       setAddForm({ description: "", category: "Consultation", qty: "1", unitPrice: "" });
       setAddFormOpen(false);
+      setAddFormOpenInCard(false);
       notify.success("Item added", { description: `₹${vars.amount} for "${vars.description}"` });
       await logAudit("item_added", { description: vars.description, amount: vars.amount, category: vars.category }, billId);
     },
@@ -627,13 +631,15 @@ export function BillingHistoryPanel({
     onSuccess: (bill) => {
       invalidate();
       setShowOlderBills(false);
+      // Auto-expand the new bill
+      setExpandedIds(new Set([bill.id]));
       notify.success("New draft bill created", { description: `${bill.billNumber} — add items below` });
       logAudit("bill_created", { billNumber: bill.billNumber }, bill.id);
     },
     onError: () => notify.error("Could not create new bill"),
   });
 
-  // ── Load Prescription Items (bug-fixed) ───────────────────────────────────
+  // ── Load Prescription Items ───────────────────────────────────────────────
 
   const handleLoadPrescription = async (fromRecord?: ClinicalRecord) => {
     setLoadingPrescription(true);
@@ -670,10 +676,18 @@ export function BillingHistoryPanel({
           );
           const unitPrice = match ? (match.unitPrice ?? 0) : 0;
           const amount = qty * unitPrice;
+          const durationStr = r.durationNum ? `${r.durationNum} ${r.durationUnit || 'days'}` : (r.duration || '');
           return {
-            description: [r.name.trim(), r.dosage, `×${qty}`, r.frequency, r.duration].filter(Boolean).join(" "),
+            description: [r.name.trim(), `×${qty}`, r.frequency, durationStr].filter(Boolean).join(" "),
             category: "Pharmacy",
             amount, paid: false, qty, unitPrice,
+            // Structured fields for clean display in billing tables
+            medicineName: r.name.trim(),
+            dosage: r.dosage || undefined,
+            frequency: r.frequency || undefined,
+            duration: durationStr || undefined,
+            route: r.route || undefined,
+            remarks: r.remarks || undefined,
           };
         });
 
@@ -682,16 +696,14 @@ export function BillingHistoryPanel({
         return;
       }
 
-      // FIX: find active (non-paid) bill. Never add to a paid bill.
       const activeBill = findActiveBill();
 
       if (activeBill) {
         const existing = (activeBill.services ?? []) as ServiceItem[];
-        // Deduplication: skip items already present by matching first word of description + category
         const existingKeys = new Set(
-          existing.filter(s => s.category === "Pharmacy").map(s => s.description.split(" ")[0].toLowerCase())
+          existing.filter(s => s.category === "Pharmacy").map(s => (s.medicineName || s.description.split(" ")[0]).toLowerCase())
         );
-        const unique = newServices.filter(s => !existingKeys.has(s.description.split(" ")[0].toLowerCase()));
+        const unique = newServices.filter(s => !existingKeys.has((s.medicineName || s.description.split(" ")[0]).toLowerCase()));
 
         if (unique.length === 0) {
           notify.warning("Already loaded", { description: "All prescription items are already in this bill." });
@@ -707,7 +719,6 @@ export function BillingHistoryPanel({
         if (!res.ok) throw new Error("Failed to update bill");
         await logAudit("prescription_loaded", { count: unique.length, recordId: record.id }, activeBill.id);
       } else {
-        // FIX: All bills are paid — create a NEW draft bill, never add to paid bill
         const { subtotal, total } = computeTotals(newServices, 0, 0);
         const res = await apiRequest("POST", "/api/auth/clinic/bills", {
           bookingId,
@@ -773,8 +784,6 @@ export function BillingHistoryPanel({
     logAudit("item_amount_changed", { description: item.description, oldAmount: item.amount, newAmount }, item.billId);
   };
 
-  // ── Cashier form open (pre-fill with unpaid amount) ───────────────────────
-
   const openCashierForm = (bill: PatientBill) => {
     const services = (bill.services ?? []) as ServiceItem[];
     const unpaidTotal = services.filter(s => !s.paid).reduce((s, i) => s + i.amount, 0);
@@ -793,12 +802,6 @@ export function BillingHistoryPanel({
     return next;
   });
 
-  const toggleDate = (label: string) => setExpandedDates(prev => {
-    const next = new Set(prev);
-    if (next.has(label)) next.delete(label); else next.add(label);
-    return next;
-  });
-
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
@@ -809,26 +812,8 @@ export function BillingHistoryPanel({
     </div>
   );
 
-  // Active draft bill (for discount/tax editing)
-  const draftBill = bills.find(b => b.paymentStatus === "draft");
-  const activeBillForTotals = draftBill ?? bills.find(b => b.paymentStatus !== "paid") ?? bills[0];
-
-  // Open vs paid split for invoice preview
-  const openBills = bills.filter(b => b.paymentStatus !== "paid");
-  const openServices: ServiceItemWithMeta[] = openBills.flatMap(b =>
-    ((b.services ?? []) as ServiceItem[]).map((s, idx) => ({
-      ...s, billId: b.id, billNumber: b.billNumber, itemIndex: idx, billStatus: b.paymentStatus ?? "pending",
-    }))
-  );
-  const paidBillsCount = bills.length - openBills.length;
-  const hasOpenItems = openServices.length > 0;
-  const { consultation: openConsultation, pharmacy: openPharmacy, other: openOther } = groupByCategory(openServices);
-  const unpricedOpenPharmacy = openServices.filter(s => s.category === "Pharmacy" && s.amount === 0);
-
-  // Active bill id — for "Active" badge
   const activeBillId = findActiveBill()?.id;
 
-  // Bills sorted newest first, split into latest vs older
   const sortedBills = [...bills].sort((a, b) =>
     new Date((b as PatientBill & { createdAt?: string }).createdAt ?? 0).getTime() -
     new Date((a as PatientBill & { createdAt?: string }).createdAt ?? 0).getTime()
@@ -836,7 +821,7 @@ export function BillingHistoryPanel({
   const latestBill = sortedBills[0] ?? null;
   const olderBills = sortedBills.slice(1);
 
-  // ── Bill card renderer (shared for latest + older bills) ─────────────────
+  // ── Bill card renderer ───────────────────────────────────────────────────
   const renderBillCard = (bill: PatientBill) => {
     const services = (bill.services ?? []) as ServiceItem[];
     const isExpanded = expandedIds.has(bill.id);
@@ -847,34 +832,35 @@ export function BillingHistoryPanel({
     const isBillPaid = bill.paymentStatus === "paid";
     const showCashierFor = cashierForm?.billId === bill.id;
     const isActiveBill = bill.id === activeBillId;
+    const canEdit = !isBillPaid;
 
-    const serviceGroups: { label: string; icon: typeof Stethoscope; items: { svc: ServiceItem; origIdx: number }[] }[] = [
-      {
-        label: "Consultation & Procedures",
-        icon: Stethoscope,
-        items: services.map((svc, i) => ({ svc, origIdx: i })).filter(x => ["Consultation", "Procedure", "Treatment", "Consumable"].includes(x.svc.category)),
-      },
-      {
-        label: "Pharmacy",
-        icon: Pill,
-        items: services.map((svc, i) => ({ svc, origIdx: i })).filter(x => x.svc.category === "Pharmacy"),
-      },
-      {
-        label: "Other",
-        icon: ClipboardList,
-        items: services.map((svc, i) => ({ svc, origIdx: i })).filter(x => !["Consultation", "Procedure", "Treatment", "Consumable", "Pharmacy"].includes(x.svc.category)),
-      },
-    ].filter(g => g.items.length > 0);
+    // Inline helper: build ServiceItemWithMeta from local bill context
+    const makeItemMeta = (svc: ServiceItem, origIdx: number): ServiceItemWithMeta => ({
+      ...svc, billId: bill.id, billNumber: bill.billNumber, itemIndex: origIdx, billStatus: bill.paymentStatus ?? "pending",
+    });
+
+    // Item groups
+    const consultItems = services.map((svc, i) => ({ svc, origIdx: i }))
+      .filter(x => ["Consultation", "Procedure", "Treatment", "Consumable"].includes(x.svc.category));
+    const pharmacyItems = services.map((svc, i) => ({ svc, origIdx: i }))
+      .filter(x => x.svc.category === "Pharmacy");
+    const otherItems = services.map((svc, i) => ({ svc, origIdx: i }))
+      .filter(x => !["Consultation", "Procedure", "Treatment", "Consumable", "Pharmacy"].includes(x.svc.category));
+
+    const unpricedPharmacy = pharmacyItems.filter(x => !isBillPaid && x.svc.amount === 0);
 
     return (
-      <div key={bill.id} className={`rounded-xl border overflow-hidden ${isActiveBill ? "border-primary/40" : "border-border/50 bg-background/50"}`} data-testid={`billing-card-${bill.id}`}>
-        {/* Bill header row */}
-        <div className={`px-3 py-2.5 flex items-center gap-2 ${isActiveBill ? "bg-primary/10" : ""}`}>
+      <div key={bill.id}
+        className={`rounded-xl border overflow-hidden ${isActiveBill && !isBillPaid ? "border-primary/40" : "border-border/50 bg-background/50"}`}
+        data-testid={`billing-card-${bill.id}`}>
+
+        {/* ── HEADER ── */}
+        <div className={`px-3 py-2.5 flex items-center gap-2 ${isActiveBill && !isBillPaid ? "bg-primary/10" : ""}`}>
           <button className="flex-1 min-w-0 text-left" onClick={() => toggleExpand(bill.id)}>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold text-foreground font-mono">{bill.billNumber}</span>
               <StatusBadge status={bill.paymentStatus ?? "pending"} />
-              {isActiveBill && (
+              {isActiveBill && !isBillPaid && (
                 <span className="inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                   Active
                 </span>
@@ -894,87 +880,401 @@ export function BillingHistoryPanel({
           <button
             onClick={() => toggleExpand(bill.id)}
             className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground shrink-0"
-            data-testid={`button-expand-bill-${bill.id}`}
-          >
+            data-testid={`button-expand-bill-${bill.id}`}>
             {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
         </div>
 
-        {/* Expanded items */}
+        {/* ── EXPANDED BODY ── */}
         {isExpanded && (
           <div className="border-t border-border/40">
+
+            {/* Action toolbar — only for the active editable bill */}
+            {isActiveBill && canEdit && (
+              <div className="px-3 py-2 border-b border-border/30 bg-background flex items-center gap-2 flex-wrap">
+                <Button size="sm"
+                  onClick={() => handleLoadPrescription()}
+                  disabled={loadingPrescription}
+                  className="h-8 text-xs gap-1.5 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground"
+                  data-testid="button-load-prescription">
+                  {loadingPrescription ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pill className="h-3.5 w-3.5" />}
+                  Load Prescription
+                </Button>
+                <Button size="sm" variant="outline"
+                  onClick={() => setAddFormOpenInCard(v => !v)}
+                  className="h-8 text-xs gap-1.5 active:scale-[0.98]"
+                  data-testid="button-toggle-add-entry">
+                  <Plus className="h-3.5 w-3.5" /> Add Entry
+                </Button>
+                <div className="ml-auto">
+                  <Button size="sm" variant="outline"
+                    onClick={() => createNewBillMutation.mutate()}
+                    disabled={createNewBillMutation.isPending}
+                    className="h-8 text-xs gap-1.5 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 active:scale-[0.98]"
+                    data-testid="button-new-bill">
+                    {createNewBillMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                    New Bill
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Inline Add Entry form */}
+            {isActiveBill && canEdit && addFormOpenInCard && (
+              <div className="px-3 py-3 border-b border-border/40 bg-muted/5 space-y-2 animate-in slide-in-from-top-1 duration-150">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">New Entry</span>
+                  <button onClick={() => setAddFormOpenInCard(false)} className="p-1 rounded hover:bg-muted/60 text-muted-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="col-span-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description *</Label>
+                    <Input value={addForm.description}
+                      onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
+                      placeholder="e.g. Dental cleaning, Root canal…"
+                      className="h-8 text-xs mt-0.5" data-testid="input-entry-description" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</Label>
+                    <Select value={addForm.category} onValueChange={v => setAddForm(f => ({ ...f, category: v }))}>
+                      <SelectTrigger className="h-8 text-xs mt-0.5" data-testid="select-entry-category"><SelectValue /></SelectTrigger>
+                      <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Qty</Label>
+                    <Input type="number" min="1" value={addForm.qty}
+                      onChange={e => setAddForm(f => ({ ...f, qty: e.target.value }))}
+                      className="h-8 text-xs mt-0.5" data-testid="input-entry-qty" />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unit Price (₹) *</Label>
+                    <div className="relative mt-0.5">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
+                      <Input type="number" min="0" step="0.01" value={addForm.unitPrice}
+                        onChange={e => setAddForm(f => ({ ...f, unitPrice: e.target.value }))}
+                        placeholder="0.00" className="pl-5 h-8 text-xs" data-testid="input-entry-unit-price" />
+                    </div>
+                    {addForm.qty && addForm.unitPrice && parseFloat(addForm.qty) > 0 && parseFloat(addForm.unitPrice) > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Total: ₹{(parseFloat(addForm.qty) * parseFloat(addForm.unitPrice)).toFixed(0)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end pt-1">
+                  <Button size="sm" variant="ghost" onClick={() => setAddFormOpenInCard(false)} className="h-8 text-xs">Cancel</Button>
+                  <Button size="sm" onClick={handleAddEntry} disabled={addChargeMutation.isPending}
+                    className="h-8 text-xs gap-1 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground"
+                    data-testid="button-save-entry">
+                    {addChargeMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    Add to Bill
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Unpriced pharmacy warning */}
+            {unpricedPharmacy.length > 0 && (
+              <div className="px-3 py-2 bg-amber-50/80 dark:bg-amber-950/20 border-b border-amber-200/50 dark:border-amber-800/30 flex items-start gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                    {unpricedPharmacy.length} item{unpricedPharmacy.length > 1 ? "s" : ""} need pricing
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400/80 mt-0.5">
+                    Click ₹0 to set a price, or update your Pharmacy Catalog first.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Items */}
             {services.length > 0 ? (
               <div className="divide-y divide-border/20">
-                {serviceGroups.map((group, gi) => (
-                  <div key={gi}>
+
+                {/* Consultation & Procedures */}
+                {consultItems.length > 0 && (
+                  <div>
                     <div className="px-3 py-1 bg-muted/20 flex items-center gap-1.5">
-                      <group.icon className="h-3 w-3 text-muted-foreground/60" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">{group.label}</span>
+                      <Stethoscope className="h-3 w-3 text-muted-foreground/60" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Consultation & Procedures</span>
                     </div>
                     <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-border/40 bg-muted/40">
-                          {group.label === "Pharmacy" ? (
-                            <>
-                              <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Medicine</th>
-                              <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-20">Frequency</th>
-                              <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Duration</th>
-                            </>
-                          ) : (
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-border/40 bg-muted/40">
                             <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Description</th>
-                          )}
-                          <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
-                          <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-20">Amount</th>
-                          <th className="w-7"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/30">
-                        {group.items.map(({ svc, origIdx }) => {
-                          const isItemPaid = svc.paid || isBillPaid;
-                          const { medicine, frequency, duration } = group.label === "Pharmacy" ? parsePharmacyDesc(svc.description) : { medicine: svc.description, frequency: "", duration: "" };
-                          return (
-                            <tr key={origIdx} className="group/row bg-background" data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                              {group.label === "Pharmacy" ? (
-                                <>
-                                  <td className={`py-1.5 pl-3 pr-2 font-medium ${isItemPaid ? "line-through text-muted-foreground" : "text-foreground"}`}>{medicine}</td>
-                                  <td className="py-1.5 px-2 text-muted-foreground align-top">{frequency || "—"}</td>
-                                  <td className="py-1.5 px-2 text-muted-foreground align-top">{duration || "—"}</td>
-                                </>
-                              ) : (
+                            <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
+                            <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground w-16">₹/Unit</th>
+                            <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
+                            <th className="w-7"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/30">
+                          {consultItems.map(({ svc, origIdx }) => {
+                            const itemKey = `${bill.id}-${origIdx}`;
+                            const isEditing = editingKey === itemKey;
+                            const isItemPaid = svc.paid || isBillPaid;
+                            return (
+                              <tr key={origIdx} className="group/row bg-background hover:bg-muted/10 transition-colors"
+                                data-testid={`billing-item-${bill.id}-${origIdx}`}>
                                 <td className={`py-1.5 pl-3 pr-2 ${isItemPaid ? "line-through text-muted-foreground" : "text-foreground"}`}>{svc.description}</td>
-                              )}
-                              <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground align-top">{svc.qty ?? 1}</td>
-                              <td className={`py-1.5 pl-2 pr-2 text-right tabular-nums font-semibold align-top ${isItemPaid ? "text-emerald-600" : "text-foreground"}`}>
-                                <span className="flex items-center gap-1 justify-end">
-                                  {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />}
-                                  ₹{svc.amount.toFixed(0)}
-                                </span>
-                              </td>
-                              <td className="py-1.5 pr-2 align-top">
-                                {isItemPaid ? (
-                                  <Lock className="h-3 w-3 text-muted-foreground/30 mx-auto" title="Paid — cannot remove" />
-                                ) : (
-                                  <button
-                                    onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
-                                    disabled={deleteItemMutation.isPending}
-                                    className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
-                                    data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
-                                    <X className="h-3 w-3" />
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                                <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
+                                <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{svc.unitPrice ? `₹${svc.unitPrice.toFixed(0)}` : "—"}</td>
+                                <td className="py-1.5 pl-2 pr-1 text-right tabular-nums font-semibold">
+                                  {isItemPaid ? (
+                                    <span className="flex items-center gap-0.5 justify-end text-emerald-600">
+                                      <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
+                                    </span>
+                                  ) : isEditing ? (
+                                    <div className="relative inline-block">
+                                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+                                      <Input type="number" min="0" value={editingAmount}
+                                        onChange={e => setEditingAmount(e.target.value)}
+                                        onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
+                                        onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
+                                        className="h-6 w-20 pl-4 text-xs" autoFocus
+                                        data-testid={`input-item-amount-${itemKey}`} />
+                                    </div>
+                                  ) : (
+                                    <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
+                                      className="flex items-center gap-0.5 ml-auto hover:text-primary transition-colors"
+                                      data-testid={`amount-${itemKey}`}>
+                                      ₹{svc.amount.toFixed(0)}
+                                      <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
+                                    </button>
+                                  )}
+                                </td>
+                                <td className="py-1.5 pr-2">
+                                  {isItemPaid ? (
+                                    <Lock className="h-3 w-3 text-muted-foreground/30 mx-auto" title="Paid — cannot remove" />
+                                  ) : (
+                                    <button
+                                      onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
+                                      disabled={deleteItemMutation.isPending}
+                                      className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
+                                      data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* Pharmacy — with Dosage column */}
+                {pharmacyItems.length > 0 && (
+                  <div>
+                    <div className="px-3 py-1 bg-muted/20 flex items-center gap-1.5">
+                      <Pill className="h-3 w-3 text-muted-foreground/60" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Pharmacy</span>
+                    </div>
+                    <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-border/40 bg-muted/40">
+                            <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Medicine</th>
+                            <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-14">Dosage</th>
+                            <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Frequency</th>
+                            <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Duration</th>
+                            <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
+                            <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
+                            <th className="w-7"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/30">
+                          {pharmacyItems.map(({ svc, origIdx }) => {
+                            const itemKey = `${bill.id}-${origIdx}`;
+                            const isEditing = editingKey === itemKey;
+                            const isItemPaid = svc.paid || isBillPaid;
+                            const isUnpriced = svc.amount === 0 && !isBillPaid;
+                            const { medicine, dosage, frequency, duration } = getPharmacyFields(svc);
+                            return (
+                              <tr key={origIdx}
+                                className={`group/row transition-colors ${isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "bg-background hover:bg-muted/10"}`}
+                                data-testid={`billing-item-${bill.id}-${origIdx}`}>
+                                <td className={`py-1.5 pl-3 pr-2 font-medium ${isItemPaid ? "line-through text-muted-foreground" : "text-foreground"}`}>{medicine}</td>
+                                <td className="py-1.5 px-2 text-muted-foreground">{dosage || "—"}</td>
+                                <td className="py-1.5 px-2 text-muted-foreground">{frequency || "—"}</td>
+                                <td className="py-1.5 px-2 text-muted-foreground">{duration || "—"}</td>
+                                <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
+                                <td className="py-1.5 pl-2 pr-1 text-right tabular-nums font-semibold">
+                                  {isItemPaid ? (
+                                    <span className="flex items-center gap-0.5 justify-end text-emerald-600">
+                                      <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
+                                    </span>
+                                  ) : isEditing ? (
+                                    <div className="relative inline-block">
+                                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+                                      <Input type="number" min="0" value={editingAmount}
+                                        onChange={e => setEditingAmount(e.target.value)}
+                                        onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
+                                        onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
+                                        className={`h-6 w-20 pl-4 text-xs ${isUnpriced ? "border-amber-400" : ""}`} autoFocus
+                                        data-testid={`input-item-amount-${itemKey}`} />
+                                    </div>
+                                  ) : (
+                                    <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
+                                      className={`flex items-center gap-0.5 ml-auto transition-colors ${isUnpriced ? "text-amber-600 hover:text-amber-700" : "hover:text-primary"}`}
+                                      data-testid={`amount-${itemKey}`}>
+                                      ₹{svc.amount.toFixed(0)}
+                                      <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
+                                    </button>
+                                  )}
+                                </td>
+                                <td className="py-1.5 pr-2">
+                                  {isItemPaid ? (
+                                    <Lock className="h-3 w-3 text-muted-foreground/30 mx-auto" title="Paid — cannot remove" />
+                                  ) : (
+                                    <button
+                                      onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
+                                      disabled={deleteItemMutation.isPending}
+                                      className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
+                                      data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Other items */}
+                {otherItems.length > 0 && (
+                  <div>
+                    <div className="px-3 py-1 bg-muted/20 flex items-center gap-1.5">
+                      <ClipboardList className="h-3 w-3 text-muted-foreground/60" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Other</span>
+                    </div>
+                    {otherItems.map(({ svc, origIdx }) => {
+                      const itemKey = `${bill.id}-${origIdx}`;
+                      const isEditing = editingKey === itemKey;
+                      const isItemPaid = svc.paid || isBillPaid;
+                      return (
+                        <div key={origIdx} className="flex items-center gap-2 px-3 py-1.5 group/row hover:bg-muted/10 border-b border-border/10 last:border-0"
+                          data-testid={`billing-item-${bill.id}-${origIdx}`}>
+                          <span className={`flex-1 text-xs min-w-0 truncate ${isItemPaid ? "line-through text-muted-foreground" : "text-foreground"}`}>{svc.description}</span>
+                          {isEditing ? (
+                            <div className="relative shrink-0">
+                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
+                              <Input type="number" min="0" value={editingAmount}
+                                onChange={e => setEditingAmount(e.target.value)}
+                                onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
+                                onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
+                                className="h-6 w-20 pl-4 text-xs" autoFocus
+                                data-testid={`input-item-amount-${itemKey}`} />
+                            </div>
+                          ) : (
+                            <button onClick={() => !isItemPaid && startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
+                              className={`text-xs font-semibold tabular-nums shrink-0 flex items-center gap-0.5 ${isItemPaid ? "text-emerald-600" : "hover:text-primary transition-colors"}`}
+                              data-testid={`amount-${itemKey}`}>
+                              {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />}
+                              ₹{svc.amount.toFixed(0)}
+                              {!isItemPaid && <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />}
+                            </button>
+                          )}
+                          {isItemPaid ? (
+                            <Lock className="h-3 w-3 text-muted-foreground/30 shrink-0" />
+                          ) : (
+                            <button onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
+                              disabled={deleteItemMutation.isPending}
+                              className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 shrink-0"
+                              data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
               </div>
             ) : (
-              <p className="px-3 py-2 text-xs text-muted-foreground italic">No items yet — use "Add Entry" or "Load Prescription" above</p>
+              <p className="px-3 py-3 text-xs text-muted-foreground italic">
+                {isActiveBill && canEdit
+                  ? 'No items yet — use "Load Prescription" or "Add Entry" above'
+                  : "No items in this bill"}
+              </p>
+            )}
+
+            {/* Discount + Tax — only for editable bills with items */}
+            {canEdit && services.length > 0 && (
+              <div className="px-3 py-2 border-t border-border/30 bg-muted/10 flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs text-muted-foreground font-medium whitespace-nowrap">Discount %</label>
+                  <Input type="number" min="0" max="100" step="0.5"
+                    defaultValue={String(bill.discountPct ?? 0)}
+                    onBlur={e => {
+                      const val = parseFloat(e.target.value) || 0;
+                      if (val !== (bill.discountPct ?? 0)) {
+                        updateDiscountTaxMutation.mutate({ bill, discountPct: val, taxPct: bill.taxPct ?? 0 });
+                      }
+                    }}
+                    className="h-7 w-16 text-xs" data-testid="input-discount-pct" />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs text-muted-foreground font-medium whitespace-nowrap">Tax %</label>
+                  <Input type="number" min="0" max="100" step="0.5"
+                    defaultValue={String(bill.taxPct ?? 0)}
+                    onBlur={e => {
+                      const val = parseFloat(e.target.value) || 0;
+                      if (val !== (bill.taxPct ?? 0)) {
+                        updateDiscountTaxMutation.mutate({ bill, discountPct: bill.discountPct ?? 0, taxPct: val });
+                      }
+                    }}
+                    className="h-7 w-16 text-xs" data-testid="input-tax-pct" />
+                </div>
+              </div>
+            )}
+
+            {/* Totals */}
+            {services.length > 0 && (
+              <div className="px-3 py-2 bg-muted/20 border-t border-border/30 space-y-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Subtotal</span>
+                  <span className="text-xs tabular-nums text-foreground">₹{services.reduce((s, i) => s + i.amount, 0).toFixed(0)}</span>
+                </div>
+                {(bill.discountPct ?? 0) > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Discount ({bill.discountPct}%)</span>
+                    <span className="text-xs tabular-nums text-emerald-600">
+                      −₹{(services.reduce((s, i) => s + i.amount, 0) * ((bill.discountPct ?? 0) / 100)).toFixed(0)}
+                    </span>
+                  </div>
+                )}
+                {(bill.taxPct ?? 0) > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Tax ({bill.taxPct}%)</span>
+                    <span className="text-xs tabular-nums text-foreground">
+                      +₹{((services.reduce((s, i) => s + i.amount, 0) * (1 - (bill.discountPct ?? 0) / 100)) * ((bill.taxPct ?? 0) / 100)).toFixed(0)}
+                    </span>
+                  </div>
+                )}
+                {paidAmt > 0 && !allPaid && !isBillPaid && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Collected</span>
+                    <span className="text-xs tabular-nums text-emerald-600 font-semibold">₹{paidAmt.toFixed(0)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-0.5 border-t border-border/30">
+                  <span className="text-xs font-bold text-foreground">{isBillPaid ? "Total Paid" : "Outstanding"}</span>
+                  <span className="text-sm font-bold tabular-nums text-primary">₹{totalAmt.toFixed(0)}</span>
+                </div>
+              </div>
             )}
 
             {/* Footer actions */}
@@ -1004,38 +1304,33 @@ export function BillingHistoryPanel({
 
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {isDraft && (
-                    <Button
-                      size="sm" variant="outline"
+                    <Button size="sm" variant="outline"
                       onClick={() => confirmDraftMutation.mutate(bill)}
                       disabled={confirmDraftMutation.isPending}
                       className="h-7 px-2 text-xs gap-1 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
-                      data-testid={`button-confirm-draft-${bill.id}`}
-                    >
+                      data-testid={`button-confirm-draft-${bill.id}`}>
                       <Check className="h-3 w-3" /> Confirm Bill
                     </Button>
                   )}
                   {!allPaid && !isBillPaid && !isDraft && services.length > 0 && (
-                    <Button
-                      size="sm" variant="outline"
+                    <Button size="sm" variant="outline"
                       onClick={() => openCashierForm(bill)}
                       className="h-7 px-2 text-xs gap-1 border-emerald-400/50 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                      data-testid={`button-mark-paid-${bill.id}`}
-                    >
+                      data-testid={`button-mark-paid-${bill.id}`}>
                       <CreditCard className="h-3 w-3" /> Mark Paid
                     </Button>
                   )}
-                  <Button
-                    size="sm" variant="ghost"
+                  <Button size="sm" variant="ghost"
                     onClick={() => onPrintBill(bill)}
                     className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                    data-testid={`button-reprint-${bill.id}`}
-                  >
+                    data-testid={`button-reprint-${bill.id}`}>
                     <FileText className="h-3 w-3" /> Print
                   </Button>
                   {!isBillPaid && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10" data-testid={`button-delete-bill-${bill.id}`}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          data-testid={`button-delete-bill-${bill.id}`}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </AlertDialogTrigger>
@@ -1069,56 +1364,37 @@ export function BillingHistoryPanel({
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amount (₹)</Label>
                       <div className="relative mt-0.5">
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
-                        <Input
-                          type="number" min="0"
+                        <Input type="number" min="0"
                           value={cashierForm!.amountReceived}
                           onChange={e => setCashierForm(f => f ? { ...f, amountReceived: e.target.value } : f)}
-                          className="pl-5 h-7 text-xs"
-                          data-testid="input-cashier-amount"
-                        />
+                          className="pl-5 h-7 text-xs" data-testid="input-cashier-amount" />
                       </div>
                     </div>
                     <div>
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Method</Label>
-                      <Select
-                        value={cashierForm!.paymentMethod}
-                        onValueChange={v => setCashierForm(f => f ? { ...f, paymentMethod: v } : f)}
-                      >
-                        <SelectTrigger className="h-7 text-xs mt-0.5" data-testid="select-payment-method">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                        </SelectContent>
+                      <Select value={cashierForm!.paymentMethod} onValueChange={v => setCashierForm(f => f ? { ...f, paymentMethod: v } : f)}>
+                        <SelectTrigger className="h-7 text-xs mt-0.5" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
+                        <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cashier Name</Label>
-                      <Input
-                        value={cashierForm!.cashierName}
+                      <Input value={cashierForm!.cashierName}
                         onChange={e => setCashierForm(f => f ? { ...f, cashierName: e.target.value } : f)}
-                        placeholder="e.g. Priya"
-                        className="h-7 text-xs mt-0.5"
-                        data-testid="input-cashier-name"
-                      />
+                        placeholder="e.g. Priya" className="h-7 text-xs mt-0.5" data-testid="input-cashier-name" />
                     </div>
                     <div>
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notes</Label>
-                      <Input
-                        value={cashierForm!.notes}
+                      <Input value={cashierForm!.notes}
                         onChange={e => setCashierForm(f => f ? { ...f, notes: e.target.value } : f)}
-                        placeholder="Optional…"
-                        className="h-7 text-xs mt-0.5"
-                        data-testid="input-cashier-notes"
-                      />
+                        placeholder="Optional…" className="h-7 text-xs mt-0.5" data-testid="input-cashier-notes" />
                     </div>
                   </div>
                   <div className="flex gap-2 justify-end">
                     <Button size="sm" variant="ghost" onClick={() => setCashierForm(null)} className="h-7 px-2 text-xs" disabled={markPaidMutation.isPending}>
                       Cancel
                     </Button>
-                    <Button
-                      size="sm"
+                    <Button size="sm"
                       onClick={() => markPaidMutation.mutate({
                         bill,
                         cashierName: cashierForm!.cashierName,
@@ -1128,8 +1404,7 @@ export function BillingHistoryPanel({
                       })}
                       disabled={markPaidMutation.isPending}
                       className="h-7 px-2 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
-                      data-testid="button-confirm-payment"
-                    >
+                      data-testid="button-confirm-payment">
                       {markPaidMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
                       Confirm &amp; Notify
                     </Button>
@@ -1137,18 +1412,21 @@ export function BillingHistoryPanel({
                 </div>
               )}
             </div>
+
           </div>
         )}
       </div>
     );
   };
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // MAIN RETURN
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-3">
 
-      {/* ── INVOICE PREVIEW ─────────────────────────────────────────── */}
-
-      {/* STATE A: All bills paid → compact "Settled" bar */}
+      {/* Settled banner — when all bills are paid */}
       {bills.length > 0 && allCurrentFullyPaid && (
         <div className="rounded-xl border border-emerald-400/40 bg-emerald-50/50 dark:bg-emerald-950/20 overflow-hidden shadow-sm">
           <div className="px-3 py-2.5 flex items-center gap-3">
@@ -1171,28 +1449,21 @@ export function BillingHistoryPanel({
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <Button
-                size="sm" variant="ghost"
-                onClick={() => setPreviewModalOpen(true)}
+              <Button size="sm" variant="ghost" onClick={() => setPreviewModalOpen(true)}
                 className="h-7 px-2 text-xs gap-1 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
-                data-testid="button-settled-view"
-              >
+                data-testid="button-settled-view">
                 <Eye className="h-3.5 w-3.5" /> View
               </Button>
               {bills.length > 1 && onConsolidatedReceipt ? (
-                <Button size="sm" variant="ghost"
-                  onClick={() => onConsolidatedReceipt(bills)}
+                <Button size="sm" variant="ghost" onClick={() => onConsolidatedReceipt(bills)}
                   className="h-7 px-2 text-xs gap-1 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
-                  data-testid="button-settled-pdf"
-                >
+                  data-testid="button-settled-pdf">
                   <FileText className="h-3.5 w-3.5" /> PDF
                 </Button>
               ) : bills.length === 1 ? (
-                <Button size="sm" variant="ghost"
-                  onClick={() => onPrintBill(bills[0])}
+                <Button size="sm" variant="ghost" onClick={() => onPrintBill(bills[0])}
                   className="h-7 px-2 text-xs gap-1 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
-                  data-testid="button-settled-pdf-single"
-                >
+                  data-testid="button-settled-pdf-single">
                   <FileText className="h-3.5 w-3.5" /> PDF
                 </Button>
               ) : null}
@@ -1201,410 +1472,8 @@ export function BillingHistoryPanel({
         </div>
       )}
 
-      {/* STATE B/C: Has open items → editable invoice preview with action toolbar */}
-      {hasOpenItems && (
-        <div className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm">
-
-          {/* ── Header bar ── */}
-          <div className="px-3 py-2 bg-muted/30 border-b border-border/40 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <Receipt className="h-3.5 w-3.5 text-primary" />
-              <span className="text-xs font-bold uppercase tracking-wider text-primary">Open Invoice</span>
-              {paidBillsCount > 0 && (
-                <span className="text-xs text-muted-foreground/60">
-                  · {paidBillsCount} paid bill{paidBillsCount > 1 ? "s" : ""} hidden
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" onClick={() => setPreviewModalOpen(true)}
-                className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-primary"
-                data-testid="button-preview-modal">
-                <Eye className="h-3.5 w-3.5" /> Preview
-              </Button>
-              {openBills.length > 1 && onConsolidatedReceipt ? (
-                <Button size="sm" variant="ghost" onClick={() => onConsolidatedReceipt(openBills)}
-                  className="h-7 px-2 text-xs gap-1 text-primary hover:bg-primary/10"
-                  data-testid="button-open-consolidated-pdf">
-                  <FileText className="h-3.5 w-3.5" /> PDF
-                </Button>
-              ) : openBills.length === 1 ? (
-                <Button size="sm" variant="ghost" onClick={() => onPrintBill(openBills[0])}
-                  className="h-7 px-2 text-xs gap-1 text-primary hover:bg-primary/10"
-                  data-testid="button-open-pdf">
-                  <FileText className="h-3.5 w-3.5" /> PDF
-                </Button>
-              ) : null}
-              <button onClick={() => setPreviewCollapsed(v => !v)}
-                className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted/60 text-muted-foreground transition-colors"
-                data-testid="button-collapse-preview">
-                {previewCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-              </button>
-            </div>
-          </div>
-
-          {/* ── Action toolbar — always visible ── */}
-          <div className="px-3 py-2 border-b border-border/30 bg-background flex items-center gap-2 flex-wrap">
-            <Button size="sm"
-              onClick={() => handleLoadPrescription()}
-              disabled={loadingPrescription}
-              className="h-8 text-xs gap-1.5 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground"
-              data-testid="button-load-prescription">
-              {loadingPrescription ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pill className="h-3.5 w-3.5" />}
-              Load Prescription
-            </Button>
-            <Button size="sm" variant="outline"
-              onClick={() => setAddFormOpen(v => !v)}
-              className="h-8 text-xs gap-1.5 active:scale-[0.98]"
-              data-testid="button-toggle-add-entry">
-              <Plus className="h-3.5 w-3.5" /> Add Entry
-            </Button>
-            <div className="ml-auto">
-              <Button size="sm" variant="outline"
-                onClick={() => createNewBillMutation.mutate()}
-                disabled={createNewBillMutation.isPending}
-                className="h-8 text-xs gap-1.5 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 active:scale-[0.98]"
-                data-testid="button-new-bill">
-                {createNewBillMutation.isPending
-                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  : <FileText className="h-3.5 w-3.5" />}
-                New Bill
-              </Button>
-            </div>
-          </div>
-
-          {/* ── Add Entry form (inline) ── */}
-          {addFormOpen && (
-            <div className="px-3 py-3 border-b border-border/40 bg-muted/5 space-y-2 animate-in slide-in-from-top-1 duration-150">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">New Entry</span>
-                <button onClick={() => setAddFormOpen(false)} className="p-1 rounded hover:bg-muted/60 text-muted-foreground">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="col-span-2">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description *</Label>
-                  <Input value={addForm.description}
-                    onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
-                    placeholder="e.g. Dental cleaning, Root canal…"
-                    className="h-8 text-xs mt-0.5" data-testid="input-entry-description" />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</Label>
-                  <Select value={addForm.category} onValueChange={v => setAddForm(f => ({ ...f, category: v }))}>
-                    <SelectTrigger className="h-8 text-xs mt-0.5" data-testid="select-entry-category"><SelectValue /></SelectTrigger>
-                    <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Qty</Label>
-                  <Input type="number" min="1" value={addForm.qty}
-                    onChange={e => setAddForm(f => ({ ...f, qty: e.target.value }))}
-                    className="h-8 text-xs mt-0.5" data-testid="input-entry-qty" />
-                </div>
-                <div className="col-span-2">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unit Price (₹) *</Label>
-                  <div className="relative mt-0.5">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
-                    <Input type="number" min="0" step="0.01" value={addForm.unitPrice}
-                      onChange={e => setAddForm(f => ({ ...f, unitPrice: e.target.value }))}
-                      placeholder="0.00" className="pl-5 h-8 text-xs" data-testid="input-entry-unit-price" />
-                  </div>
-                  {addForm.qty && addForm.unitPrice && parseFloat(addForm.qty) > 0 && parseFloat(addForm.unitPrice) > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Total: ₹{(parseFloat(addForm.qty) * parseFloat(addForm.unitPrice)).toFixed(0)}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2 justify-end pt-1">
-                <Button size="sm" variant="ghost" onClick={() => setAddFormOpen(false)} className="h-8 text-xs">Cancel</Button>
-                <Button size="sm" onClick={handleAddEntry} disabled={addChargeMutation.isPending}
-                  className="h-8 text-xs gap-1 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground"
-                  data-testid="button-save-entry">
-                  {addChargeMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                  Add to Bill
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Collapsible body ── */}
-          {!previewCollapsed && (
-            <>
-              {/* Patient info row */}
-              <div className="px-3 py-2 border-b border-border/30 flex items-center gap-3 flex-wrap bg-muted/10">
-                <div className="flex items-center gap-1.5">
-                  <User className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-xs font-semibold text-foreground">{patientName}</span>
-                  {patientCode && <span className="text-xs text-muted-foreground font-mono">#{patientCode}</span>}
-                </div>
-                <span className="text-muted-foreground/40 text-xs">·</span>
-                <span className="text-xs text-muted-foreground">{format(new Date(), "dd MMM yyyy")}</span>
-                {openBills.length > 1 && (
-                  <><span className="text-muted-foreground/40 text-xs">·</span>
-                  <span className="text-xs text-muted-foreground">{openBills.length} open bills</span></>
-                )}
-              </div>
-
-              {/* Unpriced pharmacy warning */}
-              {unpricedOpenPharmacy.length > 0 && (
-                <div className="px-3 py-2 bg-amber-50/80 dark:bg-amber-950/20 border-b border-amber-200/50 dark:border-amber-800/30 flex items-start gap-2">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-                      {unpricedOpenPharmacy.length} item{unpricedOpenPharmacy.length > 1 ? "s" : ""} need pricing
-                    </p>
-                    <p className="text-xs text-amber-700 dark:text-amber-400/80 mt-0.5">
-                      Click ₹0 to set a price, or update your Pharmacy Catalog first.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Consultation & Procedures table ── */}
-              {openConsultation.length > 0 && (
-                <div className="border-b border-border/20">
-                  <div className="px-3 py-1.5 bg-muted/20 flex items-center gap-1.5">
-                    <Stethoscope className="h-3 w-3 text-muted-foreground/60" />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">Consultation & Procedures</span>
-                  </div>
-                  <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-border/40 bg-muted/40">
-                        <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Description</th>
-                        <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
-                        <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground w-16">₹/Unit</th>
-                        <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
-                        <th className="w-7"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/30">
-                      {openConsultation.map((svc, idx) => {
-                        const itemKey = `${svc.billId}-${svc.itemIndex}`;
-                        const isEditing = editingKey === itemKey;
-                        return (
-                          <tr key={idx} className="group hover:bg-muted/10 transition-colors" data-testid={`preview-item-${svc.billId}-${svc.itemIndex}`}>
-                            <td className="py-2 pl-3 pr-2 text-foreground">{svc.description}</td>
-                            <td className="py-2 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                            <td className="py-2 px-2 text-right tabular-nums text-muted-foreground">
-                              {svc.unitPrice ? `₹${svc.unitPrice.toFixed(0)}` : "—"}
-                            </td>
-                            <td className="py-2 pl-2 pr-1 text-right tabular-nums font-semibold">
-                              {isEditing ? (
-                                <div className="relative inline-block">
-                                  <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                                  <Input type="number" min="0" value={editingAmount}
-                                    onChange={e => setEditingAmount(e.target.value)}
-                                    onBlur={() => saveEditAmount(svc)}
-                                    onKeyDown={e => { if (e.key === "Enter") saveEditAmount(svc); if (e.key === "Escape") setEditingKey(null); }}
-                                    className="h-6 w-20 pl-4 text-xs" autoFocus
-                                    data-testid={`input-item-amount-${itemKey}`} />
-                                </div>
-                              ) : (
-                                <button onClick={() => startEditAmount(svc)} title="Click to edit"
-                                  className="flex items-center gap-0.5 ml-auto hover:text-primary transition-colors"
-                                  data-testid={`amount-${itemKey}`}>
-                                  ₹{svc.amount.toFixed(0)}
-                                  <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity ml-0.5" />
-                                </button>
-                              )}
-                            </td>
-                            <td className="py-2 pr-2">
-                              <button onClick={() => { const bill = bills.find(b => b.id === svc.billId); if (bill) deleteItemMutation.mutate({ bill, itemIndex: svc.itemIndex }); }}
-                                disabled={deleteItemMutation.isPending}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500"
-                                data-testid={`button-preview-delete-${itemKey}`}>
-                                <X className="h-3 w-3" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Pharmacy table ── */}
-              {openPharmacy.length > 0 && (
-                <div className="border-b border-border/20">
-                  <div className="px-3 py-1.5 bg-muted/20 flex items-center gap-1.5">
-                    <Pill className="h-3 w-3 text-muted-foreground/60" />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">Pharmacy</span>
-                  </div>
-                  <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-border/40 bg-muted/40">
-                        <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Medicine</th>
-                        <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-20">Frequency</th>
-                        <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Duration</th>
-                        <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
-                        <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground w-16">₹/Unit</th>
-                        <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
-                        <th className="w-7"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/30">
-                      {openPharmacy.map((svc, idx) => {
-                        const itemKey = `${svc.billId}-${svc.itemIndex}`;
-                        const isEditing = editingKey === itemKey;
-                        const isUnpriced = svc.amount === 0;
-                        const { medicine, frequency, duration } = parsePharmacyDesc(svc.description);
-                        return (
-                          <tr key={idx}
-                            className={`group transition-colors ${isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "bg-background hover:bg-muted/10"}`}
-                            data-testid={`preview-item-${svc.billId}-${svc.itemIndex}`}>
-                            <td className="py-2 pl-3 pr-2 font-medium text-foreground">{medicine}</td>
-                            <td className="py-2 px-2 text-muted-foreground align-top">{frequency || "—"}</td>
-                            <td className="py-2 px-2 text-muted-foreground align-top">{duration || "—"}</td>
-                            <td className="py-2 px-2 text-center tabular-nums text-muted-foreground align-top">{svc.qty ?? 1}</td>
-                            <td className="py-2 px-2 text-right tabular-nums text-muted-foreground align-top">
-                              {svc.unitPrice ? `₹${svc.unitPrice.toFixed(0)}` : "—"}
-                            </td>
-                            <td className="py-2 pl-2 pr-1 text-right tabular-nums font-semibold align-top">
-                              {isEditing ? (
-                                <div className="relative inline-block">
-                                  <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                                  <Input type="number" min="0" value={editingAmount}
-                                    onChange={e => setEditingAmount(e.target.value)}
-                                    onBlur={() => saveEditAmount(svc)}
-                                    onKeyDown={e => { if (e.key === "Enter") saveEditAmount(svc); if (e.key === "Escape") setEditingKey(null); }}
-                                    className={`h-6 w-20 pl-4 text-xs ${isUnpriced ? "border-amber-400" : ""}`} autoFocus
-                                    data-testid={`input-item-amount-${itemKey}`} />
-                                </div>
-                              ) : (
-                                <button onClick={() => startEditAmount(svc)} title="Click to edit"
-                                  className={`flex items-center gap-0.5 ml-auto transition-colors ${isUnpriced ? "text-amber-600 hover:text-amber-700" : "hover:text-primary"}`}
-                                  data-testid={`amount-${itemKey}`}>
-                                  ₹{svc.amount.toFixed(0)}
-                                  <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity ml-0.5" />
-                                </button>
-                              )}
-                            </td>
-                            <td className="py-2 pr-2 align-top">
-                              <button onClick={() => { const bill = bills.find(b => b.id === svc.billId); if (bill) deleteItemMutation.mutate({ bill, itemIndex: svc.itemIndex }); }}
-                                disabled={deleteItemMutation.isPending}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500"
-                                data-testid={`button-preview-delete-${itemKey}`}>
-                                <X className="h-3 w-3" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Other items ── */}
-              {openOther.length > 0 && (
-                <div className="border-b border-border/20">
-                  <div className="px-3 py-1.5 bg-muted/20 flex items-center gap-1.5">
-                    <ClipboardList className="h-3 w-3 text-muted-foreground/60" />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">Other</span>
-                  </div>
-                  {openOther.map((svc, idx) => {
-                    const itemKey = `${svc.billId}-${svc.itemIndex}`;
-                    const isEditing = editingKey === itemKey;
-                    return (
-                      <div key={idx} className="flex items-center gap-2 px-3 py-1.5 group hover:bg-muted/10 border-b border-border/10 last:border-0"
-                        data-testid={`preview-item-${svc.billId}-${svc.itemIndex}`}>
-                        <span className="flex-1 text-xs min-w-0 truncate text-foreground">{svc.description}</span>
-                        {isEditing ? (
-                          <div className="relative shrink-0">
-                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
-                            <Input type="number" min="0" value={editingAmount}
-                              onChange={e => setEditingAmount(e.target.value)}
-                              onBlur={() => saveEditAmount(svc)}
-                              onKeyDown={e => { if (e.key === "Enter") saveEditAmount(svc); if (e.key === "Escape") setEditingKey(null); }}
-                              className="h-6 w-20 pl-4 text-xs" autoFocus
-                              data-testid={`input-item-amount-${itemKey}`} />
-                          </div>
-                        ) : (
-                          <button onClick={() => startEditAmount(svc)} title="Click to edit"
-                            className="text-xs font-semibold tabular-nums shrink-0 flex items-center gap-0.5 hover:text-primary transition-colors"
-                            data-testid={`amount-${itemKey}`}>
-                            ₹{svc.amount.toFixed(0)}
-                            <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity ml-0.5" />
-                          </button>
-                        )}
-                        <button onClick={() => { const bill = bills.find(b => b.id === svc.billId); if (bill) deleteItemMutation.mutate({ bill, itemIndex: svc.itemIndex }); }}
-                          disabled={deleteItemMutation.isPending}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 shrink-0"
-                          data-testid={`button-preview-delete-${itemKey}`}>
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Discount + Tax */}
-              {activeBillForTotals && (
-                <div className="px-3 py-2 border-b border-border/30 bg-muted/10 flex items-center gap-4 flex-wrap">
-                  <div className="flex items-center gap-1.5">
-                    <label className="text-xs text-muted-foreground font-medium whitespace-nowrap">Discount %</label>
-                    <Input type="number" min="0" max="100" step="0.5"
-                      defaultValue={String(activeBillForTotals.discountPct ?? 0)}
-                      onBlur={e => {
-                        const val = parseFloat(e.target.value) || 0;
-                        if (val !== (activeBillForTotals.discountPct ?? 0)) {
-                          updateDiscountTaxMutation.mutate({ bill: activeBillForTotals, discountPct: val, taxPct: activeBillForTotals.taxPct ?? 0 });
-                        }
-                      }}
-                      className="h-7 w-16 text-xs" data-testid="input-discount-pct" />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <label className="text-xs text-muted-foreground font-medium whitespace-nowrap">Tax %</label>
-                    <Input type="number" min="0" max="100" step="0.5"
-                      defaultValue={String(activeBillForTotals.taxPct ?? 0)}
-                      onBlur={e => {
-                        const val = parseFloat(e.target.value) || 0;
-                        if (val !== (activeBillForTotals.taxPct ?? 0)) {
-                          updateDiscountTaxMutation.mutate({ bill: activeBillForTotals, discountPct: activeBillForTotals.discountPct ?? 0, taxPct: val });
-                        }
-                      }}
-                      className="h-7 w-16 text-xs" data-testid="input-tax-pct" />
-                  </div>
-                </div>
-              )}
-
-              {/* Totals */}
-              <div className="px-3 py-2 bg-muted/20 space-y-0.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Subtotal (open)</span>
-                  <span className="text-xs tabular-nums text-foreground">₹{openServices.reduce((s, i) => s + i.amount, 0).toFixed(0)}</span>
-                </div>
-                {paidBillsCount > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Already paid</span>
-                    <span className="text-xs tabular-nums text-emerald-600 font-semibold">
-                      ₹{bills.filter(b => b.paymentStatus === "paid").reduce((s, b) => s + (b.total ?? 0), 0).toFixed(0)}
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between pt-0.5 border-t border-border/30">
-                  <span className="text-xs font-bold text-foreground">Outstanding</span>
-                  <span className="text-sm font-bold tabular-nums text-primary">
-                    ₹{openBills.reduce((s, b) => s + (b.total ?? 0), 0).toFixed(0)}
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* When all paid / no open items: standalone action buttons */}
-      {!hasOpenItems && (
+      {/* No bills yet — standalone action buttons */}
+      {bills.length === 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <Button size="sm" onClick={() => handleLoadPrescription()} disabled={loadingPrescription}
             className="flex-1 h-8 text-xs gap-1.5 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground min-w-[130px]"
@@ -1626,8 +1495,8 @@ export function BillingHistoryPanel({
         </div>
       )}
 
-      {/* Add Entry form when no open items */}
-      {!hasOpenItems && addFormOpen && (
+      {/* Add Entry form when no bills */}
+      {bills.length === 0 && addFormOpen && (
         <div className="rounded-xl border border-border/50 bg-muted/10 p-3 space-y-2 animate-in slide-in-from-top-1 duration-150">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">New Entry</span>
@@ -1683,16 +1552,34 @@ export function BillingHistoryPanel({
         </div>
       )}
 
-      {/* ── BILLS LIST ─────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1.5 pt-1">
-        <IndianRupee className="h-3.5 w-3.5 text-primary" />
-        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          {bills.length > 0 ? `${bills.length} Bill${bills.length > 1 ? "s" : ""}` : "No Bills Yet"}
-        </span>
-        {bills.length > 1 && (
-          <span className="text-xs text-muted-foreground ml-auto">₹{consolidatedTotal.toFixed(0)} total</span>
-        )}
-      </div>
+      {/* ── BILLS SECTION ─────────────────────────────────────────────── */}
+      {bills.length > 0 && (
+        <div className="flex items-center gap-1.5 pt-1">
+          <IndianRupee className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            {bills.length} Bill{bills.length !== 1 ? "s" : ""}
+          </span>
+          {bills.length > 1 && (
+            <span className="text-xs text-muted-foreground ml-1">· ₹{consolidatedTotal.toFixed(0)} total</span>
+          )}
+          <div className="ml-auto flex items-center gap-1">
+            <Button size="sm" variant="ghost"
+              onClick={() => setPreviewModalOpen(true)}
+              className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-primary"
+              data-testid="button-preview-modal">
+              <Eye className="h-3 w-3" /> Preview
+            </Button>
+            {bills.length > 1 && onConsolidatedReceipt && (
+              <Button size="sm" variant="ghost"
+                onClick={() => onConsolidatedReceipt(bills)}
+                className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-primary"
+                data-testid="button-open-consolidated-pdf">
+                <FileText className="h-3 w-3" /> PDF
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       {bills.length === 0 ? (
         <div className="py-6 text-center rounded-xl border border-dashed border-border/60 bg-muted/10">
@@ -1706,17 +1593,13 @@ export function BillingHistoryPanel({
         </div>
       ) : (
         <div className="space-y-2">
-          {/* Latest bill — always shown */}
           {latestBill && renderBillCard(latestBill)}
-
-          {/* Older bills — lazy reveal */}
           {olderBills.length > 0 && (
             <>
               <button
                 onClick={() => setShowOlderBills(v => !v)}
                 className="w-full flex items-center gap-2 px-1 py-1.5 text-left group"
-                data-testid="button-toggle-older-bills"
-              >
+                data-testid="button-toggle-older-bills">
                 <div className="flex items-center gap-1.5">
                   <History className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-muted-foreground transition-colors" />
                   <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
@@ -1748,14 +1631,13 @@ export function BillingHistoryPanel({
         </div>
       )}
 
-      {/* ── PREVIOUS VISITS ─────────────────────────────────────────── */}
+      {/* ── PREVIOUS VISITS ─────────────────────────────────────────────── */}
       {previousVisitBills.length > 0 && (
         <div className="border-t border-border/40 pt-3">
           <button
             onClick={() => setHistoryExpanded(v => !v)}
             className="w-full flex items-center justify-between gap-2 group"
-            data-testid="button-toggle-patient-history"
-          >
+            data-testid="button-toggle-patient-history">
             <div className="flex items-center gap-1.5">
               <History className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Previous Visits</span>
@@ -1780,14 +1662,12 @@ export function BillingHistoryPanel({
         </div>
       )}
 
-
       {/* ── AUDIT TRAIL ─────────────────────────────────────────────── */}
       <div className="border-t border-border/40 pt-3">
         <button
           onClick={() => setAuditExpanded(v => !v)}
           className="w-full flex items-center justify-between gap-2"
-          data-testid="button-toggle-audit"
-        >
+          data-testid="button-toggle-audit">
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Audit Trail</span>
@@ -1799,7 +1679,6 @@ export function BillingHistoryPanel({
           </div>
           {auditExpanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
         </button>
-
         {auditExpanded && (
           <div className="mt-2 space-y-1">
             {auditLogs.length === 0 ? (
@@ -1833,7 +1712,7 @@ export function BillingHistoryPanel({
         )}
       </div>
 
-      {/* ── INVOICE PREVIEW MODAL ───────────────────────────────────── */}
+      {/* ── INVOICE PREVIEW MODAL ─────────────────────────────────────── */}
       <InvoicePreviewModal
         open={previewModalOpen}
         onClose={() => setPreviewModalOpen(false)}
@@ -1841,6 +1720,7 @@ export function BillingHistoryPanel({
         patientName={patientName}
         patientCode={patientCode}
       />
+
     </div>
   );
 }

@@ -23,17 +23,54 @@ interface MedicineRow {
   qty: string;
   frequency: string;
   duration: string;
+  durationNum?: string;
+  durationUnit?: string;
+  route?: string;
+  remarks?: string;
 }
 
 const FREQUENCY_OPTIONS = ['OD', 'BD', 'TID', 'QID', 'SOS', 'PRN'];
-const emptyRow = (): MedicineRow => ({ name: '', dosage: '', qty: '', frequency: 'OD', duration: '' });
+const ROUTE_OPTIONS = ['Oral', 'Topical', 'IV', 'IM', 'Subcutaneous', 'Sublingual', 'Inhaled'];
+const DURATION_UNITS = ['days', 'weeks', 'months'];
+
+const emptyRow = (): MedicineRow => ({
+  name: '', dosage: '', qty: '', frequency: 'OD',
+  duration: '', durationNum: '', durationUnit: 'days',
+  route: 'Oral', remarks: '',
+});
+
+function parseDuration(s: string): { durationNum: string; durationUnit: string } {
+  if (!s) return { durationNum: '', durationUnit: 'days' };
+  const trimmed = s.trim();
+  const m = trimmed.match(/^(\d+)\s*(days?|weeks?|months?)$/i);
+  if (m) {
+    const raw = m[2].toLowerCase();
+    const unit = raw.endsWith('s') ? raw : raw + 's';
+    return { durationNum: m[1], durationUnit: unit };
+  }
+  if (/^\d+$/.test(trimmed)) return { durationNum: trimmed, durationUnit: 'days' };
+  return { durationNum: '', durationUnit: 'days' };
+}
 
 function parsePrescription(text: string | null | undefined): MedicineRow[] | null {
   if (!text) return null;
   try {
     const parsed = JSON.parse(text);
     if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object' && 'name' in parsed[0]) {
-      return parsed as MedicineRow[];
+      return (parsed as any[]).map(r => {
+        const { durationNum, durationUnit } = parseDuration(r.duration || '');
+        return {
+          name: r.name || '',
+          dosage: r.dosage || '',
+          qty: r.qty || '',
+          frequency: r.frequency || 'OD',
+          duration: r.duration || '',
+          durationNum: r.durationNum ?? durationNum,
+          durationUnit: r.durationUnit ?? durationUnit,
+          route: r.route ?? 'Oral',
+          remarks: r.remarks ?? '',
+        } as MedicineRow;
+      });
     }
     return null;
   } catch {
@@ -90,16 +127,23 @@ function generatePrescriptionPDF(record: ClinicalRecord, clinicName?: string) {
       doc.setFontSize(11); doc.setFont("helvetica", "bold");
       doc.text("Prescription", margin, y); y += 8; hr();
       doc.setFont("helvetica", "normal"); doc.setFontSize(9);
-      const colW = [60, 28, 20, 26, 28];
-      const headers = ['Medicine', 'Dosage', 'Qty', 'Freq.', 'Duration'];
+      const colW = [48, 22, 14, 22, 22, 22];
+      const headers = ['Medicine', 'Dosage', 'Qty', 'Freq.', 'Duration', 'Route'];
       doc.setFillColor(240, 240, 240);
       doc.rect(margin, y - 3, pageW - margin * 2, 7, "F");
       headers.forEach((h, i) => doc.text(h, margin + colW.slice(0, i).reduce((a, b) => a + b, 0), y + 1));
       y += 9;
       rows.forEach(r => {
-        const cells = [r.name, r.dosage, r.qty, r.frequency, r.duration];
+        const durStr = r.durationNum ? `${r.durationNum} ${r.durationUnit || 'days'}` : (r.duration || '—');
+        const cells = [r.name, r.dosage, r.qty, r.frequency, durStr, r.route || 'Oral'];
         cells.forEach((c, i) => doc.text(c || '—', margin + colW.slice(0, i).reduce((a, b) => a + b, 0), y));
         y += 7;
+        if (r.remarks) {
+          doc.setFontSize(8); doc.setTextColor(120, 120, 120);
+          doc.text(`  Remarks: ${r.remarks}`, margin + 2, y);
+          doc.setTextColor(30, 28, 60); doc.setFontSize(9);
+          y += 5;
+        }
       });
       y += 4;
     } else if (record.prescription) {
@@ -128,6 +172,8 @@ function generatePrescriptionPDF(record: ClinicalRecord, clinicName?: string) {
 function PrescriptionDisplay({ prescription }: { prescription: string | null | undefined }) {
   const rows = parsePrescription(prescription);
   if (rows && rows.length > 0) {
+    const hasRoute = rows.some(r => r.route && r.route !== 'Oral');
+    const hasRemarks = rows.some(r => r.remarks);
     return (
       <div className="overflow-x-auto rounded-lg border border-border/50">
         <table className="w-full text-xs">
@@ -138,18 +184,25 @@ function PrescriptionDisplay({ prescription }: { prescription: string | null | u
               <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground">Qty</th>
               <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground">Freq.</th>
               <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground">Duration</th>
+              {hasRoute && <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground">Route</th>}
+              {hasRemarks && <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground">Remarks</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-border/30">
-            {rows.map((r, i) => (
-              <tr key={i} className="bg-background">
-                <td className="px-2 py-1.5 font-medium text-foreground">{r.name || '—'}</td>
-                <td className="px-2 py-1.5 text-muted-foreground">{r.dosage || '—'}</td>
-                <td className="px-2 py-1.5 text-muted-foreground">{r.qty || '—'}</td>
-                <td className="px-2 py-1.5 text-muted-foreground">{r.frequency || '—'}</td>
-                <td className="px-2 py-1.5 text-muted-foreground">{r.duration || '—'}</td>
-              </tr>
-            ))}
+            {rows.map((r, i) => {
+              const durStr = r.durationNum ? `${r.durationNum} ${r.durationUnit || 'days'}` : (r.duration || '—');
+              return (
+                <tr key={i} className="bg-background">
+                  <td className="px-2 py-1.5 font-medium text-foreground">{r.name || '—'}</td>
+                  <td className="px-2 py-1.5 text-muted-foreground">{r.dosage || '—'}</td>
+                  <td className="px-2 py-1.5 text-muted-foreground">{r.qty || '—'}</td>
+                  <td className="px-2 py-1.5 text-muted-foreground">{r.frequency || '—'}</td>
+                  <td className="px-2 py-1.5 text-muted-foreground">{durStr}</td>
+                  {hasRoute && <td className="px-2 py-1.5 text-muted-foreground">{r.route || 'Oral'}</td>}
+                  {hasRemarks && <td className="px-2 py-1.5 text-muted-foreground italic">{r.remarks || '—'}</td>}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -198,7 +251,12 @@ export default function ClinicalRecordsTab({
 
   const prescriptionPayload = () => {
     const filled = prescriptionRows.filter(r => r.name.trim());
-    return filled.length > 0 ? JSON.stringify(filled) : null;
+    if (filled.length === 0) return null;
+    const withDuration = filled.map(r => ({
+      ...r,
+      duration: r.durationNum ? `${r.durationNum} ${r.durationUnit || 'days'}` : (r.duration || ''),
+    }));
+    return JSON.stringify(withDuration);
   };
 
   const createMutation = useMutation({
@@ -465,7 +523,7 @@ export default function ClinicalRecordsTab({
                   </div>
                 </div>
 
-                {/* Prescription grid */}
+                {/* Prescription */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
@@ -478,61 +536,93 @@ export default function ClinicalRecordsTab({
                     </button>
                   </div>
 
-                  {/* Column headers */}
-                  <div className="grid grid-cols-[1fr_72px_56px_72px_72px_28px] gap-1 mb-1 px-0.5">
-                    {['Medicine Name', 'Dosage', 'Qty', 'Frequency', 'Duration', ''].map((h, i) => (
-                      <span key={i} className="text-xs font-semibold text-muted-foreground/70">{h}</span>
-                    ))}
-                  </div>
-
-                  {/* Medicine rows */}
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     {prescriptionRows.map((row, idx) => (
-                      <div key={idx} className="grid grid-cols-[1fr_72px_56px_72px_72px_28px] gap-1 items-center"
-                        data-testid={`medicine-row-${idx}`}>
-                        <Input
-                          value={row.name}
-                          onChange={e => updateRow(idx, 'name', e.target.value)}
-                          placeholder="e.g. Amoxicillin"
-                          className="h-8 text-xs"
-                          data-testid={`input-medicine-name-${idx}`}
-                        />
-                        <Input
-                          value={row.dosage}
-                          onChange={e => updateRow(idx, 'dosage', e.target.value)}
-                          placeholder="500mg"
-                          className="h-8 text-xs"
-                          data-testid={`input-dosage-${idx}`}
-                        />
-                        <Input
-                          value={row.qty}
-                          onChange={e => updateRow(idx, 'qty', e.target.value)}
-                          placeholder="1 tab"
-                          className="h-8 text-xs"
-                          data-testid={`input-qty-${idx}`}
-                        />
-                        <Select value={row.frequency} onValueChange={v => updateRow(idx, 'frequency', v)}>
-                          <SelectTrigger className="h-8 text-xs" data-testid={`select-frequency-${idx}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {FREQUENCY_OPTIONS.map(f => (
-                              <SelectItem key={f} value={f} className="text-xs">{f}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          value={row.duration}
-                          onChange={e => updateRow(idx, 'duration', e.target.value)}
-                          placeholder="5 days"
-                          className="h-8 text-xs"
-                          data-testid={`input-duration-${idx}`}
-                        />
-                        <button type="button" onClick={() => removeRow(idx)}
-                          className="flex items-center justify-center h-8 w-7 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 active:bg-destructive/20 transition-colors"
-                          data-testid={`button-remove-row-${idx}`}>
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+                      <div key={idx} className="rounded-lg border border-border/40 bg-muted/5 p-2 space-y-1.5" data-testid={`medicine-row-${idx}`}>
+
+                        {/* Row header with index + remove */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-muted-foreground/50">#{idx + 1}</span>
+                          <button type="button" onClick={() => removeRow(idx)}
+                            className="flex items-center justify-center h-5 w-5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            data-testid={`button-remove-row-${idx}`}>
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+
+                        {/* Medicine name + Dosage */}
+                        <div className="grid grid-cols-[1fr_72px] gap-1.5">
+                          <Input
+                            value={row.name}
+                            onChange={e => updateRow(idx, 'name', e.target.value)}
+                            placeholder="Medicine name (e.g. Amoxicillin)"
+                            className="h-8 text-xs"
+                            data-testid={`input-medicine-name-${idx}`}
+                          />
+                          <Input
+                            value={row.dosage}
+                            onChange={e => updateRow(idx, 'dosage', e.target.value)}
+                            placeholder="Dosage"
+                            className="h-8 text-xs"
+                            data-testid={`input-dosage-${idx}`}
+                          />
+                        </div>
+
+                        {/* Qty + Frequency + Duration num + Duration unit */}
+                        <div className="grid grid-cols-[48px_72px_44px_72px] gap-1.5">
+                          <Input
+                            value={row.qty}
+                            onChange={e => updateRow(idx, 'qty', e.target.value)}
+                            placeholder="Qty"
+                            className="h-8 text-xs"
+                            data-testid={`input-qty-${idx}`}
+                          />
+                          <Select value={row.frequency} onValueChange={v => updateRow(idx, 'frequency', v)}>
+                            <SelectTrigger className="h-8 text-xs" data-testid={`select-frequency-${idx}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {FREQUENCY_OPTIONS.map(f => <SelectItem key={f} value={f} className="text-xs">{f}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={row.durationNum ?? ''}
+                            onChange={e => updateRow(idx, 'durationNum', e.target.value)}
+                            placeholder="#"
+                            className="h-8 text-xs"
+                            data-testid={`input-duration-num-${idx}`}
+                          />
+                          <Select value={row.durationUnit ?? 'days'} onValueChange={v => updateRow(idx, 'durationUnit', v)}>
+                            <SelectTrigger className="h-8 text-xs" data-testid={`select-duration-unit-${idx}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {DURATION_UNITS.map(u => <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Route + Remarks */}
+                        <div className="grid grid-cols-[88px_1fr] gap-1.5">
+                          <Select value={row.route ?? 'Oral'} onValueChange={v => updateRow(idx, 'route', v)}>
+                            <SelectTrigger className="h-8 text-xs" data-testid={`select-route-${idx}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROUTE_OPTIONS.map(r => <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            value={row.remarks ?? ''}
+                            onChange={e => updateRow(idx, 'remarks', e.target.value)}
+                            placeholder="Remarks (e.g. After food)"
+                            className="h-8 text-xs"
+                            data-testid={`input-remarks-${idx}`}
+                          />
+                        </div>
+
                       </div>
                     ))}
                   </div>
