@@ -1,4 +1,6 @@
 import QRCode from "react-qr-code";
+// @ts-ignore — qr.js is a CJS dep of react-qr-code; Vite handles interop
+import QRLib from 'qr.js';
 import { ImageUpload } from "@/components/ImageUpload";
 import MapLocationPicker from "@/components/MapLocationPicker";
 import ExportDataPanel from "@/components/ExportDataPanel";
@@ -947,24 +949,35 @@ export default function ClinicDashboard() {
   // Billing State
   const [isBillingOpen, setIsBillingOpen] = useState(false);
   const [billingBooking, setBillingBooking] = useState<BookingWithSlot | null>(null);
-  const [billingDetails, setBillingDetails] = useState({
-    patientName: "",
-    patientPhone: "",
-    patientEmail: "",
-    clinicName: "",
-    clinicAddress: "",
-    clinicPhone: "",
-    clinicEmail: "",
-    receiptNumber: "",
-    services: [{ description: "Dental Consultation", amount: "500" }],
-    date: "",
-    discount: "0",
-    tax: "0",
-    paymentMethod: "Cash",
-    remarks: "",
-    paymentStatus: "paid" as "paid" | "pending" | "partial",
-    existingBillId: undefined as number | undefined,
-    printOnly: false,
+  type BillingService = {
+    description: string;
+    amount: string;
+    category?: string;
+    dosage?: string;
+    frequency?: string;
+    duration?: string;
+    qty?: number;
+    unitPrice?: number;
+  };
+
+  const [billingDetails, setBillingDetails] = useState<{
+    patientName: string; patientPhone: string; patientEmail: string;
+    clinicName: string; clinicAddress: string; clinicPhone: string; clinicEmail: string;
+    receiptNumber: string; date: string; discount: string; tax: string;
+    paymentMethod: string; transactionId: string; remarks: string;
+    paymentStatus: "paid" | "pending" | "partial";
+    existingBillId: number | undefined; printOnly: boolean;
+    visitId: string; doctorName: string;
+    services: BillingService[];
+  }>({
+    patientName: "", patientPhone: "", patientEmail: "",
+    clinicName: "", clinicAddress: "", clinicPhone: "", clinicEmail: "",
+    receiptNumber: "", date: "", discount: "0", tax: "0",
+    paymentMethod: "Cash", transactionId: "", remarks: "",
+    paymentStatus: "paid",
+    existingBillId: undefined, printOnly: false,
+    visitId: "", doctorName: "",
+    services: [{ description: "Dental Consultation", amount: "500", category: "Consultation" }],
   });
 
   // Count today's bookings using the same timezone-safe comparison
@@ -1102,10 +1115,16 @@ export default function ClinicDashboard() {
     let loadedRemarks = resolvedBill?.notes || "";
 
     if (resolvedBill?.services) {
-      // Existing saved bill — load its line items as-is
-      loadedServices = (resolvedBill.services as { description: string; amount: number }[]).map(s => ({
-        description: s.description,
-        amount: String(s.amount),
+      // Existing saved bill — load its line items preserving all fields
+      loadedServices = (resolvedBill.services as any[]).map(s => ({
+        description: (s.medicine || s.description || ""),
+        amount: String(s.amount ?? 0),
+        category: s.category,
+        dosage: s.dosage || "",
+        frequency: s.frequency || "",
+        duration: s.duration || "",
+        qty: s.qty ?? 1,
+        unitPrice: s.unitPrice,
       }));
     } else {
       // No saved bill — fetch the clinical record for this booking and
@@ -1156,9 +1175,13 @@ export default function ClinicDashboard() {
       discount: String(resolvedBill?.discountPct ?? 0),
       tax: String(resolvedBill?.taxPct ?? 0),
       paymentMethod: resolvedBill?.paymentMethod || "Cash",
+      transactionId: "",
       remarks: loadedRemarks,
       paymentStatus: (resolvedBill?.paymentStatus as "paid" | "pending" | "partial") || "paid",
       existingBillId: resolvedBill?.id,
+      printOnly: false,
+      visitId: String(booking.id),
+      doctorName: (booking as any).assignedDoctor || "",
     });
     setIsBillingOpen(true);
   };
@@ -1171,9 +1194,15 @@ export default function ClinicDashboard() {
       : format(new Date(), "yyyyMMdd");
 
     const mergedServices = bills.flatMap(bill =>
-      ((bill.services ?? []) as { description: string; amount: number }[]).map(s => ({
-        description: s.description,
-        amount: String(s.amount),
+      ((bill.services ?? []) as any[]).map(s => ({
+        description: (s.medicine || s.description || ""),
+        amount: String(s.amount ?? 0),
+        category: s.category,
+        dosage: s.dosage || "",
+        frequency: s.frequency || "",
+        duration: s.duration || "",
+        qty: s.qty ?? 1,
+        unitPrice: s.unitPrice,
       }))
     );
 
@@ -1189,15 +1218,18 @@ export default function ClinicDashboard() {
       clinicPhone: (clinic as any)?.phone || "",
       clinicEmail: (clinic as any)?.email || "",
       receiptNumber: `CONSOL-${booking.id}-${dateLabel}`,
-      services: mergedServices.length > 0 ? mergedServices : [{ description: "Dental Consultation", amount: "500" }],
+      services: mergedServices.length > 0 ? mergedServices : [{ description: "Dental Consultation", amount: "500", category: "Consultation" }],
       date: firstBill?.createdAt ? format(new Date(firstBill.createdAt), "PPP") : format(new Date(booking.slot.startTime), "PPP"),
       discount: String(firstBill?.discountPct ?? 0),
       tax: String(firstBill?.taxPct ?? 0),
       paymentMethod: firstBill?.paymentMethod || "Cash",
+      transactionId: "",
       remarks: bills.map(b => b.notes).filter(Boolean).join(" | ") || "",
       paymentStatus: allPaid ? "paid" : anyPartial ? "partial" : "pending",
       existingBillId: undefined,
       printOnly: true,
+      visitId: String(booking.id),
+      doctorName: (booking as any).assignedDoctor || "",
     });
     setIsBillingOpen(true);
   };
@@ -1315,23 +1347,42 @@ export default function ClinicDashboard() {
     }));
   };
 
+  // ── QR code helper ─────────────────────────────────────────────
+  const buildQRDataUrl = (text: string): string => {
+    try {
+      const qr = (QRLib as any)(text);
+      const cells: boolean[][] = qr.modules;
+      const sz = 3; const pad = sz * 2;
+      const dim = cells.length * sz + pad * 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = dim; canvas.height = dim;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, dim, dim);
+      ctx.fillStyle = '#085041';
+      cells.forEach((row, r) => row.forEach((on, c) => {
+        if (on) ctx.fillRect(pad + c * sz, pad + r * sz, sz, sz);
+      }));
+      return canvas.toDataURL('image/png');
+    } catch { return ''; }
+  };
+
   const generatePDF = () => {
     if (!billingBooking) return;
 
     const doc = new jsPDF();
     const pageWidth  = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
+    const margin = 14;
 
-    // ── BookMySlot Green palette ─────────────────────────────────
-    const indigoDark: [number, number, number]  = [8,   80,  65];   // #085041 dark green
-    const magenta: [number, number, number]     = [29,  158, 117];  // #1D9E75 accent green
-    const indigoMid: [number, number, number]   = [15,  155, 110];  // #0F9B6E primary green
-    const lightBg: [number, number, number]     = [225, 245, 238];  // #E1F5EE light tint
-    const metaBg: [number, number, number]      = [209, 237, 226];  // soft green tint
-    const totalRowBg: [number, number, number]  = [193, 229, 215];  // medium green tint
-    const textDark: [number, number, number]    = [8,   40,  32];   // deep forest text
-    const textMid: [number, number, number]     = [50,  100, 80];   // medium green text
+    // ── Palette ───────────────────────────────────────────────────
+    const indigoDark: [number, number, number]  = [8,   80,  65];
+    const magenta: [number, number, number]     = [29,  158, 117];
+    const indigoMid: [number, number, number]   = [15,  155, 110];
+    const lightBg: [number, number, number]     = [225, 245, 238];
+    const metaBg: [number, number, number]      = [209, 237, 226];
+    const totalRowBg: [number, number, number]  = [193, 229, 215];
+    const textDark: [number, number, number]    = [8,   40,  32];
+    const textMid: [number, number, number]     = [50,  100, 80];
     const textLight: [number, number, number]   = [150, 148, 180];
     const white: [number, number, number]       = [255, 255, 255];
 
@@ -1391,87 +1442,130 @@ export default function ClinicDashboard() {
     doc.setLineWidth(0.5);
     doc.line(margin, 33, pageWidth - margin, 33);
 
-    // ── Meta band: Date | Payment method (center) | Receipt # ───
+    // ── 2-row Meta band ───────────────────────────────────────────
     const metaY = 34;
-    const metaH = 10;
+    const metaH = 17;
     doc.setFillColor(...metaBg);
     doc.rect(margin, metaY, pageWidth - margin * 2, metaH, "F");
 
-    doc.setFontSize(8);
+    // Row 1: Receipt # | Visit ID + Doctor | Date
+    const metaRow1Y = metaY + 5.5;
+    doc.setFontSize(7.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...textMid);
-    doc.text(`Date:  ${billingDetails.date}`, margin + 4, metaY + 6.5);
-
-    doc.setTextColor(...indigoMid);
+    doc.text(`Receipt #  ${billingDetails.receiptNumber}`, margin + 4, metaRow1Y);
+    const midParts = [
+      billingDetails.visitId ? `Visit ID: ${billingDetails.visitId}` : "",
+      billingDetails.doctorName ? `Dr. ${billingDetails.doctorName}` : "",
+    ].filter(Boolean);
+    if (midParts.length) doc.text(midParts.join("   |   "), pageWidth / 2, metaRow1Y, { align: "center" });
     doc.setFont("helvetica", "bold");
-    doc.text(billingDetails.paymentMethod || "Cash", pageWidth / 2, metaY + 6.5, { align: "center" });
+    doc.setTextColor(...indigoDark);
+    doc.text(`Date: ${billingDetails.date}`, rightX - 4, metaRow1Y, { align: "right" });
 
+    // Row 2: Payment Mode | Status badge
+    const metaRow2Y = metaY + 12.5;
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...textMid);
-    doc.text(`Receipt #:  ${billingDetails.receiptNumber}`, rightX - 4, metaY + 6.5, { align: "right" });
+    doc.text(`Payment Mode:  ${billingDetails.paymentMethod || "Cash"}`, margin + 4, metaRow2Y);
+    const statusRgb: [number,number,number] =
+      billingDetails.paymentStatus === "paid"    ? [22, 163, 74]  :
+      billingDetails.paymentStatus === "partial" ? [37,  99, 235] : [217, 119, 6];
+    const statusLabel =
+      billingDetails.paymentStatus === "paid"    ? "Paid"    :
+      billingDetails.paymentStatus === "partial" ? "Partial" : "Pending";
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...statusRgb);
+    doc.text(`Status: ${statusLabel}`, rightX - 4, metaRow2Y, { align: "right" });
 
     // ── Patient Information table ─────────────────────────────────
+    const patientBody: string[][] = [
+      ["Name",             billingDetails.patientName],
+      ["Phone",            billingDetails.patientPhone],
+      ["Email",            billingDetails.patientEmail || "—"],
+      ["Appointment Date", billingDetails.date],
+    ];
+    if (billingDetails.doctorName) patientBody.push(["Doctor", billingDetails.doctorName]);
+
     autoTable(doc, {
-      startY: metaY + metaH + 5,
+      startY: metaY + metaH + 4,
       head: [["Patient Information", ""]],
-      body: [
-        ["Name",             billingDetails.patientName],
-        ["Phone",            billingDetails.patientPhone],
-        ["Email",            billingDetails.patientEmail || "—"],
-        ["Appointment Date", billingDetails.date],
-      ],
+      body: patientBody,
       theme: "grid",
-      headStyles: {
-        fillColor: indigoDark,
-        textColor: white,
-        fontStyle: "bold",
-        fontSize: 9,
-        halign: "left",
-        cellPadding: { top: 3, bottom: 3, left: 5, right: 5 },
-      },
+      headStyles: { fillColor: indigoDark, textColor: white, fontStyle: "bold", fontSize: 9, halign: "left",
+                    cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
       columnStyles: {
-        0: { fontStyle: "bold", cellWidth: 48, textColor: textDark, fillColor: lightBg, fontSize: 8.5,
-             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
-        1: { textColor: textMid, fontSize: 8.5,
-             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
+        0: { fontStyle: "bold", cellWidth: 48, textColor: textDark, fillColor: lightBg, fontSize: 8,
+             cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
+        1: { textColor: textMid, fontSize: 8, cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
       },
-      bodyStyles: { cellPadding: 3 },
+      bodyStyles: { cellPadding: 2.5 },
       margin: { left: margin, right: margin },
     });
 
-    // ── Services table ────────────────────────────────────────────
-    const servicesStartY = (doc as any).lastAutoTable.finalY + 7;
-    const tableBody = billingDetails.services.map(s => [
-      s.description,
-      `INR ${parseFloat(s.amount || "0").toFixed(2)}`
-    ]);
+    // ── Split services: pharmacy vs. others ───────────────────────
+    const pharmItems  = billingDetails.services.filter(s => s.category === "Pharmacy");
+    const serviceItems = billingDetails.services.filter(s => s.category !== "Pharmacy");
+    let currentY = (doc as any).lastAutoTable.finalY + 5;
 
-    autoTable(doc, {
-      startY: servicesStartY,
-      head: [["Description of Services", "Amount"]],
-      body: tableBody,
-      theme: "striped",
-      headStyles: {
-        fillColor: indigoDark,
-        textColor: white,
-        fontStyle: "bold",
-        fontSize: 9,
-        cellPadding: { top: 3, bottom: 3, left: 5, right: 5 },
-      },
-      columnStyles: {
-        0: { textColor: textDark, fontSize: 8.5,
-             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
-        1: { halign: "right", textColor: textDark, cellWidth: 40, fontSize: 8.5,
-             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
-      },
-      alternateRowStyles: { fillColor: [248, 247, 255] },
-      bodyStyles: { cellPadding: 3 },
-      margin: { left: margin, right: margin },
-    });
+    // ── Prescription Summary (pharmacy) ──────────────────────────
+    if (pharmItems.length > 0) {
+      autoTable(doc, {
+        startY: currentY,
+        head: [["Prescription Summary", "Dosage", "Qty", "Freq.", "Duration", "Price"]],
+        body: pharmItems.map(s => [
+          s.description,
+          s.dosage || "—",
+          String(s.qty ?? 1),
+          s.frequency || "—",
+          s.duration || "—",
+          `₹${parseFloat(s.amount || "0").toFixed(2)}`,
+        ]),
+        theme: "grid",
+        headStyles: { fillColor: indigoDark, textColor: white, fontStyle: "bold", fontSize: 8.5,
+                      cellPadding: { top: 2.5, bottom: 2.5, left: 4, right: 4 } },
+        columnStyles: {
+          0: { textColor: textDark, fontSize: 8 },
+          1: { textColor: textMid, fontSize: 8, cellWidth: 20 },
+          2: { textColor: textMid, fontSize: 8, cellWidth: 12, halign: "center" },
+          3: { textColor: textMid, fontSize: 8, cellWidth: 16, halign: "center" },
+          4: { textColor: textMid, fontSize: 8, cellWidth: 18, halign: "center" },
+          5: { halign: "right", textColor: textDark, fontSize: 8, cellWidth: 22 },
+        },
+        alternateRowStyles: { fillColor: [240, 250, 246] as [number,number,number] },
+        bodyStyles: { cellPadding: { top: 2, bottom: 2, left: 4, right: 4 } },
+        margin: { left: margin, right: margin },
+      });
+      currentY = (doc as any).lastAutoTable.finalY + 5;
+    }
 
-    const afterServicesY = (doc as any).lastAutoTable.finalY + 8;
+    // ── Service Summary (non-pharmacy) ────────────────────────────
+    if (serviceItems.length > 0) {
+      autoTable(doc, {
+        startY: currentY,
+        head: [["Service Summary", "Category", "Amount"]],
+        body: serviceItems.map(s => [
+          s.description,
+          s.category || "Consultation",
+          `₹${parseFloat(s.amount || "0").toFixed(2)}`,
+        ]),
+        theme: "striped",
+        headStyles: { fillColor: indigoDark, textColor: white, fontStyle: "bold", fontSize: 8.5,
+                      cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
+        columnStyles: {
+          0: { textColor: textDark, fontSize: 8, cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
+          1: { textColor: textMid, fontSize: 8, cellWidth: 38, cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
+          2: { halign: "right", textColor: textDark, fontSize: 8, cellWidth: 32,
+               cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
+        },
+        alternateRowStyles: { fillColor: [248, 251, 249] as [number,number,number] },
+        bodyStyles: { cellPadding: 2.5 },
+        margin: { left: margin, right: margin },
+      });
+      currentY = (doc as any).lastAutoTable.finalY + 5;
+    }
 
-    // ── Totals ───────────────────────────────────────────────────
+    // ── Totals (right-aligned) ────────────────────────────────────
     const subtotal    = billingDetails.services.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
     const discountPct = parseFloat(billingDetails.discount) || 0;
     const taxPct      = parseFloat(billingDetails.tax) || 0;
@@ -1479,73 +1573,88 @@ export default function ClinicDashboard() {
     const taxAmt      = (subtotal - discountAmt) * (taxPct / 100);
     const total       = subtotal - discountAmt + taxAmt;
 
-    // ── Payment method box (left) ─────────────────────────────────
-    const leftBoxW = pageWidth / 2 - margin - 6;
-    const leftBoxH = billingDetails.remarks ? 34 : 24;
+    const afterServicesY = currentY;
+    autoTable(doc, {
+      startY: afterServicesY,
+      head: [],
+      body: [
+        ["Subtotal",                    `₹${subtotal.toFixed(2)}`],
+        [`Discount (${discountPct}%)`,  `− ₹${discountAmt.toFixed(2)}`],
+        [`Tax / GST (${taxPct}%)`,      `+ ₹${taxAmt.toFixed(2)}`],
+        ["Total Amount Due",            `₹${total.toFixed(2)}`],
+      ],
+      theme: "grid",
+      columnStyles: {
+        0: { halign: "right", textColor: textMid, fontSize: 8, cellWidth: 50,
+             cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
+        1: { halign: "right", textColor: textDark, fontSize: 8, cellWidth: 36,
+             cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
+      },
+      bodyStyles: { cellPadding: 2.5 },
+      willDrawCell: (data: any) => { if (data.row.index === 3 && data.section === "body") doc.setFillColor(...totalRowBg); },
+      didDrawCell:  (data: any) => { if (data.row.index === 3 && data.section === "body") { doc.setFont("helvetica","bold"); doc.setTextColor(...indigoDark); } },
+      margin: { left: pageWidth / 2 + 3, right: margin },
+    });
+
+    // ── Payment Details box (full width) ──────────────────────────
+    const totalsEndY = (doc as any).lastAutoTable.finalY;
+    const pmtBoxY  = totalsEndY + 6;
+    const pmtBoxW  = pageWidth - margin * 2;
+    const pmtBoxH  = billingDetails.remarks ? 30 : 26;
+    const qrSize   = pmtBoxH - 4;
+
+    const qrPayload = `Receipt:${billingDetails.receiptNumber}|Clinic:${billingDetails.clinicName}|Patient:${billingDetails.patientName}|Total:${total.toFixed(2)}`;
+    const qrDataUrl = buildQRDataUrl(qrPayload);
 
     doc.setFillColor(...lightBg);
     doc.setDrawColor(...indigoMid);
     doc.setLineWidth(0.3);
-    doc.roundedRect(margin, afterServicesY, leftBoxW, leftBoxH, 2.5, 2.5, "FD");
+    doc.roundedRect(margin, pmtBoxY, pmtBoxW, pmtBoxH, 2.5, 2.5, "FD");
 
     doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...indigoMid);
-    doc.text("PAYMENT METHOD", margin + 5, afterServicesY + 7);
+    doc.text("PAYMENT DETAILS", margin + 5, pmtBoxY + 6);
 
-    doc.setFontSize(9.5);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...textDark);
-    doc.text(billingDetails.paymentMethod || "Cash", margin + 5, afterServicesY + 15);
+    doc.text(billingDetails.paymentMethod || "Cash", margin + 5, pmtBoxY + 14);
 
-    if (billingDetails.remarks) {
+    if (billingDetails.transactionId) {
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...textMid);
-      const remarkLines: string[] = doc.splitTextToSize("Note: " + billingDetails.remarks, leftBoxW - 10);
-      doc.text(remarkLines, margin + 5, afterServicesY + 23);
+      doc.text(`TXN: ${billingDetails.transactionId}`, margin + 5, pmtBoxY + 21);
     }
 
-    // ── Summary table (right) ─────────────────────────────────────
-    const summaryData = [
-      ["Subtotal",               `INR ${subtotal.toFixed(2)}`],
-      [`Discount (${discountPct}%)`, `- INR ${discountAmt.toFixed(2)}`],
-      [`Tax / GST (${taxPct}%)`,    `+ INR ${taxAmt.toFixed(2)}`],
-      ["Total Amount Due",       `INR ${total.toFixed(2)}`],
-    ];
+    if (billingDetails.remarks) {
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...textMid);
+      const rl: string[] = doc.splitTextToSize(`Note: ${billingDetails.remarks}`, pmtBoxW - qrSize - 16);
+      doc.text(rl, margin + 5, pmtBoxY + (billingDetails.transactionId ? 26 : 21));
+    }
 
-    autoTable(doc, {
-      startY: afterServicesY,
-      head: [],
-      body: summaryData,
-      theme: "grid",
-      columnStyles: {
-        0: { halign: "right", fontStyle: "normal", textColor: textMid,  fontSize: 8.5, cellWidth: 52,
-             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
-        1: { halign: "right", textColor: textDark, fontSize: 8.5, cellWidth: 38,
-             cellPadding: { top: 3, bottom: 3, left: 5, right: 5 } },
-      },
-      bodyStyles: { cellPadding: 3 },
-      willDrawCell: (data: any) => {
-        if (data.row.index === 3 && data.section === "body") {
-          doc.setFillColor(...totalRowBg);
-        }
-      },
-      didDrawCell: (data: any) => {
-        if (data.row.index === 3 && data.section === "body") {
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(...indigoDark);
-        }
-      },
-      margin: { left: pageWidth / 2 + 3, right: margin },
-    });
+    // Status badge
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...statusRgb);
+    doc.text(`✓ ${statusLabel}`, pageWidth / 2, pmtBoxY + 14, { align: "center" });
+
+    // QR code (right of payment box)
+    if (qrDataUrl) {
+      const qrX = margin + pmtBoxW - qrSize - 2;
+      const qrY = pmtBoxY + (pmtBoxH - qrSize) / 2;
+      doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+    }
 
     // ── Thank-you + fine print ────────────────────────────────────
-    const finalY = Math.max((doc as any).lastAutoTable.finalY, afterServicesY + leftBoxH) + 12;
+    const finalY = pmtBoxY + pmtBoxH + 10;
 
     doc.setDrawColor(...indigoMid);
     doc.setLineWidth(0.3);
-    doc.line(margin, finalY - 5, pageWidth - margin, finalY - 5);
+    doc.line(margin, finalY - 4, pageWidth - margin, finalY - 4);
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
@@ -1565,7 +1674,6 @@ export default function ClinicDashboard() {
     doc.rect(0, pageHeight - 8, pageWidth * 0.55, 8, "F");
     doc.setFillColor(...magenta);
     doc.rect(pageWidth * 0.55, pageHeight - 8, pageWidth * 0.45, 8, "F");
-
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...white);
@@ -1589,9 +1697,14 @@ export default function ClinicDashboard() {
         patientEmail: billingDetails.patientEmail,
         services: billingDetails.services.map(s => ({
           description: s.description,
-          category: "General",
+          category: s.category || "General",
           amount: parseFloat(s.amount) || 0,
           paid: billingDetails.paymentStatus === "paid",
+          dosage: s.dosage,
+          frequency: s.frequency,
+          duration: s.duration,
+          qty: s.qty,
+          unitPrice: s.unitPrice,
         })),
         subtotal: _saveSub,
         discountPct: _saveDiscPct,
@@ -1618,7 +1731,7 @@ export default function ClinicDashboard() {
     const doc = new jsPDF();
     const pageWidth  = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
+    const margin = 14;
     const indigoDark: [number,number,number] = [8,80,65];
     const magenta: [number,number,number]    = [29,158,117];
     const indigoMid: [number,number,number]  = [15,155,110];
@@ -1627,147 +1740,251 @@ export default function ClinicDashboard() {
     const totalRowBg: [number,number,number] = [193,229,215];
     const textDark: [number,number,number]   = [8,40,32];
     const textMid: [number,number,number]    = [50,100,80];
-    const textLight: [number,number,number]  = [120,160,140];
+    const textLight: [number,number,number]  = [150,148,180];
     const white: [number,number,number]      = [255,255,255];
 
-    const rightX = pageWidth - margin;
-    const rightColWidth = 70;
-    let contactY = 16;
-
-    doc.setFillColor(...indigoDark);
-    doc.rect(0, 0, pageWidth * 0.55, 12, "F");
-    doc.setFillColor(...magenta);
-    doc.rect(pageWidth * 0.55, 0, pageWidth * 0.45, 12, "F");
-    doc.setFontSize(7);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(...white);
-    doc.text("BookMySlot — Digital Dental Receipt", pageWidth / 2, 7.5, { align: "center" });
-
     const clinicName = (clinic as any)?.name || "Clinic";
-    const nameX = margin;
-    doc.setFontSize(19);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(...textDark);
+    const rightX = pageWidth - margin;
+    const rightColWidth = pageWidth * 0.42;
+    const billDate = bill.createdAt ? format(new Date(bill.createdAt), "PPP") : format(new Date(), "PPP");
+
+    // Find booking for doctor info
+    const linkedBooking = bookings?.find(b => b.id === (bill as any).bookingId);
+    const doctorName = (linkedBooking as any)?.assignedDoctor || "";
+
+    // ── Top gradient bar ──────────────────────────────────────────
+    doc.setFillColor(...indigoDark);
+    doc.rect(0, 0, pageWidth * 0.55, 7, "F");
+    doc.setFillColor(...magenta);
+    doc.rect(pageWidth * 0.55, 0, pageWidth * 0.45, 7, "F");
+
+    // ── Medical cross icon ────────────────────────────────────────
+    const cs = 4.5; const cw = 1.4;
+    doc.setFillColor(...indigoMid);
+    doc.rect(margin + (cs - cw) / 2, 12, cw, cs, "F");
+    doc.rect(margin, 12 + (cs - cw) / 2, cs, cw, "F");
+
+    // ── Clinic name + tagline ─────────────────────────────────────
+    const nameX = margin + cs + 3;
+    doc.setFontSize(19); doc.setFont("helvetica","bold"); doc.setTextColor(...textDark);
     doc.text(clinicName, nameX, 20);
-    doc.setFontSize(8.5);
-    doc.setFont("helvetica","normal");
-    doc.setTextColor(...indigoMid);
-    doc.text("DENTAL RECEIPT", nameX, 26);
+    doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor(...indigoMid);
+    doc.text("Caring for Your Smile", nameX, 27);
 
+    // ── Header right: phone, email, address ──────────────────────
+    let contactY = 11;
+    doc.setFontSize(7.5); doc.setFont("helvetica","normal"); doc.setTextColor(...textMid);
+    if ((clinic as any)?.phone) { doc.text((clinic as any).phone, rightX, contactY, {align:"right"}); contactY += 4.2; }
+    if ((clinic as any)?.email) { doc.text((clinic as any).email, rightX, contactY, {align:"right"}); contactY += 4.2; }
     if ((clinic as any)?.address) {
-      const addrLines: string[] = doc.splitTextToSize((clinic as any).address, rightColWidth);
-      addrLines.forEach((line: string) => { doc.setFontSize(8.5); doc.setFont("helvetica","normal"); doc.setTextColor(...textMid); doc.text(line, rightX, contactY, {align:"right"}); contactY += 4.2; });
+      doc.splitTextToSize((clinic as any).address, rightColWidth)
+        .forEach((l: string) => { doc.text(l, rightX, contactY, {align:"right"}); contactY += 4.2; });
     }
-    if ((clinic as any)?.phone) { doc.text(`Tel: ${(clinic as any).phone}`, rightX, contactY, {align:"right"}); contactY += 4.2; }
-    if ((clinic as any)?.email) { doc.text((clinic as any).email, rightX, contactY, {align:"right"}); }
 
-    const metaY = 32; const metaH = 16;
+    // ── Divider ───────────────────────────────────────────────────
+    doc.setDrawColor(...indigoDark); doc.setLineWidth(0.5);
+    doc.line(margin, 33, pageWidth - margin, 33);
+
+    // ── 2-row Meta band ───────────────────────────────────────────
+    const metaY = 34; const metaH = 17;
     doc.setFillColor(...metaBg);
-    doc.roundedRect(margin, metaY, pageWidth - margin * 2, metaH, 3, 3, "F");
-    doc.setFontSize(8);
-    doc.setFont("helvetica","normal");
-    doc.setTextColor(...textMid);
-    doc.text(`Date:  ${bill.createdAt ? format(new Date(bill.createdAt), "PPP") : format(new Date(), "PPP")}`, margin + 4, metaY + 6.5);
-    doc.setTextColor(...indigoMid);
-    doc.setFont("helvetica","bold");
-    doc.text(bill.paymentMethod || "Cash", pageWidth / 2, metaY + 6.5, {align:"center"});
-    doc.setFont("helvetica","normal");
-    doc.setTextColor(...textMid);
-    doc.text(`Receipt #:  ${bill.billNumber}`, rightX - 4, metaY + 6.5, {align:"right"});
+    doc.rect(margin, metaY, pageWidth - margin * 2, metaH, "F");
+
+    const metaRow1Y = metaY + 5.5;
+    doc.setFontSize(7.5); doc.setFont("helvetica","normal"); doc.setTextColor(...textMid);
+    doc.text(`Receipt #  ${bill.billNumber}`, margin + 4, metaRow1Y);
+    const bMidParts = [
+      `Visit ID: ${(bill as any).bookingId || "—"}`,
+      doctorName ? `Dr. ${doctorName}` : "",
+    ].filter(Boolean);
+    doc.text(bMidParts.join("   |   "), pageWidth / 2, metaRow1Y, { align: "center" });
+    doc.setFont("helvetica","bold"); doc.setTextColor(...indigoDark);
+    doc.text(`Date: ${billDate}`, rightX - 4, metaRow1Y, { align: "right" });
+
+    const metaRow2Y = metaY + 12.5;
+    doc.setFont("helvetica","normal"); doc.setTextColor(...textMid);
+    doc.text(`Payment Mode:  ${bill.paymentMethod || "Cash"}`, margin + 4, metaRow2Y);
+    const bStatusRgb: [number,number,number] =
+      bill.paymentStatus === "paid"    ? [22, 163, 74]  :
+      bill.paymentStatus === "partial" ? [37,  99, 235] : [217, 119, 6];
+    const bStatusLabel = bill.paymentStatus === "paid" ? "Paid" : bill.paymentStatus === "partial" ? "Partial" : "Pending";
+    doc.setFont("helvetica","bold"); doc.setTextColor(...bStatusRgb);
+    doc.text(`Status: ${bStatusLabel}`, rightX - 4, metaRow2Y, { align: "right" });
+
+    // ── Patient Information table ─────────────────────────────────
+    const patientRows: string[][] = [
+      ["Name",  bill.patientName],
+      ["Phone", bill.patientPhone || "—"],
+      ["Email", bill.patientEmail || "—"],
+      ["Date",  billDate],
+    ];
+    if (doctorName) patientRows.push(["Doctor", doctorName]);
 
     autoTable(doc, {
-      startY: metaY + metaH + 5,
+      startY: metaY + metaH + 4,
       head: [["Patient Information",""]],
-      body: [
-        ["Name", bill.patientName],
-        ["Phone", bill.patientPhone || "—"],
-        ["Email", bill.patientEmail || "—"],
-      ],
+      body: patientRows,
       theme: "grid",
-      headStyles: { fillColor: indigoDark, textColor: white, fontStyle: "bold", fontSize: 9, halign: "left", cellPadding: {top:3,bottom:3,left:5,right:5} },
+      headStyles: { fillColor: indigoDark, textColor: white, fontStyle:"bold", fontSize:9, halign:"left",
+                    cellPadding:{top:2.5,bottom:2.5,left:5,right:5} },
       columnStyles: {
-        0: { fontStyle:"bold", cellWidth:48, textColor:textDark, fillColor:lightBg, fontSize:8.5, cellPadding:{top:3,bottom:3,left:5,right:5} },
-        1: { textColor:textMid, fontSize:8.5, cellPadding:{top:3,bottom:3,left:5,right:5} },
+        0: { fontStyle:"bold", cellWidth:48, textColor:textDark, fillColor:lightBg, fontSize:8,
+             cellPadding:{top:2.5,bottom:2.5,left:5,right:5} },
+        1: { textColor:textMid, fontSize:8, cellPadding:{top:2.5,bottom:2.5,left:5,right:5} },
       },
-      bodyStyles: { cellPadding: 3 },
+      bodyStyles: { cellPadding: 2.5 },
       margin: { left: margin, right: margin },
     });
 
-    const servicesStartY = (doc as any).lastAutoTable.finalY + 7;
-    const svcs = (bill.services as {description:string;amount:number}[]) || [];
-    const tableBody = svcs.map(s => [s.description, `INR ${(s.amount||0).toFixed(2)}`]);
-    autoTable(doc, {
-      startY: servicesStartY,
-      head: [["Description of Services","Amount"]],
-      body: tableBody,
-      theme: "striped",
-      headStyles: { fillColor: indigoDark, textColor: white, fontStyle:"bold", fontSize:9, cellPadding:{top:3,bottom:3,left:5,right:5} },
-      columnStyles: {
-        0: { textColor:textDark, fontSize:8.5, cellPadding:{top:3,bottom:3,left:5,right:5} },
-        1: { halign:"right", textColor:textDark, cellWidth:40, fontSize:8.5, cellPadding:{top:3,bottom:3,left:5,right:5} },
-      },
-      alternateRowStyles: { fillColor: [248,247,255] as [number,number,number] },
-      bodyStyles: { cellPadding: 3 },
-      margin: { left: margin, right: margin },
-    });
+    // ── Split services: pharmacy vs. others ───────────────────────
+    const allSvcs = (bill.services as any[]) || [];
+    const bPharmItems   = allSvcs.filter(s => s.category === "Pharmacy");
+    const bServiceItems = allSvcs.filter(s => s.category !== "Pharmacy");
+    let currentY = (doc as any).lastAutoTable.finalY + 5;
 
-    const afterServicesY = (doc as any).lastAutoTable.finalY + 8;
-    const leftBoxW = pageWidth / 2 - margin - 6;
-    doc.setFillColor(...lightBg);
-    doc.setDrawColor(...indigoMid);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(margin, afterServicesY, leftBoxW, 24, 2.5, 2.5, "FD");
-    doc.setFontSize(7);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(...indigoMid);
-    doc.text("PAYMENT METHOD", margin + 5, afterServicesY + 7);
-    doc.setFontSize(9.5);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(...textDark);
-    doc.text(bill.paymentMethod || "Cash", margin + 5, afterServicesY + 15);
+    // ── Prescription Summary ──────────────────────────────────────
+    if (bPharmItems.length > 0) {
+      autoTable(doc, {
+        startY: currentY,
+        head: [["Prescription Summary","Dosage","Qty","Freq.","Duration","Price"]],
+        body: bPharmItems.map((s: any) => [
+          s.medicine || s.description || "—",
+          s.dosage || "—",
+          String(s.qty ?? 1),
+          s.frequency || "—",
+          s.duration || "—",
+          `₹${(s.amount || 0).toFixed(2)}`,
+        ]),
+        theme: "grid",
+        headStyles: { fillColor: indigoDark, textColor: white, fontStyle:"bold", fontSize:8.5,
+                      cellPadding:{top:2.5,bottom:2.5,left:4,right:4} },
+        columnStyles: {
+          0: { textColor:textDark, fontSize:8 },
+          1: { textColor:textMid, fontSize:8, cellWidth:20 },
+          2: { textColor:textMid, fontSize:8, cellWidth:12, halign:"center" },
+          3: { textColor:textMid, fontSize:8, cellWidth:16, halign:"center" },
+          4: { textColor:textMid, fontSize:8, cellWidth:18, halign:"center" },
+          5: { halign:"right", textColor:textDark, fontSize:8, cellWidth:22 },
+        },
+        alternateRowStyles: { fillColor: [240,250,246] as [number,number,number] },
+        bodyStyles: { cellPadding:{top:2,bottom:2,left:4,right:4} },
+        margin: { left: margin, right: margin },
+      });
+      currentY = (doc as any).lastAutoTable.finalY + 5;
+    }
 
+    // ── Service Summary ───────────────────────────────────────────
+    if (bServiceItems.length > 0) {
+      autoTable(doc, {
+        startY: currentY,
+        head: [["Service Summary","Category","Amount"]],
+        body: bServiceItems.map((s: any) => [
+          s.description || "—",
+          s.category || "Consultation",
+          `₹${(s.amount || 0).toFixed(2)}`,
+        ]),
+        theme: "striped",
+        headStyles: { fillColor: indigoDark, textColor: white, fontStyle:"bold", fontSize:8.5,
+                      cellPadding:{top:2.5,bottom:2.5,left:5,right:5} },
+        columnStyles: {
+          0: { textColor:textDark, fontSize:8, cellPadding:{top:2.5,bottom:2.5,left:5,right:5} },
+          1: { textColor:textMid,  fontSize:8, cellWidth:38, cellPadding:{top:2.5,bottom:2.5,left:5,right:5} },
+          2: { halign:"right", textColor:textDark, fontSize:8, cellWidth:32,
+               cellPadding:{top:2.5,bottom:2.5,left:5,right:5} },
+        },
+        alternateRowStyles: { fillColor: [248,251,249] as [number,number,number] },
+        bodyStyles: { cellPadding: 2.5 },
+        margin: { left: margin, right: margin },
+      });
+      currentY = (doc as any).lastAutoTable.finalY + 5;
+    }
+
+    // Fallback if no items at all
+    if (allSvcs.length === 0) {
+      autoTable(doc, {
+        startY: currentY,
+        head: [["Service Summary","Amount"]],
+        body: [["—","₹0.00"]],
+        theme: "striped",
+        headStyles: { fillColor: indigoDark, textColor: white, fontStyle:"bold", fontSize:9 },
+        margin: { left: margin, right: margin },
+      });
+      currentY = (doc as any).lastAutoTable.finalY + 5;
+    }
+
+    // ── Totals ────────────────────────────────────────────────────
     const discountAmt = (bill.subtotal || 0) * ((bill.discountPct || 0) / 100);
     const taxAmt = ((bill.subtotal || 0) - discountAmt) * ((bill.taxPct || 0) / 100);
-    const summaryData = [
-      ["Subtotal", `INR ${(bill.subtotal||0).toFixed(2)}`],
-      [`Discount (${bill.discountPct||0}%)`, `- INR ${discountAmt.toFixed(2)}`],
-      [`Tax / GST (${bill.taxPct||0}%)`, `+ INR ${taxAmt.toFixed(2)}`],
-      ["Total Amount Due", `INR ${(bill.total||0).toFixed(2)}`],
-    ];
+
     autoTable(doc, {
-      startY: afterServicesY,
+      startY: currentY,
       head: [],
-      body: summaryData,
+      body: [
+        ["Subtotal",                        `₹${(bill.subtotal||0).toFixed(2)}`],
+        [`Discount (${bill.discountPct||0}%)`, `− ₹${discountAmt.toFixed(2)}`],
+        [`Tax / GST (${bill.taxPct||0}%)`,    `+ ₹${taxAmt.toFixed(2)}`],
+        ["Total Amount Due",               `₹${(bill.total||0).toFixed(2)}`],
+      ],
       theme: "grid",
       columnStyles: {
-        0: { halign:"right", fontStyle:"normal", textColor:textMid, fontSize:8.5, cellWidth:52, cellPadding:{top:3,bottom:3,left:5,right:5} },
-        1: { halign:"right", textColor:textDark, fontSize:8.5, cellWidth:38, cellPadding:{top:3,bottom:3,left:5,right:5} },
+        0: { halign:"right", textColor:textMid, fontSize:8, cellWidth:50,
+             cellPadding:{top:2.5,bottom:2.5,left:5,right:5} },
+        1: { halign:"right", textColor:textDark, fontSize:8, cellWidth:36,
+             cellPadding:{top:2.5,bottom:2.5,left:5,right:5} },
       },
-      bodyStyles: { cellPadding: 3 },
+      bodyStyles: { cellPadding: 2.5 },
       willDrawCell: (data: any) => { if (data.row.index === 3 && data.section === "body") doc.setFillColor(...totalRowBg); },
       didDrawCell:  (data: any) => { if (data.row.index === 3 && data.section === "body") { doc.setFont("helvetica","bold"); doc.setTextColor(...indigoDark); } },
       margin: { left: pageWidth / 2 + 3, right: margin },
     });
 
-    const finalY = Math.max((doc as any).lastAutoTable.finalY, afterServicesY + 24) + 12;
-    doc.setDrawColor(...indigoMid);
-    doc.setLineWidth(0.3);
-    doc.line(margin, finalY - 5, pageWidth - margin, finalY - 5);
-    doc.setFontSize(10);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(...indigoMid);
+    // ── Payment Details box (full width) ──────────────────────────
+    const totalsEndY = (doc as any).lastAutoTable.finalY;
+    const pmtBoxY  = totalsEndY + 6;
+    const pmtBoxW  = pageWidth - margin * 2;
+    const pmtBoxH  = 26;
+    const qrSize   = pmtBoxH - 4;
+
+    const qrPayload = `Receipt:${bill.billNumber}|Clinic:${clinicName}|Patient:${bill.patientName}|Total:${(bill.total||0).toFixed(2)}`;
+    const qrDataUrl = buildQRDataUrl(qrPayload);
+
+    doc.setFillColor(...lightBg);
+    doc.setDrawColor(...indigoMid); doc.setLineWidth(0.3);
+    doc.roundedRect(margin, pmtBoxY, pmtBoxW, pmtBoxH, 2.5, 2.5, "FD");
+
+    doc.setFontSize(7); doc.setFont("helvetica","bold"); doc.setTextColor(...indigoMid);
+    doc.text("PAYMENT DETAILS", margin + 5, pmtBoxY + 6);
+
+    doc.setFontSize(10); doc.setFont("helvetica","bold"); doc.setTextColor(...textDark);
+    doc.text(bill.paymentMethod || "Cash", margin + 5, pmtBoxY + 14);
+
+    // Status badge (centre)
+    doc.setFontSize(8.5); doc.setFont("helvetica","bold"); doc.setTextColor(...bStatusRgb);
+    doc.text(`✓ ${bStatusLabel}`, pageWidth / 2, pmtBoxY + 14, { align: "center" });
+
+    // QR code
+    if (qrDataUrl) {
+      const qrX = margin + pmtBoxW - qrSize - 2;
+      const qrY = pmtBoxY + (pmtBoxH - qrSize) / 2;
+      doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+    }
+
+    // ── Thank-you + fine print ────────────────────────────────────
+    const finalY = pmtBoxY + pmtBoxH + 10;
+    doc.setDrawColor(...indigoMid); doc.setLineWidth(0.3);
+    doc.line(margin, finalY - 4, pageWidth - margin, finalY - 4);
+
+    doc.setFontSize(10); doc.setFont("helvetica","bold"); doc.setTextColor(...indigoMid);
     doc.text(`Thank you for choosing ${clinicName}!`, pageWidth / 2, finalY, {align:"center"});
-    doc.setFontSize(6.5);
-    doc.setFont("helvetica","normal");
-    doc.setTextColor(...textLight);
+    doc.setFontSize(6.5); doc.setFont("helvetica","normal"); doc.setTextColor(...textLight);
     doc.text("This is a computer generated receipt and does not require a physical signature.", pageWidth / 2, finalY + 6, {align:"center"});
+
+    // ── Bottom gradient bar ───────────────────────────────────────
     doc.setFillColor(...indigoDark);
     doc.rect(0, pageHeight - 8, pageWidth * 0.55, 8, "F");
     doc.setFillColor(...magenta);
     doc.rect(pageWidth * 0.55, pageHeight - 8, pageWidth * 0.45, 8, "F");
-    doc.setFontSize(7.5);
-    doc.setFont("helvetica","normal");
-    doc.setTextColor(...white);
+    doc.setFontSize(7.5); doc.setFont("helvetica","normal"); doc.setTextColor(...white);
     doc.text("Powered by BookMySlot", pageWidth / 2, pageHeight - 3, {align:"center"});
 
     doc.save(`receipt_${bill.patientName.replace(/\s+/g,"_")}_${format(new Date(), "yyyyMMdd")}.pdf`);
@@ -6970,7 +7187,7 @@ export default function ClinicDashboard() {
             {/* Discount, Tax, Payment */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Payment & Summary</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Discount %</Label>
                   <Input
@@ -6998,6 +7215,15 @@ export default function ClinicDashboard() {
                     value={billingDetails.paymentMethod}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, paymentMethod: e.target.value }))}
                     placeholder="e.g. UPI / Cash"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Transaction ID <span className="text-muted-foreground/60">(optional)</span></Label>
+                  <Input
+                    value={billingDetails.transactionId}
+                    onChange={(e) => setBillingDetails(prev => ({ ...prev, transactionId: e.target.value }))}
+                    placeholder="UPI ref / card txn"
                     className="h-8 text-sm"
                   />
                 </div>
