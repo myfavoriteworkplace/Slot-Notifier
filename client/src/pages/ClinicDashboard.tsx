@@ -22,7 +22,7 @@ import {
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
   Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, CreditCard,
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
-  ChevronLeft, ChevronRight, Save, Hash, Pill
+  ChevronLeft, ChevronRight, Save, Hash, Pill, Printer
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -6835,115 +6835,91 @@ export default function ClinicDashboard() {
 
       {/* Billing Modal */}
       <Dialog open={isBillingOpen} onOpenChange={setIsBillingOpen}>
-        <DialogContent className="sm:max-w-[520px] rounded-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[520px] rounded-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Generate Receipt
+              <Printer className="h-5 w-5 text-primary" />
+              {billingDetails.printOnly ? "Print Consolidated Receipt" : "Print Receipt"}
             </DialogTitle>
             <DialogDescription>
-              Review and edit details before generating the PDF. All fields are pre-filled from booking data.
+              Review and edit details before downloading the PDF receipt.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-5 py-2">
+          <div className="space-y-3 py-1">
 
-            {/* Clinic Information */}
-            <div className="space-y-2">
+            {/* Clinic Information — compact 2-col grid */}
+            <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Clinic Information</Label>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <Input
-                    value={billingDetails.clinicName}
-                    onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicName: e.target.value }))}
-                    placeholder="e.g. Bright Smiles Dental"
-                    className="h-9"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <Input
-                    value={billingDetails.clinicEmail}
-                    onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicEmail: e.target.value }))}
-                    placeholder="e.g. clinic@example.com"
-                    className="h-9"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <Input
-                    value={billingDetails.clinicPhone}
-                    onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicPhone: e.target.value }))}
-                    placeholder="e.g. +91 98765 43210"
-                    className="h-9"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0 opacity-0" />
-                  <Input
-                    value={billingDetails.clinicAddress}
-                    onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicAddress: e.target.value }))}
-                    placeholder="e.g. 12 MG Road, Ernakulam"
-                    className="h-9"
-                  />
-                </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={billingDetails.clinicName}
+                  onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicName: e.target.value }))}
+                  placeholder="e.g. Bright Smiles Dental"
+                  className="h-8 text-sm"
+                />
+                <Input
+                  value={billingDetails.clinicPhone}
+                  onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicPhone: e.target.value }))}
+                  placeholder="e.g. +91 98765 43210"
+                  className="h-8 text-sm"
+                />
+                <Input
+                  value={billingDetails.clinicEmail}
+                  onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicEmail: e.target.value }))}
+                  placeholder="e.g. clinic@example.com"
+                  className="h-8 text-sm"
+                />
+                <Input
+                  value={billingDetails.clinicAddress}
+                  onChange={(e) => setBillingDetails(prev => ({ ...prev, clinicAddress: e.target.value }))}
+                  placeholder="e.g. 12 MG Road, Ernakulam"
+                  className="h-8 text-sm"
+                />
               </div>
             </div>
 
-            {/* Receipt + Date */}
-            <div className="space-y-2">
+            {/* Receipt + Date — always 2-col */}
+            <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Receipt Details</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   value={billingDetails.receiptNumber}
                   onChange={(e) => setBillingDetails(prev => ({ ...prev, receiptNumber: e.target.value }))}
                   placeholder="e.g. RCP-001"
-                  className="h-9 text-sm"
+                  className="h-8 text-sm"
                 />
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <Input
-                    value={billingDetails.date}
-                    onChange={(e) => setBillingDetails(prev => ({ ...prev, date: e.target.value }))}
-                    placeholder="e.g. 27 May 2026"
-                    className="h-9 text-sm"
-                  />
-                </div>
+                <Input
+                  value={billingDetails.date}
+                  onChange={(e) => setBillingDetails(prev => ({ ...prev, date: e.target.value }))}
+                  placeholder="e.g. 27 May 2026"
+                  className="h-8 text-sm"
+                />
               </div>
             </div>
 
-            {/* Patient Information */}
-            <div className="space-y-2">
+            {/* Patient Information — compact 2-col */}
+            <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Patient Information</Label>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <Input
-                    value={billingDetails.patientName}
-                    onChange={(e) => setBillingDetails(prev => ({ ...prev, patientName: e.target.value }))}
-                    placeholder="e.g. Rahul Verma"
-                    className="h-9"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <Input
-                    value={billingDetails.patientPhone}
-                    onChange={(e) => setBillingDetails(prev => ({ ...prev, patientPhone: e.target.value }))}
-                    placeholder="e.g. +91 98765 43210"
-                    className="h-9"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <Input
-                    value={billingDetails.patientEmail}
-                    onChange={(e) => setBillingDetails(prev => ({ ...prev, patientEmail: e.target.value }))}
-                    placeholder="e.g. patient@example.com"
-                    className="h-9"
-                  />
-                </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={billingDetails.patientName}
+                  onChange={(e) => setBillingDetails(prev => ({ ...prev, patientName: e.target.value }))}
+                  placeholder="e.g. Rahul Verma"
+                  className="h-8 text-sm"
+                />
+                <Input
+                  value={billingDetails.patientPhone}
+                  onChange={(e) => setBillingDetails(prev => ({ ...prev, patientPhone: e.target.value }))}
+                  placeholder="e.g. +91 98765 43210"
+                  className="h-8 text-sm"
+                />
+                <Input
+                  value={billingDetails.patientEmail}
+                  onChange={(e) => setBillingDetails(prev => ({ ...prev, patientEmail: e.target.value }))}
+                  placeholder="e.g. patient@example.com"
+                  className="h-8 text-sm col-span-2"
+                />
               </div>
             </div>
 
@@ -6992,37 +6968,37 @@ export default function ClinicDashboard() {
             </div>
 
             {/* Discount, Tax, Payment */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Payment & Summary</Label>
               <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Discount %</Label>
+                  <Label className="text-xs text-muted-foreground">Discount %</Label>
                   <Input
                     type="number"
                     min="0"
                     max="100"
                     value={billingDetails.discount}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, discount: e.target.value }))}
-                    className="h-9 text-sm"
+                    className="h-8 text-sm"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Tax / GST %</Label>
+                  <Label className="text-xs text-muted-foreground">Tax / GST %</Label>
                   <Input
                     type="number"
                     min="0"
                     value={billingDetails.tax}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, tax: e.target.value }))}
-                    className="h-9 text-sm"
+                    className="h-8 text-sm"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Payment Method</Label>
+                  <Label className="text-xs text-muted-foreground">Payment Method</Label>
                   <Input
                     value={billingDetails.paymentMethod}
                     onChange={(e) => setBillingDetails(prev => ({ ...prev, paymentMethod: e.target.value }))}
                     placeholder="e.g. UPI / Cash"
-                    className="h-9 text-sm"
+                    className="h-8 text-sm"
                   />
                 </div>
               </div>
@@ -7030,7 +7006,7 @@ export default function ClinicDashboard() {
                 value={billingDetails.remarks}
                 onChange={(e) => setBillingDetails(prev => ({ ...prev, remarks: e.target.value }))}
                 placeholder="Remarks (optional)"
-                className="h-9 text-sm"
+                className="h-8 text-sm"
               />
             </div>
 
@@ -7041,22 +7017,22 @@ export default function ClinicDashboard() {
               const tax = (sub - disc) * ((parseFloat(billingDetails.tax) || 0) / 100);
               const total = sub - disc + tax;
               return (
-                <div className="rounded-xl bg-primary/5 border border-primary/15 px-4 py-3 space-y-1 text-sm">
+                <div className="rounded-xl bg-primary/5 border border-primary/15 px-3 py-2.5 space-y-1 text-sm">
                   <div className="flex justify-between text-muted-foreground">
-                    <span>Subtotal</span><span>INR {sub.toFixed(2)}</span>
+                    <span>Subtotal</span><span>₹{sub.toFixed(2)}</span>
                   </div>
                   {disc > 0 && (
                     <div className="flex justify-between text-muted-foreground">
-                      <span>Discount</span><span>- INR {disc.toFixed(2)}</span>
+                      <span>Discount</span><span>- ₹{disc.toFixed(2)}</span>
                     </div>
                   )}
                   {tax > 0 && (
                     <div className="flex justify-between text-muted-foreground">
-                      <span>Tax / GST</span><span>+ INR {tax.toFixed(2)}</span>
+                      <span>Tax / GST</span><span>+ ₹{tax.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-semibold text-primary border-t border-primary/15 pt-1 mt-1">
-                    <span>Total Amount Due</span><span>INR {total.toFixed(2)}</span>
+                    <span>Total Amount Due</span><span>₹{total.toFixed(2)}</span>
                   </div>
                 </div>
               );
@@ -7093,8 +7069,8 @@ export default function ClinicDashboard() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsBillingOpen(false)}>Cancel</Button>
             <Button onClick={generatePDF} className="gap-2">
-              <Download className="h-4 w-4" />
-              {billingDetails.printOnly ? "Download PDF" : billingDetails.existingBillId ? "Update & Download" : "Generate Receipt"}
+              <Printer className="h-4 w-4" />
+              {billingDetails.printOnly ? "Print & Download" : billingDetails.existingBillId ? "Update & Print" : "Print & Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

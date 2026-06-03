@@ -7,7 +7,7 @@ import {
   IndianRupee, FileText, Trash2, Loader2, Plus, CheckCircle2,
   Clock, AlertCircle, Check, ChevronDown, ChevronUp, X, History,
   Pill, Stethoscope, Receipt, Bell, CreditCard, User, Lock,
-  Eye, Pencil, AlertTriangle, ShieldCheck, ClipboardList,
+  Eye, Pencil, AlertTriangle, ShieldCheck, ClipboardList, Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -907,6 +907,13 @@ export function BillingHistoryPanel({
           </button>
           <span className="text-sm font-bold text-primary shrink-0">₹{totalAmt.toFixed(0)}</span>
           <button
+            onClick={() => onPrintBill(bill)}
+            className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-primary shrink-0 active:scale-95 transition-transform"
+            title="Print receipt"
+            data-testid={`button-print-bill-${bill.id}`}>
+            <Printer className="h-3.5 w-3.5" />
+          </button>
+          <button
             onClick={() => toggleExpand(bill.id)}
             className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground shrink-0"
             data-testid={`button-expand-bill-${bill.id}`}>
@@ -1495,13 +1502,13 @@ export function BillingHistoryPanel({
                 <Button size="sm" variant="ghost" onClick={() => onConsolidatedReceipt(bills)}
                   className="h-7 px-2 text-xs gap-1 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
                   data-testid="button-settled-pdf">
-                  <FileText className="h-3.5 w-3.5" /> PDF
+                  <Printer className="h-3.5 w-3.5" /> Print
                 </Button>
               ) : bills.length === 1 ? (
                 <Button size="sm" variant="ghost" onClick={() => onPrintBill(bills[0])}
                   className="h-7 px-2 text-xs gap-1 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/40"
                   data-testid="button-settled-pdf-single">
-                  <FileText className="h-3.5 w-3.5" /> PDF
+                  <Printer className="h-3.5 w-3.5" /> Print
                 </Button>
               ) : null}
               <Button size="sm" variant="ghost" onClick={() => createNewBillMutation.mutate()}
