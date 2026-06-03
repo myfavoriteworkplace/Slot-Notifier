@@ -162,15 +162,31 @@ interface BillingHistoryPanelProps {
 
 | Section | Purpose |
 |---|---|
-| **Invoice Preview** | Grouped view of all current-visit line items (Consultation, Pharmacy, Other). Inline amount editing (pencil icon). Discount % and Tax % inputs. Totals bar. |
+| **Open Invoice (active bill)** | Unified card with a sticky toolbar (Load Prescription, Add Entry, Print, Invoice Preview, Confirm Bill / Mark Paid). Collapsible body via chevron. Consultation & Procedures table, Pharmacy table (medicine name + schedule parsed from description), Other flat rows, Discount %/Tax % inputs, Totals bar. Active bill card has a green-tinted border/background (`border-primary/40`, `bg-primary/10`). |
+| **No-bill state** | When no open bill exists, standalone toolbar buttons + Add Entry form are shown directly (no wrapper card). |
 | **Unpriced pharmacy warning** | Amber banner when any pharmacy line item has amount = ₹0 (awaiting catalog price). |
-| **Action buttons** | "Load Prescription" (auto-imports from clinical record) and "Add New Entry" (manual form). |
-| **Add Entry form** | Description, category dropdown, qty, unit price. Collapses after save. |
-| **Bills list** | Grouped by date. Each bill shows: bill number, status badge, item count, total, expand/collapse, cashier form, confirm/delete actions. |
-| **Previous visits** | Past bills for the same patient (by email or phone) across other bookings. Collapsed by default. |
-| **Past prescriptions** | Prescriptions from earlier visits — each has a "Load" button to re-import into the current bill. |
-| **Audit trail** | Collapsible log of all billing events for this booking (lazy-loaded on first open). |
-| **Invoice Preview Modal** | Full-screen printable preview with categorised groups and totals. |
+| **Add Entry form** | Description, category dropdown (Consultation / Procedure / Treatment / Pharmacy / Consumable / Other), qty, unit price. Collapses after save. |
+| **Older bills** | Past bills for the current booking, grouped by date with date-divider labels. Each bill card shows: bill number, status badge, item count, total, expand/collapse, cashier payment form, Confirm / Mark Paid / Print / Delete actions. Items inside are split into the same three category tables (Consultation & Procedures, Pharmacy, Other). |
+| **Previous visits** | Past bills for the same patient (by email or phone) across other bookings. Collapsed by default. Shows bill number, status badge, and total per visit. |
+| **Past prescriptions** | Prescriptions from earlier visits — each shows date, doctor, and first two medicines. "Load" button re-imports into the current bill. |
+| **Audit trail** | Collapsible log of all billing events for this booking (lazy-loaded on first open). Shows action label (colour-coded), optional description, timestamp, cashier name, and amount. |
+| **Invoice Preview Modal** | Full-screen printable preview with categorised groups and totals, showing all bills for the visit. |
+
+### Category grouping rules
+
+Line items are split into three display groups in both the open invoice and older bill cards:
+
+| Display group | `category` values included |
+|---|---|
+| Consultation & Procedures | `Consultation`, `Procedure`, `Treatment`, `Consumable` |
+| Pharmacy | `Pharmacy` |
+| Other | anything else |
+
+### Pharmacy description parsing (`parsePharmacyDesc`)
+
+Pharmacy items stored as `"MedicineName × qty — schedule"` are parsed into:
+- **medicine** — text before `×`
+- **schedule** — text after the quantity number (frequency + duration, e.g. `1×/day · 5 days`)
 
 ### Data queries (TanStack Query v5)
 

@@ -1,0 +1,1 @@
+- [BillingHistoryPanel design rules](billing-panel-design.md) — min font text-xs, category grouping, pharmacy desc parsing, active bill styling conventions
