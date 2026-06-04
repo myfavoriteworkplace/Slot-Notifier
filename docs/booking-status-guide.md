@@ -16,7 +16,7 @@ A booking in BookMySlot does not have a single "status" field. It has **five sep
 |---|---|---|
 | `verification_status` | Appointment confirmation state | Clinic admin or doctor approval |
 | `doctor_approval_status` | Doctor's response to being assigned | Doctor (approve/decline) or admin override |
-| `visit_status` | Physical arrival at the clinic on the day | Clinic admin (front desk) |
+| `visit_status` | Physical presence at the clinic on the day | Clinic admin (front desk) + Doctor |
 | `clinical_status` | Medical/treatment progress | Clinic admin or Doctor |
 | `payment_status` | Online payment for this booking | Razorpay webhook (automatic) |
 
@@ -148,15 +148,18 @@ If the clinic admin types a doctor name that does not match any doctor account i
 
 ## Track 3 — Physical Visit Status (`visit_status`)
 
-This is the real-time "where is the patient right now?" status, used by front desk staff on the day of the appointment. It is completely separate from the appointment confirmation status.
+This is the real-time "where is the patient right now?" status, used on the day of the appointment. It is completely separate from the appointment confirmation status.
+
+Both the **clinic admin (front desk)** and the **doctor** can move this status forward, but only in one direction — it cannot go backwards once `in_consultation` or `completed` (except the undo on `checked_in`).
 
 ### Values
 
-| Value | Label in UI | What it means |
-|---|---|---|
-| `null` | *(no badge)* | Patient has not yet arrived. Default state. |
-| `checked_in` | **Arrived** | Clinic front desk has marked the patient as physically present in the waiting room. The assigned doctor receives an in-app notification. |
-| `completed` | **Visit Complete** | The visit has been marked as done via the complete-visit action. |
+| Value | Clinic admin sees | Doctor sees | What it means |
+|---|---|---|---|
+| `null` | *(Mark Arrived button)* | *(no badge)* | Patient has not yet arrived. Default state. |
+| `checked_in` | **In Clinic** badge (green, pulsing) | **Arrived** badge + "Start Consultation" button | Clinic front desk has marked the patient as physically present in the waiting room. The assigned doctor receives an in-app notification. |
+| `in_consultation` | **With Doctor** badge (teal) | **With You** badge + "Done with Patient" button | Doctor has started the consultation. The patient is currently in the room with the doctor. Clinic admin is notified. |
+| `completed` | **Visit Done** badge (grey) | *(no action needed)* | The visit is fully complete. Set by the doctor clicking "Done with Patient" or automatically when the doctor saves a clinical status. |
 
 ### Transitions
 
@@ -171,10 +174,24 @@ Clinic admin clicks "Mark Arrived"
         → In-app notification sent to assigned doctor:
           "Patient Name is in the waiting room — 10:30 AM slot"
         ↓
-Visit completes
+Doctor calls patient into the room
         ↓
-Clinic admin clicks "Complete Visit" (if used)
+Doctor clicks "Start Consultation" (on their dashboard card)
+        → visit_status = 'in_consultation'
+        → In-app notification sent to clinic admin:
+          "Dr. X has started consultation with Patient Name"
+        ↓
+Consultation ends
+        ↓
+Option A — Doctor clicks "Done with Patient"
         → visit_status = 'completed'
+        → In-app notification sent to clinic admin:
+          "Dr. X completed the visit with Patient Name"
+
+Option B — Doctor saves a clinical status (any value) while visit is 'in_consultation'
+        → visit_status = 'completed'  (auto-triggered alongside the clinical status save)
+        → In-app notification sent to clinic admin:
+          "Dr. X completed the visit with Patient Name"
 ```
 
 ### Undo check-in
@@ -183,11 +200,23 @@ The clinic admin can undo a check-in (for instance, if they marked the wrong pat
 - `visit_status = null`
 - `checked_in_at = null`
 
+This is only available while the status is `checked_in`. Once `in_consultation` or `completed`, it cannot be undone from the UI.
+
+### API endpoints for visit_status changes
+
+| Action | Endpoint | Who calls it |
+|---|---|---|
+| Mark Arrived | `PATCH /api/auth/clinic/bookings/:id/checkin` | Clinic admin |
+| Undo Arrived | `PATCH /api/auth/clinic/bookings/:id/checkin` (with `{ undo: true }`) | Clinic admin |
+| Start Consultation | `PATCH /api/doctor/bookings/:id/start-consultation` | Doctor |
+| Done with Patient | `PATCH /api/doctor/bookings/:id/complete-visit` | Doctor |
+| Complete Visit (admin) | `PATCH /api/auth/clinic/bookings/:id/complete-visit` | Clinic admin |
+
 ---
 
 ## Track 4 — Clinical Status (`clinical_status`)
 
-This is the medical/treatment progress field. It is set by either the clinic admin or the doctor and tracks the **treatment outcome** rather than the logistics of the visit. It is free-form but the UI provides predefined values.
+This is the medical/treatment progress field. It is set by either the clinic admin or the doctor and tracks the **treatment outcome** rather than the logistics of the visit.
 
 ### Values available in the Clinic Dashboard
 
@@ -215,6 +244,12 @@ This is the medical/treatment progress field. It is set by either the clinic adm
 | Doctor | Yes | Doctor dashboard — notes/records modal |
 
 Both roles can set it independently. The last one to update wins.
+
+### Link between clinical status and visit completion
+
+When the **doctor** saves a clinical status (any value) from the notes modal, the system checks whether the booking's `visit_status` is currently `in_consultation`. If it is, **the visit is automatically marked as completed** (`visit_status = 'completed'`) in the same operation. This means the doctor only needs to pick a clinical outcome — the visit status updates automatically without a separate "Done" button click.
+
+If the doctor saves a clinical status when `visit_status` is `checked_in` or `null`, no automatic visit completion happens.
 
 ### What happens when `case_closed` is set
 
@@ -300,29 +335,39 @@ Option B — Admin assigns a doctor first:
 
 
 ──────────────────────────────────────────────────────────────────────────────
-PHASE 3: DAY OF APPOINTMENT (front desk)
+PHASE 3: DAY OF APPOINTMENT (front desk + doctor)
 ──────────────────────────────────────────────────────────────────────────────
 Patient arrives at the clinic:
 
-  visitStatus   = 'checked_in'             ← Arrived
+  visitStatus   = 'checked_in'             ← Arrived (In Clinic)
   checkedInAt   = [timestamp]
   (in-app notification → assigned doctor: "Patient is in the waiting room")
 
+Doctor calls patient in:
+
+  visitStatus   = 'in_consultation'        ← With Doctor / With You
+  (in-app notification → clinic admin: "Dr. X has started consultation with Patient")
+
 
 ──────────────────────────────────────────────────────────────────────────────
-PHASE 4: DURING / AFTER CONSULTATION (doctor or clinic)
+PHASE 4: DURING / AFTER CONSULTATION (doctor)
 ──────────────────────────────────────────────────────────────────────────────
-Doctor sets clinical status:
+Doctor sets clinical status (in notes modal):
 
   clinicalStatus = 'first_visit'           ← Or revisit / follow_up_required
 
-If follow-up needed:
-  clinicalStatus = 'follow_up_required'    ← Next visit expected
+  If visitStatus was 'in_consultation':
+    visitStatus = 'completed'              ← Auto-triggered alongside status save
+    (in-app notification → clinic admin: "Dr. X completed the visit with Patient")
+
+OR doctor clicks "Done with Patient" directly:
+
+  visitStatus    = 'completed'             ← Visit done
+  (in-app notification → clinic admin: "Dr. X completed the visit with Patient")
 
 When all done:
   clinicalStatus = 'case_closed'           ← Treatment complete
-  visitStatus    = 'completed'             ← (optional — visit done)
-  (cross-notification to other role)
+  (cross-notification to clinic admin)
 
 
 ──────────────────────────────────────────────────────────────────────────────
@@ -352,6 +397,8 @@ Every status transition that is externally visible triggers one or more notifica
 | Doctor declines | Email + in-app: "Dr. X declined — reassign needed" | Clinic admin |
 | Admin overrides doctor | Email + in-app: "Admin confirmed on your behalf" | Doctor |
 | Patient checks in | In-app: "Patient is in the waiting room" | Assigned doctor |
+| Doctor starts consultation | In-app: "Dr. X has started consultation with Patient" | Clinic admin |
+| Doctor completes visit | In-app: "Dr. X completed the visit with Patient" | Clinic admin |
 | Clinic sets `case_closed` | In-app: "Clinic marked case as closed" | Assigned doctor |
 | Doctor sets `case_closed` | In-app: "Dr. X marked case as closed" | Clinic admin |
 | Booking cancelled | Cancellation email with reason | Patient |
@@ -371,7 +418,8 @@ Every status transition that is externally visible triggers one or more notifica
 | Override doctor's pending approval | ✓ | — | — | ✓ |
 | Mark patient as arrived (check-in) | ✓ | — | — | — |
 | Undo check-in | ✓ | — | — | — |
-| Mark visit complete | ✓ | — | — | — |
+| Start consultation | — | ✓ | — | — |
+| Mark visit complete | ✓ | ✓ | — | — |
 | Set clinical status | ✓ | ✓ | — | — |
 | Set `case_closed` | ✓ | ✓ | — | — |
 | Add booking notes | ✓ | ✓ | — | — |
@@ -404,6 +452,9 @@ The digital consent (`consentSignature`, `consentSignedAt`, `consentIp`, `consen
 ### Payment status and confirmation are independent
 A patient can pay online at the time of booking, but the booking still starts as `email_verified` (Pending). The clinic admin still needs to confirm it. Payment does not auto-confirm a booking.
 
+### `visit_status` only moves forward (after `checked_in`)
+Once a booking reaches `in_consultation` or `completed`, it cannot be moved back via the UI. Only `checked_in` can be undone (reverts to `null`).
+
 ---
 
 ## Status Values — Complete Reference Card
@@ -412,7 +463,7 @@ A patient can pay online at the time of booking, but the booking still starts as
 |---|---|
 | `verificationStatus` | `email_verified`, `admin_booked`, `confirmed`, `cancelled` |
 | `doctorApprovalStatus` | `null`, `pending`, `approved`, `declined`, `admin_confirmed` |
-| `visitStatus` | `null`, `checked_in`, `completed` |
+| `visitStatus` | `null`, `checked_in`, `in_consultation`, `completed` |
 | `clinicalStatus` | `null`, `first_visit`, `revisit`, `follow_up_required`, `case_closed` *(free text — other values are technically possible but not offered in the UI)* |
 | `paymentStatus` | `null`, `pending`, `paid`, `failed` |
 | `confirmedBy` | `null`, `admin`, `doctor` |
