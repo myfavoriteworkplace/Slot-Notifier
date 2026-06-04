@@ -2,26 +2,31 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
   Download, FileSpreadsheet, FileText, FileBadge, Lock, Bell, X,
-  Users, CalendarDays, History, RefreshCw, CheckCircle2, Clock, AlertTriangle,
-  Sparkles, ChevronRight
+  Users, CalendarDays, History, RefreshCw, CheckCircle2, Clock,
+  Sparkles, IndianRupee, Calendar,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { Clinic, Booking, Slot, ExportHistory } from "@shared/schema";
+import type { Clinic, Booking, Slot, ExportHistory, PatientBill } from "@shared/schema";
 
 type BookingWithSlot = Booking & {
   slot: Slot;
   assignedDoctor?: string | null;
+  patientCode?: string | null;
+  visitStatus?: string | null;
+  clinicalStatus?: string | null;
+  paymentStatus?: string | null;
+  paymentAmount?: number | null;
 };
 
 type ExportFormat = "xlsx" | "csv" | "pdf";
-type ScopeId = "patients" | "appointments";
+type DatePreset   = "all" | "this-month" | "last-month" | "custom";
 
 interface ScopeOption {
   id: string;
@@ -32,16 +37,23 @@ interface ScopeOption {
 }
 
 const SCOPE_OPTIONS: ScopeOption[] = [
-  { id: "patients",         label: "Patient Profiles",  description: "Name, phone, email address",          icon: Users,       available: true  },
-  { id: "appointments",     label: "Appointments",       description: "Date, time, doctor, status",          icon: CalendarDays, available: true  },
-  { id: "treatment-notes",  label: "Treatment Notes",    description: "Diagnosis, procedures, prescriptions", icon: FileText,    available: false },
-  { id: "billing",          label: "Billing History",    description: "Invoice amounts, payment status",     icon: FileSpreadsheet, available: false },
+  { id: "patients",     label: "Patient Profiles",  description: "Code, name, phone, age, gender, visit history",  icon: Users,         available: true  },
+  { id: "appointments", label: "Appointments",       description: "Date, time, doctor, status, clinical outcome",   icon: CalendarDays,  available: true  },
+  { id: "billing",      label: "Billing History",    description: "Invoices, amounts, payment method, status",      icon: IndianRupee,   available: true  },
+  { id: "treatment",    label: "Treatment Notes",    description: "Diagnosis, procedures, prescriptions",           icon: FileText,      available: false },
 ];
 
 const FORMAT_OPTIONS = [
   { id: "xlsx" as ExportFormat, label: "Excel",  ext: ".xlsx", desc: "Best for filtering & analysis", icon: FileSpreadsheet, recommended: true  },
   { id: "csv"  as ExportFormat, label: "CSV",    ext: ".csv",  desc: "Import into other systems",     icon: FileBadge,       recommended: false },
   { id: "pdf"  as ExportFormat, label: "PDF",    ext: ".pdf",  desc: "Printable summary report",      icon: FileText,        recommended: false },
+];
+
+const DATE_PRESETS: { id: DatePreset; label: string }[] = [
+  { id: "all",        label: "All time"   },
+  { id: "this-month", label: "This month" },
+  { id: "last-month", label: "Last month" },
+  { id: "custom",     label: "Custom…"    },
 ];
 
 interface ExportDataPanelProps {
@@ -78,30 +90,26 @@ function getUniquePatients(bookings: BookingWithSlot[]) {
   const seen = new Set<string>();
   const unique: BookingWithSlot[] = [];
   for (const b of bookings) {
-    const key = b.customerEmail || b.customerPhone;
-    if (!seen.has(key)) {
-      seen.add(key);
-      unique.push(b);
-    }
+    const key = String((b as any).patientId ?? b.customerEmail ?? b.customerPhone);
+    if (!seen.has(key)) { seen.add(key); unique.push(b); }
   }
   return unique;
 }
 
 function buildFileName(clinicName: string, scope: string[], fmt: ExportFormat) {
-  const slug = clinicName.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+  const slug    = clinicName.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
   const dateStr = format(new Date(), "yyyy-MM-dd");
-  const scopeTag = scope.includes("patients") && scope.includes("appointments") ? "full"
-    : scope.includes("patients") ? "patients"
-    : "appointments";
+  const scopeTag = scope.includes("patients") && scope.includes("appointments") && scope.includes("billing") ? "full"
+    : scope.length === 1 ? scope[0]
+    : scope.join("-");
   return `${slug}_${scopeTag}_${dateStr}.${fmt}`;
 }
 
 function downloadBlob(content: string | ArrayBuffer, mimeType: string, filename: string) {
   const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = filename;
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
@@ -113,17 +121,27 @@ function generateCSV(rows: (string | number | null | undefined)[][], headers: st
   return [headers, ...rows].map(r => r.map(escape).join(",")).join("\n");
 }
 
+const apptStatusLabel  = (s: string) =>
+  s === "confirmed" ? "Confirmed" : s === "cancelled" ? "Cancelled" : "Pending";
+const visitStatusLabel = (s: string | null | undefined) =>
+  !s ? "" : s === "checked_in" ? "Arrived" : s === "in_consultation" ? "With Doctor" : s === "completed" ? "Visit Done" : s;
+const clinicalLabel    = (s: string | null | undefined) =>
+  !s ? "" : s === "first_visit" ? "First Visit" : s === "revisit" ? "Revisit" :
+  s === "follow_up_required" ? "Follow-up Required" : s === "case_closed" ? "Case Closed" : s;
 
 export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelProps) {
   const qc = useQueryClient();
 
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>("xlsx");
   const [selectedScopes, setSelectedScopes] = useState<Set<string>>(new Set(["patients", "appointments"]));
-  const [exporting, setExporting] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressLabel, setProgressLabel] = useState("");
+  const [datePreset, setDatePreset]         = useState<DatePreset>("all");
+  const [customFrom, setCustomFrom]         = useState("");
+  const [customTo, setCustomTo]             = useState("");
+  const [exporting, setExporting]           = useState(false);
+  const [progress, setProgress]             = useState(0);
+  const [progressLabel, setProgressLabel]   = useState("");
   const [reminderVisible, setReminderVisible] = useState(() => getReminderState().show);
-  const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const [snoozeOpen, setSnoozeOpen]           = useState(false);
 
   const { data: history = [], isLoading: historyLoading } = useQuery<ExportHistory[]>({
     queryKey: ["/api/auth/clinic/export-history"],
@@ -134,23 +152,101 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
     },
   });
 
+  const { data: bills = [], isLoading: billsLoading } = useQuery<PatientBill[]>({
+    queryKey: ["/api/auth/clinic/bills"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/auth/clinic/bills");
+      if (!res.ok) throw new Error("Failed to fetch bills");
+      return res.json();
+    },
+    enabled: selectedScopes.has("billing"),
+  });
+
   const logExportMutation = useMutation({
     mutationFn: (data: { fileName: string; format: string; scope: string[]; recordCount: number }) =>
       apiRequest("POST", "/api/auth/clinic/export-log", data).then(r => r.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/auth/clinic/export-history"] }),
   });
 
-  const uniquePatients = useMemo(() => getUniquePatients(bookings ?? []), [bookings]);
-  const appointmentsCount = bookings?.length ?? 0;
-  const lastExport = history[0];
+  // Computed date range from preset
+  const { dateFrom, dateTo } = useMemo(() => {
+    const now = new Date();
+    if (datePreset === "this-month") {
+      return {
+        dateFrom: format(startOfMonth(now), "yyyy-MM-dd"),
+        dateTo:   format(endOfMonth(now),   "yyyy-MM-dd"),
+      };
+    }
+    if (datePreset === "last-month") {
+      const prev = subMonths(now, 1);
+      return {
+        dateFrom: format(startOfMonth(prev), "yyyy-MM-dd"),
+        dateTo:   format(endOfMonth(prev),   "yyyy-MM-dd"),
+      };
+    }
+    if (datePreset === "custom") {
+      return { dateFrom: customFrom || undefined, dateTo: customTo || undefined };
+    }
+    return { dateFrom: undefined, dateTo: undefined };
+  }, [datePreset, customFrom, customTo]);
+
+  // Filtered booking/patient/bill sets
+  const filteredBookings = useMemo(() => {
+    if (!bookings) return [];
+    if (!dateFrom && !dateTo) return bookings;
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to   = dateTo   ? new Date(dateTo + "T23:59:59") : null;
+    return bookings.filter(b => {
+      const d = new Date(b.slot.startTime);
+      if (from && d < from) return false;
+      if (to   && d > to)   return false;
+      return true;
+    });
+  }, [bookings, dateFrom, dateTo]);
+
+  const uniquePatients   = useMemo(() => getUniquePatients(filteredBookings), [filteredBookings]);
+
+  const filteredBills = useMemo(() => {
+    if (!bills.length) return [];
+    if (!dateFrom && !dateTo) return bills;
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to   = dateTo   ? new Date(dateTo + "T23:59:59") : null;
+    return bills.filter(b => {
+      const d = new Date(b.createdAt!);
+      if (from && d < from) return false;
+      if (to   && d > to)   return false;
+      return true;
+    });
+  }, [bills, dateFrom, dateTo]);
+
+  // Patient visit stats (for CSV patient profiles)
+  const patientStats = useMemo(() => {
+    const stats = new Map<string, { firstVisit: Date; lastVisit: Date; totalVisits: number }>();
+    for (const b of filteredBookings) {
+      const key = String((b as any).patientId ?? b.customerEmail ?? b.customerPhone);
+      const d   = new Date(b.slot.startTime);
+      const ex  = stats.get(key);
+      if (!ex) {
+        stats.set(key, { firstVisit: d, lastVisit: d, totalVisits: 1 });
+      } else {
+        if (d < ex.firstVisit) ex.firstVisit = d;
+        if (d > ex.lastVisit)  ex.lastVisit  = d;
+        ex.totalVisits++;
+      }
+    }
+    return stats;
+  }, [filteredBookings]);
+
+  const lastExport  = history[0];
   const totalExports = history.length;
 
   const scopeRecordCount = useMemo(() => {
     let count = 0;
-    if (selectedScopes.has("patients")) count += uniquePatients.length;
-    if (selectedScopes.has("appointments")) count += appointmentsCount;
+    if (selectedScopes.has("patients"))     count += uniquePatients.length;
+    if (selectedScopes.has("appointments")) count += filteredBookings.length;
+    if (selectedScopes.has("billing"))      count += filteredBills.length;
     return count;
-  }, [selectedScopes, uniquePatients.length, appointmentsCount]);
+  }, [selectedScopes, uniquePatients.length, filteredBookings.length, filteredBills.length]);
 
   function toggleScope(id: string) {
     setSelectedScopes(prev => {
@@ -173,61 +269,121 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
   async function runExport(overrideScope?: string[], overrideFormat?: ExportFormat) {
     if (!clinic || !bookings) return;
     const scope = overrideScope ?? [...selectedScopes];
-    const fmt = overrideFormat ?? selectedFormat;
+    const fmt   = overrideFormat ?? selectedFormat;
     if (scope.length === 0) return;
 
     const fileName = buildFileName(clinic.name, scope, fmt);
+    setExporting(true); setProgress(0);
 
-    setExporting(true);
-    setProgress(0);
-
-    const steps = [
+    const steps: [number, string][] = [
       [20, "Gathering patient records…"],
       [45, "Processing appointments…"],
       [70, "Compiling selected data…"],
       [88, "Formatting file…"],
       [100, "Finalising…"],
-    ] as [number, string][];
-
+    ];
     for (const [pct, label] of steps) {
-      setProgress(pct);
-      setProgressLabel(label);
-      await new Promise(r => setTimeout(r, 350));
+      setProgress(pct); setProgressLabel(label);
+      await new Promise(r => setTimeout(r, 300));
     }
 
     try {
-      const patientsData = uniquePatients.map(b => [
-        b.customerName,
-        b.customerPhone,
-        b.customerEmail ?? "",
-      ]);
-      const patientsHeaders = ["Patient Name", "Phone", "Email"];
+      const fmtCsvDate = (d: Date) => format(d, "dd MMM yyyy");
 
-      const apptData = (bookings ?? []).map(b => [
-        b.id,
-        b.customerName,
-        b.customerPhone,
-        b.customerEmail ?? "",
-        format(new Date(b.slot.startTime), "dd MMM yyyy"),
-        format(new Date(b.slot.startTime), "hh:mm a"),
-        b.assignedDoctor ?? "Unassigned",
-        b.verificationStatus,
-        b.description ?? "",
-      ]);
-      const apptHeaders = ["Booking ID", "Patient Name", "Phone", "Email", "Date", "Time", "Doctor", "Status", "Chief Complaint"];
+      // ── Patient data for CSV ──
+      const patientHeaders = ["Patient Code", "Patient Name", "Phone", "Email", "Age", "Gender", "First Visit", "Last Visit", "Total Visits"];
+      const patientRows = uniquePatients.map(b => {
+        const key   = String((b as any).patientId ?? b.customerEmail ?? b.customerPhone);
+        const stats = patientStats.get(key);
+        return [
+          (b as any).patientCode ?? "",
+          b.customerName,
+          b.customerPhone,
+          b.customerEmail ?? "",
+          (b as any).customerAge ?? "",
+          (b as any).customerGender
+            ? ((b as any).customerGender.charAt(0).toUpperCase() + (b as any).customerGender.slice(1))
+            : "",
+          stats ? fmtCsvDate(stats.firstVisit) : "",
+          stats ? fmtCsvDate(stats.lastVisit)  : "",
+          stats?.totalVisits ?? 1,
+        ];
+      });
 
+      // ── Appointment data for CSV ──
+      const apptHeaders = [
+        "Booking ID", "Patient Code", "Patient Name", "Phone", "Age", "Gender",
+        "Date", "Day", "Time", "Duration (min)", "Doctor",
+        "Appt Status", "Visit Status", "Clinical Status",
+        "Chief Complaint", "Payment Status", "Amount (₹)",
+      ];
+      const apptRows = filteredBookings.map(b => {
+        const start  = new Date(b.slot.startTime);
+        const end    = new Date(b.slot.endTime);
+        const durMin = Math.round((end.getTime() - start.getTime()) / 60000);
+        return [
+          b.id,
+          (b as any).patientCode ?? "",
+          b.customerName,
+          b.customerPhone,
+          (b as any).customerAge ?? "",
+          (b as any).customerGender
+            ? ((b as any).customerGender.charAt(0).toUpperCase() + (b as any).customerGender.slice(1))
+            : "",
+          fmtCsvDate(start),
+          format(start, "EEEE"),
+          format(start, "hh:mm a"),
+          durMin,
+          (b as any).assignedDoctor ?? "Unassigned",
+          apptStatusLabel(b.verificationStatus),
+          visitStatusLabel((b as any).visitStatus),
+          clinicalLabel((b as any).clinicalStatus),
+          b.description ?? "",
+          (b as any).paymentStatus ?? "",
+          (b as any).paymentAmount ? String((b as any).paymentAmount / 100) : "",
+        ];
+      });
+
+      // ── Billing data for CSV ──
+      const billHeaders = [
+        "Bill #", "Date", "Patient Name", "Patient Code", "Patient Phone",
+        "Doctor", "Services", "Subtotal (₹)", "Discount %", "Tax %",
+        "Total (₹)", "Payment Method", "Status",
+      ];
+      const billRows = filteredBills.map(b => {
+        const matchedBooking = filteredBookings.find(bk => bk.id === b.bookingId);
+        const patientCode    = (matchedBooking as any)?.patientCode ?? "";
+        const doctor         = (matchedBooking as any)?.assignedDoctor ?? "";
+        const services       = ((b.services ?? []) as any[]).map((s: any) => s.description).filter(Boolean).join(", ");
+        const statusLabel    = b.paymentStatus === "paid" ? "Paid" : b.paymentStatus === "partial" ? "Partial" : "Pending";
+        return [
+          b.billNumber,
+          b.createdAt ? fmtCsvDate(new Date(b.createdAt)) : "",
+          b.patientName,
+          patientCode,
+          b.patientPhone ?? "",
+          doctor,
+          services,
+          b.subtotal    ?? 0,
+          b.discountPct ?? 0,
+          b.taxPct      ?? 0,
+          b.total       ?? 0,
+          b.paymentMethod ?? "Cash",
+          statusLabel,
+        ];
+      });
+
+      // ── FORMAT: CSV ──
       if (fmt === "csv") {
         let csvContent = "";
-        if (scope.includes("patients")) {
-          csvContent += "PATIENT PROFILES\n" + generateCSV(patientsData, patientsHeaders) + "\n\n";
-        }
-        if (scope.includes("appointments")) {
-          csvContent += "APPOINTMENTS\n" + generateCSV(apptData, apptHeaders);
-        }
+        if (scope.includes("patients"))     csvContent += "PATIENT PROFILES\n"  + generateCSV(patientRows, patientHeaders) + "\n\n";
+        if (scope.includes("appointments")) csvContent += "APPOINTMENTS\n"       + generateCSV(apptRows,    apptHeaders)    + "\n\n";
+        if (scope.includes("billing"))      csvContent += "BILLING HISTORY\n"    + generateCSV(billRows,    billHeaders);
         downloadBlob(csvContent, "text/csv;charset=utf-8;", fileName);
 
+      // ── FORMAT: XLSX (server-side) ──
       } else if (fmt === "xlsx") {
-        const xlsxRes = await apiRequest("POST", "/api/auth/clinic/export/xlsx", { scope });
+        const xlsxRes = await apiRequest("POST", "/api/auth/clinic/export/xlsx", { scope, dateFrom, dateTo });
         if (!xlsxRes.ok) {
           const err = await xlsxRes.json().catch(() => ({ message: "Export failed" }));
           throw new Error(err.message ?? "Export failed");
@@ -235,53 +391,84 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
         const buffer = await xlsxRes.arrayBuffer();
         downloadBlob(buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
 
+      // ── FORMAT: PDF (brand-aligned) ──
       } else if (fmt === "pdf") {
-        const doc = new jsPDF({ orientation: "landscape" });
-        const pageW = doc.internal.pageSize.getWidth();
-        let y = 14;
+        const DARK    = [8,  80,  65]  as [number, number, number];
+        const PRIMARY = [15, 155, 110] as [number, number, number];
+        const TINT    = [225, 245, 238] as [number, number, number];
+        const WHITE   = [255, 255, 255] as [number, number, number];
+        const TEXT    = [8,   40,  32]  as [number, number, number];
+        const MUTED   = [50, 100,  80]  as [number, number, number];
 
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(14);
-        doc.text(clinic.name + " — Patient Data Export", pageW / 2, y, { align: "center" });
+        const doc   = new jsPDF({ orientation: "landscape" });
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const margin = 14;
+
+        const drawBands = () => {
+          doc.setFillColor(...DARK);    doc.rect(0, 0, pageW * 0.55, 6, "F");
+          doc.setFillColor(...PRIMARY); doc.rect(pageW * 0.55, 0, pageW, 6, "F");
+          doc.setFillColor(...DARK);    doc.rect(0, pageH - 7, pageW * 0.55, 7, "F");
+          doc.setFillColor(...PRIMARY); doc.rect(pageW * 0.55, pageH - 7, pageW, 7, "F");
+          doc.setFont("helvetica", "normal"); doc.setFontSize(7);
+          doc.setTextColor(...WHITE);
+          doc.text("Powered by BookMySlot", pageW / 2, pageH - 3, { align: "center" });
+        };
+
+        drawBands();
+
+        let y = 14;
+        doc.setFont("helvetica", "bold"); doc.setFontSize(15);
+        doc.setTextColor(...TEXT);
+        doc.text(`${clinic.name} — Patient Data Export`, pageW / 2, y, { align: "center" });
         y += 6;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(120);
-        doc.text(`Generated on ${format(new Date(), "dd MMM yyyy, hh:mm a")}`, pageW / 2, y, { align: "center" });
-        doc.setTextColor(0);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+        doc.setTextColor(...MUTED);
+        doc.text(
+          `Generated: ${format(new Date(), "dd MMM yyyy, hh:mm a")}${dateFrom || dateTo ? `  ·  Period: ${dateFrom ?? "Start"} to ${dateTo ?? "Today"}` : ""}`,
+          pageW / 2, y, { align: "center" }
+        );
+        doc.setTextColor(...TEXT);
         y += 10;
 
+        const headStyles = { fillColor: DARK, textColor: WHITE, fontStyle: "bold" as const, fontSize: 8 };
+        const altStyles  = { fillColor: TINT };
+        const bodyStyles = { fontSize: 7.5, textColor: TEXT };
+
         if (scope.includes("patients")) {
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(11);
-          doc.text("Patient Profiles", 14, y);
-          y += 4;
+          doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+          doc.setTextColor(...PRIMARY);
+          doc.text("Patient Profiles", margin, y); y += 4;
           autoTable(doc, {
-            head: [patientsHeaders],
-            body: patientsData as any,
-            startY: y,
-            styles: { fontSize: 8, cellPadding: 3 },
-            headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold" },
-            alternateRowStyles: { fillColor: [248, 248, 255] },
-            margin: { left: 14, right: 14 },
+            head: [patientHeaders], body: patientRows as any,
+            startY: y, styles: bodyStyles, headStyles, alternateRowStyles: altStyles,
+            margin: { left: margin, right: margin },
           });
-          y = (doc as any).lastAutoTable.finalY + 12;
+          y = (doc as any).lastAutoTable.finalY + 10;
         }
 
         if (scope.includes("appointments")) {
-          if (y > doc.internal.pageSize.getHeight() - 40) { doc.addPage(); y = 14; }
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(11);
-          doc.text("Appointments", 14, y);
-          y += 4;
+          if (y > pageH - 50) { doc.addPage(); drawBands(); y = 14; }
+          doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+          doc.setTextColor(...PRIMARY);
+          doc.text("Appointments", margin, y); y += 4;
           autoTable(doc, {
-            head: [apptHeaders],
-            body: apptData as any,
-            startY: y,
-            styles: { fontSize: 7, cellPadding: 2.5 },
-            headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold" },
-            alternateRowStyles: { fillColor: [248, 248, 255] },
-            margin: { left: 14, right: 14 },
+            head: [apptHeaders], body: apptRows as any,
+            startY: y, styles: { fontSize: 6.5, textColor: TEXT }, headStyles, alternateRowStyles: altStyles,
+            margin: { left: margin, right: margin },
+          });
+          y = (doc as any).lastAutoTable.finalY + 10;
+        }
+
+        if (scope.includes("billing") && billRows.length > 0) {
+          if (y > pageH - 50) { doc.addPage(); drawBands(); y = 14; }
+          doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+          doc.setTextColor(...PRIMARY);
+          doc.text("Billing History", margin, y); y += 4;
+          autoTable(doc, {
+            head: [billHeaders], body: billRows as any,
+            startY: y, styles: { fontSize: 6.5, textColor: TEXT }, headStyles, alternateRowStyles: altStyles,
+            margin: { left: margin, right: margin },
           });
         }
 
@@ -289,23 +476,19 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
       }
 
       await logExportMutation.mutateAsync({
-        fileName,
-        format: fmt,
-        scope,
-        recordCount: scopeRecordCount,
+        fileName, format: fmt, scope, recordCount: scopeRecordCount,
       });
-
       notify.success("Export complete", { description: `${fileName} downloaded successfully.` });
+
     } catch (err: any) {
       notify.apiError(err, "Export failed");
     } finally {
-      setExporting(false);
-      setProgress(0);
-      setProgressLabel("");
+      setExporting(false); setProgress(0); setProgressLabel("");
     }
   }
 
-  const canExport = selectedScopes.size > 0 && !exporting;
+  const canExport = selectedScopes.size > 0 && !exporting
+    && !(selectedScopes.has("billing") && billsLoading);
 
   const scopeLabel = useMemo(() => {
     const labels = SCOPE_OPTIONS.filter(s => s.available && selectedScopes.has(s.id)).map(s => s.label);
@@ -315,6 +498,16 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
   }, [selectedScopes]);
 
   const fmtLabel = FORMAT_OPTIONS.find(f => f.id === selectedFormat)?.label ?? "Excel";
+
+  const dateRangeLabel = useMemo(() => {
+    if (datePreset === "all")        return "All time";
+    if (datePreset === "this-month") return format(new Date(), "MMMM yyyy");
+    if (datePreset === "last-month") return format(subMonths(new Date(), 1), "MMMM yyyy");
+    if (customFrom && customTo)      return `${customFrom} to ${customTo}`;
+    if (customFrom)                  return `From ${customFrom}`;
+    if (customTo)                    return `Until ${customTo}`;
+    return "Custom range";
+  }, [datePreset, customFrom, customTo]);
 
   return (
     <div className="space-y-5">
@@ -334,29 +527,23 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
               </p>
               <div className="flex items-center gap-2 mt-3 flex-wrap">
                 <Button
-                  size="sm"
-                  variant="outline"
+                  size="sm" variant="outline"
                   className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400"
                   onClick={() => setSnoozeOpen(s => !s)}
                   data-testid="button-snooze-reminder"
                 >
-                  <Clock className="h-3 w-3 mr-1" />
-                  Snooze
+                  <Clock className="h-3 w-3 mr-1" />Snooze
                 </Button>
-                {snoozeOpen && (
-                  <>
-                    {(["1d", "3d", "7d"] as const).map(d => (
-                      <button
-                        key={d}
-                        onClick={() => dismissReminder(d)}
-                        className="h-7 px-3 rounded-lg text-xs font-semibold border border-amber-300 text-amber-700 bg-transparent hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400 transition-colors"
-                        data-testid={`button-snooze-${d}`}
-                      >
-                        {d === "1d" ? "1 day" : d === "3d" ? "3 days" : "1 week"}
-                      </button>
-                    ))}
-                  </>
-                )}
+                {snoozeOpen && (["1d", "3d", "7d"] as const).map(d => (
+                  <button
+                    key={d}
+                    onClick={() => dismissReminder(d)}
+                    className="h-7 px-3 rounded-lg text-xs font-semibold border border-amber-300 text-amber-700 bg-transparent hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400 transition-colors"
+                    data-testid={`button-snooze-${d}`}
+                  >
+                    {d === "1d" ? "1 day" : d === "3d" ? "3 days" : "1 week"}
+                  </button>
+                ))}
               </div>
             </div>
             <button
@@ -380,7 +567,9 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
             </div>
             <div>
               <p className="text-[11px] font-medium text-muted-foreground">Total Patients</p>
-              <p className="text-2xl font-bold text-violet-600" data-testid="stat-total-patients">{uniquePatients.length}</p>
+              <p className="text-2xl font-bold text-violet-600" data-testid="stat-total-patients">
+                {getUniquePatients(bookings ?? []).length}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -428,7 +617,7 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
               </div>
               <div>
                 <h2 className="text-sm font-bold text-foreground">Export Patient Data</h2>
-                <p className="text-[11px] text-muted-foreground">Choose format, select data, then download</p>
+                <p className="text-[11px] text-muted-foreground">Choose format, select data, set period, then download</p>
               </div>
             </div>
           </CardHeader>
@@ -474,6 +663,10 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
               <div className="space-y-2">
                 {SCOPE_OPTIONS.map(opt => {
                   const isChecked = selectedScopes.has(opt.id);
+                  const count = opt.id === "patients"     ? uniquePatients.length
+                              : opt.id === "appointments"  ? filteredBookings.length
+                              : opt.id === "billing"       ? filteredBills.length
+                              : null;
                   return (
                     <div
                       key={opt.id}
@@ -485,8 +678,9 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
                           : "border-border/50 bg-muted/30 cursor-pointer hover:border-border hover:bg-muted/40"
                         }`}
                     >
-                      <div className={`h-4.5 w-4.5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all
-                        ${isChecked && opt.available ? "bg-primary border-primary" : "bg-background border-border/60"}`}
+                      <div
+                        className={`rounded-md border-2 flex items-center justify-center shrink-0 transition-all
+                          ${isChecked && opt.available ? "bg-primary border-primary" : "bg-background border-border/60"}`}
                         style={{ width: 18, height: 18, borderRadius: 5 }}
                       >
                         {isChecked && opt.available && (
@@ -509,9 +703,9 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
                         </div>
                       ) : (
                         <span className="text-[10px] text-muted-foreground shrink-0">
-                          {opt.id === "patients" ? `${uniquePatients.length} records`
-                            : opt.id === "appointments" ? `${appointmentsCount} records`
-                            : ""}
+                          {opt.id === "billing" && billsLoading && selectedScopes.has("billing")
+                            ? "Loading…"
+                            : count !== null ? `${count} records` : ""}
                         </span>
                       )}
                     </div>
@@ -522,18 +716,73 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
 
             <div className="h-px bg-border/50" />
 
-            {/* Step 3: Download */}
+            {/* Step 3: Date Range */}
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
-                3 — Download
+                3 — Date range
+              </p>
+              <div className="grid grid-cols-4 gap-1.5 mb-3">
+                {DATE_PRESETS.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setDatePreset(p.id)}
+                    data-testid={`button-date-preset-${p.id}`}
+                    className={`text-xs font-semibold px-2 py-1.5 rounded-lg border transition-all
+                      ${datePreset === p.id
+                        ? "border-primary/50 bg-primary/5 text-primary ring-1 ring-primary/20"
+                        : "border-border/50 bg-muted/30 text-muted-foreground hover:border-border hover:text-foreground"
+                      }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              {datePreset === "custom" && (
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="date"
+                      value={customFrom}
+                      onChange={e => setCustomFrom(e.target.value)}
+                      data-testid="input-date-from"
+                      className="w-full h-8 pl-8 pr-2 text-xs rounded-lg border border-border/60 bg-background focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40"
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">to</span>
+                  <div className="relative flex-1">
+                    <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="date"
+                      value={customTo}
+                      onChange={e => setCustomTo(e.target.value)}
+                      data-testid="input-date-to"
+                      className="w-full h-8 pl-8 pr-2 text-xs rounded-lg border border-border/60 bg-background focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40"
+                    />
+                  </div>
+                </div>
+              )}
+              {datePreset !== "all" && (
+                <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-primary" />
+                  Filtering by: <span className="font-semibold text-foreground">{dateRangeLabel}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="h-px bg-border/50" />
+
+            {/* Step 4: Download */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
+                4 — Download
               </p>
 
-              {/* Summary pill */}
               {selectedScopes.size > 0 && (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/5 border border-primary/20 mb-3">
                   <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
                   <span className="text-xs font-semibold text-primary" data-testid="text-export-summary">
-                    {fmtLabel} · {scopeLabel} · {scopeRecordCount.toLocaleString()} records
+                    {fmtLabel} · {scopeLabel} · {scopeRecordCount.toLocaleString()} records · {dateRangeLabel}
                   </span>
                 </div>
               )}
@@ -544,15 +793,10 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
                 disabled={!canExport || selectedScopes.size === 0}
                 data-testid="button-export-download"
               >
-                {exporting ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
+                {exporting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 {exporting ? progressLabel : "Export & Download"}
               </Button>
 
-              {/* Progress bar */}
               {exporting && (
                 <div className="mt-3 space-y-1.5">
                   <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -586,9 +830,7 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
                 </div>
               </div>
               {totalExports > 0 && (
-                <Badge variant="secondary" className="text-[10px] font-bold">
-                  {totalExports}
-                </Badge>
+                <Badge variant="secondary" className="text-[10px] font-bold">{totalExports}</Badge>
               )}
             </div>
           </CardHeader>
@@ -610,17 +852,22 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
             ) : (
               <div className="space-y-2">
                 {history.map((item) => {
-                  const fmtInfo = FORMAT_OPTIONS.find(f => f.id === item.format);
-                  const FmtIcon = fmtInfo?.icon ?? FileText;
+                  const fmtInfo  = FORMAT_OPTIONS.find(f => f.id === item.format);
+                  const FmtIcon  = fmtInfo?.icon ?? FileText;
                   const colorMap: Record<string, string> = {
                     xlsx: "text-emerald-600 bg-emerald-500/10",
                     csv:  "text-blue-600 bg-blue-500/10",
                     pdf:  "text-rose-600 bg-rose-500/10",
                   };
                   const iconColor = colorMap[item.format] ?? "text-muted-foreground bg-muted/50";
-                  const scopeDisplay = item.scope.includes("patients") && item.scope.includes("appointments") ? "Full export"
-                    : item.scope.includes("patients") ? "Patients only"
-                    : "Appointments only";
+
+                  const scopeParts: string[] = [];
+                  if (item.scope.includes("patients"))     scopeParts.push("Patients");
+                  if (item.scope.includes("appointments")) scopeParts.push("Appointments");
+                  if (item.scope.includes("billing"))      scopeParts.push("Billing");
+                  const scopeDisplay = scopeParts.length === 3 ? "Full export"
+                    : scopeParts.length === 0 ? "Unknown"
+                    : scopeParts.join(" + ");
 
                   return (
                     <div
@@ -647,11 +894,12 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
                       </div>
                       <button
                         onClick={() => runExport(item.scope as string[], item.format as ExportFormat)}
-                        title="Regenerate this export"
-                        className="h-7 w-7 rounded-lg border border-border/50 bg-background hover:border-primary/40 hover:text-primary hover:bg-primary/5 flex items-center justify-center transition-all shrink-0"
+                        disabled={exporting}
+                        title="Re-download"
                         data-testid={`button-redownload-${item.id}`}
+                        className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors disabled:opacity-50 shrink-0"
                       >
-                        <RefreshCw className="h-3.5 w-3.5" />
+                        <Download className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   );

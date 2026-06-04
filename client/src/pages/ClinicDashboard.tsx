@@ -2264,35 +2264,6 @@ export default function ClinicDashboard() {
     }
   };
 
-  const downloadExcel = () => {
-    if (!filteredBookings || filteredBookings.length === 0) {
-      notify.warning("No bookings to download");
-      return;
-    }
-
-    const headers = ["Name", "Phone Number", "Booking Date", "Time Slot"];
-    const rows = filteredBookings.map(booking => [
-      booking.customerName,
-      booking.customerPhone,
-      format(new Date(booking.slot.startTime), "yyyy-MM-dd"),
-      `${format(new Date(booking.slot.startTime), "h:mm a")} - ${format(new Date(booking.slot.endTime), "h:mm a")}`
-    ]);
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `bookings_${format(new Date(), "yyyy-MM-dd")}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
 
   if (!isUserAuthenticated) {
     return null;
@@ -3048,13 +3019,12 @@ export default function ClinicDashboard() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={downloadExcel}
+                onClick={() => setActivePanel("export-data")}
                 className="gap-2 text-white/80 hover:text-white hover:bg-white/15 border border-white/20 text-xs"
-                disabled={!filteredBookings || filteredBookings.length === 0}
-                data-testid="button-download-excel"
+                data-testid="button-go-to-export"
               >
                 <Download className="h-3.5 w-3.5" />
-                <span>Download</span>
+                <span>Export</span>
               </Button>
             </div>
 

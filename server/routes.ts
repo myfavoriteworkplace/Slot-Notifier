@@ -2758,7 +2758,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/auth/clinic/export/xlsx", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
-    const { scope } = req.body as { scope: string[] };
+    const { scope, dateFrom, dateTo } = req.body as { scope: string[]; dateFrom?: string; dateTo?: string };
     if (!scope || !Array.isArray(scope) || scope.length === 0) {
       return res.status(400).json({ message: "scope is required" });
     }
@@ -2766,40 +2766,154 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const clinic = await storage.getClinic(sess.clinicId);
       if (!clinic) return res.status(404).json({ message: "Clinic not found" });
 
-      const allBookings = await storage.getClinicBookings(sess.clinicId);
+      let allBookings = await storage.getClinicBookings(sess.clinicId);
+
+      // Apply optional date filter
+      if (dateFrom || dateTo) {
+        const from = dateFrom ? new Date(dateFrom) : null;
+        const to   = dateTo   ? new Date(dateTo)   : null;
+        if (to) to.setHours(23, 59, 59, 999);
+        allBookings = allBookings.filter(b => {
+          const d = new Date(b.slot.startTime);
+          if (from && d < from) return false;
+          if (to   && d > to)   return false;
+          return true;
+        });
+      }
+
       const exportDate = new Date().toLocaleDateString("en-GB", {
         day: "2-digit", month: "short", year: "numeric",
         hour: "2-digit", minute: "2-digit",
       });
+      const fmtDate = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
-      // Deduplicate patients
+      // Human-readable status helpers
+      const apptStatusLabel  = (s: string) =>
+        s === "confirmed" ? "Confirmed" : s === "cancelled" ? "Cancelled" : "Pending";
+      const visitStatusLabel = (s: string | null | undefined) =>
+        !s ? "" : s === "checked_in" ? "Arrived" : s === "in_consultation" ? "With Doctor" : s === "completed" ? "Visit Done" : s;
+      const clinicalLabel    = (s: string | null | undefined) =>
+        !s ? "" : s === "first_visit" ? "First Visit" : s === "revisit" ? "Revisit" :
+        s === "follow_up_required" ? "Follow-up Required" : s === "case_closed" ? "Case Closed" : s;
+
+      // Deduplicate patients — patientId first, then email, then phone
       const seen = new Set<string>();
       const uniquePatients = allBookings.filter(b => {
-        const key = b.customerEmail || b.customerPhone;
+        const key = String((b as any).patientId ?? b.customerEmail ?? b.customerPhone);
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       });
 
-      const patientsHeaders = ["Patient Name", "Phone", "Email"];
-      const patientsData = uniquePatients.map(b => [
-        b.customerName,
-        b.customerPhone,
-        b.customerEmail ?? "",
-      ]);
+      // Compute per-patient visit stats
+      const patientStats = new Map<string, { firstVisit: Date; lastVisit: Date; totalVisits: number }>();
+      for (const b of allBookings) {
+        const key = String((b as any).patientId ?? b.customerEmail ?? b.customerPhone);
+        const d   = new Date(b.slot.startTime);
+        const ex  = patientStats.get(key);
+        if (!ex) {
+          patientStats.set(key, { firstVisit: d, lastVisit: d, totalVisits: 1 });
+        } else {
+          if (d < ex.firstVisit) ex.firstVisit = d;
+          if (d > ex.lastVisit)  ex.lastVisit  = d;
+          ex.totalVisits++;
+        }
+      }
 
-      const apptHeaders = ["Booking ID", "Patient Name", "Phone", "Email", "Date", "Time", "Doctor", "Status", "Chief Complaint"];
-      const apptData = allBookings.map(b => [
-        b.id,
-        b.customerName,
-        b.customerPhone,
-        b.customerEmail ?? "",
-        new Date(b.slot.startTime).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-        new Date(b.slot.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-        (b as any).assignedDoctor ?? "Unassigned",
-        b.verificationStatus,
-        b.description ?? "",
-      ]);
+      // ── Patient Profiles ──
+      const patientsHeaders = ["Patient Code", "Patient Name", "Phone", "Email", "Age", "Gender", "First Visit", "Last Visit", "Total Visits"];
+      const patientsData = uniquePatients.map(b => {
+        const key   = String((b as any).patientId ?? b.customerEmail ?? b.customerPhone);
+        const stats = patientStats.get(key);
+        return [
+          (b as any).patientCode ?? "",
+          b.customerName,
+          b.customerPhone,
+          b.customerEmail ?? "",
+          b.customerAge ?? "",
+          b.customerGender ? (b.customerGender.charAt(0).toUpperCase() + b.customerGender.slice(1)) : "",
+          stats ? fmtDate(stats.firstVisit) : "",
+          stats ? fmtDate(stats.lastVisit)  : "",
+          stats?.totalVisits ?? 1,
+        ];
+      });
+
+      // ── Appointments ──
+      const apptHeaders = [
+        "Booking ID", "Patient Code", "Patient Name", "Phone", "Age", "Gender",
+        "Date", "Day", "Time", "Duration (min)", "Doctor",
+        "Appt Status", "Visit Status", "Clinical Status",
+        "Chief Complaint", "Payment Status", "Amount (₹)",
+      ];
+      const apptData = allBookings.map(b => {
+        const start = new Date(b.slot.startTime);
+        const end   = new Date(b.slot.endTime);
+        const durMin = Math.round((end.getTime() - start.getTime()) / 60000);
+        return [
+          b.id,
+          (b as any).patientCode ?? "",
+          b.customerName,
+          b.customerPhone,
+          b.customerAge ?? "",
+          b.customerGender ? (b.customerGender.charAt(0).toUpperCase() + b.customerGender.slice(1)) : "",
+          fmtDate(start),
+          start.toLocaleDateString("en-GB", { weekday: "long" }),
+          start.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+          durMin,
+          (b as any).assignedDoctor ?? "Unassigned",
+          apptStatusLabel(b.verificationStatus),
+          visitStatusLabel((b as any).visitStatus),
+          clinicalLabel((b as any).clinicalStatus),
+          b.description ?? "",
+          (b as any).paymentStatus ?? "",
+          (b as any).paymentAmount ? String((b as any).paymentAmount / 100) : "",
+        ];
+      });
+
+      // ── Billing History ──
+      const billsHeaders = [
+        "Bill #", "Date", "Patient Name", "Patient Code", "Patient Phone",
+        "Doctor", "Services", "Subtotal (₹)", "Discount %", "Tax %",
+        "Total (₹)", "Payment Method", "Status",
+      ];
+      let billsData: (string | number)[][] = [];
+      let billsCount = 0;
+      if (scope.includes("billing")) {
+        const allBills = await storage.getPatientBillsByClinicId(sess.clinicId);
+        const filteredBills = allBills.filter(b => {
+          if (!dateFrom && !dateTo) return true;
+          const d   = new Date(b.createdAt!);
+          const from = dateFrom ? new Date(dateFrom) : null;
+          const to   = dateTo   ? new Date(dateTo)   : null;
+          if (to) to.setHours(23, 59, 59, 999);
+          if (from && d < from) return false;
+          if (to   && d > to)   return false;
+          return true;
+        });
+        billsCount = filteredBills.length;
+        billsData  = filteredBills.map(b => {
+          const matchedBooking = allBookings.find(bk => bk.id === b.bookingId);
+          const patientCode    = (matchedBooking as any)?.patientCode ?? "";
+          const doctor         = (matchedBooking as any)?.assignedDoctor ?? "";
+          const servicesSummary = ((b.services ?? []) as any[]).map((s: any) => s.description).filter(Boolean).join(", ");
+          const statusLabel = b.paymentStatus === "paid" ? "Paid" : b.paymentStatus === "partial" ? "Partial" : "Pending";
+          return [
+            b.billNumber,
+            fmtDate(new Date(b.createdAt!)),
+            b.patientName,
+            patientCode,
+            b.patientPhone ?? "",
+            doctor,
+            servicesSummary,
+            b.subtotal  ?? 0,
+            b.discountPct ?? 0,
+            b.taxPct    ?? 0,
+            b.total     ?? 0,
+            b.paymentMethod ?? "Cash",
+            statusLabel,
+          ];
+        });
+      }
 
       // --- ExcelJS formatting ---
       const DARK    = "FF085041";
@@ -2808,29 +2922,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const TINT    = "FFE1F5EE";
       const OFF     = "FFF8F8F6";
       const WHITE   = "FFFFFFFF";
-      const STATUS_COLORS: Record<string, string> = {
-        verified:   "FF0F9B6E",
-        pending:    "FFD97706",
-        cancelled:  "FFDC2626",
-        unverified: "FFD97706",
-      };
       const thin = (argb = "FFCCCCCC") => ({ style: "thin" as const, color: { argb } });
 
       function applyHeaderCell(cell: ExcelJS.Cell) {
         cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: PRIMARY } };
         cell.font      = { bold: true, size: 10, color: { argb: WHITE } };
         cell.alignment = { vertical: "middle", horizontal: "center" };
-        cell.border    = { top: thin("FF085041"), bottom: thin("FF085041"), left: thin("FF085041"), right: thin("FF085041") };
+        cell.border    = { top: thin(DARK), bottom: thin(DARK), left: thin(DARK), right: thin(DARK) };
       }
 
       function applyDataCell(cell: ExcelJS.Cell, rowIdx: number, statusColor?: string) {
-        cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: rowIdx % 2 === 1 ? TINT : OFF } };
+        cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: rowIdx % 2 === 0 ? TINT : OFF } };
         cell.border    = { top: thin(), bottom: thin(), left: thin(), right: thin() };
         cell.alignment = { vertical: "middle", wrapText: false };
         cell.font      = statusColor
           ? { size: 9, bold: true, color: { argb: statusColor } }
           : { size: 9, color: { argb: "FF1A1A1A" } };
       }
+
+      type StatusMap = { col: number; map: Record<string, string> };
 
       function buildSheet(
         wb: ExcelJS.Workbook,
@@ -2839,13 +2949,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         rows: (string | number | null | undefined)[][],
         colWidths: number[],
         recordCount: number,
-        statusColIdx?: number,
+        statusCols: StatusMap[] = [],
       ) {
         const ws = wb.addWorksheet(sheetName);
         const nc = headers.length;
-        const lastLetter = nc <= 26 ? String.fromCharCode(64 + nc) : "Z";
+        const lastCol = nc <= 26 ? String.fromCharCode(64 + nc) : "Z";
 
-        ws.mergeCells(`A1:${lastLetter}1`);
+        // Row 1 — Clinic name banner
+        ws.mergeCells(`A1:${lastCol}1`);
         const r1 = ws.getCell("A1");
         r1.value = clinic!.name;
         r1.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: DARK } };
@@ -2853,7 +2964,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         r1.alignment = { vertical: "middle", horizontal: "center" };
         ws.getRow(1).height = 32;
 
-        ws.mergeCells(`A2:${lastLetter}2`);
+        // Row 2 — Meta subtitle
+        ws.mergeCells(`A2:${lastCol}2`);
         const r2 = ws.getCell("A2");
         r2.value = `${sheetName}  ·  Exported: ${exportDate}  ·  ${recordCount} records`;
         r2.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: MID } };
@@ -2861,31 +2973,36 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         r2.alignment = { vertical: "middle", horizontal: "center" };
         ws.getRow(2).height = 18;
 
-        ws.mergeCells(`A3:${lastLetter}3`);
+        // Row 3 — Accent stripe
+        ws.mergeCells(`A3:${lastCol}3`);
         ws.getCell("A3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: PRIMARY } };
         ws.getRow(3).height = 4;
 
+        // Row 4 — Headers
         const hRow = ws.getRow(4);
-        hRow.values = ["", ...headers];
-        headers.forEach((_h, i) => applyHeaderCell(hRow.getCell(i + 1)));
+        headers.forEach((h, i) => {
+          hRow.getCell(i + 1).value = h;
+          applyHeaderCell(hRow.getCell(i + 1));
+        });
         hRow.height = 22;
 
+        // Data rows
         rows.forEach((row, rIdx) => {
           const dRow = ws.getRow(5 + rIdx);
           row.forEach((val, cIdx) => {
             const cell = dRow.getCell(cIdx + 1);
             cell.value = val ?? "";
-            const statusColor =
-              statusColIdx !== undefined && cIdx === statusColIdx
-                ? STATUS_COLORS[String(val ?? "").toLowerCase()]
-                : undefined;
+            let statusColor: string | undefined;
+            for (const sc of statusCols) {
+              if (cIdx === sc.col) statusColor = sc.map[String(val ?? "").toLowerCase()];
+            }
             applyDataCell(cell, rIdx, statusColor);
           });
           dRow.height = 18;
         });
 
         colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
-        ws.autoFilter = `A4:${lastLetter}4`;
+        ws.autoFilter = `A4:${lastCol}4`;
         ws.views = [{ state: "frozen", ySplit: 4, xSplit: 0, topLeftCell: "A5", activeCell: "A5" }];
       }
 
@@ -2893,13 +3010,79 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       wb.creator = clinic.name;
       wb.created = new Date();
 
+      // ── Summary sheet (always first) ──
+      const summaryWs = wb.addWorksheet("Summary");
+      summaryWs.getColumn(1).width = 26;
+      summaryWs.getColumn(2).width = 42;
+
+      summaryWs.mergeCells("A1:B1");
+      const sumTitle = summaryWs.getCell("A1");
+      sumTitle.value = `${clinic.name} — Export Summary`;
+      sumTitle.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: DARK } };
+      sumTitle.font  = { bold: true, size: 13, color: { argb: WHITE } };
+      sumTitle.alignment = { vertical: "middle", horizontal: "center" };
+      summaryWs.getRow(1).height = 30;
+
+      const summaryRows: [string, string | number][] = [
+        ["Clinic",         clinic.name],
+        ["Phone",          (clinic as any).phone   ?? ""],
+        ["Email",          (clinic as any).email   ?? ""],
+        ["Address",        (clinic as any).address ?? ""],
+        ["Export Date",    exportDate],
+        ["Date Range",     (dateFrom || dateTo) ? `${dateFrom ?? "Start"} to ${dateTo ?? "Today"}` : "All time"],
+        ["", ""],
+        ...(scope.includes("patients")     ? [["Unique Patients",    uniquePatients.length] as [string, number]] : []),
+        ...(scope.includes("appointments") ? [["Total Appointments", allBookings.length]   as [string, number]] : []),
+        ...(scope.includes("billing")      ? [["Total Bills",        billsCount]           as [string, number]] : []),
+      ];
+
+      summaryRows.forEach(([label, value], i) => {
+        const row = summaryWs.getRow(i + 2);
+        const c1  = row.getCell(1);
+        const c2  = row.getCell(2);
+        c1.value = label; c2.value = value;
+        c1.font = { bold: true, size: 9, color: { argb: MID } };
+        c2.font = { size: 9, color: { argb: "FF1A1A1A" } };
+        const bg = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: i % 2 === 0 ? TINT : OFF } };
+        c1.fill = c2.fill = bg;
+        c1.border = c2.border = { top: thin(), bottom: thin(), left: thin(), right: thin() };
+        c1.alignment = c2.alignment = { vertical: "middle" };
+        row.height = 18;
+      });
+
+      // Status color maps for conditional formatting
+      const apptStatusColors: Record<string, string> = {
+        confirmed: "FF0F9B6E", pending: "FFD97706", cancelled: "FFDC2626",
+      };
+      const visitStatusColors: Record<string, string> = {
+        arrived: "FF059669", "with doctor": "FF0D9488", "visit done": "FF64748B",
+      };
+      const payStatusColors: Record<string, string> = {
+        paid: "FF0F9B6E", partial: "FF2563EB", pending: "FFD97706",
+        "": "",
+      };
+
       if (scope.includes("patients")) {
         buildSheet(wb, "Patient Profiles", patientsHeaders, patientsData,
-          [32, 20, 36], uniquePatients.length);
+          [14, 26, 16, 32, 8, 10, 14, 14, 12], uniquePatients.length);
       }
       if (scope.includes("appointments")) {
         buildSheet(wb, "Appointments", apptHeaders, apptData,
-          [10, 28, 18, 32, 14, 10, 26, 14, 40], allBookings.length, 7);
+          [10, 14, 24, 16, 7, 10, 14, 13, 10, 12, 22, 12, 13, 16, 34, 14, 12],
+          allBookings.length,
+          [
+            { col: 11, map: apptStatusColors  },
+            { col: 12, map: visitStatusColors },
+            { col: 15, map: payStatusColors   },
+          ],
+        );
+      }
+      if (scope.includes("billing")) {
+        buildSheet(wb, "Billing History", billsHeaders, billsData,
+          [14, 12, 26, 14, 14, 22, 38, 12, 10, 8, 12, 16, 10],
+          billsCount,
+          [{ col: 12, map: { paid: "FF0F9B6E", partial: "FF2563EB", pending: "FFD97706" } }],
+        );
       }
 
       const buffer = await wb.xlsx.writeBuffer();
