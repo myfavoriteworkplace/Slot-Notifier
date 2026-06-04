@@ -228,6 +228,10 @@ interface ClinicalRecordsTabProps {
   doctorName?: string | null;
   mode: "doctor" | "admin";
   clinicName?: string;
+  /** When true the internal tab bar is hidden — caller controls which tab is shown via defaultTab */
+  hideTabBar?: boolean;
+  /** Initial (or forced, when hideTabBar=true) active tab */
+  defaultTab?: "diagnosis" | "prescription";
 }
 
 // ─── History row (shared by both tabs) ───────────────────────────────────────
@@ -315,11 +319,14 @@ function HistoryRow({
 
 export default function ClinicalRecordsTab({
   bookingId, clinicId, patientName, patientPhone, doctorName, mode, clinicName,
+  hideTabBar = false,
+  defaultTab = "diagnosis",
 }: ClinicalRecordsTabProps) {
   const queryClient = useQueryClient();
 
-  // ── Active tab ─────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"diagnosis" | "prescription">("diagnosis");
+  // ── Active tab — driven from outside when hideTabBar is true ───────────────
+  const [activeTab, setActiveTab] = useState<"diagnosis" | "prescription">(defaultTab);
+  const visibleTab = hideTabBar ? defaultTab : activeTab;
 
   // ── Diagnosis state ────────────────────────────────────────────────────────
   const [showDxForm, setShowDxForm] = useState(false);
@@ -466,45 +473,153 @@ export default function ClinicalRecordsTab({
     </div>
   );
 
+  // ── Inline tab bar (hidden when parent controls the tab) ──────────────────
+  const TabBar = !hideTabBar ? (
+    <div className="flex rounded-lg overflow-hidden border border-border/60 bg-muted/20 p-0.5 gap-0.5">
+      {(["diagnosis", "prescription"] as const).map(tab => {
+        const count = tab === "diagnosis" ? dxRecords.length : rxRecords.length;
+        const Icon = tab === "diagnosis" ? ClipboardList : Pill;
+        const label = tab === "diagnosis" ? "Diagnosis" : "Prescription";
+        const active = activeTab === tab;
+        return (
+          <button
+            key={tab}
+            onClick={() => { setActiveTab(tab); resetForms(); }}
+            data-testid={`tab-${tab}`}
+            className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[11px] font-semibold transition-all ${
+              active
+                ? "bg-white dark:bg-background shadow-sm text-primary border border-primary/20"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Icon className="h-3 w-3" />
+            {label}
+            {count > 0 && (
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold leading-none ${
+                active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+              }`}>{count}</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  ) : null;
+
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-3">
 
-      {/* ── Tab bar ─────────────────────────────────────────────────────── */}
-      <div className="flex rounded-lg overflow-hidden border border-border/60 bg-muted/20 p-0.5 gap-0.5">
-        {(["diagnosis", "prescription"] as const).map(tab => {
-          const count = tab === "diagnosis" ? dxRecords.length : rxRecords.length;
-          const Icon = tab === "diagnosis" ? ClipboardList : Pill;
-          const label = tab === "diagnosis" ? "Diagnosis" : "Prescription";
-          const active = activeTab === tab;
-          return (
-            <button
-              key={tab}
-              onClick={() => { setActiveTab(tab); resetForms(); }}
-              data-testid={`tab-${tab}`}
-              className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[11px] font-semibold transition-all ${
-                active
-                  ? "bg-white dark:bg-background shadow-sm text-primary border border-primary/20"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className="h-3 w-3" />
-              {label}
-              {count > 0 && (
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold leading-none ${
-                  active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                }`}>{count}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {TabBar}
 
       {/* ══════════════════════════════════════════════════════════════════
           DIAGNOSIS TAB
       ══════════════════════════════════════════════════════════════════ */}
-      {activeTab === "diagnosis" && (
+      {visibleTab === "diagnosis" && (
         <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-left-1 duration-150">
+
+          {/* ── Add / Edit form — floats on top when open ── */}
+          {mode === "doctor" && showDxForm && (
+            <div className="rounded-xl border border-primary/30 bg-primary/[0.03] overflow-hidden animate-in slide-in-from-top-2 duration-200">
+              <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <ClipboardList className="h-3 w-3 text-primary" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                    {dxEditId ? "Edit Diagnosis" : "New Diagnosis"}
+                  </span>
+                </div>
+                <button onClick={resetForms} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="px-3 py-3 space-y-3">
+
+                {/* Doctor name */}
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Doctor Name</Label>
+                  <Input value={doctorNameDraft} onChange={e => setDoctorNameDraft(e.target.value)}
+                    placeholder="e.g. Dr. Ananya Krishnan" className="h-8 text-xs mt-1"
+                    data-testid="input-dx-doctor-name" />
+                </div>
+
+                {/* Tag picker */}
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Select diagnosis <span className="normal-case font-normal">(one or more)</span>
+                  </Label>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {DIAGNOSIS_TAGS.map(tag => (
+                      <button key={tag} type="button" onClick={() => toggleTag(tag)}
+                        data-testid={`tag-diagnosis-${tag.toLowerCase()}`}
+                        className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold transition-all ${
+                          dxTags.includes(tag)
+                            ? "bg-primary text-white border-primary"
+                            : "border-border/60 text-muted-foreground hover:border-primary/50 hover:text-primary"
+                        }`}>
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Selected preview */}
+                {dxTags.length > 0 && (
+                  <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-border/30">
+                    <span className="text-[9px] text-muted-foreground uppercase font-semibold mr-0.5">Selected:</span>
+                    {dxTags.map(t => (
+                      <Badge key={t} variant="outline"
+                        className="text-[10px] px-2 py-0.5 rounded-full border-primary/30 bg-primary/8 text-primary font-semibold gap-1">
+                        {t}
+                        <button onClick={() => toggleTag(t)} className="hover:text-destructive ml-0.5">
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                {/* Optional notes */}
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Notes <span className="normal-case font-normal">(optional)</span>
+                  </Label>
+                  <textarea
+                    value={dxNotes}
+                    onChange={e => setDxNotes(e.target.value)}
+                    placeholder="Additional observations…"
+                    rows={2}
+                    className="w-full mt-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground/60 placeholder:italic focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    data-testid="textarea-dx-notes"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" className="flex-1 h-8 text-xs font-bold"
+                    onClick={() => {
+                      if (dxEditId) updateMutation.mutate({ id: dxEditId, payload: { diagnosis: dxTags, notes: dxNotes || null } });
+                      else createMutation.mutate({ diagnosis: dxTags, notes: dxNotes || null });
+                    }}
+                    disabled={isSaving || dxTags.length === 0}
+                    data-testid="button-save-diagnosis">
+                    {isSaving
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : <><CheckCircle2 className="h-3 w-3 mr-1" />{dxEditId ? "Update" : "Save Diagnosis"}</>}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={resetForms}>Cancel</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Add button (shown when form is closed) ── */}
+          {mode === "doctor" && !showDxForm && (
+            <Button size="sm" variant="outline"
+              className="w-full h-8 text-xs gap-1.5 border-dashed border-primary/40 text-primary hover:bg-primary/5"
+              onClick={() => { resetForms(); setShowDxForm(true); }}
+              data-testid="button-add-diagnosis">
+              <Plus className="h-3.5 w-3.5" />
+              {dxEditId ? "Edit Diagnosis" : "Add Diagnosis"}
+            </Button>
+          )}
 
           {/* Latest Diagnosis */}
           {latestDx ? (
@@ -565,112 +680,11 @@ export default function ClinicalRecordsTab({
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-2 py-6 text-center rounded-xl border border-dashed border-border/60 bg-muted/10">
-              <ClipboardList className="h-7 w-7 text-muted-foreground/30" />
-              <p className="text-xs font-medium text-muted-foreground">No diagnosis recorded yet</p>
-              {mode === "doctor" && <p className="text-[10px] text-muted-foreground/60">Use the button below to add one</p>}
-            </div>
-          )}
-
-          {/* Add / Edit Diagnosis form */}
-          {mode === "doctor" && (
-            !showDxForm ? (
-              <Button size="sm" variant="outline"
-                className="w-full h-8 text-xs gap-1.5 border-dashed border-primary/40 text-primary hover:bg-primary/5"
-                onClick={() => { resetForms(); setShowDxForm(true); }}
-                data-testid="button-add-diagnosis">
-                <Plus className="h-3.5 w-3.5" />
-                {dxEditId ? "Edit Diagnosis" : "Add Diagnosis"}
-              </Button>
-            ) : (
-              <div className="rounded-xl border border-primary/30 bg-primary/[0.03] overflow-hidden animate-in slide-in-from-top-1 duration-200">
-                <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <ClipboardList className="h-3 w-3 text-primary" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                      {dxEditId ? "Edit Diagnosis" : "New Diagnosis"}
-                    </span>
-                  </div>
-                  <button onClick={resetForms} className="text-muted-foreground hover:text-foreground transition-colors">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="px-3 py-3 space-y-3">
-
-                  {/* Doctor name */}
-                  <div>
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Doctor Name</Label>
-                    <Input value={doctorNameDraft} onChange={e => setDoctorNameDraft(e.target.value)}
-                      placeholder="e.g. Dr. Ananya Krishnan" className="h-8 text-xs mt-1"
-                      data-testid="input-dx-doctor-name" />
-                  </div>
-
-                  {/* Tag picker */}
-                  <div>
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Select diagnosis <span className="normal-case font-normal">(one or more)</span>
-                    </Label>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {DIAGNOSIS_TAGS.map(tag => (
-                        <button key={tag} type="button" onClick={() => toggleTag(tag)}
-                          data-testid={`tag-diagnosis-${tag.toLowerCase()}`}
-                          className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold transition-all ${
-                            dxTags.includes(tag)
-                              ? "bg-primary text-white border-primary"
-                              : "border-border/60 text-muted-foreground hover:border-primary/50 hover:text-primary"
-                          }`}>
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Selected preview */}
-                  {dxTags.length > 0 && (
-                    <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-border/30">
-                      <span className="text-[9px] text-muted-foreground uppercase font-semibold mr-0.5">Selected:</span>
-                      {dxTags.map(t => (
-                        <Badge key={t} variant="outline"
-                          className="text-[10px] px-2 py-0.5 rounded-full border-primary/30 bg-primary/8 text-primary font-semibold gap-1">
-                          {t}
-                          <button onClick={() => toggleTag(t)} className="hover:text-destructive ml-0.5">
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Optional notes */}
-                  <div>
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Notes <span className="normal-case font-normal">(optional)</span>
-                    </Label>
-                    <textarea
-                      value={dxNotes}
-                      onChange={e => setDxNotes(e.target.value)}
-                      placeholder="Additional observations…"
-                      rows={2}
-                      className="w-full mt-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground/60 placeholder:italic focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      data-testid="textarea-dx-notes"
-                    />
-                  </div>
-
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" className="flex-1 h-8 text-xs font-bold"
-                      onClick={() => {
-                        if (dxEditId) updateMutation.mutate({ id: dxEditId, payload: { diagnosis: dxTags, notes: dxNotes || null } });
-                        else createMutation.mutate({ diagnosis: dxTags, notes: dxNotes || null });
-                      }}
-                      disabled={isSaving || dxTags.length === 0}
-                      data-testid="button-save-diagnosis">
-                      {isSaving
-                        ? <Loader2 className="h-3 w-3 animate-spin" />
-                        : <><CheckCircle2 className="h-3 w-3 mr-1" />{dxEditId ? "Update" : "Save Diagnosis"}</>}
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={resetForms}>Cancel</Button>
-                  </div>
-                </div>
+            !showDxForm && (
+              <div className="flex flex-col items-center gap-2 py-6 text-center rounded-xl border border-dashed border-border/60 bg-muted/10">
+                <ClipboardList className="h-7 w-7 text-muted-foreground/30" />
+                <p className="text-xs font-medium text-muted-foreground">No diagnosis recorded yet</p>
+                {mode === "doctor" && <p className="text-[10px] text-muted-foreground/60">Use the button above to add one</p>}
               </div>
             )
           )}
@@ -707,8 +721,147 @@ export default function ClinicalRecordsTab({
       {/* ══════════════════════════════════════════════════════════════════
           PRESCRIPTION TAB
       ══════════════════════════════════════════════════════════════════ */}
-      {activeTab === "prescription" && (
+      {visibleTab === "prescription" && (
         <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-right-1 duration-150">
+
+          {/* ── Add / Edit form — floats on top when open ── */}
+          {mode === "doctor" && showRxForm && (
+            <div className="rounded-xl border border-primary/30 bg-primary/[0.03] overflow-hidden animate-in slide-in-from-top-2 duration-200">
+              <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Pill className="h-3 w-3 text-primary" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                    {rxEditId ? "Edit Prescription" : "New Prescription"}
+                  </span>
+                </div>
+                <button onClick={resetForms} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="px-3 py-3 space-y-3">
+
+                {/* Doctor name */}
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Doctor Name</Label>
+                  <Input value={doctorNameDraft} onChange={e => setDoctorNameDraft(e.target.value)}
+                    placeholder="e.g. Dr. Ananya Krishnan" className="h-8 text-xs mt-1"
+                    data-testid="input-rx-doctor-name" />
+                </div>
+
+                {/* ── Compact prescription grid ─────────────────────────── */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <Pill className="h-3 w-3" /> Medicines
+                    </Label>
+                  </div>
+
+                  {/* Column headers */}
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[560px]">
+                      <div className="grid gap-x-1 mb-1 px-1" style={{ gridTemplateColumns: "1fr 62px 40px 58px 40px 66px 70px 22px" }}>
+                        {["Medicine", "Dosage", "Qty", "Freq", "Dur.", "Unit", "Route", ""].map((h, i) => (
+                          <span key={i} className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70 truncate">{h}</span>
+                        ))}
+                      </div>
+
+                      {/* Medicine rows */}
+                      <div className="space-y-1">
+                        {rxRows.map((row, idx) => (
+                          <div key={idx}
+                            className="grid gap-x-1 items-center"
+                            style={{ gridTemplateColumns: "1fr 62px 40px 58px 40px 66px 70px 22px" }}
+                            data-testid={`medicine-row-${idx}`}>
+
+                            <Input value={row.name} onChange={e => updateRxRow(idx, 'name', e.target.value)}
+                              placeholder="Medicine name"
+                              className="h-7 text-xs px-2" data-testid={`input-medicine-name-${idx}`} />
+
+                            <Input value={row.dosage} onChange={e => updateRxRow(idx, 'dosage', e.target.value)}
+                              placeholder="500mg" className="h-7 text-xs px-2" data-testid={`input-dosage-${idx}`} />
+
+                            <Input value={row.qty} onChange={e => updateRxRow(idx, 'qty', e.target.value)}
+                              placeholder="Qty" className="h-7 text-xs px-1.5" data-testid={`input-qty-${idx}`} />
+
+                            <Select value={row.frequency} onValueChange={v => updateRxRow(idx, 'frequency', v)}>
+                              <SelectTrigger className="h-7 text-xs px-1.5" data-testid={`select-frequency-${idx}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {FREQUENCY_OPTIONS.map(f => <SelectItem key={f} value={f} className="text-xs">{f}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+
+                            <Input type="number" min="1" value={row.durationNum ?? ''}
+                              onChange={e => updateRxRow(idx, 'durationNum', e.target.value)}
+                              placeholder="#" className="h-7 text-xs px-1.5" data-testid={`input-duration-num-${idx}`} />
+
+                            <Select value={row.durationUnit ?? 'days'} onValueChange={v => updateRxRow(idx, 'durationUnit', v)}>
+                              <SelectTrigger className="h-7 text-xs px-1.5" data-testid={`select-duration-unit-${idx}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {DURATION_UNITS.map(u => <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+
+                            <Select value={row.route ?? 'Oral'} onValueChange={v => updateRxRow(idx, 'route', v)}>
+                              <SelectTrigger className="h-7 text-xs px-1.5" data-testid={`select-route-${idx}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ROUTE_OPTIONS.map(r => <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+
+                            <button type="button" onClick={() => removeRxRow(idx)}
+                              className="flex items-center justify-center h-7 w-full rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              data-testid={`button-remove-row-${idx}`}>
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Add medicine row link */}
+                      <button type="button" onClick={addRxRow}
+                        className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                        data-testid="button-add-medicine-row">
+                        <Plus className="h-3 w-3" /> Add medicine
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" className="flex-1 h-8 text-xs font-bold"
+                    onClick={() => {
+                      const payload = rxPayload();
+                      if (rxEditId) updateMutation.mutate({ id: rxEditId, payload: { prescription: payload } });
+                      else createMutation.mutate({ prescription: payload });
+                    }}
+                    disabled={isSaving || !rxRows.some(r => r.name.trim())}
+                    data-testid="button-save-prescription">
+                    {isSaving
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : <><CheckCircle2 className="h-3 w-3 mr-1" />{rxEditId ? "Update" : "Save Prescription"}</>}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={resetForms}>Cancel</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Add button (shown when form is closed) ── */}
+          {mode === "doctor" && !showRxForm && (
+            <Button size="sm" variant="outline"
+              className="w-full h-8 text-xs gap-1.5 border-dashed border-primary/40 text-primary hover:bg-primary/5"
+              onClick={() => { resetForms(); setShowRxForm(true); }}
+              data-testid="button-add-prescription">
+              <Plus className="h-3.5 w-3.5" />
+              {rxEditId ? "Edit Prescription" : "Add Prescription"}
+            </Button>
+          )}
 
           {/* Latest Prescription */}
           {latestRx ? (
@@ -757,143 +910,11 @@ export default function ClinicalRecordsTab({
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-2 py-6 text-center rounded-xl border border-dashed border-border/60 bg-muted/10">
-              <Pill className="h-7 w-7 text-muted-foreground/30" />
-              <p className="text-xs font-medium text-muted-foreground">No prescription recorded yet</p>
-              {mode === "doctor" && <p className="text-[10px] text-muted-foreground/60">Use the button below to add one</p>}
-            </div>
-          )}
-
-          {/* Add / Edit Prescription form */}
-          {mode === "doctor" && (
-            !showRxForm ? (
-              <Button size="sm" variant="outline"
-                className="w-full h-8 text-xs gap-1.5 border-dashed border-primary/40 text-primary hover:bg-primary/5"
-                onClick={() => { resetForms(); setShowRxForm(true); }}
-                data-testid="button-add-prescription">
-                <Plus className="h-3.5 w-3.5" />
-                {rxEditId ? "Edit Prescription" : "Add Prescription"}
-              </Button>
-            ) : (
-              <div className="rounded-xl border border-primary/30 bg-primary/[0.03] overflow-hidden animate-in slide-in-from-top-1 duration-200">
-                <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Pill className="h-3 w-3 text-primary" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                      {rxEditId ? "Edit Prescription" : "New Prescription"}
-                    </span>
-                  </div>
-                  <button onClick={resetForms} className="text-muted-foreground hover:text-foreground transition-colors">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="px-3 py-3 space-y-3">
-
-                  {/* Doctor name */}
-                  <div>
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Doctor Name</Label>
-                    <Input value={doctorNameDraft} onChange={e => setDoctorNameDraft(e.target.value)}
-                      placeholder="e.g. Dr. Ananya Krishnan" className="h-8 text-xs mt-1"
-                      data-testid="input-rx-doctor-name" />
-                  </div>
-
-                  {/* Medicine rows */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                        <Pill className="h-3 w-3" /> Medicines
-                      </Label>
-                      <button type="button" onClick={addRxRow}
-                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
-                        data-testid="button-add-medicine-row">
-                        <Plus className="h-3 w-3" /> Add medicine
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      {rxRows.map((row, idx) => (
-                        <div key={idx}
-                          className="rounded-lg border border-border/40 bg-muted/5 p-2 space-y-1.5"
-                          data-testid={`medicine-row-${idx}`}>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-semibold text-muted-foreground/50">#{idx + 1}</span>
-                            <button type="button" onClick={() => removeRxRow(idx)}
-                              className="flex items-center justify-center h-5 w-5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                              data-testid={`button-remove-row-${idx}`}>
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-
-                          {/* Medicine name + Dosage */}
-                          <div className="grid grid-cols-[1fr_72px] gap-1.5">
-                            <Input value={row.name} onChange={e => updateRxRow(idx, 'name', e.target.value)}
-                              placeholder="Medicine name (e.g. Amoxicillin)"
-                              className="h-8 text-xs" data-testid={`input-medicine-name-${idx}`} />
-                            <Input value={row.dosage} onChange={e => updateRxRow(idx, 'dosage', e.target.value)}
-                              placeholder="Dosage" className="h-8 text-xs" data-testid={`input-dosage-${idx}`} />
-                          </div>
-
-                          {/* Qty + Frequency + Duration num + Duration unit */}
-                          <div className="grid grid-cols-[48px_72px_44px_72px] gap-1.5">
-                            <Input value={row.qty} onChange={e => updateRxRow(idx, 'qty', e.target.value)}
-                              placeholder="Qty" className="h-8 text-xs" data-testid={`input-qty-${idx}`} />
-                            <Select value={row.frequency} onValueChange={v => updateRxRow(idx, 'frequency', v)}>
-                              <SelectTrigger className="h-8 text-xs" data-testid={`select-frequency-${idx}`}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {FREQUENCY_OPTIONS.map(f => <SelectItem key={f} value={f} className="text-xs">{f}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                            <Input type="number" min="1" value={row.durationNum ?? ''}
-                              onChange={e => updateRxRow(idx, 'durationNum', e.target.value)}
-                              placeholder="#" className="h-8 text-xs" data-testid={`input-duration-num-${idx}`} />
-                            <Select value={row.durationUnit ?? 'days'} onValueChange={v => updateRxRow(idx, 'durationUnit', v)}>
-                              <SelectTrigger className="h-8 text-xs" data-testid={`select-duration-unit-${idx}`}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {DURATION_UNITS.map(u => <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* Route + Remarks */}
-                          <div className="grid grid-cols-[88px_1fr] gap-1.5">
-                            <Select value={row.route ?? 'Oral'} onValueChange={v => updateRxRow(idx, 'route', v)}>
-                              <SelectTrigger className="h-8 text-xs" data-testid={`select-route-${idx}`}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {ROUTE_OPTIONS.map(r => <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                            <Input value={row.remarks ?? ''} onChange={e => updateRxRow(idx, 'remarks', e.target.value)}
-                              placeholder="Remarks (e.g. After food)" className="h-8 text-xs"
-                              data-testid={`input-remarks-${idx}`} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" className="flex-1 h-8 text-xs font-bold"
-                      onClick={() => {
-                        const payload = rxPayload();
-                        if (rxEditId) updateMutation.mutate({ id: rxEditId, payload: { prescription: payload } });
-                        else createMutation.mutate({ prescription: payload });
-                      }}
-                      disabled={isSaving || !rxRows.some(r => r.name.trim())}
-                      data-testid="button-save-prescription">
-                      {isSaving
-                        ? <Loader2 className="h-3 w-3 animate-spin" />
-                        : <><CheckCircle2 className="h-3 w-3 mr-1" />{rxEditId ? "Update" : "Save Prescription"}</>}
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={resetForms}>Cancel</Button>
-                  </div>
-                </div>
+            !showRxForm && (
+              <div className="flex flex-col items-center gap-2 py-6 text-center rounded-xl border border-dashed border-border/60 bg-muted/10">
+                <Pill className="h-7 w-7 text-muted-foreground/30" />
+                <p className="text-xs font-medium text-muted-foreground">No prescription recorded yet</p>
+                {mode === "doctor" && <p className="text-[10px] text-muted-foreground/60">Use the button above to add one</p>}
               </div>
             )
           )}

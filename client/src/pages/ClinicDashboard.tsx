@@ -3218,7 +3218,7 @@ export default function ClinicDashboard() {
                       assignDoctorPending={assignDoctorMutation.isPending}
                       confirmPending={confirmBookingMutation.isPending}
                     />
-                      <DialogContent className="w-[95vw] sm:max-w-[680px] rounded-2xl p-0 overflow-hidden h-[90vh] sm:h-[85vh] flex flex-col">
+                      <DialogContent className="w-[95vw] sm:max-w-[640px] rounded-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
 
                         {/* ── HEADER ── */}
                         <div className="shrink-0 bg-gradient-to-br from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-0 relative overflow-hidden">

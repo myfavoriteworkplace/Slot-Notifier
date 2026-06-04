@@ -26,7 +26,7 @@ import {
   Info, X, Filter, BadgeCheck, RotateCcw, User, Award, BookOpen, Plus, Pencil, Trash2,
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
   Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound,
-  MoreHorizontal, CalendarOff, Phone
+  MoreHorizontal, CalendarOff, Phone, Pill
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -87,7 +87,7 @@ export default function DoctorDashboard() {
 
   const [linkCopied, setLinkCopied] = useState(false);
   const [patientModalId, setPatientModalId] = useState<number | null>(null);
-  const [patientModalTab, setPatientModalTab] = useState<'notes' | 'records'>('notes');
+  const [patientModalTab, setPatientModalTab] = useState<'notes' | 'diagnosis' | 'prescription'>('notes');
   const [statusDraft, setStatusDraft] = useState("");
 
   const [certSheetOpen, setCertSheetOpen] = useState(false);
@@ -2036,7 +2036,7 @@ export default function DoctorDashboard() {
 
       {/* ── Patient Detail Dialog ── */}
       <Dialog open={patientModalId !== null} onOpenChange={(o) => { if (!o) setPatientModalId(null); }}>
-        <DialogContent className="max-w-lg w-full p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
+        <DialogContent className="w-[95vw] sm:max-w-[640px] p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col rounded-2xl">
           {patientModalId !== null && (() => {
             const b = myBookings.find((bk: any) => bk.id === patientModalId);
             if (!b) return null;
@@ -2068,18 +2068,19 @@ export default function DoctorDashboard() {
                   <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
                 </div>
 
-                {/* Tab strip */}
+                {/* Tab strip — Notes | Diagnosis | Prescription */}
                 <div className="shrink-0 flex border-b border-border/60 bg-card">
                   {([
-                    { key: 'notes'   as const, label: 'Notes',                   icon: <FileText className="h-3.5 w-3.5" /> },
-                    { key: 'records' as const, label: 'Prescription / Records',   icon: <ClipboardList className="h-3.5 w-3.5" /> },
+                    { key: 'notes'        as const, label: 'Notes',       icon: <FileText className="h-3.5 w-3.5" /> },
+                    { key: 'diagnosis'    as const, label: 'Diagnosis',   icon: <ClipboardList className="h-3.5 w-3.5" /> },
+                    { key: 'prescription' as const, label: 'Prescription',icon: <Pill className="h-3.5 w-3.5" /> },
                   ]).map(({ key, label, icon }) => {
                     const isActive = patientModalTab === key;
                     return (
                       <button
                         key={key}
                         onClick={() => setPatientModalTab(key)}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/30 ${
+                        className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/30 ${
                           isActive
                             ? 'text-primary border-primary'
                             : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground/30'
@@ -2087,7 +2088,7 @@ export default function DoctorDashboard() {
                         data-testid={`modal-tab-${key}-${b.id}`}
                       >
                         {icon}
-                        <span>{label}</span>
+                        <span className="text-xs leading-none">{label}</span>
                       </button>
                     );
                   })}
@@ -2128,8 +2129,8 @@ export default function DoctorDashboard() {
                     </div>
                   )}
 
-                  {/* PRESCRIPTION / RECORDS TAB */}
-                  {patientModalTab === 'records' && (
+                  {/* DIAGNOSIS TAB */}
+                  {patientModalTab === 'diagnosis' && (
                     <div className="p-4">
                       <ClinicalRecordsTab
                         bookingId={b.id}
@@ -2139,6 +2140,25 @@ export default function DoctorDashboard() {
                         doctorName={profName || b.assignedDoctor}
                         mode="doctor"
                         clinicName={modalClinicName}
+                        hideTabBar
+                        defaultTab="diagnosis"
+                      />
+                    </div>
+                  )}
+
+                  {/* PRESCRIPTION TAB */}
+                  {patientModalTab === 'prescription' && (
+                    <div className="p-4">
+                      <ClinicalRecordsTab
+                        bookingId={b.id}
+                        clinicId={b.clinicId}
+                        patientName={b.customerName}
+                        patientPhone={b.customerPhone}
+                        doctorName={profName || b.assignedDoctor}
+                        mode="doctor"
+                        clinicName={modalClinicName}
+                        hideTabBar
+                        defaultTab="prescription"
                       />
                     </div>
                   )}

@@ -1109,3 +1109,216 @@ Options:
 The app already has a WebSocket server (`/ws/notifications`) with a `clinicSockets` map. When a new booking is created, the server could emit a `bookings:updated` event to the clinic's socket, triggering `queryClient.invalidateQueries` on the client. This would replace the 30-second poll entirely with push-based invalidation.
 
 **Scope:** Emit from `POST /api/public/bookings` and `DELETE /api/auth/clinic/bookings/:id`. Add a `useEffect` listener in `ClinicDashboard` to call `invalidateQueries` on the event.
+
+---
+
+## 16. Patient Card Modal — Standards
+
+> **Updated:** 04 Jun 2026  
+> **Applies to:** `ClinicDashboard.tsx` (booking detail dialog) and `DoctorDashboard.tsx` (patient detail dialog)
+
+---
+
+### 16.1 — Dialog dimensions (both dashboards)
+
+Use identical `DialogContent` classes on both dashboards so the modal looks the same regardless of who opens it:
+
+```tsx
+<DialogContent className="w-[95vw] sm:max-w-[640px] rounded-2xl p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
+```
+
+| Property | Value | Reason |
+|---|---|---|
+| `w-[95vw]` | 95% viewport width on mobile | Fills the screen without overflow |
+| `sm:max-w-[640px]` | 640 px cap on desktop | Consistent readable width |
+| `max-h-[90vh]` | Grows to content, caps at 90% viewport | Prevents overshooting on small screens |
+| `rounded-2xl` | Matches system card rounding | Visual consistency |
+| `p-0 gap-0` | No padding/gap — sections control their own spacing | Clean edge-to-edge header |
+| `flex flex-col` | Column layout for header + tab strip + scrollable panel | Enables the scrollable body pattern |
+| `overflow-hidden` | Clips the header gradient to the rounded corners | No edge bleed |
+
+**Do not use `h-[90vh]` (fixed height)** — prefer `max-h-[90vh]` so the modal can be shorter when content is sparse.
+
+---
+
+### 16.2 — Tab structure
+
+#### Doctor Dashboard — 3 top-level modal tabs
+
+| Tab key | Label | Icon | Content |
+|---|---|---|---|
+| `notes` | Notes | `FileText` | Clinical Status dropdown + `BookingNotesThread` |
+| `diagnosis` | Diagnosis | `ClipboardList` | `<ClinicalRecordsTab hideTabBar defaultTab="diagnosis">` |
+| `prescription` | Prescription | `Pill` | `<ClinicalRecordsTab hideTabBar defaultTab="prescription">` |
+
+The `Prescription / Records` parent tab has been removed. Diagnosis and Prescription are now **first-class top-level tabs**.
+
+#### Clinic Dashboard — 5 top-level modal tabs
+
+| Tab key | Label | Icon | Content |
+|---|---|---|---|
+| `overview` | Overview | `User` | Patient info, appointment details, chief complaints, clinical status, Clinical Records |
+| `notes` | Notes | `FileText` | `BookingNotesThread` (clinic_admin author) |
+| `actions` | Actions | `Settings` | Reschedule, consent, assign doctor |
+| `billing` | Billing | `IndianRupee` | Billing history panel |
+
+The `clinical` tab in the Clinic Dashboard keeps `<ClinicalRecordsTab>` embedded inside the `overview` tab's "Clinical Records" panel section — the internal Diagnosis/Prescription sub-tabs handle the tab bar in this context.
+
+---
+
+### 16.3 — Tab strip pattern (modal-level)
+
+```tsx
+<div className="shrink-0 flex border-b border-border/60 bg-card">
+  {([
+    { key: 'notes'        as const, label: 'Notes',        icon: <FileText className="h-3.5 w-3.5" /> },
+    { key: 'diagnosis'    as const, label: 'Diagnosis',    icon: <ClipboardList className="h-3.5 w-3.5" /> },
+    { key: 'prescription' as const, label: 'Prescription', icon: <Pill className="h-3.5 w-3.5" /> },
+  ]).map(({ key, label, icon }) => {
+    const isActive = modalTab === key;
+    return (
+      <button
+        key={key}
+        onClick={() => setModalTab(key)}
+        className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5
+          py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2
+          focus-visible:outline-none active:bg-muted/30 ${
+          isActive
+            ? 'text-primary border-primary'
+            : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground/30'
+        }`}
+        data-testid={`modal-tab-${key}-${bookingId}`}
+      >
+        {icon}
+        <span className="text-xs leading-none">{label}</span>
+      </button>
+    );
+  })}
+</div>
+```
+
+Key rules:
+- `min-h-[44px]` — mandatory tap target
+- `flex-col sm:flex-row` — icon stacks above label on mobile, inline on sm+
+- `border-b-2` active indicator — never use background highlight alone
+- `data-testid={`modal-tab-${key}-${bookingId}`}` — required on every tab button
+
+---
+
+### 16.4 — Scrollable body
+
+The content area below the tab strip must be:
+
+```tsx
+<div className="overflow-y-auto flex-1">
+  {/* tab panel content */}
+</div>
+```
+
+- `flex-1` — takes all remaining height below the fixed header and tab strip
+- `overflow-y-auto` — content scrolls within the modal, not the whole page
+- Tab panels add their own padding: `<div className="p-4">…</div>`
+
+---
+
+### 16.5 — ClinicalRecordsTab props (when used inside modal)
+
+`ClinicalRecordsTab` accepts two props that control its behaviour inside a parent tab structure:
+
+| Prop | Type | Default | Purpose |
+|---|---|---|---|
+| `hideTabBar` | `boolean` | `false` | When `true`, hides the internal Diagnosis/Prescription selector — the parent modal tab controls which content is shown |
+| `defaultTab` | `"diagnosis" \| "prescription"` | `"diagnosis"` | The tab whose content is rendered (forced when `hideTabBar=true`, initial value otherwise) |
+
+**Doctor Dashboard usage** (tab bar hidden — parent drives content):
+```tsx
+{/* Diagnosis tab panel */}
+<ClinicalRecordsTab
+  bookingId={b.id}
+  clinicId={b.clinicId}
+  patientName={b.customerName}
+  patientPhone={b.customerPhone}
+  doctorName={profName || b.assignedDoctor}
+  mode="doctor"
+  clinicName={modalClinicName}
+  hideTabBar
+  defaultTab="diagnosis"
+/>
+
+{/* Prescription tab panel */}
+<ClinicalRecordsTab
+  ...same props...
+  hideTabBar
+  defaultTab="prescription"
+/>
+```
+
+**Clinic Dashboard usage** (tab bar visible — component manages its own active tab):
+```tsx
+<ClinicalRecordsTab
+  bookingId={booking.id}
+  clinicId={clinic?.id}
+  patientName={booking.customerName}
+  patientPhone={booking.customerPhone}
+  doctorName={booking.assignedDoctor}
+  mode="admin"
+  clinicName={clinic?.name}
+/>
+```
+
+---
+
+### 16.6 — Add form position (form-on-top pattern)
+
+When the Add or Edit form is open, it renders **above** the latest record box — not below. The order in the DOM is:
+
+```
+1. [Add form]         ← visible when showForm === true
+2. [Add button]       ← visible when showForm === false
+3. [Latest record]    ← always rendered when a record exists
+4. [Older history]    ← collapsed behind a toggle link
+```
+
+This ensures the user's cursor is always at the top of the scroll area when they start entering data, and the existing record is visible below for reference.
+
+The form animates in with `animate-in slide-in-from-top-2 duration-200`.
+
+---
+
+### 16.7 — Prescription entry grid
+
+The prescription Add/Edit form uses a compact **horizontal grid** — one row per medicine, all fields inline:
+
+```
+| Medicine name | Dosage | Qty | Freq | Dur# | Unit | Route | × |
+```
+
+Implemented with a CSS grid inside an `overflow-x-auto` container so it scrolls on narrow screens without breaking the layout:
+
+```tsx
+<div className="overflow-x-auto">
+  <div className="min-w-[560px]">
+    {/* Column headers */}
+    <div className="grid gap-x-1 mb-1 px-1"
+      style={{ gridTemplateColumns: "1fr 62px 40px 58px 40px 66px 70px 22px" }}>
+      {["Medicine","Dosage","Qty","Freq","Dur.","Unit","Route",""].map((h,i) => (
+        <span key={i} className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70">{h}</span>
+      ))}
+    </div>
+    {/* Medicine rows */}
+    {rxRows.map((row, idx) => (
+      <div key={idx} className="grid gap-x-1 items-center"
+        style={{ gridTemplateColumns: "1fr 62px 40px 58px 40px 66px 70px 22px" }}>
+        {/* inputs for each column — all h-7 text-xs */}
+      </div>
+    ))}
+    <button onClick={addRxRow}>+ Add medicine</button>
+  </div>
+</div>
+```
+
+Rules:
+- All inputs and selects in the grid use `h-7 text-xs` — never `h-9` or `h-10`
+- `min-w-[560px]` on the inner container ensures columns never collapse on wide screens
+- The `×` remove button is `h-7 w-full` in its grid cell, centred
+- Remarks field is omitted from the inline grid (space constraint) — it is captured per-row if needed via a future expansion
