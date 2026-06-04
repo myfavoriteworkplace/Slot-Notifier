@@ -2036,7 +2036,7 @@ export default function DoctorDashboard() {
 
       {/* ── Patient Detail Dialog ── */}
       <Dialog open={patientModalId !== null} onOpenChange={(o) => { if (!o) setPatientModalId(null); }}>
-        <DialogContent className="w-[95vw] sm:max-w-[640px] p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col rounded-2xl">
+        <DialogContent className="w-[95vw] sm:max-w-[640px] p-0 gap-0 overflow-hidden h-[90vh] flex flex-col rounded-2xl">
           {patientModalId !== null && (() => {
             const b = myBookings.find((bk: any) => bk.id === patientModalId);
             if (!b) return null;
