@@ -5,6 +5,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Loader2, Plus, Archive, ArchiveRestore, Building2, MapPin, Key, Eye, EyeOff, Check, LogIn, LogOut, Copy, ExternalLink, Trash2, UserPlus, Stethoscope, Sparkles, Image as ImageIcon, Link as LinkIcon, Megaphone, Mail, Phone, Globe, Hash, CalendarDays, CheckCircle2, Navigation, Upload, Star, Timer, Tag, Video, MousePointerClick, BarChart2, Pencil, X, ChevronDown, ChevronUp, Shield, AlertTriangle, Flag, FileText, ShieldCheck, XCircle, Info, CreditCard, Activity, MonitorSmartphone, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { SpecializationInput } from "@/components/SpecializationInput";
 import { Badge } from "@/components/ui/badge";
@@ -552,8 +553,31 @@ export default function Admin() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="container mx-auto py-6 px-4 max-w-4xl space-y-6">
+        <div className="flex justify-between items-end">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-44" />
+            <Skeleton className="h-4 w-72" />
+          </div>
+          <Skeleton className="h-9 w-28 rounded-md" />
+        </div>
+        <Skeleton className="h-10 w-full rounded-lg" />
+        {[1, 2, 3].map(i => (
+          <div key={i} className="rounded-xl border border-border/50 p-5 space-y-3">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <div className="space-y-2 flex-1">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-64" />
+              </div>
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Skeleton className="h-8 w-24 rounded-md" />
+              <Skeleton className="h-8 w-24 rounded-md" />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
@@ -695,8 +719,39 @@ export default function Admin() {
 
   if (clinicsLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="container mx-auto py-6 px-4 max-w-4xl space-y-6">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-36" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-28 rounded-md" />
+            <Skeleton className="h-9 w-24 rounded-md" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-9 w-32 rounded-md" />)}
+        </div>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="rounded-xl border border-border/50 p-5 space-y-4">
+            <div className="flex items-start gap-4">
+              <Skeleton className="h-12 w-12 rounded-xl shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-3.5 w-56" />
+                <Skeleton className="h-3.5 w-40" />
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Skeleton className="h-8 w-20 rounded-md" />
+                <Skeleton className="h-8 w-8 rounded-md" />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
@@ -2350,8 +2405,18 @@ export default function Admin() {
 
             <CardContent className="p-0">
               {loginEventsLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <div className="divide-y divide-border/40">
+                  {[1, 2, 3, 4, 5].map(i => (
+                    <div key={i} className="flex items-center gap-3 px-5 py-3.5">
+                      <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                      <div className="flex-1 space-y-1.5 min-w-0">
+                        <Skeleton className="h-3.5 w-36" />
+                        <Skeleton className="h-3 w-52" />
+                      </div>
+                      <Skeleton className="h-5 w-16 rounded-full shrink-0" />
+                      <Skeleton className="h-5 w-14 rounded-full shrink-0" />
+                    </div>
+                  ))}
                 </div>
               ) : (() => {
                 const filtered = loginEventsRaw.filter(e => {

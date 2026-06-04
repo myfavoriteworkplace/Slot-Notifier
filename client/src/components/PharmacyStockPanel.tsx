@@ -8,6 +8,7 @@ import {
   AlertTriangle, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -186,8 +187,41 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
 
         {/* Table */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border/40 bg-muted/20">
+                  <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Medicine</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground">Dosage</th>
+                  <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground">Unit Price</th>
+                  <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground">Qty</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground">Expiry</th>
+                  <th className="px-3 py-2.5" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <tr key={i} className="bg-background">
+                    <td className="px-4 py-3">
+                      <div className="space-y-1">
+                        <Skeleton className="h-3.5 w-32" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    </td>
+                    <td className="px-3 py-3"><Skeleton className="h-3.5 w-20" /></td>
+                    <td className="px-3 py-3 text-right"><Skeleton className="h-3.5 w-12 ml-auto" /></td>
+                    <td className="px-3 py-3 text-right"><Skeleton className="h-3.5 w-8 ml-auto" /></td>
+                    <td className="px-3 py-3"><Skeleton className="h-3.5 w-20" /></td>
+                    <td className="px-3 py-3">
+                      <div className="flex gap-1 justify-end">
+                        <Skeleton className="h-6 w-6 rounded" />
+                        <Skeleton className="h-6 w-6 rounded" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
           <div className="overflow-x-auto">

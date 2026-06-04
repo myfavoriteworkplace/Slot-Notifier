@@ -10,6 +10,7 @@ import {
   Eye, Pencil, AlertTriangle, ShieldCheck, ClipboardList, Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -836,8 +837,32 @@ export function BillingHistoryPanel({
   // ─────────────────────────────────────────────────────────────────────────
 
   if (isLoading) return (
-    <div className="flex items-center justify-center py-10">
-      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+    <div className="space-y-3 p-1">
+      {[1, 2].map(i => (
+        <div key={i} className="rounded-xl border border-border/50 overflow-hidden">
+          <div className="px-3 py-2.5 flex items-center gap-2 bg-muted/20">
+            <Skeleton className="h-4 w-4 rounded" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-5 w-14 rounded-full ml-2" />
+            <div className="flex-1" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-5 w-20 font-mono" />
+          </div>
+          <div className="px-3 py-3 space-y-2 border-t border-border/30">
+            {[1, 2, 3].map(j => (
+              <div key={j} className="flex items-center gap-2">
+                <Skeleton className="h-3 w-3 rounded" />
+                <Skeleton className="h-3 flex-1" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+            ))}
+          </div>
+          <div className="px-3 py-2 border-t border-border/30 flex justify-between items-center">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-7 w-24 rounded-md" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 

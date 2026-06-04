@@ -460,7 +460,50 @@ export default function DoctorDashboard() {
   }
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="h-14 border-b border-border/50 bg-card px-6 flex items-center gap-3">
+          <Skeleton className="h-8 w-8 rounded-full" />
+          <Skeleton className="h-4 w-40" />
+          <div className="flex-1" />
+          <Skeleton className="h-8 w-24 rounded-md" />
+        </div>
+        <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="rounded-xl border border-border/50 p-4 space-y-2">
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-8 w-12" />
+              </div>
+            ))}
+          </div>
+          <div className="rounded-xl border border-border/50 p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-5 rounded" />
+              <Skeleton className="h-5 w-40" />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {[1,2,3,4].map(i => <Skeleton key={i} className="h-8 w-28 rounded-lg" />)}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {[1,2,3,4,5,6].map(i => (
+                <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3.5 w-32" />
+                  <div className="flex gap-2 pt-1">
+                    <Skeleton className="h-7 flex-1 rounded-md" />
+                    <Skeleton className="h-7 flex-1 rounded-md" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
   if (!doctor) return null;
 
@@ -989,7 +1032,24 @@ export default function DoctorDashboard() {
               </div>
 
               {isBookingsLoading ? (
-                <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground/50" /></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {[1,2,3,4,5,6].map(i => (
+                    <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-4 w-28" />
+                        <Skeleton className="h-5 w-16 rounded-full" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-3.5 w-36" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Skeleton className="h-7 flex-1 rounded-md" />
+                        <Skeleton className="h-7 flex-1 rounded-md" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : filteredBookings.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {filteredBookings.slice(0, 50).map((booking: any) => {
@@ -1530,8 +1590,22 @@ export default function DoctorDashboard() {
                     {/* Calendar */}
                     <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-background shadow-sm pt-1 shrink-0">
                       {isLeavesLoading ? (
-                        <div className="flex items-center justify-center w-[280px] h-[280px]">
-                          <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+                        <div className="w-[280px] h-[280px] p-3 space-y-2">
+                          <div className="flex justify-between px-1 pb-1">
+                            <Skeleton className="h-4 w-4 rounded" />
+                            <Skeleton className="h-4 w-28" />
+                            <Skeleton className="h-4 w-4 rounded" />
+                          </div>
+                          <div className="grid grid-cols-7 gap-1">
+                            {Array.from({length: 7}).map((_, i) => (
+                              <Skeleton key={i} className="h-6 w-6 rounded" />
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-7 gap-1">
+                            {Array.from({length: 35}).map((_, i) => (
+                              <Skeleton key={i} className="h-8 w-8 rounded-full" />
+                            ))}
+                          </div>
                         </div>
                       ) : multiMode ? (
                         <CalendarPicker
@@ -1701,8 +1775,14 @@ export default function DoctorDashboard() {
 
                   {/* Marked dates list — grouped by month */}
                   {isLeavesLoading ? (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />Loading leaves…
+                    <div className="space-y-2 py-1">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="flex items-center gap-2">
+                          <Skeleton className="h-4 w-4 rounded shrink-0" />
+                          <Skeleton className="h-3.5 w-36" />
+                          <Skeleton className="h-5 w-14 rounded-full ml-auto" />
+                        </div>
+                      ))}
                     </div>
                   ) : leaves.length > 0 ? (() => {
                     const grouped = leaves.reduce((acc, l) => {

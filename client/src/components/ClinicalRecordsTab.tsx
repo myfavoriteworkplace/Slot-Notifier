@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -680,8 +681,25 @@ export default function ClinicalRecordsTab({
 
   // ── Loading / error ────────────────────────────────────────────────────────
   if (isLoading) return (
-    <div className="flex items-center justify-center py-8">
-      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+    <div className="space-y-3">
+      <div className="flex rounded-lg overflow-hidden border border-border/60 bg-muted/20 p-0.5 gap-0.5">
+        <Skeleton className="flex-1 h-8 rounded-md" />
+        <Skeleton className="flex-1 h-8 rounded-md" />
+      </div>
+      {[1, 2].map(i => (
+        <div key={i} className="rounded-xl border border-border/50 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-4 rounded" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+            <Skeleton className="h-4 w-20" />
+          </div>
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-4/5" />
+          <Skeleton className="h-3 w-3/5" />
+        </div>
+      ))}
     </div>
   );
 
