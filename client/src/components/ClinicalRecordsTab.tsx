@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { format } from "date-fns";
 import {
   Loader2, Plus, Pencil, Trash2, Download, FileText, Stethoscope,
-  ChevronDown, ChevronUp, ClipboardList, Pill, CheckCircle2, X,
+  ChevronDown, ChevronUp, ClipboardList, Pill, CheckCircle2, X, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import type { ClinicalRecord } from "@shared/schema";
+import type { ClinicalRecord, PharmacyStockItem } from "@shared/schema";
 
 // ─── Medicine row type (JSON-stored in prescription TEXT column) ──────────────
 
@@ -323,6 +324,98 @@ function PrescriptionDisplay({ prescription }: { prescription: string | null | u
   return null;
 }
 
+// ─── Medicine autocomplete combobox ───────────────────────────────────────────
+
+function MedicineCombobox({
+  value, onChange, onSelect, catalogue, idx,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSelect: (name: string, dosage: string) => void;
+  catalogue: PharmacyStockItem[];
+  idx: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 240 });
+
+  const matches = catalogue.filter(i =>
+    !value.trim() ||
+    i.medicineName.toLowerCase().includes(value.toLowerCase()) ||
+    (i.dosage || "").toLowerCase().includes(value.toLowerCase())
+  ).slice(0, 8);
+
+  const updatePos = () => {
+    if (!inputRef.current) return;
+    const r = inputRef.current.getBoundingClientRect();
+    setPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 240) });
+  };
+
+  const isExpired = (item: PharmacyStockItem) => {
+    if (!item.expiryDate) return false;
+    try { return new Date(item.expiryDate) < new Date(); } catch { return false; }
+  };
+
+  return (
+    <>
+      <Input
+        ref={inputRef}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => { updatePos(); setOpen(true); }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Medicine name"
+        className="h-7 text-xs px-2"
+        autoComplete="off"
+        data-testid={`input-medicine-name-${idx}`}
+      />
+      {open && catalogue.length > 0 && matches.length > 0 && createPortal(
+        <div
+          style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
+          className="bg-popover border border-border/60 rounded-lg shadow-xl overflow-hidden py-0.5"
+        >
+          {matches.map(item => {
+            const expired = isExpired(item);
+            const oos = !expired && item.availableQty === 0;
+            const low = !expired && !oos && item.availableQty <= 5;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-muted/60 transition-colors gap-2"
+                onMouseDown={e => {
+                  e.preventDefault();
+                  onSelect(item.medicineName, item.dosage || "");
+                  setOpen(false);
+                }}
+              >
+                <div className="flex flex-col items-start min-w-0 flex-1">
+                  <span className="text-xs font-medium text-foreground truncate leading-tight">{item.medicineName}</span>
+                  {item.dosage && (
+                    <span className="text-[10px] text-muted-foreground leading-none mt-0.5">{item.dosage}</span>
+                  )}
+                </div>
+                <span className={`text-[9px] shrink-0 px-1.5 py-0.5 rounded-full font-semibold leading-none whitespace-nowrap ${
+                  expired ? "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400"
+                  : oos    ? "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400"
+                  : low    ? "bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400"
+                           : "bg-green-100 text-green-600 dark:bg-green-950/40 dark:text-green-400"
+                }`}>
+                  {expired ? "Expired"
+                   : oos   ? "Out of stock"
+                   : low   ? `Low (${item.availableQty})`
+                           : `In stock (${item.availableQty})`}
+                </span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface ClinicalRecordsTabProps {
@@ -446,6 +539,32 @@ export default function ClinicalRecordsTab({
   const [rxRows, setRxRows] = useState<MedicineRow[]>([emptyRow()]);
   const [showRxHistory, setShowRxHistory] = useState(false);
 
+
+  // ── Pharmacy catalogue (doctor mode only) — loaded once, used for autocomplete ──
+  const { data: pharmacyCatalogue = [] } = useQuery<PharmacyStockItem[]>({
+    queryKey: ["/api/doctor/clinic", clinicId, "pharmacy"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/doctor/clinic/${clinicId}/pharmacy`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: mode === "doctor" && !!clinicId,
+  });
+
+  // ── Stock warning helper — looks up catalogue by exact medicine name ────────
+  const getStockWarning = (name: string): { type: "oos" | "low" | "expired"; qty: number } | null => {
+    if (!name.trim() || pharmacyCatalogue.length === 0) return null;
+    const match = pharmacyCatalogue.find(
+      i => i.medicineName.toLowerCase() === name.toLowerCase()
+    );
+    if (!match) return null;
+    const expired = match.expiryDate && new Date(match.expiryDate) < new Date();
+    if (expired) return { type: "expired", qty: match.availableQty };
+    if (match.availableQty === 0) return { type: "oos", qty: 0 };
+    if (match.availableQty <= 5) return { type: "low", qty: match.availableQty };
+    return null;
+  };
 
   // ── Query ──────────────────────────────────────────────────────────────────
   const queryKey = ["/api/clinical-records/booking", bookingId];
@@ -851,15 +970,30 @@ export default function ClinicalRecordsTab({
 
                       {/* Medicine rows */}
                       <div className="space-y-1">
-                        {rxRows.map((row, idx) => (
-                          <div key={idx}
-                            className="grid gap-x-1 items-center"
-                            style={{ gridTemplateColumns: "1fr 62px 40px 58px 40px 66px 70px 22px" }}
-                            data-testid={`medicine-row-${idx}`}>
+                        {rxRows.map((row, idx) => {
+                          const stockWarn = mode === "doctor" ? getStockWarning(row.name) : null;
+                          return (
+                          <div key={idx} className="space-y-0.5" data-testid={`medicine-row-${idx}`}>
+                            <div
+                              className="grid gap-x-1 items-center"
+                              style={{ gridTemplateColumns: "1fr 62px 40px 58px 40px 66px 70px 22px" }}>
 
-                            <Input value={row.name} onChange={e => updateRxRow(idx, 'name', e.target.value)}
-                              placeholder="Medicine name"
-                              className="h-7 text-xs px-2" data-testid={`input-medicine-name-${idx}`} />
+                            {mode === "doctor" ? (
+                              <MedicineCombobox
+                                value={row.name}
+                                onChange={v => updateRxRow(idx, "name", v)}
+                                onSelect={(name, dosage) => {
+                                  updateRxRow(idx, "name", name);
+                                  if (dosage) updateRxRow(idx, "dosage", dosage);
+                                }}
+                                catalogue={pharmacyCatalogue}
+                                idx={idx}
+                              />
+                            ) : (
+                              <Input value={row.name} onChange={e => updateRxRow(idx, "name", e.target.value)}
+                                placeholder="Medicine name"
+                                className="h-7 text-xs px-2" data-testid={`input-medicine-name-${idx}`} />
+                            )}
 
                             <Input value={row.dosage} onChange={e => updateRxRow(idx, 'dosage', e.target.value)}
                               placeholder="500mg" className="h-7 text-xs px-2" data-testid={`input-dosage-${idx}`} />
@@ -903,8 +1037,20 @@ export default function ClinicalRecordsTab({
                               data-testid={`button-remove-row-${idx}`}>
                               <X className="h-3 w-3" />
                             </button>
+                            </div>{/* end inner grid row */}
+                            {stockWarn && (
+                              <div className="flex items-center gap-1 text-[10px] pl-1 leading-none">
+                                <AlertTriangle className={`h-2.5 w-2.5 shrink-0 ${stockWarn.type === "low" ? "text-amber-500" : "text-red-500"}`} />
+                                <span className={stockWarn.type === "low" ? "text-amber-500" : "text-red-500"}>
+                                  {stockWarn.type === "expired" ? "Expired — do not dispense"
+                                   : stockWarn.type === "oos"   ? "Out of stock at this clinic"
+                                                                : `Low stock — only ${stockWarn.qty} left`}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       {/* Add medicine row link */}

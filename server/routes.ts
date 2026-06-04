@@ -3673,6 +3673,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // GET /api/doctor/clinic/:clinicId/pharmacy — read-only catalogue for prescription autocomplete
+  app.get("/api/doctor/clinic/:clinicId/pharmacy", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const clinicId = parseInt(req.params.clinicId);
+      if (isNaN(clinicId)) return res.status(400).json({ message: "Invalid clinic ID" });
+      const items = await storage.getPharmacyStock(clinicId);
+      res.json(items);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // ── Clinic: get all doctor leaves for all clinic doctors (for OOO in assign panel) ──
   app.get("/api/clinic/doctor-leaves/all", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
