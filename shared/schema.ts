@@ -98,6 +98,8 @@ export const bookings = pgTable("bookings", {
   doctorApprovalStatus: varchar("doctor_approval_status", { length: 20 }),
   doctorNotes: text("doctor_notes"),
   clinicalStatus: varchar("clinical_status", { length: 50 }),
+  visitStatus: varchar("visit_status", { length: 50 }),
+  checkedInAt: timestamp("checked_in_at"),
   confirmedBy: varchar("confirmed_by", { length: 20 }),
   paymentStatus: varchar("payment_status", { length: 20 }),
   razorpayOrderId: varchar("razorpay_order_id", { length: 255 }),

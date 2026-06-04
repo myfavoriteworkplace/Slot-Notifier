@@ -3086,6 +3086,57 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .set({ clinicalStatus: clinicalStatus ?? null })
         .where(eq(bookings.id, bookingId))
         .returning();
+      if (clinicalStatus === 'case_closed' && booking.assignedDoctorEmail) {
+        try {
+          const [doc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
+          if (doc) {
+            const notif = await storage.createNotification({ userId: String(doc.id), message: `Clinic admin marked ${booking.customerName}'s case as closed`, read: false });
+            broadcastToDoctor(String(doc.id), { type: "case_closed_by_clinic", notification: notif });
+          }
+        } catch (e: any) { console.error('[NOTIFICATION] Case closed (clinic) notification failed:', e.message); }
+      }
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/auth/clinic/bookings/:id/checkin", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const { undo } = req.body;
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const visitStatus = undo ? null : 'checked_in';
+      const checkedInAt = undo ? null : new Date();
+      const updated = await storage.updateVisitStatus(bookingId, visitStatus, checkedInAt);
+      if (!undo && booking.assignedDoctorEmail) {
+        try {
+          const [doc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
+          if (doc) {
+            const slot = await storage.getSlot(booking.slotId);
+            const timeStr = slot ? new Date(slot.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+            const notif = await storage.createNotification({ userId: String(doc.id), message: `${booking.customerName} is in the waiting room${timeStr ? ` — ${timeStr} slot` : ''}`, read: false });
+            broadcastToDoctor(String(doc.id), { type: "patient_checked_in", notification: notif });
+          }
+        } catch (e: any) { console.error('[NOTIFICATION] Check-in notification failed:', e.message); }
+      }
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/auth/clinic/bookings/:id/complete-visit", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const updated = await storage.updateVisitStatus(bookingId, 'completed');
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -3727,6 +3778,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         doctorNotes ?? null,
         clinicalStatus ?? null,
       );
+      if (clinicalStatus === 'case_closed') {
+        try {
+          const booking = await storage.getBookingById(Number(req.params.id));
+          if (booking) {
+            const slot = await storage.getSlot(booking.slotId);
+            if (slot) {
+              const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
+              if (clinic) {
+                const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false });
+                broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", notification: notif });
+              }
+            }
+          }
+        } catch (e: any) { console.error('[NOTIFICATION] Case closed (doctor notes) notification failed:', e.message); }
+      }
       res.json(updated);
     } catch (err: any) {
       const status = err.message?.startsWith("Forbidden") ? 403 : err.message === "Booking not found" ? 404 : 500;
@@ -3796,10 +3862,72 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         booking.doctorNotes ?? null,
         clinicalStatus ?? null,
       );
+      if (clinicalStatus === 'case_closed') {
+        try {
+          const slot = await storage.getSlot(booking.slotId);
+          if (slot) {
+            const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
+            if (clinic) {
+              const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false });
+              broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", notification: notif });
+            }
+          }
+        } catch (e: any) { console.error('[NOTIFICATION] Case closed (doctor) notification failed:', e.message); }
+      }
       res.json(updated);
     } catch (err: any) {
       const status = err.message?.startsWith("Forbidden") ? 403 : err.message === "Booking not found" ? 404 : 500;
       res.status(status).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/doctor/bookings/:id/start-consultation", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor' || !sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
+      const updated = await storage.updateVisitStatus(bookingId, 'in_consultation');
+      try {
+        const slot = await storage.getSlot(booking.slotId);
+        if (slot) {
+          const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
+          if (clinic) {
+            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has started consultation with ${booking.customerName}`, read: false });
+            broadcastToClinic(String(clinic.id), { type: "consultation_started", notification: notif });
+          }
+        }
+      } catch (e: any) { console.error('[NOTIFICATION] Start consultation notification failed:', e.message); }
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/doctor/bookings/:id/complete-visit", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (sess.role !== 'doctor' || !sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
+      const updated = await storage.updateVisitStatus(bookingId, 'completed');
+      try {
+        const slot = await storage.getSlot(booking.slotId);
+        if (slot) {
+          const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
+          if (clinic) {
+            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} completed the visit with ${booking.customerName}`, read: false });
+            broadcastToClinic(String(clinic.id), { type: "visit_completed", notification: notif });
+          }
+        }
+      } catch (e: any) { console.error('[NOTIFICATION] Complete visit notification failed:', e.message); }
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
     }
   });
 

@@ -273,6 +273,12 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='clinical_status') THEN
             ALTER TABLE bookings ADD COLUMN clinical_status varchar(50);
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='visit_status') THEN
+            ALTER TABLE bookings ADD COLUMN visit_status varchar(50);
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='checked_in_at') THEN
+            ALTER TABLE bookings ADD COLUMN checked_in_at timestamp;
+          END IF;
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='confirmed_by') THEN
             ALTER TABLE bookings ADD COLUMN confirmed_by varchar(20);
           END IF;

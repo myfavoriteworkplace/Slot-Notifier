@@ -85,14 +85,19 @@ function playNotificationSound() {
 }
 
 const TOAST_TITLES: Record<string, string> = {
-  new_booking:        "New Booking Request",
-  paid_booking:       "Paid Booking Confirmed",
-  booking_rescheduled:"Booking Rescheduled",
-  doctor_approved:    "Doctor Confirmed",
-  doctor_declined:    "Doctor Declined",
-  consent_signed:     "Consent Signed",
-  doctor_assigned:    "New Appointment Assigned",
-  admin_confirmed:    "Appointment Confirmed",
+  new_booking:          "New Booking Request",
+  paid_booking:         "Paid Booking Confirmed",
+  booking_rescheduled:  "Booking Rescheduled",
+  doctor_approved:      "Doctor Confirmed",
+  doctor_declined:      "Doctor Declined",
+  consent_signed:       "Consent Signed",
+  doctor_assigned:      "New Appointment Assigned",
+  admin_confirmed:      "Appointment Confirmed",
+  patient_checked_in:   "Patient Arrived",
+  consultation_started: "Consultation Started",
+  visit_completed:      "Visit Completed",
+  case_closed_by_doctor:"Case Closed",
+  case_closed_by_clinic:"Case Closed",
 };
 
 export function useNotificationSocket(clinicId?: number, doctorId?: number) {

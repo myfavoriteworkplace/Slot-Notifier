@@ -3,7 +3,7 @@ import { format, differenceInCalendarDays } from "date-fns";
 import {
   Phone, Hash, CalendarDays, CheckCircle2, X, Stethoscope,
   UserPlus, Building2, Loader2, IndianRupee, ClipboardList,
-  FileText, AlertCircle,
+  FileText, AlertCircle, UserCheck, Activity,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,8 @@ export interface BookingWithSlot {
   doctorApprovalStatus?: string | null;
   doctorNotes?: string | null;
   clinicalStatus?: string | null;
+  visitStatus?: string | null;
+  checkedInAt?: Date | string | null;
   confirmedBy?: string | null;
   consentSignature?: string | null;
   consentSignedAt?: Date | string | null;
@@ -76,6 +78,13 @@ export interface AppointmentCardProps {
   assignDoctorPending?: boolean;
   approvePending?: boolean;
   declinePending?: boolean;
+  onCheckIn?: () => void;
+  onUndoCheckIn?: () => void;
+  onStartConsultation?: () => void;
+  onCompleteVisit?: () => void;
+  checkInPending?: boolean;
+  startConsultPending?: boolean;
+  completeVisitPending?: boolean;
 }
 
 // ──────────────── Component ────────────────
@@ -100,6 +109,13 @@ export function AppointmentCard({
   assignDoctorPending,
   approvePending,
   declinePending,
+  onCheckIn,
+  onUndoCheckIn,
+  onStartConsultation,
+  onCompleteVisit,
+  checkInPending,
+  startConsultPending,
+  completeVisitPending,
 }: AppointmentCardProps) {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonOther, setCancelReasonOther] = useState("");
@@ -150,6 +166,12 @@ export function AppointmentCard({
   const maxChips = role === 'clinic' ? 4 : 3;
   const displayClinicName = clinicName || booking.clinicName || booking.clinic?.name;
 
+  const visitRingClass = role === 'doctor' && booking.visitStatus === 'checked_in'
+    ? "ring-2 ring-primary/40 ring-offset-2 animate-[pulse_2s_ease-in-out_infinite]"
+    : role === 'doctor' && booking.visitStatus === 'in_consultation'
+    ? "ring-2 ring-teal-400/60 ring-offset-2"
+    : "";
+
   const handleCancelSubmit = () => {
     const reason = cancelReason === "Other" ? cancelReasonOther.trim() : cancelReason;
     onCancel?.(reason);
@@ -159,7 +181,7 @@ export function AppointmentCard({
 
   return (
     <Card
-      className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group flex flex-col ${isPast ? "opacity-75" : ""} ${leftBorder}`}
+      className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group flex flex-col ${isPast ? "opacity-75" : ""} ${leftBorder} ${visitRingClass}`}
       data-testid={`card-booking-${booking.id}`}
     >
       {/* Top accent bar */}
@@ -253,6 +275,16 @@ export function AppointmentCard({
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+              )}
+              {role === 'doctor' && booking.visitStatus && booking.visitStatus !== 'completed' && (
+                <span className={`inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-px rounded-full border
+                  ${booking.visitStatus === 'checked_in'
+                    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"
+                    : "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-500/10 border-teal-200 dark:border-teal-500/20"
+                  }`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${booking.visitStatus === 'checked_in' ? 'bg-emerald-500 animate-pulse' : 'bg-teal-500'}`} />
+                  {booking.visitStatus === 'checked_in' ? 'Arrived' : 'With You'}
+                </span>
               )}
             </div>
           </div>
@@ -424,6 +456,58 @@ export function AppointmentCard({
             return null;
           })()}
 
+          {/* Visit status row — clinic admin view */}
+          {role === 'clinic' && isConfirmed && !isCancelled && (
+            <div className="flex items-center gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
+              <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.visitStatus ? 'bg-primary/10' : 'bg-muted'}`}>
+                <UserCheck className={`h-2.5 w-2.5 ${booking.visitStatus ? 'text-primary' : 'text-muted-foreground/50'}`} />
+              </div>
+              {!booking.visitStatus && (
+                <button
+                  onClick={onCheckIn}
+                  disabled={checkInPending}
+                  data-testid={`button-checkin-${booking.id}`}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground border border-border/60 hover:border-primary/40 hover:text-primary hover:bg-primary/5 active:scale-[0.97] px-2 py-0.5 rounded-full transition-all"
+                >
+                  {checkInPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
+                  Mark Arrived
+                </button>
+              )}
+              {booking.visitStatus === 'checked_in' && (
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    In Clinic
+                    {booking.checkedInAt && (
+                      <span className="font-normal opacity-70">· {format(new Date(booking.checkedInAt), 'h:mm a')}</span>
+                    )}
+                  </span>
+                  <button
+                    onClick={onUndoCheckIn}
+                    disabled={checkInPending}
+                    title="Undo check-in"
+                    data-testid={`button-undo-checkin-${booking.id}`}
+                    className="p-0.5 rounded hover:bg-muted/80 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+                  >
+                    {checkInPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <X className="h-2.5 w-2.5" />}
+                  </button>
+                </div>
+              )}
+              {booking.visitStatus === 'in_consultation' && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/20 px-2 py-0.5 rounded-full">
+                  <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
+                  With Doctor
+                </span>
+              )}
+              {booking.visitStatus === 'completed' && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-muted/50 border border-border/50 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="h-2.5 w-2.5" />
+                  Visit Done
+                </span>
+              )}
+            </div>
+          )}
+
           {role === 'doctor' && booking.clinicalStatus && (
             <span className={`inline-flex items-center text-xs font-medium px-2 py-px rounded-full border
               ${booking.clinicalStatus === "case_closed"
@@ -590,6 +674,18 @@ export function AppointmentCard({
               <CheckCircle2 className="h-3 w-3 shrink-0" />
               You confirmed this appointment
             </div>
+          )}
+          {booking.visitStatus === 'checked_in' && booking.doctorApprovalStatus !== 'pending' && booking.doctorApprovalStatus !== 'declined' && (
+            <Button
+              size="sm"
+              className="w-full h-9 text-xs font-semibold bg-teal-600 hover:bg-teal-700 dark:bg-teal-700 dark:hover:bg-teal-600 text-white active:scale-[0.98] transition-all"
+              onClick={(e) => { e.stopPropagation(); onStartConsultation?.(); }}
+              disabled={startConsultPending}
+              data-testid={`button-start-consultation-${booking.id}`}
+            >
+              {startConsultPending ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Activity className="h-3 w-3 mr-1.5" />}
+              Start Consultation
+            </Button>
           )}
           {booking.doctorApprovalStatus !== 'pending' && booking.doctorApprovalStatus !== 'declined' && (
             <div className="flex gap-2">

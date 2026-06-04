@@ -280,6 +280,15 @@ export default function DoctorDashboard() {
     onError: () => notify.error("Failed to save status"),
   });
 
+  const startConsultationMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("PATCH", `/api/doctor/bookings/${id}/start-consultation`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
+      notify.success("Consultation started", { description: "Clinic admin has been notified." });
+    },
+    onError: () => notify.error("Failed to start consultation"),
+  });
+
   const approveMutation = useMutation({
     mutationFn: (id: number) => apiRequest("PATCH", `/api/doctor/bookings/${id}/approve`),
     onSuccess: () => {
@@ -1030,6 +1039,8 @@ export default function DoctorDashboard() {
                         onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('records'); setStatusDraft(booking.clinicalStatus || ""); }}
                         approvePending={approveMutation.isPending}
                         declinePending={declineMutation.isPending}
+                        onStartConsultation={() => startConsultationMutation.mutate(booking.id)}
+                        startConsultPending={startConsultationMutation.isPending}
                       />
                     );
                   })}

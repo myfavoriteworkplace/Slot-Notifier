@@ -1285,6 +1285,32 @@ export default function ClinicDashboard() {
     },
   });
 
+  const checkInMutation = useMutation({
+    mutationFn: async ({ bookingId, undo }: { bookingId: number; undo?: boolean }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/checkin`, { undo: !!undo });
+      if (!response.ok) throw new Error('Failed to update check-in status');
+      return response.json();
+    },
+    onSuccess: (_data, { undo }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      notify.success(undo ? "Check-in undone" : "Patient marked as arrived");
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to update check-in"),
+  });
+
+  const completeVisitMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/complete-visit`, {});
+      if (!response.ok) throw new Error('Failed to complete visit');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      notify.success("Visit marked as complete");
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to complete visit"),
+  });
+
   const requestConsentMutation = useMutation({
     mutationFn: async (bookingId: number) => {
       const response = await apiRequest('POST', `/api/auth/clinic/bookings/${bookingId}/request-consent`, {});
@@ -3217,6 +3243,11 @@ export default function ClinicDashboard() {
                       onAssignDoctor={(name, email) => assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: name, doctorEmail: email })}
                       assignDoctorPending={assignDoctorMutation.isPending}
                       confirmPending={confirmBookingMutation.isPending}
+                      onCheckIn={() => checkInMutation.mutate({ bookingId: booking.id })}
+                      onUndoCheckIn={() => checkInMutation.mutate({ bookingId: booking.id, undo: true })}
+                      onCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
+                      checkInPending={checkInMutation.isPending}
+                      completeVisitPending={completeVisitMutation.isPending}
                     />
                       <DialogContent className="w-[95vw] sm:max-w-[640px] rounded-2xl p-0 overflow-hidden h-[90vh] flex flex-col">
 
