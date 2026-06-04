@@ -4832,6 +4832,115 @@ export default function ClinicDashboard() {
                 <div className="border-t border-border/30">
                   <div className="space-y-4">
 
+                  {/* Add New Doctor — toggle (shown at top) */}
+                  <div className="rounded-xl overflow-hidden border border-border/60 shadow-sm">
+                    <button
+                      onClick={() => setShowAddDoctorForm(v => !v)}
+                      className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-primary to-accent px-5 py-3.5 min-h-[52px] active:opacity-90 transition-opacity"
+                      data-testid="button-toggle-add-doctor-form"
+                      aria-expanded={showAddDoctorForm}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-white/20 rounded-lg">
+                          <UserPlus className="h-4 w-4 text-white" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-white font-semibold text-sm leading-tight">Add a New Doctor</p>
+                          <p className="text-white/70 text-xs">Register a new practitioner</p>
+                        </div>
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-white/80 transition-transform duration-200 ${showAddDoctorForm ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showAddDoctorForm && (
+                      <div className="p-5 bg-card">
+                        <div className="grid gap-5 lg:grid-cols-2">
+
+                          {/* Left: Photo upload */}
+                          <div className="space-y-2 flex flex-col items-center lg:items-start">
+                            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Doctor Photo</Label>
+                            <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5 w-fit">
+                              <ImageUpload
+                                currentImage={newDoctorImageUrl || undefined}
+                                onImageUploaded={(url) => setNewDoctorImageUrl(url)}
+                                folder="doctors"
+                                fallbackText={newDoctorName ? newDoctorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : "Dr"}
+                              />
+                              <p className="text-xs text-muted-foreground text-center">Click photo to upload</p>
+                            </div>
+                          </div>
+
+                          {/* Right: Form fields */}
+                          <div className="space-y-3">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="doctor-name" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Name</Label>
+                              <Input
+                                id="doctor-name"
+                                value={newDoctorName}
+                                onChange={(e) => setNewDoctorName(e.target.value)}
+                                onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                                placeholder="e.g. Dr. Priya Sharma"
+                                data-testid="input-doctor-name"
+                                required
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="doctor-email" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</Label>
+                              <Input
+                                id="doctor-email"
+                                type="email"
+                                value={newDoctorEmail}
+                                onChange={(e) => setNewDoctorEmail(e.target.value)}
+                                onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                                placeholder="doctor@example.com"
+                                data-testid="input-doctor-email"
+                                required
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1.5">
+                                <Label htmlFor="doctor-specialization" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Specialization</Label>
+                                <SpecializationInput
+                                  id="doctor-specialization"
+                                  value={newDoctorSpecialization}
+                                  onChange={setNewDoctorSpecialization}
+                                  placeholder="General Dentist"
+                                  data-testid="input-doctor-specialization"
+                                  required
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="doctor-degree" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Degree (Optional)</Label>
+                                <Input
+                                  id="doctor-degree"
+                                  value={newDoctorDegree}
+                                  onChange={(e) => setNewDoctorDegree(e.target.value)}
+                                  onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                                  placeholder="e.g. BDS, MDS"
+                                  data-testid="input-doctor-degree"
+                                />
+                              </div>
+                            </div>
+                            <Button
+                              onClick={handleAddDoctor}
+                              disabled={!newDoctorName || !newDoctorSpecialization || !newDoctorEmail || addDoctorMutation.isPending}
+                              className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-md shadow-primary/20 mt-1"
+                              data-testid="button-add-doctor"
+                            >
+                              {addDoctorMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : (
+                                <UserPlus className="h-4 w-4 mr-2" />
+                              )}
+                              Add Doctor
+                            </Button>
+                          </div>
+
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Current Doctors List */}
                   {clinicData?.doctors && clinicData.doctors.length > 0 ? (
                     <div className="space-y-3">
@@ -5111,118 +5220,10 @@ export default function ClinicDashboard() {
                         <Stethoscope className="h-7 w-7 text-muted-foreground/60" />
                       </div>
                       <p className="font-medium text-muted-foreground">No doctors added yet</p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">Add your first doctor using the form below</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Add your first doctor using the form above</p>
                     </div>
                   )}
 
-                  {/* Add New Doctor — toggle */}
-                  <div className="rounded-xl overflow-hidden border border-border/60 shadow-sm">
-                    <button
-                      onClick={() => setShowAddDoctorForm(v => !v)}
-                      className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-primary to-accent px-5 py-3.5 min-h-[52px] active:opacity-90 transition-opacity"
-                      data-testid="button-toggle-add-doctor-form"
-                      aria-expanded={showAddDoctorForm}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-white/20 rounded-lg">
-                          <UserPlus className="h-4 w-4 text-white" />
-                        </div>
-                        <div className="text-left">
-                          <p className="text-white font-semibold text-sm leading-tight">Add a New Doctor</p>
-                          <p className="text-white/70 text-xs">Register a new practitioner</p>
-                        </div>
-                      </div>
-                      <ChevronDown className={`h-4 w-4 text-white/80 transition-transform duration-200 ${showAddDoctorForm ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {showAddDoctorForm && (
-                      <div className="p-5 bg-card">
-                        <div className="grid gap-5 lg:grid-cols-2">
-
-                          {/* Left: Photo upload */}
-                          <div className="space-y-2 flex flex-col items-center lg:items-start">
-                            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Doctor Photo</Label>
-                            <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5 w-fit">
-                              <ImageUpload
-                                currentImage={newDoctorImageUrl || undefined}
-                                onImageUploaded={(url) => setNewDoctorImageUrl(url)}
-                                folder="doctors"
-                                fallbackText={newDoctorName ? newDoctorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : "Dr"}
-                              />
-                              <p className="text-xs text-muted-foreground text-center">Click photo to upload</p>
-                            </div>
-                          </div>
-
-                          {/* Right: Form fields */}
-                          <div className="space-y-3">
-                            <div className="space-y-1.5">
-                              <Label htmlFor="doctor-name" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Name</Label>
-                              <Input
-                                id="doctor-name"
-                                value={newDoctorName}
-                                onChange={(e) => setNewDoctorName(e.target.value)}
-                                onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                                placeholder="e.g. Dr. Priya Sharma"
-                                data-testid="input-doctor-name"
-                                required
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label htmlFor="doctor-email" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</Label>
-                              <Input
-                                id="doctor-email"
-                                type="email"
-                                value={newDoctorEmail}
-                                onChange={(e) => setNewDoctorEmail(e.target.value)}
-                                onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                                placeholder="doctor@example.com"
-                                data-testid="input-doctor-email"
-                                required
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-1.5">
-                                <Label htmlFor="doctor-specialization" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Specialization</Label>
-                                <SpecializationInput
-                                  id="doctor-specialization"
-                                  value={newDoctorSpecialization}
-                                  onChange={setNewDoctorSpecialization}
-                                  placeholder="General Dentist"
-                                  data-testid="input-doctor-specialization"
-                                  required
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label htmlFor="doctor-degree" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Degree (Optional)</Label>
-                                <Input
-                                  id="doctor-degree"
-                                  value={newDoctorDegree}
-                                  onChange={(e) => setNewDoctorDegree(e.target.value)}
-                                  onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                                  placeholder="e.g. BDS, MDS"
-                                  data-testid="input-doctor-degree"
-                                />
-                              </div>
-                            </div>
-                            <Button
-                              onClick={handleAddDoctor}
-                              disabled={!newDoctorName || !newDoctorSpecialization || !newDoctorEmail || addDoctorMutation.isPending}
-                              className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-md shadow-primary/20 mt-1"
-                              data-testid="button-add-doctor"
-                            >
-                              {addDoctorMutation.isPending ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              ) : (
-                                <UserPlus className="h-4 w-4 mr-2" />
-                              )}
-                              Add Doctor
-                            </Button>
-                          </div>
-
-                        </div>
-                      </div>
-                    )}
-                  </div>
 
               </div>
             </div>
@@ -5273,185 +5274,155 @@ export default function ClinicDashboard() {
                   </Badge>
                 </div>
 
-                {/* Editable fields */}
-                <div className="p-5 bg-card space-y-6">
+                {/* Editable fields — compact grid */}
+                <div className="p-4 bg-card space-y-4">
 
-                  {/* Contact section */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="h-6 w-6 rounded-md bg-violet-500/10 flex items-center justify-center">
-                        <Phone className="h-3.5 w-3.5 text-violet-600" />
-                      </div>
-                      <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Contact Information</h3>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="profile-phone" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Phone</Label>
-                        <div className="relative">
-                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                          <Input
-                            id="profile-phone"
-                            value={profilePhone}
-                            onChange={(e) => setProfilePhone(e.target.value)}
-                            placeholder="+91 98765 43210"
-                            className="pl-9"
-                            data-testid="input-profile-phone"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="profile-email" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Email</Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                          <Input
-                            id="profile-email"
-                            type="email"
-                            value={profileEmail}
-                            onChange={(e) => setProfileEmail(e.target.value)}
-                            placeholder="clinic@example.com"
-                            className="pl-9"
-                            data-testid="input-profile-email"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1.5 sm:col-span-2">
-                        <Label htmlFor="profile-website" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Website</Label>
-                        <div className="relative">
-                          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                          <Input
-                            id="profile-website"
-                            value={profileWebsite}
-                            onChange={(e) => setProfileWebsite(e.target.value)}
-                            placeholder="https://yourclinic.com"
-                            className="pl-9"
-                            data-testid="input-profile-website"
-                          />
-                        </div>
+                  {/* All text fields in one tight grid */}
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="profile-phone" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Phone</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                        <Input
+                          id="profile-phone"
+                          value={profilePhone}
+                          onChange={(e) => setProfilePhone(e.target.value)}
+                          placeholder="+91 98765 43210"
+                          className="pl-8 h-9 text-sm"
+                          data-testid="input-profile-phone"
+                        />
                       </div>
                     </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Address section */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="h-6 w-6 rounded-md bg-violet-500/10 flex items-center justify-center">
-                        <MapPin className="h-3.5 w-3.5 text-violet-600" />
+                    <div className="space-y-1">
+                      <Label htmlFor="profile-email" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Email</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                        <Input
+                          id="profile-email"
+                          type="email"
+                          value={profileEmail}
+                          onChange={(e) => setProfileEmail(e.target.value)}
+                          placeholder="clinic@example.com"
+                          className="pl-8 h-9 text-sm"
+                          data-testid="input-profile-email"
+                        />
                       </div>
-                      <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Address</h3>
                     </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-1.5 sm:col-span-2">
-                        <Label htmlFor="profile-address" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Street Address</Label>
+                    <div className="space-y-1">
+                      <Label htmlFor="profile-website" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Website</Label>
+                      <div className="relative">
+                        <Globe className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                        <Input
+                          id="profile-website"
+                          value={profileWebsite}
+                          onChange={(e) => setProfileWebsite(e.target.value)}
+                          placeholder="https://yourclinic.com"
+                          className="pl-8 h-9 text-sm"
+                          data-testid="input-profile-website"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label htmlFor="profile-address" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Street Address</Label>
+                      <div className="relative">
+                        <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                         <Input
                           id="profile-address"
                           value={profileAddress}
                           onChange={(e) => setProfileAddress(e.target.value)}
                           placeholder="123 Main Street, Area"
+                          className="pl-8 h-9 text-sm"
                           data-testid="input-profile-address"
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="profile-city" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">City</Label>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="profile-city" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">City</Label>
+                      <Input
+                        id="profile-city"
+                        value={profileCity}
+                        onChange={(e) => setProfileCity(e.target.value)}
+                        placeholder="Mumbai"
+                        className="h-9 text-sm"
+                        data-testid="input-profile-city"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="profile-pincode" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Pincode</Label>
+                      <Input
+                        id="profile-pincode"
+                        value={profilePincode}
+                        onChange={(e) => setProfilePincode(e.target.value)}
+                        placeholder="400001"
+                        className="h-9 text-sm"
+                        data-testid="input-profile-pincode"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="profile-doctor-name" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Lead Doctor</Label>
+                      <div className="relative">
+                        <User className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                         <Input
-                          id="profile-city"
-                          value={profileCity}
-                          onChange={(e) => setProfileCity(e.target.value)}
-                          placeholder="Mumbai"
-                          data-testid="input-profile-city"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="profile-pincode" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Pincode</Label>
-                        <Input
-                          id="profile-pincode"
-                          value={profilePincode}
-                          onChange={(e) => setProfilePincode(e.target.value)}
-                          placeholder="400001"
-                          data-testid="input-profile-pincode"
+                          id="profile-doctor-name"
+                          value={profileDoctorName}
+                          onChange={(e) => setProfileDoctorName(e.target.value)}
+                          placeholder="e.g. Dr. Arun Menon"
+                          className="pl-8 h-9 text-sm"
+                          data-testid="input-profile-doctor-name"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <Separator />
-
-                  {/* Map location section */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="h-6 w-6 rounded-md bg-violet-500/10 flex items-center justify-center">
-                        <MapPin className="h-3.5 w-3.5 text-violet-600" />
-                      </div>
-                      <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Map Location</h3>
+                  {/* Map location */}
+                  <div className="border border-border/40 rounded-xl overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border-b border-border/40">
+                      <MapPin className="h-3.5 w-3.5 text-violet-600 shrink-0" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Map Location</span>
                       {profileLatitude && profileLongitude && (
                         <span className="ml-auto text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-full px-2 py-0.5">
                           Pin saved
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-muted-foreground mb-3">
-                      Search your clinic or click on the map to drop a pin. Patients will see this map on your public profile page.
-                    </p>
-                    <MapLocationPicker
-                      latitude={profileLatitude}
-                      longitude={profileLongitude}
-                      onChange={(lat, lng) => { setProfileLatitude(lat); setProfileLongitude(lng); }}
-                    />
-                  </div>
-
-                  <Separator />
-
-                  {/* Primary doctor section */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="h-6 w-6 rounded-md bg-violet-500/10 flex items-center justify-center">
-                        <User className="h-3.5 w-3.5 text-violet-600" />
-                      </div>
-                      <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Primary Practitioner</h3>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="profile-doctor-name" className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Doctor Name</Label>
-                      <Input
-                        id="profile-doctor-name"
-                        value={profileDoctorName}
-                        onChange={(e) => setProfileDoctorName(e.target.value)}
-                        placeholder="e.g. Dr. Arun Menon"
-                        data-testid="input-profile-doctor-name"
-                      />
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
-                        <Info className="h-3 w-3" />
-                        This is the lead doctor shown on your About page. Individual doctors are managed in Manage Doctors.
+                    <div className="p-3">
+                      <p className="text-[11px] text-muted-foreground mb-2">
+                        Search your clinic or click on the map to set a pin. Patients see this on your public profile.
                       </p>
+                      <MapLocationPicker
+                        latitude={profileLatitude}
+                        longitude={profileLongitude}
+                        onChange={(lat, lng) => { setProfileLatitude(lat); setProfileLongitude(lng); }}
+                      />
                     </div>
                   </div>
 
-                  {/* Save button */}
-                  <div className="flex items-center justify-end pt-2">
-                    <Button
-                      onClick={() => updateProfileMutation.mutate({
-                        phone: profilePhone,
-                        email: profileEmail,
-                        website: profileWebsite,
-                        address: profileAddress,
-                        city: profileCity,
-                        pincode: profilePincode,
-                        doctorName: profileDoctorName,
-                        latitude: profileLatitude,
-                        longitude: profileLongitude,
-                      })}
-                      disabled={updateProfileMutation.isPending}
-                      data-testid="button-save-profile"
-                      className="rounded-full bg-violet-600 hover:bg-violet-700 text-white shadow-lg shadow-violet-500/25 hover:-translate-y-0.5 transition-all px-6"
-                    >
-                      {updateProfileMutation.isPending ? (
-                        <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving…</>
-                      ) : (
-                        "Save Profile"
-                      )}
-                    </Button>
-                  </div>
+                </div>
 
+                {/* Save footer */}
+                <div className="px-4 py-3 border-t border-border/40 bg-muted/20 flex items-center justify-end">
+                  <Button
+                    onClick={() => updateProfileMutation.mutate({
+                      phone: profilePhone,
+                      email: profileEmail,
+                      website: profileWebsite,
+                      address: profileAddress,
+                      city: profileCity,
+                      pincode: profilePincode,
+                      doctorName: profileDoctorName,
+                      latitude: profileLatitude,
+                      longitude: profileLongitude,
+                    })}
+                    disabled={updateProfileMutation.isPending}
+                    data-testid="button-save-profile"
+                    className="rounded-full bg-violet-600 hover:bg-violet-700 text-white shadow-lg shadow-violet-500/25 hover:-translate-y-0.5 transition-all px-6"
+                  >
+                    {updateProfileMutation.isPending ? (
+                      <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving…</>
+                    ) : (
+                      "Save Profile"
+                    )}
+                  </Button>
                 </div>
               </div>
 

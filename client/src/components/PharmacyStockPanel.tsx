@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
@@ -38,9 +37,10 @@ const emptyForm = (): FormState => ({
 });
 
 export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps) {
-  const [showForm, setShowForm] = useState(false);
+  const [showAddRow, setShowAddRow] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
+  const [editForm, setEditForm] = useState<FormState>(emptyForm());
   const [search, setSearch] = useState("");
 
   const { data: items = [], isLoading } = useQuery<PharmacyStockItem[]>({
@@ -66,7 +66,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
       if (!res.ok) { const b = await res.json(); throw new Error(b.message); }
       return res.json();
     },
-    onSuccess: () => { invalidate(); resetForm(); notify.success("Medicine added to catalog"); },
+    onSuccess: () => { invalidate(); setShowAddRow(false); setForm(emptyForm()); notify.success("Medicine added to catalog"); },
     onError: (e: any) => notify.error(e.message || "Could not add medicine"),
   });
 
@@ -82,7 +82,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
       if (!res.ok) { const b = await res.json(); throw new Error(b.message); }
       return res.json();
     },
-    onSuccess: () => { invalidate(); resetForm(); notify.success("Medicine updated"); },
+    onSuccess: () => { invalidate(); setEditingId(null); setEditForm(emptyForm()); notify.success("Medicine updated"); },
     onError: (e: any) => notify.error(e.message || "Could not update medicine"),
   });
 
@@ -95,32 +95,30 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
     onError: () => notify.error("Could not delete medicine"),
   });
 
-  const resetForm = () => {
-    setShowForm(false);
-    setEditingId(null);
-    setForm(emptyForm());
-  };
-
   const startEdit = (item: PharmacyStockItem) => {
+    setShowAddRow(false);
     setEditingId(item.id);
-    setForm({
+    setEditForm({
       medicineName: item.medicineName,
       dosage: item.dosage || "",
       unitPrice: String(item.unitPrice ?? ""),
       availableQty: String(item.availableQty ?? ""),
       expiryDate: item.expiryDate || "",
     });
-    setShowForm(true);
   };
 
-  const handleSubmit = () => {
+  const cancelEdit = () => { setEditingId(null); setEditForm(emptyForm()); };
+
+  const handleAdd = () => {
     if (!form.medicineName.trim()) { notify.warning("Medicine name is required"); return; }
     if (!form.unitPrice || isNaN(parseFloat(form.unitPrice))) { notify.warning("Enter a valid unit price"); return; }
-    if (editingId !== null) {
-      updateMutation.mutate({ id: editingId, data: form });
-    } else {
-      createMutation.mutate(form);
-    }
+    createMutation.mutate(form);
+  };
+
+  const handleUpdate = (id: number) => {
+    if (!editForm.medicineName.trim()) { notify.warning("Medicine name is required"); return; }
+    if (!editForm.unitPrice || isNaN(parseFloat(editForm.unitPrice))) { notify.warning("Enter a valid unit price"); return; }
+    updateMutation.mutate({ id, data: editForm });
   };
 
   const filtered = items.filter(i =>
@@ -142,12 +140,13 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
     try { return new Date(expiry).getTime() < Date.now(); } catch { return false; }
   };
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const inputCls = "h-7 text-xs px-2 border-border/60 focus:border-orange-400";
 
   return (
     <div className="space-y-4">
-      {/* Panel header */}
       <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+
+        {/* Panel header */}
         <div className="px-5 pt-5 pb-4 border-b border-border/50 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
@@ -162,11 +161,12 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
           </div>
           <Button
             size="sm"
-            onClick={() => { resetForm(); setShowForm(true); }}
-            className="h-8 gap-1.5 text-xs bg-orange-500 hover:bg-orange-600 text-white border-0"
+            onClick={() => { cancelEdit(); setForm(emptyForm()); setShowAddRow(v => !v); }}
+            className={`h-8 gap-1.5 text-xs border-0 ${showAddRow ? "bg-muted text-foreground hover:bg-muted/80" : "bg-orange-500 hover:bg-orange-600 text-white"}`}
             data-testid="button-add-medicine"
           >
-            <Plus className="h-3.5 w-3.5" /> Add Medicine
+            {showAddRow ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+            {showAddRow ? "Cancel" : "Add Medicine"}
           </Button>
         </div>
 
@@ -184,115 +184,10 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
           </div>
         </div>
 
-        {/* Add / Edit Form */}
-        {showForm && (
-          <div className="px-5 py-4 border-b border-border/40 bg-orange-50/40 dark:bg-orange-950/10 animate-in slide-in-from-top-1 duration-150">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400">
-                {editingId ? "Edit Medicine" : "New Medicine"}
-              </span>
-              <button onClick={resetForm} className="p-1 rounded hover:bg-muted/60 text-muted-foreground">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="sm:col-span-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Medicine Name *</Label>
-                <Input
-                  value={form.medicineName}
-                  onChange={e => setForm(f => ({ ...f, medicineName: e.target.value }))}
-                  placeholder="e.g. Amoxicillin"
-                  className="h-8 text-xs mt-1"
-                  data-testid="input-medicine-name"
-                />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dosage</Label>
-                <Input
-                  value={form.dosage}
-                  onChange={e => setForm(f => ({ ...f, dosage: e.target.value }))}
-                  placeholder="e.g. 500mg"
-                  className="h-8 text-xs mt-1"
-                  data-testid="input-medicine-dosage"
-                />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unit Price (₹) *</Label>
-                <div className="relative mt-1">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground select-none">₹</span>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.unitPrice}
-                    onChange={e => setForm(f => ({ ...f, unitPrice: e.target.value }))}
-                    placeholder="0.00"
-                    className="pl-5 h-8 text-xs"
-                    data-testid="input-medicine-price"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Available Qty</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={form.availableQty}
-                  onChange={e => setForm(f => ({ ...f, availableQty: e.target.value }))}
-                  placeholder="0"
-                  className="h-8 text-xs mt-1"
-                  data-testid="input-medicine-qty"
-                />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Expiry Date</Label>
-                <Input
-                  type="date"
-                  value={form.expiryDate}
-                  onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))}
-                  className="h-8 text-xs mt-1"
-                  data-testid="input-medicine-expiry"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-3 justify-end">
-              <Button size="sm" variant="outline" onClick={resetForm} className="h-7 text-xs" disabled={isPending}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSubmit}
-                disabled={isPending}
-                className="h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white border-0 gap-1"
-                data-testid="button-save-medicine"
-              >
-                {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                {editingId ? "Update" : "Add to Catalog"}
-              </Button>
-            </div>
-          </div>
-        )}
-
         {/* Table */}
         {isLoading ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="py-12 text-center">
-            <div className="p-3 bg-muted/40 rounded-full w-fit mx-auto mb-3">
-              <Package className="h-6 w-6 text-muted-foreground/40" />
-            </div>
-            <p className="text-sm font-medium text-muted-foreground">
-              {search ? "No medicines match your search" : "No medicines in catalog yet"}
-            </p>
-            {!search && (
-              <p className="text-xs text-muted-foreground/60 mt-1">
-                Add medicines to auto-price prescriptions in billing
-              </p>
-            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -308,10 +203,203 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
+
+                {/* Inline add row */}
+                {showAddRow && (
+                  <tr className="bg-orange-50/60 dark:bg-orange-950/10 border-b border-orange-200/40 dark:border-orange-900/30">
+                    <td className="px-3 py-2">
+                      <Input
+                        autoFocus
+                        value={form.medicineName}
+                        onChange={e => setForm(f => ({ ...f, medicineName: e.target.value }))}
+                        onKeyDown={e => e.key === "Enter" && handleAdd()}
+                        placeholder="Medicine name *"
+                        className={inputCls}
+                        data-testid="input-medicine-name"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <Input
+                        value={form.dosage}
+                        onChange={e => setForm(f => ({ ...f, dosage: e.target.value }))}
+                        onKeyDown={e => e.key === "Enter" && handleAdd()}
+                        placeholder="500mg"
+                        className={inputCls}
+                        data-testid="input-medicine-dosage"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground select-none">₹</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.unitPrice}
+                          onChange={e => setForm(f => ({ ...f, unitPrice: e.target.value }))}
+                          onKeyDown={e => e.key === "Enter" && handleAdd()}
+                          placeholder="0.00"
+                          className={`${inputCls} pl-5 text-right`}
+                          data-testid="input-medicine-price"
+                        />
+                      </div>
+                    </td>
+                    <td className="px-2 py-2">
+                      <Input
+                        type="number"
+                        min="0"
+                        value={form.availableQty}
+                        onChange={e => setForm(f => ({ ...f, availableQty: e.target.value }))}
+                        onKeyDown={e => e.key === "Enter" && handleAdd()}
+                        placeholder="0"
+                        className={`${inputCls} text-right`}
+                        data-testid="input-medicine-qty"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <Input
+                        type="date"
+                        value={form.expiryDate}
+                        onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))}
+                        className={inputCls}
+                        data-testid="input-medicine-expiry"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-1 justify-end">
+                        <button
+                          onClick={handleAdd}
+                          disabled={createMutation.isPending}
+                          className="p-1.5 rounded-md bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-60 transition-colors"
+                          title="Save"
+                          data-testid="button-save-medicine"
+                        >
+                          {createMutation.isPending
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <Check className="h-3 w-3" />}
+                        </button>
+                        <button
+                          onClick={() => { setShowAddRow(false); setForm(emptyForm()); }}
+                          className="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground transition-colors"
+                          title="Cancel"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+
+                {/* Empty state */}
+                {filtered.length === 0 && !showAddRow && (
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="py-12 text-center">
+                        <div className="p-3 bg-muted/40 rounded-full w-fit mx-auto mb-3">
+                          <Package className="h-6 w-6 text-muted-foreground/40" />
+                        </div>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          {search ? "No medicines match your search" : "No medicines in catalog yet"}
+                        </p>
+                        {!search && (
+                          <p className="text-xs text-muted-foreground/60 mt-1">
+                            Click "Add Medicine" to get started
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+
+                {/* Data rows */}
                 {filtered.map(item => {
                   const expiring = isExpiringSoon(item.expiryDate);
                   const expired = isExpired(item.expiryDate);
                   const lowStock = item.availableQty <= 5;
+                  const isEditing = editingId === item.id;
+
+                  if (isEditing) {
+                    return (
+                      <tr key={item.id} className="bg-orange-50/40 dark:bg-orange-950/10 border-b border-orange-200/40 dark:border-orange-900/30">
+                        <td className="px-3 py-2">
+                          <Input
+                            autoFocus
+                            value={editForm.medicineName}
+                            onChange={e => setEditForm(f => ({ ...f, medicineName: e.target.value }))}
+                            onKeyDown={e => e.key === "Enter" && handleUpdate(item.id)}
+                            placeholder="Medicine name *"
+                            className={inputCls}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <Input
+                            value={editForm.dosage}
+                            onChange={e => setEditForm(f => ({ ...f, dosage: e.target.value }))}
+                            onKeyDown={e => e.key === "Enter" && handleUpdate(item.id)}
+                            placeholder="500mg"
+                            className={inputCls}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground select-none">₹</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={editForm.unitPrice}
+                              onChange={e => setEditForm(f => ({ ...f, unitPrice: e.target.value }))}
+                              onKeyDown={e => e.key === "Enter" && handleUpdate(item.id)}
+                              placeholder="0.00"
+                              className={`${inputCls} pl-5 text-right`}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-2 py-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            value={editForm.availableQty}
+                            onChange={e => setEditForm(f => ({ ...f, availableQty: e.target.value }))}
+                            onKeyDown={e => e.key === "Enter" && handleUpdate(item.id)}
+                            placeholder="0"
+                            className={`${inputCls} text-right`}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <Input
+                            type="date"
+                            value={editForm.expiryDate}
+                            onChange={e => setEditForm(f => ({ ...f, expiryDate: e.target.value }))}
+                            className={inputCls}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-1 justify-end">
+                            <button
+                              onClick={() => handleUpdate(item.id)}
+                              disabled={updateMutation.isPending}
+                              className="p-1.5 rounded-md bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-60 transition-colors"
+                              title="Save"
+                              data-testid={`button-save-edit-medicine-${item.id}`}
+                            >
+                              {updateMutation.isPending
+                                ? <Loader2 className="h-3 w-3 animate-spin" />
+                                : <Check className="h-3 w-3" />}
+                            </button>
+                            <button
+                              onClick={cancelEdit}
+                              className="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground transition-colors"
+                              title="Cancel"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
                   return (
                     <tr
                       key={item.id}
@@ -334,7 +422,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                         {item.expiryDate ? (
                           <span className={`inline-flex items-center gap-1 ${expired ? "text-red-500 font-semibold" : expiring ? "text-amber-600 font-semibold" : "text-muted-foreground"}`}>
                             {(expired || expiring) && <AlertTriangle className="h-3 w-3 shrink-0" />}
-                            {expired ? "Expired" : expiring ? `Exp soon` : item.expiryDate}
+                            {expired ? "Expired" : expiring ? "Exp soon" : item.expiryDate}
                           </span>
                         ) : (
                           <span className="text-muted-foreground/50">—</span>
