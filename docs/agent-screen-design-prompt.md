@@ -109,10 +109,12 @@ Apply every rule in this section whenever building or editing any screen that ap
 - Any conditional item (e.g. "N days selected" badge) that follows the pickers in the grid needs `col-span-2 sm:col-span-1` so it spans the full row on mobile but flows inline on sm+.
 - Button widths inside the grid cells: `w-full` (fills its half-width cell on mobile) + `sm:min-w-[155px]` (enforces a readable minimum on desktop).
 
-### Font Size Floor — No Exceptions
+### Font Size Floor
 - **Minimum font size in any production UI: `text-xs` (12 px).**
 - Never use `text-[10px]`, `text-[9px]`, or any sub-xs arbitrary value — including badge labels, sub-labels inside buttons, and tooltip-style text.
-- The **only** permitted exception is the bottom-nav bar label (`text-[10px]`) inside the fixed 60 px tab bar where space is structurally constrained — this is explicitly documented in the bottom-nav pattern.
+- **Permitted exceptions (two only):**
+  1. Bottom-nav bar label (`text-[10px]`) — inside the fixed 60 px tab bar where space is structurally constrained.
+  2. Compact grid field labels (`text-[10px] font-semibold uppercase tracking-widest text-muted-foreground`) — the ALL-CAPS label sitting immediately above an `h-9` input in a `lg:grid-cols-3` settings/profile grid. This is the only context where this size is acceptable.
 
 ### Text Size Reference for Buttons & Compact Components
 | Element | Class |
@@ -303,6 +305,253 @@ if (!data?.length) return <EmptyState />;           // Icon + human message + CT
 
 ---
 
+## FORM ARCHITECTURE — CHOOSE THE RIGHT PATTERN FIRST
+
+Before writing a single `<Input>`, pick the correct pattern from this table. Using the wrong one is the #1 source of wasted real estate.
+
+| Situation | Correct pattern |
+|---|---|
+| Adding a row to a table (≤ 6 fields, fields map to table columns) | **Inline table row** — inputs appear as the first `<tbody>` row; toggled by an "Add X" button in the panel header |
+| Editing an existing table row (≤ 6 fields) | **Inline row edit** — the row's display cells swap to input cells in-place |
+| Adding/editing a record with 7+ fields, file uploads, or nested data | **Dialog / Modal** — `Dialog` from shadcn, `w-[95vw] sm:max-w-lg max-h-[85vh] overflow-y-auto` |
+| Settings, profile, configuration (not table-adjacent) | **Compact grid inside card** — `grid grid-cols-2 lg:grid-cols-3 gap-3` with `space-y-1` label+input stacks |
+| Multi-step flow or destructive action with lasting consequence | **Full-page step or `Sheet` drawer from bottom** |
+| **NEVER use** | An expand-panel / accordion that pushes content down below a list — this is the worst pattern for real estate |
+
+### Inline table row — standard implementation
+
+```tsx
+// "Add X" button in panel header toggles showAddRow
+// When true, render this as the FIRST row in <tbody>:
+<tr className="bg-[accent]/5 border-b border-[accent]/20">
+  <td className="px-3 py-2">
+    <Input autoFocus value={form.field} onChange={...}
+      onKeyDown={e => e.key === 'Enter' && handleSave()}
+      placeholder="e.g. Value" className="h-7 text-xs px-2" />
+  </td>
+  {/* one <td> per column */}
+  <td className="px-2 py-2">
+    <div className="flex items-center gap-1 justify-end">
+      <button onClick={handleSave} className="p-1.5 rounded-md bg-[accent] text-white">
+        {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+      </button>
+      <button onClick={cancel} className="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground">
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  </td>
+</tr>
+```
+
+**Rules:**
+- `autoFocus` on the first input
+- **Enter** = save · **Escape** = cancel (always add both `onKeyDown` handlers)
+- While a row is in edit mode, all other rows remain read-only — no nested concurrent edits
+- The toggle button in the header swaps: `Plus + "Add X"` → `X + "Cancel"` with muted style when active
+
+### Inline row edit — standard implementation
+
+```tsx
+// editingId state tracks which row is being edited
+// In the row map:
+if (editingId === item.id) {
+  return <tr className="bg-[accent]/5 ...">
+    {/* input cells — same structure as add row */}
+  </tr>;
+}
+// Otherwise render the normal display row
+```
+
+---
+
+## FORM FIELD DENSITY
+
+| Context | Label style | Input height | Max cols per row |
+|---|---|---|---|
+| Inline table row | No labels — `placeholder` only (use `"e.g. "` prefix) | `h-7` | Match table column count |
+| Modal form (standard) | `<Label>` above, `text-xs font-semibold uppercase tracking-wide text-muted-foreground` | `h-10` (shadcn default) | 2 on `sm:`, 1 on mobile |
+| Settings / profile compact grid | `text-[10px] font-semibold uppercase tracking-widest text-muted-foreground` + `space-y-1` | `h-9` | 3 on `lg:`, 2 on `sm:`, 1 mobile |
+| Search / filter bar | No label — placeholder with search icon | `h-8` | Inline flex row |
+
+**Standardised input heights (use only these three values):**
+- `h-7` — inline table row cells only
+- `h-9` — compact settings/profile grids
+- `h-10` — modals and standard forms (shadcn default)
+
+**Column grouping rules:**
+- Max **3 fields per grid row** on desktop (`lg:grid-cols-3`). Never 4+.
+- Max **2 fields per row** on `sm:` breakpoint.
+- Group related fields in the **same row**: Phone + Email · City + Pincode · Start Date + End Date.
+- Long fields (Address, Description, Notes) always `col-span-full` or `sm:col-span-2`.
+- File/image upload always gets its **own full-width row** — never shares a grid cell.
+- Primary practitioner / lead doctor field: treat as a regular text field, place in the same grid as other profile fields.
+
+---
+
+## TABLE DESIGN STANDARDS
+
+### Required structure
+
+```tsx
+<div className="overflow-x-auto">
+  <table className="w-full text-xs">
+    <thead>
+      <tr className="border-b border-border/40 bg-muted/20">
+        <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Name</th>
+        <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground">Amount</th>
+        <th className="px-3 py-2.5" /> {/* actions column — no heading */}
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-border/30">
+      {rows}
+    </tbody>
+  </table>
+</div>
+```
+
+### Column alignment — non-negotiable
+
+| Column type | Alignment | `<th>` + `<td>` class |
+|---|---|---|
+| Names, labels, descriptions, status text | Left | `text-left` |
+| Numbers (price ₹, qty, count, %) | Right | `text-right` |
+| Dates | Left | `text-left` |
+| Badges / chips | Left or centre | `text-left` |
+| Actions column | No heading | `<th />` — empty; cells use `justify-end` flex |
+
+### Row action visibility
+
+- Row actions (Edit, Delete, View) are **always hidden by default** and revealed on hover:
+  ```tsx
+  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+  ```
+- The `<tr>` must have `className="group ..."` for this to work.
+- **Max 2 icon actions** in the hover zone. If you need 3+, use a `DropdownMenu` triggered by a `MoreHorizontal` icon.
+- **Delete** is always wrapped in `<AlertDialog>` — never a bare `onClick` that destroys data immediately.
+
+### Empty state inside table
+
+```tsx
+{data.length === 0 && (
+  <tr>
+    <td colSpan={columnCount}>
+      <div className="py-12 text-center">
+        <div className="p-3 bg-muted/40 rounded-full w-fit mx-auto mb-3">
+          <Icon className="h-6 w-6 text-muted-foreground/40" />
+        </div>
+        <p className="text-sm font-medium text-muted-foreground">Nothing here yet</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">Hint or CTA sentence.</p>
+      </div>
+    </td>
+  </tr>
+)}
+```
+
+### Font size by table context
+
+| Dashboard context | Cell font size |
+|---|---|
+| Clinic / Doctor dashboard tables | `text-xs` — high density, small cells |
+| Admin panel tables | `text-sm` — wider rows, less density |
+| Never | `text-base` or larger in table cells |
+
+---
+
+## SPACE EFFICIENCY DOCTRINE
+
+> **Rule: Never let a form consume vertical real estate that a table row or compact grid can handle.**
+
+Apply this mental checklist before building any data-entry UI:
+
+1. **Can it be an inline row?**
+   If the data maps directly to an existing table's columns → use an inline table row, not a separate expand-panel below the header.
+
+2. **Can 2–3 fields share one row?**
+   Phone + Email + Website → one grid row. Never three stacked full-width rows.
+
+3. **Does this section need a `<Separator />`?**
+   Use it only at a genuine category boundary (e.g. Contact info → Map location). Never between fields of the same logical group, and never between a form body and its save button.
+
+4. **Does the save button need its own section?**
+   Move it to a **footer bar** at the bottom of the card:
+   ```tsx
+   <div className="px-4 py-3 border-t border-border/40 bg-muted/20 flex items-center justify-end gap-2">
+     <Button ...>Save</Button>
+   </div>
+   ```
+   Never float a save button in the middle of a content card.
+
+5. **Does the "Add New" trigger need its own panel section?**
+   No. Place the "Add" button in the **panel header** (right side of the gradient row). Never create an accordion/toggle at the bottom of a list just to show an add form.
+
+6. **Is the "Add" form an accordion below the list?**
+   Move the add-form (or inline row) to **above** the list, immediately after the panel header. Users must see the add form before they scroll through all existing items.
+
+7. **Are there `space-y-6` or larger gaps between fields?**
+   Replace with `space-y-3` or `space-y-4`. `space-y-6` is reserved for separating major card sections, not individual fields.
+
+---
+
+## BUTTON / CTA PLACEMENT
+
+| Context | Correct placement |
+|---|---|
+| Table / inline add row | End of the inline row — `justify-end` flex in the actions cell |
+| Modal / Dialog | `DialogFooter` — Cancel on left, primary action on right |
+| Settings / profile card | **Footer bar** pinned to bottom of card: `border-t border-border/40 bg-muted/20 px-4 py-3 flex justify-end` |
+| Panel header action (Add, Export, Filter toggle) | Right side of the panel header gradient row (`justify-between` + `shrink-0` button) — never below the header |
+| Mobile / full-screen long form | `sticky bottom-0 pb-[env(safe-area-inset-bottom)] bg-background/95 backdrop-blur-sm border-t border-border/40` |
+
+### Toggle button (Add ↔ Cancel) standard
+
+When an "Add" button controls the visibility of an inline add row or form, it must visually change state:
+
+```tsx
+<Button
+  size="sm"
+  onClick={() => setShowAddRow(v => !v)}
+  className={showAddRow
+    ? "bg-muted text-foreground hover:bg-muted/80 border-0"   // Cancel state — muted
+    : "bg-[accent] text-white hover:bg-[accent]/90 border-0"   // Add state — accent colour
+  }
+>
+  {showAddRow ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+  {showAddRow ? "Cancel" : "Add X"}
+</Button>
+```
+
+### Destructive button rules
+
+- Always `variant="destructive"` or explicit `bg-destructive text-destructive-foreground`
+- Always requires an `AlertDialog` confirmation — no single-click deletes
+- Never place a destructive button as the primary/default action — it must require an extra step
+
+---
+
+## SECTION DIVIDERS & VISUAL WEIGHT
+
+| Divider type | When to use |
+|---|---|
+| `<Separator />` | Genuine category change within a card. Max **2 separators per card**. Never between fields of the same group. |
+| `border-b border-border/40` | Between card header and card body. Between card body and card footer. Standard structural boundary. |
+| `space-y-3` or `space-y-4` | Between field groups within the same section. The default. |
+| `space-y-6` | Only between major sub-sections inside a large card (e.g. Contact block vs. Address block). |
+| **Never** | `space-y-8` or larger inside any form or panel body. |
+
+### Sub-section header (inside a card, below the main panel header)
+
+When a card body needs a labelled sub-section, use a minimal pill label — not a full section-header row:
+
+```tsx
+<p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+  Section Label
+</p>
+```
+
+Only promote to the full icon + heading treatment (the `h-6 w-6` rounded icon box with text) when the sub-section is large enough to need a visual anchor (≥ 4 fields, or a complex widget like a map).
+
+---
+
 ## REACT NATIVE PARITY
 
 Write these patterns correctly now so the port requires minimal rewriting.
@@ -400,17 +649,53 @@ Add `justify-between` to the gradient row and wrap the title+icon in a `flex ite
 
 ## QUICK CHECKLIST BEFORE SUBMITTING ANY NEW SCREEN
 
-- [ ] Desktop layout looks correct at 1280 px
-- [ ] Mobile layout works at 375 px with no horizontal scroll
-- [ ] All tap targets are at least 44 px tall
+### Layout & Responsiveness
+- [ ] Desktop layout correct at 1280 px; mobile works at 375 px with no horizontal scroll
+- [ ] All tap targets are at least `min-h-[44px]`; icon-only buttons are `h-11 w-11`
 - [ ] No hardcoded hex/hsl colours — CSS vars and Tailwind semantic classes only
-- [ ] Loading, empty, and error states exist for every data fetch
-- [ ] No `hover:`-only states without an `active:` equivalent
-- [ ] Dark mode tested — every element is readable and correctly coloured
-- [ ] Inputs have correct `type` attribute and `onFocus` scroll-into-view
+- [ ] Dark mode tested — every element readable and correctly coloured
+
+### Data States
+- [ ] Loading, empty, and error states exist for every `useQuery` section
+- [ ] Empty state inside tables uses the `<tr><td colSpan={N}>` pattern (not a separate `<div>` below the table)
+
+### Forms & Inputs
+- [ ] Correct form pattern chosen (inline row / modal / compact grid / sheet) — never an expand-panel below a list
+- [ ] "Add" button is in the panel header, not an accordion at the bottom of a list
+- [ ] "Add" form or inline add row appears **above** the existing list, not below it
+- [ ] Input heights: `h-7` inline rows · `h-9` compact grids · `h-10` modals — no mixing
+- [ ] Max 3 fields per grid row on desktop; max 2 on `sm:`
+- [ ] Long fields (Address, Description) span `col-span-full` or `sm:col-span-2`
+- [ ] All inputs have correct `type` attribute and `onFocus` scroll-into-view for mobile keyboard
+- [ ] Inline add/edit rows have Enter = save and Escape = cancel `onKeyDown` handlers
+- [ ] Toggle button (Add ↔ Cancel) changes icon and goes muted when active
+
+### Tables
+- [ ] Numbers and prices are **right-aligned**; names and labels are **left-aligned**
+- [ ] Row actions are `opacity-0 group-hover:opacity-100` — never always visible
+- [ ] Max 2 icon actions per row hover zone; 3+ actions use `DropdownMenu`
+- [ ] Delete/destructive actions are wrapped in `AlertDialog`
+
+### Save Buttons & CTAs
+- [ ] Save button in settings/profile card lives in a **footer bar** (`border-t bg-muted/20 px-4 py-3`), not floating mid-content
+- [ ] Modal save is in `DialogFooter` — Cancel left, primary right
+- [ ] No `hover:`-only states without a matching `active:` equivalent
+
+### Space Efficiency
+- [ ] No `<Separator />` between fields of the same group; max 2 separators per card
+- [ ] No `space-y-6` or larger between individual fields (use `space-y-3` or `space-y-4`)
+- [ ] No floating save button in the middle of a content area
+
+### Typography & Placeholders
+- [ ] No font size below `text-xs` except: bottom-nav labels (`text-[10px]`) and compact grid field labels (`text-[10px] uppercase tracking-widest`)
+- [ ] All placeholder text is italic and visually lighter than real input
+- [ ] No placeholder used as the sole label — either show a `<Label>` above, or use `"e.g. "` prefix
+- [ ] Indian names/formats used in all example placeholders (no Western names, no `+1` phone numbers)
+
+### Architecture
 - [ ] No `backdrop-filter` on structural/functional elements
 - [ ] No `position: fixed` inside a scroll container
-- [ ] All placeholder text is italic, visually lighter than real input, never acting as the sole label, uses Indian names/formats, and follows the Placeholder Conventions section below
+- [ ] All placeholder text follows the Placeholder Conventions section below
 
 ---
 
