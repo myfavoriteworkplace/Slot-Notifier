@@ -289,6 +289,15 @@ export default function DoctorDashboard() {
     onError: () => notify.error("Failed to start consultation"),
   });
 
+  const completeVisitMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("PATCH", `/api/doctor/bookings/${id}/complete-visit`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
+      notify.success("Visit completed", { description: "Clinic admin has been notified." });
+    },
+    onError: () => notify.error("Failed to complete visit"),
+  });
+
   const approveMutation = useMutation({
     mutationFn: (id: number) => apiRequest("PATCH", `/api/doctor/bookings/${id}/approve`),
     onSuccess: () => {
@@ -1041,6 +1050,8 @@ export default function DoctorDashboard() {
                         declinePending={declineMutation.isPending}
                         onStartConsultation={() => startConsultationMutation.mutate(booking.id)}
                         startConsultPending={startConsultationMutation.isPending}
+                        onCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
+                        completeVisitPending={completeVisitMutation.isPending}
                       />
                     );
                   })}
@@ -2128,11 +2139,16 @@ export default function DoctorDashboard() {
                           <Button
                             size="sm"
                             className="h-9 px-4 text-sm shrink-0"
-                            onClick={() => saveNotesMutation.mutate({ id: b.id, clinicalStatus: statusDraft })}
-                            disabled={saveNotesMutation.isPending}
+                            onClick={() => {
+                              saveNotesMutation.mutate({ id: b.id, clinicalStatus: statusDraft });
+                              if (b.visitStatus === 'in_consultation') {
+                                completeVisitMutation.mutate(b.id);
+                              }
+                            }}
+                            disabled={saveNotesMutation.isPending || completeVisitMutation.isPending}
                             data-testid="button-save-clinical-status"
                           >
-                            {saveNotesMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                            {(saveNotesMutation.isPending || completeVisitMutation.isPending) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
                           </Button>
                         </div>
                       </div>

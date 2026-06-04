@@ -687,6 +687,18 @@ export function AppointmentCard({
               Start Consultation
             </Button>
           )}
+          {booking.visitStatus === 'in_consultation' && booking.doctorApprovalStatus !== 'pending' && booking.doctorApprovalStatus !== 'declined' && (
+            <Button
+              size="sm"
+              className="w-full h-9 text-xs font-semibold bg-primary hover:bg-primary/90 text-white active:scale-[0.98] transition-all"
+              onClick={(e) => { e.stopPropagation(); onCompleteVisit?.(); }}
+              disabled={completeVisitPending}
+              data-testid={`button-done-patient-${booking.id}`}
+            >
+              {completeVisitPending ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <CheckCircle2 className="h-3 w-3 mr-1.5" />}
+              Done with Patient
+            </Button>
+          )}
           {booking.doctorApprovalStatus !== 'pending' && booking.doctorApprovalStatus !== 'declined' && (
             <div className="flex gap-2">
               <Button
