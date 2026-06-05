@@ -315,6 +315,7 @@ export default function ClinicDashboard() {
   const [bookingOpenCategory, setBookingOpenCategory] = useState<string | null>(null);
   const [complaintsExpanded, setComplaintsExpanded] = useState(false);
   const [bookingAppointmentCategory, setBookingAppointmentCategory] = useState("");
+  const [bookingVisitType, setBookingVisitType] = useState("");
   const COMPLAINTS_INITIAL_VISIBLE = 4;
   const [slotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
@@ -806,6 +807,7 @@ export default function ClinicDashboard() {
     setBookingSlotPanelOpen(false);
     setBookingOpenCategory(null);
     setBookingAppointmentCategory("");
+    setBookingVisitType("");
   };
 
   const cancelBookingMutation = useMutation({
@@ -889,6 +891,7 @@ export default function ClinicDashboard() {
 
     const descParts: string[] = [];
     if (bookingAppointmentCategory) descParts.push(`Category: ${bookingAppointmentCategory}`);
+    if (bookingVisitType) descParts.push(`Visit: ${bookingVisitType}`);
     if (bookingAge) descParts.push(`Age: ${bookingAge}`);
     if (bookingGender) descParts.push(`Gender: ${bookingGender}`);
     if (bookingDescription) descParts.push(bookingDescription);
@@ -5626,24 +5629,42 @@ export default function ClinicDashboard() {
                         </div>
                       </div>
 
-                      {/* Appointment Category */}
-                      <div className="space-y-1.5">
-                        <Label htmlFor="booking-category" className="block">
-                          Appointment Category
-                          <span className="text-xs font-normal text-muted-foreground ml-1">(optional)</span>
-                        </Label>
-                        <Select value={bookingAppointmentCategory} onValueChange={setBookingAppointmentCategory}>
-                          <SelectTrigger id="booking-category" data-testid="select-booking-category">
-                            <SelectValue placeholder="Select appointment type…" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Consultation">Consultation</SelectItem>
-                            <SelectItem value="Diagnostics">Diagnostics</SelectItem>
-                            <SelectItem value="Cleaning / Preventive">Cleaning / Preventive</SelectItem>
-                            <SelectItem value="Fillings / Minor Restorations">Fillings / Minor Restorations</SelectItem>
-                            <SelectItem value="Major Procedures">Major Procedures</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      {/* Appointment Category + Visit Type */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="booking-category" className="block">
+                            Category
+                            <span className="text-xs font-normal text-muted-foreground ml-1">(optional)</span>
+                          </Label>
+                          <Select value={bookingAppointmentCategory} onValueChange={setBookingAppointmentCategory}>
+                            <SelectTrigger id="booking-category" data-testid="select-booking-category">
+                              <SelectValue placeholder="Select type…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Consultation">Consultation</SelectItem>
+                              <SelectItem value="Diagnostics">Diagnostics</SelectItem>
+                              <SelectItem value="Cleaning / Preventive">Cleaning / Preventive</SelectItem>
+                              <SelectItem value="Fillings / Minor Restorations">Fillings / Minor Restorations</SelectItem>
+                              <SelectItem value="Major Procedures">Major Procedures</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="booking-visit-type" className="block">
+                            Visit Type
+                            <span className="text-xs font-normal text-muted-foreground ml-1">(optional)</span>
+                          </Label>
+                          <Select value={bookingVisitType} onValueChange={setBookingVisitType}>
+                            <SelectTrigger id="booking-visit-type" data-testid="select-booking-visit-type">
+                              <SelectValue placeholder="Select…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="First Visit">First Visit</SelectItem>
+                              <SelectItem value="Re-visit">Re-visit</SelectItem>
+                              <SelectItem value="Follow-up Required">Follow-up Required</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
 
                       {/* Chief Complaints */}
@@ -5917,10 +5938,17 @@ export default function ClinicDashboard() {
                                 </div>
                               ) : null;
                             })()}
-                            {bookingAppointmentCategory && (
+                            {(bookingAppointmentCategory || bookingVisitType) && (
                               <div className="px-3 py-2.5">
-                                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Category</p>
-                                <p className="text-sm font-bold mt-0.5">{bookingAppointmentCategory}</p>
+                                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Classification</p>
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  {bookingAppointmentCategory && (
+                                    <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full font-medium">{bookingAppointmentCategory}</span>
+                                  )}
+                                  {bookingVisitType && (
+                                    <span className="text-xs bg-blue-500/10 text-blue-600 border border-blue-500/20 px-2 py-0.5 rounded-full font-medium">{bookingVisitType}</span>
+                                  )}
+                                </div>
                               </div>
                             )}
                             {bookingDescription && (
