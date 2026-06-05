@@ -52,6 +52,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { SpecializationInput } from "@/components/SpecializationInput";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -313,6 +314,7 @@ export default function ClinicDashboard() {
   const [bookingSlotPanelOpen, setBookingSlotPanelOpen] = useState(false);
   const [bookingOpenCategory, setBookingOpenCategory] = useState<string | null>(null);
   const [complaintsExpanded, setComplaintsExpanded] = useState(false);
+  const [bookingAppointmentCategory, setBookingAppointmentCategory] = useState("");
   const COMPLAINTS_INITIAL_VISIBLE = 4;
   const [slotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
@@ -803,6 +805,7 @@ export default function ClinicDashboard() {
     setBookingShowReview(false);
     setBookingSlotPanelOpen(false);
     setBookingOpenCategory(null);
+    setBookingAppointmentCategory("");
   };
 
   const cancelBookingMutation = useMutation({
@@ -885,6 +888,7 @@ export default function ClinicDashboard() {
     endTime.setHours(slotInfo.endHour, slotInfo.endMinute, 0, 0);
 
     const descParts: string[] = [];
+    if (bookingAppointmentCategory) descParts.push(`Category: ${bookingAppointmentCategory}`);
     if (bookingAge) descParts.push(`Age: ${bookingAge}`);
     if (bookingGender) descParts.push(`Gender: ${bookingGender}`);
     if (bookingDescription) descParts.push(bookingDescription);
@@ -5609,19 +5613,37 @@ export default function ClinicDashboard() {
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="booking-gender" className="block">Gender <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
-                          <select
-                            id="booking-gender"
-                            value={bookingGender}
-                            onChange={(e) => setBookingGender(e.target.value)}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                            data-testid="select-booking-gender"
-                          >
-                            <option value="">Select</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                          </select>
+                          <Select value={bookingGender} onValueChange={setBookingGender}>
+                            <SelectTrigger id="booking-gender" data-testid="select-booking-gender">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Male">Male</SelectItem>
+                              <SelectItem value="Female">Female</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
+                      </div>
+
+                      {/* Appointment Category */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="booking-category" className="block">
+                          Appointment Category
+                          <span className="text-xs font-normal text-muted-foreground ml-1">(optional)</span>
+                        </Label>
+                        <Select value={bookingAppointmentCategory} onValueChange={setBookingAppointmentCategory}>
+                          <SelectTrigger id="booking-category" data-testid="select-booking-category">
+                            <SelectValue placeholder="Select appointment type…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Consultation">Consultation</SelectItem>
+                            <SelectItem value="Diagnostics">Diagnostics</SelectItem>
+                            <SelectItem value="Cleaning / Preventive">Cleaning / Preventive</SelectItem>
+                            <SelectItem value="Fillings / Minor Restorations">Fillings / Minor Restorations</SelectItem>
+                            <SelectItem value="Major Procedures">Major Procedures</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {/* Chief Complaints */}
@@ -5895,6 +5917,12 @@ export default function ClinicDashboard() {
                                 </div>
                               ) : null;
                             })()}
+                            {bookingAppointmentCategory && (
+                              <div className="px-3 py-2.5">
+                                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Category</p>
+                                <p className="text-sm font-bold mt-0.5">{bookingAppointmentCategory}</p>
+                              </div>
+                            )}
                             {bookingDescription && (
                               <div className="px-3 py-2.5">
                                 <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Complaints</p>
