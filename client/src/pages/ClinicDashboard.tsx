@@ -5656,13 +5656,24 @@ export default function ClinicDashboard() {
                               <SelectValue placeholder="Select type…" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Consultation">Consultation</SelectItem>
-                              <SelectItem value="Diagnostics">Diagnostics</SelectItem>
-                              <SelectItem value="Cleaning / Preventive">Cleaning / Preventive</SelectItem>
-                              <SelectItem value="Fillings / Minor Restorations">Fillings / Minor Restorations</SelectItem>
-                              <SelectItem value="Major Procedures">Major Procedures</SelectItem>
+                              <SelectItem value="Consultation">Consultation <span className="text-muted-foreground font-normal">· 25 min</span></SelectItem>
+                              <SelectItem value="Diagnostics">Diagnostics <span className="text-muted-foreground font-normal">· 25 min</span></SelectItem>
+                              <SelectItem value="Cleaning / Preventive">Cleaning / Preventive <span className="text-muted-foreground font-normal">· 50 min</span></SelectItem>
+                              <SelectItem value="Fillings / Minor Restorations">Fillings / Minor Restorations <span className="text-muted-foreground font-normal">· 50 min</span></SelectItem>
+                              <SelectItem value="Major Procedures">Major Procedures <span className="text-muted-foreground font-normal">· 75 min</span></SelectItem>
                             </SelectContent>
                           </Select>
+                          {bookingAppointmentCategory && (() => {
+                            const cost = PROCEDURE_SLOT_COST[bookingAppointmentCategory] ?? 1;
+                            return (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                                <span className="inline-flex items-center gap-1 font-medium text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 rounded-md px-1.5 py-0.5 text-xs">
+                                  {cost} slot{cost > 1 ? "s" : ""} · {cost * 25} min
+                                </span>
+                                <span className="text-muted-foreground/70">reserved for this procedure</span>
+                              </p>
+                            );
+                          })()}
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="booking-visit-type" className="block">
@@ -5891,11 +5902,6 @@ export default function ClinicDashboard() {
                                       <p className="text-xs text-muted-foreground">{formatTime(slot.startHour, slot.startMinute)} – {formatTime(slot.endHour, slot.endMinute)}</p>
                                     </div>
                                     <div className="shrink-0 flex items-center gap-1.5">
-                                      {thisCost > 1 && (
-                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-400/20">
-                                          {thisCost} slots · {thisCost * 25} min
-                                        </span>
-                                      )}
                                       {isFull ? (
                                         <span className="text-xs font-bold bg-destructive/10 text-destructive border border-destructive/20 px-2 py-0.5 rounded-lg">Full</span>
                                       ) : (
@@ -5964,7 +5970,14 @@ export default function ClinicDashboard() {
                                 <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Classification</p>
                                 <div className="flex flex-wrap gap-1.5 mt-1">
                                   {bookingAppointmentCategory && (
-                                    <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full font-medium">{bookingAppointmentCategory}</span>
+                                    <>
+                                      <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full font-medium">{bookingAppointmentCategory}</span>
+                                      {(PROCEDURE_SLOT_COST[bookingAppointmentCategory] ?? 1) > 1 && (
+                                        <span className="text-xs font-semibold text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 px-2 py-0.5 rounded-full">
+                                          {PROCEDURE_SLOT_COST[bookingAppointmentCategory]} slots · {(PROCEDURE_SLOT_COST[bookingAppointmentCategory] ?? 1) * 25} min
+                                        </span>
+                                      )}
+                                    </>
                                   )}
                                   {bookingVisitType && (
                                     <span className="text-xs bg-blue-500/10 text-blue-600 border border-blue-500/20 px-2 py-0.5 rounded-full font-medium">{bookingVisitType}</span>

@@ -321,7 +321,7 @@ export function AppointmentCard({
               );
             })()}
             {(booking as any).slotCost > 1 && (
-              <span className="shrink-0 text-[10px] font-bold text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 px-1.5 py-px rounded-full">
+              <span className="shrink-0 text-xs font-bold text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 px-1.5 py-px rounded-full">
                 {(booking as any).slotCost} slots · {(booking as any).slotCost * 25} min
               </span>
             )}
