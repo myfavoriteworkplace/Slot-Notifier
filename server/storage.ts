@@ -622,14 +622,14 @@ export class DatabaseStorage implements IStorage {
       )
     );
 
-    // Count all statuses except cancelled/pending — any real patient occupying the slot counts
+    // Sum slot_cost for all active bookings (COALESCE to 1 for legacy rows without slot_cost)
     const verifiedBookings = results.filter(r => {
       const isMatchingClinic = r.slot.clinicId === clinicId || r.slot.clinicName === clinicName;
       const isActive = !['cancelled', 'pending'].includes(r.booking.verificationStatus ?? '');
       return isMatchingClinic && isActive;
     });
 
-    return verifiedBookings.length;
+    return verifiedBookings.reduce((sum, r) => sum + ((r.booking as any).slotCost ?? 1), 0);
   }
 
   async getSlotByTime(clinicId: number, startTime: Date): Promise<Slot | undefined> {

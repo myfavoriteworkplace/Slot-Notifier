@@ -320,6 +320,11 @@ export function AppointmentCard({
                 </span>
               );
             })()}
+            {(booking as any).slotCost > 1 && (
+              <span className="shrink-0 text-[10px] font-bold text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 px-1.5 py-px rounded-full">
+                {(booking as any).slotCost} slots · {(booking as any).slotCost * 25} min
+              </span>
+            )}
             {role === 'doctor' && (
               <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">{durationMin}m</span>
             )}

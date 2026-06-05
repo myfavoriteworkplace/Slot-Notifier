@@ -95,7 +95,16 @@ const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
   { id: "5", label: "Evening",       startHour: 17, startMinute: 0,  endHour: 19, endMinute: 30 },
 ];
 
-const DEFAULT_SECTION_CAPACITY: Record<string, number> = { "1": 6, "2": 6, "3": 4, "4": 4, "5": 2 };
+const DEFAULT_SECTION_CAPACITY: Record<string, number> = { "1": 4, "2": 6, "3": 3, "4": 7, "5": 6 };
+
+// Maps procedure category to slot units consumed (1 unit = 25 min)
+const PROCEDURE_SLOT_COST: Record<string, number> = {
+  "Consultation": 1,
+  "Diagnostics": 1,
+  "Cleaning / Preventive": 2,
+  "Fillings / Minor Restorations": 2,
+  "Major Procedures": 3,
+};
 
 type SectionConfig = { maxBookings: number; isCancelled: boolean };
 type DayConfig    = { isClosed: boolean; sections: Record<string, SectionConfig> };
@@ -896,6 +905,8 @@ export default function ClinicDashboard() {
     if (bookingGender) descParts.push(`Gender: ${bookingGender}`);
     if (bookingDescription) descParts.push(bookingDescription);
 
+    const slotCost = bookingAppointmentCategory ? (PROCEDURE_SLOT_COST[bookingAppointmentCategory] ?? 1) : 1;
+
     createBookingMutation.mutate({
       customerName: bookingName,
       customerPhone: bookingPhone,
@@ -904,7 +915,8 @@ export default function ClinicDashboard() {
       clinicName: clinic.name,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
-      description: descParts.join(' | ')
+      description: descParts.join(' | '),
+      slotCost,
     } as any);
   };
 
@@ -3715,8 +3727,10 @@ export default function ClinicDashboard() {
                                         const newSlotTime = new Date(rescheduleDate);
                                         newSlotTime.setHours(slotInfo.startHour, slotInfo.startMinute, 0, 0);
                                         try {
+                                          const rescheduleBracket = slotTimings.find(s => s.id === rescheduleSlot);
+                                          const rescheduleDefaultMax = rescheduleBracket ? (DEFAULT_SECTION_CAPACITY[rescheduleBracket.id] ?? 4) : 4;
                                           const configResponse = await apiRequest('POST', '/api/auth/clinic/slots/configure', {
-                                            startTime: newSlotTime.toISOString(), maxBookings: 3, isCancelled: false
+                                            startTime: newSlotTime.toISOString(), maxBookings: rescheduleDefaultMax, isCancelled: false
                                           });
                                           if (!configResponse.ok) throw new Error('Failed to ensure slot exists');
                                           const configResult = await configResponse.json();
@@ -4436,6 +4450,7 @@ export default function ClinicDashboard() {
                           <div>
                             <p className="text-xs font-bold text-foreground leading-tight">Slots configuration</p>
                             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">Adjust values below, then click Save to apply</p>
+                            <p className="text-[11px] text-primary/70 mt-1 font-medium">1 slot ≈ 25 min (20 min treatment + 5 min buffer)</p>
                           </div>
                           {cfg.isClosed ? (
                             <div className="py-4 px-3 text-center rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10">
@@ -4624,7 +4639,7 @@ export default function ClinicDashboard() {
                                             <p key={slot.id} className="text-xs text-muted-foreground pl-4">
                                               {secCfg.isCancelled
                                                 ? `${slot.label}: Closed`
-                                                : `${slot.label}: up to ${secCfg.maxBookings} patient${secCfg.maxBookings !== 1 ? 's' : ''}`}
+                                                : `${slot.label}: up to ${secCfg.maxBookings} slot${secCfg.maxBookings !== 1 ? 's' : ''} (≈${secCfg.maxBookings * 25} min)`}
                                             </p>
                                           );
                                         })}
@@ -4739,7 +4754,7 @@ export default function ClinicDashboard() {
                                             <p key={slot.id} className="text-xs text-muted-foreground pl-4">
                                               {secCfg.isCancelled
                                                 ? `${slot.label}: Closed`
-                                                : `${slot.label}: up to ${secCfg.maxBookings} patient${secCfg.maxBookings !== 1 ? 's' : ''}`}
+                                                : `${slot.label}: up to ${secCfg.maxBookings} slot${secCfg.maxBookings !== 1 ? 's' : ''} (≈${secCfg.maxBookings * 25} min)`}
                                             </p>
                                           );
                                         })}
@@ -5844,8 +5859,9 @@ export default function ClinicDashboard() {
                                 const avail = adminSlotAvailability?.find(a => a.slotIndex === slotIdx);
                                 const isSlotCancelled = avail?.isCancelled ?? false;
                                 if (isSlotCancelled) return null;
-                                const spotsLeft = avail?.spotsLeft ?? DEFAULT_SECTION_CAPACITY[slot.id] ?? 3;
-                                const isFull = avail ? avail.spotsLeft === 0 : false;
+                                const spotsLeft = avail?.spotsLeft ?? DEFAULT_SECTION_CAPACITY[slot.id] ?? 4;
+                                const thisCost = bookingAppointmentCategory ? (PROCEDURE_SLOT_COST[bookingAppointmentCategory] ?? 1) : 1;
+                                const isFull = avail ? avail.spotsLeft < thisCost : false;
                                 const isSelected = selectedSlot === slot.id;
                                 const slotIcon = slot.startHour < 12
                                   ? { Icon: Sun, color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-400/30" }
@@ -5874,11 +5890,16 @@ export default function ClinicDashboard() {
                                       <p className="text-sm font-semibold leading-tight">{slot.label}</p>
                                       <p className="text-xs text-muted-foreground">{formatTime(slot.startHour, slot.startMinute)} – {formatTime(slot.endHour, slot.endMinute)}</p>
                                     </div>
-                                    <div className="shrink-0">
+                                    <div className="shrink-0 flex items-center gap-1.5">
+                                      {thisCost > 1 && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-400/20">
+                                          {thisCost} slots · {thisCost * 25} min
+                                        </span>
+                                      )}
                                       {isFull ? (
                                         <span className="text-xs font-bold bg-destructive/10 text-destructive border border-destructive/20 px-2 py-0.5 rounded-lg">Full</span>
                                       ) : (
-                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-lg border ${spotsLeft <= 1 ? "bg-amber-500/10 text-amber-600 border-amber-400/20" : "bg-emerald-500/10 text-emerald-600 border-emerald-400/20"}`}>
+                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-lg border ${spotsLeft <= 2 ? "bg-amber-500/10 text-amber-600 border-amber-400/20" : "bg-emerald-500/10 text-emerald-600 border-emerald-400/20"}`}>
                                           {spotsLeft} left
                                         </span>
                                       )}

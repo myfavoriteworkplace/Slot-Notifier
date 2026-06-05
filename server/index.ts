@@ -306,6 +306,9 @@ app.use((req, res, next) => {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='cancellation_reason') THEN
             ALTER TABLE bookings ADD COLUMN cancellation_reason text;
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='slot_cost') THEN
+            ALTER TABLE bookings ADD COLUMN slot_cost integer DEFAULT 1;
+          END IF;
         END $$;
       `);
       log("bookings columns verified/updated", "system");

@@ -1800,9 +1800,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       const requestedStart = new Date(startTime);
+
+      // Look up clinic-configured max for this time bracket (same logic as slot-availability endpoint)
+      const pubStartWindow = new Date(requestedStart.getTime() - 60_000);
+      const pubEndWindow   = new Date(requestedStart.getTime() + 60_000);
+      const [pubConfigSlot] = await db.select().from(slots)
+        .where(and(eq(slots.clinicId, clinic.id), eq(slots.isBooked, false), gte(slots.startTime, pubStartWindow), lte(slots.startTime, pubEndWindow)))
+        .limit(1);
+      const pubDefaultCfg = (clinic as any).defaultSlotConfig;
+      // Determine bracket index by matching start hour to the 5 standard brackets
+      const pubHour = requestedStart.getHours();
+      const pubMin  = requestedStart.getMinutes();
+      const pubBracketMap: Record<number, string> = { 8: "1", 10: "2", 12: "3", 14: "4", 17: "5" };
+      const pubKey = pubBracketMap[pubHour] ?? (pubMin === 30 && pubHour === 12 ? "3" : undefined);
+      const pubDefaultSection = pubKey ? pubDefaultCfg?.sections?.[pubKey] : undefined;
+      const pubMax = pubConfigSlot?.maxBookings ?? pubDefaultSection?.maxBookings ?? 4;
       const existingBookings = await storage.countVerifiedBookingsForClinicTime(clinic.id, clinic.name, requestedStart);
-      const MAX_BOOKINGS_PER_SLOT = 3;
-      if (existingBookings >= MAX_BOOKINGS_PER_SLOT) {
+      // Public patient booking always costs 1 slot unit
+      if (existingBookings + 1 > pubMax) {
         return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
       }
 
@@ -2649,7 +2664,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
 
     try {
-      const { customerName, customerPhone, customerEmail, startTime, endTime, description } = req.body;
+      const { customerName, customerPhone, customerEmail, startTime, endTime, description, slotCost: rawSlotCost } = req.body;
 
       if (!customerName || !customerPhone || !startTime || !endTime) {
         return res.status(400).json({ message: "Name, phone, start time and end time are required" });
@@ -2659,10 +2674,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!clinic) return res.status(404).json({ message: "Clinic not found" });
 
       const requestedStart = new Date(startTime);
+      const slotCost = Math.max(1, Math.min(4, parseInt(rawSlotCost) || 1));
+
+      // Look up clinic-configured max for this time bracket
+      const admStartWindow = new Date(requestedStart.getTime() - 60_000);
+      const admEndWindow   = new Date(requestedStart.getTime() + 60_000);
+      const [admConfigSlot] = await db.select().from(slots)
+        .where(and(eq(slots.clinicId, clinic.id), eq(slots.isBooked, false), gte(slots.startTime, admStartWindow), lte(slots.startTime, admEndWindow)))
+        .limit(1);
+      const admDefaultCfg = (clinic as any).defaultSlotConfig;
+      const admHour = requestedStart.getHours();
+      const admMin  = requestedStart.getMinutes();
+      const admBracketMap: Record<number, string> = { 8: "1", 10: "2", 14: "4", 17: "5" };
+      const admKey = admBracketMap[admHour] ?? (admHour === 12 && admMin === 30 ? "3" : undefined);
+      const admDefaultSection = admKey ? admDefaultCfg?.sections?.[admKey] : undefined;
+      const admMax = admConfigSlot?.maxBookings ?? admDefaultSection?.maxBookings ?? 4;
       const existingBookings = await storage.countVerifiedBookingsForClinicTime(clinic.id, clinic.name, requestedStart);
-      const MAX_BOOKINGS_PER_SLOT = 3;
-      if (existingBookings >= MAX_BOOKINGS_PER_SLOT) {
-        return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
+      if (existingBookings + slotCost > admMax) {
+        const remaining = Math.max(0, admMax - existingBookings);
+        return res.status(400).json({
+          message: remaining === 0
+            ? "This time slot is fully booked. Please choose another time."
+            : `Only ${remaining} slot unit${remaining !== 1 ? 's' : ''} remaining. This procedure needs ${slotCost}. Choose a different bracket or procedure.`
+        });
       }
 
       const slot = await storage.createSlot({
@@ -2684,6 +2718,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         verificationExpiresAt: null,
         verificationStatus: 'admin_booked',
       });
+
+      // Store slot_cost on the booking
+      try {
+        await db.update(bookings).set({ slotCost } as any).where(eq(bookings.id, booking.id));
+      } catch (e: any) { console.error('[ADMIN BOOKING] slot_cost update failed:', e.message); }
 
       // Upsert patient record so they appear in the Patients tab
       try {
