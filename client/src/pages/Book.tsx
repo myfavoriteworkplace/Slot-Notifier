@@ -13,7 +13,7 @@ import { LiaToothSolid, LiaSmileSolid, LiaBandAidSolid, LiaChildSolid, LiaBoneSo
 import { MdWarning, MdBuild, MdSwapHoriz, MdRemoveCircle, MdMedicalServices, MdHealthAndSafety } from "react-icons/md";
 import ClinicInfoSheet from "@/components/ClinicInfoSheet";
 import type { Clinic } from "@shared/schema";
-import { format, addDays, startOfToday, isSameDay } from "date-fns";
+import { format, addDays, startOfToday, isSameDay, isAfter } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -2204,17 +2204,21 @@ export default function Book(props: { params: { clinicId?: string } }) {
                       const isSelected = selectedSlot === slot.id;
                       const { Icon, color, bg, border } = getSlotMeta(slot.startHour);
                       const spotsLeft = Math.max(0, maxBookings - currentCount);
+                      const slotStartTime = new Date(selectedDate);
+                      slotStartTime.setHours(slot.startHour, slot.startMinute, 0, 0);
+                      const isSlotPast = isAfter(new Date(), slotStartTime);
+                      const isDisabled = isSlotFull || isSlotPast;
 
                       return (
                         <button
                           key={slot.id}
-                          disabled={isSlotFull}
-                          onClick={() => setSelectedSlot(slot.id)}
+                          disabled={isDisabled}
+                          onClick={() => !isDisabled && setSelectedSlot(slot.id)}
                           data-testid={`slot-button-${slot.id}`}
                           className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left relative overflow-hidden ${
                             isSelected
                               ? "bg-primary/10 border-primary/40 ring-2 ring-primary/20 shadow-md shadow-primary/10"
-                              : isSlotFull
+                              : isDisabled
                               ? "bg-muted/30 border-border/40 opacity-50 cursor-not-allowed"
                               : "bg-card border-border/50 hover:border-primary/30 hover:bg-primary/4 hover:shadow-md"
                           }`}
@@ -2235,7 +2239,9 @@ export default function Book(props: { params: { clinicId?: string } }) {
                           </div>
                           {/* Availability */}
                           <div className="shrink-0 text-right">
-                            {isSlotFull ? (
+                            {isSlotPast ? (
+                              <span className="text-[10px] font-bold bg-muted/60 text-muted-foreground border border-border/40 px-2 py-1 rounded-lg">Past</span>
+                            ) : isSlotFull ? (
                               <span className="text-[10px] font-bold bg-destructive/10 text-destructive border border-destructive/20 px-2 py-1 rounded-lg">FULL</span>
                             ) : (
                               <span className={`text-[10px] font-bold px-2 py-1 rounded-lg ${

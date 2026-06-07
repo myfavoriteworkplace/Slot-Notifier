@@ -3358,7 +3358,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const booking = await storage.getBookingById(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
-      const updated = await storage.updateVisitStatus(bookingId, 'completed');
+      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date());
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4136,7 +4136,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const booking = await storage.getBookingById(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
-      const updated = await storage.updateVisitStatus(bookingId, 'completed');
+      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date());
       try {
         const slot = await storage.getSlot(booking.slotId);
         if (slot) {

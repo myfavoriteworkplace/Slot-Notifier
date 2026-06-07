@@ -917,6 +917,8 @@ export default function ClinicDashboard() {
       endTime: endTime.toISOString(),
       description: descParts.join(' | '),
       slotCost,
+      verificationStatus: 'confirmed',
+      confirmedBy: 'admin',
     } as any);
   };
 
@@ -3235,6 +3237,13 @@ export default function ClinicDashboard() {
                       onCheckIn={() => checkInMutation.mutate({ bookingId: booking.id })}
                       onUndoCheckIn={() => checkInMutation.mutate({ bookingId: booking.id, undo: true })}
                       onCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
+                      onBookAgain={() => {
+                        setBookingName(booking.customerName);
+                        setBookingPhone(booking.customerPhone);
+                        setBookingEmail(booking.customerEmail || "");
+                        setActivePanel('book-a-slot');
+                        setOpenBookingId(null);
+                      }}
                       checkInPending={checkInMutation.isPending}
                       completeVisitPending={completeVisitMutation.isPending}
                     />
@@ -3375,174 +3384,125 @@ export default function ClinicDashboard() {
 
                           {/* OVERVIEW TAB */}
                           {getModalTab(booking.id) === 'overview' && (
-                            <div className="p-4 space-y-3">
+                            <div className="p-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-                              {/* Appointment details */}
-                              <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                                <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                                  <CalendarDays className="h-3 w-3 text-primary" />
-                                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Appointment</span>
-                                </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 divide-x divide-border/50">
-                                  <div className="px-3 py-2.5">
-                                    <p className="text-xs text-muted-foreground font-medium mb-0.5">Date</p>
-                                    <p className="text-sm font-bold text-foreground">{format(bookingDateTime, "MMM d, yyyy")}</p>
-                                    <p className="text-xs text-muted-foreground">{format(bookingDateTime, "EEEE")}</p>
-                                  </div>
-                                  <div className="px-3 py-2.5">
-                                    <p className="text-xs text-muted-foreground font-medium mb-0.5">Time</p>
-                                    <p className="text-sm font-bold text-foreground">{format(bookingDateTime, "h:mm a")}</p>
-                                    <p className="text-xs text-muted-foreground">→ {format(new Date(booking.slot.endTime), "h:mm a")}</p>
-                                  </div>
-                                  {booking.assignedDoctor && (
-                                    <div className="px-3 py-2.5 col-span-2 sm:col-span-1 border-t border-border/50 sm:border-t-0">
-                                      <p className="text-xs text-muted-foreground font-medium mb-0.5">Doctor</p>
-                                      <div className="flex items-center gap-1.5">
-                                        <div className="h-5 w-5 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                                          <span className="text-xs font-bold text-primary">{booking.assignedDoctor.charAt(0)}</span>
-                                        </div>
-                                        <p className="text-sm font-semibold text-foreground truncate">Dr. {booking.assignedDoctor}</p>
-                                      </div>
+                                {/* LEFT: Patient Info */}
+                                <div className="space-y-3">
+                                  <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                    <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
+                                      <User className="h-3 w-3 text-primary" />
+                                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Patient</span>
                                     </div>
-                                  )}
-                                </div>
-                                {booking.createdAt && (
-                                  <div className="px-3 py-1.5 bg-muted/20 border-t border-border/40">
-                                    <span className="text-xs text-muted-foreground">Booked on {format(new Date(booking.createdAt), "MMM d, yyyy · h:mm a")}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Contact / Patient Info */}
-                              <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                                <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                                  <User className="h-3 w-3 text-primary" />
-                                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Patient</span>
-                                </div>
-                                <div className="divide-y divide-border/40">
-                                  {((booking as any).customerAge || (booking as any).customerGender) && (
-                                    <div className="px-3 py-2.5 grid grid-cols-2 gap-3">
-                                      {(booking as any).customerAge && (
-                                        <div className="flex items-center gap-2">
-                                          <div className="h-6 w-6 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                                            <CalendarDays className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                                          </div>
-                                          <span className="text-sm font-medium text-foreground">{(booking as any).customerAge} years</span>
+                                    <div className="divide-y divide-border/40">
+                                      <div className="px-3 py-2.5 flex items-center gap-2">
+                                        <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                          <User className="h-3 w-3 text-primary" />
+                                        </div>
+                                        <span className="text-sm font-semibold text-foreground truncate">{booking.customerName}</span>
+                                      </div>
+                                      {((booking as any).customerAge || (booking as any).customerGender) && (
+                                        <div className="px-3 py-2.5 grid grid-cols-2 gap-3">
+                                          {(booking as any).customerAge && (
+                                            <div className="flex items-center gap-2">
+                                              <div className="h-6 w-6 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                                                <CalendarDays className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                                              </div>
+                                              <span className="text-sm font-medium text-foreground">{(booking as any).customerAge} yrs</span>
+                                            </div>
+                                          )}
+                                          {(booking as any).customerGender && (
+                                            <div className="flex items-center gap-2">
+                                              <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                                <User className="h-3 w-3 text-primary" />
+                                              </div>
+                                              <span className="text-sm font-medium text-foreground capitalize">{(booking as any).customerGender}</span>
+                                            </div>
+                                          )}
                                         </div>
                                       )}
-                                      {(booking as any).customerGender && (
-                                        <div className="flex items-center gap-2">
-                                          <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                            <User className="h-3 w-3 text-primary" />
-                                          </div>
-                                          <span className="text-sm font-medium text-foreground capitalize">{(booking as any).customerGender}</span>
+                                      <div className="px-3 py-2.5 flex items-center gap-3">
+                                        <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                          <Phone className="h-3 w-3 text-primary" />
+                                        </div>
+                                        <span className="text-sm font-medium text-foreground">{booking.customerPhone}</span>
+                                      </div>
+                                      <div className="px-3 py-2.5 flex items-center gap-3">
+                                        <div className="h-6 w-6 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                                          <Mail className="h-3 w-3 text-blue-500" />
+                                        </div>
+                                        <span className="text-xs text-muted-foreground break-all">{booking.customerEmail || "No email"}</span>
+                                      </div>
+                                      {(booking as any).patientCode && (
+                                        <div className="px-3 py-2 bg-muted/10">
+                                          <span className="text-[10px] font-mono text-muted-foreground">Patient ID: {(booking as any).patientCode}</span>
                                         </div>
                                       )}
                                     </div>
-                                  )}
-                                  <div className="px-3 py-2.5 flex items-center gap-3">
-                                    <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                      <Phone className="h-3 w-3 text-primary" />
-                                    </div>
-                                    <span className="text-sm font-medium text-foreground">{booking.customerPhone}</span>
-                                  </div>
-                                  <div className="px-3 py-2.5 flex items-center gap-3">
-                                    <div className="h-6 w-6 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                                      <Mail className="h-3 w-3 text-blue-500" />
-                                    </div>
-                                    <span className="text-sm text-muted-foreground">{booking.customerEmail || "No email provided"}</span>
                                   </div>
                                 </div>
-                              </div>
 
-                              {/* Chief Complaints */}
-                              {(complaints.length > 0 || booking.description) && (
-                                <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                                  <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                                    <FlaskConical className="h-3 w-3 text-primary" />
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Chief Complaint</span>
-                                  </div>
-                                  {complaints.length > 0 && (
-                                    <div className="px-3 py-2.5 flex flex-wrap gap-1.5">
-                                      {complaints.map((c, i) => (
-                                        <span key={i} className="inline-flex items-center text-xs font-semibold uppercase tracking-wide text-primary bg-primary/10 border border-primary/25 px-2 py-1 rounded-lg">
-                                          {c}
-                                        </span>
-                                      ))}
+                                {/* RIGHT: Appointment + Complaints */}
+                                <div className="space-y-3">
+                                  <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                    <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
+                                      <CalendarDays className="h-3 w-3 text-primary" />
+                                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Appointment</span>
                                     </div>
-                                  )}
-                                  {booking.description && complaints.length === 0 && (
-                                    <p className="px-3 py-2.5 text-sm text-muted-foreground italic leading-relaxed">"{booking.description}"</p>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Consent Status */}
-                              <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                                <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <ClipboardCheck className="h-3 w-3 text-primary" />
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Digital Consent</span>
-                                  </div>
-                                  {booking.consentSignedAt ? (
-                                    <span className="flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 px-2 py-0.5 rounded-full">
-                                      <CheckCircle2 className="h-3 w-3" /> Signed
-                                    </span>
-                                  ) : null}
-                                </div>
-                                {booking.consentSignedAt ? (
-                                  <div className="px-3 py-2.5 flex items-center justify-between gap-2">
-                                    <span className="text-xs text-muted-foreground">
-                                      Signed on {format(new Date(booking.consentSignedAt), "dd MMM yyyy, hh:mm a")}
-                                    </span>
-                                    {booking.consentSignature && (
-                                      <button
-                                        className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors min-h-[36px] px-1"
-                                        onClick={() => generateConsentPdf(booking)}
-                                        data-testid={`button-download-consent-${booking.id}`}
-                                      >
-                                        <Download className="h-3 w-3" />
-                                        Download PDF
-                                      </button>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="px-3 py-2.5 flex items-center justify-between gap-2">
-                                    <span className="text-xs text-muted-foreground">Not yet signed</span>
-                                    <button
-                                      className="text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors disabled:opacity-50 min-h-[36px] px-1"
-                                      onClick={() => { requestConsentMutation.mutate(booking.id); setModalTab(booking.id, 'actions'); }}
-                                      disabled={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
-                                      data-testid={`button-request-consent-overview-${booking.id}`}
-                                    >
-                                      Request Consent →
-                                    </button>
-                                  </div>
-                                )}
-                                {!booking.consentSignedAt && consentUrls[booking.id] && (
-                                  <div className="px-3 pb-2.5 space-y-2">
-                                    <p className="text-xs text-muted-foreground">
-                                      Link sent to <strong>{booking.customerPhone}</strong>. Share manually:
-                                    </p>
-                                    <div className="flex items-center gap-1.5">
-                                      <div className="flex-1 bg-background border border-border/60 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground font-mono truncate">
-                                        {consentUrls[booking.id]}
+                                    <div className="divide-y divide-border/40">
+                                      <div className="px-3 py-2.5">
+                                        <p className="text-xs text-muted-foreground font-medium mb-0.5">Date</p>
+                                        <p className="text-sm font-bold text-foreground">{format(bookingDateTime, "MMM d, yyyy")}</p>
+                                        <p className="text-xs text-muted-foreground">{format(bookingDateTime, "EEEE")}</p>
                                       </div>
-                                      <button
-                                        className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors"
-                                        onClick={() => { navigator.clipboard.writeText(consentUrls[booking.id]); setCopiedConsentId(booking.id); setTimeout(() => setCopiedConsentId(null), 2000); }}
-                                        data-testid={`button-copy-consent-${booking.id}`}
-                                      >
-                                        {copiedConsentId === booking.id ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
-                                      </button>
-                                      <a href={consentUrls[booking.id]} target="_blank" rel="noopener noreferrer" className="shrink-0 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 active:bg-muted/60 transition-colors" data-testid={`link-open-consent-${booking.id}`}>
-                                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                                      </a>
+                                      <div className="px-3 py-2.5">
+                                        <p className="text-xs text-muted-foreground font-medium mb-0.5">Time</p>
+                                        <p className="text-sm font-bold text-foreground">{format(bookingDateTime, "h:mm a")}</p>
+                                        <p className="text-xs text-muted-foreground">→ {format(new Date(booking.slot.endTime), "h:mm a")}</p>
+                                      </div>
+                                      {booking.assignedDoctor && (
+                                        <div className="px-3 py-2.5">
+                                          <p className="text-xs text-muted-foreground font-medium mb-0.5">Doctor</p>
+                                          <div className="flex items-center gap-1.5">
+                                            <div className="h-5 w-5 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                                              <span className="text-xs font-bold text-primary">{booking.assignedDoctor.charAt(0)}</span>
+                                            </div>
+                                            <p className="text-sm font-semibold text-foreground truncate">Dr. {booking.assignedDoctor}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {booking.createdAt && (
+                                        <div className="px-3 py-1.5 bg-muted/20">
+                                          <span className="text-xs text-muted-foreground">Booked {format(new Date(booking.createdAt), "MMM d · h:mm a")}</span>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
-                                )}
-                              </div>
 
+                                  {/* Chief Complaints */}
+                                  {(complaints.length > 0 || booking.description) && (
+                                    <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                      <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
+                                        <FlaskConical className="h-3 w-3 text-primary" />
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Complaint</span>
+                                      </div>
+                                      {complaints.length > 0 && (
+                                        <div className="px-3 py-2.5 flex flex-wrap gap-1.5">
+                                          {complaints.map((c, i) => (
+                                            <span key={i} className="inline-flex items-center text-xs font-semibold uppercase tracking-wide text-primary bg-primary/10 border border-primary/25 px-2 py-1 rounded-lg">
+                                              {c}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {booking.description && complaints.length === 0 && (
+                                        <p className="px-3 py-2.5 text-xs text-muted-foreground italic leading-relaxed">"{booking.description}"</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                              </div>
                             </div>
                           )}
 
@@ -3825,7 +3785,7 @@ export default function ClinicDashboard() {
                               </div>
 
                               {/* Assign Doctor */}
-                              {(clinic?.doctorName || (clinic?.doctors && (clinic.doctors as any[]).length > 0)) && (() => {
+                              {booking.visitStatus !== 'completed' && (clinic?.doctorName || (clinic?.doctors && (clinic.doctors as any[]).length > 0)) && (() => {
                                 const bookingDateStr = format(new Date(booking.slot.startTime), 'yyyy-MM-dd');
                                 const isOOO = (email?: string, name?: string) =>
                                   allDoctorLeaves.some(l =>
@@ -5877,6 +5837,10 @@ export default function ClinicDashboard() {
                                 const thisCost = bookingAppointmentCategory ? (PROCEDURE_SLOT_COST[bookingAppointmentCategory] ?? 1) : 1;
                                 const isFull = avail ? avail.spotsLeft < thisCost : false;
                                 const isSelected = selectedSlot === slot.id;
+                                const adminSlotStart = new Date(bookingDate);
+                                adminSlotStart.setHours(slot.startHour, slot.startMinute, 0, 0);
+                                const isSlotPast = isAfter(new Date(), adminSlotStart);
+                                const isSlotDisabled = isFull || isSlotPast;
                                 const slotIcon = slot.startHour < 12
                                   ? { Icon: Sun, color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-400/30" }
                                   : slot.startHour < 16
@@ -5886,13 +5850,13 @@ export default function ClinicDashboard() {
                                 return (
                                   <button
                                     key={slot.id}
-                                    onClick={() => !isFull && setSelectedSlot(slot.id)}
-                                    disabled={isFull}
+                                    onClick={() => !isSlotDisabled && setSelectedSlot(slot.id)}
+                                    disabled={isSlotDisabled}
                                     data-testid={`booking-slot-${slot.id}`}
                                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
                                       isSelected
                                         ? "bg-primary/10 border-primary/40 ring-2 ring-primary/20 shadow-sm"
-                                        : isFull
+                                        : isSlotDisabled
                                         ? "bg-muted/20 border-border/30 opacity-50 cursor-not-allowed"
                                         : "bg-card border-border/50 hover:border-primary/30 hover:bg-primary/5 active:border-primary/50 active:bg-primary/10"
                                     }`}
@@ -5905,7 +5869,9 @@ export default function ClinicDashboard() {
                                       <p className="text-xs text-muted-foreground">{formatTime(slot.startHour, slot.startMinute)} – {formatTime(slot.endHour, slot.endMinute)}</p>
                                     </div>
                                     <div className="shrink-0 flex items-center gap-1.5">
-                                      {isFull ? (
+                                      {isSlotPast ? (
+                                        <span className="text-xs font-bold bg-muted/60 text-muted-foreground border border-border/40 px-2 py-0.5 rounded-lg">Past</span>
+                                      ) : isFull ? (
                                         <span className="text-xs font-bold bg-destructive/10 text-destructive border border-destructive/20 px-2 py-0.5 rounded-lg">Full</span>
                                       ) : (
                                         <span className={`text-xs font-bold px-2 py-0.5 rounded-lg border ${spotsLeft <= 2 ? "bg-amber-500/10 text-amber-600 border-amber-400/20" : "bg-emerald-500/10 text-emerald-600 border-emerald-400/20"}`}>

@@ -100,6 +100,7 @@ export const bookings = pgTable("bookings", {
   clinicalStatus: varchar("clinical_status", { length: 50 }),
   visitStatus: varchar("visit_status", { length: 50 }),
   checkedInAt: timestamp("checked_in_at"),
+  completedAt: timestamp("completed_at"),
   confirmedBy: varchar("confirmed_by", { length: 20 }),
   paymentStatus: varchar("payment_status", { length: 20 }),
   razorpayOrderId: varchar("razorpay_order_id", { length: 255 }),

@@ -78,7 +78,7 @@ export interface IStorage {
   updateBookingDoctorApproval(id: number, doctorEmail: string, status: 'approved' | 'declined'): Promise<Booking>;
   rescheduleBooking(id: number, newSlotId: number): Promise<Booking>;
   updateBookingDoctorNotes(id: number, doctorEmail: string, notes: string | null, clinicalStatus: string | null): Promise<Booking>;
-  updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null): Promise<Booking>;
+  updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null): Promise<Booking>;
   updateClinicCredentials(id: number, username: string, passwordHash: string): Promise<void>;
   
   // Notifications
@@ -480,9 +480,10 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null): Promise<Booking> {
+  async updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null): Promise<Booking> {
     const setFields: Record<string, any> = { visitStatus };
     if (checkedInAt !== undefined) setFields.checkedInAt = checkedInAt;
+    if (completedAt !== undefined) setFields.completedAt = completedAt;
     const [updated] = await db.update(bookings)
       .set(setFields)
       .where(eq(bookings.id, id))

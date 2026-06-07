@@ -3,7 +3,7 @@ import { format, differenceInCalendarDays } from "date-fns";
 import {
   Phone, Hash, CalendarDays, CheckCircle2, X, Stethoscope,
   UserPlus, Building2, Loader2, IndianRupee, ClipboardList,
-  FileText, AlertCircle, UserCheck, Activity,
+  FileText, AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,9 +42,11 @@ export interface BookingWithSlot {
   clinicalStatus?: string | null;
   visitStatus?: string | null;
   checkedInAt?: Date | string | null;
+  completedAt?: Date | string | null;
   confirmedBy?: string | null;
   consentSignature?: string | null;
   consentSignedAt?: Date | string | null;
+  consentToken?: string | null;
   cancellationReason?: string | null;
   createdAt?: Date | string | null;
   patientCode?: string | null;
@@ -82,6 +84,7 @@ export interface AppointmentCardProps {
   onUndoCheckIn?: () => void;
   onStartConsultation?: () => void;
   onCompleteVisit?: () => void;
+  onBookAgain?: () => void;
   checkInPending?: boolean;
   startConsultPending?: boolean;
   completeVisitPending?: boolean;
@@ -113,6 +116,7 @@ export function AppointmentCard({
   onUndoCheckIn,
   onStartConsultation,
   onCompleteVisit,
+  onBookAgain,
   checkInPending,
   startConsultPending,
   completeVisitPending,
@@ -168,7 +172,7 @@ export function AppointmentCard({
 
   const visitRingClass = role === 'doctor' && booking.visitStatus === 'checked_in'
     ? "ring-2 ring-primary/40 ring-offset-2 animate-[pulse_2s_ease-in-out_infinite]"
-    : role === 'doctor' && booking.visitStatus === 'in_consultation'
+    : (role === 'doctor' || role === 'clinic') && booking.visitStatus === 'in_consultation'
     ? "ring-2 ring-teal-400/60 ring-offset-2"
     : "";
 
@@ -284,6 +288,17 @@ export function AppointmentCard({
                   }`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${booking.visitStatus === 'checked_in' ? 'bg-emerald-500 animate-pulse' : 'bg-teal-500'}`} />
                   {booking.visitStatus === 'checked_in' ? 'Arrived' : 'With You'}
+                </span>
+              )}
+              {role === 'doctor' && booking.visitStatus === 'completed' && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">
+                  <CheckCircle2 className="h-2.5 w-2.5" />
+                  Visit Done
+                  {(booking as any).completedAt && (
+                    <span className="font-normal opacity-70">
+                      · {format(new Date((booking as any).completedAt), 'd MMM · h:mm a')}
+                    </span>
+                  )}
                 </span>
               )}
             </div>
@@ -517,6 +532,27 @@ export function AppointmentCard({
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-muted/50 border border-border/50 px-2 py-0.5 rounded-full">
                   <CheckCircle2 className="h-2.5 w-2.5" />
                   Visit Done
+                  {(booking as any).completedAt && (
+                    <span className="font-normal opacity-70">· {format(new Date((booking as any).completedAt), 'h:mm a')}</span>
+                  )}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Consent status row — clinic view */}
+          {role === 'clinic' && isConfirmed && !isCancelled && (booking.consentSignedAt || (booking as any).consentToken) && (
+            <div className="flex items-center gap-2 text-xs">
+              <div className="h-4 w-4 rounded-md bg-muted flex items-center justify-center shrink-0">
+                <PenLine className="h-2.5 w-2.5 text-muted-foreground/60" />
+              </div>
+              {booking.consentSignedAt ? (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="h-2.5 w-2.5" /> Consent Signed
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-0.5 rounded-full">
+                  Consent Sent
                 </span>
               )}
             </div>
@@ -585,6 +621,18 @@ export function AppointmentCard({
             Bill
           </Button>
           <div className="h-4 w-px bg-border/60 shrink-0" />
+          {booking.visitStatus === 'completed' ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1 h-9 gap-1.5 text-xs font-semibold text-primary hover:text-primary hover:bg-primary/5 active:bg-primary/10 active:scale-[0.97] transition-all"
+              onClick={(e) => { e.stopPropagation(); onBookAgain?.(); }}
+              data-testid={`button-book-again-${booking.id}`}
+            >
+              <CalendarPlus className="h-3 w-3" />
+              Book Again
+            </Button>
+          ) : (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
@@ -646,6 +694,7 @@ export function AppointmentCard({
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          )}
         </div>
       )}
 

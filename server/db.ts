@@ -186,6 +186,14 @@ export async function ensureSessionTable() {
     console.error("[DATABASE] Error adding consent columns:", err.message);
   }
 
+  // completed_at column on bookings
+  try {
+    await pool.query(`ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "completed_at" timestamp;`);
+    console.log("[DATABASE] completed_at column on bookings ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error adding completed_at column:", err.message);
+  }
+
   // Consent tokens table
   try {
     await pool.query(`

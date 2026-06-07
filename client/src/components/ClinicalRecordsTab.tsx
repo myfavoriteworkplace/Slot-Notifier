@@ -851,7 +851,7 @@ export default function ClinicalRecordsTab({
           )}
 
           {/* Latest Diagnosis */}
-          {latestDx ? (
+          {latestDx && !(showDxForm && dxEditId === latestDx.id) ? (
             <div className="rounded-xl border border-primary/25 bg-primary/[0.03] overflow-hidden">
               <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
@@ -1001,8 +1001,10 @@ export default function ClinicalRecordsTab({
                                 value={row.name}
                                 onChange={v => updateRxRow(idx, "name", v)}
                                 onSelect={(name, dosage) => {
-                                  updateRxRow(idx, "name", name);
-                                  if (dosage) updateRxRow(idx, "dosage", dosage);
+                                  setRxRows(prev => prev.map((r, i) => {
+                                    if (i !== idx) return r;
+                                    return { ...r, name, dosage: dosage || r.dosage, qty: r.qty || '1' };
+                                  }));
                                 }}
                                 catalogue={pharmacyCatalogue}
                                 idx={idx}
@@ -1112,7 +1114,7 @@ export default function ClinicalRecordsTab({
           )}
 
           {/* Latest Prescription */}
-          {latestRx ? (
+          {latestRx && !(showRxForm && rxEditId === latestRx.id) ? (
             <div className="rounded-xl border border-primary/25 bg-primary/[0.03] overflow-hidden">
               <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
