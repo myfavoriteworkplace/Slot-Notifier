@@ -320,11 +320,20 @@ export function AppointmentCard({
                 </span>
               );
             })()}
-            {(booking as any).slotCost > 1 && (
-              <span className="shrink-0 text-xs font-bold text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 px-1.5 py-px rounded-full">
-                {(booking as any).slotCost} slots · {(booking as any).slotCost * 25} min
-              </span>
-            )}
+            {(booking as any).slotCost > 1 && (() => {
+              const cost = (booking as any).slotCost as number;
+              const rawDesc: string = (booking as any).description ?? "";
+              const catMatch = rawDesc.match(/Category:\s*([^,\n]+)/);
+              const catName = catMatch ? catMatch[1].trim() : null;
+              const label = catName
+                ? `${catName} (${cost} slots · ${cost * 25} min)`
+                : `${cost} slots · ${cost * 25} min`;
+              return (
+                <span className="shrink-0 text-xs font-bold text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 px-1.5 py-px rounded-full">
+                  {label}
+                </span>
+              );
+            })()}
             {role === 'doctor' && (
               <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">{durationMin}m</span>
             )}

@@ -24,7 +24,7 @@ import {
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
   Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, CreditCard,
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
-  ChevronLeft, ChevronRight, Save, Hash, Pill, Printer
+  ChevronLeft, ChevronRight, Save, Hash, Pill, Printer, ArrowLeft, ArrowRight
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -5656,11 +5656,11 @@ export default function ClinicDashboard() {
                               <SelectValue placeholder="Select type…" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Consultation">Consultation <span className="text-muted-foreground font-normal">· 25 min</span></SelectItem>
-                              <SelectItem value="Diagnostics">Diagnostics <span className="text-muted-foreground font-normal">· 25 min</span></SelectItem>
-                              <SelectItem value="Cleaning / Preventive">Cleaning / Preventive <span className="text-muted-foreground font-normal">· 50 min</span></SelectItem>
-                              <SelectItem value="Fillings / Minor Restorations">Fillings / Minor Restorations <span className="text-muted-foreground font-normal">· 50 min</span></SelectItem>
-                              <SelectItem value="Major Procedures">Major Procedures <span className="text-muted-foreground font-normal">· 75 min</span></SelectItem>
+                              <SelectItem value="Consultation">Consultation <span className="text-muted-foreground font-normal">(1 slot)</span></SelectItem>
+                              <SelectItem value="Diagnostics">Diagnostics <span className="text-muted-foreground font-normal">(1 slot)</span></SelectItem>
+                              <SelectItem value="Cleaning / Preventive">Cleaning / Preventive <span className="text-muted-foreground font-normal">(2 slots)</span></SelectItem>
+                              <SelectItem value="Fillings / Minor Restorations">Fillings / Minor Restorations <span className="text-muted-foreground font-normal">(2 slots)</span></SelectItem>
+                              <SelectItem value="Major Procedures">Major Procedures <span className="text-muted-foreground font-normal">(3 slots)</span></SelectItem>
                             </SelectContent>
                           </Select>
                           {bookingAppointmentCategory && (() => {
@@ -5668,7 +5668,7 @@ export default function ClinicDashboard() {
                             return (
                               <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
                                 <span className="inline-flex items-center gap-1 font-medium text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 rounded-md px-1.5 py-0.5 text-xs">
-                                  {cost} slot{cost > 1 ? "s" : ""} · {cost * 25} min
+                                  {cost} slot{cost > 1 ? "s" : ""}
                                 </span>
                                 <span className="text-muted-foreground/70">reserved for this procedure</span>
                               </p>
@@ -5857,7 +5857,10 @@ export default function ClinicDashboard() {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block">Available Time Slots</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Available Time Slots</span>
+                            <span className="text-xs text-muted-foreground/60 font-normal">· 1 slot ≈ 25 min</span>
+                          </div>
                           {adminSlotFetching ? (
                             <div className="space-y-2">
                               {[0, 1, 2].map(i => (
@@ -5891,7 +5894,7 @@ export default function ClinicDashboard() {
                                         ? "bg-primary/10 border-primary/40 ring-2 ring-primary/20 shadow-sm"
                                         : isFull
                                         ? "bg-muted/20 border-border/30 opacity-50 cursor-not-allowed"
-                                        : "bg-card border-border/50 hover:border-primary/30 hover:bg-primary/5"
+                                        : "bg-card border-border/50 hover:border-primary/30 hover:bg-primary/5 active:border-primary/50 active:bg-primary/10"
                                     }`}
                                   >
                                     <div className={`h-9 w-9 rounded-lg ${bg} border ${border} flex items-center justify-center shrink-0`}>
@@ -5932,10 +5935,10 @@ export default function ClinicDashboard() {
                             <button
                               type="button"
                               onClick={() => setSelectedSlot(null)}
-                              className="h-5 w-5 rounded-full flex items-center justify-center hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                              className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted/50 active:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors shrink-0"
                               data-testid="button-clear-slot"
                             >
-                              <X className="h-3 w-3" />
+                              <X className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         ) : null;
@@ -5997,11 +6000,11 @@ export default function ClinicDashboard() {
                             )}
                           </div>
                           <div className="flex gap-2">
-                            <button type="button" onClick={() => setBookingShowReview(false)} className="flex-1 h-10 rounded-xl border border-border/60 bg-muted/20 text-sm font-semibold text-muted-foreground hover:text-foreground transition-all" data-testid="button-admin-review-back">← Back</button>
-                            <button type="button" onClick={handleCreateBooking} disabled={createBookingMutation.isPending} className="flex-1 h-10 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-bold shadow-md shadow-primary/20 hover:from-primary/90 hover:to-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed" data-testid="button-create-booking">
+                            <button type="button" onClick={() => setBookingShowReview(false)} className="flex-1 h-10 rounded-xl border border-border/60 bg-muted/20 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/40 active:bg-muted/60 active:text-foreground transition-all flex items-center justify-center gap-1.5" data-testid="button-admin-review-back"><ArrowLeft className="h-3.5 w-3.5" /> Back</button>
+                            <button type="button" onClick={handleCreateBooking} disabled={createBookingMutation.isPending} className="flex-1 h-10 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-bold shadow-md shadow-primary/20 hover:from-primary/90 hover:to-accent/90 active:from-primary/80 active:to-accent/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed" data-testid="button-create-booking">
                               {createBookingMutation.isPending
                                 ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Creating…</span>
-                                : "Confirm & Book →"}
+                                : <span className="flex items-center justify-center gap-1.5">Confirm & Book <ArrowRight className="h-3.5 w-3.5" /></span>}
                             </button>
                           </div>
                         </div>
