@@ -174,6 +174,12 @@ export function AppointmentCard({
     setCancelReasonOther("");
   };
 
+  const rawDesc = booking.description ?? "";
+  const categoryMatch = rawDesc.match(/Category:\s*([^,\n]+)/);
+  const visitTypeMatch = rawDesc.match(/Visit:\s*([^,\n]+)/);
+  const categoryName = categoryMatch ? categoryMatch[1].trim() : null;
+  const visitTypeName = visitTypeMatch ? visitTypeMatch[1].trim() : null;
+
   return (
     <Card
       className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 group flex flex-col ${isPast ? "opacity-75" : ""} ${leftBorder} ${visitRingClass}`}
@@ -270,15 +276,11 @@ export function AppointmentCard({
                     : 'With You'}
                 </span>
               )}
-              {role === 'doctor' && booking.visitStatus === 'completed' && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 px-1.5 py-px rounded-full">
-                  <CheckCircle2 className="h-2.5 w-2.5" />
-                  Visit Done
-                  {booking.completedAt && (
-                    <span className="font-normal opacity-70">
-                      · {format(new Date(booking.completedAt), 'd MMM · h:mm a')}
-                    </span>
-                  )}
+              {/* Doctor: clinic name in header */}
+              {role === 'doctor' && displayClinicName && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">
+                  <Building2 className="h-2.5 w-2.5" />
+                  {displayClinicName}{clinicCity ? ` (${clinicCity})` : ""}
                 </span>
               )}
             </div>
@@ -317,20 +319,26 @@ export function AppointmentCard({
                 </span>
               );
             })()}
-            {(booking.slotCost ?? 0) > 1 && (() => {
-              const cost = booking.slotCost as number;
-              const rawDesc: string = booking.description ?? "";
-              const catMatch = rawDesc.match(/Category:\s*([^,\n]+)/);
-              const catName = catMatch ? catMatch[1].trim() : null;
-              const label = catName
-                ? `${catName} (${cost} slots · ${cost * 25} min)`
-                : `${cost} slots · ${cost * 25} min`;
-              return (
-                <span className="shrink-0 text-xs font-bold text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 px-1.5 py-px rounded-full">
-                  {label}
-                </span>
-              );
-            })()}
+            {/* Clinic: treatment category row */}
+            {role === 'clinic' && categoryName && (
+              <div className="flex items-center gap-2 text-xs min-w-0">
+                <div className="h-4 w-4 rounded-md bg-violet-500/10 flex items-center justify-center shrink-0">
+                  <ClipboardList className="h-2.5 w-2.5 text-violet-500" />
+                </div>
+                <span className="text-muted-foreground">Treatment:</span>
+                <span className="font-semibold text-violet-600 dark:text-violet-400">{categoryName}</span>
+              </div>
+            )}
+            {/* Clinic: visit type row */}
+            {role === 'clinic' && visitTypeName && (
+              <div className="flex items-center gap-2 text-xs min-w-0">
+                <div className="h-4 w-4 rounded-md bg-sky-500/10 flex items-center justify-center shrink-0">
+                  <Activity className="h-2.5 w-2.5 text-sky-500" />
+                </div>
+                <span className="text-muted-foreground">Visit type:</span>
+                <span className="font-semibold text-sky-600 dark:text-sky-400">{visitTypeName}</span>
+              </div>
+            )}
             {role === 'doctor' && (
               <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">
                 {durationMin}m
@@ -338,7 +346,7 @@ export function AppointmentCard({
             )}
           </div>
 
-          {/* Patient code (clinic) or clinic name (doctor) */}
+          {/* Patient code (clinic) */}
           {role === 'clinic' && booking.patientCode && (
             <div className="flex items-center gap-2 text-xs">
               <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
@@ -347,13 +355,21 @@ export function AppointmentCard({
               <span className="font-mono font-semibold text-primary">{booking.patientCode}</span>
             </div>
           )}
-          {role === 'doctor' && displayClinicName && (
-            <div className="flex items-center gap-2 text-xs min-w-0">
-              <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                <Building2 className="h-2.5 w-2.5 text-muted-foreground" />
+
+          {/* Doctor: Visit Done badge in body */}
+          {role === 'doctor' && booking.visitStatus === 'completed' && (
+            <div className="flex items-center gap-2 text-xs">
+              <div className="h-4 w-4 rounded-md bg-slate-500/10 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-2.5 w-2.5 text-slate-500" />
               </div>
-              <span className="text-foreground font-medium truncate">
-                {displayClinicName}{clinicCity ? ` (${clinicCity})` : ""}
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-full">
+                <CheckCircle2 className="h-2.5 w-2.5" />
+                Visit Done
+                {booking.completedAt && (
+                  <span className="font-normal opacity-70">
+                    · {format(new Date(booking.completedAt), 'd MMM · h:mm a')}
+                  </span>
+                )}
               </span>
             </div>
           )}
