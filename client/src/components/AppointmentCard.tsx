@@ -4,6 +4,7 @@ import {
   Phone, Hash, CalendarDays, CheckCircle2, X, UserPlus,
   Building2, Loader2, IndianRupee, ClipboardList, FileText,
   AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
+  Stethoscope,
 } from "lucide-react";
 import { LiaStethoscopeSolid, LiaHeartbeatSolid } from "react-icons/lia";
 import { Card } from "@/components/ui/card";
@@ -274,6 +275,7 @@ export function AppointmentCard({
             <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
               <CalendarDays className="h-2.5 w-2.5 text-primary" />
             </div>
+            <span className="font-medium text-muted-foreground shrink-0">Date:</span>
             <span className="font-semibold text-foreground shrink-0">
               {format(startTime, "EEE, d MMM")}
             </span>
@@ -308,6 +310,7 @@ export function AppointmentCard({
               <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.patientCode ? 'bg-primary/10' : 'bg-muted'}`}>
                 <Hash className={`h-2.5 w-2.5 ${booking.patientCode ? 'text-primary' : 'text-muted-foreground/40'}`} />
               </div>
+              <span className="font-medium text-muted-foreground shrink-0">Patient Code:</span>
               {booking.patientCode
                 ? <span className="font-mono font-semibold text-primary">{booking.patientCode}</span>
                 : <span className="italic text-muted-foreground/60">Not available</span>
@@ -319,6 +322,7 @@ export function AppointmentCard({
               <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${displayClinicName ? 'bg-muted/60' : 'bg-muted'}`}>
                 <Building2 className={`h-2.5 w-2.5 ${displayClinicName ? 'text-muted-foreground' : 'text-muted-foreground/40'}`} />
               </div>
+              <span className="font-medium text-muted-foreground shrink-0">Clinic:</span>
               {displayClinicName
                 ? <span className="text-foreground font-medium truncate">{displayClinicName}{clinicCity ? ` (${clinicCity})` : ""}</span>
                 : <span className="italic text-muted-foreground/60">Not available</span>
@@ -340,6 +344,7 @@ export function AppointmentCard({
                     : booking.visitStatus === 'completed' ? 'text-muted-foreground'
                     : 'text-muted-foreground/40'}`} />
               </div>
+              <span className="font-medium text-muted-foreground shrink-0">Visit Status:</span>
               {!booking.visitStatus && (
                 <span className="italic text-muted-foreground/50 text-xs">Awaiting arrival</span>
               )}
@@ -410,7 +415,8 @@ export function AppointmentCard({
                   <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-px">
                     <LiaStethoscopeSolid className="h-3 w-3 text-primary" />
                   </div>
-                  <div className="grid grid-cols-[auto_1fr] items-baseline gap-x-1.5 gap-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-muted-foreground shrink-0">Doctor:</span>
                     <span className="font-medium text-primary">Dr. {booking.assignedDoctor}</span>
                     <span>{drStatus}</span>
                     {adminConfirmed && (
@@ -432,6 +438,7 @@ export function AppointmentCard({
                   <div className="h-4 w-4 rounded-md bg-muted flex items-center justify-center shrink-0">
                     <LiaStethoscopeSolid className="h-3 w-3 text-muted-foreground/50" />
                   </div>
+                  <span className="font-medium text-muted-foreground shrink-0">Doctor:</span>
                   {(booking.clinicDoctors ?? []).length > 0 ? (
                     <Popover>
                       <PopoverTrigger asChild>
@@ -489,6 +496,7 @@ export function AppointmentCard({
               <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.visitStatus ? 'bg-primary/10' : 'bg-muted'}`}>
                 <UserCheck className={`h-2.5 w-2.5 ${booking.visitStatus ? 'text-primary' : 'text-muted-foreground/50'}`} />
               </div>
+              <span className="font-medium text-muted-foreground shrink-0">Visit Status:</span>
               {!booking.visitStatus && (
                 isConfirmed ? (
                   <button
@@ -549,6 +557,7 @@ export function AppointmentCard({
               <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.consentSignedAt ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-muted'}`}>
                 <PenLine className={`h-2.5 w-2.5 ${booking.consentSignedAt ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground/60'}`} />
               </div>
+              <span className="font-medium text-muted-foreground shrink-0">Consent Status:</span>
               {booking.consentSignedAt ? (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
                   <CheckCircle2 className="h-2.5 w-2.5" /> Consent Signed
@@ -568,6 +577,7 @@ export function AppointmentCard({
               <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.clinicalStatus ? 'bg-primary/10' : 'bg-muted'}`}>
                 <ClipboardList className={`h-2.5 w-2.5 ${booking.clinicalStatus ? 'text-primary' : 'text-muted-foreground/40'}`} />
               </div>
+              <span className="font-medium text-muted-foreground shrink-0">Clinical Status:</span>
               {booking.clinicalStatus ? (
                 <span className={`inline-flex items-center text-xs font-medium px-2 py-px rounded-full border
                   ${booking.clinicalStatus === "case_closed"
@@ -589,48 +599,58 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Treatment Category + Visit Type — always visible, slot count merged into category */}
-          <div className="flex flex-wrap gap-1 pt-0.5">
+          {/* Treatment Category — always visible */}
+          <div className="flex items-center gap-2 text-xs">
+            <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${treatmentCategory ? 'bg-primary/10' : 'bg-muted'}`}>
+              <LiaStethoscopeSolid className={`h-3 w-3 ${treatmentCategory ? 'text-primary' : 'text-muted-foreground/40'}`} />
+            </div>
+            <span className="font-medium text-muted-foreground shrink-0">Treatment Category:</span>
             {treatmentCategory ? (
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
-                <LiaStethoscopeSolid className="h-3 w-3" />
                 {treatmentCategory}{slotCost && slotCost > 1 ? ` (${slotCost} slots)` : ""}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground/60 italic px-0.5">
-                <LiaStethoscopeSolid className="h-3 w-3" />
-                Not available
-              </span>
+              <span className="italic text-muted-foreground/60">Not available</span>
             )}
+          </div>
+
+          {/* Visit Type — always visible */}
+          <div className="flex items-center gap-2 text-xs">
+            <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${visitType ? 'bg-primary/10' : 'bg-muted'}`}>
+              <LiaHeartbeatSolid className={`h-3 w-3 ${visitType ? 'text-primary' : 'text-muted-foreground/40'}`} />
+            </div>
+            <span className="font-medium text-muted-foreground shrink-0">Visit Type:</span>
             {visitType ? (
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
-                <LiaHeartbeatSolid className="h-3 w-3" />
                 {visitType}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground/60 italic px-0.5">
-                <LiaHeartbeatSolid className="h-3 w-3" />
-                Not available
-              </span>
+              <span className="italic text-muted-foreground/60">Not available</span>
             )}
           </div>
 
           {/* Chief complaint chips — always visible */}
-          <div className="flex flex-wrap gap-1 pt-0.5">
-            {complaints.length > 0 ? (
-              <>
-                {complaints.slice(0, maxChips).map((c, i) => (
-                  <span key={i} className="inline-flex items-center text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
-                    {c}
-                  </span>
-                ))}
-                {complaints.length > maxChips && (
-                  <span className="text-xs text-muted-foreground font-medium px-1">+{complaints.length - maxChips}</span>
-                )}
-              </>
-            ) : (
-              <span className="text-xs font-medium text-muted-foreground/60 italic px-0.5">No complaints noted</span>
-            )}
+          <div className="flex items-center gap-2 text-xs">
+            <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${complaints.length > 0 ? 'bg-primary/10' : 'bg-muted'}`}>
+              <Stethoscope className={`h-2.5 w-2.5 ${complaints.length > 0 ? 'text-primary' : 'text-muted-foreground/40'}`} />
+            </div>
+            <span className="font-medium text-muted-foreground shrink-0">Chief Complaints:</span>
+            <div className="flex flex-wrap gap-1">
+              {complaints.length > 0 ? (
+                <>
+                  {complaints.slice(0, maxChips).map((c, i) => (
+                    <span key={i} className="inline-flex items-center text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                      {c}
+                    </span>
+                  ))}
+                  {complaints.length > maxChips && (
+                    <span className="text-xs text-muted-foreground font-medium px-1">+{complaints.length - maxChips}</span>
+                  )}
+                </>
+              ) : (
+                <span className="italic text-muted-foreground/60">No complaints noted</span>
+              )}
+            </div>
           </div>
         </div>
       </div>

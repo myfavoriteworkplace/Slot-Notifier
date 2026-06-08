@@ -524,48 +524,48 @@ When `booking.cancellationReason` is set, render it below the Cancelled badge:
 
 ### Clinic Admin Card (`role="clinic"`)
 
-| Zone | Row | Always Visible? | Possible Values |
-|---|---|---|---|
-| **Header** | Patient avatar + name | ✅ Always | First-letter avatar · Full name |
-| **Header** | Booking number | ✅ Always | `#01`, `#02` … |
-| **Header** | Phone · Age · Gender | ✅ Always | `9876543210 · 34y · Male` — or `· Not available` italic if both missing |
-| **Header** | Approval status pill | ✅ Always | 🟡 Pending · 🟡 Awaiting DR (pulsing) · 🟢 Confirmed · 🔴 Cancelled · 🔴 Declined |
-| **Body** | Date + time | ✅ Always | `Mon, 9 Jun  10:00 am → 10:30 am` + Today / Tomorrow / in Xd badge |
-| **Body** | Patient code | ✅ Always | `PAT-0042` primary mono — or `Not available` italic |
-| **Body** | Assigned doctor | ✅ Always (non-past, non-cancelled) | `Dr. Name` + `Awaiting Dr Approval` / `Approved by Dr` / `Confirmed by Admin` / `Declined by Dr` · `Assign doctor` popover if unassigned · `No doctor assigned` italic |
-| **Body** | Visit status | ✅ Always (non-cancelled) | `Awaiting confirmation` italic · `Mark Arrived` button · 🟢 In Clinic `· {time}` + undo × · 🔵 With Doctor · ✅ Visit Done `· {time}` |
-| **Body** | Consent status | ✅ Always (non-cancelled) | `Not available` italic · `Consent Sent` amber pill · `Consent Signed ✓` emerald pill |
-| **Body** | Clinical status | ✅ Always | `Not set` italic · 🟢 First Visit · 🔵 Revisit · 🟡 Follow-up Required · ✅ Case Closed |
-| **Body** | Treatment category | ✅ Always | 🩺 `Major Procedure (3 slots)` primary chip — or `Not available` italic |
-| **Body** | Visit type | ✅ Always | 🫀 `First Visit` primary chip — or `Not available` italic |
-| **Body** | Chief complaints | ✅ Always | Up to 4 chips (e.g. `Tooth Pain`) · `+N` overflow · `No complaints noted` italic |
-| **Footer** | Confirm button | Pending + non-past only | Appears until `verificationStatus === 'confirmed'` |
-| **Footer** | Bill button | ✅ Always | Opens billing modal |
-| **Footer** | Cancel / Book Again | ✅ Always | Cancel (non-completed) · Book Again (visit completed) |
+| Zone | Row | Label | Always Visible? | Possible Values |
+|---|---|---|---|---|
+| **Header** | Patient avatar + name | — | ✅ Always | First-letter avatar · Full name |
+| **Header** | Booking number | — | ✅ Always | `#01`, `#02` … |
+| **Header** | Phone · Age · Gender | — | ✅ Always | `9876543210 · 34y · Male` — or `· Not available` italic if both missing |
+| **Header** | Approval status pill | — | ✅ Always | 🟡 Pending · 🟡 Awaiting DR (pulsing) · 🟢 Confirmed · 🔴 Cancelled · 🔴 Declined |
+| **Body** | Date + time | **Date:** | ✅ Always | `Mon, 9 Jun  10:00 am → 10:30 am` + Today / Tomorrow / in Xd badge |
+| **Body** | Patient code | **Patient Code:** | ✅ Always | `PAT-0042` primary mono — or `Not available` italic |
+| **Body** | Assigned doctor | **Doctor:** | ✅ Always (non-past, non-cancelled) | `Dr. Name` + `Awaiting Dr Approval` / `Approved by Dr` / `Confirmed by Admin` / `Declined by Dr` · `Assign doctor` popover if unassigned · `No doctor assigned` italic |
+| **Body** | Visit status | **Visit Status:** | ✅ Always (non-cancelled) | `Awaiting confirmation` italic · `Mark Arrived` button · 🟢 In Clinic `· {time}` + undo × · 🔵 With Doctor · ✅ Visit Done `· {time}` |
+| **Body** | Consent status | **Consent Status:** | ✅ Always (non-cancelled) | `Not available` italic · `Consent Sent` amber pill · `Consent Signed ✓` emerald pill |
+| **Body** | Clinical status | **Clinical Status:** | ✅ Always | `Not set` italic · 🟢 First Visit · 🔵 Revisit · 🟡 Follow-up Required · ✅ Case Closed |
+| **Body** | Treatment category | **Treatment Category:** | ✅ Always | 🩺 `Major Procedure (3 slots)` primary chip — or `Not available` italic |
+| **Body** | Visit type | **Visit Type:** | ✅ Always | 🫀 `First Visit` primary chip — or `Not available` italic |
+| **Body** | Chief complaints | **Chief Complaints:** | ✅ Always | Up to 4 chips (e.g. `Tooth Pain`) · `+N` overflow · `No complaints noted` italic |
+| **Footer** | Confirm button | — | Pending + non-past only | Appears until `verificationStatus === 'confirmed'` |
+| **Footer** | Bill button | — | ✅ Always | Opens billing modal |
+| **Footer** | Cancel / Book Again | — | ✅ Always | Cancel (non-completed) · Book Again (visit completed) |
 
 ---
 
 ### Doctor Admin Card (`role="doctor"`)
 
-| Zone | Row | Always Visible? | Possible Values |
-|---|---|---|---|
-| **Header** | Patient avatar + name | ✅ Always | First-letter avatar · Full name |
-| **Header** | Booking number | ✅ Always | `#01`, `#02` … |
-| **Header** | Phone · Age · Gender | ✅ Always | `9876543210 · 34y · Male` — or `· Not available` italic if both missing |
-| **Header** | Approval status pill | ✅ Always | 🟡 Pending (pulsing) · 🟡 Awaiting DR · 🟢 Confirmed · 🔴 Cancelled · 🔴 Declined |
-| **Body** | Date + time + duration | ✅ Always | `Mon, 9 Jun  10:00 am → 10:30 am` + Today/Tomorrow/in Xd badge + `30m` pill |
-| **Body** | Clinic name | ✅ Always | `Smile Dental (Kochi)` — or `Not available` italic |
-| **Body** | Visit status | ✅ When approved/admin-confirmed + non-cancelled | `Awaiting arrival` italic · 🟢 In Clinic `· {check-in time}` · 🔵 With Doctor · ✅ Visit Done `· {time}` |
-| **Body** | Clinical status | ✅ Always | `Not set` italic · 🟢 First Visit · 🔵 Revisit · 🟡 Follow-up Required · ✅ Case Closed |
-| **Body** | Treatment category | ✅ Always | 🩺 `Major Procedure` primary chip — or `Not available` italic |
-| **Body** | Visit type | ✅ Always | 🫀 `First Visit` primary chip — or `Not available` italic |
-| **Body** | Chief complaints | ✅ Always | Up to 3 chips (Category/Visit lines stripped) · `No complaints noted` italic |
-| **Footer** | Accept / Decline | Pending approval only | `doctorApprovalStatus === 'pending'` |
-| **Footer** | Approval notice banner | After accepting | 🟡 "Confirmed by clinic admin on your behalf" · 🟢 "You confirmed this appointment" |
-| **Footer** | Start Consultation | Patient arrived only | `visitStatus === 'checked_in'` + not pending/declined |
-| **Footer** | Done with Patient | In consultation only | `visitStatus === 'in_consultation'` + not pending/declined |
-| **Footer** | View Notes | ✅ After accepting | Always shown once `doctorApprovalStatus !== 'pending'/'declined'` |
-| **Footer** | Issue Rx / Rec | ✅ After accepting | Always shown once `doctorApprovalStatus !== 'pending'/'declined'` |
+| Zone | Row | Label | Always Visible? | Possible Values |
+|---|---|---|---|---|
+| **Header** | Patient avatar + name | — | ✅ Always | First-letter avatar · Full name |
+| **Header** | Booking number | — | ✅ Always | `#01`, `#02` … |
+| **Header** | Phone · Age · Gender | — | ✅ Always | `9876543210 · 34y · Male` — or `· Not available` italic if both missing |
+| **Header** | Approval status pill | — | ✅ Always | 🟡 Pending (pulsing) · 🟡 Awaiting DR · 🟢 Confirmed · 🔴 Cancelled · 🔴 Declined |
+| **Body** | Date + time + duration | **Date:** | ✅ Always | `Mon, 9 Jun  10:00 am → 10:30 am` + Today/Tomorrow/in Xd badge + `30m` pill |
+| **Body** | Clinic name | **Clinic:** | ✅ Always | `Smile Dental (Kochi)` — or `Not available` italic |
+| **Body** | Visit status | **Visit Status:** | ✅ When approved/admin-confirmed + non-cancelled | `Awaiting arrival` italic · 🟢 In Clinic `· {check-in time}` · 🔵 With Doctor · ✅ Visit Done `· {time}` |
+| **Body** | Clinical status | **Clinical Status:** | ✅ Always | `Not set` italic · 🟢 First Visit · 🔵 Revisit · 🟡 Follow-up Required · ✅ Case Closed |
+| **Body** | Treatment category | **Treatment Category:** | ✅ Always | 🩺 `Major Procedure` primary chip — or `Not available` italic |
+| **Body** | Visit type | **Visit Type:** | ✅ Always | 🫀 `First Visit` primary chip — or `Not available` italic |
+| **Body** | Chief complaints | **Chief Complaints:** | ✅ Always | Up to 3 chips (Category/Visit lines stripped) · `No complaints noted` italic |
+| **Footer** | Accept / Decline | — | Pending approval only | `doctorApprovalStatus === 'pending'` |
+| **Footer** | Approval notice banner | — | After accepting | 🟡 "Confirmed by clinic admin on your behalf" · 🟢 "You confirmed this appointment" |
+| **Footer** | Start Consultation | — | Patient arrived only | `visitStatus === 'checked_in'` + not pending/declined |
+| **Footer** | Done with Patient | — | In consultation only | `visitStatus === 'in_consultation'` + not pending/declined |
+| **Footer** | View Notes | — | ✅ After accepting | Always shown once `doctorApprovalStatus !== 'pending'/'declined'` |
+| **Footer** | Issue Rx / Rec | — | ✅ After accepting | Always shown once `doctorApprovalStatus !== 'pending'/'declined'` |
 
 ---
 
