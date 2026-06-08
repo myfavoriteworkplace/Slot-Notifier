@@ -1,0 +1,80 @@
+GoDaddy DNS Configuration Reference for mossaic.in
+1. A Records (Root Domain → GitHub Pages)
+Type	Host	Value	Purpose
+A	@	185.199.108.153	GitHub Pages hosting IP
+A	@	185.199.109.153	GitHub Pages hosting IP
+A	@	185.199.110.153	GitHub Pages hosting IP
+A	@	185.199.111.153	GitHub Pages hosting IP
+
+
+✅ These point mossaic.in to GitHub Pages (static site hosting).
+2. NS Records (GoDaddy Defaults)
+Type	Host	Value	Purpose
+NS	@	ns17.domaincontrol.com	GoDaddy nameserver
+NS	@	ns18.domaincontrol.com	GoDaddy nameserver
+
+
+✅ Default GoDaddy nameservers — allow DNS management inside GoDaddy.
+3. CNAME Records (Subdomains → Hosting Providers)
+Type	Host	Value	Purpose
+CNAME	www	myfavoriterworkplace.github.io	GitHub Pages (www → root)
+CNAME	api.bookmyslot.dental	book-my-slot-1.onrender.com	Backend API hosted on Render
+CNAME	bookmyslot.dental	book-my-slot-client.onrender.com	Frontend client hosted on Render
+CNAME	_domainconnect	_domainconnect.gd.domaincontrol.com	GoDaddy domain connect service
+
+
+✅ These map subdomains to Render (backend/frontend) and GitHub Pages.
+4. MX Records (Email Routing)
+Type	Host	Value	Priority	Purpose
+MX	mail	mx1.improvmx.com	10	Improvmx forwarding (subdomain)
+MX	mail	mx2.improvmx.com	20	Improvmx forwarding (subdomain)
+MX	send.bookmyslot.dental	feedback-smtp.ap-northeast-1.amazonses.com	10	Render email service (via SES backend)
+
+
+✅ Breakdown:
+mail.mossaic.in → Improvmx → forwards to Zoho Mail (mossaic@zohomail.in).
+send.bookmyslot.dental → Render’s email service (internally backed by Amazon SES).
+Used by your BookMySlot app for transactional email (appointment confirmations, OTPs, notifications).
+5. TXT Records (Email Authentication)
+Type	Host	Value	Purpose
+TXT	mail	v=spf1 include:spf.improvmx.com ~all	SPF for Improvmx forwarding
+TXT	send.bookmyslot.dental	v=spf1 include:amazonses.com ~all	SPF for Render email service
+TXT	resend._domainkey.bookmyslot.dental	p=MIGfMA0GCSq...	DKIM for Render email service
+TXT	_dmarc	v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:dmarc_rua@oneseeserver.net	DMARC policy
+
+
+✅ These authenticate outgoing mail:
+SPF → prevents spoofing.
+DKIM → cryptographic signature (Render/SES).
+DMARC → policy for handling suspicious mail.
+6. SOA Record
+Type	Host	Value	Purpose
+SOA	@	ns17.domaincontrol.com	Start of Authority record
+
+
+✅ Defines the primary nameserver and administrative contact.
+🧩 Scenarios & Notes
+Improvmx Forwarding
+Configured only on mail.mossaic.in.
+All emails sent to *@mail.mossaic.in forward to Zoho Mail.
+Root domain @mossaic.in is not covered → Meta verification emails to sup@mossaic.in won’t arrive.
+Render Email Service
+send.bookmyslot.dental MX + SPF + DKIM → Render’s transactional email (via SES backend).
+Used by your app for appointment confirmations, OTPs, and notifications.
+✅ This is why you don’t need SES MX records directly on root domain anymore — Render handles it.
+Meta Business Verification Issue
+Meta requires root domain email (@mossaic.in).
+Options:
+Temporary MX swap to Improvmx at root → verify → restore Render config.
+Or bypass with document verification (recommended, keeps Render intact).
+✅ Common‑Man Summary
+Website hosting → GitHub Pages + Render.
+Transactional email → Render email service (via SES backend).
+Forwarding email → Improvmx (subdomain → Zoho).
+Authentication → SPF/DKIM/DMARC records for both Improvmx and Render.
+Verification issue → Meta requires root domain email, so either temporary MX swap or document upload.
+👉 In short:
+Render handles transactional email (send.bookmyslot.dental).
+Improvmx handles forwarding (mail.mossaic.in).
+GitHub Pages + Render handle hosting.
+Meta verification requires root domain email, so plan accordingly.

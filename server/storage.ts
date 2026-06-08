@@ -1,16 +1,39 @@
 import { 
-  users, slots, bookings, notifications, clinics,
+  users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
+  doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, clinicalRecords,
+  inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
   type Notification, type InsertNotification,
-  type Clinic, type InsertClinic
+  type Clinic, type InsertClinic,
+  type Doctor, type InsertDoctor,
+  type DoctorCertification, type InsertDoctorCertification,
+  type DoctorCase, type InsertDoctorCase,
+  type ClinicDoctor, type InsertClinicDoctor,
+  type Patient, type InsertPatient,
+  type SmileDeal, type InsertSmileDeal,
+  type ExportHistory, type InsertExportHistory,
+  type BookingNote, type InsertBookingNote,
+  type DoctorLeave, type InsertDoctorLeave,
+  type ConsentToken,
+  type ClinicalRecord, type InsertClinicalRecord,
+  type InventoryCategory, type InsertInventoryCategory,
+  type InventoryItem, type InsertInventoryItem,
+  type StockTransaction, type InsertStockTransaction,
+  type PharmacyStockItem, type InsertPharmacyStockItem,
+  type StockAlert, type InsertStockAlert,
+  type LoginEvent, type InsertLoginEvent,
+  type PatientBill, type InsertPatientBill,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { authStorage } from "./replit_integrations/auth/storage";
+import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns } from "drizzle-orm";
 
 export interface IStorage {
+  // Login audit
+  createLoginEvent(data: InsertLoginEvent): Promise<LoginEvent>;
+  getLoginEvents(limit?: number): Promise<LoginEvent[]>;
+
   // Users
   hasSuperuser(): Promise<boolean>;
   setUserRole(userId: string, role: string): Promise<void>;
@@ -33,21 +56,36 @@ export interface IStorage {
     customerName: string;
     customerPhone: string;
     customerEmail: string;
+    description?: string | null;
     verificationCode?: string | null;
     verificationExpiresAt?: Date | null;
     verificationStatus?: 'pending' | 'verified';
   }): Promise<Booking>;
   verifyBooking(id: number): Promise<Booking>;
   deletePendingBooking(id: number): Promise<void>;
-  cancelBooking(id: number): Promise<void>;
+  cancelBooking(id: number, reason?: string): Promise<void>;
   updateBookingVerification(id: number, code: string, expiresAt: Date): Promise<Booking>;
   countBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number>;
   countVerifiedBookingsForClinicTime(clinicId: number, clinicName: string, startTime: Date): Promise<number>;
+  
+  // Missing methods for routes.ts
+  configureClinicSlots(clinicId: number, date: string, slots: any[]): Promise<Slot[]>;
+  getClinicSlots(clinicId: number, date?: string): Promise<Slot[]>;
+  getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
+  getBooking(id: number): Promise<Booking | undefined>;
+  updateBookingStatus(id: number, status: string): Promise<Booking>;
+  updateBookingAssignment(id: number, doctorName: string, doctorEmail?: string | null, doctorApprovalStatus?: string | null): Promise<Booking>;
+  updateBookingDoctorApproval(id: number, doctorEmail: string, status: 'approved' | 'declined'): Promise<Booking>;
+  rescheduleBooking(id: number, newSlotId: number): Promise<Booking>;
+  updateBookingDoctorNotes(id: number, doctorEmail: string, notes: string | null, clinicalStatus: string | null): Promise<Booking>;
+  updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null): Promise<Booking>;
+  updateClinicCredentials(id: number, username: string, passwordHash: string): Promise<void>;
   
   // Notifications
   createNotification(notification: InsertNotification): Promise<Notification>;
   getNotifications(userId: string): Promise<Notification[]>;
   markNotificationRead(id: number): Promise<Notification | undefined>;
+  markAllNotificationsRead(userId: string): Promise<void>;
 
   // Users (from auth storage)
   getUser(id: string): Promise<User | undefined>;
@@ -60,6 +98,110 @@ export interface IStorage {
   updateClinic(id: number, updates: Partial<Clinic>): Promise<Clinic>;
   archiveClinic(id: number): Promise<Clinic>;
   unarchiveClinic(id: number): Promise<Clinic>;
+
+  // Doctors
+  getDoctorByEmail(email: string): Promise<Doctor | undefined>;
+  createDoctor(doctor: InsertDoctor): Promise<Doctor>;
+  linkDoctorToClinic(clinicId: number, doctorId: number): Promise<ClinicDoctor>;
+  getClinicDoctors(clinicId: number): Promise<Doctor[]>;
+
+  // Patients
+  getPatientsByDoctor(doctorId: number): Promise<(Patient & { clinic: Clinic })[]>;
+  createPatient(patient: InsertPatient): Promise<Patient>;
+  upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
+  upsertPatientByPhone(clinicId: number, phone: string, name: string): Promise<Patient>;
+  getPatientByEmail(clinicId: number, email: string): Promise<Patient | null>;
+  getPatientsByEmail(clinicId: number, email: string): Promise<Patient[]>;
+  getPatientById(clinicId: number, patientId: number): Promise<Patient | null>;
+  createNewPatient(clinicId: number, email: string, name: string, phone: string): Promise<Patient>;
+  incrementPatientVisit(patientId: number): Promise<Patient>;
+  searchPatients(clinicId: number, query: string): Promise<Patient[]>;
+  getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]>;
+  getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }>;
+
+  // Doctor Profile
+  updateDoctorProfile(id: number, updates: Partial<Doctor>): Promise<Doctor>;
+  getDoctorById(id: number): Promise<Doctor | null>;
+  getDoctorByUsername(username: string): Promise<Doctor | null>;
+  getClinicByDoctorId(doctorId: number): Promise<Clinic | null>;
+
+  // Doctor Certifications
+  getCertificationsByDoctor(doctorId: number): Promise<DoctorCertification[]>;
+  createCertification(cert: InsertDoctorCertification): Promise<DoctorCertification>;
+  updateCertification(id: number, doctorId: number, updates: Partial<DoctorCertification>): Promise<DoctorCertification>;
+  deleteCertification(id: number, doctorId: number): Promise<void>;
+
+  // Doctor Cases
+  getCasesByDoctor(doctorId: number): Promise<DoctorCase[]>;
+  createCase(c: InsertDoctorCase): Promise<DoctorCase>;
+  updateCase(id: number, doctorId: number, updates: Partial<DoctorCase>): Promise<DoctorCase>;
+  deleteCase(id: number, doctorId: number): Promise<void>;
+
+  // Smile Deals
+  getSmileDeals(onlyActive?: boolean): Promise<SmileDeal[]>;
+  createSmileDeal(deal: InsertSmileDeal): Promise<SmileDeal>;
+  updateSmileDeal(id: number, updates: Partial<SmileDeal>): Promise<SmileDeal>;
+  deleteSmileDeal(id: number): Promise<void>;
+  incrementDealView(id: number): Promise<void>;
+  incrementDealClick(id: number): Promise<void>;
+
+  // Export History
+  createExportRecord(data: InsertExportHistory): Promise<ExportHistory>;
+  getExportHistory(clinicId: number): Promise<ExportHistory[]>;
+
+  // Booking Notes (shared conversation thread)
+  getBookingNotes(bookingId: number): Promise<BookingNote[]>;
+  createBookingNote(data: InsertBookingNote): Promise<BookingNote>;
+
+  // Doctor Leaves
+  getDoctorLeaves(doctorId: number): Promise<DoctorLeave[]>;
+  addDoctorLeave(data: InsertDoctorLeave): Promise<DoctorLeave>;
+  removeDoctorLeave(id: number, doctorId: number): Promise<void>;
+  getDoctorLeavesOnDate(date: string, doctorIds: number[]): Promise<DoctorLeave[]>;
+  getAllDoctorLeavesForClinic(doctorIds: number[]): Promise<(DoctorLeave & { doctorEmail?: string; doctorName?: string })[]>;
+
+  // Consent Tokens
+  createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date): Promise<ConsentToken>;
+  getConsentByToken(token: string): Promise<(ConsentToken & { booking: Booking; clinic: Clinic }) | undefined>;
+  markConsentSigned(token: string, signature: string, ip: string): Promise<void>;
+
+  // Clinical Records
+  createClinicalRecord(data: InsertClinicalRecord): Promise<ClinicalRecord>;
+  getClinicalRecordsByBookingId(bookingId: number): Promise<ClinicalRecord[]>;
+  getClinicalRecordsByClinicId(clinicId: number): Promise<ClinicalRecord[]>;
+  updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord>;
+  softDeleteClinicalRecord(id: number): Promise<void>;
+
+  // Inventory
+  getInventoryCategories(clinicId: number): Promise<InventoryCategory[]>;
+  createInventoryCategory(data: InsertInventoryCategory): Promise<InventoryCategory>;
+  getInventoryItems(clinicId: number): Promise<InventoryItem[]>;
+  createInventoryItem(data: InsertInventoryItem): Promise<InventoryItem>;
+  updateInventoryItem(id: number, clinicId: number, updates: Partial<InventoryItem>): Promise<InventoryItem>;
+  deleteInventoryItem(id: number, clinicId: number): Promise<void>;
+  getStockTransactions(clinicId: number): Promise<(StockTransaction & { itemName: string })[]>;
+  createStockTransaction(data: InsertStockTransaction): Promise<StockTransaction>;
+  getStockAlerts(clinicId: number): Promise<(StockAlert & { itemName: string })[]>;
+  createStockAlert(data: InsertStockAlert): Promise<StockAlert>;
+  dismissStockAlert(id: number, clinicId: number): Promise<void>;
+
+  // Patient Bills
+  createPatientBill(data: InsertPatientBill): Promise<PatientBill>;
+  getPatientBillsByClinicId(clinicId: number): Promise<PatientBill[]>;
+  getPatientBillsByBookingId(bookingId: number): Promise<PatientBill[]>;
+  getPatientBillsByPhone(clinicId: number, phone: string): Promise<PatientBill[]>;
+  getPatientBillsByEmail(clinicId: number, email: string): Promise<PatientBill[]>;
+  updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill>;
+  deletePatientBill(id: number, clinicId: number): Promise<void>;
+
+  // Pharmacy Stock
+  getPharmacyStock(clinicId: number): Promise<PharmacyStockItem[]>;
+  createPharmacyItem(data: InsertPharmacyStockItem): Promise<PharmacyStockItem>;
+  updatePharmacyItem(id: number, clinicId: number, updates: Partial<PharmacyStockItem>): Promise<PharmacyStockItem>;
+  deletePharmacyItem(id: number, clinicId: number): Promise<void>;
+
+  // Analytics
+  getClinicAnalytics(clinicId: number, range: string): Promise<Record<string, any>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -136,18 +278,20 @@ export class DatabaseStorage implements IStorage {
 
   // Bookings
   async createBooking(insertBooking: any): Promise<Booking> {
-    const [booking] = await db.insert(bookings).values({
-      slotId: insertBooking.slotId,
-      customerId: insertBooking.customerId,
-      customerName: insertBooking.customerName,
-      customerPhone: insertBooking.customerPhone,
-      customerEmail: insertBooking.customerEmail,
-    }).returning();
-    
-    // Mark slot as booked
-    await this.updateSlot(booking.slotId, { isBooked: true });
+    return await db.transaction(async (tx) => {
+      const [booking] = await tx.insert(bookings).values({
+        slotId: insertBooking.slotId,
+        customerId: insertBooking.customerId,
+        customerName: insertBooking.customerName,
+        customerPhone: insertBooking.customerPhone,
+        customerEmail: insertBooking.customerEmail,
+      }).returning();
 
-    return booking;
+      // Mark slot as booked — atomic with booking insert; rolls back if this fails
+      await tx.update(slots).set({ isBooked: true }).where(eq(slots.id, booking.slotId));
+
+      return booking;
+    });
   }
 
   async getBookings(userId: string, role: string): Promise<(Booking & { slot: Slot })[]> {
@@ -202,24 +346,187 @@ export class DatabaseStorage implements IStorage {
     return booking;
   }
 
+  // Implementation for missing methods identified by LSP errors
+  async configureClinicSlots(clinicId: number, date: string, slotsData: any[]): Promise<Slot[]> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Delete existing unbooked slots for this clinic on this date
+    await db.delete(slots)
+      .where(
+        and(
+          eq(slots.clinicId, clinicId),
+          eq(slots.isBooked, false),
+          gte(slots.startTime, startOfDay),
+          lte(slots.startTime, endOfDay)
+        )
+      );
+
+    const createdSlots = [];
+    for (const slotData of slotsData) {
+      const [slot] = await db.insert(slots).values({
+        clinicId,
+        clinicName: slotData.clinicName,
+        startTime: new Date(slotData.startTime),
+        endTime: new Date(slotData.endTime),
+        isBooked: false,
+        ownerId: 'admin' // Default for clinic-managed slots
+      }).returning();
+      createdSlots.push(slot);
+    }
+    return createdSlots;
+  }
+
+  async getClinicSlots(clinicId: number, date?: string): Promise<Slot[]> {
+    let query = db.select().from(slots).where(eq(slots.clinicId, clinicId));
+    
+    if (date) {
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      query = db.select().from(slots).where(
+        and(
+          eq(slots.clinicId, clinicId),
+          gte(slots.startTime, startOfDay),
+          lte(slots.startTime, endOfDay)
+        )
+      );
+    }
+    
+    return await (query as any).orderBy(slots.startTime);
+  }
+
+  async getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot; patientCode?: string | null })[]> {
+    const results = await db.select({
+      booking: bookings,
+      slot: slots,
+      patientCode: patients.patientCode,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .leftJoin(patients, eq(bookings.patientId, patients.id))
+    .where(eq(slots.clinicId, Number(clinicId)));
+    
+    return results.map(r => ({ ...r.booking, slot: r.slot, patientCode: r.patientCode }));
+  }
+
+  async getBooking(id: number): Promise<Booking | undefined> {
+    return this.getBookingById(id);
+  }
+
+  async updateBookingStatus(id: number, status: string, confirmedBy?: 'admin' | 'doctor'): Promise<Booking> {
+    return await db.transaction(async (tx) => {
+      const [updated] = await tx.update(bookings)
+        .set({ verificationStatus: status as any, ...(confirmedBy ? { confirmedBy } : {}) })
+        .where(eq(bookings.id, id))
+        .returning();
+
+      if (status === 'cancelled' && updated) {
+        // Release the slot atomically — .returning() already gives us slotId, no extra query needed
+        await tx.update(slots).set({ isBooked: false }).where(eq(slots.id, updated.slotId));
+      }
+
+      return updated;
+    });
+  }
+
+  async updateBookingAssignment(id: number, doctorName: string, doctorEmail?: string | null, doctorApprovalStatus?: string | null): Promise<Booking> {
+    const [updated] = await db.update(bookings)
+      .set({ 
+        assignedDoctor: doctorName,
+        assignedDoctorEmail: doctorEmail || null,
+        doctorApprovalStatus: doctorApprovalStatus !== undefined ? doctorApprovalStatus : 'pending',
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateBookingDoctorApproval(id: number, doctorEmail: string, status: 'approved' | 'declined'): Promise<Booking> {
+    const booking = await this.getBookingById(id);
+    if (!booking) throw new Error("Booking not found");
+    if (booking.assignedDoctorEmail !== doctorEmail) throw new Error("Forbidden");
+    const extraFields = status === 'approved'
+      ? { verificationStatus: 'confirmed' as const, confirmedBy: 'doctor' as const }
+      : {};
+    const [updated] = await db.update(bookings)
+      .set({ doctorApprovalStatus: status, ...extraFields })
+      .where(eq(bookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async rescheduleBooking(id: number, newSlotId: number): Promise<Booking> {
+    const [updated] = await db.update(bookings)
+      .set({ slotId: newSlotId })
+      .where(eq(bookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateBookingDoctorNotes(id: number, doctorEmail: string, notes: string | null, clinicalStatus: string | null): Promise<Booking> {
+    // Verify the booking is assigned to this doctor before allowing update
+    const booking = await this.getBookingById(id);
+    if (!booking) throw new Error("Booking not found");
+    if (booking.assignedDoctorEmail !== doctorEmail) throw new Error("Forbidden: booking not assigned to this doctor");
+    const [updated] = await db.update(bookings)
+      .set({ doctorNotes: notes, clinicalStatus })
+      .where(eq(bookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null): Promise<Booking> {
+    const setFields: Record<string, any> = { visitStatus };
+    if (checkedInAt !== undefined) setFields.checkedInAt = checkedInAt;
+    if (completedAt !== undefined) setFields.completedAt = completedAt;
+    const [updated] = await db.update(bookings)
+      .set(setFields)
+      .where(eq(bookings.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateClinicCredentials(id: number, username: string, passwordHash: string): Promise<void> {
+    await db.update(clinics)
+      .set({ username, passwordHash })
+      .where(eq(clinics.id, id));
+  }
+
   async createPublicBooking(data: {
     slotId: number;
     customerName: string;
     customerPhone: string;
     customerEmail: string;
+    customerAge?: number | null;
+    customerGender?: string | null;
+    description?: string | null;
     verificationCode?: string | null;
     verificationExpiresAt?: Date | null;
-    verificationStatus?: 'pending' | 'verified';
+    verificationStatus?: 'pending' | 'verified' | 'confirmed';
+    paymentStatus?: string | null;
+    razorpayOrderId?: string | null;
+    razorpayPaymentId?: string | null;
   }): Promise<Booking> {
     const [booking] = await db.insert(bookings).values({
       slotId: data.slotId,
       customerName: data.customerName,
       customerPhone: data.customerPhone,
       customerEmail: data.customerEmail,
+      customerAge: data.customerAge || null,
+      customerGender: data.customerGender || null,
+      description: data.description || null,
       verificationCode: data.verificationCode || null,
       verificationStatus: data.verificationStatus || 'verified',
       verificationExpiresAt: data.verificationExpiresAt || null,
-    }).returning();
+      paymentStatus: data.paymentStatus || null,
+      razorpayOrderId: data.razorpayOrderId || null,
+      razorpayPaymentId: data.razorpayPaymentId || null,
+    } as any).returning();
     return booking;
   }
 
@@ -238,19 +545,18 @@ export class DatabaseStorage implements IStorage {
   async deletePendingBooking(id: number): Promise<void> {
     const booking = await this.getBookingById(id);
     if (booking) {
-      await db.delete(bookings).where(eq(bookings.id, id));
-      // Also delete the associated slot
-      await this.deleteSlot(booking.slotId);
+      await db.transaction(async (tx) => {
+        // Delete booking then slot atomically — orphan slot impossible if server crashes mid-way
+        await tx.delete(bookings).where(eq(bookings.id, id));
+        await tx.delete(slots).where(eq(slots.id, booking.slotId));
+      });
     }
   }
 
-  async cancelBooking(id: number): Promise<void> {
-    const booking = await this.getBookingById(id);
-    if (booking) {
-      await db.delete(bookings).where(eq(bookings.id, id));
-      // Also delete the associated slot
-      await this.deleteSlot(booking.slotId);
-    }
+  async cancelBooking(id: number, reason?: string): Promise<void> {
+    await db.update(bookings)
+      .set({ verificationStatus: 'cancelled', ...(reason ? { cancellationReason: reason } : {}) })
+      .where(eq(bookings.id, id));
   }
 
   async updateBookingVerification(id: number, code: string, expiresAt: Date): Promise<Booking> {
@@ -317,14 +623,14 @@ export class DatabaseStorage implements IStorage {
       )
     );
 
-    // Filter by clinic and count only verified bookings
+    // Sum slot_cost for all active bookings (COALESCE to 1 for legacy rows without slot_cost)
     const verifiedBookings = results.filter(r => {
       const isMatchingClinic = r.slot.clinicId === clinicId || r.slot.clinicName === clinicName;
-      const isVerified = r.booking.verificationStatus === 'verified';
-      return isMatchingClinic && isVerified;
+      const isActive = !['cancelled', 'pending'].includes(r.booking.verificationStatus ?? '');
+      return isMatchingClinic && isActive;
     });
 
-    return verifiedBookings.length;
+    return verifiedBookings.reduce((sum, r) => sum + ((r.booking as any).slotCost ?? 1), 0);
   }
 
   async getSlotByTime(clinicId: number, startTime: Date): Promise<Slot | undefined> {
@@ -364,24 +670,40 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    await db.update(notifications)
+      .set({ read: true })
+      .where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
+  }
+
   // Auth User wrapper
   async getUser(id: string): Promise<User | undefined> {
-    return authStorage.getUser(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   // Clinics
   async createClinic(insertClinic: InsertClinic): Promise<Clinic> {
-    const [clinic] = await db.insert(clinics).values(insertClinic).returning();
+    const doctors = insertClinic.doctors as any[];
+    const [clinic] = await db.insert(clinics).values([{
+      ...insertClinic,
+      doctors: doctors || []
+    }]).returning();
     return clinic;
   }
 
   async getClinics(includeArchived: boolean = false): Promise<Clinic[]> {
-    if (includeArchived) {
-      return await db.select().from(clinics).orderBy(clinics.name);
+    try {
+      if (includeArchived) {
+        return await db.select().from(clinics).orderBy(clinics.name);
+      }
+      return await db.select().from(clinics)
+        .where(eq(clinics.isArchived, false))
+        .orderBy(clinics.name);
+    } catch (err: any) {
+      console.error("[STORAGE ERROR] getClinics failed:", err);
+      throw err;
     }
-    return await db.select().from(clinics)
-      .where(eq(clinics.isArchived, false))
-      .orderBy(clinics.name);
   }
 
   async getClinic(id: number): Promise<Clinic | undefined> {
@@ -395,6 +717,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateClinic(id: number, updates: Partial<Clinic>): Promise<Clinic> {
+    // Filter out logoUrl if it's undefined to avoid issues with older schema versions
+    // though db:push should have fixed it.
     const [updated] = await db.update(clinics)
       .set(updates)
       .where(eq(clinics.id, id))
@@ -416,6 +740,754 @@ export class DatabaseStorage implements IStorage {
       .where(eq(clinics.id, id))
       .returning();
     return updated;
+  }
+
+  // Doctors
+  async getDoctorByEmail(email: string): Promise<Doctor | undefined> {
+    const [doctor] = await db.select().from(doctors).where(eq(doctors.email, email));
+    return doctor;
+  }
+
+  async createDoctor(insertDoctor: InsertDoctor): Promise<Doctor> {
+    const [doctor] = await db.insert(doctors).values(insertDoctor).returning();
+    return doctor;
+  }
+
+  async linkDoctorToClinic(clinicId: number, doctorId: number): Promise<ClinicDoctor> {
+    const [link] = await db.insert(clinicDoctors).values({ clinicId, doctorId }).returning();
+    return link;
+  }
+
+  async getClinicDoctors(clinicId: number): Promise<Doctor[]> {
+    const results = await db.select({
+      doctor: doctors
+    })
+    .from(doctors)
+    .innerJoin(clinicDoctors, eq(doctors.id, clinicDoctors.doctorId))
+    .where(eq(clinicDoctors.clinicId, clinicId));
+    
+    return results.map(r => r.doctor);
+  }
+
+  async getPatientsByDoctor(doctorId: number): Promise<(Patient & { clinic: Clinic })[]> {
+    const results = await db.select({
+      patient: patients,
+      clinic: clinics
+    })
+    .from(patients)
+    .innerJoin(clinics, eq(patients.clinicId, clinics.id))
+    .where(eq(patients.doctorId, doctorId));
+    
+    return results.map(r => ({ ...r.patient, clinic: r.clinic }));
+  }
+
+  async createPatient(insertPatient: InsertPatient): Promise<Patient> {
+    const [patient] = await db.insert(patients).values(insertPatient).returning();
+    return patient;
+  }
+
+  // Doctor Profile
+  async getDoctorById(id: number): Promise<Doctor | null> {
+    const [doc] = await db.select().from(doctors).where(eq(doctors.id, id)).limit(1);
+    return doc ?? null;
+  }
+
+  async updateDoctorProfile(id: number, updates: Partial<Doctor>): Promise<Doctor> {
+    const allowed = { name: updates.name, specialization: updates.specialization, degree: updates.degree, college: (updates as any).college, bio: (updates as any).bio, phone: (updates as any).phone, imageUrl: updates.imageUrl, yearsOfExperience: (updates as any).yearsOfExperience, languages: (updates as any).languages, username: (updates as any).username ?? null, treatments: (updates as any).treatments, introVideoUrl: (updates as any).introVideoUrl };
+    const clean = Object.fromEntries(Object.entries(allowed).filter(([, v]) => v !== undefined));
+    const [updated] = await db.update(doctors).set(clean).where(eq(doctors.id, id)).returning();
+    return updated;
+  }
+
+  async getDoctorByUsername(username: string): Promise<Doctor | null> {
+    const [doc] = await db.select().from(doctors).where(eq(doctors.username, username)).limit(1);
+    return doc ?? null;
+  }
+
+  async getClinicByDoctorId(doctorId: number): Promise<Clinic | null> {
+    const [row] = await db
+      .select({ clinic: clinics })
+      .from(clinicDoctors)
+      .innerJoin(clinics, eq(clinicDoctors.clinicId, clinics.id))
+      .where(eq(clinicDoctors.doctorId, doctorId))
+      .limit(1);
+    return row?.clinic ?? null;
+  }
+
+  // Doctor Certifications
+  async getCertificationsByDoctor(doctorId: number): Promise<DoctorCertification[]> {
+    return await db.select().from(doctorCertifications).where(eq(doctorCertifications.doctorId, doctorId)).orderBy(desc(doctorCertifications.createdAt));
+  }
+
+  async createCertification(cert: InsertDoctorCertification): Promise<DoctorCertification> {
+    const [c] = await db.insert(doctorCertifications).values(cert).returning();
+    return c;
+  }
+
+  async updateCertification(id: number, doctorId: number, updates: Partial<DoctorCertification>): Promise<DoctorCertification> {
+    const [c] = await db.update(doctorCertifications).set(updates).where(and(eq(doctorCertifications.id, id), eq(doctorCertifications.doctorId, doctorId))).returning();
+    return c;
+  }
+
+  async deleteCertification(id: number, doctorId: number): Promise<void> {
+    await db.delete(doctorCertifications).where(and(eq(doctorCertifications.id, id), eq(doctorCertifications.doctorId, doctorId)));
+  }
+
+  // Doctor Cases
+  async getCasesByDoctor(doctorId: number): Promise<DoctorCase[]> {
+    return await db.select().from(doctorCases).where(eq(doctorCases.doctorId, doctorId)).orderBy(desc(doctorCases.createdAt));
+  }
+
+  async createCase(c: InsertDoctorCase): Promise<DoctorCase> {
+    const [created] = await db.insert(doctorCases).values(c).returning();
+    return created;
+  }
+
+  async updateCase(id: number, doctorId: number, updates: Partial<DoctorCase>): Promise<DoctorCase> {
+    const [updated] = await db.update(doctorCases).set(updates).where(and(eq(doctorCases.id, id), eq(doctorCases.doctorId, doctorId))).returning();
+    return updated;
+  }
+
+  async deleteCase(id: number, doctorId: number): Promise<void> {
+    await db.delete(doctorCases).where(and(eq(doctorCases.id, id), eq(doctorCases.doctorId, doctorId)));
+  }
+
+  // Smile Deals
+  async getSmileDeals(onlyActive: boolean = false): Promise<(SmileDeal & { clinicCity: string | null })[]> {
+    const now = new Date();
+    const cols = { ...getTableColumns(smileDeals), clinicCity: clinics.city };
+    if (onlyActive) {
+      return await db.select(cols).from(smileDeals)
+        .leftJoin(clinics, eq(smileDeals.clinicId, clinics.id))
+        .where(
+          and(
+            eq(smileDeals.isActive, true),
+            or(isNull(smileDeals.expiresAt), gt(smileDeals.expiresAt, now))
+          )
+        )
+        .orderBy(desc(smileDeals.isFeatured), desc(smileDeals.createdAt));
+    }
+    return await db.select(cols).from(smileDeals)
+      .leftJoin(clinics, eq(smileDeals.clinicId, clinics.id))
+      .orderBy(desc(smileDeals.isFeatured), desc(smileDeals.createdAt));
+  }
+
+  async createSmileDeal(insertDeal: InsertSmileDeal): Promise<SmileDeal> {
+    const [deal] = await db.insert(smileDeals).values(insertDeal).returning();
+    return deal;
+  }
+
+  async updateSmileDeal(id: number, updates: Partial<SmileDeal>): Promise<SmileDeal> {
+    const [updated] = await db.update(smileDeals)
+      .set(updates)
+      .where(eq(smileDeals.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSmileDeal(id: number): Promise<void> {
+    await db.delete(smileDeals).where(eq(smileDeals.id, id));
+  }
+
+  async incrementDealView(id: number): Promise<void> {
+    await db.update(smileDeals)
+      .set({ viewCount: sql`${smileDeals.viewCount} + 1` })
+      .where(eq(smileDeals.id, id));
+  }
+
+  async incrementDealClick(id: number): Promise<void> {
+    await db.update(smileDeals)
+      .set({ clickCount: sql`${smileDeals.clickCount} + 1` })
+      .where(eq(smileDeals.id, id));
+  }
+
+  async createExportRecord(data: InsertExportHistory): Promise<ExportHistory> {
+    const [record] = await db.insert(exportHistory).values(data).returning();
+    return record;
+  }
+
+  async getExportHistory(clinicId: number): Promise<ExportHistory[]> {
+    return await db.select().from(exportHistory)
+      .where(eq(exportHistory.clinicId, clinicId))
+      .orderBy(desc(exportHistory.createdAt));
+  }
+
+  async getBookingNotes(bookingId: number): Promise<BookingNote[]> {
+    return await db.select().from(bookingNotes)
+      .where(eq(bookingNotes.bookingId, bookingId))
+      .orderBy(bookingNotes.createdAt);
+  }
+
+  async createBookingNote(data: InsertBookingNote): Promise<BookingNote> {
+    const [note] = await db.insert(bookingNotes).values(data).returning();
+    return note;
+  }
+
+  // Doctor Leaves
+  async getDoctorLeaves(doctorId: number): Promise<DoctorLeave[]> {
+    return await db.select().from(doctorLeaves)
+      .where(eq(doctorLeaves.doctorId, doctorId))
+      .orderBy(doctorLeaves.leaveDate);
+  }
+
+  async addDoctorLeave(data: InsertDoctorLeave): Promise<DoctorLeave> {
+    const [leave] = await db.insert(doctorLeaves).values(data).returning();
+    return leave;
+  }
+
+  async removeDoctorLeave(id: number, doctorId: number): Promise<void> {
+    await db.delete(doctorLeaves)
+      .where(and(eq(doctorLeaves.id, id), eq(doctorLeaves.doctorId, doctorId)));
+  }
+
+  async getDoctorLeavesOnDate(date: string, doctorIds: number[]): Promise<DoctorLeave[]> {
+    if (doctorIds.length === 0) return [];
+    return await db.select().from(doctorLeaves)
+      .where(and(
+        eq(doctorLeaves.leaveDate, date),
+        sql`${doctorLeaves.doctorId} = ANY(${sql.raw(`ARRAY[${doctorIds.join(",")}]::integer[]`)})`,
+      ));
+  }
+
+  async getAllDoctorLeavesForClinic(doctorIds: number[]): Promise<(DoctorLeave & { doctorEmail?: string; doctorName?: string })[]> {
+    if (doctorIds.length === 0) return [];
+    const leaves = await db.select({ leave: doctorLeaves, doctor: doctors })
+      .from(doctorLeaves)
+      .innerJoin(doctors, eq(doctorLeaves.doctorId, doctors.id))
+      .where(sql`${doctorLeaves.doctorId} = ANY(${sql.raw(`ARRAY[${doctorIds.join(",")}]::integer[]`)})`);
+    return leaves.map(row => ({ ...row.leave, doctorEmail: row.doctor.email, doctorName: row.doctor.name }));
+  }
+
+  // Consent Tokens
+  async createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date): Promise<ConsentToken> {
+    const [ct] = await db.insert(consentTokens).values({ bookingId, clinicId, token, status: 'pending', expiresAt }).returning();
+    return ct;
+  }
+
+  async getConsentByToken(token: string): Promise<(ConsentToken & { booking: Booking; clinic: Clinic }) | undefined> {
+    const rows = await db.select({ ct: consentTokens, booking: bookings, clinic: clinics })
+      .from(consentTokens)
+      .innerJoin(bookings, eq(consentTokens.bookingId, bookings.id))
+      .innerJoin(clinics, eq(consentTokens.clinicId, clinics.id))
+      .where(eq(consentTokens.token, token))
+      .limit(1);
+    if (!rows[0]) return undefined;
+    return { ...rows[0].ct, booking: rows[0].booking, clinic: rows[0].clinic };
+  }
+
+  async markConsentSigned(token: string, signature: string, ip: string): Promise<void> {
+    const [ct] = await db.select().from(consentTokens).where(eq(consentTokens.token, token)).limit(1);
+    if (!ct) throw new Error("Consent token not found");
+    await db.update(consentTokens).set({ status: 'signed' }).where(eq(consentTokens.token, token));
+    await db.update(bookings).set({
+      consentSignature: signature,
+      consentSignedAt: new Date(),
+      consentIp: ip,
+    }).where(eq(bookings.id, ct.bookingId));
+  }
+
+  // Clinical Records
+  async createClinicalRecord(data: InsertClinicalRecord): Promise<ClinicalRecord> {
+    const [record] = await db.insert(clinicalRecords).values({
+      ...data,
+      updatedAt: new Date(),
+    }).returning();
+    return record;
+  }
+
+  async getClinicalRecordsByBookingId(bookingId: number): Promise<ClinicalRecord[]> {
+    return db.select().from(clinicalRecords)
+      .where(and(eq(clinicalRecords.bookingId, bookingId), eq(clinicalRecords.isDeleted, false)))
+      .orderBy(desc(clinicalRecords.createdAt));
+  }
+
+  async getClinicalRecordsByClinicId(clinicId: number): Promise<ClinicalRecord[]> {
+    return db.select().from(clinicalRecords)
+      .where(and(eq(clinicalRecords.clinicId, clinicId), eq(clinicalRecords.isDeleted, false)))
+      .orderBy(desc(clinicalRecords.createdAt));
+  }
+
+  async updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord> {
+    const [record] = await db.update(clinicalRecords)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(clinicalRecords.id, id))
+      .returning();
+    if (!record) throw new Error("Clinical record not found");
+    return record;
+  }
+
+  async softDeleteClinicalRecord(id: number): Promise<void> {
+    await db.update(clinicalRecords)
+      .set({ isDeleted: true, updatedAt: new Date() })
+      .where(eq(clinicalRecords.id, id));
+  }
+
+  // ── Inventory ──────────────────────────────────────────────────────────────
+
+  async getInventoryCategories(clinicId: number): Promise<InventoryCategory[]> {
+    return db.select().from(inventoryCategories)
+      .where(eq(inventoryCategories.clinicId, clinicId))
+      .orderBy(inventoryCategories.name);
+  }
+
+  async createInventoryCategory(data: InsertInventoryCategory): Promise<InventoryCategory> {
+    const [cat] = await db.insert(inventoryCategories).values(data).returning();
+    return cat;
+  }
+
+  async getInventoryItems(clinicId: number): Promise<InventoryItem[]> {
+    return db.select().from(inventoryItems)
+      .where(eq(inventoryItems.clinicId, clinicId))
+      .orderBy(inventoryItems.name);
+  }
+
+  async createInventoryItem(data: InsertInventoryItem): Promise<InventoryItem> {
+    const [item] = await db.insert(inventoryItems).values(data).returning();
+    return item;
+  }
+
+  async updateInventoryItem(id: number, clinicId: number, updates: Partial<InventoryItem>): Promise<InventoryItem> {
+    const [item] = await db.update(inventoryItems)
+      .set(updates)
+      .where(and(eq(inventoryItems.id, id), eq(inventoryItems.clinicId, clinicId)))
+      .returning();
+    if (!item) throw new Error("Item not found");
+    return item;
+  }
+
+  async deleteInventoryItem(id: number, clinicId: number): Promise<void> {
+    await db.delete(inventoryItems)
+      .where(and(eq(inventoryItems.id, id), eq(inventoryItems.clinicId, clinicId)));
+  }
+
+  async getStockTransactions(clinicId: number): Promise<(StockTransaction & { itemName: string })[]> {
+    const rows = await db
+      .select({ tx: stockTransactions, itemName: inventoryItems.name })
+      .from(stockTransactions)
+      .innerJoin(inventoryItems, eq(stockTransactions.itemId, inventoryItems.id))
+      .where(eq(stockTransactions.clinicId, clinicId))
+      .orderBy(desc(stockTransactions.performedAt));
+    return rows.map(r => ({ ...r.tx, itemName: r.itemName }));
+  }
+
+  async createStockTransaction(data: InsertStockTransaction): Promise<StockTransaction> {
+    const [tx] = await db.insert(stockTransactions).values(data).returning();
+    return tx;
+  }
+
+  async getStockAlerts(clinicId: number): Promise<(StockAlert & { itemName: string })[]> {
+    const rows = await db
+      .select({ alert: stockAlerts, itemName: inventoryItems.name })
+      .from(stockAlerts)
+      .innerJoin(inventoryItems, eq(stockAlerts.itemId, inventoryItems.id))
+      .where(and(eq(stockAlerts.clinicId, clinicId), eq(stockAlerts.isDismissed, false)))
+      .orderBy(desc(stockAlerts.createdAt));
+    return rows.map(r => ({ ...r.alert, itemName: r.itemName }));
+  }
+
+  async createStockAlert(data: InsertStockAlert): Promise<StockAlert> {
+    const [alert] = await db.insert(stockAlerts).values(data).returning();
+    return alert;
+  }
+
+  async dismissStockAlert(id: number, clinicId: number): Promise<void> {
+    await db.update(stockAlerts)
+      .set({ isDismissed: true })
+      .where(and(eq(stockAlerts.id, id), eq(stockAlerts.clinicId, clinicId)));
+  }
+
+  async createLoginEvent(data: InsertLoginEvent): Promise<LoginEvent> {
+    const [event] = await db.insert(loginEvents).values(data).returning();
+    return event;
+  }
+
+  async getLoginEvents(limit = 200): Promise<LoginEvent[]> {
+    return db.select().from(loginEvents).orderBy(desc(loginEvents.createdAt)).limit(limit);
+  }
+
+  // Patient Bills
+  async createPatientBill(data: InsertPatientBill): Promise<PatientBill> {
+    const [bill] = await db.insert(patientBills).values(data).returning();
+    return bill;
+  }
+
+  async getPatientBillsByClinicId(clinicId: number): Promise<PatientBill[]> {
+    return db.select().from(patientBills)
+      .where(eq(patientBills.clinicId, clinicId))
+      .orderBy(desc(patientBills.createdAt));
+  }
+
+  async getPatientBillsByBookingId(bookingId: number): Promise<PatientBill[]> {
+    return db.select().from(patientBills)
+      .where(eq(patientBills.bookingId, bookingId))
+      .orderBy(desc(patientBills.createdAt));
+  }
+
+  async getPatientBillsByPhone(clinicId: number, phone: string): Promise<PatientBill[]> {
+    return db.select().from(patientBills)
+      .where(and(eq(patientBills.clinicId, clinicId), eq(patientBills.patientPhone, phone)))
+      .orderBy(desc(patientBills.createdAt));
+  }
+
+  async getPatientBillsByEmail(clinicId: number, email: string): Promise<PatientBill[]> {
+    return db.select().from(patientBills)
+      .where(and(eq(patientBills.clinicId, clinicId), eq(patientBills.patientEmail, email.toLowerCase().trim())))
+      .orderBy(desc(patientBills.createdAt));
+  }
+
+  async upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const [existing] = await db.select().from(patients)
+      .where(and(eq(patients.clinicId, clinicId), eq(patients.email, normalizedEmail)))
+      .limit(1);
+
+    if (existing) {
+      const updates: any = {
+        visitCount: (existing.visitCount ?? 0) + 1,
+        lastVisitAt: new Date(),
+      };
+      if (name && name.length > (existing.name ?? "").length) updates.name = name;
+      if (phone && (!existing.phone || phone.length > (existing.phone ?? "").length)) updates.phone = phone;
+      const [updated] = await db.update(patients).set(updates).where(eq(patients.id, existing.id)).returning();
+      return updated;
+    }
+
+    const countRows = await db.select({ count: sql<number>`COUNT(*)::int` }).from(patients).where(eq(patients.clinicId, clinicId));
+    const seq = (Number(countRows[0]?.count) ?? 0) + 1;
+    const patientCode = `PAT-${String(seq).padStart(4, '0')}`;
+
+    const [newPatient] = await db.insert(patients).values({
+      clinicId,
+      email: normalizedEmail,
+      name,
+      phone: phone || null,
+      patientCode,
+      visitCount: 1,
+      lastVisitAt: new Date(),
+    } as any).returning();
+    return newPatient;
+  }
+
+  async upsertPatientByPhone(clinicId: number, phone: string, name: string): Promise<Patient> {
+    const normalizedPhone = phone.trim();
+    const [existing] = await db.select().from(patients)
+      .where(and(eq(patients.clinicId, clinicId), eq(patients.phone, normalizedPhone)))
+      .limit(1);
+
+    if (existing) {
+      const updates: any = {
+        visitCount: (existing.visitCount ?? 0) + 1,
+        lastVisitAt: new Date(),
+      };
+      if (name && name.length > (existing.name ?? "").length) updates.name = name;
+      const [updated] = await db.update(patients).set(updates).where(eq(patients.id, existing.id)).returning();
+      return updated;
+    }
+
+    const countRows = await db.select({ count: sql<number>`COUNT(*)::int` }).from(patients).where(eq(patients.clinicId, clinicId));
+    const seq = (Number(countRows[0]?.count) ?? 0) + 1;
+    const patientCode = `PAT-${String(seq).padStart(4, '0')}`;
+
+    const [newPatient] = await db.insert(patients).values({
+      clinicId,
+      email: null,
+      name,
+      phone: normalizedPhone,
+      patientCode,
+      visitCount: 1,
+      lastVisitAt: new Date(),
+    } as any).returning();
+    return newPatient;
+  }
+
+  async getPatientByEmail(clinicId: number, email: string): Promise<Patient | null> {
+    const [patient] = await db.select().from(patients)
+      .where(and(eq(patients.clinicId, clinicId), eq(patients.email, email.toLowerCase().trim())))
+      .limit(1);
+    return patient ?? null;
+  }
+
+  async getPatientById(clinicId: number, patientId: number): Promise<Patient | null> {
+    const [patient] = await db.select().from(patients)
+      .where(and(eq(patients.id, patientId), eq(patients.clinicId, clinicId)))
+      .limit(1);
+    return patient ?? null;
+  }
+
+  async incrementPatientVisit(patientId: number): Promise<Patient> {
+    const [updated] = await db.update(patients)
+      .set({ visitCount: sql`${patients.visitCount} + 1`, lastVisitAt: new Date() })
+      .where(eq(patients.id, patientId))
+      .returning();
+    return updated;
+  }
+
+  async createNewPatient(clinicId: number, email: string, name: string, phone: string): Promise<Patient> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const countRows = await db.select({ count: sql<number>`COUNT(*)::int` }).from(patients).where(eq(patients.clinicId, clinicId));
+    const seq = (Number(countRows[0]?.count) ?? 0) + 1;
+    const patientCode = `PAT-${String(seq).padStart(4, '0')}`;
+    const [newPatient] = await db.insert(patients).values({
+      clinicId,
+      email: normalizedEmail,
+      name,
+      phone: phone || null,
+      patientCode,
+      visitCount: 1,
+      lastVisitAt: new Date(),
+    } as any).returning();
+    return newPatient;
+  }
+
+  async getPatientsByEmail(clinicId: number, email: string): Promise<Patient[]> {
+    return db.select().from(patients)
+      .where(and(eq(patients.clinicId, clinicId), eq(patients.email, email.toLowerCase().trim())))
+      .orderBy(desc(patients.lastVisitAt));
+  }
+
+  async searchPatients(clinicId: number, query: string): Promise<Patient[]> {
+    const q = `%${query.toLowerCase()}%`;
+    return db.select().from(patients)
+      .where(and(
+        eq(patients.clinicId, clinicId),
+        sql`(LOWER(${patients.name}) LIKE ${q} OR LOWER(COALESCE(${patients.email}, '')) LIKE ${q} OR COALESCE(${patients.phone}, '') LIKE ${q})`,
+        sql`${patients.patientCode} IS NOT NULL`
+      ))
+      .orderBy(desc(patients.lastVisitAt))
+      .limit(10);
+  }
+
+  async getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]> {
+    const rows = await db.select({
+      patient: patients,
+      totalBilled: sql<number>`COALESCE(SUM(CASE WHEN ${patientBills.paymentStatus} = 'paid' THEN ${patientBills.total} ELSE 0 END), 0)`,
+    })
+    .from(patients)
+    .leftJoin(patientBills, eq(patientBills.patientId, patients.id))
+    .where(and(eq(patients.clinicId, clinicId), sql`${patients.patientCode} IS NOT NULL`))
+    .groupBy(patients.id)
+    .orderBy(desc(patients.lastVisitAt));
+    return rows.map(r => ({ ...r.patient, totalBilled: Number(r.totalBilled) }));
+  }
+
+  async getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }> {
+    const [bookingRows, bills, records] = await Promise.all([
+      db.select({ booking: bookings, slot: slots })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(eq(bookings.patientId, patientId), eq(slots.clinicId, clinicId)))
+        .orderBy(desc(slots.startTime)),
+      db.select().from(patientBills)
+        .where(and(eq(patientBills.clinicId, clinicId), eq(patientBills.patientId, patientId)))
+        .orderBy(desc(patientBills.createdAt)),
+      db.select().from(clinicalRecords)
+        .where(and(eq(clinicalRecords.clinicId, clinicId), eq(clinicalRecords.patientId, patientId), eq(clinicalRecords.isDeleted, false)))
+        .orderBy(desc(clinicalRecords.createdAt)),
+    ]);
+    return {
+      bookings: bookingRows.map(r => ({ ...r.booking, slot: r.slot })),
+      bills,
+      clinicalRecords: records,
+    };
+  }
+
+  async updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill> {
+    const [bill] = await db.update(patientBills)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(patientBills.id, id), eq(patientBills.clinicId, clinicId)))
+      .returning();
+    return bill;
+  }
+
+  async deletePatientBill(id: number, clinicId: number): Promise<void> {
+    await db.delete(patientBills)
+      .where(and(eq(patientBills.id, id), eq(patientBills.clinicId, clinicId)));
+  }
+
+  // ── Pharmacy Stock ────────────────────────────────────────────────────────
+
+  async getPharmacyStock(clinicId: number): Promise<PharmacyStockItem[]> {
+    return db.select().from(pharmacyStock)
+      .where(eq(pharmacyStock.clinicId, clinicId))
+      .orderBy(pharmacyStock.medicineName);
+  }
+
+  async createPharmacyItem(data: InsertPharmacyStockItem): Promise<PharmacyStockItem> {
+    const [item] = await db.insert(pharmacyStock).values(data).returning();
+    return item;
+  }
+
+  async updatePharmacyItem(id: number, clinicId: number, updates: Partial<PharmacyStockItem>): Promise<PharmacyStockItem> {
+    const [item] = await db.update(pharmacyStock)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(pharmacyStock.id, id), eq(pharmacyStock.clinicId, clinicId)))
+      .returning();
+    return item;
+  }
+
+  async deletePharmacyItem(id: number, clinicId: number): Promise<void> {
+    await db.delete(pharmacyStock)
+      .where(and(eq(pharmacyStock.id, id), eq(pharmacyStock.clinicId, clinicId)));
+  }
+
+  async getClinicAnalytics(clinicId: number, range: string): Promise<Record<string, any>> {
+    const now = new Date();
+    let startDate: Date;
+    if (range === 'year') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+    } else {
+      const days = range === '60d' ? 60 : range === '90d' ? 90 : 30;
+      startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    }
+
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    const thirtyDaysOut = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    function dateKey(d: Date) { return d.toISOString().substring(0, 10); }
+    function weekKey(d: Date) {
+      const c = new Date(d); c.setDate(c.getDate() - c.getDay());
+      return c.toISOString().substring(0, 10);
+    }
+    function monthLabel(d: Date) {
+      const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${mo[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
+    }
+
+    const [bookingRows, slotRows, billRows, patientRows, clinicalRows, alertRows, itemRows, loginRows] =
+      await Promise.all([
+        db.select({ booking: bookings, slot: slots })
+          .from(bookings).innerJoin(slots, eq(bookings.slotId, slots.id))
+          .where(and(eq(slots.clinicId, clinicId), gte(slots.startTime, startDate))),
+
+        db.select().from(slots)
+          .where(and(eq(slots.clinicId, clinicId), gte(slots.startTime, startDate))),
+
+        db.select().from(patientBills)
+          .where(and(eq(patientBills.clinicId, clinicId), gte(patientBills.createdAt as any, startDate))),
+
+        db.select().from(patients).where(eq(patients.clinicId, clinicId)),
+
+        db.select({ diagnosis: clinicalRecords.diagnosis })
+          .from(clinicalRecords)
+          .where(and(
+            eq(clinicalRecords.clinicId, clinicId),
+            eq(clinicalRecords.isDeleted, false),
+            gte(clinicalRecords.createdAt as any, startDate)
+          )),
+
+        db.select().from(stockAlerts)
+          .where(and(eq(stockAlerts.clinicId, clinicId), eq(stockAlerts.isDismissed, false))),
+
+        db.select().from(inventoryItems).where(eq(inventoryItems.clinicId, clinicId)),
+
+        db.select({ success: loginEvents.success })
+          .from(loginEvents)
+          .where(and(eq(loginEvents.role, 'clinic'), gte(loginEvents.createdAt as any, startDate))),
+      ]);
+
+    // ── Overview ──────────────────────────────────────────────────────────────
+    const totalBookings  = bookingRows.length;
+    const todayBookings  = bookingRows.filter(r => r.slot.startTime >= todayStart && r.slot.startTime <= todayEnd).length;
+    const cancelledSlots = slotRows.filter(s => s.isCancelled).length;
+    const bookedSlots    = slotRows.filter(s => s.isBooked).length;
+    const utilizationPct = slotRows.length > 0 ? Math.round((bookedSlots / slotRows.length) * 100) : 0;
+
+    const trendMap = new Map<string, number>();
+    for (const r of bookingRows) {
+      const k = dateKey(r.slot.startTime);
+      trendMap.set(k, (trendMap.get(k) ?? 0) + 1);
+    }
+    const trendByDay = Array.from(trendMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({ date, count }));
+
+    // ── Financial ─────────────────────────────────────────────────────────────
+    const paidBills      = billRows.filter(b => b.paymentStatus === 'paid');
+    const totalRevenue   = paidBills.reduce((s, b) => s + (b.total ?? 0), 0);
+    const outstanding    = billRows.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+    const uniquePtIds    = new Set(billRows.map(b => b.patientId).filter(Boolean));
+    const avgRevPerPt    = uniquePtIds.size > 0 ? Math.round(totalRevenue / uniquePtIds.size) : 0;
+
+    const payMap = new Map<string, { amount: number; count: number }>();
+    for (const b of billRows) {
+      const m = b.paymentMethod ?? 'Cash';
+      const e = payMap.get(m) ?? { amount: 0, count: 0 };
+      payMap.set(m, { amount: e.amount + (b.total ?? 0), count: e.count + 1 });
+    }
+    const paymentBreakdown = Array.from(payMap.entries())
+      .map(([method, d]) => ({ method, ...d }))
+      .sort((a, b) => b.amount - a.amount);
+
+    const revMap = new Map<string, number>();
+    for (const b of billRows) {
+      if (!b.createdAt) continue;
+      const k = weekKey(b.createdAt);
+      revMap.set(k, (revMap.get(k) ?? 0) + (b.total ?? 0));
+    }
+    const revenueTrend = Array.from(revMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([week, amount]) => ({ week, amount: Math.round(amount) }));
+
+    // ── Appointments ──────────────────────────────────────────────────────────
+    const statusMap = new Map<string, number>();
+    for (const r of bookingRows) {
+      const s = r.booking.clinicalStatus ?? 'Awaiting';
+      statusMap.set(s, (statusMap.get(s) ?? 0) + 1);
+    }
+    const statusBreakdown = Array.from(statusMap.entries())
+      .map(([status, count]) => ({ status, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const docMap = new Map<string, number>();
+    for (const r of bookingRows) {
+      const d = r.booking.assignedDoctor ?? 'Unassigned';
+      docMap.set(d, (docMap.get(d) ?? 0) + 1);
+    }
+    const doctorWorkload = Array.from(docMap.entries())
+      .map(([doctor, count]) => ({ doctor, count }))
+      .sort((a, b) => b.count - a.count).slice(0, 8);
+
+    const procMap = new Map<string, number>();
+    for (const r of clinicalRows) {
+      for (const d of ((r.diagnosis ?? []) as string[])) {
+        if (d) procMap.set(d, (procMap.get(d) ?? 0) + 1);
+      }
+    }
+    const topProcedures = Array.from(procMap.entries())
+      .map(([procedure, count]) => ({ procedure, count }))
+      .sort((a, b) => b.count - a.count).slice(0, 6);
+
+    // ── Patients ──────────────────────────────────────────────────────────────
+    const totalPatients  = patientRows.length;
+    const newPatients    = patientRows.filter(p => p.visitCount <= 1).length;
+    const repeatPatients = patientRows.filter(p => p.visitCount > 1).length;
+
+    const growthMap = new Map<string, number>();
+    for (const p of patientRows) {
+      if (!p.createdAt) continue;
+      const k = monthLabel(p.createdAt);
+      growthMap.set(k, (growthMap.get(k) ?? 0) + 1);
+    }
+    const growthByMonth = Array.from(growthMap.entries())
+      .map(([month, count]) => ({ month, count }));
+
+    // ── Compliance ────────────────────────────────────────────────────────────
+    const signedCount    = bookingRows.filter(r => r.booking.consentSignedAt !== null).length;
+    const consentRate    = totalBookings > 0 ? Math.round((signedCount / totalBookings) * 100) : 0;
+    const lowStockItems  = itemRows.filter(i => i.reorderLevel !== null && i.currentQty <= (i.reorderLevel ?? Infinity)).length;
+    const expiringItems  = itemRows.filter(i => i.expiryDate && new Date(i.expiryDate) <= thirtyDaysOut).length;
+    const loginSuccess   = loginRows.filter(l => l.success).length;
+    const loginFail      = loginRows.filter(l => !l.success).length;
+
+    return {
+      range,
+      overview: { totalBookings, todayBookings, utilizationPct, cancellations: cancelledSlots, trendByDay },
+      financial: { totalRevenue: Math.round(totalRevenue), outstanding: Math.round(outstanding), avgRevenuePerPatient: avgRevPerPt, paymentBreakdown, revenueTrend },
+      appointments: { statusBreakdown, doctorWorkload, topProcedures },
+      patients: { total: totalPatients, newPatients, repeatPatients, growthByMonth },
+      compliance: { consentRate, signedCount, totalWithConsent: totalBookings, inventoryAlerts: alertRows.length, lowStockItems, expiringItems, loginSuccess, loginFail },
+    };
   }
 }
 

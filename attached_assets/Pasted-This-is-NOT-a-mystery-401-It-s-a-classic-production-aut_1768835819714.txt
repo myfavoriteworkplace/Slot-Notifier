@@ -1,0 +1,137 @@
+This is NOT a mystery 401. It’s a classic production auth + cookies + route-mount issue.
+I’ll break it down cleanly and then give you exact fixes.
+🔴 WHAT IS ACTUALLY FAILING (FACTS FROM LOG)
+❌ These endpoints fail:
+GET  /api/auth/user        → 404
+GET  /api/clinic/me        → 404
+GET  /api/admin/logs/status → 401
+POST /api/clinics          → 401
+PATCH /api/clinics/:id/... → 401
+✅ These work:
+POST /api/auth/admin/login → 200 (SESSION SAVED)
+GET  /api/health*          → 200
+GET  /api/slots, clinics   → 200
+🧠 ROOT CAUSE (VERY CLEAR)
+You have TWO DIFFERENT PROBLEMS happening at the same time:
+🧨 PROBLEM 1 — 404 API route not matched
+Example:
+[STATIC] API route not matched: GET /api/auth/user
+Meaning (IMPORTANT):
+👉 That route is not registered at all in the running server
+This is NOT auth
+This is NOT cookies
+This is NOT CORS
+It literally means:
+app.get("/api/auth/user") does not exist in production
+Why?
+Because you mounted only some routers, not all.
+Example (likely):
+app.use("/api/auth", adminAuthRouter);
+// ❌ userAuthRouter never mounted
+🧨 PROBLEM 2 — 401 Cookie: missing
+Example:
+[AUTH-FAILURE] 401 Unauthorized
+Cookie: missing
+Origin: https://book-my-slot-client.onrender.com
+Meaning:
+👉 Your browser is NOT sending session cookies to backend
+This is 100% expected in production unless configured explicitly.
+✅ FIX 1 — REGISTER ALL AUTH ROUTES (404 FIX)
+In your main server file (index.ts or server.ts)
+You MUST have all routers mounted:
+import adminAuthRouter from "./routes/auth.admin";
+import userAuthRouter from "./routes/auth.user";
+import clinicRouter from "./routes/clinic";
+import adminRouter from "./routes/admin";
+
+app.use("/api/auth", adminAuthRouter);
+app.use("/api/auth", userAuthRouter);   // ✅ THIS WAS MISSING
+app.use("/api/clinic", clinicRouter);   // ensures /api/clinic/me
+app.use("/api/admin", adminRouter);     // ensures admin routes
+Verify after deploy:
+GET /api/auth/user   → NOT 404 anymore
+GET /api/clinic/me  → NOT 404 anymore
+✅ FIX 2 — SESSION COOKIE NOT SENT (401 FIX)
+This is the main production issue.
+🔴 CURRENT BEHAVIOR (From Logs)
+admin login successful, session saved
+BUT later:
+Cookie: missing
+adminLoggedIn: undefined
+That means:
+Browser never sent the session cookie back
+✅ REQUIRED CHANGES (MANDATORY)
+1️⃣ Express Session config (PRODUCTION SAFE)
+app.set("trust proxy", 1); // 🔥 REQUIRED ON RENDER
+
+app.use(
+  session({
+    name: "book-my-slot.sid",
+    secret: process.env.SESSION_SECRET!,
+    resave: false,
+    saveUninitialized: false,
+    proxy: true,
+    cookie: {
+      httpOnly: true,
+      secure: true,        // 🔥 REQUIRED for HTTPS
+      sameSite: "none",    // 🔥 REQUIRED for cross-site
+      maxAge: 1000 * 60 * 60 * 24
+    }
+  })
+);
+2️⃣ CORS CONFIG (ABSOLUTELY REQUIRED)
+app.use(
+  cors({
+    origin: "https://book-my-slot-client.onrender.com",
+    credentials: true
+  })
+);
+⚠️ NO *
+⚠️ NO array unless necessary
+3️⃣ FRONTEND REQUESTS (CRITICAL)
+Every authenticated request MUST include:
+✅ Fetch
+fetch("/api/admin/logs/status", {
+  credentials: "include"
+});
+✅ Axios
+axios.get("/api/admin/logs/status", {
+  withCredentials: true
+});
+If this is missing → cookies are dropped silently
+✅ FIX 3 — AUTH GUARD IS WORKING (GOOD NEWS)
+This log proves auth logic is correct:
+adminLoggedIn: undefined
+adminEmail: undefined
+Cookie: missing
+👉 Your middleware is protecting correctly
+👉 The issue is transport, not logic
+🧪 HOW TO VERIFY (10 seconds)
+After redeploy:
+Open DevTools → Network
+Login as admin
+Check response headers:
+Set-Cookie: book-my-slot.sid=...
+Call protected API
+Check request headers:
+Cookie: book-my-slot.sid=...
+If cookie is present → ✅ FIXED
+🎯 FINAL SUMMARY
+Issue	Status
+Routes missing	❌ needs mounting
+Session created	✅ working
+Cookie sent	❌ missing
+CORS config	❌ incomplete
+Auth logic	✅ correct
+🏆 YOU ARE VERY CLOSE
+Your backend is now:
+correctly deployed
+correctly compiled
+correctly protecting routes
+This is final-mile production auth plumbing, nothing more.
+If you want next, I can:
+Harden auth for JWT + session hybrid
+Make admin & clinic auth separate
+Add refresh-safe login persistence
+Fix /api/auth/user semantics cleanly
+Just tell me 👍

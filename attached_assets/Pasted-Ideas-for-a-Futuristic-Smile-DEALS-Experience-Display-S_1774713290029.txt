@@ -1,0 +1,47 @@
+Ideas for a Futuristic Smile DEALS Experience
+Display Side (What patients see)
+1. Cinematic Video Hero A full-screen autoplay video at the top of the page (muted, looping) — like a mini clinic ad reel. Each deal can have its own video that plays silently in the background of its card. The admin simply pastes a video URL (YouTube embed, Vimeo, or direct .mp4). Cards become immersive "video posters" rather than static images.
+2. Netflix-style Spotlight Deal The first/featured deal takes up the entire top section like a movie poster — large background video or image, glowing title overlay, a pulsing "Book Now" CTA, and a countdown timer if the deal is time-limited. The rest of the deals scroll below in a grid.
+3. Animated Deal Cards with Hover Video Reveal Cards show a still image by default, but when you hover over them, the video plays inline (like Instagram Reels preview). Using Framer Motion (already installed), cards lift with a 3D tilt/parallax effect as your cursor moves over them.
+4. Stories / Carousel Swipe Mode A TikTok/Instagram Stories-style horizontal or vertical swipe-through — each deal takes the full screen for a moment. Works especially well on mobile. Patients swipe through deals one by one.
+5. Staggered Animated Entrance Rather than deals just appearing, they animate in with a staggered cascade — cards fly in from different angles, price tags "pop" in, and the sparkle icon spins. All driven by Framer Motion.
+
+Admin Configuration Side (What the super admin gets)
+6. Video URL Support Add a "Promo Video URL" field alongside the image. Admin pastes a YouTube/Vimeo/direct link. The display side uses it for the hero or card video overlay.
+7. Deal Expiry / Countdown Timer Admin sets an expiry date for each deal. The public page automatically shows a countdown ("Offer ends in 2 days 4 hrs") and hides expired deals automatically — no manual toggling needed.
+8. Featured / Spotlight Flag A toggle to mark one deal as "Featured" — that deal gets the big cinematic hero treatment at the top, while others appear in the grid below.
+9. Deal Category / Tag Admin tags deals (Whitening, Scaling, Braces, Implants, etc.) and users can filter by category. A pill/chip filter row appears on the public page.
+10. View & Click Analytics Simple counters per deal — how many times it was viewed and how many clicked "Book Now". Shown only in the admin panel to measure performance.
+
+My Recommended Combination
+If I were to build this, I'd suggest:
+* Video hero banner at the top (one featured deal with video/image background + countdown)
+* Animated card grid below with video-on-hover and 3D tilt
+* Admin additions: video URL field, expiry date, featured flag, and category tag
+
+
+The user wants the full combination of all the ideas I proposed. Let me plan this out carefully before implementing.
+Here's what I need to build:
+Schema Changes:
+* Add videoUrl (optional video URL for each deal)
+* Add expiresAt (optional expiry date/timestamp)
+* Add isFeatured (boolean flag for spotlight deal)
+* Add category (tag like Whitening, Scaling, etc.)
+* Add viewCount and clickCount for analytics
+Admin Side Changes:
+* Add video URL field
+* Add expiry date picker
+* Add featured toggle
+* Add category/tag selector
+* Show view count and click count per deal
+* Cinematic video hero for featured deals with countdown timers, animated card grids with staggered entrance effects, and video previews on hover with 3D tilt effects
+* Category filter pills to organize deals, plus tracking for view counts on page load and click counts when users book
+Good — I have a complete picture. Now let me implement everything. Here's the plan:
+1. Schema — add videoUrl, expiresAt, isFeatured, category, viewCount, clickCount
+2. DB migration — add the columns
+3. Backend — view/click tracking routes, expiry filtering
+4. Storage — new increment methods
+5. SmileDeals page — full futuristic rewrite
+6. Admin panel — new fields + analytics display
+
+Now I need to review the existing code structure to understand how to integrate these features. Let me start by examining the current schema, the deals display component, the admin interface, the storage methods, and the routing setup.

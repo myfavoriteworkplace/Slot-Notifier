@@ -1,0 +1,23 @@
+Analysis: Website Panel Mobile Issues vs. Design Doc
+What the screenshots show
+Screenshot 1 (panel header):
+* The "Clinic Website" title + 5-line description + two buttons are all in a single flex justify-between row — the description wraps to 5 lines while the button group simultaneously overflows the right edge (you can see "Save Websit…" clipped off screen)
+* The "Preview" button shows the desktop version (eye + external-link icons) instead of the mobile one (phone icon). This points to a viewport width issue — the Replit in-app preview pane renders at ≥640px wide on the device you're testing from, so the sm: breakpoints fire in "desktop" mode even though you're on a phone
+* The "Website Structure" header info badge text and "Open live page" link are both text-[10px] — visible as very small text in the screenshot
+Screenshot 2 (Stats section):
+* The 2×2 stats preview grid is working correctly ✅
+* The stats editor inputs look fine — the truncated "Tooth Extractior" is just normal input field clipping, not a bug
+* The section label bar "STATS BAR" + "updates as you type" are in text-[10px] — design doc violation
+
+Issues confirmed against the design doc
+#	Issue	Design doc rule	Location in code
+1	text-[10px] in "Website Structure" badge, "Open live page" link, section label bar ("STATS BAR", "updates as you type"), sticky save bar footnote	Minimum text-xs in any production UI	Lines 869, 878, 975, 979, 995
+2	text-[11px] and text-[9px] in desktop section nav labels and status text	Same minimum text-xs rule	Lines 933–934, 959–960
+3	Panel header flex items-start justify-between causes description to wrap 5 lines + button group to overflow right edge on mobile	No broken overflow. No horizontal scroll.	Lines 811–857
+4	"Preview"/"Save Website" buttons use size="sm" (height = 36px) — below minimum	All tappable elements min-h-[44px]	Lines 825–855
+5	sm: breakpoint (640px) used to switch between mobile/desktop button variants, but Replit preview pane renders at ≥640px — wrong button shows	Must work at 375px	Lines 828, 836
+6	hover:underline on "Open live page" link has no matching active: state. Desktop nav buttons have hover:bg-muted/50 without active:	Every hover: must have matching active:	Lines 878, ~943
+7	backdrop-blur-sm on the sticky save bar (structural functional element)	No backdrop-filter on structural/functional elements (RN parity)	Line 994
+8	All inputs/textareas missing onFocus scroll-into-view for iOS keyboard safety	Add scroll-into-view on all inputs	All EditorPane inputs
+9	accent: "bg-[#085041]" and "bg-[#08281f]" hardcoded in MAP_ROWS config for section nav accent bars	No hardcoded hex — CSS vars only	Lines 209, 259
+Issues NOT in the design doc (suggested additions)

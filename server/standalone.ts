@@ -61,6 +61,7 @@ function log(message: string, source = "express") {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
+  console.log(`[SESSION DEBUG] ${req.method} ${req.path}`, req.session);
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
@@ -238,7 +239,30 @@ app.get("/api/clinic/bookings", isClinicAuthenticated, async (req, res) => {
     return res.status(404).json({ message: "Clinic not found" });
   }
   const bookings = await storage.getBookingsByClinicId(clinic.id);
-  res.json(bookings);
+  res.json(bookings.map(b => ({
+    ...b,
+    clinicDoctors: clinic.doctors || []
+  })));
+});
+
+app.patch("/api/clinic/bookings/:id/assign-doctor", isClinicAuthenticated, async (req, res) => {
+  const bookingId = parseInt(req.params.id);
+  const { doctorName } = req.body;
+  
+  const clinicId = req.session.clinicId!;
+  const booking = await storage.getBookingById(bookingId);
+  
+  if (!booking) {
+    return res.status(404).json({ message: "Booking not found" });
+  }
+
+  const slot = await storage.getSlot(booking.slotId);
+  if (!slot || slot.clinicId !== clinicId) {
+    return res.status(403).json({ message: "Not authorized" });
+  }
+
+  const updatedBooking = await storage.updateBookingAssignment(bookingId, doctorName);
+  res.json(updatedBooking);
 });
 
 app.delete("/api/clinic/bookings/:id", isClinicAuthenticated, async (req, res) => {

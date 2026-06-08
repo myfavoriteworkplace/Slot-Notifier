@@ -1,0 +1,29 @@
+Good, I can see exactly the current state. The background below the hero banner is a near-flat hsl(210 20% 98%) — almost pure white in light mode, and a flat dark navy in dark mode. The fixed glow blobs exist in code but are at only 5% opacity, making them almost invisible against the near-white surface. Let me give you concrete options:
+
+Option A — Mesh Gradient Skin (most popular in modern SaaS)
+Change the page background from flat white to a subtle multi-point gradient mesh — 4–5 radial blobs of violet, cyan, indigo, and fuchsia at 6–10% opacity overlaid on a very slightly tinted base. No hard edges, everything bleeds into each other like an aurora. Think Stripe, Vercel's home page, or Linear's dark mode.
+
+Light mode: base shifts from near-white to a very subtle hsl(247 30% 97%) (a cool lavender-white), with coloured blobs bleeding in from corners
+Dark mode: base shifts to deep indigo-black hsl(248 50% 4%) with the same blobs at higher opacity (~12%)
+Result: the page feels like it has ambient glow from the UI elements themselves, not just a flat surface
+Option B — Dot Matrix / Grid Overlay
+Keep the background colour but add a repeating micro dot grid (SVG circle pattern) at 3–4% opacity as a CSS background-image. The grid is invisible in bright areas and shows slightly in mid-tone regions, giving a "digital/tech board" feel.
+
+Optionally pair with slightly tinted base (like Option A)
+Can be combined with the existing glow blobs
+Result: very subtle, won't distract from content, but adds clear "digital" texture — used by Figma, Raycast, Notion
+Option C — Diagonal Scan Lines (most cinematic)
+A set of ultra-fine diagonal or horizontal lines at 1–2% opacity across the entire page background — like a CRT/holographic screen texture. Typically paired with a dark background.
+
+Works best in dark mode
+Result: very sci-fi, similar to the look of Tron or modern terminal aesthetics — dramatic but only suitable if you prefer a darker overall feel
+Option D — Dark "Space" Base + Boost Existing Glows (least disruptive)
+No new pattern — just change the background CSS variable from near-white to a slightly tinted cool white (hsl(245 35% 97%)), and raise the existing fixed glow blob opacity from 5% to 15–20% so they're actually visible. The blobs already sit in the right positions; they just need to be more prominent.
+
+Result: very low-risk change — the page goes from feeling sterile to feeling like it has ambient environmental lighting from the UI
+What I recommend
+Option A + B combined: A subtle lavender-tinted base (hsl(247 30% 97%) light / hsl(248 50% 4%) dark) with a dot grid overlay at 3% opacity, and the existing glow blobs boosted to 12–15% opacity. This hits the futuristic feel without overwhelming content — it's the same approach used by the leading design tools today.
+
+This change would apply globally (via index.css) so every page — booking, login, dashboard — would benefit.
+
+Would you like me to go ahead with the combined Option A + B approach, or would you prefer one of the other options?

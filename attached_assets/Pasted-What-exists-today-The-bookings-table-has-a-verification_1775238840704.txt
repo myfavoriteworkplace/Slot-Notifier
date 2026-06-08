@@ -1,0 +1,26 @@
+What exists today
+The bookings table has a verificationStatus field with four states: pending, verified, confirmed, and cancelled. When an admin assigns a doctor to a booking (via the assign-doctor route), it simply writes the doctor's name and email onto the booking record. The doctor's dashboard then picks up all bookings where their email matches — there is no gate, no approval step.
+
+What needs to change
+Here is every piece I would need to modify:
+1. Database schema Add a single new column doctorApprovalStatus to the bookings table with three possible values: pending, approved, declined, and null (null meaning the feature does not apply, which covers all existing appointments so nothing breaks).
+2. Backend — assign-doctor route When an admin assigns a doctor, automatically set doctorApprovalStatus to pending and send the doctor a notification.
+3. Backend — two new doctor routes
+* PATCH /api/doctor/bookings/:id/approve — sets status to approved, triggers patient confirmation email and notification
+* PATCH /api/doctor/bookings/:id/decline — sets status to declined, sends notification to the clinic admin
+4. Backend — admin confirm route (existing) When admin confirms a booking that has a doctor assigned and doctorApprovalStatus is still pending, it should bypass the doctor approval and send a notification to the doctor saying the admin confirmed on their behalf.
+5. Doctor Dashboard frontend
+* New amber stat card showing count of appointments awaiting their approval
+* New "Awaiting" tab in the filter bar
+* Accept and Decline buttons visible only on the awaiting tab
+* The existing appointments list filters out pending ones so it stays clean
+6. Notifications Four new notification triggers:
+* Doctor notified when assigned (existing, just needs to be confirmed)
+* Doctor notified when admin confirms on their behalf
+* Admin notified when doctor declines
+* Patient notified when doctor or admin confirms
+
+What will not change
+* All existing appointments stay exactly as they are — the new doctorApprovalStatus column will be null for them, and every existing query will continue to work unchanged
+* The public booking flow is untouched
+* Admin still has full override capability

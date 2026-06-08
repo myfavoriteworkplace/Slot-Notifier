@@ -1,0 +1,50 @@
+Error: Connection terminated unexpectedly
+    at /opt/render/project/src/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async i._asyncQuery (/opt/render/project/src/dist/index.cjs:70:30025)
+[STATIC] API route not matched: GET /api/health
+4:34:29 PM [express] GET /api/health 404 in 1ms :: {"message":"API endpoint not found","path":"/api/health","method":"GET","suggestion":"Ensure the path matches exactly and CORS is configured correctly for cross-origin requests."}
+[STATIC] API route not matched: GET /api/health
+4:34:40 PM [express] GET /api/health 404 in 1ms :: {"message":"API endpoint not found","path":"/api/health","method":"GET","suggestion":"Ensure the path matches exactly and CORS is configured correctly for cross-origin requests."}
+[STATIC] API route not matched: GET /api/health
+4:34:52 PM [express] GET /api/health 404 in 0ms :: {"message":"API endpoint not found","path":"/api/health","method":"GET","suggestion":"Ensure the path matches exactly and CORS is configured correctly for cross-origin requests."}
+[ERROR] 2026-03-25T16:34:52.631Z - 500: Connection terminated unexpectedly
+[ERROR DETAILS] Method: GET, Path: /api/auth/doctor/me
+[ERROR STACK] Error: Connection terminated unexpectedly
+    at /opt/render/project/src/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async i._asyncQuery (/opt/render/project/src/dist/index.cjs:70:30025)
+[ERROR] 2026-03-25T16:34:52.662Z - 500: Connection terminated unexpectedly
+[ERROR DETAILS] Method: GET, Path: /api/auth/clinic/me
+[ERROR STACK] Error: Connection terminated unexpectedly
+    at /opt/render/project/src/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async i._asyncQuery (/opt/render/project/src/dist/index.cjs:70:30025)
+[ERROR] 2026-03-25T16:34:52.663Z - 500: Connection terminated unexpectedly
+[ERROR DETAILS] Method: GET, Path: /api/auth/user
+[ERROR STACK] Error: Connection terminated unexpectedly
+    at /opt/render/project/src/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async i._asyncQuery (/opt/render/project/src/dist/index.cjs:70:30025)
+Error: Connection terminated unexpectedly
+    at /opt/render/project/src/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async i._asyncQuery (/opt/render/project/src/dist/index.cjs:70:30025)
+Error: Connection terminated unexpectedly
+    at /opt/render/project/src/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async i._asyncQuery (/opt/render/project/src/dist/index.cjs:70:30025)
+Error: Connection terminated unexpectedly
+    at /opt/render/project/src/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async i._asyncQuery (/opt/render/project/src/dist/index.cjs:70:30025)
+[ERROR] 2026-03-25T16:34:58.968Z - 500: Connection terminated unexpectedly
+[ERROR DETAILS] Method: POST, Path: /api/auth/clinic/login
+[ERROR STACK] Error: Connection terminated unexpectedly
+    at /opt/render/project/src/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async i._asyncQuery (/opt/render/project/src/dist/index.cjs:70:30025)
+Error: Connection terminated unexpectedly
+    at /opt/render/project/src/dist/index.cjs:70:13330
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async i._asyncQuery (/opt/render/project/src/dist/index.cjs:70:30025)

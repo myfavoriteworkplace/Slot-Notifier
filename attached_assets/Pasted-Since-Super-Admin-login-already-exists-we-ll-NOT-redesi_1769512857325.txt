@@ -1,0 +1,206 @@
+Since Super Admin login already exists, we’ll NOT redesign it, only verify + harden it, and then focus on implementing Doctor login cleanly with a shared Clinic/Doctor flow.
+Below is a clear, practical, step-by-step implementation plan, followed by very detailed Replit prompts (batch-wise).
+
+🔐 FINAL AUTH DESIGN (CONFIRMED)
+Login Page	Who Uses It	Status
+Super Admin Login	App owner	✅ Already exists → verify & harden only
+Clinic / Doctor Login	Clinic admins + Doctors	🆕 Implement
+PART 1: SIMPLE HIGH-LEVEL STEPS (READ THIS FIRST)
+Step 1️⃣ – Cross-check Super Admin flow
+Ensure role isolation
+Ensure super admin cannot login via shared login
+Ensure route guards exist
+👉 Only fix if missing
+Step 2️⃣ – Extend user model for Doctors
+Doctors become first-class users
+Single users table with roles
+Step 3️⃣ – Doctor creation flow
+Super admin OR clinic admin can add doctor
+Doctor created as INVITED
+Email invite sent with token
+Step 4️⃣ – Shared Clinic/Doctor login
+Email OR username
+Same login page
+Backend decides role
+Step 5️⃣ – Doctor dashboard & permissions
+Doctor sees assigned patients
+Can add diagnosis & prescription
+Read-only clinic info
+Step 6️⃣ – Route guards & security
+Enforce role-based access
+Prevent privilege escalation
+PART 2: DATA MODEL (VERY IMPORTANT)
+users table
+id
+email
+username (nullable)
+password_hash
+role (SUPER_ADMIN | CLINIC_ADMIN | DOCTOR)
+status (INVITED | ACTIVE | SUSPENDED)
+created_by (admin id)
+doctor_clinics
+doctor_id
+clinic_id
+appointments / bookings
+id
+clinic_id
+doctor_id
+patient_id
+slot_id
+PART 3: BATCH-BY-BATCH REPLIT PROMPTS (DETAILED)
+🔹 BATCH 0: SUPER ADMIN FLOW – VERIFY ONLY
+🎯 Goal
+Do nothing unless broken.
+📌 Replit Prompt
+Verify existing Super Admin authentication.
+
+Checklist:
+1. Confirm Super Admin has role = SUPER_ADMIN.
+2. Ensure Super Admin cannot login via /api/auth/login.
+3. Ensure Super Admin login endpoint is isolated.
+4. Confirm route guards prevent non-super-admin access.
+5. If any item is missing, implement it.
+Otherwise, do NOT change existing logic.
+🔹 BATCH 1: USER & ROLE PREPARATION
+🎯 Goal
+Prepare system for doctors.
+📌 Replit Prompt
+Prepare user model for Doctor role.
+
+Tasks:
+1. Add role DOCTOR to user roles enum.
+2. Add status field if not present (INVITED, ACTIVE).
+3. Ensure username is optional and unique.
+4. Add created_by reference.
+5. Do NOT break existing clinic admin users.
+🔹 BATCH 2: DOCTOR CREATION FLOW
+🎯 Goal
+Admins can add doctors safely.
+📌 Replit Prompt
+Implement doctor creation flow.
+
+Requirements:
+1. Super Admin and Clinic Admin can create doctors.
+2. Doctors must be associated with one or more clinics.
+3. Create doctor user with:
+   - role = DOCTOR
+   - status = INVITED
+   - no password initially
+4. Save clinic-doctor mapping.
+5. Prevent duplicate emails.
+🔹 BATCH 3: EMAIL INVITE + PASSWORD SETUP
+🎯 Goal
+Secure onboarding.
+📌 Replit Prompt
+Implement doctor invitation flow.
+
+Requirements:
+1. Generate single-use invite token (expires in 24h).
+2. Email invite with secure link:
+   /activate-account?token=XXX
+3. Activation page allows:
+   - Set password
+   - Set username (optional)
+4. Activate account only once.
+5. Mark user status = ACTIVE.
+🔹 BATCH 4: SHARED LOGIN (CLINIC + DOCTOR)
+🎯 Goal
+One login, two roles.
+📌 Replit Prompt
+Implement shared login endpoint.
+
+Endpoint: POST /api/auth/login
+
+Rules:
+1. Accept identifier (email OR username).
+2. Allow roles:
+   - CLINIC_ADMIN
+   - DOCTOR
+3. Reject SUPER_ADMIN logins.
+4. Reject status != ACTIVE.
+5. Return:
+   - userId
+   - role
+   - associated clinic IDs
+🔹 BATCH 5: FRONTEND LOGIN + REDIRECT
+🎯 Goal
+Smooth UX.
+📌 Replit Prompt
+Implement frontend login redirect logic.
+
+Rules:
+1. After login:
+   - CLINIC_ADMIN → /clinic/dashboard
+   - DOCTOR → /doctor/dashboard
+2. Persist auth state.
+3. Show role-based navigation.
+4. Hide admin-only options from doctors.
+🔹 BATCH 6: DOCTOR DASHBOARD (CORE FEATURE)
+🎯 Goal
+Doctors do real work here.
+📌 Replit Prompt
+Create Doctor Dashboard.
+
+Features:
+1. List assigned patients grouped by clinic.
+2. View appointment details.
+3. Add diagnosis notes.
+4. Add prescription entries.
+5. Doctors cannot:
+   - Edit clinic
+   - Edit other doctors
+   - Access admin dashboards
+🔹 BATCH 7: ACCESS CONTROL (CRITICAL)
+🎯 Goal
+Prevent data leaks.
+📌 Replit Prompt
+Implement strict role-based access control.
+
+Rules:
+1. Doctors can only access:
+   - their assigned clinics
+   - their assigned patients
+2. Clinic admins cannot access:
+   - doctor-only dashboards
+3. Super admin bypasses all restrictions.
+4. Add backend guards for every route.
+🔹 BATCH 8: AUDIT & SAFETY (OPTIONAL BUT STRONG)
+🎯 Goal
+Production-ready system.
+📌 Replit Prompt
+Add audit logging.
+
+Track:
+1. Doctor login/logout
+2. Prescription creation
+3. Diagnosis updates
+4. Admin doctor creation
+Store:
+- actor_id
+- action
+- timestamp
+- clinic_id
+✅ WHY THIS DESIGN WILL SCALE
+✔ Clean separation
+✔ No duplicate users
+✔ Email-based identity
+✔ Secure onboarding
+✔ Easy to add mobile app later
+✔ Works for multi-clinic doctors
+WHAT YOU SHOULD DO NEXT
+👉 Copy Batch 0 to Replit first
+👉 Then run Batch 1 → Batch 4
+👉 Stop and test
+👉 Continue with dashboards
+If you want, I can next:
+
+Write exact SQL migrations
+Create Angular route guards
+Design doctor dashboard UI
+Add 2FA only for super admin
+Just say the word 🚀
+
+
+
+
+ChatGPT can make mistakes. Check important info. See Cookie Preferences.

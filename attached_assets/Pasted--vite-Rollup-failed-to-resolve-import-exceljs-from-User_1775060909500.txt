@@ -1,0 +1,72 @@
+
+[vite]: Rollup failed to resolve import "exceljs" from "/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/components/ExportDataPanel.tsx".
+This is most likely unintended because it can break your application at runtime.
+If you do want to externalize this module explicitly add it to
+`build.rollupOptions.external`
+    at viteLog (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/vite/dist/node/chunks/config.js:33634:57)
+    at <anonymous> (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/vite/dist/node/chunks/config.js:33668:73)
+    at onwarn (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@vitejs/plugin-react/dist/index.js:90:7)
+    at <anonymous> (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/vite/dist/node/chunks/config.js:33668:28)
+    at onRollupLog (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/vite/dist/node/chunks/config.js:33663:63)
+    at onLog (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/vite/dist/node/chunks/config.js:33466:4)
+    at <anonymous> (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/rollup/dist/es/shared/node-entry.js:21004:32)
+    at Object.logger (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/rollup/dist/es/shared/node-entry.js:22891:9)
+    at ModuleLoader.handleInvalidResolvedId (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/rollup/dist/es/shared/node-entry.js:21635:26)
+    at ModuleLoader.resolveDynamicImport (/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/rollup/dist/es/shared/node-entry.js:21693:58) {
+  watchFiles: [
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/index.html',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/main.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/package.json',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/react/jsx-runtime.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/react-dom/client.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/index.css',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/App.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/react-dom/index.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/react/cjs/react-jsx-runtime.production.min.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/wouter/esm/index.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/index.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/react/index.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/next-themes/dist/index.mjs',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/components/ui/tooltip.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/components/Header.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/lib/queryClient.ts',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/lucide-react/dist/esm/lucide-react.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/hooks/use-clinic-auth.ts',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/not-found.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/Admin.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/components/ui/toaster.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/Landing.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/ClinicDashboard.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/Dashboard.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/ClinicAbout.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/DoctorDashboard.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/SetupPassword.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/SmileDeals.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/ClinicLogin.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/hooks/use-auth.ts',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/Book.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/GettingStarted.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/DoctorPublicProfile.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/client/src/pages/RegisterClinic.tsx',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/react-dom/cjs/react-dom.production.min.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/wouter/esm/react-deps.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/regexparam/dist/index.mjs',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/wouter/esm/use-browser-location.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/query-core/build/modern/index.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/types.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/useSuspenseQuery.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/useSuspenseInfiniteQuery.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/useSuspenseQueries.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/useQueries.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/usePrefetchInfiniteQuery.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/usePrefetchQuery.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/useQuery.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/queryOptions.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/infiniteQueryOptions.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/useIsFetching.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/useMutationState.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/useMutation.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/useInfiniteQuery.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/QueryErrorResetBoundary.js',
+    '/Users/aruntharakan/Desktop/My_Documents/CODING_EXERCISE/book-my-slot-2026-03-08/Slot-Notifier/node_modules/@tanstack/react-query/build/modern/isRestoring.js',

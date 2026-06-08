@@ -1,0 +1,81 @@
+AI AGENT FEEDBACK
+
+Core Structural Transformation
+To bring BookMySlot to market-standard SaaS quality, your AI Agent needs to transform the layout from an element-heavy, unaligned grid into a Unified Component Engine. Both screens must use identical structural footprints, borders, and typographic scales, changing only the contextual data and specific action buttons based on the user's role.
+Detailed Specification of Proposed Changes
+1. Header Zone & Profile Alignment
+* Remove Explicit Email Fields: Long strings like creditsmanager.arun@gmail.com clutter the UI layout. Instruct your agent to hide this behind a hover tooltip or pull it into a dedicated detail drawer.
+* Format Demographics: Group unstructured data points like 30y and F into a clean metadata sequence: [Phone Number] • [Age / Gender].
+* Unify Status Stack: Standardize positioning for queue indexes (e.g., #05), current status tags (PENDING, CONFIRMED), and historical status markers (PAST) into a predictable flexbox stack in the upper right quadrant.
+2. Body Zone & Information Architecture
+* Standardize Date-Time: Replace different formatting types with a unified string template: [Icon] Day, DD Month | HH:MM AM/PM — HH:MM AM/PM ([Duration] min).
+* Role-Specific Metadata:
+    * Clinic Admin View: Displays the operational tracker (🩺 Doctor Name + AWAITING DR. badge) and the tracking anchor (🆔 ID: PAT-0005).
+    * Doctor View: Displays location context (🏥 Elite Dental Studio (Kochi)) and clinical indicators (📝 Chief Complaintchips).
+3. Action Footer Zone
+* Consistent Component Containers: Replace the floating links with structured action footers.
+* Clinic Admin Actions: Primary action button for transactional management (Collect Bill) alongside a low-emphasis utility action (Cancel Appointment).
+* Doctor Dashboard Actions: Action buttons for healthcare delivery workflows (View Notes and Issue Rx / Records).
+
+
+Analysis vs. Blueprint
+What the blueprints specify (both images)
+Both cards should share an identical structural footprint with three zones, changing only role-specific data:
+┌─ HEADER ──────────────────────────────────────────────────┐
+│ (A) Patient Name [#05] [ STATUS ] [ TODAY ] │
+│ +91 97467 67146 • 30y / Male │
+├─ BODY ─────────────────────────────────────────────────────┤
+│ 📅 Fri, 29 May | 09:00 AM – 12:00 PM (180 min) │
+│ │
+│ CLINIC VIEW: 🩺 Dr. Name [ AWAITING DR. ] │
+│ 🆔 Patient ID: PAT-0005 │
+│ │
+│ DOCTOR VIEW: 🏥 Elite Dental Studio (Kochi) │
+│ 📝 [ Sensitivity ] [ Swelling ] [ Wisdom ] │
+├─ FOOTER ──────────────────────────────────────────────────┤
+│ CLINIC: [ Collect Bill ] | [ × Cancel ] │
+│ DOCTOR: [ View Notes ] | [ Issue Rx / Rec ] │
+└───────────────────────────────────────────────────────────┘
+
+
+Gap-by-gap comparison
+Zone	Clinic Card now	Doctor Card now	Blueprint wants	Change needed?
+Header avatar	✅ Rounded-xl, light tint	✅ Rounded, green gradient	Same structure	Minor unification
+Header name + queue#	✅ Name + #05 badge	✅ Name + REF-XXXX	Same	No
+Header demographics	✅ Phone · Age/Gender line	❌ Missing entirely	Both need it	Doctor card: add
+Header status badge	✅ Status pill (Confirmed/Pending/Cancelled)	✅ Approval status	Both have it	No
+Header time badge	✅ Today/Past/Upcoming pill	❌ Missing from header	Both right column	Doctor card: add
+Date-time format	✅ Single merged row `EEE, d MMM	h:mm a → h:mm a`	❌ Two separate rows (date row + time sub-row)	Single line with duration
+Email row	⚠️ Hidden mobile, shown sm+	N/A	Remove (clutter)	Clinic card: remove
+Doctor assignment row	✅ Doctor name + AWAITING/CONFIRMED badge	N/A	Clinic only ✅	No
+Patient ID body row	⚠️ Inline badge in header	N/A	Body row with 🆔 icon	Clinic: move to body
+Clinic name body row	N/A	✅ Shown	Format as "Name (City)"	Doctor: format
+Chief complaint chips	✅ Present	✅ Present	Both ✅	No
+Clinical status badge	N/A	✅ Present	Doctor only ✅	No
+Action footer — bill	❌ Only inside dialog	N/A	Card-face button	Clinic: add Collect Bill
+Action footer — cancel	❌ Only inside dialog	N/A	Card-face button	Clinic: add Cancel
+Action footer — notes/rx	N/A	❌ Tiny text links	Proper buttons	Doctor: promote to buttons
+Exact changes I will make
+Doctor Dashboard card (5 changes):
+1. Header — add demographics line: +91 Phone • 30y / Male — data is available in booking.customerPhone, (booking as any).customerAge, (booking as any).customerGender
+2. Header — add time badge: "Today / Tomorrow / In Xd" mini-badge in the right column alongside the approval status badge — same computation as clinic card
+3. Body — unify date-time: Replace the current two-row format (date row + time sub-row) with a single line: Fri, 29 May | 09:00 AM – 12:00 PM (180 min) — matches clinic card exactly
+4. Body — clinic format: "Clinic Name (City)" — extract city from address if available: clinicName + (clinicAddress ? (${clinicAddress.split(',').at(-1)?.trim()}): "")
+5. Footer — promote action buttons: Replace "Notes · Rx/Records" text links with two proper Button components:
+    * "View Notes" — variant="outline", opens modal to Notes tab
+    * "Issue Rx / Rec" — primary teal, opens modal to Records tab
+    * Accept/Decline buttons for pending bookings stay exactly as-is above
+
+Clinic Admin card (4 changes):
+1. Body — remove email row: {booking.customerEmail && ...} block removed. Email is already in the detail dialog header — no information is lost.
+2. Body — Patient ID row: Move patientCode from the inline badge in the header name line → a dedicated body row with an ID icon: 🆔 PAT-0005 (shown only when patientCode exists)
+3. Footer — Collect Bill button: Add outside DialogTrigger, calls existing handleOpenBilling(booking) with e.stopPropagation(). Hidden for past/cancelled bookings.
+4. Footer — Cancel button: Opens a simple inline AlertDialog ("Cancel this appointment?") with a default reason string, calls cancelBookingMutation. Hidden for already-cancelled and past bookings. For cancellations that need a custom reason, the full detail dialog is still one click away.
+
+What stays completely untouched:
+* The detail dialog content in both cards (all tabs, all mutations)
+* Clinic card's accentBar, leftBorder, headerBg, status/time pill logic
+* Doctor card's Accept/Decline buttons (pending state)
+* Chief complaint chips (just added)
+* All backend mutations and API calls
+* The patient detail modal popup (doctor card — just implemented)

@@ -1,0 +1,48 @@
+Confirmed Understanding
+Change 1 — Patient card "slot badge" → treatment category
+File: AppointmentCard.tsx lines 323–327 Current: violet badge showing "3 slots · 75 min" when slotCost > 1 How category reaches the card: The clinic saves "Category: Cleaning / Preventive" into booking.description (ClinicDashboard line 902). I'll parse that from description. Proposed: e.g. "Major Procedures (3 slots · 75 min)" — category name as main label, time info in brackets. If no category stored, fall back to just "3 slots · 75 min" as now.
+
+Change 2 — Category dropdown items: remove "· 50 min"
+File: ClinicDashboard.tsx lines 5659–5663 Current: "Consultation · 25 min", "Cleaning / Preventive · 50 min" etc. Proposed: Just the category name + slot count in brackets, no time: "Consultation (1 slot)", "Cleaning / Preventive (2 slots)", "Major Procedures (3 slots)" Also: The info chip below the dropdown (line 5671) currently shows "2 slots · 50 min reserved for this procedure". I'll strip the time there too → "2 slots reserved for this procedure".
+
+Change 3 — Available Time Slots: add slot-time context
+File: ClinicDashboard.tsx line 5860 Current: Just the "AVAILABLE TIME SLOTS" uppercase label, nothing else Proposed: Inline sub-text after the label: "AVAILABLE TIME SLOTS" · "1 slot ≈ 25 min" on the same line (small muted badge/text to the right of the heading)
+
+🔍 Book-a-Slot Design Doc Analysis
+Here's what I found comparing the entire clinic admin Book-a-Slot panel against docs/agent-screen-design-prompt.md:
+
+🔴 Critical Violations (design doc explicitly prohibits)
+1. Emoji strings used as icons in Chief Complaints Lines 5737–5739: {cat.emoji} renders raw emoji strings (🦷 🩸 🕳️ 💔 🔀 🫥 ✨ 🤒 👶 🦴 😬 🧹). The design doc says: "Never use emoji strings (cat.emoji, "🦷") as icons in production components — always use a React icon component." Correct fix: replace each with an LiaIcon or MdIcon from react-icons/lia or react-icons/md.
+
+🟡 Medium Violations (rules clearly exist, broken in multiple places)
+2. Touch target below 44 px floor — selected-slot clear button Line 5935: The × button that clears the selected slot is h-5 w-5 (20 px). Design doc requires icon-only buttons to be h-11 w-11.
+3. Mobile padding not responsive — outer card & left column
+* Line 5470: Outer card content area is p-5 flat. Rule: p-3 sm:p-5.
+* Line 5523: Left column stacks with flat space-y-4. Rule: space-y-3 sm:space-y-4.
+* Line 5520: Two-column layout uses flat gap-6. Rule: gap-5 lg:gap-6.
+4. active: states missing on interactive slot buttons Lines 5884–5915: The slot selection buttons have hover:border-primary/30 hover:bg-primary/5 but no active: variant. Design doc: "Every hover: state must have a matching active: state."
+
+🟢 Minor Issues (polish / convention)
+5. Raw Unicode arrow characters ← → in button text Line 6000: "← Back" and "Confirm & Book →" use raw Unicode characters. Convention is to use Lucide ArrowLeft / ArrowRight icon components for all UI chrome arrows.
+6. "← Back" button missing active: state Line 6000: Has no hover: or active: styling beyond the base muted style.
+7. PROCEDURE_SLOT_COST info chip below Category dropdown Line 5671: Shows "2 slots · 50 min" — the "· 50 min" part is redundant once the header declares "1 slot ≈ 25 min". (This is covered by Change 2 above.)
+
+✅ Things that are correct
+* ALL-CAPS section labels use the right class: text-xs font-semibold uppercase tracking-wide text-muted-foreground ✓
+* Slot buttons have min-h-[44px] via py-2.5 + icon height totalling ~56 px ✓
+* Complaint category accordion rows have min-h-[44px] explicitly set ✓
+* Patient suggestion dropdown rows have min-h-[44px] ✓
+* data-testid attributes present on all interactive elements ✓
+* onFocus scroll-into-view on Name input ✓
+* Empty state for slot panel ("Tap a date above to see available slots") ✓
+* Loading skeleton for slots ✓
+
+Summary Table
+#	Issue	Severity	File	Lines
+1	Emoji strings as icons in Chief Complaints	🔴 Critical	ClinicDashboard.tsx	5737–5739
+2	Touch target h-5 w-5 on clear-slot button	🟡 Medium	ClinicDashboard.tsx	5935
+3	Mobile padding not responsive (3 places)	🟡 Medium	ClinicDashboard.tsx	5470, 5520, 5523
+4	active: state missing on slot buttons	🟡 Medium	ClinicDashboard.tsx	5884
+5	Raw ← → Unicode in button text	🟢 Minor	ClinicDashboard.tsx	6000
+6	Back button missing hover/active styling	🟢 Minor	ClinicDashboard.tsx	6000
+Ready to act once you give the go-ahead. Want me to:

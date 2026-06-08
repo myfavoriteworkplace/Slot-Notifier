@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web"]
+modules = ["nodejs-20", "web", "postgresql-16", "python-3.11"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
@@ -14,7 +14,7 @@ PORT = "5000"
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["node", "./dist/index.cjs"]
+run = ["npm", "start"]
 build = ["npm", "run", "build"]
 
 [workflows]
@@ -44,11 +44,25 @@ waitForPort = 5000
 [agent]
 integrations = ["javascript_log_in_with_replit:2.0.0"]
 expertMode = true
+stack = "FULLSTACK_JS"
 
 [userenv]
 
 [userenv.shared]
 ADMIN_EMAIL = "itsmyfavoriteworkplace@gmail.com"
-ADMIN_PASSWORD = "Arun@1234"
-RESEND_API_KEY = "re_KAYpcUw4_6rveZtUcbwFGchjM6JEA6P3y"
 EMAIL_FROM = "alerts@book-my-slot.itsmyfavoriteworkplace.workers.dev"
+VITE_API_URL = ""
+VITE_RAZORPAY_KEY_ID = "rzp_test_SZV9zC0qD6WjHH"
+RAZORPAY_KEY_ID = "rzp_test_SZV9zC0qD6WjHH"
+RAZORPAY_PLAN_ID_STARTER_MONTHLY = "plan_starter_monthly_placeholder"
+RAZORPAY_PLAN_ID_STARTER_ANNUAL = "plan_starter_annual_placeholder"
+RAZORPAY_PLAN_ID_GROWTH_MONTHLY = "plan_growth_monthly_placeholder"
+RAZORPAY_PLAN_ID_GROWTH_ANNUAL = "plan_growth_annual_placeholder"
+RAZORPAY_PLAN_ID_PRO_MONTHLY = "plan_pro_monthly_placeholder"
+RAZORPAY_PLAN_ID_PRO_ANNUAL = "plan_pro_annual_placeholder"
+RAZORPAY_WEBHOOK_SECRET = "webhook_secret_placeholder"
+PORT = "5000"
+NODE_ENV = "development"
+FRONTEND_URL = "http://localhost:5000"
+
+[userenv.development]

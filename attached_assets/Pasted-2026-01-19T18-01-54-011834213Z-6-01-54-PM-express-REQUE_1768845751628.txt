@@ -1,0 +1,31 @@
+2026-01-19T18:01:54.011834213Z 6:01:54 PM [express] [REQUEST] POST /api/clinic/login - IP: 10.23.69.196 - Headers: {"host":"book-my-slot-1.onrender.com","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36","x-forwarded-for":"223.181.14.112, 172.69.122.160, 10.23.69.196"}
+2026-01-19T18:01:54.011855674Z [AUTH-DEBUG] Request: POST /api/clinic/login
+2026-01-19T18:01:54.044942409Z 6:01:54 PM [express] POST /api/clinic/login 404 in 35ms :: {"message":"API endpoint not found","path":"/api/clinic/login","method":"POST","suggestion":"If you are using a cross-site request, ensure CORS is correctly configured and that the path matches exactly."}
+2026-01-19T18:01:55.98850787Z 6:01:55 PM [express] [REQUEST] GET /api/health - IP: 10.21.61.65 - Headers: {"host":"book-my-slot-1.onrender.com","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36","x-forwarded-for":"223.181.14.112, 104.23.160.26, 10.21.61.65"}
+2026-01-19T18:01:55.988526602Z [AUTH-DEBUG] Request: GET /api/health
+2026-01-19T18:01:56.085244025Z [API-RESPONSE] /api/health: {"status":"ok","backend":true,"database":true,"deployment":"render","env":"production","timestamp":"2026-01-19T18:01:56.084Z"}
+2026-01-19T18:01:56.118940493Z 6:01:56 PM [express] GET /api/health 200 in 130ms :: {"status":"ok","backend":true,"database":true,"deployment":"render","env":"production","timestamp":"2026-01-19T18:01:56.084Z"}
+2026-01-19T18:01:56.487355152Z 6:01:56 PM [express] [REQUEST] GET /api/health/backend - IP: 10.21.61.65 - Headers: {"host":"book-my-slot-1.onrender.com","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36","x-forwarded-for":"223.181.14.112, 172.69.122.160, 10.21.61.65"}
+2026-01-19T18:01:56.487543526Z [AUTH-DEBUG] Request: GET /api/health/backend
+2026-01-19T18:01:56.487670325Z [API-RESPONSE] /api/health/backend: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-19T18:01:56.487Z"}
+2026-01-19T18:01:56.521192751Z 6:01:56 PM [express] GET /api/health/backend 200 in 34ms :: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-19T18:01:56.487Z"}
+2026-01-19T18:01:56.835940041Z 6:01:56 PM [express] [REQUEST] GET /api/health/database - IP: 10.19.17.131 - Headers: {"host":"book-my-slot-1.onrender.com","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36","x-forwarded-for":"223.181.14.112, 104.23.160.245, 10.19.17.131"}
+2026-01-19T18:01:56.835955972Z [AUTH-DEBUG] Request: GET /api/health/database
+2026-01-19T18:01:56.866460233Z [API-RESPONSE] /api/health/database: {"status":"ok","database":true,"timestamp":"2026-01-19T18:01:56.866Z"}
+2026-01-19T18:01:56.898907492Z 6:01:56 PM [express] GET /api/health/database 200 in 63ms :: {"status":"ok","database":true,"timestamp":"2026-01-19T18:01:56.866Z"}
+2026-01-19T18:01:57.036595661Z 6:01:57 PM [express] [REQUEST] GET /api/notifications - IP: 10.19.17.131 - Headers: {"host":"book-my-slot-1.onrender.com","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36","x-forwarded-for":"223.181.14.112, 172.69.122.161, 10.19.17.131"}
+2026-01-19T18:01:57.036638224Z [AUTH-DEBUG] Request: GET /api/notifications
+2026-01-19T18:01:57.036949837Z [STATIC] API route not matched: GET /api/notifications
+2026-01-19T18:01:57.069383545Z 6:01:57 PM [express] GET /api/notifications 404 in 32ms :: {"message":"API endpoint not found","path":"/api/notifications","method":"GET","suggestion":"If you are using a cross-site request, ensure CORS is correctly configured and that the path matches exactly."}
+2026-01-19T18:01:59.552490044Z 6:01:59 PM [express] [REQUEST] GET /api/health - IP: 10.23.69.196 - Headers: {"host":"book-my-slot-1.onrender.com","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36","x-forwarded-for":"223.181.14.112, 162.158.54.143, 10.23.69.196"}
+2026-01-19T18:01:59.552611223Z [AUTH-DEBUG] Request: GET /api/health
+2026-01-19T18:01:59.567149097Z 6:01:59 PM [express] [REQUEST] GET /api/health/backend - IP: 10.20.113.68 - Headers: {"host":"book-my-slot-1.onrender.com","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36","x-forwarded-for":"223.181.14.112, 162.158.54.143, 10.20.113.68"}
+2026-01-19T18:01:59.567223573Z [AUTH-DEBUG] Request: GET /api/health/backend
+2026-01-19T18:01:59.567227873Z [API-RESPONSE] /api/health/backend: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-19T18:01:59.567Z"}
+2026-01-19T18:01:59.609223842Z 6:01:59 PM [express] GET /api/health/backend 200 in 36ms :: {"status":"ok","backend":true,"env":"production","timestamp":"2026-01-19T18:01:59.567Z"}
+2026-01-19T18:01:59.609238963Z [API-RESPONSE] /api/health: {"status":"ok","backend":true,"database":true,"deployment":"render","env":"production","timestamp":"2026-01-19T18:01:59.606Z"}
+2026-01-19T18:01:59.652582828Z 6:01:59 PM [express] GET /api/health 200 in 100ms :: {"status":"ok","backend":true,"database":true,"deployment":"render","env":"production","timestamp":"2026-01-19T18:01:59.606Z"}
+2026-01-19T18:01:59.917709197Z 6:01:59 PM [express] [REQUEST] GET /api/health/database - IP: 10.20.113.68 - Headers: {"host":"book-my-slot-1.onrender.com","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36","x-forwarded-for":"223.181.14.112, 162.158.54.142, 10.20.113.68"}
+2026-01-19T18:01:59.917834295Z [AUTH-DEBUG] Request: GET /api/health/database
+2026-01-19T18:01:59.947575342Z [API-RESPONSE] /api/health/database: {"status":"ok","database":true,"timestamp":"2026-01-19T18:01:59.947Z"}
+2026-01-19T18:01:59.995694267Z 6:01:59 PM [express] GET /api/health/database 200 in 77ms :: {"status":"ok","database":true,"timestamp":"2026-01-19T18:01:59.947Z"}

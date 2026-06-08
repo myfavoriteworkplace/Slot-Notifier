@@ -1,0 +1,156 @@
+  const createClinicMutation = useMutation({
+    mutationFn: async (data: { 
+      name: string; 
+      address: string; 
+      email?: string;
+      phone?: string;
+      website?: string;
+      doctors?: { name: string; specialization: string; degree: string }[];
+    }) => {
+      const res = await apiRequest('POST', '/api/clinics', data);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to add clinic");
+      }
+      return res.json();
+    },
+    onSuccess: async (clinic) => {
+      if (newClinicUsername && newClinicPassword) {
+        await setCredentialsMutation.mutateAsync({ 
+          clinicId: clinic.id, 
+          username: newClinicUsername, 
+          password: newClinicPassword 
+        });
+      }
+      await queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+      setNewClinicName("");
+      setNewClinicAddress("");
+      setNewClinicEmail("");
+      setNewClinicPhone("");
+      setNewClinicWebsite("");
+      setNewClinicDoctors([]);
+      setNewClinicUsername("");
+      setNewClinicPassword("");
+      toast({ title: "Clinic added successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to add clinic", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  }); -  curl 'https://book-my-slot-1.onrender.com/api/clinics' \
+  -H 'accept: */*' \
+  -H 'accept-language: en-US,en;q=0.9' \
+  -H 'content-type: application/json' \
+  -H 'origin: https://book-my-slot-client.onrender.com' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://book-my-slot-client.onrender.com/' \
+  -H 'sec-ch-ua: "Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: cross-site' \
+  -H 'sec-fetch-storage-access: none' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36' \
+  --data-raw $'{"name":"Dr Gijo\'s Dental Solutions","address":"Kuruttukulam Arcade, 1st Floor Above ESSAF Bank Near Old KSRTC Bus Stand Kanjiramattom Bypass,","email":"drgijosdentalsolutions@gmail.com","phone":"+91 8111949498","website":"https://drgijosdentalsolutions.com/"}'
+Good, this example makes the problem very clear 👍
+Short answer first:
+Your /api/clinics POST is failing in prod because the request is NOT authenticated (no session cookie is being sent), even though your frontend mutation works locally.
+
+Now let’s break it down cleanly and fix it properly.
+
+What your React code is doing (✅ correct)
+const res = await apiRequest('POST', '/api/clinics', data);
+Your apiRequest does include credentials:
+credentials: "include"
+So from the browser, this works only if:
+Admin is logged in
+connect.sid cookie is present
+Cookie is allowed cross-site (SameSite=None; Secure)
+Backend trusts proxy (you fixed this 👍)
+What your curl command is missing (❌ root cause)
+Your curl request does NOT send the session cookie.
+There is no -b connect.sid=... in this call:
+
+curl 'https://book-my-slot-1.onrender.com/api/clinics'
+So backend sees:
+req.session === undefined OR empty
+Which means:
+👉 Admin is not authenticated
+👉 Backend either rejects or falls through
+👉 In some cases you get HTML (SPA fallback) instead of JSON
+Why it sometimes returns HTML (important)
+This part of your server is the key:
+app.get("*", (req, res, next) => {
+  if (!req.path.startsWith("/api")) {
+    return serveStatic(app)(req, res, next);
+  }
+  next();
+});
+If:
+route mismatch
+auth middleware exits early
+response already sent incorrectly
+👉 Express falls back to Vite / SPA HTML
+That’s why you see:
+
+<!DOCTYPE html>
+<script type="module" src="/@vite/client"></script>
+This is not a CORS bug — it’s an auth/session flow issue.
+✅ Correct curl command (this WILL work)
+First, login and capture the cookie:
+curl -i -c cookies.txt \
+  -X POST https://book-my-slot-1.onrender.com/api/auth/admin/login \
+  -H "Content-Type: application/json" \
+  --data '{"email":"admin@email.com","password":"password"}'
+Now create clinic with session cookie:
+curl -b cookies.txt \
+  -X POST https://book-my-slot-1.onrender.com/api/clinics \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://book-my-slot-client.onrender.com" \
+  --data '{
+    "name":"Dr Gijo\'s Dental Solutions",
+    "address":"Kuruttukulam Arcade...",
+    "email":"drgijosdentalsolutions@gmail.com",
+    "phone":"+91 8111949498",
+    "website":"https://drgijosdentalsolutions.com/"
+  }'
+✅ Why this works in local but not prod
+Thing	Local	Production
+Same origin	yes	❌ cross-site
+Cookie secure	false	✅ true
+SameSite	lax	none
+HTTPS	optional	mandatory
+Missing cookie	browser hides it	backend sees nothing
+So prod is stricter, as it should be.
+🔒 Important backend check (verify once)
+Ensure /api/clinics route does something like:
+if (!req.session?.adminLoggedIn) {
+  return res.status(401).json({ message: "Unauthorized" });
+}
+NOT:
+silent return
+next() without response
+This prevents HTML fallback leaks.
+🟢 Will this break in prod?
+No — your setup is now correct ✅
+Once:
+admin logs in from frontend
+cookies flow correctly
+requests use credentials: "include"
+Everything will work consistently.
+Final sanity checklist (you’re almost done)
+✔ app.set("trust proxy", 1)
+✔ cookie.secure = true in prod
+✔ sameSite: "none"
+✔ credentials: true in CORS
+✔ frontend uses credentials: "include"
+✔ API_BASE_URL is single & consistent
+If you want, next I can:
+simplify your double apiRequest definitions
+add a hard JSON-only API guard
+or help you add role-based middleware so this never happens again
+Just say the word 🚀

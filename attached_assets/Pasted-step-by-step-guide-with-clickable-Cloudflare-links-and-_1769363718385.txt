@@ -1,0 +1,175 @@
+step-by-step guide (with clickable Cloudflare links and exact UI choices) for setting up Cloudflare R2, creating a bucket, generating credentials, integrating it into your Node.js/Express + frontend app, plus note the CORS & signed-URL issues you hit and how to fix them.
+🚀 1) Sign up & Log in to Cloudflare
+👉 Cloudflare Dashboard: https://dash.cloudflare.com
+Make sure you have:
+✅ A valid account
+✅ Billing enabled (required to use R2)
+Billing doesn’t mean you’ll be charged if you stay within free limits.
+🪣 2) Create a Cloudflare R2 Bucket
+URL: https://dash.cloudflare.com/r2
+Go to R2 → Create a Bucket
+Enter Bucket name: app-images
+Default Storage Class: Standard (recommended)
+Location: Automatic
+Public Access: Disabled (for private images)
+Click Create Bucket.
+📌 This creates a bucket where your images will be stored.
+🔑 3) Create R2 API Keys
+Cloudflare R2 uses User API Tokens for credentials.
+URL: https://dash.cloudflare.com/profile/api-tokens
+Click Create Token
+Choose “Create Custom Token”
+Set Token name → r2-app-images-backend
+Under Permissions:
+R2 → Object Read & Write
+Under Buckets:
+Apply to specific buckets only → app-images
+TTL: Forever
+Save the token
+After creation you will see:
+Access Key ID 
+Secret Access Key 
+Token Value 
+📌 Save your Secret Access Key securely — Cloudflare won’t show it again.
+🛠 4) Configure Environment Variables
+In your project (backend), create .env:
+R2_ACCOUNT_ID=750ca6ca29f6b18588aa191c00f5fab8
+R2_ACCESS_KEY_ID=your_new_key_id
+R2_SECRET_ACCESS_KEY=your_new_secret_key
+R2_BUCKET=app-images
+R2_ENDPOINT=https://750ca6ca29f6b18588aa191c00f5fab8.r2.cloudflarestorage.com
+Replace your_new_key_id and your_new_secret_key.
+📦 5) Install Required SDKs for Node.js
+npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
+Cloudflare R2 API is S3-compatible so we use AWS S3 SDK.
+📡 6) Setup R2 Client (backend)
+Create lib/r2Client.ts:
+import { S3Client } from "@aws-sdk/client-s3";
+
+export const r2Client = new S3Client({
+  region: "auto",
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  },
+});
+🏗 7) Create Signed Upload URL Endpoint
+This allows the frontend to upload directly (best practice) instead of proxying through backend.
+Create route POST /api/uploads/signed-url:
+import { Router } from "express";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { r2Client } from "../lib/r2Client";
+import { v4 as uuidv4 } from "uuid";
+
+const router = Router();
+router.post("/signed-url", async (req, res) => {
+  try {
+    const { fileName, fileType, fileSize, folder } = req.body;
+
+    // restrict file size
+    if (fileSize > 2 * 1024 * 1024) {
+      return res.status(400).json({ message: "File too large" });
+    }
+
+    const key = `${folder}/${uuidv4()}.png`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: key,
+      ContentType: fileType,
+    });
+
+    const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn: 60 });
+
+    const publicUrl = `${process.env.R2_ENDPOINT}/${key}`;
+
+    res.json({ uploadUrl, publicUrl, key });
+  } catch (err) {
+    console.error("Signed URL error:", err);
+    res.status(500).json({ message: "Failed to generate signed URL" });
+  }
+});
+
+export default router;
+🧠 8) Add CORS to Bucket (important fix)
+Your signed URLs for PUT will error in browser unless R2 bucket has CORS configured.
+Go to: R2 → your bucket → Settings → CORS Policy
+Add:
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:5173",
+      "https://your-frontend-domain.com"
+    ],
+    "AllowedMethods": [
+      "PUT",
+      "GET",
+      "HEAD"
+    ],
+    "AllowedHeaders": [
+      "*"
+    ],
+    "ExposeHeaders": [
+      "ETag"
+    ],
+    "MaxAgeSeconds": 3600
+  }
+]
+This allows:
+✔ signed PUT uploads from browser
+✔ GET/HEAD to preview/download images
+📤 9) Frontend Upload Logic (React/Vite)
+Example:
+async function uploadImage(file: File) {
+  const res = await fetch("/api/uploads/signed-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      folder: "clinics",
+    }),
+  });
+
+  const { uploadUrl, publicUrl } = await res.json();
+
+  await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file
+  });
+
+  return publicUrl;
+}
+🖼 10) Viewing Images (signed GET)
+Images stored privately cannot be accessed by direct URL without a signature.
+Add route to generate signed GET URL:
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+
+router.get("/images/:key", async (req, res) => {
+  const key = req.params.key;
+
+  const command = new GetObjectCommand({
+    Bucket: process.env.R2_BUCKET,
+    Key: key,
+  });
+
+  const signedUrl = await getSignedUrl(r2Client, command, { expiresIn: 300 });
+  res.json({ signedUrl });
+});
+🛡️ 11) Summary of Issues & Fixes
+Issue	Why It Happened	Fix
+CORS error on PUT	Browser blocked cross-origin signed PUT	Added proper R2 bucket CORS
+Direct public image GET shows XML error	Bucket is private	Use signed GET URL
+Token creation confusion	Cloudflare UI changed	Use User API Token with R2 Object Read/Write
+Signed URL not working in browser	Missing allowed headers	Set AllowedHeaders: "*"
+💡 Best Practices Applied
+✅ Signed upload URLs (front → R2 direct)
+✅ Backend size/type limits to stay within free tier
+✅ Private bucket for secure data
+✅ CORS properly configured
+✅ Signed GET instead of public bucket (most secure)
+✅ Free tier usage only (10GB + generous ops)

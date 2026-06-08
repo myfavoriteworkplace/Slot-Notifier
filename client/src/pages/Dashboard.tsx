@@ -5,7 +5,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useBookings } from "@/hooks/use-bookings";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Calendar as CalendarIcon, ListFilter, User as UserIcon, Phone, Clock, Search, Settings, Save } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, ListFilter, User as UserIcon, Phone, Clock, Search, Settings, Save, UserPlus, Stethoscope } from "lucide-react";
+import { queryClient, apiRequest, API_BASE_URL } from "@/lib/queryClient";
 import type { Clinic } from "@shared/schema";
 import { format, isSameDay, startOfToday } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/lib/notify";
 
 interface SlotTiming {
   id: string;
@@ -38,9 +39,11 @@ interface SlotTiming {
 }
 
 const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
-  { id: "1", label: "Morning", startHour: 9, startMinute: 0, endHour: 12, endMinute: 0 },
-  { id: "2", label: "Afternoon", startHour: 14, startMinute: 0, endHour: 16, endMinute: 0 },
-  { id: "3", label: "Evening", startHour: 16, startMinute: 0, endHour: 18, endMinute: 0 },
+  { id: "1", label: "Early Morning", startHour: 8,  startMinute: 0,  endHour: 10, endMinute: 0  },
+  { id: "2", label: "Late Morning",  startHour: 10, startMinute: 0,  endHour: 12, endMinute: 30 },
+  { id: "3", label: "Midday",        startHour: 12, startMinute: 30, endHour: 14, endMinute: 0  },
+  { id: "4", label: "Afternoon",     startHour: 14, startMinute: 0,  endHour: 17, endMinute: 0  },
+  { id: "5", label: "Evening",       startHour: 17, startMinute: 0,  endHour: 19, endMinute: 30 },
 ];
 
 export default function Dashboard() {
@@ -56,7 +59,6 @@ export default function Dashboard() {
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingTimings, setEditingTimings] = useState<SlotTiming[]>(slotTimings);
-  const { toast } = useToast();
 
   const { data: slots, isLoading: slotsLoading } = useSlots({ 
     ownerId: user?.id 
@@ -99,17 +101,11 @@ export default function Dashboard() {
   const { data: clinicsData } = useQuery<Clinic[]>({
     queryKey: ['/api/clinics', { includeArchived: true }],
     queryFn: async () => {
-      const res = await fetch('/api/clinics?includeArchived=true', {
+      const res = await fetch(`${API_BASE_URL}/api/clinics?includeArchived=true`, {
         credentials: 'include',
       });
-      const serverClinics = await res.json();
-
-      const demoClinicsRaw = localStorage.getItem("demo_clinics");
-      if (demoClinicsRaw) {
-        const demoClinics = JSON.parse(demoClinicsRaw);
-        return [...serverClinics, ...demoClinics];
-      }
-      return serverClinics;
+      if (!res.ok) throw new Error("Failed to fetch clinics");
+      return res.json();
     },
   });
 
@@ -145,10 +141,7 @@ export default function Dashboard() {
     setSlotTimings(editingTimings);
     localStorage.setItem('slotTimings', JSON.stringify(editingTimings));
     setIsSettingsOpen(false);
-    toast({
-      title: "Settings Saved",
-      description: "Time slot settings have been updated successfully.",
-    });
+    notify.success("Settings Saved", { description: "Time slot settings have been updated." });
   };
 
   const updateTiming = (index: number, field: keyof SlotTiming, value: number | string) => {
@@ -438,10 +431,62 @@ export default function Dashboard() {
                               {booking.slot.clinicName}
                             </div>
                           )}
+                          {booking.assignedDoctor && (
+                            <Badge variant="secondary" className="mt-2 text-[10px] h-5 bg-primary/10 text-primary border-primary/20">
+                              <Stethoscope className="h-3 w-3 mr-1" />
+                              {booking.assignedDoctor}
+                            </Badge>
+                          )}
                         </div>
-                        <Badge variant="outline" className="bg-background">
-                          Booked
-                        </Badge>
+                        <div className="flex flex-col gap-2 items-end">
+                          <Badge variant="outline" className="bg-background">
+                            Booked
+                          </Badge>
+                          
+                          {user?.role === 'owner' && (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-primary/10">
+                                  <UserPlus className="h-3.5 w-3.5 text-primary" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-[400px]">
+                                <DialogHeader>
+                                  <DialogTitle>Assign Doctor</DialogTitle>
+                                  <DialogDescription>
+                                    Assign a doctor to {booking.customerName}'s appointment.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4">
+                                  <Label htmlFor="doctor-select" className="mb-2 block text-left text-sm font-medium">Select Doctor</Label>
+                                  <Select 
+                                    onValueChange={(value) => {
+                                      apiRequest('PATCH', `/api/clinic/bookings/${booking.id}/assign-doctor`, { doctorName: value })
+                                        .then(() => {
+                                          queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+                                          notify.success("Doctor assigned successfully");
+                                        })
+                                        .catch((err) => notify.apiError(err, "Assignment failed"));
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue placeholder="Choose a doctor..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {clinicsData?.find(c => c.name === booking.slot.clinicName)?.doctors?.map((doc, idx) => (
+                                        <SelectItem key={idx} value={doc.name}>
+                                          {doc.name} - {doc.specialization}
+                                        </SelectItem>
+                                      )) || (
+                                        <div className="p-2 text-sm text-muted-foreground italic">No doctors configured for this clinic</div>
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          )}
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent className="p-4 space-y-3 text-left">
@@ -457,6 +502,11 @@ export default function Dashboard() {
                           {format(new Date(booking.slot.startTime), "h:mm a")} - {format(new Date(booking.slot.endTime), "h:mm a")}
                         </span>
                       </div>
+                      {booking.description && (
+                        <div className="text-xs text-muted-foreground italic line-clamp-2 bg-muted/50 p-2 rounded-md mt-2 border border-border/30">
+                          "{booking.description}"
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))

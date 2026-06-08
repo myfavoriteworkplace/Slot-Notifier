@@ -9,9 +9,20 @@ import { nanoid } from "nanoid";
 const viteLogger = createLogger();
 
 export async function setupVite(server: Server, app: Express) {
+  const replitDomain = process.env.REPLIT_DEV_DOMAIN;
+
+  const hmrConfig = replitDomain
+    ? {
+        server,
+        host: replitDomain,
+        clientPort: 443,
+        protocol: "wss" as const,
+      }
+    : { server };
+
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server, path: "/vite-hmr" },
+    hmr: hmrConfig,
     allowedHosts: true as const,
   };
 
@@ -32,6 +43,8 @@ export async function setupVite(server: Server, app: Express) {
   app.use(vite.middlewares);
 
   app.use("*", async (req, res, next) => {
+    if (req.originalUrl.startsWith("/api")) return next();
+
     const url = req.originalUrl;
 
     try {

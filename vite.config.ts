@@ -30,11 +30,17 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    sourcemap: true,
   },
   server: {
     fs: {
       strict: true,
       deny: ["**/.*"],
+    },
+    sourcemapIgnoreList: false,
+    allowedHosts: true,
+    hmr: {
+      clientPort: 443,
     },
   },
 });

@@ -1,9 +1,15 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// When deploying to Render, we often use a rewrite rule /api/* -> backend/api/*
-// This allows us to use relative paths and avoid CORS issues.
-const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+// api.ts (ONLY FILE)
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
+if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+  console.warn("VITE_API_URL is not defined in production. Session issues may occur.");
+}
+
+console.log(`[QUERY-CLIENT] Using API_BASE_URL: ${API_BASE_URL}`);
+
+// ------------------ HELPER ------------------
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -11,42 +17,53 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// ------------------ API REQUEST ------------------
 export async function apiRequest(
   method: string,
   url: string,
-  data?: unknown | undefined,
+  data?: unknown
 ): Promise<Response> {
   const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
-  const res = await fetch(fullUrl, {
+
+  return fetch(fullUrl, {
     method,
+    credentials: "include",
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
   });
-
-  return res;
 }
 
+// ------------------ QUERY FUNCTION ------------------
 type UnauthorizedBehavior = "returnNull" | "throw";
+
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
-    const url = queryKey.join("/") as string;
-    const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
-    const res = await fetch(fullUrl, {
-      credentials: "include",
-    });
+}) => QueryFunction<T> = ({ on401: unauthorizedBehavior }) => async ({ queryKey }) => {
+  // Fix [object Object] bug: always use the first element as the base URL
+  const path = queryKey[0];
+  if (typeof path !== 'string') {
+    console.error("[QUERY-CLIENT] Invalid queryKey[0], expected string path:", queryKey);
+    throw new Error(`Invalid API path in queryKey: ${path}`);
+  }
+  
+  const fullUrl = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+  const res = await fetch(fullUrl, { 
+    credentials: "include",
+    headers: {
+      "Accept": "application/json",
     }
+  });
 
-    await throwIfResNotOk(res);
-    return await res.json();
-  };
+  if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+    return null;
+  }
 
+  await throwIfResNotOk(res);
+  return await res.json();
+};
+
+// ------------------ QUERY CLIENT ------------------
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

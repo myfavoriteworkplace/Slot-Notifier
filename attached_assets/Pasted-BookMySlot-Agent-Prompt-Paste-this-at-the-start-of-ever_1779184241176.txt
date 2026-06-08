@@ -1,0 +1,120 @@
+BookMySlot — Agent Prompt
+Paste this at the start of every new screen or component request.
+Save as AGENTS.md or .cursorrules in repo root for automatic pickup.
+
+STACK
+React 18 + TypeScript · Vite · Wouter (NO nested layouts, NO outlet pattern, NO loader functions) · TanStack Query v5 · shadcn/ui (Radix) · Tailwind CSS v4 · Framer Motion · Lucide icons · next-themes (light/dark) · DM Sans (body) + Outfit (display headings only) · Node/Express/Drizzle/PostgreSQL backend.
+
+LAYOUT — MOBILE FIRST, ALWAYS
+
+Default: flex flex-col gap-3. Multi-column only at sm: or lg: breakpoints.
+Page padding: px-4 sm:px-6 lg:px-8. Max width: max-w-7xl mx-auto.
+No fixed widths on inputs or buttons — w-full with sm:w-auto where needed.
+Sidebar → hidden on mobile (hidden md:flex). Replace with bottom tab bar (block md:hidden).
+Bottom nav renders inside each page component — Wouter has no global layout wrapper.
+Add pb-20 md:pb-0 to main content when bottom nav is present.
+
+
+TOUCH & INTERACTION
+
+All tappable elements: min-h-[44px] min-w-[44px]. Icon buttons need at least p-2.
+Every hover: state needs an active: equivalent. Primary buttons: active:scale-[0.98] transition-transform.
+Core actions use onClick — never onMouseEnter (touch devices have no hover).
+Dropdowns and pickers: use shadcn Popover — it is touch-compatible out of the box.
+
+
+COLOUR — ALWAYS USE CSS VARIABLES
+
+Structure: var(--primary) · var(--accent) · var(--background) · var(--card) · var(--muted) · var(--border) · var(--foreground). Never hardcode hex or hsl values.
+Semantic badge colours (use consistently across all screens):
+
+Today → bg-sky-50 text-sky-600 border-sky-200
+Upcoming / Confirmed → bg-emerald-50 text-emerald-700 border-emerald-200
+Pending → bg-amber-50 text-amber-700 border-amber-200
+Cancelled → bg-rose-50 text-rose-600 border-rose-200
+Past → bg-slate-50 text-slate-500 border-slate-200
+
+
+Every new colour must work in both light and dark mode via CSS vars.
+
+
+SHADCN COMPONENTS — USE THESE, DON'T REINVENT
+
+Slide-in panels / mobile drawers → Sheet + SheetContent
+Modals → Dialog (always w-[95vw] sm:max-w-[Xpx] max-h-[85vh])
+Scrollable regions → ScrollArea
+Mobile bottom sheets → Drawer
+Dropdown pickers → Popover
+Loading states → Skeleton (match the shape of loaded content — never a bare spinner)
+Tab bars → Tabs + TabsList with overflow-x-auto whitespace-nowrap on mobile
+Status chips → Badge
+User initials → Avatar
+Import path: @/components/ui/[component]
+
+
+DATA STATES — REQUIRED ON EVERY FETCHING SECTION
+Every section using useQuery needs all three states — no exceptions:
+
+Loading — <Skeleton> shaped like the real content (not a spinner, not blank)
+Empty — icon + human message + primary CTA (not just "No data found")
+Error — short message + <Button onClick={() => refetch()}>Try again</Button>
+
+tsxconst { data, isLoading, isError, refetch } = useQuery(...)
+if (isLoading) return <SkeletonLayout />
+if (isError)   return <ErrorState onRetry={refetch} />
+if (!data?.length) return <EmptyState />
+
+TYPOGRAPHY
+
+Page title: text-xl md:text-2xl font-semibold
+Section heading: text-base md:text-lg font-semibold
+Body: text-sm md:text-base
+Meta / secondary: text-xs text-muted-foreground
+Card label: text-xs font-medium uppercase tracking-wide text-muted-foreground
+Data value: text-base font-semibold
+Display/hero heading only: add font-display (Outfit). Everything else: DM Sans (default).
+Minimum size in production UI: text-xs. Nothing smaller.
+
+
+FORMS & iOS KEYBOARD SAFETY
+
+All inputs: onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+No critical CTA within 80px of bottom edge on mobile.
+Sticky submit buttons: sticky bottom-0 pb-[env(safe-area-inset-bottom)] bg-background/95 backdrop-blur-sm pt-3
+Input type attributes for mobile keyboards: type="email" · type="tel" · inputMode="numeric" · type="search"
+All inputs: w-full — never a fixed pixel width.
+
+
+ANIMATIONS — KEEP LIGHT
+
+Enter/exit only: opacity 0→1 + translateY 8px→0. Max duration: 200ms.
+No layout animations on list items — causes reflow jank on mid-range Android.
+No whileHover on mobile-primary elements.
+Always respect prefers-reduced-motion — wrap in useReducedMotion() from Framer Motion.
+RN note: Framer Motion has no React Native equivalent. Keep animation logic in a useEntryAnimation() hook so it can be swapped for Reanimated later.
+
+
+REACT NATIVE PARITY — AVOID THESE NOW
+These patterns work on web but break or need rewriting in RN — avoid from the start:
+AvoidUse insteadCSS Gridflex + flex-wrapbox-shadow CSSring- or Tailwind shadow- (maps to RN elevation)text-overflow: ellipsis multi-lineline-clamp-N Tailwind classposition: fixed inside scroll containersabsolute positioning or RN Modal patternbackdrop-filter on functional elementsdecorative overlays only::before / ::after for layoutreal DOM elementsCSS transitions on non-transform/opacitylayout transitions don't exist in RNonMouseEnter for core actionsonClick always
+
+ROUTING (WOUTER — NOT REACT ROUTER)
+
+No <Route element={<Layout/>}> nesting.
+No <Outlet />, no loader, no useRouteLoaderData.
+Navigation: useLocation() and useParams() from wouter.
+Active panel / tab state: local useState inside the page component.
+Persistent shell components (bottom nav, sidebars) live inside each page — not in a wrapper.
+
+
+QUICK CHECKLIST BEFORE SUBMITTING ANY NEW SCREEN
+
+ Mobile layout works at 375px width without horizontal scroll
+ All tap targets ≥ 44px tall
+ No hardcoded colours — only CSS vars and Tailwind semantic classes
+ Loading, empty, and error states exist for every data fetch
+ No hover:-only states without active: equivalent
+ Dark mode tested (toggle next-themes and check every element)
+ No CSS Grid, no box-shadow, no position:fixed inside scroll (RN parity)
+ Inputs have correct type and scrollIntoView on focus
+ Framer Motion used only for enter/exit, max 200ms

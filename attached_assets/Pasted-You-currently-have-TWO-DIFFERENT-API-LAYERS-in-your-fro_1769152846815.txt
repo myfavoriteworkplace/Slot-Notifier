@@ -1,0 +1,125 @@
+You currently have TWO DIFFERENT API LAYERS in your frontend, both exporting API_BASE_URL and apiRequest, and they do not behave identically.
+That’s why:
+login works
+some calls work
+some calls hit Vite HTML
+some calls lose session → 401
+some URLs turn into /api/clinics/[object Object]
+Let’s break it down cleanly and fix it once.
+🚨 Problem #1: Duplicate API implementations (critical)
+You have both of these in your project:
+🔴 File A (simpler one)
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+
+export async function apiRequest(...) {
+  const url = `${API_BASE_URL}${endpoint}`;
+  fetch(url, { credentials: "include" });
+}
+🔴 File B (React Query version)
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.MODE === "development"
+    ? "http://localhost:5000"
+    : "https://book-my-slot-1.onrender.com");
+➡️ Different defaults
+➡️ Different URL joining logic
+➡️ Different error handling
+➡️ Different fetch usage
+⚠️ Depending on which file is imported, requests go to:
+backend ✅
+OR Vite dev server ❌ (HTML response)
+OR wrong URL ([object Object])
+🚨 Problem #2: [object Object] in URL (this is frontend)
+This curl is the smoking gun:
+/api/clinics/[object%20Object]
+That means somewhere you are doing:
+apiRequest("GET", clinic)   // ❌ clinic is an object
+Instead of:
+apiRequest("GET", `/api/clinics/${clinic.id}`) // ✅
+React Query invalidation then re-fires this broken request.
+That’s why after success, it suddenly explodes.
+🚨 Problem #3: Vite HTML response = wrong server
+When you see this:
+<script type="module" src="/@vite/client"></script>
+It means:
+❌ Request went to Vite (5173)
+❌ NOT to Express (5001 / Render)
+This happens when:
+API_BASE_URL === ""
+OR wrong import
+OR mixed helpers
+✅ THE FIX (do this exactly)
+✅ Step 1: DELETE ONE API FILE
+You must have ONE source of truth.
+👉 KEEP the React Query version
+👉 DELETE the simpler apiRequest file
+No debate here — two API layers = chaos.
+✅ Step 2: Single canonical API base
+// api.ts (ONLY FILE)
+export const API_BASE_URL = import.meta.env.VITE_API_URL!;
+
+if (!API_BASE_URL) {
+  throw new Error("VITE_API_URL is not defined");
+}
+💡 No fallbacks. No guessing. Env must be correct.
+✅ Step 3: One apiRequest (final version)
+export async function apiRequest(
+  method: string,
+  url: string,
+  data?: unknown
+): Promise<Response> {
+  const fullUrl = url.startsWith("http")
+    ? url
+    : `${API_BASE_URL}${url}`;
+
+  return fetch(fullUrl, {
+    method,
+    credentials: "include",
+    headers: data ? { "Content-Type": "application/json" } : {},
+    body: data ? JSON.stringify(data) : undefined,
+  });
+}
+✅ Step 4: Fix React Query invalidation
+You currently have:
+queryClient.invalidateQueries({ queryKey: ['/api/clinics'] });
+✅ That’s correct
+❌ But somewhere the query function is doing:
+const url = queryKey.join("/");
+If queryKey ever contains an object → 💥
+🔧 Safer version
+const url = queryKey[0] as string;
+Change this:
+const url = queryKey.join("/") as string;
+To:
+const url = queryKey[0] as string;
+✅ Step 5: Verify session works (final test)
+After login:
+GET /api/auth/clinic/bookings
+You must see:
+{
+  adminLoggedIn: true,
+  clinicId: 3
+}
+If you see only cookie → request did NOT send session → wrong API helper still used.
+🧠 Why prod WILL fail if you don’t fix this
+Render = HTTPS + proxy + strict cookies
+Any request that:
+hits Vite
+misses credentials
+hits wrong base URL
+➡️ silent session loss
+➡️ random 401
+➡️ HTML instead of JSON
+✅ Final verdict (straight talk)
+You don’t have a backend bug.
+You don’t have a cookie bug.
+You have frontend API duplication.
+Fix that, and:
+401s disappear
+[object Object] disappears
+Vite HTML disappears
+prod works first try 🚀
+If you want, paste:
+your clinic list query
+your invalidateQueries call
+I’ll pinpoint the exact [object Object] line in seconds.

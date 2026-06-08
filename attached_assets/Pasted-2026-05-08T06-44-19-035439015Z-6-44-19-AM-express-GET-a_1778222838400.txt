@@ -1,0 +1,100 @@
+2026-05-08T06:44:19.035439015Z 6:44:19 AM [express] GET /api/health/backend 200 in 2ms :: {"status":"ok","timestamp":"2026-05-08T06:44:19.034Z"}
+2026-05-08T06:44:19.04557011Z 6:44:19 AM [express] GET /api/health/database 500 in 8ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:44:19.050814795Z 6:44:19 AM [express] GET /api/health 500 in 9ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","backend":true,"database":false}
+2026-05-08T06:44:19.062106363Z 6:44:19 AM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","timestamp":"2026-05-08T06:44:19.059Z"}
+2026-05-08T06:44:19.221145169Z 6:44:19 AM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","timestamp":"2026-05-08T06:44:19.219Z"}
+2026-05-08T06:44:19.234282553Z 6:44:19 AM [express] GET /api/health 500 in 8ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","backend":true,"database":false}
+2026-05-08T06:44:19.314819387Z 6:44:19 AM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","timestamp":"2026-05-08T06:44:19.313Z"}
+2026-05-08T06:44:19.351641949Z 6:44:19 AM [express] GET /api/health/database 500 in 9ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:44:19.488574949Z 6:44:19 AM [express] GET /api/health/database 500 in 7ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:44:19.668982065Z 6:44:19 AM [express] GET /api/health/database 500 in 14ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:44:19.77933816Z 6:44:19 AM [express] GET /api/health/database 500 in 14ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:44:19.802017027Z 6:44:19 AM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","timestamp":"2026-05-08T06:44:19.798Z"}
+2026-05-08T06:44:20.638878715Z 6:44:20 AM [express] GET /api/health/database 500 in 5ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:44:29.661231259Z 6:44:29 AM [express] GET /api/health/backend 200 in 0ms :: {"status":"ok","timestamp":"2026-05-08T06:44:29.660Z"}
+2026-05-08T06:44:29.967037853Z 6:44:29 AM [express] GET /api/health/database 500 in 4ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:44:43.315248702Z 6:44:43 AM [express] GET /api/health/backend 200 in 0ms :: {"status":"ok","timestamp":"2026-05-08T06:44:43.314Z"}
+2026-05-08T06:44:43.319540479Z 6:44:43 AM [express] GET /api/health 500 in 7ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","backend":true,"database":false}
+2026-05-08T06:44:43.633368674Z 6:44:43 AM [express] GET /api/health/database 500 in 10ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:45:11.382964762Z 6:45:11 AM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","timestamp":"2026-05-08T06:45:11.381Z"}
+2026-05-08T06:45:11.38928805Z 6:45:11 AM [express] GET /api/health/backend 200 in 0ms :: {"status":"ok","timestamp":"2026-05-08T06:45:11.388Z"}
+2026-05-08T06:45:11.390518455Z 6:45:11 AM [express] GET /api/health 500 in 6ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","backend":true,"database":false}
+2026-05-08T06:45:11.406809293Z 6:45:11 AM [express] GET /api/health 500 in 3ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","backend":true,"database":false}
+2026-05-08T06:45:11.596937215Z 6:45:11 AM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","timestamp":"2026-05-08T06:45:11.595Z"}
+2026-05-08T06:45:11.600465936Z 6:45:11 AM [express] GET /api/health 500 in 3ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","backend":true,"database":false}
+2026-05-08T06:45:11.636929481Z 6:45:11 AM [express] GET /api/health/database 500 in 3ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:45:11.642035684Z 6:45:11 AM [express] GET /api/health/database 500 in 2ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:45:11.84081438Z 6:45:11 AM [express] GET /api/health/database 500 in 5ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:45:13.234727873Z 6:45:13 AM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","timestamp":"2026-05-08T06:45:13.233Z"}
+2026-05-08T06:45:13.236650311Z 6:45:13 AM [express] GET /api/health 500 in 5ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","backend":true,"database":false}
+2026-05-08T06:45:13.481914655Z 6:45:13 AM [express] GET /api/health/database 500 in 4ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:45:17.143769975Z ==> Deploying...
+2026-05-08T06:45:17.205127219Z ==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+2026-05-08T06:45:40.44766906Z ==> Running 'npm run start'
+2026-05-08T06:45:41.56906598Z 
+2026-05-08T06:45:41.569100412Z > rest-express@1.0.0 start
+2026-05-08T06:45:41.569121263Z > NODE_ENV=production node dist/index.cjs
+2026-05-08T06:45:41.569128034Z 
+2026-05-08T06:45:42.748715276Z ◇ injected env (2) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+2026-05-08T06:45:43.219160971Z 6:45:43 AM [express] GET /api/health/backend 200 in 0ms :: {"status":"ok","timestamp":"2026-05-08T06:45:43.218Z"}
+2026-05-08T06:45:43.259250159Z 6:45:43 AM [express] GET /api/health 500 in 35ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","backend":true,"database":false}
+2026-05-08T06:45:43.492278365Z 6:45:43 AM [express] GET /api/health/database 500 in 7ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:45:47.25464513Z [WHATSAPP] Twilio client initialized successfully.
+2026-05-08T06:45:47.356635857Z ◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+2026-05-08T06:45:47.358433049Z [Environment] production
+2026-05-08T06:45:47.547929265Z 6:45:47 AM [system] Syncing database schema...
+2026-05-08T06:45:47.71476173Z 6:45:47 AM [system] Schema sync warning: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.721338372Z [DATABASE] Error ensuring session table: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.723954649Z [DATABASE] Error adding map location columns: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.726859304Z [DATABASE] Error ensuring booking_notes table: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.752183786Z [DATABASE] Error adding extended booking columns: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.760337507Z [DATABASE] Error adding consent columns: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.762431885Z [DATABASE] Error ensuring consent_tokens table: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.767833691Z [DATABASE] Error adding doctor extended columns: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.772082711Z [DATABASE] Error adding clinic extended columns: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.848714255Z [DATABASE] Error ensuring slots table: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.851834041Z [DATABASE] Error ensuring bookings table: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.854034296Z [DATABASE] Error ensuring notifications table: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.856536817Z [DATABASE] Error ensuring email_otps table: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.859031198Z [DATABASE] Error ensuring site_settings table: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.861053162Z [DATABASE] Error ensuring doctor_leaves table: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.863706543Z [DATABASE] Error ensuring doctor_certifications table: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.865505354Z [DATABASE] Error ensuring doctor_cases table: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.86719684Z [SEED] Checking for demo clinic...
+2026-05-08T06:45:47.95259916Z [SYSTEM] Startup initialization failed: Error: connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)
+2026-05-08T06:45:47.95261265Z     at /opt/render/project/src/dist/index.cjs:70:13330
+2026-05-08T06:45:47.952618341Z     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-05-08T06:45:47.952621631Z     at async /opt/render/project/src/dist/index.cjs:76:119915
+2026-05-08T06:45:47.952625291Z [SYSTEM] Starting server on port 5000 with NODE_ENV=production
+2026-05-08T06:45:47.952637722Z     at async P1.getClinicByUsername (/opt/render/project/src/dist/index.cjs:268:7870)
+2026-05-08T06:45:47.952640592Z     at async Object.kj (/opt/render/project/src/dist/index.cjs:269:154594)
+2026-05-08T06:45:47.952649802Z     at async /opt/render/project/src/dist/index.cjs:755:203 {
+2026-05-08T06:45:47.952652483Z   errno: -101,
+2026-05-08T06:45:47.952655623Z   code: 'ENETUNREACH',
+2026-05-08T06:45:47.952657933Z   syscall: 'connect',
+2026-05-08T06:45:47.952660273Z   address: '2406:da18:1f7e:b102:62c9:8782:283d:ef5c',
+2026-05-08T06:45:47.952662893Z   port: 5432
+2026-05-08T06:45:47.952665323Z }
+2026-05-08T06:45:47.955101611Z [SYSTEM] Production mode: Serving static files
+2026-05-08T06:45:47.955359555Z [SYSTEM] Initial static path check: /opt/render/project/src/dist/public
+2026-05-08T06:45:47.955467322Z [SYSTEM] Found valid static root at: /opt/render/project/src/dist/public
+2026-05-08T06:45:47.95756497Z 6:45:47 AM [express] Server listening on port 5000
+2026-05-08T06:45:58.078034393Z ==> Your service is live 🎉
+2026-05-08T06:45:58.164953397Z ==> 
+2026-05-08T06:45:58.169338491Z ==> ///////////////////////////////////////////////////////////
+2026-05-08T06:45:58.175032889Z ==> 
+2026-05-08T06:45:58.179551755Z ==> Available at your primary URL https://api.bookmyslot.dental.mossaic.in + 1 more domain
+2026-05-08T06:45:58.184094661Z ==> 
+2026-05-08T06:45:58.188358322Z ==> ///////////////////////////////////////////////////////////
+2026-05-08T06:46:04.575569869Z 6:46:04 AM [express] GET /api/auth/doctor/me 200 in 5ms
+2026-05-08T06:46:04.577346619Z 6:46:04 AM [express] GET /api/health/backend 200 in 0ms :: {"status":"ok","timestamp":"2026-05-08T06:46:04.576Z"}
+2026-05-08T06:46:04.580631745Z 6:46:04 AM [express] GET /api/auth/clinic/me 200 in 0ms
+2026-05-08T06:46:04.5867274Z 6:46:04 AM [express] GET /api/auth/user 200 in 1ms
+2026-05-08T06:46:04.591427565Z 6:46:04 AM [express] GET /api/health 500 in 10ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","backend":true,"database":false}
+2026-05-08T06:46:05.21047848Z 6:46:05 AM [express] GET /api/health/database 500 in 4ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:46:12.11047813Z 6:46:12 AM [express] GET /api/health 500 in 6ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","backend":true,"database":false}
+2026-05-08T06:46:12.112931809Z 6:46:12 AM [express] GET /api/health/backend 200 in 0ms :: {"status":"ok","timestamp":"2026-05-08T06:46:12.112Z"}
+2026-05-08T06:46:12.296157034Z 6:46:12 AM [express] GET /api/health/backend 200 in 1ms :: {"status":"ok","timestamp":"2026-05-08T06:46:12.294Z"}
+2026-05-08T06:46:12.31925164Z 6:46:12 AM [express] GET /api/health 500 in 4ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","backend":true,"database":false}
+2026-05-08T06:46:12.426757842Z 6:46:12 AM [express] GET /api/health/database 500 in 3ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}
+2026-05-08T06:46:12.743921383Z 6:46:12 AM [express] GET /api/health/database 500 in 4ms :: {"status":"error","message":"connect ENETUNREACH 2406:da18:1f7e:b102:62c9:8782:283d:ef5c:5432 - Local (:::0)","database":false}

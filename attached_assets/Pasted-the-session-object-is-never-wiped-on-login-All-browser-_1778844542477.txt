@@ -1,0 +1,26 @@
+the session object is never wiped on login
+All browser tabs share one session cookie (connect.sid). When someone logs in as a different role in a new tab, the login handler simply adds new fields to the existing session — it never clears the previous role's fields. The result is a session that contains leftovers from multiple logins at once.
+
+What each login route currently does (and doesn't do):
+Login	Sets	Does NOT clear
+Clinic login	adminLoggedIn, clinicId, role: 'owner'	doctorLoggedIn, doctorEmail, doctorId
+Doctor login	doctorLoggedIn, role: 'doctor', doctorEmail, doctorId	adminLoggedIn, clinicId, adminEmail
+Superuser OTP	adminLoggedIn, role: 'superuser', adminEmail	doctorLoggedIn, doctorEmail, doctorId, clinicId
+Exact cross-contamination scenarios found:
+Scenario 1 — Clinic admin in Tab A, then doctor logs in Tab B (the one you noticed) After both logins the session contains: adminLoggedIn: true, clinicId: X, role: 'doctor', doctorLoggedIn: true, doctorEmail: Y
+* GET /api/auth/clinic/me only checks adminLoggedIn && clinicId — both are still in the session → returns the clinic. Doctor can open the clinic dashboard.
+* GET /api/auth/doctor/me checks role === 'doctor' → also passes → Doctor dashboard works too
+* Both dashboards are simultaneously accessible. This is the most dangerous scenario.
+Scenario 2 — Doctor in Tab A, then clinic admin logs in Tab B Session ends up with: doctorLoggedIn: true, adminLoggedIn: true, clinicId: X, role: 'owner'
+* GET /api/auth/doctor/me checks role !== 'doctor' → role is now 'owner' → Doctor is silently logged out without seeing any error
+* GET /api/auth/clinic/me → works normally
+* Less dangerous but the doctor's session is invisibly destroyed
+Scenario 3 — Clinic admin in Tab A, then superuser logs in Tab B Session ends up with: adminLoggedIn: true, clinicId: X, role: 'superuser', adminEmail: Z
+* GET /api/auth/clinic/me → adminLoggedIn and clinicId still present → Superuser can open the clinic dashboard too
+Scenario 4 — Superuser in Tab A, then clinic admin logs in Tab B
+* Superuser silently loses access (role flips to 'owner'). Minor, but confusing.
+
+Secondary gap found in GET /api/auth/clinic/me: It checks adminLoggedIn && clinicId — but never checks role === 'owner'. Even after a doctor login that leaves adminLoggedIn as a residual, it would still return clinic data.
+
+The fix (3 login routes + 1 /me endpoint):
+The cleanest and most future-proof solution is to call req.session.regenerate() at the start of each login — this creates a brand new session and guarantees zero cross-contamination regardless of what was in the old session. Then add a role === 'owner' guard to GET /api/auth/clinic/me as a second layer.

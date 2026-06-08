@@ -1,27 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/models/auth";
-import { apiRequest } from "@/lib/queryClient";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+import { apiRequest, API_BASE_URL } from "@/lib/queryClient";
 
 async function fetchUser(): Promise<User | null> {
-  // Check if demo super admin is active
-  if (localStorage.getItem("demo_super_admin") === "true") {
-    return {
-      id: "999",
-      email: "demo_super_admin@bookmyslot.com",
-      firstName: "Super",
-      lastName: "Admin",
-      profileImageUrl: null,
-      role: "superuser",
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-  }
-
   const url = "/api/auth/user";
-  const apiBaseUrl = import.meta.env.VITE_API_URL || "";
-  const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
+  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
   const response = await fetch(fullUrl, {
     credentials: "include",
   });
@@ -38,52 +21,23 @@ async function fetchUser(): Promise<User | null> {
 }
 
 async function logout(): Promise<void> {
-  localStorage.removeItem("demo_super_admin");
-  const apiBaseUrl = import.meta.env.VITE_API_URL || "";
   try {
     const url = "/api/auth/admin/logout";
-    const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
+    const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
     await fetch(fullUrl, {
       method: 'POST',
       credentials: "include",
     });
   } catch {
-    // If admin logout fails, try Replit logout
+    // If admin logout fails, continue
   }
-  window.location.href = `${apiBaseUrl}/api/logout`;
+  // Redirect to home page instead of /api/logout which is for Replit OIDC
+  window.location.href = "/";
 }
 
-async function adminLogin(email: string, password: string): Promise<User> {
-  // Hardcoded demo login for super admin
-  if (email === "demo_super_admin@bookmyslot.com") {
-    console.log("Demo super admin login detected, using local storage path");
-    const demoUser: User = {
-      id: "999",
-      email: "demo_super_admin@bookmyslot.com",
-      firstName: "Super",
-      lastName: "Admin",
-      profileImageUrl: null,
-      role: "superuser",
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    // Clear any existing session by calling logout first
-    try {
-      const apiBaseUrl = import.meta.env.VITE_API_URL || "";
-      const logoutUrl = "/api/auth/admin/logout";
-      const fullLogoutUrl = logoutUrl.startsWith("http") ? logoutUrl : `${apiBaseUrl}${logoutUrl}`;
-      await fetch(fullLogoutUrl, { method: 'POST', credentials: "include" });
-    } catch (e) {
-      console.log("Pre-login logout failed (expected if no session)");
-    }
-    // Store in localStorage to persist across refreshes
-    localStorage.setItem("demo_super_admin", "true");
-    return demoUser;
-  }
-  
+async function adminLogin(email: string, password: string): Promise<{ step?: string }> {
   const url = "/api/auth/admin/login";
-  const apiBaseUrl = import.meta.env.VITE_API_URL || "";
-  const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`;
+  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
   
   const response = await fetch(fullUrl, {
     method: 'POST',
@@ -95,6 +49,24 @@ async function adminLogin(email: string, password: string): Promise<User> {
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.message || 'Login failed');
+  }
+  return response.json();
+}
+
+async function adminVerifyOtp(otp: string): Promise<User> {
+  const url = "/api/auth/admin/verify-otp";
+  const fullUrl = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+
+  const response = await fetch(fullUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ otp }),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.message || 'OTP verification failed');
   }
   const data = await response.json();
   return data.user;
@@ -117,14 +89,15 @@ export function useAuth() {
   });
 
   const loginMutation = useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) => 
+    mutationFn: ({ email, password }: { email: string; password: string }) =>
       adminLogin(email, password),
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: (otp: string) => adminVerifyOtp(otp),
     onSuccess: (user) => {
       queryClient.setQueryData(["/api/auth/user"], user);
-      // Skip query invalidation for demo super admin to prevent 404/login loop
-      if (user?.email !== "demo_super_admin@bookmyslot.com") {
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     },
   });
 
@@ -137,5 +110,8 @@ export function useAuth() {
     login: loginMutation.mutate,
     loginError: loginMutation.error,
     isLoggingIn: loginMutation.isPending,
+    verifyOtp: verifyOtpMutation.mutate,
+    verifyOtpError: verifyOtpMutation.error,
+    isVerifyingOtp: verifyOtpMutation.isPending,
   };
 }

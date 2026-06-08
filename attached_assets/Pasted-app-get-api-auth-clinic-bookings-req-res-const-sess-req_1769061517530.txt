@@ -1,0 +1,341 @@
+app.get("/api/auth/clinic/bookings", (req, res) => {
+      const sess = req.session as any;
+      
+      // LOG SESSION DATA FOR DEBUGGING
+      console.log(`[AUTH-DEBUG] /api/auth/clinic/bookings Access attempt: SessionID: ${req.sessionID} Session object: ${JSON.stringify(sess, null, 2)} adminLoggedIn: ${sess?.adminLoggedIn} clinicId: ${sess?.clinicId} adminEmail: ${sess?.adminEmail} Cookie header: ${req.headers.cookie || 'missing'} Auth header: ${req.headers.authorization || 'missing'} User-Agent: ${req.headers['user-agent']} Referer: ${req.headers.referer || 'missing'} `);
+
+      if (req.session && sess.adminLoggedIn) {
+        if (sess.clinicId) {
+          return storage.getClinicBookings(sess.clinicId)
+            .then(bookings => res.json(bookings))
+            .catch((err: any) => res.status(500).json({ message: err.message }));
+        }
+        
+        // Super admin viewing all bookings
+        if (sess.adminEmail === process.env.ADMIN_EMAIL) {
+          return storage.getClinics()
+            .then(async clinics => {
+              const allBookings = await Promise.all(clinics.map(c => storage.getClinicBookings(c.id)));
+              return res.json(allBookings.flat());
+            })
+            .catch((err: any) => res.status(500).json({ message: err.message }));
+        }
+      }
+      return res.status(401).json({ message: "Not authenticated" });
+    }); - AUTH] Clinic login attempt - Username: Smile
+[AUTH] Retrieved clinic for username Smile: ID 8
+[AUTH-DEBUG] ISARCHIVED false
+[AUTH] Clinic login successful: Smile, SessionID: wFxtMNTydTVWTV-ZD9qwT9BAuVGTS_NT
+12:19:07 AM [express] POST /api/auth/clinic/login 200 in 716ms :: {"message":"Login successful","user":{"id":8,"name":"Smile dental clinic","role":"owner"}}
+12:19:07 AM [express] [REQUEST] GET /api/auth/clinic/bookings - IP: 127.0.0.1 - Headers: {"host":"localhost:5001","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"}
+[AUTH-DEBUG] Request: GET /api/auth/clinic/bookings
+[AUTH-DEBUG] /api/auth/clinic/bookings Access attempt: SessionID: ejnvKF4ssT8eyJbDzsnhTFE3KtUirYo6 Session object: {
+  "cookie": {
+    "originalMaxAge": 2592000000,
+    "expires": "2026-02-20T18:49:07.614Z",
+    "secure": true,
+    "httpOnly": true,
+    "path": "/",
+    "sameSite": "none"
+  }
+} adminLoggedIn: undefined clinicId: undefined adminEmail: undefined Cookie header: missing Auth header: missing User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Referer: http://localhost:5001/clinic-dashboard 
+12:19:07 AM [express] GET /api/auth/clinic/bookings 401 in 2ms :: {"message":"Not authenticated"}
+This log trace is very revealing — it shows exactly why you’re getting 401 Not authenticated after a successful clinic login.
+What’s Happening Step by Step
+Login succeeds
+Code
+[AUTH] Clinic login successful: Smile, SessionID: wFxtMNTydTVWTV-ZD9qwT9BAuVGTS_NT
+At this point, your backend sets req.session.adminLoggedIn = true, req.session.clinicId = 8, etc., and saves the session.
+Next request to /api/auth/clinic/bookings
+Code
+SessionID: ejnvKF4ssT8eyJbDzsnhTFE3KtUirYo6
+Session object: { "cookie": { ... } }
+adminLoggedIn: undefined
+clinicId: undefined
+adminEmail: undefined
+Cookie header: missing
+Notice the SessionID is different (ejnvKF4... vs wFxtMNT...).
+The session object only has the cookie metadata, none of the flags you set (adminLoggedIn, clinicId, etc.).
+The request headers show Cookie header: missing. That means the browser did not send back the session cookie (connect.sid).
+Result  
+Since sess.adminLoggedIn is undefined, the route falls through to:
+ts
+return res.status(401).json({ message: "Not authenticated" });
+Why This Happens
+Cookie not sent by frontend  
+Your frontend request to /api/auth/clinic/bookings is missing the connect.sid cookie. Without it, Express-session can’t look up the correct session.
+Cross-origin / CORS issue  
+If your frontend is served from http://localhost:3000 and backend from http://localhost:5001, cookies won’t be sent unless you configure:
+sameSite: 'none'
+secure: true (requires HTTPS)
+Frontend fetch/axios with credentials: 'include'
+Session store mismatch  
+If you’re using a memory store, restarting the server wipes sessions. But here the bigger issue is the cookie not being sent.
+How to Fix
+Ensure frontend sends cookies  
+In React/axios/fetch:
+js
+fetch("http://localhost:5001/api/auth/clinic/bookings", {
+  method: "GET",
+  credentials: "include"
+});
+Configure CORS properly
+ts
+app.use(cors({
+  origin: "http://localhost:3000", // your frontend origin
+  credentials: true
+}));
+Session cookie settings  
+In your session middleware:
+ts
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: true,       // requires HTTPS
+    httpOnly: true,
+    sameSite: 'none'    // allow cross-site cookies
+  }
+}));
+Check browser dev tools → Network tab
+After login, confirm the Set-Cookie: connect.sid=... header is received.
+On subsequent requests, confirm the cookie is being sent back.
+Bottom Line
+Your login route is setting the session correctly, but the cookie isn’t being sent back on the next request, so Express-session creates a new empty session (ejnvKF4...). That’s why adminLoggedIn and clinicId are missing and you get 401.
+Would you like me to give you a step-by-step checklist for fixing cookie/session persistence in a React + Express setup (including the exact axios/fetch config and server CORS/session options)? That way you can lock this down and stop seeing mismatched SessionIDs.
+this is my front end
+Thanks for clarifying — since you’re showing me your backend logs and routes, now you’re saying “this is my front end,” I’ll walk you through how the frontend interacts with your session-based backend and why you’re hitting that 401.
+What’s Happening in Your Frontend
+When you log in (/api/auth/clinic/login or /api/auth/admin/login), the backend sets a session and sends back a Set-Cookie header with connect.sid.
+Your frontend must store and resend that cookie on every subsequent request (like /api/auth/clinic/bookings).
+In React, Axios, or Fetch, this doesn’t happen automatically if your frontend and backend are on different ports/domains (e.g. localhost:3000 vs localhost:5001). By default, browsers block cross-site cookies unless you explicitly allow them.
+The Critical Frontend Fix
+You need to make sure your frontend requests include credentials:
+If you’re using fetch:
+js
+fetch("http://localhost:5001/api/auth/clinic/bookings", {
+  method: "GET",
+  credentials: "include" // <-- ensures cookies are sent
+});
+If you’re using axios:
+js
+import axios from "axios";
+
+axios.defaults.withCredentials = true;
+
+axios.get("http://localhost:5001/api/auth/clinic/bookings")
+  .then(res => console.log(res.data))
+  .catch(err => console.error(err));
+Backend Requirements (to match frontend)
+Your Express backend must allow cookies across origins:
+ts
+import cors from "cors";
+
+app.use(cors({
+  origin: "http://localhost:3000", // your frontend origin
+  credentials: true
+}));
+
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: true,       // requires HTTPS in production
+    httpOnly: true,
+    sameSite: "none"    // allow cross-site cookies
+  }
+}));
+Why You Saw Different SessionIDs
+Login request created a session (wFxtMNT...).
+Bookings request created a new empty session (ejnvKF4...) because the cookie wasn’t sent back.
+That’s why adminLoggedIn and clinicId were missing.
+Debug Checklist
+In browser dev tools → Network tab:
+After login, check if Set-Cookie: connect.sid=... is present.
+On /api/auth/clinic/bookings, check if the cookie is being sent.
+Confirm frontend requests use credentials: 'include' or withCredentials: true.
+Confirm backend CORS and session cookie settings allow cross-origin cookies.
+👉 Once you fix the frontend request config + backend CORS/cookie settings, your session will persist and you’ll stop seeing 401.
+Do you want me to show you a step-by-step React login → bookings flow (with axios/fetch code snippets) so you can copy-paste and test the exact sequence?
+this is my code   const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
+    queryKey: ['/api/auth/clinic/bookings'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/auth/clinic/bookings');
+      if (!res.ok) throw new Error('Failed to fetch bookings');
+      return res.json();
+    },
+    enabled: isAuthenticated,
+    refetchOnMount: 'always',
+    staleTime: 0,
+  }); is it correct
+Your React Query setup is structurally fine — the problem isn’t in the useQuery itself, it’s in how your apiRequest is configured to handle cookies/sessions. Let’s break it down:
+What Your Code Does
+ts
+const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
+  queryKey: ['/api/auth/clinic/bookings'],
+  queryFn: async () => {
+    const res = await apiRequest('GET', '/api/auth/clinic/bookings');
+    if (!res.ok) throw new Error('Failed to fetch bookings');
+    return res.json();
+  },
+  enabled: isAuthenticated,
+  refetchOnMount: 'always',
+  staleTime: 0,
+});
+queryKey: Correct — React Query uses this to cache results.
+queryFn: Calls your apiRequest wrapper to hit /api/auth/clinic/bookings.
+enabled: Good — only runs if isAuthenticated is true.
+refetchOnMount and staleTime: Forces fresh fetch every mount, no stale cache.
+So the React Query part is fine.
+The Real Issue
+From your backend logs, the session cookie (connect.sid) isn’t being sent back. That means your apiRequest wrapper is probably just doing:
+ts
+fetch(url, { method })
+without telling the browser to include cookies.
+The Fix
+You need to ensure credentials are included in every request:
+If apiRequest uses fetch:
+ts
+export async function apiRequest(method: string, url: string, body?: any) {
+  return fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: 'include',   // <-- critical
+  });
+}
+If apiRequest uses axios:
+ts
+import axios from 'axios';
+
+axios.defaults.withCredentials = true;
+
+export async function apiRequest(method: string, url: string, body?: any) {
+  return axios({ method, url, data: body });
+}
+Why This Matters
+Without credentials: 'include', the browser won’t send the session cookie to your backend.
+Backend sees a new session → adminLoggedIn is undefined → 401 Not authenticated.
+✅ So yes, your useQuery code is correct.
+❌ But your apiRequest must explicitly include cookies.
+Would you like me to show you a full working example of useQuery + apiRequest (with fetch and axios versions) so you can copy-paste and test it immediately?
+let me know what exactly i should do inmy code
+Perfect — let’s make this concrete. Right now your useQuery is fine, but your apiRequest helper must be updated to send cookies. Without that, your backend session (req.session) will always look empty and you’ll keep hitting 401.
+Exact Changes You Should Make
+1. Update your apiRequest function
+If you’re using fetch inside apiRequest:
+ts
+export async function apiRequest(method: string, url: string, body?: any) {
+  return fetch(`http://localhost:5001${url}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: 'include',   // <-- CRITICAL: ensures cookies are sent
+  });
+}
+If you’re using axios:
+ts
+import axios from 'axios';
+
+axios.defaults.withCredentials = true; // <-- CRITICAL
+
+export async function apiRequest(method: string, url: string, body?: any) {
+  return axios({
+    method,
+    url: `http://localhost:5001${url}`,
+    data: body,
+  });
+}
+2. Configure your backend for cross‑origin cookies
+In your Express app:
+ts
+import cors from 'cors';
+import session from 'express-session';
+
+app.use(cors({
+  origin: "http://localhost:3000", // your React frontend origin
+  credentials: true                // allow cookies to be sent
+}));
+
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false,       // set true only if using HTTPS
+    httpOnly: true,
+    sameSite: 'none'     // allow cross-site cookies
+  }
+}));
+3. Verify in Browser DevTools
+After login, check Network → Response headers for Set-Cookie: connect.sid=....
+On /api/auth/clinic/bookings, check Request headers → Cookie. It should include connect.sid.
+Why This Fixes It
+credentials: 'include' (or withCredentials: true) tells the browser to send the session cookie back to your backend.
+With CORS configured, Express-session can read the cookie and restore the correct session object.
+That means sess.adminLoggedIn and sess.clinicId will be populated, and your route will return bookings instead of 401.
+👉 So the exact thing you need to do is:
+Add credentials: 'include' in your frontend requests AND enable credentials: true in your backend CORS config.
+Would you like me to show you a full working React Query + Express example (login → bookings flow) so you can copy-paste and test end-to-end?
+from the code i have share suggest me what should i do
+Looking at the code you shared (React Query + your Express backend), the core issue is that your frontend requests are not carrying the session cookie back to the server. That’s why your backend logs show Cookie header: missing and adminLoggedIn: undefined.
+Here’s exactly what you should do:
+1. Fix your apiRequest helper
+Right now it likely looks like a plain fetch. You need to tell the browser to include cookies:
+ts
+// If using fetch
+export async function apiRequest(method: string, url: string, body?: any) {
+  return fetch(`http://localhost:5001${url}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: 'include',   // <-- CRITICAL
+  });
+}
+Or if you’re using Axios:
+ts
+import axios from 'axios';
+axios.defaults.withCredentials = true; // <-- CRITICAL
+
+export async function apiRequest(method: string, url: string, body?: any) {
+  return axios({
+    method,
+    url: `http://localhost:5001${url}`,
+    data: body,
+  });
+}
+2. Configure your backend for cross‑origin cookies
+In your Express app:
+ts
+import cors from 'cors';
+import session from 'express-session';
+
+app.use(cors({
+  origin: "http://localhost:3000", // your React frontend origin
+  credentials: true                // allow cookies
+}));
+
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false,       // true only if using HTTPS
+    httpOnly: true,
+    sameSite: 'none'     // allow cross-site cookies
+  }
+}));
+3. Verify in Browser DevTools
+After login, check the Response headers → you should see Set-Cookie: connect.sid=....
+On /api/auth/clinic/bookings, check the Request headers → you should see the cookie being sent.
+4. Why This Fixes It
+credentials: 'include' (or withCredentials: true) ensures the browser sends the session cookie back.
+With CORS configured, Express-session can read the cookie and restore the correct session object.
+Then sess.adminLoggedIn and sess.clinicId will be populated, and your route will return bookings instead of 401.
+👉 So the exact steps:
+Update your apiRequest to include credentials.
+Enable CORS with credentials: true on the backend.
+Set session cookie options (sameSite: 'none', secure depending on HTTPS).
+Would you like me to show you a full working React Query + Express login → bookings flow (frontend + backend snippets together) so you can copy-paste and test end-to-end?

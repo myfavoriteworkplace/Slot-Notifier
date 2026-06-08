@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{CLINIC_NAME}} — Advanced Dental Care</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root { --primary:#0F172A; --accent:#14B8A6; --light:#F8FAFC; }
+body { font-family:'Inter',sans-serif; color:#1E2937; }
+h1,h2 { font-family:'Space Grotesk',sans-serif; letter-spacing:-0.02em; }
+.hero { background:var(--primary); color:white; padding:160px 5% 120px; text-align:center; }
+.btn { background:var(--accent); color:white; padding:16px 40px; border-radius:9999px; font-weight:600; text-decoration:none; }
+.card { background:white; border-radius:20px; padding:32px; box-shadow:0 10px 30px rgba(0,0,0,0.07); transition:all 0.4s; }
+.card:hover { transform:scale(1.03); }
+.grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px,1fr)); gap:30px; max-width:1280px; margin:auto; }
+</style>
+</head>
+<body>
+
+<nav style="position:fixed;top:0;width:100%;background:white;z-index:1000;padding:20px 5%;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+  <div style="max-width:1280px;margin:auto;display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:26px;font-weight:700;color:var(--primary);">{{CLINIC_NAME}}</div>
+    <div>
+      <a href="#about" style="margin:0 20px;color:#334155;">About</a>
+      <a href="#services" style="margin:0 20px;color:#334155;">Services</a>
+      <a href="#doctors" style="margin:0 20px;color:#334155;">Team</a>
+      <a href="#contact" style="margin:0 20px;color:#334155;">Contact</a>
+      <a href="{{BOOKING_URL}}" class="btn">Book Now</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <h1 style="font-size:clamp(48px,8vw,72px);">{{CLINIC_TAGLINE_LINE1}} {{CLINIC_TAGLINE_LINE2}}</h1>
+  <p style="font-size:22px;max-width:700px;margin:30px auto;opacity:0.9;">{{CLINIC_HERO_DESCRIPTION}}</p>
+  <a href="{{BOOKING_URL}}" class="btn" style="font-size:18px;">Book Your Visit</a>
+</section>
+
+<!-- ABOUT, SERVICES, DOCTORS, TESTIMONIALS, CONTACT follow similar clean card structure -->
+
+<footer style="background:var(--primary);color:white;padding:70px 5% 40px;text-align:center;">
+  <p style="font-size:18px;">{{CLINIC_NAME}} • {{CLINIC_CITY}} • {{CLINIC_PHONE}}</p>
+</footer>
+
+</body>
+</html>

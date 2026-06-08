@@ -1,0 +1,20 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "x3pxljJpq4fWfGuL9PF5o"
+uri = "file://screenshots/aurora-light.jpg"
+type = "image"
+title = "Aurora Theme — Light Mode Preview"
+
+[[outputs]]
+id = "I-FVEpkLOi1xYYUqbG6KR"
+uri = "file://docs/domain-migration.md"
+type = "text"
+title = "Domain Migration Guide"
+
+[[outputs]]
+id = "W32cVAtwp90QkswE2DK9T"
+uri = "file://docs/Features-and-Functionalities.md"
+type = "text"
+title = "BookMySlot — Features & Functionalities"

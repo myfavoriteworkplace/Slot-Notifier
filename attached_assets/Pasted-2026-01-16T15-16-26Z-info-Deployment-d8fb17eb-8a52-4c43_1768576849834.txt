@@ -1,0 +1,190 @@
+2026-01-16T15:16:26Z info: Deployment: d8fb17eb-8a52-4c43-8b33-1be25ea426c6
+2026-01-16T15:16:26Z info: Build: 2f5391ad-dd18-4579-b3b1-1fc9b9e6d0ec
+2026-01-16T15:16:26Z info: Running Security Scan
+2026-01-16T15:16:30Z info: Security Scan Complete
+2026-01-16T15:16:30Z info: Connecting to builder
+2026-01-16T15:16:30Z info: Builder connected
+2026-01-16T15:16:30Z info: Installing packages
+2026-01-16T15:16:31Z info: Starting Build
+
+> rest-express@1.0.0 build
+> tsx script/build.ts
+
+
+building client...
+
+vite v7.3.0 building client environment for production...
+
+transforming...
+
+✓ 2920 modules transformed.
+
+rendering chunks...
+
+computing gzip size...
+
+../dist/public/index.html                              2.01 kB │ gzip:   0.76 kB
+
+../dist/public/assets/index-Cy3FH4E7.css              78.80 kB │ gzip:  12.76 kB
+../dist/public/assets/purify.es-Bzr520pe.js           22.45 kB │ gzip:   8.59 kB
+../dist/public/assets/index.es-DZkQ4Kkk.js           158.55 kB │ gzip:  52.79 kB
+../dist/public/assets/html2canvas.esm-DXEQVQnt.js    201.04 kB │ gzip:  47.07 kB
+../dist/public/assets/index-CTuc8_5D.js            1,054.06 kB │ gzip: 322.27 kB
+
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 15.43s
+
+building server...
+
+▲ [WARNING] "import.meta" is not available with the "cjs" output format and will be empty [empty-import-meta]
+
+    server/seed-test-clinic.ts:61:4:
+      61 │ if (import.meta.url.endsWith(process.argv[1]) || process.env.NODE_...
+         ╵     ~~~~~~~~~~~
+
+  You need to set the output format to "esm" for "import.meta" to work correctly.
+
+
+▲ [WARNING] "import.meta" is not available with the "cjs" output format and will be empty [empty-import-meta]
+
+    server/seed-test-clinic.ts:65:8:
+      65 │     if (import.meta.url.endsWith(process.argv[1])) process.exit(1);
+         ╵         ~~~~~~~~~~~
+
+  You need to set the output format to "esm" for "import.meta" to work correctly.
+
+
+2 warnings
+
+  dist/index.cjs  1.3mb ⚠️
+
+⚡ Done in 730ms
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.7.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.7.0
+npm notice To update run: npm install -g npm@11.7.0
+npm notice
+
+2026-01-16T15:16:52Z info: Pushing pid1 binary layer...
+2026-01-16T15:16:53Z info: Pushing Repl layer...
+2026-01-16T15:16:53Z info: Pushing hosting layer...
+2026-01-16T15:16:54Z info: Created hosting layer
+2026-01-16T15:16:54Z info: Created pid1 binary layer
+2026-01-16T15:17:14Z info: Created Repl layer
+2026-01-16T15:17:17Z info: Pushed image manifest
+2026-01-16T15:17:18Z info: Pushed soci index manifest
+2026-01-16T15:17:21Z info: Creating Autoscale service
+[AUTH] ADMIN_EMAIL present: true
+metasidecar: loaded enterprise status from environment is_enterprise=false
+[AUTH] USE_ENV_AUTH: true
+[AUTH] ADMIN_PASSWORD present: true
+forwarding local port 5000 to external port 80 (mapped as 1104)
+> rest-express@1.0.0 start
+starting up user application
+/home/runner/workspace/dist/index.cjs:94
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+> NODE_ENV=production node dist/index.cjs
+TypeError: Cannot read properties of undefined (reading 'endsWith')
+/home/runner/workspace/dist/index.cjs:94
+npm notice To update run: npm install -g npm@11.7.0
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+> NODE_ENV=production node dist/index.cjs
+[AUTH] ADMIN_EMAIL present: true
+npm notice
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+> NODE_ENV=production node dist/index.cjs
+> rest-express@1.0.0 start
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+command finished with error [npm start]: exit status 1
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ...
+command finished with error [npm start]: exit status 1
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+> rest-express@1.0.0 start
+[AUTH] USE_ENV_AUTH: true
+npm notice New major version of npm available! 10.8.2 -> 11.7.0
+[AUTH] ADMIN_PASSWORD present: true
+[AUTH] ADMIN_EMAIL present: true
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+Node.js v20.20.0
+> rest-express@1.0.0 start
+> NODE_ENV=production node dist/index.cjs
+command finished with error [npm start]: exit status 1
+    at node:internal/main/run_main_module:28:49
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+TypeError: Cannot read properties of undefined (reading 'endsWith')
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ...
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ...
+    at Object.<anonymous> (/home/runner/workspace/dist/index.cjs:94:12829)
+[AUTH] ADMIN_PASSWORD present: true
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+
+    at node:internal/main/run_main_module:28:49
+    at Object.<anonymous> (/home/runner/workspace/dist/index.cjs:94:12829)
+Node.js v20.20.0
+[AUTH] ADMIN_EMAIL present: true
+[AUTH] USE_ENV_AUTH: true
+
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.7.0
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+TypeError: Cannot read properties of undefined (reading 'endsWith')
+[AUTH] USE_ENV_AUTH: true
+    at node:internal/main/run_main_module:28:49
+/home/runner/workspace/dist/index.cjs:94
+npm notice
+Node.js v20.20.0
+TypeError: Cannot read properties of undefined (reading 'endsWith')
+    at Object.<anonymous> (/home/runner/workspace/dist/index.cjs:94:12829)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+[AUTH] ADMIN_PASSWORD present: true
+
+
+Node.js v20.20.0
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Object.<anonymous> (/home/runner/workspace/dist/index.cjs:94:12829)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+
+
+/home/runner/workspace/dist/index.cjs:94
+command finished with error [npm start]: exit status 1
+    at node:internal/main/run_main_module:28:49
+          `});console.log("[EMAIL TEST SUCCESS]",c),a.json({success:!0,result:c})}catch(c){console.error("[EMAIL TEST ERROR]",c),a.status(500).json({error:c.message,name:c.name,stack:void 0})}}),t.get("/api/health",async(n,a)=>{a.setHeader("Cache-Control","no-cache, no-store, must-revalidate"),a.setHeader("Pragma","no-cache"),a.setHeader("Expires","0");try{let s=await V.execute(x`SELECT 1`);a.json({status:"ok",backend:!0,database:!!s,timestamp:new Date().toISOString()})}catch(s){console.error("[HEALTH CHECK ERROR]",s),a.status(500).json({status:"error",backend:!0,database:!1,error:s.message})}})):(console.log("[AUTH] Using Replit OIDC authentication"),await $x(t),Fx(t)),t.post("/api/claim-superuser",Dr,async(n,a)=>{let o=n.user.claims.sub;if(await $.hasSuperuser())return a.status(403).json({message:"A superuser already exists"});await $.setUserRole(o,"superuser"),a.json({message:"You are now a superuser",role:"superuser"})});let r=!0;t.get("/api/admin/logs/status",Dr,(n,a)=>{a.json({en...
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+          `});console.log("[EMAIL TEST SUCCESS]",c),a.json({success:!0,result:c})}catch(c){console.error("[EMAIL TEST ERROR]",c),a.status(500).json({error:c.message,name:c.name,stack:void 0})}}),t.get("/api/health",async(n,a)=>{a.setHeader("Cache-Control","no-cache, no-store, must-revalidate"),a.setHeader("Pragma","no-cache"),a.setHeader("Expires","0");try{let s=await V.execute(x`SELECT 1`);a.json({status:"ok",backend:!0,database:!!s,timestamp:new Date().toISOString()})}catch(s){console.error("[HEALTH CHECK ERROR]",s),a.status(500).json({status:"error",backend:!0,database:!1,error:s.message})}})):(console.log("[AUTH] Using Replit OIDC authentication"),await $x(t),Fx(t)),t.post("/api/claim-superuser",Dr,async(n,a)=>{let o=n.user.claims.sub;if(await $.hasSuperuser())return a.status(403).json({message:"A superuser already exists"});await $.setUserRole(o,"superuser"),a.json({message:"You are now a superuser",role:"superuser"})});let r=!0;t.get("/api/admin/logs/status",Dr,(n,a)=>{a.json({en...
+          `});console.log("[EMAIL TEST SUCCESS]",c),a.json({success:!0,result:c})}catch(c){console.error("[EMAIL TEST ERROR]",c),a.status(500).json({error:c.message,name:c.name,stack:void 0})}}),t.get("/api/health",async(n,a)=>{a.setHeader("Cache-Control","no-cache, no-store, must-revalidate"),a.setHeader("Pragma","no-cache"),a.setHeader("Expires","0");try{let s=await V.execute(x`SELECT 1`);a.json({status:"ok",backend:!0,database:!!s,timestamp:new Date().toISOString()})}catch(s){console.error("[HEALTH CHECK ERROR]",s),a.status(500).json({status:"error",backend:!0,database:!1,error:s.message})}})):(console.log("[AUTH] Using Replit OIDC authentication"),await $x(t),Fx(t)),t.post("/api/claim-superuser",Dr,async(n,a)=>{let o=n.user.claims.sub;if(await $.hasSuperuser())return a.status(403).json({message:"A superuser already exists"});await $.setUserRole(o,"superuser"),a.json({message:"You are now a superuser",role:"superuser"})});let r=!0;t.get("/api/admin/logs/status",Dr,(n,a)=>{a.json({en...
+          `});console.log("[EMAIL TEST SUCCESS]",c),a.json({success:!0,result:c})}catch(c){console.error("[EMAIL TEST ERROR]",c),a.status(500).json({error:c.message,name:c.name,stack:void 0})}}),t.get("/api/health",async(n,a)=>{a.setHeader("Cache-Control","no-cache, no-store, must-revalidate"),a.setHeader("Pragma","no-cache"),a.setHeader("Expires","0");try{let s=await V.execute(x`SELECT 1`);a.json({status:"ok",backend:!0,database:!!s,timestamp:new Date().toISOString()})}catch(s){console.error("[HEALTH CHECK ERROR]",s),a.status(500).json({status:"error",backend:!0,database:!1,error:s.message})}})):(console.log("[AUTH] Using Replit OIDC authentication"),await $x(t),Fx(t)),t.post("/api/claim-superuser",Dr,async(n,a)=>{let o=n.user.claims.sub;if(await $.hasSuperuser())return a.status(403).json({message:"A superuser already exists"});await $.setUserRole(o,"superuser"),a.json({message:"You are now a superuser",role:"superuser"})});let r=!0;t.get("/api/admin/logs/status",Dr,(n,a)=>{a.json({en...
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ...
+[AUTH] USE_ENV_AUTH: true
+    at node:internal/main/run_main_module:28:49
+Node.js v20.20.0
+    at Object.<anonymous> (/home/runner/workspace/dist/index.cjs:94:12829)
+
+> rest-express@1.0.0 start
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+Node.js v20.20.0
+> NODE_ENV=production node dist/index.cjs
+TypeError: Cannot read properties of undefined (reading 'endsWith')
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+[AUTH] USE_ENV_AUTH: true
+    at node:internal/main/run_main_module:28:49
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+command finished with error [npm start]: exit status 1
+crash loop detected
+2026-01-16T15:20:13Z error: The deployment is crash looping. This can happen if the run command fails or exits immediately after starting. Check the logs for more information.

@@ -1,0 +1,82 @@
+✅ WHY THIS HAPPENS (Render + Express)
+You are almost certainly using:
+express-session
+connect-pg-simple OR similar Postgres session store
+Example (likely in your app):
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+
+const PgSession = connectPgSimple(session);
+That store does NOT auto-create tables.
+✅ SOLUTION (DO THIS EXACTLY)
+🔹 STEP 1: Confirm session store (quick check)
+In your server setup (probably index.ts or server.ts), look for:
+store: new PgSession({
+  pool,
+  tableName: "session"
+})
+or similar.
+✅ This confirms Postgres-backed sessions.
+🔹 STEP 2: Create the session table (REQUIRED)
+Run this SQL in Render PostgreSQL
+CREATE TABLE IF NOT EXISTS "session" (
+  "sid" varchar NOT NULL,
+  "sess" json NOT NULL,
+  "expire" timestamp(6) NOT NULL,
+  CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+⚠️ Table name must be exactly session (case-sensitive).
+🔹 STEP 3: WHERE to run this SQL (since you didn’t see Shell)
+Option A: Render → PostgreSQL → Connect → External Client (BEST)
+Render Dashboard
+Click PostgreSQL
+Copy:
+Host
+Database
+User
+Password
+Port
+Use any of these:
+pgAdmin
+DBeaver
+TablePlus
+psql CLI
+Then paste the SQL above and run.
+Option B: Use psql locally
+psql "postgres://USER:PASSWORD@HOST:PORT/DATABASE"
+Then paste the SQL.
+🔹 STEP 4: Redeploy backend
+After table creation:
+git pull
+git build
+git deploy (or Render redeploy)
+Or in Render:
+👉 Manual Deploy → Clear build cache & deploy
+✅ EXPECTED RESULT AFTER FIX
+Your logs will change from ❌ to ✅
+Before:
+[AUTH ERROR] Session save error: relation "session" does not exist
+After:
+[AUTH] Admin login successful, session saved
+Login will return:
+{
+  "message": "Login successful",
+  "user": {
+    "email": "itsmyfavoriteworkplace@gmail.com",
+    "role": "superuser"
+  }
+}
+🧠 IMPORTANT NOTES (Production-safe)
+✔ Sessions WILL persist across requests
+✔ CORS issues disappear if cookies are allowed
+✔ Admin login will work on Render
+🔐 BONUS: If you want TEMPORARY FIX (NOT recommended)
+If you want login to work without sessions (stateless):
+// TEMP ONLY
+return res.json({ token: "dummy-token", user: { email } });
+But do NOT do this for production.
+🎯 Summary (1-liner)
+Your login fails because the Postgres session table is missing.
+Create it once → everything works.

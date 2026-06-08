@@ -1,0 +1,167 @@
+Perfect — this build command explains exactly why you’re still getting 404.
+You’ve already done many things right, but one critical thing is missing.
+🚨 ROOT CAUSE (100% confirmed now)
+Your build command:
+npm install --include=dev && npm run db:push && npx tsx script/build-standalone.ts
+❌ Problem
+👉 This does NOT compile your backend routes into dist/ using tsc.
+So:
+
+routes.ts updates ✔️
+Express registers old JS ❌
+New endpoints never exist at runtime ❌
+Result → 404 only for newly added routes
+This is why:
+/api/health → works (old)
+/api/health/backend → 404 (new)
+/api/health/database → 404 (new)
+✅ WHAT build-standalone.ts IS DOING (important)
+That script is almost certainly:
+Bundling frontend
+Copying assets
+Preparing static output
+⚠️ It is NOT compiling your Express backend
+✅ STRONG & RELIABLE FIX (Production-grade)
+🔧 FIX THE BUILD COMMAND (THIS IS THE KEY)
+✅ Replace your Render Build Command with this:
+npm install --include=dev \
+&& npm run db:push \
+&& npm run build \
+&& npx tsx script/build-standalone.ts
+🔧 Ensure build script exists
+Your package.json must include:
+"scripts": {
+  "build": "tsc",
+  "start": "node dist/index.js"
+}
+⚠️ If build is missing → Render never compiles routes
+🔧 Ensure Render Start Command
+Render → Start Command:
+npm start
+Which resolves to:
+node dist/index.js
+🧨 ABSOLUTE MUST (Do this once)
+Clear Render build cache
+In Render dashboard:
+Manual Deploy
+→ Clear build cache & deploy
+This step is non-negotiable.
+🔍 Why this fixes everything
+Step	Result
+tsc runs	New routes compiled
+dist/routes.js updated	Express registers routes
+Render runs dist/index.js	Correct app boot
+Cache cleared	Old JS eliminated
+✅ Expected Logs After Fix
+You SHOULD see:
+🔥 ROUTES REGISTERED – book-my-slot-v2
+GET /api/health/backend 200
+GET /api/health/database 200
+🛡️ OPTIONAL (Highly Recommended)
+Add a version probe so you never debug this again:
+app.get("/api/version", (_req, res) => {
+  res.json({
+    branch: "book-my-slot-v2",
+    buildTime: new Date().toISOString()
+  });
+});
+🎯 FINAL SUMMARY
+❌ build-standalone.ts ≠ backend build
+❌ tsc was never running
+❌ Render served stale JS
+✅ Add npm run build
+✅ Ensure node dist/index.js
+✅ Clear build cache
+
+If you want, paste:
+your package.json
+script/build-standalone.ts
+I’ll lock this down permanently so it never breaks again.
+Start Command
+Render runs this command to start your app with each deploy. - node dist-backend/server.cjs
+This line explains everything.
+You are starting a different server file than the one you are editing.
+🚨 ROOT CAUSE (FINAL & DEFINITIVE)
+Your Render Start Command
+node dist-backend/server.cjs
+But you are editing
+src/index.ts
+Result
+✅ /api/health exists → old compiled server
+❌ /api/health/backend → not compiled
+❌ /api/health/database → not compiled
+Render is NOT running dist/index.js
+Render is running dist-backend/server.cjs
+👉 Your new routes never reach production
+This is NOT a CORS issue
+This is NOT an Express issue
+This is a build artifact mismatch
+
+🔍 What’s happening internally
+Your project has TWO backends:
+File	Purpose
+src/index.ts	Dev / local backend
+dist-backend/server.cjs	Production backend (used by Render)
+When you update index.ts, Render does not care.
+✅ THE ONLY CORRECT FIX (Choose ONE)
+✅ OPTION A (RECOMMENDED – Clean & Correct)
+Make Render run the same backend you are editing
+🔧 Change Render Start Command to:
+node dist/index.js
+🔧 Build Command:
+npm install --include=dev \
+&& npm run db:push \
+&& npm run build
+🔧 package.json
+"scripts": {
+  "build": "tsc",
+  "start": "node dist/index.js"
+}
+🔧 Then:
+Clear build cache
+Redeploy
+👉 This makes index.ts the single source of truth.
+✅ OPTION B (If you MUST keep server.cjs)
+Then you must add the routes there, not in index.ts.
+Search for:
+dist-backend/server.cjs
+or its source file (usually):
+src/server.ts
+backend/server.ts
+Add:
+app.get("/api/health/database", ...)
+⚠️ This is harder to maintain and error-prone
+⚠️ NOT recommended unless legacy constraints exist
+🧪 Why /api/health works but others don’t
+Route	Reason
+/api/health	Exists in server.cjs
+/api/health/backend	Added only in index.ts
+/api/health/database	Added only in index.ts
+Render never runs index.ts.
+✅ How to VERIFY immediately
+After fixing, deploy and hit:
+curl https://book-my-slot-1.onrender.com/api/health/database
+Expected:
+{
+  "status": "ok",
+  "database": true
+}
+🛡️ Strong Recommendation (Future-proof)
+Add this once:
+app.get("/api/runtime", (_req, res) => {
+  res.json({
+    file: __filename,
+    env: process.env.NODE_ENV
+  });
+});
+You’ll always know which file is running.
+🎯 FINAL VERDICT
+❌ Your code is correct
+❌ Your routes are correct
+❌ Your CORS is fine
+🔥 Render is starting the wrong server
+
+If you want, next I can:
+Unify frontend + backend builds
+Remove dist-backend entirely
+Lock Render config permanently
