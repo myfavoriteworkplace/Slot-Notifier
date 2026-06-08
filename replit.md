@@ -105,6 +105,36 @@ Sidebar nav color coding: Bookings = primary green, Configure Slots = blue, Mana
 - **Patient UI**: `/consent/:token` — public page (no login), shows clinic info, appointment summary, consent declaration text, signature pad (using `signature_pad`), and submit button.
 - **API**: `POST /api/auth/clinic/bookings/:id/request-consent` (clinic-auth), `GET /api/consent/:token` (public), `POST /api/consent/:token/sign` (public).
 
+## Agent Development Rules
+
+This project runs on **Replit as the AI development environment** but is tested locally and deployed to **Render as a split frontend + backend**. Every agent working in this repo must follow these rules without being asked.
+
+### Deployment Architecture
+- **Replit**: Single `npm run dev` — Express serves both API and Vite frontend on the same origin. Used for AI-assisted development only.
+- **Local dev**: Vite frontend (`localhost:5173`) + Express backend (`localhost:PORT`) running separately.
+- **Production (Render)**: Frontend and backend deployed as two separate Render services with different domains.
+
+### Mandatory Coding Rules
+
+1. **Never use bare `/api/...` fetch paths.** Always use `apiRequest()` from `@/lib/queryClient` or prefix with `` `${API_BASE_URL}/api/...` ``. Bare paths break when frontend and backend are on different domains.
+
+2. **Never hardcode `localhost`, `127.0.0.1`, or port numbers** in application code. All cross-service URLs must come from env vars.
+
+3. **New frontend env vars** must be prefixed `VITE_` (e.g. `VITE_API_URL`). Non-`VITE_` vars are stripped at Vite build time and will silently be `undefined` in the browser. Always call out new `VITE_*` vars so the user can add them to Render's frontend static site settings.
+
+4. **New backend env vars** must be called out explicitly so the user can add them to Render's backend service environment settings.
+
+5. **New DB tables or columns** must be called out with the exact SQL to run on Render's Postgres. The schema auto-sync in `server/index.ts` runs only on startup of the Replit instance; it does not run on the Render database automatically.
+
+6. **New allowed frontend domains** — if a new Render frontend URL is introduced, add it to `FRONTEND_ORIGINS` in `server/index.ts` or document that `FRONTEND_URL` env var must be updated on the Render backend service.
+
+7. **Auth is dual-mode** — Replit uses OIDC; local and Render use `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars. All features must work with both auth paths. Never assume Replit OIDC is the only auth mechanism.
+
+### CORS & Session Cookie Setup (already configured — do not break)
+- `sameSite: "none"` + `secure: true` in production enables cross-origin session cookies between the Render frontend and backend.
+- `app.set("trust proxy", 1)` is required for Render's load balancer layer.
+- The CORS allowlist in `server/index.ts` reads from `FRONTEND_URL` env var (comma-separated) and has hardcoded entries for known domains. Keep this pattern when adding domains.
+
 ## Recent Changes
 - **2026-04-13**: Completed patient booking email OTP verification UI and safeguards: patients must send and verify a 6-digit email code before viewing slots or booking, OTP tokens expire with the code window, and the `email_otps` table is created during startup.
 - **2026-04-13**: Migrated app startup for Replit preview: installed missing runtime dependency, configured the app workflow on port 5000, added root health and notifications API endpoints requested by the frontend, and ignored local `.env` files.
