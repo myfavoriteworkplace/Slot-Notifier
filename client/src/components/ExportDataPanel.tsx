@@ -3,8 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { format, formatDistanceToNow, startOfMonth, endOfMonth, subMonths } from "date-fns";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import {
   Download, FileSpreadsheet, FileText, FileBadge, Lock, Bell, X,
   Users, CalendarDays, History, RefreshCw, CheckCircle2, Clock,
@@ -391,88 +389,37 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
         const buffer = await xlsxRes.arrayBuffer();
         downloadBlob(buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
 
-      // ── FORMAT: PDF (brand-aligned) ──
+      // ── FORMAT: PDF (browser print) ──
       } else if (fmt === "pdf") {
-        const DARK    = [8,  80,  65]  as [number, number, number];
-        const PRIMARY = [15, 155, 110] as [number, number, number];
-        const TINT    = [225, 245, 238] as [number, number, number];
-        const WHITE   = [255, 255, 255] as [number, number, number];
-        const TEXT    = [8,   40,  32]  as [number, number, number];
-        const MUTED   = [50, 100,  80]  as [number, number, number];
-
-        const doc   = new jsPDF({ orientation: "landscape" });
-        const pageW = doc.internal.pageSize.getWidth();
-        const pageH = doc.internal.pageSize.getHeight();
-        const margin = 14;
-
-        const drawBands = () => {
-          doc.setFillColor(...DARK);    doc.rect(0, 0, pageW * 0.55, 6, "F");
-          doc.setFillColor(...PRIMARY); doc.rect(pageW * 0.55, 0, pageW, 6, "F");
-          doc.setFillColor(...DARK);    doc.rect(0, pageH - 7, pageW * 0.55, 7, "F");
-          doc.setFillColor(...PRIMARY); doc.rect(pageW * 0.55, pageH - 7, pageW, 7, "F");
-          doc.setFont("helvetica", "normal"); doc.setFontSize(7);
-          doc.setTextColor(...WHITE);
-          doc.text("Powered by BookMySlot", pageW / 2, pageH - 3, { align: "center" });
-        };
-
-        drawBands();
-
-        let y = 14;
-        doc.setFont("helvetica", "bold"); doc.setFontSize(15);
-        doc.setTextColor(...TEXT);
-        doc.text(`${clinic.name} — Patient Data Export`, pageW / 2, y, { align: "center" });
-        y += 6;
-        doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
-        doc.setTextColor(...MUTED);
-        doc.text(
-          `Generated: ${format(new Date(), "dd MMM yyyy, hh:mm a")}${dateFrom || dateTo ? `  ·  Period: ${dateFrom ?? "Start"} to ${dateTo ?? "Today"}` : ""}`,
-          pageW / 2, y, { align: "center" }
-        );
-        doc.setTextColor(...TEXT);
-        y += 10;
-
-        const headStyles = { fillColor: DARK, textColor: WHITE, fontStyle: "bold" as const, fontSize: 8 };
-        const altStyles  = { fillColor: TINT };
-        const bodyStyles = { fontSize: 7.5, textColor: TEXT };
-
-        if (scope.includes("patients")) {
-          doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-          doc.setTextColor(...PRIMARY);
-          doc.text("Patient Profiles", margin, y); y += 4;
-          autoTable(doc, {
-            head: [patientHeaders], body: patientRows as any,
-            startY: y, styles: bodyStyles, headStyles, alternateRowStyles: altStyles,
-            margin: { left: margin, right: margin },
-          });
-          y = (doc as any).lastAutoTable.finalY + 10;
-        }
-
-        if (scope.includes("appointments")) {
-          if (y > pageH - 50) { doc.addPage(); drawBands(); y = 14; }
-          doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-          doc.setTextColor(...PRIMARY);
-          doc.text("Appointments", margin, y); y += 4;
-          autoTable(doc, {
-            head: [apptHeaders], body: apptRows as any,
-            startY: y, styles: { fontSize: 6.5, textColor: TEXT }, headStyles, alternateRowStyles: altStyles,
-            margin: { left: margin, right: margin },
-          });
-          y = (doc as any).lastAutoTable.finalY + 10;
-        }
-
-        if (scope.includes("billing") && billRows.length > 0) {
-          if (y > pageH - 50) { doc.addPage(); drawBands(); y = 14; }
-          doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-          doc.setTextColor(...PRIMARY);
-          doc.text("Billing History", margin, y); y += 4;
-          autoTable(doc, {
-            head: [billHeaders], body: billRows as any,
-            startY: y, styles: { fontSize: 6.5, textColor: TEXT }, headStyles, alternateRowStyles: altStyles,
-            margin: { left: margin, right: margin },
-          });
-        }
-
-        doc.save(fileName);
+        const buildTable = (headers: string[], rows: (string | number)[][], title: string) => `
+          <h2 style="color:#085041;margin:18px 0 6px;font-size:13px">${title}</h2>
+          <table style="width:100%;border-collapse:collapse;font-size:10px">
+            <thead><tr>${headers.map(h => `<th style="background:#085041;color:#fff;padding:4px 6px;text-align:left;font-weight:600">${h}</th>`).join("")}</tr></thead>
+            <tbody>${rows.map((row, i) => `<tr style="background:${i % 2 === 0 ? "#fff" : "#e1f5ee"}">${row.map(c => `<td style="padding:3px 6px;border-bottom:1px solid #d1ede2">${c ?? ""}</td>`).join("")}</tr>`).join("")}</tbody>
+          </table>`;
+        const periodLabel = dateFrom || dateTo ? `Period: ${dateFrom ?? "Start"} to ${dateTo ?? "Today"}` : "All time";
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${clinic.name} Export</title>
+          <style>body{font-family:Arial,sans-serif;margin:0;padding:0}
+          .hbar{height:7px;background:linear-gradient(90deg,#085041 55%,#0f9b6e 100%)}
+          .container{padding:16px 24px}.footer{text-align:center;font-size:9px;color:#9ab8b0;margin-top:16px}
+          @media print{.hbar{-webkit-print-color-adjust:exact;print-color-adjust:exact}thead tr{-webkit-print-color-adjust:exact;print-color-adjust:exact}tr{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+        </head><body>
+          <div class="hbar"></div>
+          <div class="container">
+            <div style="text-align:center;margin-bottom:10px">
+              <div style="font-size:17px;font-weight:700;color:#085041">${clinic.name} — Patient Data Export</div>
+              <div style="font-size:10px;color:#4a8070">Generated: ${format(new Date(), "dd MMM yyyy, hh:mm a")} · ${periodLabel}</div>
+            </div>
+            ${scope.includes("patients") ? buildTable(patientHeaders, patientRows, "Patient Profiles") : ""}
+            ${scope.includes("appointments") ? buildTable(apptHeaders, apptRows, "Appointments") : ""}
+            ${scope.includes("billing") && billRows.length > 0 ? buildTable(billHeaders, billRows, "Billing History") : ""}
+            <div class="footer">Powered by BookMySlot</div>
+          </div>
+          <div class="hbar"></div>
+          <script>window.onload=()=>window.print()</script>
+        </body></html>`;
+        const win = window.open("", "_blank");
+        if (win) { win.document.write(html); win.document.close(); }
       }
 
       await logExportMutation.mutateAsync({

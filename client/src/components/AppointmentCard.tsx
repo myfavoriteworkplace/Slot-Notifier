@@ -3,7 +3,7 @@ import { format, differenceInCalendarDays } from "date-fns";
 import {
   Phone, Hash, CalendarDays, CheckCircle2, X, Stethoscope,
   UserPlus, Building2, Loader2, IndianRupee, ClipboardList,
-  FileText, AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
+  FileText, AlertCircle, UserCheck, Activity, CalendarPlus, PenLine, Clock,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -265,21 +265,6 @@ export function AppointmentCard({
                   Pending
                 </span>
               )}
-              {role === 'clinic' && booking.consentSignedAt && (
-                <TooltipProvider delayDuration={700}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 px-1.5 py-px rounded-full cursor-default">
-                        <CheckCircle2 className="h-2.5 w-2.5" />
-                        Signed
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="left" className="text-xs">
-                      Digital consent signed by patient
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
               {role === 'doctor' && booking.visitStatus && booking.visitStatus !== 'completed' && (
                 <span className={`inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-px rounded-full border
                   ${booking.visitStatus === 'checked_in'
@@ -540,19 +525,23 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Consent status row — clinic view */}
-          {role === 'clinic' && isConfirmed && !isCancelled && (booking.consentSignedAt || (booking as any).consentToken) && (
+          {/* Consent status row — clinic view, always shown for confirmed bookings */}
+          {role === 'clinic' && isConfirmed && !isCancelled && (
             <div className="flex items-center gap-2 text-xs">
               <div className="h-4 w-4 rounded-md bg-muted flex items-center justify-center shrink-0">
                 <PenLine className="h-2.5 w-2.5 text-muted-foreground/60" />
               </div>
               {booking.consentSignedAt ? (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
-                  <CheckCircle2 className="h-2.5 w-2.5" /> Consent Signed
+                  <CheckCircle2 className="h-2.5 w-2.5" /> Digital Consent Signed
+                </span>
+              ) : (booking as any).consentToken ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-0.5 rounded-full">
+                  <Clock className="h-2.5 w-2.5" /> Digital Consent Sent
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-0.5 rounded-full">
-                  Consent Sent
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted/50 border border-border/50 px-2 py-0.5 rounded-full">
+                  Digital Consent Not Sent
                 </span>
               )}
             </div>

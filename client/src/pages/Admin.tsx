@@ -21,7 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { SiFacebook, SiInstagram, SiLinkedin, SiWhatsapp } from "react-icons/si";
+import { SiFacebook, SiInstagram, SiWhatsapp } from "react-icons/si";
+import { Linkedin } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -1934,7 +1935,7 @@ export default function Admin() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="relative">
-                            <SiLinkedin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#0A66C2]" />
+                            <Linkedin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#0A66C2]" />
                             <Input placeholder="LinkedIn company URL" value={dealAdLinkedin} onChange={(e) => setDealAdLinkedin(e.target.value)} className="pl-8 h-8 text-sm" />
                           </div>
                           <div className="relative">
@@ -2133,7 +2134,7 @@ export default function Admin() {
                             {dealSponsorEmail && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-muted hover:bg-primary/10 transition-colors"><Mail className="h-3.5 w-3.5 text-muted-foreground" /></span>}
                             {dealAdFacebook && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#1877F2]/10 hover:bg-[#1877F2]/20 transition-colors"><SiFacebook className="h-3.5 w-3.5 text-[#1877F2]" /></span>}
                             {dealAdInstagram && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#E1306C]/10 hover:bg-[#E1306C]/20 transition-colors"><SiInstagram className="h-3.5 w-3.5 text-[#E1306C]" /></span>}
-                            {dealAdLinkedin && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 transition-colors"><SiLinkedin className="h-3.5 w-3.5 text-[#0A66C2]" /></span>}
+                            {dealAdLinkedin && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 transition-colors"><Linkedin className="h-3.5 w-3.5 text-[#0A66C2]" /></span>}
                             {dealAdWhatsapp && <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors"><SiWhatsapp className="h-3.5 w-3.5 text-[#25D366]" /></span>}
                           </div>
                         )}
@@ -2700,7 +2701,7 @@ export default function Admin() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="relative">
-                    <SiLinkedin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#0A66C2]" />
+                    <Linkedin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#0A66C2]" />
                     <Input placeholder="LinkedIn company URL" value={dealAdLinkedin} onChange={(e) => setDealAdLinkedin(e.target.value)} className="pl-8 h-8 text-sm" />
                   </div>
                   <div className="relative">

@@ -11,7 +11,6 @@ import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
-import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
@@ -2954,183 +2953,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         });
       }
 
-      // --- ExcelJS formatting ---
-      const DARK    = "FF085041";
-      const MID     = "FF0A6649";
-      const PRIMARY = "FF0F9B6E";
-      const TINT    = "FFE1F5EE";
-      const OFF     = "FFF8F8F6";
-      const WHITE   = "FFFFFFFF";
-      const thin = (argb = "FFCCCCCC") => ({ style: "thin" as const, color: { argb } });
-
-      function applyHeaderCell(cell: ExcelJS.Cell) {
-        cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: PRIMARY } };
-        cell.font      = { bold: true, size: 10, color: { argb: WHITE } };
-        cell.alignment = { vertical: "middle", horizontal: "center" };
-        cell.border    = { top: thin(DARK), bottom: thin(DARK), left: thin(DARK), right: thin(DARK) };
+      // --- CSV export ---
+      function buildCsvSheet(headers: string[], rows: (string | number | null | undefined)[][]): string {
+        const escape = (v: string | number | null | undefined) => {
+          const s = String(v ?? "");
+          return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const lines: string[] = [headers.map(escape).join(",")];
+        for (const row of rows) lines.push(row.map(escape).join(","));
+        return lines.join("\r\n");
       }
 
-      function applyDataCell(cell: ExcelJS.Cell, rowIdx: number, statusColor?: string) {
-        cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: rowIdx % 2 === 0 ? TINT : OFF } };
-        cell.border    = { top: thin(), bottom: thin(), left: thin(), right: thin() };
-        cell.alignment = { vertical: "middle", wrapText: false };
-        cell.font      = statusColor
-          ? { size: 9, bold: true, color: { argb: statusColor } }
-          : { size: 9, color: { argb: "FF1A1A1A" } };
-      }
-
-      type StatusMap = { col: number; map: Record<string, string> };
-
-      function buildSheet(
-        wb: ExcelJS.Workbook,
-        sheetName: string,
-        headers: string[],
-        rows: (string | number | null | undefined)[][],
-        colWidths: number[],
-        recordCount: number,
-        statusCols: StatusMap[] = [],
-      ) {
-        const ws = wb.addWorksheet(sheetName);
-        const nc = headers.length;
-        const lastCol = nc <= 26 ? String.fromCharCode(64 + nc) : "Z";
-
-        // Row 1 — Clinic name banner
-        ws.mergeCells(`A1:${lastCol}1`);
-        const r1 = ws.getCell("A1");
-        r1.value = clinic!.name;
-        r1.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: DARK } };
-        r1.font  = { bold: true, size: 14, color: { argb: WHITE } };
-        r1.alignment = { vertical: "middle", horizontal: "center" };
-        ws.getRow(1).height = 32;
-
-        // Row 2 — Meta subtitle
-        ws.mergeCells(`A2:${lastCol}2`);
-        const r2 = ws.getCell("A2");
-        r2.value = `${sheetName}  ·  Exported: ${exportDate}  ·  ${recordCount} records`;
-        r2.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: MID } };
-        r2.font  = { italic: true, size: 9, color: { argb: "FFAACCBB" } };
-        r2.alignment = { vertical: "middle", horizontal: "center" };
-        ws.getRow(2).height = 18;
-
-        // Row 3 — Accent stripe
-        ws.mergeCells(`A3:${lastCol}3`);
-        ws.getCell("A3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: PRIMARY } };
-        ws.getRow(3).height = 4;
-
-        // Row 4 — Headers
-        const hRow = ws.getRow(4);
-        headers.forEach((h, i) => {
-          hRow.getCell(i + 1).value = h;
-          applyHeaderCell(hRow.getCell(i + 1));
-        });
-        hRow.height = 22;
-
-        // Data rows
-        rows.forEach((row, rIdx) => {
-          const dRow = ws.getRow(5 + rIdx);
-          row.forEach((val, cIdx) => {
-            const cell = dRow.getCell(cIdx + 1);
-            cell.value = val ?? "";
-            let statusColor: string | undefined;
-            for (const sc of statusCols) {
-              if (cIdx === sc.col) statusColor = sc.map[String(val ?? "").toLowerCase()];
-            }
-            applyDataCell(cell, rIdx, statusColor);
-          });
-          dRow.height = 18;
-        });
-
-        colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
-        ws.autoFilter = `A4:${lastCol}4`;
-        ws.views = [{ state: "frozen", ySplit: 4, xSplit: 0, topLeftCell: "A5", activeCell: "A5" }];
-      }
-
-      const wb = new ExcelJS.Workbook();
-      wb.creator = clinic.name;
-      wb.created = new Date();
-
-      // ── Summary sheet (always first) ──
-      const summaryWs = wb.addWorksheet("Summary");
-      summaryWs.getColumn(1).width = 26;
-      summaryWs.getColumn(2).width = 42;
-
-      summaryWs.mergeCells("A1:B1");
-      const sumTitle = summaryWs.getCell("A1");
-      sumTitle.value = `${clinic.name} — Export Summary`;
-      sumTitle.fill  = { type: "pattern", pattern: "solid", fgColor: { argb: DARK } };
-      sumTitle.font  = { bold: true, size: 13, color: { argb: WHITE } };
-      sumTitle.alignment = { vertical: "middle", horizontal: "center" };
-      summaryWs.getRow(1).height = 30;
-
-      const summaryRows: [string, string | number][] = [
-        ["Clinic",         clinic.name],
-        ["Phone",          (clinic as any).phone   ?? ""],
-        ["Email",          (clinic as any).email   ?? ""],
-        ["Address",        (clinic as any).address ?? ""],
-        ["Export Date",    exportDate],
-        ["Date Range",     (dateFrom || dateTo) ? `${dateFrom ?? "Start"} to ${dateTo ?? "Today"}` : "All time"],
-        ["", ""],
-        ...(scope.includes("patients")     ? [["Unique Patients",    uniquePatients.length] as [string, number]] : []),
-        ...(scope.includes("appointments") ? [["Total Appointments", allBookings.length]   as [string, number]] : []),
-        ...(scope.includes("billing")      ? [["Total Bills",        billsCount]           as [string, number]] : []),
-      ];
-
-      summaryRows.forEach(([label, value], i) => {
-        const row = summaryWs.getRow(i + 2);
-        const c1  = row.getCell(1);
-        const c2  = row.getCell(2);
-        c1.value = label; c2.value = value;
-        c1.font = { bold: true, size: 9, color: { argb: MID } };
-        c2.font = { size: 9, color: { argb: "FF1A1A1A" } };
-        const bg = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: i % 2 === 0 ? TINT : OFF } };
-        c1.fill = c2.fill = bg;
-        c1.border = c2.border = { top: thin(), bottom: thin(), left: thin(), right: thin() };
-        c1.alignment = c2.alignment = { vertical: "middle" };
-        row.height = 18;
-      });
-
-      // Status color maps for conditional formatting
-      const apptStatusColors: Record<string, string> = {
-        confirmed: "FF0F9B6E", pending: "FFD97706", cancelled: "FFDC2626",
-      };
-      const visitStatusColors: Record<string, string> = {
-        arrived: "FF059669", "with doctor": "FF0D9488", "visit done": "FF64748B",
-      };
-      const payStatusColors: Record<string, string> = {
-        paid: "FF0F9B6E", partial: "FF2563EB", pending: "FFD97706",
-        "": "",
-      };
+      const sections: string[] = [];
+      sections.push(`# ${clinic.name} — Export\r\n# Date: ${exportDate}\r\n`);
 
       if (scope.includes("patients")) {
-        buildSheet(wb, "Patient Profiles", patientsHeaders, patientsData,
-          [14, 26, 16, 32, 8, 10, 14, 14, 12], uniquePatients.length);
+        sections.push(`## Patient Profiles (${uniquePatients.length} records)\r\n` + buildCsvSheet(patientsHeaders, patientsData));
       }
       if (scope.includes("appointments")) {
-        buildSheet(wb, "Appointments", apptHeaders, apptData,
-          [10, 14, 24, 16, 7, 10, 14, 13, 10, 12, 22, 12, 13, 16, 34, 14, 12],
-          allBookings.length,
-          [
-            { col: 11, map: apptStatusColors  },
-            { col: 12, map: visitStatusColors },
-            { col: 15, map: payStatusColors   },
-          ],
-        );
+        sections.push(`## Appointments (${allBookings.length} records)\r\n` + buildCsvSheet(apptHeaders, apptData));
       }
       if (scope.includes("billing")) {
-        buildSheet(wb, "Billing History", billsHeaders, billsData,
-          [14, 12, 26, 14, 14, 22, 38, 12, 10, 8, 12, 16, 10],
-          billsCount,
-          [{ col: 12, map: { paid: "FF0F9B6E", partial: "FF2563EB", pending: "FFD97706" } }],
-        );
+        sections.push(`## Billing History (${billsCount} records)\r\n` + buildCsvSheet(billsHeaders, billsData));
       }
 
-      const buffer = await wb.xlsx.writeBuffer();
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", `attachment; filename="export.xlsx"`);
-      res.send(Buffer.from(buffer));
+      const csvContent = "\uFEFF" + sections.join("\r\n\r\n");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="export_${exportDate}.csv"`);
+      res.send(csvContent);
     } catch (err: any) {
-      console.error("[EXPORT] XLSX generation failed:", err);
-      res.status(500).json({ message: "Failed to generate Excel file" });
+      console.error("[EXPORT] CSV generation failed:", err);
+      res.status(500).json({ message: "Failed to generate export file" });
     }
   });
 
