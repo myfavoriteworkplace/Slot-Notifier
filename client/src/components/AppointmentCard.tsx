@@ -563,7 +563,7 @@ export function AppointmentCard({
             </div>
           )}
 
-          {role === 'doctor' && (
+          {(role === 'clinic' || role === 'doctor') && (
             <div className="flex items-center gap-2 text-xs">
               <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.clinicalStatus ? 'bg-primary/10' : 'bg-muted'}`}>
                 <ClipboardList className={`h-2.5 w-2.5 ${booking.clinicalStatus ? 'text-primary' : 'text-muted-foreground/40'}`} />
