@@ -106,6 +106,8 @@ Sidebar nav color coding: Bookings = primary green, Configure Slots = blue, Mana
 - **API**: `POST /api/auth/clinic/bookings/:id/request-consent` (clinic-auth), `GET /api/consent/:token` (public), `POST /api/consent/:token/sign` (public).
 
 ## Recent Changes
+- **2026-06-08**: Added `.node-version` file pinning Node to 20.20.0 — prevents Render from auto-selecting Node 22 + npm 11 which caused `npm install` to fail with "Exit handler never called".
+- **2026-06-08**: `vite.config.ts` — set `sourcemap: false` and added `manualChunks` vendor splitting to prevent OOM crash during Render production build.
 - **2026-04-13**: Completed patient booking email OTP verification UI and safeguards: patients must send and verify a 6-digit email code before viewing slots or booking, OTP tokens expire with the code window, and the `email_otps` table is created during startup.
 - **2026-04-13**: Migrated app startup for Replit preview: installed missing runtime dependency, configured the app workflow on port 5000, added root health and notifications API endpoints requested by the frontend, and ignored local `.env` files.
 - **2026-04-06**: Full digital consent form implementation: 3 API routes, storage methods, patient signing page (`/consent/:token`), clinic dashboard panel with "Request Consent" button and signed status.
@@ -123,3 +125,93 @@ Sidebar nav color coding: Bookings = primary green, Configure Slots = blue, Mana
 - **2026-03-29**: Added `originalPrice`, `subcategory`, `isFlash` to smile_deals schema.
 - **2026-03-29**: Full dark redesign of Smile Deals public page (Sora font, ambient orbs, flash strip, countdown, tilt cards, promo section).
 - **2026-03-29**: Admin deal form: added Procedure/Type dropdown, Original Price field, Flash Deal toggle, Start Date field, updated categories.
+
+---
+
+## Developer Workflow & Environments
+
+This project uses **three separate environments** with distinct purposes. Every agent working in this repo must understand this before writing any code.
+
+### Environment Map
+
+| Environment | Purpose | How it runs |
+|---|---|---|
+| **Replit** | AI-assisted development only — agent writes and previews code here | `npm run dev` — Express + Vite on the same origin (port 5000) |
+| **Local machine** | Developer testing before deploying to Render | Vite dev server (`localhost:5173`) + Express backend (`localhost:PORT`) as two separate processes |
+| **Render (production)** | Live production deployment | Frontend and backend as **two separate Render services** with different domains |
+
+### Replit (AI Development Only)
+- Used **only** for writing and previewing code with the AI agent.
+- Runs as a single unified server: Express serves both the API and the Vite frontend on port 5000.
+- **Not used for final testing** — the developer tests on their local machine before deploying.
+- Replit OIDC authentication is active here. Local and Render use `ADMIN_EMAIL`/`ADMIN_PASSWORD` instead.
+
+### Local Machine (Developer Testing)
+- Mirrors the Render split exactly: frontend and backend run as **separate processes**.
+- Frontend: Vite dev server on `localhost:5173`
+- Backend: Express on `localhost:<PORT>` (set via `PORT` env var)
+- All API calls must use the `VITE_API_URL` env var — bare `/api/...` paths will not work across origins.
+- Local `.env` files are gitignored — each developer maintains their own.
+
+### Render (Production)
+- **Frontend**: Deployed as a Render **Static Site**. Build command: `npm run build`. Publish directory: `dist/public`.
+- **Backend**: Deployed as a Render **Web Service**. Start command: `node dist/index.cjs`.
+- The two services run on **different domains** — all API calls are cross-origin by default.
+- Session cookies use `sameSite: "none"` + `secure: true` to work across origins.
+- `app.set("trust proxy", 1)` is required for Render's load balancer layer.
+- CORS allowlist in `server/index.ts` reads from the `FRONTEND_URL` env var (comma-separated) and has hardcoded entries for known production domains (`bookmyslot.dental.mossaic.in`, `book-my-slot-client.onrender.com`).
+
+### Node Version
+- Pinned to **Node 20.20.0** via `.node-version` in the repo root.
+- Do not remove or change this file — Render, nvm, and Volta all respect it.
+- The `package-lock.json` was generated with npm 10.8.2 (ships with Node 20). Using Node 22+ causes `npm install` to fail on Render with "Exit handler never called".
+
+### Build Notes
+- `npm run build` runs `script/build.ts`: (1) Vite build → `dist/public`, (2) esbuild bundles Express → `dist/index.cjs`.
+- `sourcemap: false` in `vite.config.ts` — disabled to prevent OOM on Render during the Vite bundle step (ClinicDashboard.tsx alone is 400KB+).
+- `manualChunks` in `vite.config.ts` splits vendor libraries into separate files to reduce peak memory during bundling.
+- If the Render build fails with "Exit handler never called" during `npm install`, clear the Render build cache: Dashboard → service → Manual Deploy → "Clear build cache & deploy".
+
+---
+
+## Mandatory Coding Rules
+
+This project runs on **Replit as the AI development environment** but is tested locally and deployed to **Render as a split frontend + backend**. Every agent working in this repo must follow these rules on every change — without being asked.
+
+### 1. Never use bare `/api/...` fetch paths
+Always use `apiRequest()` from `@/lib/queryClient` or prefix with the `API_BASE_URL` constant. Bare paths break when frontend and backend are on different domains.
+
+```ts
+// WRONG — breaks on local and Render where origins differ
+fetch('/api/auth/clinic/bookings')
+
+// CORRECT
+import { apiRequest } from '@/lib/queryClient';
+apiRequest('GET', '/api/auth/clinic/bookings');
+```
+
+### 2. Never hardcode `localhost`, `127.0.0.1`, or port numbers
+All cross-service URLs must come from environment variables (`VITE_API_URL`, `PORT`, etc.).
+
+### 3. New frontend env vars must be prefixed `VITE_`
+Non-`VITE_` vars are stripped at Vite build time and will silently be `undefined` in the browser. Call out every new `VITE_*` var so the developer can add it to Render's **Static Site** environment settings.
+
+### 4. Call out new backend env vars explicitly
+The developer must add them manually to the Render **Web Service** environment settings. Never assume they are automatically available.
+
+### 5. Call out new DB tables or columns with the exact SQL
+The schema auto-sync in `server/index.ts` runs on Replit startup only — it does **not** run on Render's Postgres automatically. Always provide the exact `ALTER TABLE` or `CREATE TABLE` SQL so the developer can run it on the Render database.
+
+### 6. New allowed frontend domains go in the CORS allowlist
+If a new Render frontend URL is introduced, add it to the `FRONTEND_ORIGINS` array in `server/index.ts`, or document that the `FRONTEND_URL` env var on the Render backend service must be updated.
+
+### 7. Auth is dual-mode — both paths must always work
+- **Replit**: Replit OIDC (`passport-openidconnect`)
+- **Local + Render**: `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars + session-based auth
+
+Never assume Replit OIDC is the only auth mechanism. Every new auth-gated feature must work with both paths.
+
+### CORS & Session Cookie Setup (already configured — do not break)
+- `sameSite: "none"` + `secure: true` in production enables cross-origin session cookies between the Render frontend and backend.
+- `app.set("trust proxy", 1)` is required for Render's load balancer layer.
+- The CORS allowlist in `server/index.ts` reads from the `FRONTEND_URL` env var (comma-separated) and has hardcoded entries for known domains. Keep this pattern when adding domains.
