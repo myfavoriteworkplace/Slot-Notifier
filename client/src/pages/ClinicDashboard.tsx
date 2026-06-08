@@ -1039,15 +1039,7 @@ export default function ClinicDashboard() {
 
   // Calculate booking numbers based on appointment time
   const getBookingNumber = (booking: BookingWithSlot) => {
-    if (!bookings) return "0";
-    // Get all bookings for the same date
-    const bookingDateStr = format(new Date(booking.slot.startTime), 'yyyy-MM-dd');
-    const dayBookings = bookings
-      .filter(b => format(new Date(b.slot.startTime), 'yyyy-MM-dd') === bookingDateStr)
-      .sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime());
-    
-    const index = dayBookings.findIndex(b => b.id === booking.id);
-    return (index + 1).toString();
+    return String(booking.id).padStart(4, '0');
   };
 
   const getStatusGroup = (booking: BookingWithSlot) => {

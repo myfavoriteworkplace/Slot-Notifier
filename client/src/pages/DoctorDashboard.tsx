@@ -1097,7 +1097,7 @@ export default function DoctorDashboard() {
                         key={booking.id}
                         role="doctor"
                         booking={booking}
-                        bookingNumber={String(booking.id).padStart(2, '0')}
+                        bookingNumber={String(booking.id).padStart(4, '0')}
                         complaints={booking.description ? booking.description.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean) : []}
                         clinicName={clinicName}
                         clinicCity={clinicCity ?? undefined}

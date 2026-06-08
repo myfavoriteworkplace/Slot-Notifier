@@ -43,6 +43,7 @@ export interface BookingWithSlot {
   visitStatus?: string | null;
   checkedInAt?: Date | string | null;
   completedAt?: Date | string | null;
+  slotCost?: number | null;
   confirmedBy?: string | null;
   consentSignature?: string | null;
   consentSignedAt?: Date | string | null;
@@ -109,6 +110,7 @@ export function AppointmentCard({
   onOpenNotes,
   onOpenRecords,
   confirmPending,
+  cancelPending,
   assignDoctorPending,
   approvePending,
   declinePending,
@@ -145,7 +147,7 @@ export function AppointmentCard({
     : "bg-gradient-to-r from-primary to-accent";
 
   const headerBg = isToday
-    ? "bg-gradient-to-r from-sky-500/8 to-cyan-500/5"
+    ? "bg-gradient-to-r from-sky-500/10 to-cyan-500/5"
     : isPast
     ? "bg-muted/30"
     : "bg-gradient-to-r from-primary/5 to-accent/5";
@@ -155,17 +157,6 @@ export function AppointmentCard({
     : isConfirmed
     ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
     : "border-l-2 border-l-amber-400 dark:border-l-amber-500";
-
-  const statusLabel = isCancelled ? "Cancelled"
-    : isConfirmed ? "Confirmed"
-    : isApptDeclined ? "Declined"
-    : "Pending";
-
-  const statusClass = isCancelled || isApptDeclined
-    ? "text-rose-600 bg-rose-500/10 border-rose-500/25 dark:text-rose-400 dark:bg-rose-400/10 dark:border-rose-500/30"
-    : isConfirmed
-    ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
-    : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
 
   const maxChips = role === 'clinic' ? 4 : 3;
   const displayClinicName = clinicName || booking.clinicName || booking.clinic?.name;
@@ -185,7 +176,7 @@ export function AppointmentCard({
 
   return (
     <Card
-      className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group flex flex-col ${isPast ? "opacity-75" : ""} ${leftBorder} ${visitRingClass}`}
+      className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 group flex flex-col ${isPast ? "opacity-75" : ""} ${leftBorder} ${visitRingClass}`}
       data-testid={`card-booking-${booking.id}`}
     >
       {/* Top accent bar */}
@@ -199,8 +190,8 @@ export function AppointmentCard({
         tabIndex={0}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onCardClick(); }}
       >
-        {/* Header */}
-        <div className={`px-4 pt-2.5 pb-2 ${headerBg} transition-colors group-hover:brightness-[0.97]`}>
+        {/* ── Header ── */}
+        <div className={`px-3 sm:px-4 pt-2.5 pb-2 ${headerBg} transition-colors group-hover:brightness-[0.97]`}>
           <div className="flex items-start justify-between gap-2">
 
             {/* Avatar + name block */}
@@ -214,7 +205,7 @@ export function AppointmentCard({
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
                   <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
-                    #{bookingNumber}
+                    REF-{bookingNumber}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
@@ -226,7 +217,9 @@ export function AppointmentCard({
                       <span className="truncate">
                         {booking.customerAge ? `${booking.customerAge}y` : ""}
                         {booking.customerAge && booking.customerGender ? " · " : ""}
-                        {booking.customerGender ? (booking.customerGender.charAt(0).toUpperCase() + booking.customerGender.slice(1)) : ""}
+                        {booking.customerGender
+                          ? booking.customerGender.charAt(0).toUpperCase() + booking.customerGender.slice(1)
+                          : ""}
                       </span>
                     </>
                   )}
@@ -234,15 +227,13 @@ export function AppointmentCard({
               </div>
             </div>
 
-            {/* Status column — smart text, no pill backgrounds */}
-            <div className="flex flex-col items-end gap-0.5">
+            {/* Status column */}
+            <div className="flex flex-col items-end gap-0.5 shrink-0">
               {isCancelled || isApptDeclined ? (
-                <div className="flex flex-col items-end gap-0.5">
-                  <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
-                    <X className="h-2.5 w-2.5" />
-                    {isApptDeclined ? "Declined" : "Cancelled"}
-                  </span>
-                </div>
+                <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                  <X className="h-2.5 w-2.5" />
+                  {isApptDeclined ? "Declined" : "Cancelled"}
+                </span>
               ) : isConfirmed ? (
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                   <CheckCircle2 className="h-2.5 w-2.5" />
@@ -265,23 +256,27 @@ export function AppointmentCard({
                   Pending
                 </span>
               )}
+
+              {/* Doctor: visit status badge in top-right — includes check-in time */}
               {role === 'doctor' && booking.visitStatus && booking.visitStatus !== 'completed' && (
                 <span className={`inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-px rounded-full border
                   ${booking.visitStatus === 'checked_in'
-                    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"
-                    : "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-500/10 border-teal-200 dark:border-teal-500/20"
+                    ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800"
+                    : "text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-800"
                   }`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${booking.visitStatus === 'checked_in' ? 'bg-emerald-500 animate-pulse' : 'bg-teal-500'}`} />
-                  {booking.visitStatus === 'checked_in' ? 'Arrived' : 'With You'}
+                  {booking.visitStatus === 'checked_in'
+                    ? `Arrived${booking.checkedInAt ? ` · ${format(new Date(booking.checkedInAt), 'h:mm a')}` : ''}`
+                    : 'With You'}
                 </span>
               )}
               {role === 'doctor' && booking.visitStatus === 'completed' && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 px-1.5 py-px rounded-full">
                   <CheckCircle2 className="h-2.5 w-2.5" />
                   Visit Done
-                  {(booking as any).completedAt && (
+                  {booking.completedAt && (
                     <span className="font-normal opacity-70">
-                      · {format(new Date((booking as any).completedAt), 'd MMM · h:mm a')}
+                      · {format(new Date(booking.completedAt), 'd MMM · h:mm a')}
                     </span>
                   )}
                 </span>
@@ -290,27 +285,29 @@ export function AppointmentCard({
           </div>
         </div>
 
-        {/* Info rows */}
-        <div className="px-4 py-2 space-y-1.5">
+        {/* ── Info rows ── */}
+        <div className="px-3 sm:px-4 py-2 space-y-1.5">
 
-          {/* Date + Time row with inline relative-date badge */}
-          <div className="flex items-center gap-2 text-xs min-w-0">
-            <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-              <CalendarDays className="h-2.5 w-2.5 text-primary" />
+          {/* Date + time row — flex-wrap prevents overflow when many badges present */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs min-w-0">
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                <CalendarDays className="h-2.5 w-2.5 text-primary" />
+              </div>
+              <span className="font-semibold text-foreground">
+                {format(startTime, "EEE, d MMM")}
+              </span>
+              <span className="text-muted-foreground font-medium">
+                {format(startTime, "h:mm a")}
+                <span className="mx-1 opacity-40">→</span>
+                {format(endTime, "h:mm a")}
+              </span>
             </div>
-            <span className="font-semibold text-foreground shrink-0">
-              {format(startTime, "EEE, d MMM")}
-            </span>
-            <span className="text-muted-foreground font-medium truncate min-w-0">
-              {format(startTime, "h:mm a")}
-              <span className="mx-1 opacity-40">→</span>
-              {format(endTime, "h:mm a")}
-            </span>
             {!isPast && (() => {
               const daysAway = differenceInCalendarDays(startTime, new Date());
               const dLabel = isToday ? "Today" : daysAway === 1 ? "Tomorrow" : `in ${daysAway}d`;
               const dCls = isToday
-                ? "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"
+                ? "text-sky-600 bg-sky-50 dark:text-sky-400 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20"
                 : daysAway === 1
                 ? "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
                 : "text-muted-foreground bg-muted/50 border-border/50";
@@ -320,9 +317,9 @@ export function AppointmentCard({
                 </span>
               );
             })()}
-            {(booking as any).slotCost > 1 && (() => {
-              const cost = (booking as any).slotCost as number;
-              const rawDesc: string = (booking as any).description ?? "";
+            {(booking.slotCost ?? 0) > 1 && (() => {
+              const cost = booking.slotCost as number;
+              const rawDesc: string = booking.description ?? "";
               const catMatch = rawDesc.match(/Category:\s*([^,\n]+)/);
               const catName = catMatch ? catMatch[1].trim() : null;
               const label = catName
@@ -335,11 +332,13 @@ export function AppointmentCard({
               );
             })()}
             {role === 'doctor' && (
-              <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">{durationMin}m</span>
+              <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">
+                {durationMin}m
+              </span>
             )}
           </div>
 
-          {/* Row 3: patient code (clinic) or clinic name (doctor) */}
+          {/* Patient code (clinic) or clinic name (doctor) */}
           {role === 'clinic' && booking.patientCode && (
             <div className="flex items-center gap-2 text-xs">
               <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
@@ -359,15 +358,22 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Row 4: doctor assignment (clinic) or clinical status badge (doctor) */}
+          {/* Cancellation reason — shown in both clinic and doctor view */}
+          {isCancelled && booking.cancellationReason && (
+            <div className="flex items-start gap-2 text-xs min-w-0">
+              <div className="h-4 w-4 rounded-md bg-rose-500/10 flex items-center justify-center shrink-0 mt-px">
+                <AlertCircle className="h-2.5 w-2.5 text-rose-500" />
+              </div>
+              <span className="text-muted-foreground italic truncate">{booking.cancellationReason}</span>
+            </div>
+          )}
+
+          {/* Doctor assignment row — clinic view */}
           {role === 'clinic' && (() => {
             if (booking.assignedDoctor) {
               const drStatus = isCancelled ? (
                 <span className="inline-flex items-center gap-1">
                   <span className="font-semibold text-rose-600 dark:text-rose-400">Cancelled</span>
-                  {booking.cancellationReason && (
-                    <span className="italic text-muted-foreground/60">· {booking.cancellationReason}</span>
-                  )}
                 </span>
               ) : booking.doctorApprovalStatus === 'pending' ? (
                 <span className="inline-flex items-center gap-1">
@@ -391,16 +397,20 @@ export function AppointmentCard({
                 </span>
               ) : null;
 
-              const adminConfirmed = !isCancelled && isConfirmed && booking.confirmedBy === 'admin' && booking.doctorApprovalStatus !== 'admin_confirmed';
+              const adminConfirmed = !isCancelled
+                && isConfirmed
+                && booking.confirmedBy === 'admin'
+                && booking.doctorApprovalStatus !== 'admin_confirmed'
+                && booking.doctorApprovalStatus !== 'approved';
 
               return (
-                <div className="flex items-start gap-2 text-xs">
+                <div className="flex items-start gap-2 text-xs min-w-0">
                   <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-px">
                     <Stethoscope className="h-2.5 w-2.5 text-primary" />
                   </div>
-                  <div className="grid grid-cols-[auto_1fr] items-baseline gap-x-1.5 gap-y-0.5">
-                    <span className="font-medium text-primary">Dr. {booking.assignedDoctor}</span>
-                    <span>{drStatus}</span>
+                  <div className="grid grid-cols-[auto_1fr] items-baseline gap-x-1.5 gap-y-0.5 min-w-0">
+                    <span className="font-medium text-primary truncate">Dr. {booking.assignedDoctor}</span>
+                    <span className="min-w-0 truncate">{drStatus}</span>
                     {adminConfirmed && (
                       <>
                         <span />
@@ -425,7 +435,7 @@ export function AppointmentCard({
                       <PopoverTrigger asChild>
                         <button
                           onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 active:bg-amber-100 px-2 py-0.5 rounded-full transition-colors"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 active:bg-amber-100 active:scale-[0.98] min-h-[28px] px-2.5 rounded-full transition-colors"
                           data-testid={`button-assign-inline-${booking.id}`}
                         >
                           <UserPlus className="h-2.5 w-2.5" />
@@ -470,7 +480,7 @@ export function AppointmentCard({
             return null;
           })()}
 
-          {/* Visit status row — clinic admin view */}
+          {/* Visit status row — clinic admin */}
           {role === 'clinic' && isConfirmed && !isCancelled && (
             <div className="flex items-center gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
               <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.visitStatus ? 'bg-primary/10' : 'bg-muted'}`}>
@@ -481,7 +491,7 @@ export function AppointmentCard({
                   onClick={onCheckIn}
                   disabled={checkInPending}
                   data-testid={`button-checkin-${booking.id}`}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground border border-border/60 hover:border-primary/40 hover:text-primary hover:bg-primary/5 active:scale-[0.97] px-2 py-0.5 rounded-full transition-all"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground border border-border/60 hover:border-primary/40 hover:text-primary hover:bg-primary/5 active:scale-[0.98] min-h-[28px] px-2.5 rounded-full transition-all"
                 >
                   {checkInPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
                   Mark Arrived
@@ -489,7 +499,7 @@ export function AppointmentCard({
               )}
               {booking.visitStatus === 'checked_in' && (
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     In Clinic
                     {booking.checkedInAt && (
@@ -501,52 +511,56 @@ export function AppointmentCard({
                     disabled={checkInPending}
                     title="Undo check-in"
                     data-testid={`button-undo-checkin-${booking.id}`}
-                    className="p-0.5 rounded hover:bg-muted/80 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+                    className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted/80 text-muted-foreground/40 hover:text-muted-foreground active:scale-[0.98] transition-all"
                   >
                     {checkInPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <X className="h-2.5 w-2.5" />}
                   </button>
                 </div>
               )}
               {booking.visitStatus === 'in_consultation' && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/20 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800 px-2 py-0.5 rounded-full">
                   <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
                   With Doctor
                 </span>
               )}
               {booking.visitStatus === 'completed' && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-muted/50 border border-border/50 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-full">
                   <CheckCircle2 className="h-2.5 w-2.5" />
                   Visit Done
-                  {(booking as any).completedAt && (
-                    <span className="font-normal opacity-70">· {format(new Date((booking as any).completedAt), 'h:mm a')}</span>
+                  {booking.completedAt && (
+                    <span className="font-normal opacity-70">· {format(new Date(booking.completedAt), 'h:mm a')}</span>
                   )}
                 </span>
               )}
             </div>
           )}
 
-          {/* Consent status row — clinic view, always shown for confirmed bookings */}
+          {/* Consent status row — clinic view */}
           {role === 'clinic' && isConfirmed && !isCancelled && (
             <div className="flex items-center gap-2 text-xs">
               <div className="h-4 w-4 rounded-md bg-muted flex items-center justify-center shrink-0">
                 <PenLine className="h-2.5 w-2.5 text-muted-foreground/60" />
               </div>
               {booking.consentSignedAt ? (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
-                  <CheckCircle2 className="h-2.5 w-2.5" /> Digital Consent Signed
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="h-2.5 w-2.5" />
+                  Digital Consent Signed
                 </span>
-              ) : (booking as any).consentToken ? (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-0.5 rounded-full">
-                  <Clock className="h-2.5 w-2.5" /> Digital Consent Sent
+              ) : booking.consentToken ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                  <Clock className="h-2.5 w-2.5" />
+                  Digital Consent Sent
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted/50 border border-border/50 px-2 py-0.5 rounded-full">
+                  <AlertCircle className="h-2.5 w-2.5 opacity-50" />
                   Digital Consent Not Sent
                 </span>
               )}
             </div>
           )}
 
+          {/* Clinical status badge — doctor view */}
           {role === 'doctor' && booking.clinicalStatus && (
             <span className={`inline-flex items-center text-xs font-medium px-2 py-px rounded-full border
               ${booking.clinicalStatus === "case_closed"
@@ -556,19 +570,27 @@ export function AppointmentCard({
                 : booking.clinicalStatus === "revisit"
                 ? "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800"
                 : "bg-primary/10 text-primary border-primary/20"}`}>
-              {booking.clinicalStatus === "first_visit" ? "First Visit" :
-               booking.clinicalStatus === "revisit" ? "Revisit" :
-               booking.clinicalStatus === "follow_up_required" ? "Follow-up Required" :
-               booking.clinicalStatus === "case_closed" ? "Case Closed" :
-               booking.clinicalStatus}
+              {booking.clinicalStatus === "first_visit" ? "First Visit"
+                : booking.clinicalStatus === "revisit" ? "Revisit"
+                : booking.clinicalStatus === "follow_up_required" ? "Follow-up Required"
+                : booking.clinicalStatus === "case_closed" ? "Case Closed"
+                : booking.clinicalStatus}
             </span>
+          )}
+
+          {/* Doctor notes indicator — doctor view */}
+          {role === 'doctor' && booking.doctorNotes && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <FileText className="h-2.5 w-2.5 shrink-0" />
+              <span className="italic">Notes added</span>
+            </div>
           )}
 
           {/* Chief complaint chips */}
           {complaints.length > 0 && (
             <div className="flex flex-wrap gap-1 pt-0.5">
               {complaints.slice(0, maxChips).map((c, i) => (
-                <span key={i} className="inline-flex items-center text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                <span key={i} className="inline-flex items-center text-xs font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
                   {c}
                 </span>
               ))}
@@ -580,15 +602,15 @@ export function AppointmentCard({
         </div>
       </div>
 
-      {/* ── Clinic footer: Confirm | ₹ Bill | Cancel ── */}
+      {/* ── Clinic footer ── */}
       {role === 'clinic' && (
-        <div className="px-4 py-1.5 flex items-center gap-2 border-t border-border/50 bg-muted/20" onClick={(e) => e.stopPropagation()}>
+        <div className="px-3 sm:px-4 py-1.5 flex items-center gap-2 border-t border-border/50 bg-muted/20" onClick={(e) => e.stopPropagation()}>
           {!isPast && !isCancelled && booking.verificationStatus !== 'confirmed' && (
             <>
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex-1 h-9 gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-400/10 active:bg-emerald-100 dark:active:bg-emerald-400/20 active:scale-[0.97] transition-all"
+                className="flex-1 h-9 gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-400/10 active:bg-emerald-100 dark:active:bg-emerald-400/20 active:scale-[0.98] transition-all"
                 onClick={(e) => { e.stopPropagation(); onConfirm?.(); }}
                 disabled={confirmPending}
                 data-testid={`button-confirm-${booking.id}`}
@@ -602,7 +624,7 @@ export function AppointmentCard({
           <Button
             variant="ghost"
             size="sm"
-            className="flex-1 h-9 gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-background/80 active:bg-muted/60 active:scale-[0.97] transition-all"
+            className="flex-1 h-9 gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-background/80 active:bg-muted/60 active:scale-[0.98] transition-all"
             onClick={(e) => { e.stopPropagation(); onBill?.(); }}
             data-testid={`button-bill-${booking.id}`}
           >
@@ -614,7 +636,7 @@ export function AppointmentCard({
             <Button
               variant="ghost"
               size="sm"
-              className="flex-1 h-9 gap-1.5 text-xs font-semibold text-primary hover:text-primary hover:bg-primary/5 active:bg-primary/10 active:scale-[0.97] transition-all"
+              className="flex-1 h-9 gap-1.5 text-xs font-semibold text-primary hover:text-primary hover:bg-primary/5 active:bg-primary/10 active:scale-[0.98] transition-all"
               onClick={(e) => { e.stopPropagation(); onBookAgain?.(); }}
               data-testid={`button-book-again-${booking.id}`}
             >
@@ -622,74 +644,77 @@ export function AppointmentCard({
               Book Again
             </Button>
           ) : (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex-1 h-9 gap-1.5 text-xs font-semibold text-destructive/70 hover:text-destructive hover:bg-destructive/5 active:bg-destructive/10 active:text-destructive active:scale-[0.97] transition-all"
-                onClick={(e) => e.stopPropagation()}
-                data-testid={`button-cancel-booking-${booking.id}`}
-              >
-                <X className="h-3 w-3" />
-                Cancel
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will cancel {booking.customerName}'s appointment and send them a cancellation email.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <div className="px-1 py-2 space-y-3">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Reason for cancellation</label>
-                  <select
-                    value={cancelReason}
-                    onChange={e => { setCancelReason(e.target.value); setCancelReasonOther(""); }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="">Select a reason…</option>
-                    <option value="Patient requested cancellation">Patient requested cancellation</option>
-                    <option value="Doctor unavailable">Doctor unavailable</option>
-                    <option value="Clinic closure / emergency">Clinic closure / emergency</option>
-                    <option value="Patient no-show">Patient no-show</option>
-                    <option value="Rescheduled to another slot">Rescheduled to another slot</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                {cancelReason === "Other" && (
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground">Please specify</label>
-                    <Input
-                      value={cancelReasonOther}
-                      onChange={e => setCancelReasonOther(e.target.value)}
-                      placeholder="e.g. Emergency, personal reasons"
-                      autoFocus
-                    />
-                  </div>
-                )}
-              </div>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => { setCancelReason(""); setCancelReasonOther(""); }}>Back</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleCancelSubmit}
-                  className="bg-destructive text-destructive-foreground"
-                  disabled={!cancelReason || (cancelReason === "Other" && !cancelReasonOther.trim())}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 h-9 gap-1.5 text-xs font-semibold text-destructive/70 hover:text-destructive hover:bg-destructive/5 active:bg-destructive/10 active:text-destructive active:scale-[0.98] transition-all"
+                  onClick={(e) => e.stopPropagation()}
+                  data-testid={`button-cancel-booking-${booking.id}`}
+                  disabled={cancelPending}
                 >
-                  Cancel Booking
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  {cancelPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                  Cancel
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will cancel {booking.customerName}'s appointment and send them a cancellation email.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="px-1 py-2 space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">
+                      Reason for cancellation <span className="text-destructive">*</span>
+                    </label>
+                    <select
+                      value={cancelReason}
+                      onChange={e => { setCancelReason(e.target.value); setCancelReasonOther(""); }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <option value="">Select a reason…</option>
+                      <option value="Patient requested cancellation">Patient requested cancellation</option>
+                      <option value="Doctor unavailable">Doctor unavailable</option>
+                      <option value="Clinic closure / emergency">Clinic closure / emergency</option>
+                      <option value="Patient no-show">Patient no-show</option>
+                      <option value="Rescheduled to another slot">Rescheduled to another slot</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  {cancelReason === "Other" && (
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">Please specify</label>
+                      <Input
+                        value={cancelReasonOther}
+                        onChange={e => setCancelReasonOther(e.target.value)}
+                        placeholder="e.g. Emergency, personal reasons"
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => { setCancelReason(""); setCancelReasonOther(""); }}>Back</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleCancelSubmit}
+                    className="bg-destructive text-destructive-foreground"
+                    disabled={!cancelReason || (cancelReason === "Other" && !cancelReasonOther.trim())}
+                  >
+                    Cancel Booking
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       )}
 
-      {/* ── Doctor footer: Accept/Decline (pending) or Notes/Records ── */}
+      {/* ── Doctor footer ── */}
       {role === 'doctor' && (
-        <div className="px-4 pb-3 pt-2 border-t border-border/40 space-y-2">
+        <div className="px-3 sm:px-4 pb-3 pt-2 border-t border-border/40 space-y-2">
           {booking.doctorApprovalStatus === 'pending' && (
             <div className="flex gap-2">
               <Button
