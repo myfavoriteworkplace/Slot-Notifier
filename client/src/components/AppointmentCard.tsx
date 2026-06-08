@@ -261,22 +261,6 @@ export function AppointmentCard({
                   Pending
                 </span>
               )}
-              {/* FIX #2: "Signed" badge — green-* → emerald-* */}
-              {role === 'clinic' && booking.consentSignedAt && (
-                <TooltipProvider delayDuration={700}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-1.5 py-px rounded-full cursor-default">
-                        <CheckCircle2 className="h-2.5 w-2.5" />
-                        Signed
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="left" className="text-xs">
-                      Digital consent signed by patient
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
               {role === 'doctor' && booking.visitStatus && booking.visitStatus !== 'completed' && (
                 <span className={`inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-px rounded-full border
                   ${booking.visitStatus === 'checked_in'
@@ -335,15 +319,9 @@ export function AppointmentCard({
             })()}
             {(booking as any).slotCost > 1 && (() => {
               const cost = (booking as any).slotCost as number;
-              const rawDesc: string = (booking as any).description ?? "";
-              const catMatch = rawDesc.match(/Category:\s*([^,\n]+)/);
-              const catName = catMatch ? catMatch[1].trim() : null;
-              const label = catName
-                ? `${catName} (${cost} slots · ${cost * 25} min)`
-                : `${cost} slots · ${cost * 25} min`;
               return (
                 <span className="shrink-0 text-xs font-bold text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 px-1.5 py-px rounded-full">
-                  {label}
+                  {cost} slots · {cost * 25} min
                 </span>
               );
             })()}
@@ -578,25 +556,21 @@ export function AppointmentCard({
             </span>
           )}
 
-          {/* Treatment Category row — FIX #3: LiaStethoscopeSolid for domain icon */}
-          {treatmentCategory && (
-            <div className="flex items-center gap-2 text-xs min-w-0">
-              <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                <LiaStethoscopeSolid className="h-3 w-3 text-primary" />
-              </div>
-              <span className="text-muted-foreground">Treatment Category:</span>
-              <span className="font-semibold text-foreground truncate">{treatmentCategory}</span>
-            </div>
-          )}
-
-          {/* Visit Type row — FIX #3: LiaHeartbeatSolid for domain/medical icon */}
-          {visitType && (
-            <div className="flex items-center gap-2 text-xs min-w-0">
-              <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                <LiaHeartbeatSolid className="h-3 w-3 text-primary" />
-              </div>
-              <span className="text-muted-foreground">Visit Type:</span>
-              <span className="font-semibold text-foreground truncate">{visitType}</span>
+          {/* Treatment Category + Visit Type — inline chips, no label prefix */}
+          {(treatmentCategory || visitType) && (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {treatmentCategory && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                  <LiaStethoscopeSolid className="h-3 w-3" />
+                  {treatmentCategory}
+                </span>
+              )}
+              {visitType && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                  <LiaHeartbeatSolid className="h-3 w-3" />
+                  {visitType}
+                </span>
+              )}
             </div>
           )}
 
