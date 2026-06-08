@@ -172,6 +172,7 @@ export function AppointmentCard({
   const visitMatch = rawDesc.match(/Visit:\s*([^|]+)/);
   const treatmentCategory = categoryMatch ? categoryMatch[1].trim() : null;
   const visitType = visitMatch ? visitMatch[1].trim() : null;
+  const slotCost = (booking as any).slotCost as number | undefined;
 
   const handleCancelSubmit = () => {
     const reason = cancelReason === "Other" ? cancelReasonOther.trim() : cancelReason;
@@ -218,15 +219,15 @@ export function AppointmentCard({
                 <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
                   <Phone className="h-2.5 w-2.5 shrink-0" />
                   <span className="truncate">{booking.customerPhone}</span>
-                  {(booking.customerAge || booking.customerGender) && (
-                    <>
-                      <span className="opacity-30">·</span>
-                      <span className="truncate">
-                        {booking.customerAge ? `${booking.customerAge}y` : ""}
-                        {booking.customerAge && booking.customerGender ? " · " : ""}
-                        {booking.customerGender ? (booking.customerGender.charAt(0).toUpperCase() + booking.customerGender.slice(1)) : ""}
-                      </span>
-                    </>
+                  <span className="opacity-30">·</span>
+                  {(booking.customerAge || booking.customerGender) ? (
+                    <span className="truncate">
+                      {booking.customerAge ? `${booking.customerAge}y` : ""}
+                      {booking.customerAge && booking.customerGender ? " · " : ""}
+                      {booking.customerGender ? (booking.customerGender.charAt(0).toUpperCase() + booking.customerGender.slice(1)) : ""}
+                    </span>
+                  ) : (
+                    <span className="italic opacity-60">Not available</span>
                   )}
                 </div>
               </div>
@@ -317,26 +318,21 @@ export function AppointmentCard({
                 </span>
               );
             })()}
-            {(booking as any).slotCost > 1 && (() => {
-              const cost = (booking as any).slotCost as number;
-              return (
-                <span className="shrink-0 text-xs font-bold text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 px-1.5 py-px rounded-full">
-                  {cost} slots · {cost * 25} min
-                </span>
-              );
-            })()}
             {role === 'doctor' && (
               <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">{durationMin}m</span>
             )}
           </div>
 
           {/* Row 3: patient code (clinic) or clinic name (doctor) */}
-          {role === 'clinic' && booking.patientCode && (
+          {role === 'clinic' && (
             <div className="flex items-center gap-2 text-xs">
-              <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                <Hash className="h-2.5 w-2.5 text-primary" />
+              <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.patientCode ? 'bg-primary/10' : 'bg-muted'}`}>
+                <Hash className={`h-2.5 w-2.5 ${booking.patientCode ? 'text-primary' : 'text-muted-foreground/40'}`} />
               </div>
-              <span className="font-mono font-semibold text-primary">{booking.patientCode}</span>
+              {booking.patientCode
+                ? <span className="font-mono font-semibold text-primary">{booking.patientCode}</span>
+                : <span className="italic text-muted-foreground/60">Not available</span>
+              }
             </div>
           )}
           {role === 'doctor' && displayClinicName && (
@@ -463,23 +459,26 @@ export function AppointmentCard({
             return null;
           })()}
 
-          {/* Visit status row — clinic admin view */}
-          {role === 'clinic' && isConfirmed && !isCancelled && (
+          {/* Visit status row — clinic admin view — always visible */}
+          {role === 'clinic' && !isCancelled && (
             <div className="flex items-center gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
               <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.visitStatus ? 'bg-primary/10' : 'bg-muted'}`}>
                 <UserCheck className={`h-2.5 w-2.5 ${booking.visitStatus ? 'text-primary' : 'text-muted-foreground/50'}`} />
               </div>
               {!booking.visitStatus && (
-                /* FIX #5: "Mark Arrived" touch target */
-                <button
-                  onClick={onCheckIn}
-                  disabled={checkInPending}
-                  data-testid={`button-checkin-${booking.id}`}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground border border-border/60 hover:border-primary/40 hover:text-primary hover:bg-primary/5 active:scale-[0.97] px-3 py-2 sm:py-0.5 rounded-full transition-all min-h-[44px] sm:min-h-0"
-                >
-                  {checkInPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
-                  Mark Arrived
-                </button>
+                isConfirmed ? (
+                  <button
+                    onClick={onCheckIn}
+                    disabled={checkInPending}
+                    data-testid={`button-checkin-${booking.id}`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground border border-border/60 hover:border-primary/40 hover:text-primary hover:bg-primary/5 active:scale-[0.97] px-3 py-2 sm:py-0.5 rounded-full transition-all min-h-[44px] sm:min-h-0"
+                  >
+                    {checkInPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
+                    Mark Arrived
+                  </button>
+                ) : (
+                  <span className="italic text-muted-foreground/50 text-xs">Awaiting confirmation</span>
+                )
               )}
               {booking.visitStatus === 'checked_in' && (
                 <div className="flex items-center gap-1.5">
@@ -520,21 +519,22 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Consent status row — clinic view */}
-          {role === 'clinic' && isConfirmed && !isCancelled && (booking.consentSignedAt || (booking as any).consentToken) && (
+          {/* Consent status row — clinic view — always visible */}
+          {role === 'clinic' && !isCancelled && (
             <div className="flex items-center gap-2 text-xs">
-              <div className="h-4 w-4 rounded-md bg-muted flex items-center justify-center shrink-0">
-                <PenLine className="h-2.5 w-2.5 text-muted-foreground/60" />
+              <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.consentSignedAt ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-muted'}`}>
+                <PenLine className={`h-2.5 w-2.5 ${booking.consentSignedAt ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground/60'}`} />
               </div>
               {booking.consentSignedAt ? (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
                   <CheckCircle2 className="h-2.5 w-2.5" /> Consent Signed
                 </span>
-              ) : (
-                /* FIX #7: border-amber-200 → border-amber-300 per spec */
+              ) : (booking as any).consentToken ? (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-500/20 px-2 py-0.5 rounded-full">
                   Consent Sent
                 </span>
+              ) : (
+                <span className="italic text-muted-foreground/60">Not available</span>
               )}
             </div>
           )}
@@ -556,37 +556,49 @@ export function AppointmentCard({
             </span>
           )}
 
-          {/* Treatment Category + Visit Type — inline chips, no label prefix */}
-          {(treatmentCategory || visitType) && (
-            <div className="flex flex-wrap gap-1 pt-0.5">
-              {treatmentCategory && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
-                  <LiaStethoscopeSolid className="h-3 w-3" />
-                  {treatmentCategory}
-                </span>
-              )}
-              {visitType && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
-                  <LiaHeartbeatSolid className="h-3 w-3" />
-                  {visitType}
-                </span>
-              )}
-            </div>
-          )}
+          {/* Treatment Category + Visit Type — always visible, slot count merged into category */}
+          <div className="flex flex-wrap gap-1 pt-0.5">
+            {treatmentCategory ? (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                <LiaStethoscopeSolid className="h-3 w-3" />
+                {treatmentCategory}{slotCost && slotCost > 1 ? ` (${slotCost} slots)` : ""}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground/60 italic px-0.5">
+                <LiaStethoscopeSolid className="h-3 w-3" />
+                Not available
+              </span>
+            )}
+            {visitType ? (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                <LiaHeartbeatSolid className="h-3 w-3" />
+                {visitType}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground/60 italic px-0.5">
+                <LiaHeartbeatSolid className="h-3 w-3" />
+                Not available
+              </span>
+            )}
+          </div>
 
-          {/* Chief complaint chips */}
-          {complaints.length > 0 && (
-            <div className="flex flex-wrap gap-1 pt-0.5">
-              {complaints.slice(0, maxChips).map((c, i) => (
-                <span key={i} className="inline-flex items-center text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
-                  {c}
-                </span>
-              ))}
-              {complaints.length > maxChips && (
-                <span className="text-xs text-muted-foreground font-medium px-1">+{complaints.length - maxChips}</span>
-              )}
-            </div>
-          )}
+          {/* Chief complaint chips — always visible */}
+          <div className="flex flex-wrap gap-1 pt-0.5">
+            {complaints.length > 0 ? (
+              <>
+                {complaints.slice(0, maxChips).map((c, i) => (
+                  <span key={i} className="inline-flex items-center text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                    {c}
+                  </span>
+                ))}
+                {complaints.length > maxChips && (
+                  <span className="text-xs text-muted-foreground font-medium px-1">+{complaints.length - maxChips}</span>
+                )}
+              </>
+            ) : (
+              <span className="text-xs font-medium text-muted-foreground/60 italic px-0.5">No complaints noted</span>
+            )}
+          </div>
         </div>
       </div>
 
