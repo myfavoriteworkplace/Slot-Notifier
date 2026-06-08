@@ -30,7 +30,21 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: false,
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('wouter')) return 'react-vendor';
+            if (id.includes('radix-ui') || id.includes('shadcn') || id.includes('lucide')) return 'ui-vendor';
+            if (id.includes('tanstack') || id.includes('react-query')) return 'query-vendor';
+            if (id.includes('date-fns') || id.includes('zod') || id.includes('drizzle')) return 'utils-vendor';
+            return 'vendor';
+          }
+        },
+      },
+    },
   },
   server: {
     fs: {
