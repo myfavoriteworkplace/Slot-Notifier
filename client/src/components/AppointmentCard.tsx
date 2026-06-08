@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { format, differenceInCalendarDays } from "date-fns";
 import {
-  Phone, Hash, CalendarDays, CheckCircle2, X, Stethoscope,
-  UserPlus, Building2, Loader2, IndianRupee, ClipboardList,
-  FileText, AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
+  Phone, Hash, CalendarDays, CheckCircle2, X, UserPlus,
+  Building2, Loader2, IndianRupee, ClipboardList, FileText,
+  AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
 } from "lucide-react";
+import { LiaStethoscopeSolid, LiaHeartbeatSolid } from "react-icons/lia";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -156,17 +157,6 @@ export function AppointmentCard({
     ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
     : "border-l-2 border-l-amber-400 dark:border-l-amber-500";
 
-  const statusLabel = isCancelled ? "Cancelled"
-    : isConfirmed ? "Confirmed"
-    : isApptDeclined ? "Declined"
-    : "Pending";
-
-  const statusClass = isCancelled || isApptDeclined
-    ? "text-rose-600 bg-rose-500/10 border-rose-500/25 dark:text-rose-400 dark:bg-rose-400/10 dark:border-rose-500/30"
-    : isConfirmed
-    ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/25 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-500/30"
-    : "text-amber-600 bg-amber-500/10 border-amber-500/25 dark:text-amber-400 dark:bg-amber-400/10 dark:border-amber-500/30";
-
   const maxChips = role === 'clinic' ? 4 : 3;
   const displayClinicName = clinicName || booking.clinicName || booking.clinic?.name;
 
@@ -207,7 +197,8 @@ export function AppointmentCard({
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onCardClick(); }}
       >
         {/* Header */}
-        <div className={`px-4 pt-2.5 pb-2 ${headerBg} transition-colors group-hover:brightness-[0.97]`}>
+        {/* FIX #4: responsive padding px-3 sm:px-4 */}
+        <div className={`px-3 sm:px-4 pt-2.5 pb-2 ${headerBg} transition-colors group-hover:brightness-[0.97]`}>
           <div className="flex items-start justify-between gap-2">
 
             {/* Avatar + name block */}
@@ -241,15 +232,13 @@ export function AppointmentCard({
               </div>
             </div>
 
-            {/* Status column — smart text, no pill backgrounds */}
+            {/* Status column */}
             <div className="flex flex-col items-end gap-0.5">
               {isCancelled || isApptDeclined ? (
-                <div className="flex flex-col items-end gap-0.5">
-                  <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
-                    <X className="h-2.5 w-2.5" />
-                    {isApptDeclined ? "Declined" : "Cancelled"}
-                  </span>
-                </div>
+                <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                  <X className="h-2.5 w-2.5" />
+                  {isApptDeclined ? "Declined" : "Cancelled"}
+                </span>
               ) : isConfirmed ? (
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                   <CheckCircle2 className="h-2.5 w-2.5" />
@@ -272,11 +261,12 @@ export function AppointmentCard({
                   Pending
                 </span>
               )}
+              {/* FIX #2: "Signed" badge — green-* → emerald-* */}
               {role === 'clinic' && booking.consentSignedAt && (
                 <TooltipProvider delayDuration={700}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 px-1.5 py-px rounded-full cursor-default">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-1.5 py-px rounded-full cursor-default">
                         <CheckCircle2 className="h-2.5 w-2.5" />
                         Signed
                       </span>
@@ -312,8 +302,8 @@ export function AppointmentCard({
           </div>
         </div>
 
-        {/* Info rows */}
-        <div className="px-4 py-2 space-y-1.5">
+        {/* Info rows — FIX #4: responsive padding */}
+        <div className="px-3 sm:px-4 py-2 space-y-1.5">
 
           {/* Date + Time row with inline relative-date badge */}
           <div className="flex items-center gap-2 text-xs min-w-0">
@@ -331,8 +321,9 @@ export function AppointmentCard({
             {!isPast && (() => {
               const daysAway = differenceInCalendarDays(startTime, new Date());
               const dLabel = isToday ? "Today" : daysAway === 1 ? "Tomorrow" : `in ${daysAway}d`;
+              // FIX #1: "Today" badge uses sky-* per spec; Tomorrow uses amber; future uses muted
               const dCls = isToday
-                ? "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"
+                ? "text-sky-600 bg-sky-50 dark:text-sky-400 dark:bg-sky-950/20 border-sky-200 dark:border-sky-500/20"
                 : daysAway === 1
                 ? "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
                 : "text-muted-foreground bg-muted/50 border-border/50";
@@ -381,7 +372,8 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Row 4: doctor assignment (clinic) or clinical status badge (doctor) */}
+          {/* Row 4: doctor assignment (clinic) */}
+          {/* FIX #3: Stethoscope → LiaStethoscopeSolid (medical domain icon) */}
           {role === 'clinic' && (() => {
             if (booking.assignedDoctor) {
               const drStatus = isCancelled ? (
@@ -418,7 +410,7 @@ export function AppointmentCard({
               return (
                 <div className="flex items-start gap-2 text-xs">
                   <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-px">
-                    <Stethoscope className="h-2.5 w-2.5 text-primary" />
+                    <LiaStethoscopeSolid className="h-3 w-3 text-primary" />
                   </div>
                   <div className="grid grid-cols-[auto_1fr] items-baseline gap-x-1.5 gap-y-0.5">
                     <span className="font-medium text-primary">Dr. {booking.assignedDoctor}</span>
@@ -440,14 +432,15 @@ export function AppointmentCard({
               return (
                 <div className="flex items-center gap-2 text-xs min-w-0">
                   <div className="h-4 w-4 rounded-md bg-muted flex items-center justify-center shrink-0">
-                    <Stethoscope className="h-2.5 w-2.5 text-muted-foreground/50" />
+                    <LiaStethoscopeSolid className="h-3 w-3 text-muted-foreground/50" />
                   </div>
                   {(booking.clinicDoctors ?? []).length > 0 ? (
                     <Popover>
                       <PopoverTrigger asChild>
+                        {/* FIX #5: touch target — min-h-[44px] on mobile, revert on sm+ */}
                         <button
                           onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 active:bg-amber-100 px-2 py-0.5 rounded-full transition-colors"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 active:bg-amber-100 px-3 py-2 sm:py-0.5 rounded-full transition-colors min-h-[44px] sm:min-h-0"
                           data-testid={`button-assign-inline-${booking.id}`}
                         >
                           <UserPlus className="h-2.5 w-2.5" />
@@ -499,11 +492,12 @@ export function AppointmentCard({
                 <UserCheck className={`h-2.5 w-2.5 ${booking.visitStatus ? 'text-primary' : 'text-muted-foreground/50'}`} />
               </div>
               {!booking.visitStatus && (
+                /* FIX #5: "Mark Arrived" touch target */
                 <button
                   onClick={onCheckIn}
                   disabled={checkInPending}
                   data-testid={`button-checkin-${booking.id}`}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground border border-border/60 hover:border-primary/40 hover:text-primary hover:bg-primary/5 active:scale-[0.97] px-2 py-0.5 rounded-full transition-all"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground border border-border/60 hover:border-primary/40 hover:text-primary hover:bg-primary/5 active:scale-[0.97] px-3 py-2 sm:py-0.5 rounded-full transition-all min-h-[44px] sm:min-h-0"
                 >
                   {checkInPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
                   Mark Arrived
@@ -518,14 +512,15 @@ export function AppointmentCard({
                       <span className="font-normal opacity-70">· {format(new Date(booking.checkedInAt), 'h:mm a')}</span>
                     )}
                   </span>
+                  {/* FIX #5: undo check-in icon button — h-9 w-9 minimum (Lucide UI action) */}
                   <button
                     onClick={onUndoCheckIn}
                     disabled={checkInPending}
                     title="Undo check-in"
                     data-testid={`button-undo-checkin-${booking.id}`}
-                    className="p-0.5 rounded hover:bg-muted/80 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+                    className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted/80 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
                   >
-                    {checkInPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <X className="h-2.5 w-2.5" />}
+                    {checkInPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
                   </button>
                 </div>
               )}
@@ -558,7 +553,8 @@ export function AppointmentCard({
                   <CheckCircle2 className="h-2.5 w-2.5" /> Consent Signed
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-0.5 rounded-full">
+                /* FIX #7: border-amber-200 → border-amber-300 per spec */
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-500/20 px-2 py-0.5 rounded-full">
                   Consent Sent
                 </span>
               )}
@@ -582,22 +578,22 @@ export function AppointmentCard({
             </span>
           )}
 
-          {/* Treatment Category row */}
+          {/* Treatment Category row — FIX #3: LiaStethoscopeSolid for domain icon */}
           {treatmentCategory && (
             <div className="flex items-center gap-2 text-xs min-w-0">
               <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                <Stethoscope className="h-2.5 w-2.5 text-primary" />
+                <LiaStethoscopeSolid className="h-3 w-3 text-primary" />
               </div>
               <span className="text-muted-foreground">Treatment Category:</span>
               <span className="font-semibold text-foreground truncate">{treatmentCategory}</span>
             </div>
           )}
 
-          {/* Visit Type row */}
+          {/* Visit Type row — FIX #3: LiaHeartbeatSolid for domain/medical icon */}
           {visitType && (
             <div className="flex items-center gap-2 text-xs min-w-0">
               <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                <Activity className="h-2.5 w-2.5 text-primary" />
+                <LiaHeartbeatSolid className="h-3 w-3 text-primary" />
               </div>
               <span className="text-muted-foreground">Visit Type:</span>
               <span className="font-semibold text-foreground truncate">{visitType}</span>
@@ -621,14 +617,15 @@ export function AppointmentCard({
       </div>
 
       {/* ── Clinic footer: Confirm | ₹ Bill | Cancel ── */}
+      {/* FIX #4: responsive padding; FIX #5: buttons min-h-[44px] on mobile */}
       {role === 'clinic' && (
-        <div className="px-4 py-1.5 flex items-center gap-2 border-t border-border/50 bg-muted/20" onClick={(e) => e.stopPropagation()}>
+        <div className="px-3 sm:px-4 py-1.5 flex items-center gap-2 border-t border-border/50 bg-muted/20" onClick={(e) => e.stopPropagation()}>
           {!isPast && !isCancelled && booking.verificationStatus !== 'confirmed' && (
             <>
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex-1 h-9 gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-400/10 active:bg-emerald-100 dark:active:bg-emerald-400/20 active:scale-[0.97] transition-all"
+                className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9 gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-400/10 active:bg-emerald-100 dark:active:bg-emerald-400/20 active:scale-[0.98] transition-all"
                 onClick={(e) => { e.stopPropagation(); onConfirm?.(); }}
                 disabled={confirmPending}
                 data-testid={`button-confirm-${booking.id}`}
@@ -642,7 +639,7 @@ export function AppointmentCard({
           <Button
             variant="ghost"
             size="sm"
-            className="flex-1 h-9 gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-background/80 active:bg-muted/60 active:scale-[0.97] transition-all"
+            className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9 gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-background/80 active:bg-muted/60 active:scale-[0.98] transition-all"
             onClick={(e) => { e.stopPropagation(); onBill?.(); }}
             data-testid={`button-bill-${booking.id}`}
           >
@@ -654,7 +651,7 @@ export function AppointmentCard({
             <Button
               variant="ghost"
               size="sm"
-              className="flex-1 h-9 gap-1.5 text-xs font-semibold text-primary hover:text-primary hover:bg-primary/5 active:bg-primary/10 active:scale-[0.97] transition-all"
+              className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9 gap-1.5 text-xs font-semibold text-primary hover:text-primary hover:bg-primary/5 active:bg-primary/10 active:scale-[0.98] transition-all"
               onClick={(e) => { e.stopPropagation(); onBookAgain?.(); }}
               data-testid={`button-book-again-${booking.id}`}
             >
@@ -667,7 +664,7 @@ export function AppointmentCard({
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex-1 h-9 gap-1.5 text-xs font-semibold text-destructive/70 hover:text-destructive hover:bg-destructive/5 active:bg-destructive/10 active:text-destructive active:scale-[0.97] transition-all"
+                className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9 gap-1.5 text-xs font-semibold text-destructive/70 hover:text-destructive hover:bg-destructive/5 active:bg-destructive/10 active:text-destructive active:scale-[0.98] transition-all"
                 onClick={(e) => e.stopPropagation()}
                 data-testid={`button-cancel-booking-${booking.id}`}
               >
@@ -728,13 +725,15 @@ export function AppointmentCard({
       )}
 
       {/* ── Doctor footer: Accept/Decline (pending) or Notes/Records ── */}
+      {/* FIX #4: responsive padding */}
       {role === 'doctor' && (
-        <div className="px-4 pb-3 pt-2 border-t border-border/40 space-y-2">
+        <div className="px-3 sm:px-4 pb-3 pt-2 border-t border-border/40 space-y-2">
           {booking.doctorApprovalStatus === 'pending' && (
             <div className="flex gap-2">
+              {/* FIX #9: Accept button — emerald-* not green-* */}
               <Button
                 size="sm"
-                className="flex-1 h-10 sm:h-9 text-xs bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-semibold"
+                className="flex-1 h-10 sm:h-9 text-xs bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-semibold"
                 onClick={(e) => { e.stopPropagation(); onApprove?.(); }}
                 disabled={approvePending || declinePending}
                 data-testid={`button-approve-${booking.id}`}
@@ -756,7 +755,7 @@ export function AppointmentCard({
             </div>
           )}
           {booking.doctorApprovalStatus === 'admin_confirmed' && (
-            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
               <AlertCircle className="h-3 w-3 shrink-0" />
               Confirmed by clinic admin on your behalf
             </div>
@@ -767,6 +766,7 @@ export function AppointmentCard({
               You confirmed this appointment
             </div>
           )}
+          {/* Activity icon kept as Lucide here — this is an action button, not a domain content icon */}
           {booking.visitStatus === 'checked_in' && booking.doctorApprovalStatus !== 'pending' && booking.doctorApprovalStatus !== 'declined' && (
             <Button
               size="sm"
