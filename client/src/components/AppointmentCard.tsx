@@ -175,10 +175,9 @@ export function AppointmentCard({
   };
 
   const rawDesc = booking.description ?? "";
-  const categoryMatch = rawDesc.match(/Category:\s*([^,\n]+)/);
-  const visitTypeMatch = rawDesc.match(/Visit:\s*([^,\n]+)/);
-  const categoryName = categoryMatch ? categoryMatch[1].trim() : null;
-  const visitTypeName = visitTypeMatch ? visitTypeMatch[1].trim() : null;
+  const descParts = rawDesc.split(' | ');
+  const categoryName = descParts.find(p => p.startsWith('Category:'))?.replace('Category:', '').trim() ?? null;
+  const visitTypeName = descParts.find(p => p.startsWith('Visit:'))?.replace('Visit:', '').trim() ?? null;
 
   return (
     <Card
@@ -319,32 +318,34 @@ export function AppointmentCard({
                 </span>
               );
             })()}
-            {/* Clinic: treatment category row */}
-            {role === 'clinic' && categoryName && (
-              <div className="flex items-center gap-2 text-xs min-w-0">
-                <div className="h-4 w-4 rounded-md bg-violet-500/10 flex items-center justify-center shrink-0">
-                  <ClipboardList className="h-2.5 w-2.5 text-violet-500" />
-                </div>
-                <span className="text-muted-foreground">Treatment:</span>
-                <span className="font-semibold text-violet-600 dark:text-violet-400">{categoryName}</span>
-              </div>
-            )}
-            {/* Clinic: visit type row */}
-            {role === 'clinic' && visitTypeName && (
-              <div className="flex items-center gap-2 text-xs min-w-0">
-                <div className="h-4 w-4 rounded-md bg-sky-500/10 flex items-center justify-center shrink-0">
-                  <Activity className="h-2.5 w-2.5 text-sky-500" />
-                </div>
-                <span className="text-muted-foreground">Visit type:</span>
-                <span className="font-semibold text-sky-600 dark:text-sky-400">{visitTypeName}</span>
-              </div>
-            )}
             {role === 'doctor' && (
               <span className="shrink-0 text-xs font-bold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">
                 {durationMin}m
               </span>
             )}
           </div>
+
+          {/* Clinic: treatment category — own line */}
+          {role === 'clinic' && categoryName && (
+            <div className="flex items-center gap-2 text-xs min-w-0">
+              <div className="h-4 w-4 rounded-md bg-violet-500/10 flex items-center justify-center shrink-0">
+                <ClipboardList className="h-2.5 w-2.5 text-violet-500" />
+              </div>
+              <span className="text-muted-foreground shrink-0">Treatment Category:</span>
+              <span className="font-semibold text-violet-600 dark:text-violet-400 truncate">{categoryName}</span>
+            </div>
+          )}
+
+          {/* Clinic: visit type — own line */}
+          {role === 'clinic' && visitTypeName && (
+            <div className="flex items-center gap-2 text-xs min-w-0">
+              <div className="h-4 w-4 rounded-md bg-sky-500/10 flex items-center justify-center shrink-0">
+                <Activity className="h-2.5 w-2.5 text-sky-500" />
+              </div>
+              <span className="text-muted-foreground shrink-0">Visit Type:</span>
+              <span className="font-semibold text-sky-600 dark:text-sky-400 truncate">{visitTypeName}</span>
+            </div>
+          )}
 
           {/* Patient code (clinic) */}
           {role === 'clinic' && booking.patientCode && (
