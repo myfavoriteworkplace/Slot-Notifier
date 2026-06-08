@@ -262,27 +262,6 @@ export function AppointmentCard({
                   Pending
                 </span>
               )}
-              {role === 'doctor' && booking.visitStatus && booking.visitStatus !== 'completed' && (
-                <span className={`inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-px rounded-full border
-                  ${booking.visitStatus === 'checked_in'
-                    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"
-                    : "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-500/10 border-teal-200 dark:border-teal-500/20"
-                  }`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${booking.visitStatus === 'checked_in' ? 'bg-emerald-500 animate-pulse' : 'bg-teal-500'}`} />
-                  {booking.visitStatus === 'checked_in' ? 'Arrived' : 'With You'}
-                </span>
-              )}
-              {role === 'doctor' && booking.visitStatus === 'completed' && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">
-                  <CheckCircle2 className="h-2.5 w-2.5" />
-                  Visit Done
-                  {(booking as any).completedAt && (
-                    <span className="font-normal opacity-70">
-                      · {format(new Date((booking as any).completedAt), 'd MMM · h:mm a')}
-                    </span>
-                  )}
-                </span>
-              )}
             </div>
           </div>
         </div>
@@ -335,14 +314,59 @@ export function AppointmentCard({
               }
             </div>
           )}
-          {role === 'doctor' && displayClinicName && (
+          {role === 'doctor' && (
             <div className="flex items-center gap-2 text-xs min-w-0">
-              <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                <Building2 className="h-2.5 w-2.5 text-muted-foreground" />
+              <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${displayClinicName ? 'bg-muted/60' : 'bg-muted'}`}>
+                <Building2 className={`h-2.5 w-2.5 ${displayClinicName ? 'text-muted-foreground' : 'text-muted-foreground/40'}`} />
               </div>
-              <span className="text-foreground font-medium truncate">
-                {displayClinicName}{clinicCity ? ` (${clinicCity})` : ""}
-              </span>
+              {displayClinicName
+                ? <span className="text-foreground font-medium truncate">{displayClinicName}{clinicCity ? ` (${clinicCity})` : ""}</span>
+                : <span className="italic text-muted-foreground/60">Not available</span>
+              }
+            </div>
+          )}
+
+          {/* Visit status row — doctor view — read-only, always visible when approved */}
+          {role === 'doctor' && !isCancelled && !isApptDeclined && booking.doctorApprovalStatus !== 'pending' && (
+            <div className="flex items-center gap-2 text-xs">
+              <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0
+                ${booking.visitStatus === 'checked_in' ? 'bg-emerald-50 dark:bg-emerald-500/10'
+                  : booking.visitStatus === 'in_consultation' ? 'bg-teal-50 dark:bg-teal-500/10'
+                  : booking.visitStatus === 'completed' ? 'bg-muted/60'
+                  : 'bg-muted'}`}>
+                <UserCheck className={`h-2.5 w-2.5
+                  ${booking.visitStatus === 'checked_in' ? 'text-emerald-600 dark:text-emerald-400'
+                    : booking.visitStatus === 'in_consultation' ? 'text-teal-600 dark:text-teal-400'
+                    : booking.visitStatus === 'completed' ? 'text-muted-foreground'
+                    : 'text-muted-foreground/40'}`} />
+              </div>
+              {!booking.visitStatus && (
+                <span className="italic text-muted-foreground/50 text-xs">Awaiting arrival</span>
+              )}
+              {booking.visitStatus === 'checked_in' && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  In Clinic
+                  {booking.checkedInAt && (
+                    <span className="font-normal opacity-70">· {format(new Date(booking.checkedInAt), 'h:mm a')}</span>
+                  )}
+                </span>
+              )}
+              {booking.visitStatus === 'in_consultation' && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/20 px-2 py-0.5 rounded-full">
+                  <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
+                  With Doctor
+                </span>
+              )}
+              {booking.visitStatus === 'completed' && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-muted/50 border border-border/50 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="h-2.5 w-2.5" />
+                  Visit Done
+                  {(booking as any).completedAt && (
+                    <span className="font-normal opacity-70">· {format(new Date((booking as any).completedAt), 'h:mm a')}</span>
+                  )}
+                </span>
+              )}
             </div>
           )}
 
@@ -539,21 +563,30 @@ export function AppointmentCard({
             </div>
           )}
 
-          {role === 'doctor' && booking.clinicalStatus && (
-            <span className={`inline-flex items-center text-xs font-medium px-2 py-px rounded-full border
-              ${booking.clinicalStatus === "case_closed"
-                ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
-                : booking.clinicalStatus === "follow_up_required"
-                ? "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800"
-                : booking.clinicalStatus === "revisit"
-                ? "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800"
-                : "bg-primary/10 text-primary border-primary/20"}`}>
-              {booking.clinicalStatus === "first_visit" ? "First Visit" :
-               booking.clinicalStatus === "revisit" ? "Revisit" :
-               booking.clinicalStatus === "follow_up_required" ? "Follow-up Required" :
-               booking.clinicalStatus === "case_closed" ? "Case Closed" :
-               booking.clinicalStatus}
-            </span>
+          {role === 'doctor' && (
+            <div className="flex items-center gap-2 text-xs">
+              <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.clinicalStatus ? 'bg-primary/10' : 'bg-muted'}`}>
+                <ClipboardList className={`h-2.5 w-2.5 ${booking.clinicalStatus ? 'text-primary' : 'text-muted-foreground/40'}`} />
+              </div>
+              {booking.clinicalStatus ? (
+                <span className={`inline-flex items-center text-xs font-medium px-2 py-px rounded-full border
+                  ${booking.clinicalStatus === "case_closed"
+                    ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                    : booking.clinicalStatus === "follow_up_required"
+                    ? "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800"
+                    : booking.clinicalStatus === "revisit"
+                    ? "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800"
+                    : "bg-primary/10 text-primary border-primary/20"}`}>
+                  {booking.clinicalStatus === "first_visit" ? "First Visit" :
+                   booking.clinicalStatus === "revisit" ? "Revisit" :
+                   booking.clinicalStatus === "follow_up_required" ? "Follow-up Required" :
+                   booking.clinicalStatus === "case_closed" ? "Case Closed" :
+                   booking.clinicalStatus}
+                </span>
+              ) : (
+                <span className="italic text-muted-foreground/60">Not set</span>
+              )}
+            </div>
           )}
 
           {/* Treatment Category + Visit Type — always visible, slot count merged into category */}

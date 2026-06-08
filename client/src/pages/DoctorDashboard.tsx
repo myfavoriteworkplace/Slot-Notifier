@@ -1098,7 +1098,11 @@ export default function DoctorDashboard() {
                         role="doctor"
                         booking={booking}
                         bookingNumber={String(booking.id).padStart(2, '0')}
-                        complaints={booking.description ? booking.description.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean) : []}
+                        complaints={(() => {
+                          const raw = booking.description ?? "";
+                          const stripped = raw.replace(/Category:\s*[^|]+(\|)?/gi, "").replace(/Visit:\s*[^|]+(\|)?/gi, "").trim();
+                          return stripped ? stripped.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean) : [];
+                        })()}
                         clinicName={clinicName}
                         clinicCity={clinicCity ?? undefined}
                         onCardClick={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
