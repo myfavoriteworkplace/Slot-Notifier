@@ -228,6 +228,28 @@ If a new Render frontend URL is introduced, add it to the `FRONTEND_ORIGINS` arr
 
 Never assume Replit OIDC is the only auth mechanism. Every new auth-gated feature must work with both paths.
 
+### 8. After installing any package in Replit, always run `npm run fix-lockfile`
+
+Replit routes all npm downloads through an internal proxy (`package-firewall.replit.local`) and writes that hostname as the `"resolved"` URL in `package-lock.json`. That host is unreachable outside Replit — Render's `npm install` step will fail with `ENOTFOUND package-firewall.replit.local`.
+
+**Every time any package is installed inside Replit**, run this before finishing:
+```bash
+npm run fix-lockfile
+```
+
+This replaces the Replit-internal URLs with the real public npm registry URL (`https://registry.npmjs.org/`). It is a no-op if no Replit URLs are present, so it is always safe to run.
+
+```bash
+# WRONG — commit after npm install without sanitising
+npm install some-package
+git add package-lock.json  # ← contains replit.local URLs → Render build breaks
+
+# CORRECT
+npm install some-package
+npm run fix-lockfile        # ← sanitises package-lock.json
+git add package-lock.json  # ← safe to commit
+```
+
 ### CORS & Session Cookie Setup (already configured — do not break)
 - `sameSite: "none"` + `secure: true` in production enables cross-origin session cookies between the Render frontend and backend.
 - `app.set("trust proxy", 1)` is required for Render's load balancer layer.

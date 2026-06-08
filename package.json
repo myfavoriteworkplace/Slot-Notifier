@@ -13,7 +13,8 @@
     "benchmark": "node scripts/benchmark.mjs",
     "clinic:doctor": "npm run build && clinic doctor -- node dist/index.cjs",
     "clinic:flame": "npm run build && clinic flame -- node dist/index.cjs",
-    "clinic:bubbleprof": "npm run build && clinic bubbleprof -- node dist/index.cjs"
+    "clinic:bubbleprof": "npm run build && clinic bubbleprof -- node dist/index.cjs",
+    "fix-lockfile": "sed -i 's|http://package-firewall.replit.local/npm/|https://registry.npmjs.org/|g' package-lock.json"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1054.0",
