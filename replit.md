@@ -130,6 +130,8 @@ Sidebar nav color coding: Bookings = primary green, Configure Slots = blue, Mana
 
 ## Developer Workflow & Environments
 
+> **Replit is AI development only.** The human developer uses Replit to write and preview code with the AI agent. Actual running, testing, and deploying are done on the developer's local machine (pre-deploy testing) and Render (production). **All code must work in all three environments — Replit, local, and Render.** The Replit workflow (`npm run dev`) is just a convenience for the AI agent; the real target is the Render split-frontend + Render backend.
+
 This project uses **three separate environments** with distinct purposes. Every agent working in this repo must understand this before writing any code.
 
 ### Environment Map
@@ -139,6 +141,12 @@ This project uses **three separate environments** with distinct purposes. Every 
 | **Replit** | AI-assisted development only — agent writes and previews code here | `npm run dev` — Express + Vite on the same origin (port 5000) |
 | **Local machine** | Developer testing before deploying to Render | Vite dev server (`localhost:5173`) + Express backend (`localhost:PORT`) as two separate processes |
 | **Render (production)** | Live production deployment | Frontend and backend as **two separate Render services** with different domains |
+
+### What this means for agents
+- **Write code for Render + Local** — Replit is just a preview. The code you write must work in both the Render split environment (different domains) and the developer's local machine (two separate processes).
+- **The Replit preview proves nothing** — just because it works in `npm run dev` on Replit does not mean it will work on Render or locally. Always verify against the coding rules.
+- **Never add Replit-only hacks** — don't add `process.env.REPL_ID` checks, Replit-specific middleware, or hardcoded `replit.dev` URLs. Use `NODE_ENV` or `VITE_API_URL` instead.
+- **Always test auth with both paths** — Replit uses OIDC. Local and Render use `ADMIN_EMAIL`/`ADMIN_PASSWORD`. Both must work.
 
 ### Replit (AI Development Only)
 - Used **only** for writing and previewing code with the AI agent.
@@ -154,8 +162,8 @@ This project uses **three separate environments** with distinct purposes. Every 
 - Local `.env` files are gitignored — each developer maintains their own.
 
 ### Render (Production)
-- **Frontend**: Deployed as a Render **Static Site**. Build command: `npm run build`. Publish directory: `dist/public`.
-- **Backend**: Deployed as a Render **Web Service**. Start command: `node dist/index.cjs`.
+- **Frontend**: Deployed as a Render **Static Site**. Publish directory: `dist/public`.
+- **Backend**: Deployed as a Render **Web Service**. Start command: `npm run start`.
 - The two services run on **different domains** — all API calls are cross-origin by default.
 - Session cookies use `sameSite: "none"` + `secure: true` to work across origins.
 - `app.set("trust proxy", 1)` is required for Render's load balancer layer.
@@ -171,6 +179,15 @@ This project uses **three separate environments** with distinct purposes. Every 
 - `sourcemap: false` in `vite.config.ts` — disabled to prevent OOM on Render during the Vite bundle step (ClinicDashboard.tsx alone is 400KB+).
 - `manualChunks` in `vite.config.ts` splits vendor libraries into separate files to reduce peak memory during bundling.
 - If the Render build fails with "Exit handler never called" during `npm install`, clear the Render build cache: Dashboard → service → Manual Deploy → "Clear build cache & deploy".
+
+### Render Build Commands Reference
+
+| Service | Build Command | Start Command | Publish Directory |
+|---|---|---|---|
+| **Backend** | `npm install --include=dev && npm run db:push && npm run build` | `npm run start` | N/A |
+| **Frontend** | `npm install && npm run build` | N/A | `dist/public` |
+
+> **Note on the backend build:** The existing backend command includes `npm run build` followed by `npx tsx script/build.ts`. Since `npm run build` already runs `tsx script/build.ts`, the second `npx tsx` call rebuilds the same output twice. The first build is sufficient — `npm run build` alone handles both the frontend Vite build and the backend esbuild bundle. This is harmless but adds 25–30 seconds per deploy.
 
 ---
 
@@ -215,3 +232,90 @@ Never assume Replit OIDC is the only auth mechanism. Every new auth-gated featur
 - `sameSite: "none"` + `secure: true` in production enables cross-origin session cookies between the Render frontend and backend.
 - `app.set("trust proxy", 1)` is required for Render's load balancer layer.
 - The CORS allowlist in `server/index.ts` reads from the `FRONTEND_URL` env var (comma-separated) and has hardcoded entries for known domains. Keep this pattern when adding domains.
+
+---
+
+## Application Startup & Loading Workflow
+
+### Server Boot Sequence (`server/index.ts`)
+
+```text
+1. dotenv.config() — loads env vars
+2. Create Express + HTTP server
+3. trust proxy = 1 (required for Render)
+4. Session setup — PostgreSQL-backed store (connect-pg-simple)
+   cookie: sameSite=none, secure=true, maxAge=30 days, rolling=true
+5. CORS middleware — FRONTEND_ORIGINS + FRONTEND_URL env var
+6. Body parsing — express.json() with rawBody capture
+7. Request logging — redacts "token" fields
+8. DB schema sync — ~20 CREATE TABLE / ALTER TABLE / column-add checks
+   - Also: patient backfill, FK drops, session table check
+9. Seed module — creates demo clinic + doctor if not present
+10. Register API routes
+11. API 404 handler (returns JSON)
+12. IF production: serveStatic() — dist/public with SPA fallback
+    IF development: setupVite() — Vite dev server in middleware mode
+13. Global error handler
+14. Listen on port 5000
+```
+
+### Client Loading Sequence
+
+```text
+1. index.html — loads 40+ Google Fonts in <head> (blocking, only Sora used)
+2. main.tsx — createRoot().render(<App />)
+3. App.tsx:
+   - QueryClientProvider (staleTime: Infinity, no refetch on focus)
+   - ThemeProvider (system default)
+   - TooltipProvider (700ms delay)
+   - ErrorBoundary (single global boundary)
+   - AppLayout:
+     * Header (auth + notifications)
+     * NetworkStatusBanner (online/offline listeners)
+     * Router (renders route)
+     * HealthIndicator (30s poll)
+     * Toaster
+```
+
+### Auth State — Three Independent Systems
+
+| Hook | Endpoint | StaleTime | Fires On |
+|---|---|---|---|
+| `useAuth` | `GET /api/auth/user` | 5 min | Every page load |
+| `useClinicAuth` | `GET /api/auth/clinic/me` | 5 min | Every page load |
+| `useDoctorAuth` | `GET /api/auth/doctor/me` | 5 min | Only DoctorDashboard |
+
+### QueryClient Defaults
+
+```ts
+{
+  refetchInterval: false,
+  refetchOnWindowFocus: false,
+  staleTime: Infinity,
+  retry: false,
+}
+```
+
+- No automatic refetching. No retry on network errors.
+- Data is cached forever unless explicitly invalidated.
+- Only `useNotifications` and `HealthIndicator` use `refetchInterval: 30000`.
+
+### What to Consider When Loading
+
+1. **No lazy loading** — `App.tsx` eagerly imports all 15 pages. ClinicDashboard.tsx is 6,699 lines. All imports parse at bundle load.
+2. **Google Fonts block first paint** — 40+ families loaded in `<head>`, only Sora is used.
+3. **HealthIndicator polls on all routes** — even the landing page, even for non-logged-in users.
+4. **Notification polling fires on every page** — `Header` always mounts, always polls.
+5. **Dashboard queries are ungated on mount** — ClinicDashboard fires 4+ queries on login regardless of active panel.
+6. **No code splitting** — No `React.lazy()`, no preloading, no route splitting. 3MB JS bundle loads on first visit.
+
+### Key Takeaways for Agents
+
+| Concern | What to do |
+|---|---|
+| Adding a new page | Add `import` in `App.tsx` and `Route` in `Router`. Consider if it needs `React.lazy()`. |
+| Adding a new panel to ClinicDashboard | Imports go to the top of the file — another module loaded at parse time. |
+| Adding new queries | Gate them on `activePanel` or `activeTab` to avoid firing on every login. |
+| Adding new env vars | Frontend → `VITE_` prefix. Backend → call out explicitly. |
+| Changing session config | `sameSite: "none"` + `secure: true` + `trust proxy: 1` are required for cross-origin Render. |
+| Changing font loading | `Sora` is the primary font. Consider `font-display: swap` if adding more. |
