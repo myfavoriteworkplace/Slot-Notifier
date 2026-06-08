@@ -176,6 +176,13 @@ export function AppointmentCard({
     ? "ring-2 ring-teal-400/60 ring-offset-2"
     : "";
 
+  // Extract Category and Visit Type from description string
+  const rawDesc = booking.description ?? "";
+  const categoryMatch = rawDesc.match(/Category:\s*([^|]+)/);
+  const visitMatch = rawDesc.match(/Visit:\s*([^|]+)/);
+  const treatmentCategory = categoryMatch ? categoryMatch[1].trim() : null;
+  const visitType = visitMatch ? visitMatch[1].trim() : null;
+
   const handleCancelSubmit = () => {
     const reason = cancelReason === "Other" ? cancelReasonOther.trim() : cancelReason;
     onCancel?.(reason);
@@ -573,6 +580,28 @@ export function AppointmentCard({
                booking.clinicalStatus === "case_closed" ? "Case Closed" :
                booking.clinicalStatus}
             </span>
+          )}
+
+          {/* Treatment Category row */}
+          {treatmentCategory && (
+            <div className="flex items-center gap-2 text-xs min-w-0">
+              <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                <Stethoscope className="h-2.5 w-2.5 text-primary" />
+              </div>
+              <span className="text-muted-foreground">Treatment Category:</span>
+              <span className="font-semibold text-foreground truncate">{treatmentCategory}</span>
+            </div>
+          )}
+
+          {/* Visit Type row */}
+          {visitType && (
+            <div className="flex items-center gap-2 text-xs min-w-0">
+              <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                <Activity className="h-2.5 w-2.5 text-primary" />
+              </div>
+              <span className="text-muted-foreground">Visit Type:</span>
+              <span className="font-semibold text-foreground truncate">{visitType}</span>
+            </div>
           )}
 
           {/* Chief complaint chips */}
