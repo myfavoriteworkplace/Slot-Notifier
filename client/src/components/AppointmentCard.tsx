@@ -544,15 +544,6 @@ export function AppointmentCard({
           </div>
         </div>
 
-        {/* ── Progress Strip ── */}
-        <div className="px-3 sm:px-4 pt-1.5 pb-0.5 border-b border-border/30">
-          <BookingProgressStrip
-            stage={lifecycleStage}
-            isCancelled={isCancelled}
-            isNoShow={isNoShowState}
-          />
-        </div>
-
         {/* ── Info Rows ── */}
         <div className="px-3 sm:px-4 py-2 space-y-1.5">
 
@@ -791,6 +782,15 @@ export function AppointmentCard({
             )}
           </div>
         </div>
+      </div>
+
+      {/* ── Progress Strip ── */}
+      <div className="px-3 sm:px-4 pt-1.5 pb-0.5 border-t border-border/30">
+        <BookingProgressStrip
+          stage={lifecycleStage}
+          isCancelled={isCancelled}
+          isNoShow={isNoShowState}
+        />
       </div>
 
       {/* ═══════════════════════════════════════
