@@ -24,6 +24,8 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+      "jspdf": path.resolve(import.meta.dirname, "client", "src", "lib", "jspdf-stub.ts"),
+      "jspdf-autotable": path.resolve(import.meta.dirname, "client", "src", "lib", "jspdf-stub.ts"),
     },
   },
   root: path.resolve(import.meta.dirname, "client"),
