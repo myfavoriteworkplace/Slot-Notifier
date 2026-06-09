@@ -97,6 +97,7 @@ export interface AppointmentCardProps {
   onDoctorCompleteVisit?: () => void;
   onOpenNotes?: () => void;
   onOpenRecords?: () => void;
+  onRequestConsent?: () => void;
   // Loading states
   confirmPending?: boolean;
   cancelPending?: boolean;
@@ -109,6 +110,7 @@ export interface AppointmentCardProps {
   approvePending?: boolean;
   declinePending?: boolean;
   startConsultPending?: boolean;
+  consentRequestPending?: boolean;
 }
 
 // ──────────────── Helpers ────────────────
@@ -156,6 +158,7 @@ export function AppointmentCard({
   onDoctorCompleteVisit,
   onOpenNotes,
   onOpenRecords,
+  onRequestConsent,
   confirmPending,
   cancelPending,
   assignDoctorPending,
@@ -167,6 +170,7 @@ export function AppointmentCard({
   approvePending,
   declinePending,
   startConsultPending,
+  consentRequestPending,
 }: AppointmentCardProps) {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonOther, setCancelReasonOther] = useState("");
@@ -694,18 +698,44 @@ export function AppointmentCard({
 
           {/* Consent Status — clinic view, always shown */}
           {role === "clinic" && (
-            <div className="flex items-center gap-2 text-xs min-w-0">
+            <div className="flex items-center gap-2 text-xs min-w-0" onClick={(e) => e.stopPropagation()}>
               <span className="text-muted-foreground shrink-0 w-[112px]">Consent:</span>
               {booking.consentSignedAt ? (
                 <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
-                  <CheckCircle2 className="h-2.5 w-2.5" />Consent Signed
+                  <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
                 </span>
               ) : booking.consentToken ? (
-                <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
-                  <Clock className="h-2.5 w-2.5" />Consent Sent
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
+                    <Clock className="h-2.5 w-2.5" />Sent
+                  </span>
+                  {onRequestConsent && (
+                    <button
+                      onClick={onRequestConsent}
+                      disabled={consentRequestPending}
+                      data-testid={`button-resend-consent-inline-${booking.id}`}
+                      className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
+                    >
+                      {consentRequestPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <PenLine className="h-2.5 w-2.5" />}
+                      Resend →
+                    </button>
+                  )}
+                </div>
               ) : (
-                <span className="text-muted-foreground/50">–</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground/50">–</span>
+                  {onRequestConsent && (
+                    <button
+                      onClick={onRequestConsent}
+                      disabled={consentRequestPending}
+                      data-testid={`button-request-consent-inline-${booking.id}`}
+                      className="inline-flex items-center gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
+                    >
+                      {consentRequestPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <PenLine className="h-2.5 w-2.5" />}
+                      Send Link →
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}

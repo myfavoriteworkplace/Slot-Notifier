@@ -3304,6 +3304,8 @@ export default function ClinicDashboard() {
                         setActivePanel('book-a-slot');
                         setOpenBookingId(null);
                       }}
+                      onRequestConsent={() => requestConsentMutation.mutate(booking.id)}
+                      consentRequestPending={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
                       checkInPending={checkInMutation.isPending}
                       completeVisitPending={completeVisitMutation.isPending}
                       cancelPending={cancelBookingMutation.isPending}
