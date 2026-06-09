@@ -4136,17 +4136,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const booking = await storage.getBookingById(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
-      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date());
+      // Stage 5 — Treatment Completed (doctor side). Clinic still needs to close with Stage 6.
+      const updated = await storage.updateVisitStatus(bookingId, 'treatment_completed', undefined, new Date());
       try {
         const slot = await storage.getSlot(booking.slotId);
         if (slot) {
           const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
           if (clinic) {
-            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} completed the visit with ${booking.customerName}`, read: false });
-            broadcastToClinic(String(clinic.id), { type: "visit_completed", notification: notif });
+            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has completed treatment for ${booking.customerName} — please mark the visit as complete`, read: false });
+            broadcastToClinic(String(clinic.id), { type: "treatment_completed", notification: notif });
           }
         }
-      } catch (e: any) { console.error('[NOTIFICATION] Complete visit notification failed:', e.message); }
+      } catch (e: any) { console.error('[NOTIFICATION] Treatment complete notification failed:', e.message); }
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/auth/clinic/bookings/:id/no-show", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const [updated] = await db.update(bookings)
+        .set({ verificationStatus: 'no_show' })
+        .where(eq(bookings.id, bookingId))
+        .returning();
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });

@@ -292,10 +292,11 @@ export default function DoctorDashboard() {
   const completeVisitMutation = useMutation({
     mutationFn: (id: number) => apiRequest("PATCH", `/api/doctor/bookings/${id}/complete-visit`),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/doctor/bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
-      notify.success("Visit completed", { description: "Clinic admin has been notified." });
+      notify.success("Treatment completed", { description: "Clinic admin has been notified to close the visit." });
     },
-    onError: () => notify.error("Failed to complete visit"),
+    onError: () => notify.error("Failed to mark treatment as complete"),
   });
 
   const approveMutation = useMutation({

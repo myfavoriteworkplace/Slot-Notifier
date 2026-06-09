@@ -4,7 +4,7 @@ import {
   Phone, Hash, CalendarDays, CheckCircle2, X, UserPlus,
   Building2, Loader2, IndianRupee, ClipboardList, FileText,
   AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
-  Stethoscope,
+  Stethoscope, MoreHorizontal, UserX, ShieldCheck,
 } from "lucide-react";
 import { LiaStethoscopeSolid, LiaHeartbeatSolid } from "react-icons/lia";
 import { Card } from "@/components/ui/card";
@@ -87,9 +87,11 @@ export interface AppointmentCardProps {
   onStartConsultation?: () => void;
   onCompleteVisit?: () => void;
   onBookAgain?: () => void;
+  onNoShow?: () => void;
   checkInPending?: boolean;
   startConsultPending?: boolean;
   completeVisitPending?: boolean;
+  noShowPending?: boolean;
 }
 
 // ──────────────── Component ────────────────
@@ -119,9 +121,11 @@ export function AppointmentCard({
   onStartConsultation,
   onCompleteVisit,
   onBookAgain,
+  onNoShow,
   checkInPending,
   startConsultPending,
   completeVisitPending,
+  noShowPending,
 }: AppointmentCardProps) {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonOther, setCancelReasonOther] = useState("");
@@ -135,18 +139,33 @@ export function AppointmentCard({
   const durationMin = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
   const isCancelled = booking.verificationStatus === 'cancelled';
+  const isNoShow = booking.verificationStatus === 'no_show';
   const isConfirmed = role === 'clinic'
     ? (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy)
     : (booking.doctorApprovalStatus === 'approved' || booking.doctorApprovalStatus === 'admin_confirmed');
   const isApptDeclined = role === 'doctor' && booking.doctorApprovalStatus === 'declined';
 
-  const accentBar = isToday
+  // Lifecycle stage booleans
+  const isVisitCompleted = booking.visitStatus === 'completed';
+  const isTreatmentCompleted = booking.visitStatus === 'treatment_completed' || isVisitCompleted;
+  const isInTreatment = booking.visitStatus === 'in_consultation' || isTreatmentCompleted;
+  const isArrived = booking.visitStatus === 'checked_in' || isInTreatment;
+  // 0=Booked, 1=Arrived, 2=InTreatment, 3=TreatmentDone, 4=VisitDone
+  const lifecycleStage = isVisitCompleted ? 4 : isTreatmentCompleted ? 3 : isInTreatment ? 2 : isArrived ? 1 : 0;
+
+  const accentBar = isNoShow
+    ? "bg-gradient-to-r from-slate-400 to-slate-300"
+    : isToday
     ? "bg-gradient-to-r from-sky-400 to-cyan-400"
     : isPast
     ? "bg-gradient-to-r from-slate-400 to-slate-300"
+    : isVisitCompleted
+    ? "bg-gradient-to-r from-emerald-400 to-teal-400"
     : "bg-gradient-to-r from-primary to-accent";
 
-  const headerBg = isToday
+  const headerBg = isNoShow
+    ? "bg-muted/30"
+    : isToday
     ? "bg-gradient-to-r from-sky-500/8 to-cyan-500/5"
     : isPast
     ? "bg-muted/30"
@@ -154,6 +173,10 @@ export function AppointmentCard({
 
   const leftBorder = isCancelled
     ? "border-l-2 border-l-rose-400 dark:border-l-rose-500"
+    : isNoShow
+    ? "border-l-2 border-l-slate-400 dark:border-l-slate-500"
+    : isVisitCompleted
+    ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
     : isConfirmed
     ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
     : "border-l-2 border-l-amber-400 dark:border-l-amber-500";
@@ -166,6 +189,14 @@ export function AppointmentCard({
     : (role === 'doctor' || role === 'clinic') && booking.visitStatus === 'in_consultation'
     ? "ring-2 ring-teal-400/60 ring-offset-2"
     : "";
+
+  const LIFECYCLE_STAGES = [
+    { key: 'booked', label: 'Booked' },
+    { key: 'arrived', label: 'Arrived' },
+    { key: 'in_tmt', label: 'In Tmt.' },
+    { key: 'tmt_done', label: 'Tmt. Done' },
+    { key: 'visit_done', label: 'Visit Done' },
+  ];
 
   // Extract Category and Visit Type from description string
   const rawDesc = booking.description ?? "";
@@ -184,7 +215,7 @@ export function AppointmentCard({
 
   return (
     <Card
-      className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group flex flex-col ${isPast ? "opacity-75" : ""} ${leftBorder} ${visitRingClass}`}
+      className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 transition-all group flex flex-col ${(isPast || isNoShow) ? "opacity-75" : ""} ${leftBorder} ${visitRingClass}`}
       data-testid={`card-booking-${booking.id}`}
     >
       {/* Top accent bar */}
@@ -234,12 +265,44 @@ export function AppointmentCard({
               </div>
             </div>
 
-            {/* Status column */}
-            <div className="flex flex-col items-end gap-0.5">
+            {/* Status column + ⋮ menu (clinic only) */}
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              {/* Runtime status badge */}
               {isCancelled || isApptDeclined ? (
                 <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
                   <X className="h-2.5 w-2.5" />
                   {isApptDeclined ? "Declined" : "Cancelled"}
+                </span>
+              ) : isNoShow ? (
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                  <UserX className="h-2.5 w-2.5" />
+                  No Show
+                </span>
+              ) : role === 'clinic' && isVisitCompleted ? (
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <ShieldCheck className="h-2.5 w-2.5" />
+                  Visit Done
+                </span>
+              ) : role === 'clinic' && isTreatmentCompleted ? (
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <span className="relative flex h-1.5 w-1.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
+                  </span>
+                  Awaiting Closure
+                </span>
+              ) : role === 'clinic' && booking.visitStatus === 'in_consultation' ? (
+                <span className="text-xs font-bold text-teal-600 dark:text-teal-400 flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
+                  With Doctor
+                </span>
+              ) : role === 'clinic' && booking.visitStatus === 'checked_in' ? (
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <span className="relative flex h-1.5 w-1.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                  </span>
+                  In Clinic
                 </span>
               ) : isConfirmed ? (
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
@@ -262,6 +325,45 @@ export function AppointmentCard({
                   </span>
                   Pending
                 </span>
+              )}
+              {/* ⋮ More menu — clinic only, not cancelled / no_show / visit_done */}
+              {role === 'clinic' && !isCancelled && !isNoShow && !isVisitCompleted && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/60 transition-colors"
+                      data-testid={`button-more-${booking.id}`}
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-44 p-1.5 rounded-xl shadow-lg" side="bottom" align="end" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onNoShow?.(); }}
+                      disabled={noShowPending}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50"
+                      data-testid={`button-no-show-${booking.id}`}
+                    >
+                      {noShowPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserX className="h-3 w-3" />}
+                      Mark No Show
+                    </button>
+                    {!isTreatmentCompleted && (
+                      <div className="my-1 h-px bg-border/50" />
+                    )}
+                    {!isTreatmentCompleted && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onCompleteVisit?.(); }}
+                        disabled={completeVisitPending}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors disabled:opacity-50"
+                        data-testid={`button-override-complete-${booking.id}`}
+                      >
+                        {completeVisitPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+                        Mark Visit Complete ↗
+                      </button>
+                    )}
+                  </PopoverContent>
+                </Popover>
               )}
             </div>
           </div>
@@ -336,12 +438,14 @@ export function AppointmentCard({
               <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0
                 ${booking.visitStatus === 'checked_in' ? 'bg-emerald-50 dark:bg-emerald-500/10'
                   : booking.visitStatus === 'in_consultation' ? 'bg-teal-50 dark:bg-teal-500/10'
-                  : booking.visitStatus === 'completed' ? 'bg-muted/60'
+                  : booking.visitStatus === 'treatment_completed' ? 'bg-primary/10'
+                  : booking.visitStatus === 'completed' ? 'bg-emerald-50 dark:bg-emerald-500/10'
                   : 'bg-muted'}`}>
                 <UserCheck className={`h-2.5 w-2.5
                   ${booking.visitStatus === 'checked_in' ? 'text-emerald-600 dark:text-emerald-400'
                     : booking.visitStatus === 'in_consultation' ? 'text-teal-600 dark:text-teal-400'
-                    : booking.visitStatus === 'completed' ? 'text-muted-foreground'
+                    : booking.visitStatus === 'treatment_completed' ? 'text-primary'
+                    : booking.visitStatus === 'completed' ? 'text-emerald-600 dark:text-emerald-400'
                     : 'text-muted-foreground/40'}`} />
               </div>
               <span className="font-medium text-muted-foreground shrink-0">Visit Status:</span>
@@ -363,13 +467,19 @@ export function AppointmentCard({
                   With Doctor
                 </span>
               )}
-              {booking.visitStatus === 'completed' && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-muted/50 border border-border/50 px-2 py-0.5 rounded-full">
+              {booking.visitStatus === 'treatment_completed' && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/8 border border-primary/20 px-2 py-0.5 rounded-full">
                   <CheckCircle2 className="h-2.5 w-2.5" />
-                  Visit Done
+                  Treatment Done
                   {(booking as any).completedAt && (
                     <span className="font-normal opacity-70">· {format(new Date((booking as any).completedAt), 'h:mm a')}</span>
                   )}
+                </span>
+              )}
+              {booking.visitStatus === 'completed' && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                  <ShieldCheck className="h-2.5 w-2.5" />
+                  Visit Closed
                 </span>
               )}
             </div>
@@ -491,10 +601,20 @@ export function AppointmentCard({
           })()}
 
           {/* Visit status row — clinic admin view — always visible */}
-          {role === 'clinic' && !isCancelled && (
+          {role === 'clinic' && !isCancelled && !isNoShow && (
             <div className="flex items-center gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
-              <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.visitStatus ? 'bg-primary/10' : 'bg-muted'}`}>
-                <UserCheck className={`h-2.5 w-2.5 ${booking.visitStatus ? 'text-primary' : 'text-muted-foreground/50'}`} />
+              <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0
+                ${booking.visitStatus === 'checked_in' ? 'bg-emerald-50 dark:bg-emerald-500/10'
+                  : booking.visitStatus === 'in_consultation' ? 'bg-teal-50 dark:bg-teal-500/10'
+                  : booking.visitStatus === 'treatment_completed' ? 'bg-amber-50 dark:bg-amber-500/10'
+                  : booking.visitStatus === 'completed' ? 'bg-emerald-50 dark:bg-emerald-500/10'
+                  : 'bg-muted'}`}>
+                <UserCheck className={`h-2.5 w-2.5
+                  ${booking.visitStatus === 'checked_in' ? 'text-emerald-600 dark:text-emerald-400'
+                    : booking.visitStatus === 'in_consultation' ? 'text-teal-600 dark:text-teal-400'
+                    : booking.visitStatus === 'treatment_completed' ? 'text-amber-600 dark:text-amber-400'
+                    : booking.visitStatus === 'completed' ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-muted-foreground/50'}`} />
               </div>
               <span className="font-medium text-muted-foreground shrink-0">Visit Status:</span>
               {!booking.visitStatus && (
@@ -521,7 +641,6 @@ export function AppointmentCard({
                       <span className="font-normal opacity-70">· {format(new Date(booking.checkedInAt), 'h:mm a')}</span>
                     )}
                   </span>
-                  {/* FIX #5: undo check-in icon button — h-9 w-9 minimum (Lucide UI action) */}
                   <button
                     onClick={onUndoCheckIn}
                     disabled={checkInPending}
@@ -539,10 +658,19 @@ export function AppointmentCard({
                   With Doctor
                 </span>
               )}
+              {booking.visitStatus === 'treatment_completed' && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-0.5 rounded-full">
+                  <span className="relative flex h-1.5 w-1.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
+                  </span>
+                  Treatment Done · Awaiting Closure
+                </span>
+              )}
               {booking.visitStatus === 'completed' && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-muted/50 border border-border/50 px-2 py-0.5 rounded-full">
-                  <CheckCircle2 className="h-2.5 w-2.5" />
-                  Visit Done
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                  <ShieldCheck className="h-2.5 w-2.5" />
+                  Visit Closed
                   {(booking as any).completedAt && (
                     <span className="font-normal opacity-70">· {format(new Date((booking as any).completedAt), 'h:mm a')}</span>
                   )}
@@ -655,6 +783,47 @@ export function AppointmentCard({
         </div>
       </div>
 
+      {/* ── Lifecycle progress strip (clinic + doctor, active bookings only) ── */}
+      {(role === 'clinic' || role === 'doctor') && !isCancelled && !isNoShow && (
+        <div className="px-3 sm:px-4 py-2.5 border-t border-border/40 bg-muted/10">
+          <div className="flex items-center w-full">
+            {LIFECYCLE_STAGES.map((stage, idx) => {
+              const isCompleted = idx < lifecycleStage;
+              const isActive = idx === lifecycleStage;
+              return (
+                <div key={stage.key} className="flex items-center flex-1 last:flex-none">
+                  {/* Node */}
+                  <div className="flex flex-col items-center gap-0.5 shrink-0">
+                    <div className={`h-2.5 w-2.5 rounded-full transition-colors ${
+                      isCompleted
+                        ? 'bg-primary'
+                        : isActive
+                        ? 'bg-amber-500 ring-2 ring-amber-400/40'
+                        : 'bg-muted-foreground/20'
+                    }`} />
+                    <span className={`text-[10px] leading-none font-medium whitespace-nowrap ${
+                      isCompleted
+                        ? 'text-primary'
+                        : isActive
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-muted-foreground/40'
+                    }`}>
+                      {stage.label}
+                    </span>
+                  </div>
+                  {/* Connector */}
+                  {idx < LIFECYCLE_STAGES.length - 1 && (
+                    <div className={`flex-1 h-0.5 mx-0.5 rounded-full transition-colors ${
+                      idx < lifecycleStage ? 'bg-primary/50' : 'bg-muted-foreground/15'
+                    }`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Clinic footer: Confirm | ₹ Bill | Cancel ── */}
       {/* FIX #4: responsive padding; FIX #5: buttons min-h-[44px] on mobile */}
       {role === 'clinic' && (
@@ -675,6 +844,23 @@ export function AppointmentCard({
               <div className="h-4 w-px bg-border/60 shrink-0" />
             </>
           )}
+          {/* "Mark Visit Complete" CTA — only when treatment is done but visit not yet closed */}
+          {booking.visitStatus === 'treatment_completed' && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9 gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-400/10 active:scale-[0.98] transition-all"
+                onClick={(e) => { e.stopPropagation(); onCompleteVisit?.(); }}
+                disabled={completeVisitPending}
+                data-testid={`button-complete-visit-${booking.id}`}
+              >
+                {completeVisitPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+                Mark Visit Complete
+              </Button>
+              <div className="h-4 w-px bg-border/60 shrink-0" />
+            </>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -686,7 +872,7 @@ export function AppointmentCard({
             Bill
           </Button>
           <div className="h-4 w-px bg-border/60 shrink-0" />
-          {booking.visitStatus === 'completed' ? (
+          {(booking.visitStatus === 'completed' || isNoShow) ? (
             <Button
               variant="ghost"
               size="sm"

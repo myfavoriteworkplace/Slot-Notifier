@@ -1332,6 +1332,19 @@ export default function ClinicDashboard() {
     onError: (error: any) => notify.apiError(error, "Failed to complete visit"),
   });
 
+  const noShowMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/no-show`, {});
+      if (!response.ok) throw new Error('Failed to mark no-show');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      notify.success("Marked as no-show");
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to mark no-show"),
+  });
+
   const requestConsentMutation = useMutation({
     mutationFn: async (bookingId: number) => {
       const response = await apiRequest('POST', `/api/auth/clinic/bookings/${bookingId}/request-consent`, {});
@@ -3237,6 +3250,8 @@ export default function ClinicDashboard() {
                       onCheckIn={() => checkInMutation.mutate({ bookingId: booking.id })}
                       onUndoCheckIn={() => checkInMutation.mutate({ bookingId: booking.id, undo: true })}
                       onCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
+                      onNoShow={() => noShowMutation.mutate(booking.id)}
+                      noShowPending={noShowMutation.isPending}
                       onBookAgain={() => {
                         setBookingName(booking.customerName);
                         setBookingPhone(booking.customerPhone);
