@@ -585,10 +585,13 @@ export function AppointmentCard({
 
           {/* Visit Type */}
           <div className="flex items-center gap-2 text-xs min-w-0">
-            <span className="text-muted-foreground shrink-0 w-[112px]">Visit Type:</span>
+            <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+              <Repeat2 className="h-2.5 w-2.5 text-muted-foreground" />
+            </div>
+            <span className="text-muted-foreground shrink-0 w-[100px]">Visit Type:</span>
             {visitTypeLabel ? (
               <span className="inline-flex items-center gap-1 font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
-                <Repeat2 className="h-2 w-2" />{visitTypeLabel}
+                {visitTypeLabel}
               </span>
             ) : (
               <span className="text-muted-foreground/50">–</span>
@@ -597,10 +600,13 @@ export function AppointmentCard({
 
           {/* Treatment Category */}
           <div className="flex items-center gap-2 text-xs min-w-0">
-            <span className="text-muted-foreground shrink-0 w-[112px]">Treatment:</span>
+            <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+              <Tag className="h-2.5 w-2.5 text-muted-foreground" />
+            </div>
+            <span className="text-muted-foreground shrink-0 w-[100px]">Treatment:</span>
             {treatmentCategory ? (
               <span className="inline-flex items-center gap-1 font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md">
-                <Tag className="h-2 w-2" />{treatmentCategory}
+                {treatmentCategory}
                 {slotCost > 1 && <span className="font-normal opacity-70">({slotCost} slots)</span>}
               </span>
             ) : (
@@ -631,39 +637,41 @@ export function AppointmentCard({
             if (booking.assignedDoctor) {
               const drStatus = isCancelled ? null
                 : booking.doctorApprovalStatus === "pending"
-                ? <span className="text-amber-600 dark:text-amber-400">Awaiting approval</span>
+                ? <span className="text-amber-600 dark:text-amber-400">· Awaiting approval</span>
                 : booking.doctorApprovalStatus === "approved"
-                ? <span className="text-emerald-600 dark:text-emerald-400">Approved ✓</span>
+                ? <span className="text-emerald-600 dark:text-emerald-400">· Approved ✓</span>
                 : booking.doctorApprovalStatus === "admin_confirmed"
-                ? <span className="text-emerald-600 dark:text-emerald-400">Admin confirmed ✓</span>
+                ? <span className="text-emerald-600 dark:text-emerald-400">· Admin confirmed ✓</span>
                 : booking.doctorApprovalStatus === "declined"
-                ? <span className="text-rose-600 dark:text-rose-400">Declined ✗</span>
+                ? <span className="text-rose-600 dark:text-rose-400">· Declined ✗</span>
                 : null;
               return (
                 <div className="flex items-center gap-2 text-xs min-w-0">
                   <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                     <Stethoscope className="h-2.5 w-2.5 text-primary" />
                   </div>
-                  <span className="font-medium text-primary truncate">Dr. {booking.assignedDoctor}</span>
-                  {drStatus && <span className="text-xs truncate">{drStatus}</span>}
+                  <span className="text-muted-foreground shrink-0 w-[100px]">Assigned Doctor:</span>
+                  <span className="font-semibold text-primary truncate">Dr. {booking.assignedDoctor}</span>
+                  {drStatus && <span className="truncate">{drStatus}</span>}
                 </div>
               );
             }
             if (!isPast && !isTerminal && !isVisitCompleted) {
               return (
-                <div className="flex items-center gap-2 text-xs">
-                  <div className="h-4 w-4 rounded-md bg-muted flex items-center justify-center shrink-0">
-                    <Stethoscope className="h-2.5 w-2.5 text-muted-foreground/50" />
+                <div className="flex items-center gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
+                  <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                    <Stethoscope className="h-2.5 w-2.5 text-muted-foreground" />
                   </div>
+                  <span className="text-muted-foreground shrink-0 w-[100px]">Assigned Doctor:</span>
                   {(booking.clinicDoctors ?? []).length > 0 ? (
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
                           onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 active:scale-[0.98] min-h-[28px] px-2.5 rounded-full transition-colors"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 active:scale-[0.98] min-h-[22px] px-2 rounded-md transition-colors"
                           data-testid={`button-assign-inline-${booking.id}`}
                         >
-                          <UserPlus className="h-2.5 w-2.5" />Assign doctor
+                          <UserPlus className="h-2.5 w-2.5" />Assign
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-52 p-1.5 rounded-xl shadow-lg" side="top" onClick={(e) => e.stopPropagation()}>
@@ -688,7 +696,7 @@ export function AppointmentCard({
                       </PopoverContent>
                     </Popover>
                   ) : (
-                    <span className="italic text-muted-foreground/60 text-xs">Unassigned</span>
+                    <span className="italic text-muted-foreground/50">–</span>
                   )}
                 </div>
               );
@@ -699,7 +707,10 @@ export function AppointmentCard({
           {/* Consent Status — clinic view, always shown */}
           {role === "clinic" && (
             <div className="flex items-center gap-2 text-xs min-w-0" onClick={(e) => e.stopPropagation()}>
-              <span className="text-muted-foreground shrink-0 w-[112px]">Consent:</span>
+              <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                <PenLine className="h-2.5 w-2.5 text-muted-foreground" />
+              </div>
+              <span className="text-muted-foreground shrink-0 w-[100px]">Consent:</span>
               {booking.consentSignedAt ? (
                 <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                   <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
@@ -757,7 +768,10 @@ export function AppointmentCard({
 
           {/* Chief Complaints — always shown */}
           <div className="flex items-start gap-2 text-xs min-w-0">
-            <span className="text-muted-foreground shrink-0 w-[112px] pt-0.5">Chief Complaints:</span>
+            <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
+              <ClipboardList className="h-2.5 w-2.5 text-muted-foreground" />
+            </div>
+            <span className="text-muted-foreground shrink-0 w-[100px] pt-0.5">Chief Complaints:</span>
             {complaints.length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {complaints.slice(0, maxChips).map((c, i) => (
