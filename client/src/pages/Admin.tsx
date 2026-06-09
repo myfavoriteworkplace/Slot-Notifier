@@ -21,7 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { SiFacebook, SiInstagram, SiLinkedin, SiWhatsapp } from "react-icons/si";
+import { SiFacebook, SiInstagram, SiWhatsapp } from "react-icons/si";
+import { FaLinkedin as SiLinkedin } from "react-icons/fa";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
