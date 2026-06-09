@@ -579,26 +579,30 @@ export function AppointmentCard({
             </span>
           </div>
 
-          {/* Visit Type + Treatment Category */}
-          {(visitTypeLabel || treatmentCategory) && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {visitTypeLabel && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
-                  <Repeat2 className="h-2 w-2" />{visitTypeLabel}
-                </span>
-              )}
-              {treatmentCategory && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md">
-                  <Tag className="h-2 w-2" />{treatmentCategory}
-                </span>
-              )}
-              {slotCost > 1 && (
-                <span className="text-xs font-semibold text-muted-foreground bg-muted/50 border border-border/40 px-1.5 py-0.5 rounded-md">
-                  {slotCost} slots · {slotCost * 25} min
-                </span>
-              )}
-            </div>
-          )}
+          {/* Visit Type */}
+          <div className="flex items-center gap-2 text-xs min-w-0">
+            <span className="text-muted-foreground shrink-0 w-[112px]">Visit Type:</span>
+            {visitTypeLabel ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
+                <Repeat2 className="h-2 w-2" />{visitTypeLabel}
+              </span>
+            ) : (
+              <span className="text-muted-foreground/50">–</span>
+            )}
+          </div>
+
+          {/* Treatment Category */}
+          <div className="flex items-center gap-2 text-xs min-w-0">
+            <span className="text-muted-foreground shrink-0 w-[112px]">Treatment:</span>
+            {treatmentCategory ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md">
+                <Tag className="h-2 w-2" />{treatmentCategory}
+                {slotCost > 1 && <span className="font-normal opacity-70">({slotCost} slots)</span>}
+              </span>
+            ) : (
+              <span className="text-muted-foreground/50">–</span>
+            )}
+          </div>
 
           {/* Clinic name — doctor view */}
           {role === "doctor" && displayClinicName && (
@@ -688,24 +692,20 @@ export function AppointmentCard({
             return null;
           })()}
 
-          {/* Consent status — clinic view */}
-          {role === "clinic" && isClinicConfirmed && !isTerminal && (
-            <div className="flex items-center gap-2 text-xs">
-              <div className="h-4 w-4 rounded-md bg-muted flex items-center justify-center shrink-0">
-                <PenLine className="h-2.5 w-2.5 text-muted-foreground/60" />
-              </div>
+          {/* Consent Status — clinic view, always shown */}
+          {role === "clinic" && (
+            <div className="flex items-center gap-2 text-xs min-w-0">
+              <span className="text-muted-foreground shrink-0 w-[112px]">Consent:</span>
               {booking.consentSignedAt ? (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                   <CheckCircle2 className="h-2.5 w-2.5" />Consent Signed
                 </span>
               ) : booking.consentToken ? (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
                   <Clock className="h-2.5 w-2.5" />Consent Sent
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted/50 border border-border/50 px-2 py-0.5 rounded-full">
-                  <AlertCircle className="h-2.5 w-2.5 opacity-50" />Consent Not Sent
-                </span>
+                <span className="text-muted-foreground/50">–</span>
               )}
             </div>
           )}
@@ -725,19 +725,24 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Chief complaint chips */}
-          {complaints.length > 0 && (
-            <div className="flex flex-wrap gap-1 pt-0.5">
-              {complaints.slice(0, maxChips).map((c, i) => (
-                <span key={i} className="inline-flex items-center text-xs font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
-                  {c}
-                </span>
-              ))}
-              {complaints.length > maxChips && (
-                <span className="text-xs text-muted-foreground font-medium px-1">+{complaints.length - maxChips}</span>
-              )}
-            </div>
-          )}
+          {/* Chief Complaints — always shown */}
+          <div className="flex items-start gap-2 text-xs min-w-0">
+            <span className="text-muted-foreground shrink-0 w-[112px] pt-0.5">Chief Complaints:</span>
+            {complaints.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {complaints.slice(0, maxChips).map((c, i) => (
+                  <span key={i} className="inline-flex items-center font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                    {c}
+                  </span>
+                ))}
+                {complaints.length > maxChips && (
+                  <span className="text-muted-foreground font-medium px-1">+{complaints.length - maxChips}</span>
+                )}
+              </div>
+            ) : (
+              <span className="text-muted-foreground/50 pt-0.5">–</span>
+            )}
+          </div>
         </div>
       </div>
 
