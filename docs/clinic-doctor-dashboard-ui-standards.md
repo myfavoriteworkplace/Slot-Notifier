@@ -458,49 +458,145 @@ The green gradient heading that appears above the booking/appointment card grid.
 
 ---
 
-## 8. Booking / Appointment Cards
+## 8. Booking / Appointment Cards — `AppointmentCard` Component
 
-Both dashboards render booking records as cards in a `grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3` grid.
+All booking records in both dashboards are rendered via the shared `AppointmentCard` component at `client/src/components/AppointmentCard.tsx`. Never inline a one-off card — always use this component.
 
-### Card shell
+### Import
 
 ```tsx
-<div className="rounded-2xl border border-border/50 bg-background shadow-sm shadow-primary/5
-  overflow-hidden flex flex-col hover:shadow-md hover:shadow-primary/10
-  hover:-translate-y-0.5 transition-all duration-300">
-
-  {/* Card header — dark green gradient with patient name and status badge */}
-  <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-3 overflow-hidden">
-    ...
-  </div>
-
-  {/* Card body — appointment details */}
-  <div className="px-4 py-3 flex-1 space-y-2">
-    ...
-  </div>
-
-  {/* Card footer — action buttons */}
-  <div className="px-4 pb-3 pt-1 flex gap-2">
-    ...
-  </div>
-
-</div>
+import { AppointmentCard, type BookingWithSlot } from "@/components/AppointmentCard";
 ```
 
-### Status badge colours (use consistently, never deviate)
+### Props reference
 
-| Status | Classes |
+| Prop | Type | Required | Notes |
+|---|---|---|---|
+| `booking` | `BookingWithSlot` | ✓ | All booking fields including `visitType`, `treatmentCategory` |
+| `role` | `"clinic" \| "doctor"` | ✓ | Controls which footer is rendered |
+| `bookingNumber` | `string` | ✓ | `String(booking.id).padStart(4, "0")` |
+| `complaints` | `string[]` | | Parsed from `booking.description` |
+| `clinicName` | `string` | | Doctor role only — displayed in info row |
+| `clinicCity` | `string` | | Doctor role only |
+| `onCardClick` | `() => void` | ✓ | Opens the detail dialog |
+| `onConfirm` | `() => void` | clinic | Confirm booking |
+| `onCancel` | `(reason: string) => void` | clinic | Cancel with reason dialog |
+| `onBill` | `() => void` | clinic | Open billing modal |
+| `onAssignDoctor` | `(name, email) => void` | clinic | Inline doctor picker popover |
+| `onCheckIn` | `() => void` | clinic | Mark patient arrived |
+| `onUndoCheckIn` | `() => void` | clinic | Undo arrived |
+| `onCompleteVisit` | `() => void` | clinic | Admin closes visit (after treatment done) |
+| `onNoShow` | `(reason?: string) => void` | clinic | Marks no-show with optional reason |
+| `onSendReminder` | `() => void` | clinic | Fires WhatsApp reminder via `⋮` menu |
+| `onOverrideComplete` | `(reason: string) => void` | clinic | Admin force-completes; reason mandatory |
+| `onBookAgain` | `() => void` | clinic | Pre-fills Book a Slot form |
+| `onApprove` | `() => void` | doctor | Accept the appointment |
+| `onDecline` | `() => void` | doctor | Decline the appointment |
+| `onStartConsultation` | `() => void` | doctor | Move to `in_consultation` |
+| `onDoctorCompleteVisit` | `() => void` | doctor | Mark treatment done → `treatment_completed` |
+| `onOpenNotes` | `() => void` | doctor | Open patient notes modal |
+| `onOpenRecords` | `() => void` | doctor | Open Rx / clinical records modal |
+| `*Pending` | `boolean` | | All mutations have matching `isPending` props |
+
+### 5-Step Progress Strip — `BookingProgressStrip`
+
+Imported automatically inside `AppointmentCard`. Import directly only if needed elsewhere:
+
+```tsx
+import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
+// LifecycleStage = 0 | 1 | 2 | 3 | 4
+```
+
+| Stage | visitStatus | Label | Dot colour |
+|---|---|---|---|
+| 0 | `null` | Booked | Current = pulsing blue |
+| 1 | `checked_in` | Arrived | Current = pulsing blue |
+| 2 | `in_consultation` | In Treatment | Current = pulsing blue |
+| 3 | `treatment_completed` | Tmt. Done | Current = pulsing blue |
+| 4 | `completed` | Visit Done | Completed = solid emerald |
+
+Cancelled and no-show states render a faded red/slate variant automatically via `isCancelled` / `isNoShow` props.
+
+### Lifecycle states & status badge colours
+
+| visitStatus | verificationStatus | Status badge label | Badge colour |
+|---|---|---|---|
+| `null` | `pending` | Pending | Pulsing amber |
+| `null` | `confirmed` | Confirmed | Emerald |
+| `null` | `confirmed` + `assignedDoctor` + `doctorApprovalStatus=pending` | Awaiting DR | Pulsing amber |
+| `checked_in` | any confirmed | Arrived | Pulsing blue |
+| `in_consultation` | any confirmed | With Doctor | Solid teal |
+| `treatment_completed` | any confirmed | Tmt. Done | Pulsing amber |
+| `completed` | any confirmed | Visit Done | Emerald |
+| any | `cancelled` | Cancelled | Red |
+| any | `no_show` | No Show | Slate |
+
+### Left border accent colours (auto-applied by component)
+
+| State | Border |
 |---|---|
-| Pending / Awaiting | `bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-300` |
-| Confirmed / Upcoming | `bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200` |
-| Cancelled | `bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border-rose-200` |
-| Past / Completed | `bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400 border-slate-200` |
-| Today | `bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200` |
+| Pending / unconfirmed | `border-l-amber-400` |
+| Confirmed | `border-l-emerald-400` |
+| Visit complete | `border-l-emerald-400` |
+| Treatment done | `border-l-amber-400` |
+| Cancelled | `border-l-rose-400` |
+| No show | `border-l-slate-400` |
+
+### Three-dot ⋮ menu (clinic only, non-terminal states)
+
+Renders a `Popover` with these items in order:
+1. **Send Reminder** — fires `onSendReminder`, WhatsApp nudge to patient
+2. **Mark No Show** — opens `AlertDialog` with optional reason field, fires `onNoShow(reason)`
+3. _(divider)_
+4. **Mark Visit Complete ↗** — `AlertDialog` with *mandatory* reason, fires `onOverrideComplete(reason)`; disabled until reason filled
+
+### Two-step visit close (clinic admin flow)
+
+1. Doctor clicks **Done with Patient** → `PATCH /api/auth/doctor/bookings/:id/complete-visit` → `visitStatus = treatment_completed`
+2. Clinic admin sees **Mark Visit Complete** button in card footer → `PATCH /api/auth/clinic/bookings/:id/complete-visit` → `visitStatus = completed`
+
+The `onOverrideComplete` override skips step 1 and goes directly to `completed` via `PATCH .../override-complete`.
+
+### Backend routes reference
+
+| Method & Path | Auth | Effect |
+|---|---|---|
+| `PATCH /api/auth/clinic/bookings/:id/no-show` | clinic session | Sets `verificationStatus = no_show`; writes audit log |
+| `PATCH /api/auth/clinic/bookings/:id/send-reminder` | clinic session | Fire-and-forget WhatsApp to `customerPhone` |
+| `PATCH /api/auth/clinic/bookings/:id/override-complete` | clinic session | Sets `visitStatus = completed`; writes audit log with `to_state = completed_override` |
+
+### `booking_state_log` table (audit)
+
+```sql
+CREATE TABLE booking_state_log (
+  id         SERIAL PRIMARY KEY,
+  booking_id integer NOT NULL REFERENCES bookings(id),
+  from_state varchar(50),
+  to_state   varchar(50) NOT NULL,
+  actor_role varchar(20) NOT NULL,   -- 'admin' | 'doctor' | 'system'
+  actor_name varchar(255),
+  reason     text,
+  created_at timestamp DEFAULT NOW()
+);
+```
+
+### Visit type & treatment category fields
+
+Both are stored on `bookings.visit_type` and `bookings.treatment_category`. They are set by clinic admin when booking — never by the patient.
+
+| `visit_type` key | Display label |
+|---|---|
+| `first_visit` | First Visit |
+| `follow_up` | Follow Up |
+| `emergency` | Emergency |
+| `routine_checkup` | Routine Checkup |
+| `consultation` | Consultation |
+| `review` | Review |
 
 ### REF number format
 
 ```tsx
-REF-{String(booking.id).padStart(4, "0")}   // e.g. REF-0023
+bookingNumber={String(booking.id).padStart(4, "0")}  // renders as #0023
 ```
 
 ### Cancellation reason display

@@ -1333,8 +1333,8 @@ export default function ClinicDashboard() {
   });
 
   const noShowMutation = useMutation({
-    mutationFn: async (bookingId: number) => {
-      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/no-show`, {});
+    mutationFn: async ({ bookingId, reason }: { bookingId: number; reason?: string }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/no-show`, { reason });
       if (!response.ok) throw new Error('Failed to mark no-show');
       return response.json();
     },
@@ -1343,6 +1343,31 @@ export default function ClinicDashboard() {
       notify.success("Marked as no-show");
     },
     onError: (error: any) => notify.apiError(error, "Failed to mark no-show"),
+  });
+
+  const sendReminderMutation = useMutation({
+    mutationFn: async (bookingId: number) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/send-reminder`, {});
+      if (!response.ok) throw new Error('Failed to send reminder');
+      return response.json();
+    },
+    onSuccess: () => {
+      notify.success("Reminder sent", { description: "WhatsApp message sent to patient." });
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to send reminder"),
+  });
+
+  const overrideCompleteMutation = useMutation({
+    mutationFn: async ({ bookingId, reason }: { bookingId: number; reason: string }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/override-complete`, { reason });
+      if (!response.ok) throw new Error('Failed to override complete');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      notify.success("Visit marked as complete (override)");
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to override complete"),
   });
 
   const requestConsentMutation = useMutation({
@@ -3250,8 +3275,12 @@ export default function ClinicDashboard() {
                       onCheckIn={() => checkInMutation.mutate({ bookingId: booking.id })}
                       onUndoCheckIn={() => checkInMutation.mutate({ bookingId: booking.id, undo: true })}
                       onCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
-                      onNoShow={() => noShowMutation.mutate(booking.id)}
+                      onNoShow={(reason) => noShowMutation.mutate({ bookingId: booking.id, reason })}
                       noShowPending={noShowMutation.isPending}
+                      onSendReminder={() => sendReminderMutation.mutate(booking.id)}
+                      sendReminderPending={sendReminderMutation.isPending}
+                      onOverrideComplete={(reason) => overrideCompleteMutation.mutate({ bookingId: booking.id, reason })}
+                      overridePending={overrideCompleteMutation.isPending}
                       onBookAgain={() => {
                         setBookingName(booking.customerName);
                         setBookingPhone(booking.customerPhone);
@@ -3261,6 +3290,7 @@ export default function ClinicDashboard() {
                       }}
                       checkInPending={checkInMutation.isPending}
                       completeVisitPending={completeVisitMutation.isPending}
+                      cancelPending={cancelBookingMutation.isPending}
                     />
                       <DialogContent className="w-[95vw] sm:max-w-[640px] rounded-2xl p-0 overflow-hidden h-[90vh] flex flex-col">
 

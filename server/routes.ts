@@ -4161,10 +4161,61 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const booking = await storage.getBookingById(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const { reason } = req.body;
       const [updated] = await db.update(bookings)
-        .set({ verificationStatus: 'no_show' })
+        .set({ verificationStatus: 'no_show', ...(reason ? { cancellationReason: reason } : {}) })
         .where(eq(bookings.id, bookingId))
         .returning();
+      // Audit log
+      await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
+        VALUES (${bookingId}, ${booking.verificationStatus}, 'no_show', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason || null})`);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // PATCH /api/auth/clinic/bookings/:id/send-reminder — WhatsApp/email nudge
+  app.patch("/api/auth/clinic/bookings/:id/send-reminder", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const slot = await storage.getSlot(booking.slotId);
+      const [clinic] = await db.select().from(clinics).where(eq(clinics.id, sess.clinicId || 0));
+      const dateStr = slot ? format(new Date(slot.startTime), 'EEE d MMM, h:mm a') : 'your appointment';
+      // Send WhatsApp reminder (fire-and-forget)
+      if (booking.customerPhone) {
+        const { sendWhatsAppMessage } = await import('./whatsapp.service');
+        sendWhatsAppMessage(booking.customerPhone,
+          `Reminder: You have an appointment at ${clinic?.name || 'the clinic'} on ${dateStr}. Please arrive on time.`
+        ).catch((e: any) => console.error('[REMINDER] WhatsApp failed:', e.message));
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // PATCH /api/auth/clinic/bookings/:id/override-complete — admin force-completes any non-terminal state
+  app.patch("/api/auth/clinic/bookings/:id/override-complete", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (['cancelled', 'no_show'].includes(booking.verificationStatus)) {
+        return res.status(400).json({ message: "Cannot override a terminal state" });
+      }
+      const { reason } = req.body;
+      const prevVisit = (booking as any).visitStatus || 'booked';
+      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date());
+      // Audit log
+      await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
+        VALUES (${bookingId}, ${prevVisit}, 'completed_override', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason || 'Admin override'})`);
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });

@@ -441,6 +441,37 @@ export async function ensureSessionTable() {
     console.error("[DATABASE] Error ensuring patient age/gender columns:", err.message);
   }
 
+  // visitType + treatmentCategory on bookings
+  try {
+    await pool.query(`
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "visit_type" varchar(50);
+      ALTER TABLE IF EXISTS "bookings" ADD COLUMN IF NOT EXISTS "treatment_category" varchar(255);
+    `);
+    console.log("[DATABASE] bookings visitType/treatmentCategory columns ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error adding visitType/treatmentCategory columns:", err.message);
+  }
+
+  // booking_state_log — lightweight audit trail for lifecycle transitions
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS booking_state_log (
+        id          SERIAL PRIMARY KEY,
+        booking_id  integer NOT NULL REFERENCES bookings(id),
+        from_state  varchar(50),
+        to_state    varchar(50) NOT NULL,
+        actor_role  varchar(20) NOT NULL,
+        actor_name  varchar(255),
+        reason      text,
+        created_at  timestamp DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS bsl_booking_id_idx ON booking_state_log (booking_id);
+    `);
+    console.log("[DATABASE] booking_state_log table ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error ensuring booking_state_log table:", err.message);
+  }
+
   // login_events audit table
   try {
     await pool.query(`

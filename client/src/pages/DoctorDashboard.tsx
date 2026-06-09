@@ -1098,7 +1098,7 @@ export default function DoctorDashboard() {
                         key={booking.id}
                         role="doctor"
                         booking={booking}
-                        bookingNumber={String(booking.id).padStart(2, '0')}
+                        bookingNumber={String(booking.id).padStart(4, '0')}
                         complaints={(() => {
                           const raw = booking.description ?? "";
                           const stripped = raw.replace(/Category:\s*[^|]+(\|)?/gi, "").replace(/Visit:\s*[^|]+(\|)?/gi, "").trim();
@@ -1115,7 +1115,7 @@ export default function DoctorDashboard() {
                         declinePending={declineMutation.isPending}
                         onStartConsultation={() => startConsultationMutation.mutate(booking.id)}
                         startConsultPending={startConsultationMutation.isPending}
-                        onCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
+                        onDoctorCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
                         completeVisitPending={completeVisitMutation.isPending}
                       />
                     );
