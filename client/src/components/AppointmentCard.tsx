@@ -695,7 +695,15 @@ export function AppointmentCard({
                 </div>
               );
             }
-            return null;
+            return (
+              <div className="flex items-center gap-2 text-xs min-w-0">
+                <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                  <Stethoscope className="h-2.5 w-2.5 text-muted-foreground" />
+                </div>
+                <span className="text-muted-foreground shrink-0 w-[100px]">Assigned Doctor:</span>
+                <span className="text-muted-foreground/50">–</span>
+              </div>
+            );
           })()}
 
           {/* Consent Status — clinic view, always shown */}
