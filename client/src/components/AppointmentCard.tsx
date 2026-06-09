@@ -166,6 +166,7 @@ export function AppointmentCard({
   const [cancelReasonOther, setCancelReasonOther] = useState("");
   const [noShowReason, setNoShowReason] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   // ── Date helpers ──
   const startTime = new Date(booking.slot.startTime);
@@ -729,252 +730,406 @@ export function AppointmentCard({
       </div>
 
       {/* ═══════════════════════════════════════
-          CLINIC FOOTER — role-specific actions
+          CLINIC FOOTER — lifecycle-driven
+          Primary button (full-width) + 2-button secondary row
           ═══════════════════════════════════════ */}
       {role === "clinic" && (
-        <div className="px-3 sm:px-4 py-1.5 border-t border-border/40 bg-muted/10 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+        <div className="px-3 sm:px-4 py-2.5 border-t border-border/40 bg-muted/10 space-y-2" onClick={(e) => e.stopPropagation()}>
 
-          {/* Visit status progress row (in-card, for checked-in / in-consultation) */}
-          {isClinicConfirmed && !isTerminal && (
-            <div className="flex items-center gap-2 text-xs">
-              <div className={`h-4 w-4 rounded-md flex items-center justify-center shrink-0 ${booking.visitStatus ? "bg-primary/10" : "bg-muted"}`}>
-                <UserCheck className={`h-2.5 w-2.5 ${booking.visitStatus ? "text-primary" : "text-muted-foreground/50"}`} />
-              </div>
-              {!booking.visitStatus && (
-                <button onClick={onCheckIn} disabled={checkInPending}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground border border-border/60 hover:border-primary/40 hover:text-primary hover:bg-primary/5 active:scale-[0.98] min-h-[28px] px-2.5 rounded-full transition-all"
-                  data-testid={`button-checkin-${booking.id}`}>
-                  {checkInPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
-                  Mark Arrived
-                </button>
-              )}
-              {isCheckedIn && (
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-full">
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-                    In Clinic{booking.checkedInAt ? ` · ${format(new Date(booking.checkedInAt), "h:mm a")}` : ""}
-                  </span>
-                  <button onClick={onUndoCheckIn} disabled={checkInPending} title="Undo check-in"
-                    className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted/80 text-muted-foreground/40 hover:text-muted-foreground active:scale-[0.98] transition-all"
-                    data-testid={`button-undo-checkin-${booking.id}`}>
-                    {checkInPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <X className="h-2.5 w-2.5" />}
-                  </button>
-                </div>
-              )}
-              {isInConsultation && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800 px-2 py-0.5 rounded-full">
-                  <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />With Doctor
-                </span>
-              )}
-              {isTreatmentCompleted && !isVisitCompleted && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />Treatment Done
-                </span>
-              )}
-              {isVisitCompleted && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
-                  <CheckCircle2 className="h-2.5 w-2.5" />Visit Done
-                  {booking.completedAt && <span className="font-normal opacity-70">· {format(new Date(booking.completedAt), "h:mm a")}</span>}
-                </span>
-              )}
+          {/* ── PRIMARY button — one of 7 states ── */}
+
+          {/* Terminal: Cancelled */}
+          {isCancelled && (
+            <div className="flex items-center justify-center gap-2 h-9 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-semibold">
+              <X className="h-3.5 w-3.5" />Appointment Cancelled
             </div>
           )}
 
-          {/* Primary action buttons row */}
-          <div className="flex items-center gap-2">
-            {/* Confirm — only when not confirmed and not past */}
-            {!isClinicConfirmed && !isPast && !isTerminal && (
-              <Button variant="ghost" size="sm"
-                className="flex-1 h-9 gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-400/10 active:scale-[0.98] transition-all"
-                onClick={() => onConfirm?.()} disabled={confirmPending}
-                data-testid={`button-confirm-${booking.id}`}>
-                {confirmPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                Confirm
-              </Button>
-            )}
+          {/* Terminal: No Show */}
+          {isNoShowState && (
+            <div className="flex items-center justify-center gap-2 h-9 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-semibold">
+              <UserX className="h-3.5 w-3.5" />Patient Did Not Arrive
+            </div>
+          )}
 
-            {/* Mark Visit Complete — when treatment is done and admin needs to close */}
-            {isTreatmentCompleted && !isVisitCompleted && !isTerminal && (
-              <Button size="sm"
-                className="flex-1 h-9 gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all"
-                onClick={() => onCompleteVisit?.()} disabled={completeVisitPending}
-                data-testid={`button-mark-visit-complete-${booking.id}`}>
-                {completeVisitPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
-                Mark Visit Complete
-              </Button>
-            )}
-
-            {/* Bill */}
-            <Button variant="ghost" size="sm"
-              className="flex-1 h-9 gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-background/80 active:scale-[0.98] transition-all"
-              onClick={() => onBill?.()} data-testid={`button-bill-${booking.id}`}>
-              <IndianRupee className="h-3 w-3" />Bill
+          {/* Stage 1 — Pending: Confirm Appointment (blue, active) */}
+          {!isTerminal && !isClinicConfirmed && (
+            <Button
+              className="w-full h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
+              onClick={() => onConfirm?.()}
+              disabled={confirmPending}
+              data-testid={`button-confirm-${booking.id}`}
+            >
+              {confirmPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+              Confirm Appointment
             </Button>
+          )}
 
-            <div className="h-4 w-px bg-border/60 shrink-0" />
+          {/* Stage 1b — Confirmed, not yet arrived: Mark Arrived (sky, active) */}
+          {!isTerminal && isClinicConfirmed && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+            <Button
+              className="w-full h-10 text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white gap-2 active:scale-[0.98] transition-all"
+              onClick={() => onCheckIn?.()}
+              disabled={checkInPending}
+              data-testid={`button-checkin-${booking.id}`}
+            >
+              {checkInPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5" />}
+              Mark Arrived
+            </Button>
+          )}
 
-            {/* Book Again (visit done) OR Cancel */}
-            {isVisitCompleted ? (
-              <Button variant="ghost" size="sm"
-                className="flex-1 h-9 gap-1.5 text-xs font-semibold text-primary hover:bg-primary/5 active:scale-[0.98] transition-all"
-                onClick={() => onBookAgain?.()} data-testid={`button-book-again-${booking.id}`}>
-                <CalendarPlus className="h-3 w-3" />Book Again
+          {/* Stage 2 — Arrived: Waiting for Doctor (grey, disabled) */}
+          {!isTerminal && isCheckedIn && (
+            <Button
+              variant="outline"
+              className="w-full h-10 text-sm font-medium text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 cursor-not-allowed gap-2 pointer-events-none"
+              disabled
+              data-testid={`button-waiting-doctor-${booking.id}`}
+            >
+              <Clock className="h-3.5 w-3.5" />Waiting for Doctor
+            </Button>
+          )}
+
+          {/* Stage 3 — In Treatment (teal tint, disabled) */}
+          {!isTerminal && isInConsultation && (
+            <Button
+              variant="outline"
+              className="w-full h-10 text-sm font-medium text-teal-600 dark:text-teal-400 border-teal-200 dark:border-teal-700 bg-teal-50/60 dark:bg-teal-950/10 cursor-not-allowed gap-2 pointer-events-none"
+              disabled
+              data-testid={`button-in-treatment-${booking.id}`}
+            >
+              <Activity className="h-3.5 w-3.5" />In Treatment
+            </Button>
+          )}
+
+          {/* Stage 4 — Treatment Completed: Mark Visit Complete (green, active) */}
+          {!isTerminal && isTreatmentCompleted && !isVisitCompleted && (
+            <Button
+              className="w-full h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
+              onClick={() => onCompleteVisit?.()}
+              disabled={completeVisitPending}
+              data-testid={`button-mark-visit-complete-${booking.id}`}
+            >
+              {completeVisitPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+              Mark Visit Complete
+            </Button>
+          )}
+
+          {/* Stage 5 — Visit Completed: Bill Generated (green) */}
+          {!isTerminal && isVisitCompleted && (
+            <Button
+              className="w-full h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
+              onClick={() => onBill?.()}
+              data-testid={`button-bill-complete-${booking.id}`}
+            >
+              <IndianRupee className="h-3.5 w-3.5" />Bill Generated ↓
+            </Button>
+          )}
+
+          {/* ── SECONDARY buttons ── */}
+
+          {/* Stages 1 / 1b — View + Cancel */}
+          {!isTerminal && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm"
+                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                onClick={() => onCardClick()}
+                data-testid={`button-view-${booking.id}`}>
+                <FileText className="h-3 w-3" />View
               </Button>
-            ) : isNoShowState ? (
               <Button variant="ghost" size="sm"
-                className="flex-1 h-9 gap-1.5 text-xs font-semibold text-primary hover:bg-primary/5 active:scale-[0.98] transition-all"
-                onClick={() => onBookAgain?.()} data-testid={`button-rebook-${booking.id}`}>
-                <Repeat2 className="h-3 w-3" />Rebook
+                className="flex-1 h-8 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                onClick={(e) => { e.stopPropagation(); setCancelOpen(true); }}
+                disabled={cancelPending}
+                data-testid={`button-cancel-booking-${booking.id}`}>
+                {cancelPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                Cancel
               </Button>
-            ) : !isCancelled ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="sm"
-                    className="flex-1 h-9 gap-1.5 text-xs font-semibold text-destructive/70 hover:text-destructive hover:bg-destructive/5 active:scale-[0.98] transition-all"
-                    onClick={(e) => e.stopPropagation()} disabled={cancelPending}
-                    data-testid={`button-cancel-booking-${booking.id}`}>
-                    {cancelPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-                    Cancel
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will cancel {booking.customerName}'s appointment and send a cancellation email.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <div className="px-1 py-2 space-y-3">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">Reason <span className="text-destructive">*</span></label>
-                      <select value={cancelReason} onChange={(e) => { setCancelReason(e.target.value); setCancelReasonOther(""); }}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                        <option value="">Select a reason…</option>
-                        <option>Patient requested cancellation</option>
-                        <option>Doctor unavailable</option>
-                        <option>Clinic closure / emergency</option>
-                        <option>Patient no-show</option>
-                        <option>Rescheduled to another slot</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-                    {cancelReason === "Other" && (
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Please specify</label>
-                        <Input value={cancelReasonOther} onChange={(e) => setCancelReasonOther(e.target.value)} placeholder="e.g. Emergency, personal reasons" autoFocus />
-                      </div>
-                    )}
+            </div>
+          )}
+
+          {/* Stages 2 / 3 / 4 — ₹ Bill + Cancel */}
+          {!isTerminal && (isCheckedIn || isInConsultation || (isTreatmentCompleted && !isVisitCompleted)) && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm"
+                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                onClick={() => onBill?.()}
+                data-testid={`button-bill-${booking.id}`}>
+                <IndianRupee className="h-3 w-3" />₹ Bill
+              </Button>
+              <Button variant="ghost" size="sm"
+                className="flex-1 h-8 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                onClick={(e) => { e.stopPropagation(); setCancelOpen(true); }}
+                disabled={cancelPending}
+                data-testid={`button-cancel-booking-stage24-${booking.id}`}>
+                {cancelPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                Cancel
+              </Button>
+            </div>
+          )}
+
+          {/* Stage 5 — View Summary + Rebook */}
+          {!isTerminal && isVisitCompleted && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm"
+                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                onClick={() => onCardClick()}
+                data-testid={`button-view-summary-${booking.id}`}>
+                <ClipboardList className="h-3 w-3" />View Summary
+              </Button>
+              <Button variant="outline" size="sm"
+                className="flex-1 h-8 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                onClick={() => onBookAgain?.()}
+                data-testid={`button-rebook-${booking.id}`}>
+                <CalendarPlus className="h-3 w-3" />Rebook
+              </Button>
+            </div>
+          )}
+
+          {/* Terminal — Rebook only */}
+          {isTerminal && (
+            <Button variant="outline" size="sm"
+              className="w-full h-8 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+              onClick={() => onBookAgain?.()}
+              data-testid={`button-rebook-terminal-${booking.id}`}>
+              <Repeat2 className="h-3 w-3" />Rebook
+            </Button>
+          )}
+
+          {/* Cancel confirmation dialog (controlled, single instance) */}
+          <AlertDialog open={cancelOpen} onOpenChange={(open) => { if (!open) { setCancelReason(""); setCancelReasonOther(""); } setCancelOpen(open); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will cancel {booking.customerName}'s appointment and send a cancellation email.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="px-1 py-2 space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Reason <span className="text-destructive">*</span></label>
+                  <select value={cancelReason} onChange={(e) => { setCancelReason(e.target.value); setCancelReasonOther(""); }}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                    <option value="">Select a reason…</option>
+                    <option>Patient requested cancellation</option>
+                    <option>Doctor unavailable</option>
+                    <option>Clinic closure / emergency</option>
+                    <option>Patient no-show</option>
+                    <option>Rescheduled to another slot</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                {cancelReason === "Other" && (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Please specify</label>
+                    <Input value={cancelReasonOther} onChange={(e) => setCancelReasonOther(e.target.value)} placeholder="e.g. Emergency, personal reasons" autoFocus />
                   </div>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => { setCancelReason(""); setCancelReasonOther(""); }}>Back</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleCancelSubmit} className="bg-destructive text-destructive-foreground"
-                      disabled={!cancelReason || (cancelReason === "Other" && !cancelReasonOther.trim())}>
-                      Cancel Booking
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            ) : null}
-          </div>
+                )}
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Back</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { handleCancelSubmit(); setCancelOpen(false); }}
+                  className="bg-destructive text-destructive-foreground"
+                  disabled={!cancelReason || (cancelReason === "Other" && !cancelReasonOther.trim())}
+                >
+                  Cancel Booking
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
         </div>
       )}
 
       {/* ═════════════════════════════════════
-          DOCTOR FOOTER — clinical actions
+          DOCTOR FOOTER — lifecycle-driven
+          Primary button (full-width) + secondary row
           ═════════════════════════════════════ */}
-      {role === "doctor" && (
+      {role === "doctor" && !isDoctorDeclined && (
         <div className="px-3 sm:px-4 pb-3 pt-2 border-t border-border/40 space-y-2" onClick={(e) => e.stopPropagation()}>
 
-          {/* Approve / Decline — when pending */}
+          {/* ── PRIMARY button ── */}
+
+          {/* Pending approval — Approve / Decline (two-button primary row) */}
           {booking.doctorApprovalStatus === "pending" && (
             <div className="flex gap-2">
               <Button size="sm"
-                className="flex-1 h-10 sm:h-9 text-xs font-semibold bg-green-600 hover:bg-green-700 text-white active:scale-[0.98]"
+                className="flex-1 h-10 text-xs font-semibold bg-green-600 hover:bg-green-700 text-white gap-1.5 active:scale-[0.98]"
                 onClick={() => onApprove?.()} disabled={approvePending || declinePending}
                 data-testid={`button-approve-${booking.id}`}>
-                {approvePending ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <CheckCircle2 className="h-3 w-3 mr-1.5" />}
+                {approvePending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                 Accept
               </Button>
               <Button size="sm" variant="outline"
-                className="flex-1 h-10 sm:h-9 text-xs font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 active:scale-[0.98]"
+                className="flex-1 h-10 text-xs font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 gap-1.5 active:scale-[0.98]"
                 onClick={() => onDecline?.()} disabled={approvePending || declinePending}
                 data-testid={`button-decline-${booking.id}`}>
-                {declinePending ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <X className="h-3 w-3 mr-1.5" />}
+                {declinePending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
                 Decline
               </Button>
             </div>
           )}
 
-          {/* Status banners for doctor */}
-          {booking.doctorApprovalStatus === "admin_confirmed" && (
-            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
-              <AlertCircle className="h-3 w-3 shrink-0" />Confirmed by clinic admin on your behalf
-            </div>
-          )}
-          {booking.doctorApprovalStatus === "approved" && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
-            <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-1.5">
-              <CheckCircle2 className="h-3 w-3 shrink-0" />You accepted this appointment — waiting for patient
-            </div>
-          )}
-
-          {/* Read-only state label for Booked/Confirmed on doctor side */}
-          {booking.doctorApprovalStatus !== "pending" && booking.doctorApprovalStatus !== "declined" && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && !booking.doctorApprovalStatus && (
-            <div className="flex items-center justify-center text-xs text-muted-foreground italic py-1">
-              No Action (Read Only)
-            </div>
+          {/* Stage 1 — Booked (Read Only): approved/confirmed, not arrived */}
+          {booking.doctorApprovalStatus !== "pending" && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+            <Button
+              variant="outline"
+              className="w-full h-10 text-sm font-medium text-muted-foreground border-border/60 bg-muted/20 cursor-not-allowed gap-2 pointer-events-none"
+              disabled
+              data-testid={`button-booked-readonly-${booking.id}`}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />Booked (Read Only)
+            </Button>
           )}
 
-          {/* Start Consultation — when patient arrived */}
-          {isCheckedIn && booking.doctorApprovalStatus !== "pending" && booking.doctorApprovalStatus !== "declined" && (
-            <Button size="sm"
-              className="w-full h-9 text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white active:scale-[0.98] transition-all"
-              onClick={() => onStartConsultation?.()} disabled={startConsultPending}
-              data-testid={`button-start-consultation-${booking.id}`}>
-              {startConsultPending ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Activity className="h-3 w-3 mr-1.5" />}
+          {/* Stage 2 — Arrived: Start Consultation (blue, active) */}
+          {isCheckedIn && (
+            <Button
+              className="w-full h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
+              onClick={() => onStartConsultation?.()}
+              disabled={startConsultPending}
+              data-testid={`button-start-consultation-${booking.id}`}
+            >
+              {startConsultPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
               Start Consultation
             </Button>
           )}
 
-          {/* Done with Patient — in consultation */}
-          {isInConsultation && booking.doctorApprovalStatus !== "pending" && booking.doctorApprovalStatus !== "declined" && (
-            <Button size="sm"
-              className="w-full h-9 text-xs font-semibold bg-primary hover:bg-primary/90 text-white active:scale-[0.98] transition-all"
-              onClick={() => onDoctorCompleteVisit?.()} disabled={completeVisitPending}
-              data-testid={`button-done-patient-${booking.id}`}>
-              {completeVisitPending ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <CheckCircle2 className="h-3 w-3 mr-1.5" />}
+          {/* Stage 3 — In Treatment: Done with Patient (violet, active) */}
+          {isInConsultation && (
+            <Button
+              className="w-full h-10 text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white gap-2 active:scale-[0.98] transition-all"
+              onClick={() => onDoctorCompleteVisit?.()}
+              disabled={completeVisitPending}
+              data-testid={`button-done-patient-${booking.id}`}
+            >
+              {completeVisitPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
               Done with Patient
             </Button>
           )}
 
-          {/* Treatment completed — read-only for doctor */}
+          {/* Stage 4 — Treatment Completed (Read Only) */}
           {isTreatmentCompleted && !isVisitCompleted && (
-            <div className="flex items-center justify-center text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5 gap-1.5">
-              <Clock className="h-3 w-3 shrink-0" />Consultation completed — admin closing visit
-            </div>
+            <Button
+              variant="outline"
+              className="w-full h-10 text-sm font-medium text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/10 cursor-not-allowed gap-2 pointer-events-none"
+              disabled
+              data-testid={`button-consult-complete-${booking.id}`}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />Consultation Completed (Read Only)
+            </Button>
           )}
 
-          {/* Visit completed — doctor view */}
+          {/* Stage 5 — Visit Completed (Read Only) */}
           {isVisitCompleted && (
-            <div className="flex items-center justify-center text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-1.5 gap-1.5">
-              <ShieldCheck className="h-3 w-3 shrink-0" />Visit Completed (Read Only)
+            <Button
+              variant="outline"
+              className="w-full h-10 text-sm font-medium text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/10 cursor-not-allowed gap-2 pointer-events-none"
+              disabled
+              data-testid={`button-visit-complete-readonly-${booking.id}`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />Visit Completed (Read Only)
+            </Button>
+          )}
+
+          {/* ── SECONDARY buttons ── */}
+
+          {/* Stage 1 — View Notes */}
+          {booking.doctorApprovalStatus !== "pending" && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+            <Button variant="outline" size="sm"
+              className="w-full h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+              onClick={() => onOpenNotes?.()}
+              data-testid={`button-notes-${booking.id}`}>
+              <FileText className="h-3 w-3" />View Notes
+            </Button>
+          )}
+
+          {/* Stage 2 — View Notes + Add Observation */}
+          {isCheckedIn && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm"
+                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                onClick={() => onOpenNotes?.()}
+                data-testid={`button-notes-arrived-${booking.id}`}>
+                <FileText className="h-3 w-3" />View Notes
+              </Button>
+              <Button variant="outline" size="sm"
+                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                onClick={() => onOpenRecords?.()}
+                data-testid={`button-add-observation-${booking.id}`}>
+                <ClipboardList className="h-3 w-3" />Add Observation
+              </Button>
             </div>
           )}
 
-          {/* Notes + Records — available whenever not pending/declined */}
-          {booking.doctorApprovalStatus !== "pending" && booking.doctorApprovalStatus !== "declined" && (
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline"
-                className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9 text-xs font-semibold active:scale-[0.98] transition-all"
-                onClick={() => onOpenNotes?.()} data-testid={`button-notes-${booking.id}`}>
-                <FileText className="h-3 w-3 mr-1.5" />View Notes
+          {/* Stage 3 — Add Observation + Notes + Issue Rx/Rec */}
+          {isInConsultation && (
+            <div className="flex gap-1.5">
+              <Button variant="outline" size="sm"
+                className="flex-1 h-8 text-xs font-medium gap-1 active:scale-[0.98]"
+                onClick={() => onOpenRecords?.()}
+                data-testid={`button-add-obs-${booking.id}`}>
+                <ClipboardList className="h-3 w-3" />Add Obs.
+              </Button>
+              <Button variant="outline" size="sm"
+                className="flex-1 h-8 text-xs font-medium gap-1 active:scale-[0.98]"
+                onClick={() => onOpenNotes?.()}
+                data-testid={`button-notes-consult-${booking.id}`}>
+                <FileText className="h-3 w-3" />Notes
               </Button>
               <Button size="sm"
-                className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9 text-xs font-semibold bg-primary hover:bg-primary/90 active:scale-[0.98] transition-all"
-                onClick={() => onOpenRecords?.()} data-testid={`button-clinical-records-${booking.id}`}>
-                <ClipboardList className="h-3 w-3 mr-1.5" />Issue Rx / Rec
+                className="flex-1 h-8 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 gap-1 active:scale-[0.98]"
+                onClick={() => onOpenRecords?.()}
+                data-testid={`button-issue-rx-${booking.id}`}>
+                <Stethoscope className="h-3 w-3" />Issue Rx
               </Button>
             </div>
           )}
+
+          {/* Stage 4 — View Notes + View Rx/Rec */}
+          {isTreatmentCompleted && !isVisitCompleted && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm"
+                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                onClick={() => onOpenNotes?.()}
+                data-testid={`button-notes-tmt-${booking.id}`}>
+                <FileText className="h-3 w-3" />View Notes
+              </Button>
+              <Button variant="outline" size="sm"
+                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                onClick={() => onOpenRecords?.()}
+                data-testid={`button-view-rx-${booking.id}`}>
+                <ClipboardList className="h-3 w-3" />View Rx / Rec
+              </Button>
+            </div>
+          )}
+
+          {/* Stage 5 — View Summary + Rebook */}
+          {isVisitCompleted && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm"
+                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                onClick={() => onCardClick()}
+                data-testid={`button-view-summary-doc-${booking.id}`}>
+                <ClipboardList className="h-3 w-3" />View Summary
+              </Button>
+              <Button variant="outline" size="sm"
+                className="flex-1 h-8 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                onClick={() => onBookAgain?.()}
+                data-testid={`button-rebook-doc-${booking.id}`}>
+                <CalendarPlus className="h-3 w-3" />Rebook
+              </Button>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* Declined state */}
+      {role === "doctor" && isDoctorDeclined && (
+        <div className="px-3 sm:px-4 py-2.5 border-t border-border/40 bg-muted/10 flex items-center justify-center gap-2 text-xs text-rose-600 dark:text-rose-400 font-medium">
+          <X className="h-3.5 w-3.5" />Appointment Declined
         </div>
       )}
     </Card>
