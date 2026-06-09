@@ -383,30 +383,33 @@ export function AppointmentCard({
                 </span>
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Row 1: Name + booking number only */}
+                <div className="flex items-center gap-1.5">
                   <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
                   <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
                     #{bookingNumber}
                   </span>
-                  {booking.patientCode && (
-                    <span className="font-mono text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md shrink-0">
+                </div>
+                {/* Row 2: PAT code · Phone · Age · Gender — always all 4, -- when missing */}
+                <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground overflow-hidden">
+                  {booking.patientCode ? (
+                    <span className="font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-px rounded-md shrink-0">
                       {booking.patientCode}
                     </span>
+                  ) : (
+                    <span className="font-mono text-muted-foreground/40 shrink-0">--</span>
                   )}
-                </div>
-                <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                  <span className="opacity-30 shrink-0 px-0.5">·</span>
                   <Phone className="h-2.5 w-2.5 shrink-0" />
-                  <span className="truncate">{booking.customerPhone}</span>
-                  {(booking.customerAge || booking.customerGender) && (
-                    <>
-                      <span className="opacity-30">·</span>
-                      <span>
-                        {booking.customerAge ? `${booking.customerAge}y` : ""}
-                        {booking.customerAge && booking.customerGender ? " · " : ""}
-                        {booking.customerGender ? booking.customerGender.charAt(0).toUpperCase() + booking.customerGender.slice(1) : ""}
-                      </span>
-                    </>
-                  )}
+                  <span className="shrink-0 ml-0.5">{booking.customerPhone || "--"}</span>
+                  <span className="opacity-30 shrink-0 px-0.5">·</span>
+                  <span className="shrink-0">{booking.customerAge ? `${booking.customerAge}y` : "--"}</span>
+                  <span className="opacity-30 shrink-0 px-0.5">·</span>
+                  <span className="shrink-0 truncate">
+                    {booking.customerGender
+                      ? booking.customerGender.charAt(0).toUpperCase() + booking.customerGender.slice(1)
+                      : "--"}
+                  </span>
                 </div>
               </div>
             </div>
