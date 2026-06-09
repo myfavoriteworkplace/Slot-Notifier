@@ -11,8 +11,9 @@ import PharmacyStockPanel from "@/components/PharmacyStockPanel";
 import WebsiteConfigPanel from "@/components/WebsiteConfigPanel";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+// PDF export disabled — jspdf is not available
+// import { jsPDF } from "jspdf";
+// import autoTable from "jspdf-autotable";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -1453,8 +1454,13 @@ export default function ClinicDashboard() {
 
   const generatePDF = () => {
     if (!billingBooking) return;
+    // PDF disabled — jspdf not available
+    console.warn("PDF generation disabled — jspdf is not installed");
+    notify.info("PDF Not Available", { description: "PDF generation is temporarily disabled." });
+    setIsBillingOpen(false);
+    return;
 
-    const doc = new jsPDF();
+    // const doc = new jsPDF();
     const pageWidth  = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 14;
@@ -1813,7 +1819,12 @@ export default function ClinicDashboard() {
   };
 
   const printBillFromRecord = (bill: PatientBill) => {
-    const doc = new jsPDF();
+    // PDF disabled — jspdf not available
+    console.warn("PDF generation disabled — jspdf is not installed");
+    notify.info("PDF Not Available", { description: "PDF generation is temporarily disabled." });
+    return;
+
+    // const doc = new jsPDF();
     const pageWidth  = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 14;
@@ -2077,7 +2088,12 @@ export default function ClinicDashboard() {
   };
 
   const generateConsentPdf = (booking: BookingWithSlot) => {
-    const doc = new jsPDF();
+    // PDF disabled — jspdf not available
+    console.warn("PDF generation disabled — jspdf is not installed");
+    notify.info("PDF Not Available", { description: "PDF generation is temporarily disabled." });
+    return;
+
+    // const doc = new jsPDF();
     const pageWidth  = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;

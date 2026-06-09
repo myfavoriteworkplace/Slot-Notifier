@@ -89,9 +89,17 @@ const DIAGNOSIS_TAGS = [
   "Bruxism", "Dry Socket", "Oral Ulcer", "Calculus", "Recession",
 ];
 
-// ─── PDF export (BookMySlot brand template) ───────────────────────────────────
+// ─── PDF export (disabled — jsPDF unavailable) ─────────────────────────────────
 
 function generatePrescriptionPDF(record: ClinicalRecord, clinicName?: string) {
+  // eslint-disable-next-line no-console
+  console.warn("PDF export disabled — jspdf is not installed");
+  return;
+}
+
+// ─── Original PDF export (BookMySlot brand template) — disabled ─────────────
+/*
+function _generatePrescriptionPDF(record: ClinicalRecord, clinicName?: string) {
   Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -277,6 +285,7 @@ function generatePrescriptionPDF(record: ClinicalRecord, clinicName?: string) {
     doc.save(`clinical_record_${safeName}_${dateStr}.pdf`);
   });
 }
+*/
 
 // ─── Prescription table display ───────────────────────────────────────────────
 

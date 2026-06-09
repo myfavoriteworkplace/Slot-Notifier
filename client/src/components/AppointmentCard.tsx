@@ -16,6 +16,12 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogDescription,
   AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 
 // ──────────────── Types ────────────────
@@ -319,22 +325,22 @@ export function AppointmentCard({
     );
   };
 
-  // ── Workflow banner ──
-  const bannerMsg = isCancelled
-    ? { text: "Appointment cancelled", cls: "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400" }
+  // ── Status tooltip text (shown on hover of StatusBadge) ──
+  const statusTooltip = isCancelled
+    ? "Appointment cancelled"
     : isNoShowState
-    ? { text: "Patient did not arrive", cls: "bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400" }
+    ? "Patient did not arrive"
     : isVisitCompleted
-    ? { text: "Visit completed successfully", cls: "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400" }
+    ? "Visit completed successfully"
     : isTreatmentCompleted
-    ? { text: "Doctor completed consultation — awaiting admin closure", cls: "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400" }
+    ? "Doctor completed consultation — awaiting admin closure"
     : isInConsultation
-    ? { text: "Patient currently with doctor", cls: "bg-teal-50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-800 text-teal-600 dark:text-teal-400" }
+    ? "Patient currently with doctor"
     : isCheckedIn
-    ? { text: "Patient checked in — waiting for doctor", cls: "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400" }
+    ? "Patient checked in — waiting for doctor"
     : isConfirmed
-    ? { text: "Appointment confirmed", cls: "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400" }
-    : { text: "Appointment awaiting confirmation", cls: "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400" };
+    ? "Appointment confirmed"
+    : "Appointment awaiting confirmation";
 
   // ── Cancel submit ──
   const handleCancelSubmit = () => {
@@ -375,11 +381,11 @@ export function AppointmentCard({
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
+                  <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
                     #{bookingNumber}
                   </span>
                   {booking.patientCode && (
-                    <span className="font-mono text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md shrink-0">
+                    <span className="font-mono text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md shrink-0">
                       {booking.patientCode}
                     </span>
                   )}
@@ -403,17 +409,28 @@ export function AppointmentCard({
 
             {/* Status + ⋮ menu */}
             <div className="flex flex-col items-end gap-1 shrink-0">
-              <StatusBadge />
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="cursor-help">
+                      <StatusBadge />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" align="end" className="text-xs font-medium">
+                    {statusTooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
               {/* Doctor visit badge */}
               {role === "doctor" && isCheckedIn && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-1.5 py-px rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-1.5 py-px rounded-full">
                   <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
                   Arrived{booking.checkedInAt ? ` · ${format(new Date(booking.checkedInAt), "h:mm a")}` : ""}
                 </span>
               )}
               {role === "doctor" && isVisitCompleted && booking.completedAt && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
                   Done · {format(new Date(booking.completedAt), "d MMM h:mm a")}
                 </span>
               )}
@@ -431,7 +448,7 @@ export function AppointmentCard({
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-52 p-1.5 rounded-xl shadow-xl border border-border/60" side="bottom" align="end" onClick={(e) => e.stopPropagation()}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">Actions</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">Actions</p>
 
                     {/* Assign Doctor */}
                     {!isVisitCompleted && !isTreatmentCompleted && (booking.clinicDoctors ?? []).length > 0 && (
@@ -529,11 +546,6 @@ export function AppointmentCard({
           />
         </div>
 
-        {/* ── Workflow Banner ── */}
-        <div className={`mx-3 sm:mx-4 mt-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-medium ${bannerMsg.cls}`}>
-          {bannerMsg.text}
-        </div>
-
         {/* ── Info Rows ── */}
         <div className="px-3 sm:px-4 py-2 space-y-1.5">
 
@@ -559,10 +571,10 @@ export function AppointmentCard({
                 : d === 1
                 ? "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
                 : "text-muted-foreground bg-muted/50 border-border/50";
-              return <span className={`shrink-0 text-[10px] font-semibold border px-1.5 py-px rounded-full ${cls}`}>{lbl}</span>;
+              return <span className={`shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full ${cls}`}>{lbl}</span>;
             })()}
             {/* Duration */}
-            <span className="shrink-0 text-[10px] text-muted-foreground bg-muted/50 border border-border/40 px-1.5 py-px rounded-full">
+            <span className="shrink-0 text-xs text-muted-foreground bg-muted/50 border border-border/40 px-1.5 py-px rounded-full">
               {durationMin}m
             </span>
           </div>
@@ -571,17 +583,17 @@ export function AppointmentCard({
           {(visitTypeLabel || treatmentCategory) && (
             <div className="flex flex-wrap items-center gap-1.5">
               {visitTypeLabel && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
                   <Repeat2 className="h-2 w-2" />{visitTypeLabel}
                 </span>
               )}
               {treatmentCategory && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md">
                   <Tag className="h-2 w-2" />{treatmentCategory}
                 </span>
               )}
               {slotCost > 1 && (
-                <span className="text-[10px] font-semibold text-muted-foreground bg-muted/50 border border-border/40 px-1.5 py-0.5 rounded-md">
+                <span className="text-xs font-semibold text-muted-foreground bg-muted/50 border border-border/40 px-1.5 py-0.5 rounded-md">
                   {slotCost} slots · {slotCost * 25} min
                 </span>
               )}
@@ -625,7 +637,7 @@ export function AppointmentCard({
                     <Stethoscope className="h-2.5 w-2.5 text-primary" />
                   </div>
                   <span className="font-medium text-primary truncate">Dr. {booking.assignedDoctor}</span>
-                  {drStatus && <span className="text-[10px] truncate">{drStatus}</span>}
+                  {drStatus && <span className="text-xs truncate">{drStatus}</span>}
                 </div>
               );
             }
@@ -683,15 +695,15 @@ export function AppointmentCard({
                 <PenLine className="h-2.5 w-2.5 text-muted-foreground/60" />
               </div>
               {booking.consentSignedAt ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
                   <CheckCircle2 className="h-2.5 w-2.5" />Consent Signed
                 </span>
               ) : booking.consentToken ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
                   <Clock className="h-2.5 w-2.5" />Consent Sent
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground bg-muted/50 border border-border/50 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted/50 border border-border/50 px-2 py-0.5 rounded-full">
                   <AlertCircle className="h-2.5 w-2.5 opacity-50" />Consent Not Sent
                 </span>
               )}
@@ -700,7 +712,7 @@ export function AppointmentCard({
 
           {/* Clinical status — doctor view */}
           {role === "doctor" && booking.clinicalStatus && CLINICAL_STATUS_LABELS[booking.clinicalStatus] && (
-            <span className={`inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-md border ${CLINICAL_STATUS_LABELS[booking.clinicalStatus].cls}`}>
+            <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border ${CLINICAL_STATUS_LABELS[booking.clinicalStatus].cls}`}>
               {CLINICAL_STATUS_LABELS[booking.clinicalStatus].label}
             </span>
           )}
@@ -717,12 +729,12 @@ export function AppointmentCard({
           {complaints.length > 0 && (
             <div className="flex flex-wrap gap-1 pt-0.5">
               {complaints.slice(0, maxChips).map((c, i) => (
-                <span key={i} className="inline-flex items-center text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                <span key={i} className="inline-flex items-center text-xs font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
                   {c}
                 </span>
               ))}
               {complaints.length > maxChips && (
-                <span className="text-[10px] text-muted-foreground font-medium px-1">+{complaints.length - maxChips}</span>
+                <span className="text-xs text-muted-foreground font-medium px-1">+{complaints.length - maxChips}</span>
               )}
             </div>
           )}

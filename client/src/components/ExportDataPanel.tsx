@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { format, formatDistanceToNow, startOfMonth, endOfMonth, subMonths } from "date-fns";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+// PDF export disabled — jspdf is not available
+// import { jsPDF } from "jspdf";
+// import autoTable from "jspdf-autotable";
 import {
   Download, FileSpreadsheet, FileText, FileBadge, Lock, Bell, X,
   Users, CalendarDays, History, RefreshCw, CheckCircle2, Clock,
@@ -391,9 +392,12 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
         const buffer = await xlsxRes.arrayBuffer();
         downloadBlob(buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
 
-      // ── FORMAT: PDF (brand-aligned) ──
+      // ── FORMAT: PDF (disabled) ──
       } else if (fmt === "pdf") {
-        const DARK    = [8,  80,  65]  as [number, number, number];
+        notify.info("PDF Not Available", { description: "PDF generation is temporarily disabled. Please use Excel or CSV instead." });
+        return;
+
+        // const DARK    = [8,  80,  65]  as [number, number, number];
         const PRIMARY = [15, 155, 110] as [number, number, number];
         const TINT    = [225, 245, 238] as [number, number, number];
         const WHITE   = [255, 255, 255] as [number, number, number];
