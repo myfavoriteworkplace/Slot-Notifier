@@ -548,19 +548,12 @@ export function AppointmentCard({
         <div className="px-3 sm:px-4 py-2 space-y-1.5">
 
           {/* Date + time */}
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs min-w-0">
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                <CalendarDays className="h-2.5 w-2.5 text-primary" />
-              </div>
-              <span className="font-semibold text-foreground">{format(startTime, "EEE, d MMM")}</span>
-              <span className="text-muted-foreground font-medium">
-                {format(startTime, "h:mm a")}
-                <span className="mx-1 opacity-40">→</span>
-                {format(endTime, "h:mm a")}
-              </span>
+          <div className="flex items-center gap-2 text-xs min-w-0 overflow-hidden">
+            <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+              <CalendarDays className="h-2.5 w-2.5 text-primary" />
             </div>
-            {/* Relative badge */}
+            <span className="font-semibold text-foreground shrink-0">{format(startTime, "EEE, d MMM")}</span>
+            {/* Relative badge — same line as date */}
             {!isPast && !isTerminal && (() => {
               const d = differenceInCalendarDays(startTime, new Date());
               const lbl = isToday ? "Today" : d === 1 ? "Tomorrow" : `in ${d}d`;
@@ -571,9 +564,10 @@ export function AppointmentCard({
                 : "text-muted-foreground bg-muted/50 border-border/50";
               return <span className={`shrink-0 text-xs font-semibold border px-1.5 py-px rounded-full ${cls}`}>{lbl}</span>;
             })()}
-            {/* Duration */}
-            <span className="shrink-0 text-xs text-muted-foreground bg-muted/50 border border-border/40 px-1.5 py-px rounded-full">
-              {durationMin}m
+            <span className="text-muted-foreground font-medium shrink-0">
+              {format(startTime, "h:mm a")}
+              <span className="mx-1 opacity-40">→</span>
+              {format(endTime, "h:mm a")}
             </span>
           </div>
 
@@ -599,10 +593,14 @@ export function AppointmentCard({
             </div>
             <span className="text-muted-foreground shrink-0 w-[100px]">Treatment:</span>
             {treatmentCategory ? (
-              <span className="inline-flex items-center gap-1 font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md">
-                {treatmentCategory}
-                {slotCost > 1 && <span className="font-normal opacity-70">({slotCost} slots)</span>}
-              </span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
+                  {treatmentCategory}
+                </span>
+                {slotCost > 1 && (
+                  <span className="shrink-0 text-muted-foreground font-medium">· {slotCost} slots</span>
+                )}
+              </div>
             ) : (
               <span className="text-muted-foreground/50">–</span>
             )}
