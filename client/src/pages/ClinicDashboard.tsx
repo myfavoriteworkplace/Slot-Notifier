@@ -2603,11 +2603,11 @@ export default function ClinicDashboard() {
                               : isConfirmed             ? 1 : 0;
 
                             const OV_STEPS = [
-                              { short: 'Booked'  },
-                              { short: 'Confmd.' },
-                              { short: 'Arrived' },
-                              { short: 'In Tmt.' },
-                              { short: 'Done'    },
+                              { short: 'Booked'      },
+                              { short: 'Confmd.'     },
+                              { short: 'Arrived'     },
+                              { short: 'In Tmt.'     },
+                              { short: 'Visit Done'  },
                             ];
 
                             return (

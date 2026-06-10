@@ -152,7 +152,14 @@ export function AppointmentCard({
     ? "bg-muted/30"
     : "bg-gradient-to-r from-primary/5 to-accent/5";
 
-  const leftBorder = isCancelled
+  const isActiveVisit = booking.visitStatus === 'in_consultation';
+  const isCheckedInDoctor = role === 'doctor' && booking.visitStatus === 'checked_in';
+
+  const cardBorderClass = isActiveVisit
+    ? "border-2 border-teal-400/70 shadow-sm shadow-teal-400/10"
+    : isCheckedInDoctor
+    ? "border-2 border-primary/60 shadow-sm shadow-primary/10"
+    : isCancelled
     ? "border-l-2 border-l-rose-400 dark:border-l-rose-500"
     : isConfirmed
     ? "border-l-2 border-l-emerald-400 dark:border-l-emerald-500"
@@ -160,12 +167,6 @@ export function AppointmentCard({
 
   const maxChips = role === 'clinic' ? 4 : 3;
   const displayClinicName = clinicName || booking.clinicName || booking.clinic?.name;
-
-  const visitRingClass = role === 'doctor' && booking.visitStatus === 'checked_in'
-    ? "ring-2 ring-primary/40 ring-offset-2 animate-[pulse_2s_ease-in-out_infinite]"
-    : (role === 'doctor' || role === 'clinic') && booking.visitStatus === 'in_consultation'
-    ? "ring-2 ring-teal-400/60 ring-offset-2"
-    : "";
 
   const handleCancelSubmit = () => {
     const reason = cancelReason === "Other" ? cancelReasonOther.trim() : cancelReason;
@@ -181,11 +182,11 @@ export function AppointmentCard({
 
   return (
     <Card
-      className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 group flex flex-col ${isPast ? "opacity-75" : ""} ${leftBorder} ${visitRingClass}`}
+      className={`overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group flex flex-col ${isPast ? "opacity-75" : ""} ${cardBorderClass} ${!isActiveVisit && !isCheckedInDoctor ? "border-border/50 hover:border-primary/20 dark:hover:border-primary/30" : ""}`}
       data-testid={`card-booking-${booking.id}`}
     >
       {/* Top accent bar */}
-      <div className={`h-[3px] ${accentBar}`} />
+      <div className={`h-[3px] ${accentBar} ${isActiveVisit || isCheckedInDoctor ? 'animate-pulse' : ''}`} />
 
       {/* Clickable card body */}
       <div
@@ -275,13 +276,6 @@ export function AppointmentCard({
                     : 'With You'}
                 </span>
               )}
-              {/* Doctor: clinic name in header */}
-              {role === 'doctor' && displayClinicName && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted/50 border border-border/50 px-1.5 py-px rounded-full">
-                  <Building2 className="h-2.5 w-2.5" />
-                  {displayClinicName}{clinicCity ? ` (${clinicCity})` : ""}
-                </span>
-              )}
             </div>
           </div>
         </div>
@@ -324,6 +318,16 @@ export function AppointmentCard({
               </span>
             )}
           </div>
+
+          {/* Doctor: clinic name info row — below date */}
+          {role === 'doctor' && displayClinicName && (
+            <div className="flex items-center gap-2 text-xs min-w-0">
+              <div className="h-4 w-4 rounded-md bg-muted flex items-center justify-center shrink-0">
+                <Building2 className="h-2.5 w-2.5 text-muted-foreground/60" />
+              </div>
+              <span className="text-muted-foreground truncate">{displayClinicName}{clinicCity ? ` · ${clinicCity}` : ""}</span>
+            </div>
+          )}
 
           {/* Clinic: treatment category — own line */}
           {role === 'clinic' && categoryName && (
@@ -577,22 +581,28 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Clinical status badge — doctor view */}
+          {/* Clinical status — doctor view, labelled info row */}
           {role === 'doctor' && booking.clinicalStatus && (
-            <span className={`inline-flex items-center text-xs font-medium px-2 py-px rounded-full border
-              ${booking.clinicalStatus === "case_closed"
-                ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
-                : booking.clinicalStatus === "follow_up_required"
-                ? "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800"
-                : booking.clinicalStatus === "revisit"
-                ? "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800"
-                : "bg-primary/10 text-primary border-primary/20"}`}>
-              {booking.clinicalStatus === "first_visit" ? "First Visit"
-                : booking.clinicalStatus === "revisit" ? "Revisit"
-                : booking.clinicalStatus === "follow_up_required" ? "Follow-up Required"
-                : booking.clinicalStatus === "case_closed" ? "Case Closed"
-                : booking.clinicalStatus}
-            </span>
+            <div className="flex items-center gap-2 text-xs min-w-0">
+              <div className="h-4 w-4 rounded-md bg-muted flex items-center justify-center shrink-0">
+                <ClipboardList className="h-2.5 w-2.5 text-muted-foreground/60" />
+              </div>
+              <span className="text-muted-foreground shrink-0">Clinical Status:</span>
+              <span className={`inline-flex items-center text-xs font-medium px-2 py-px rounded-full border shrink-0
+                ${booking.clinicalStatus === "case_closed"
+                  ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                  : booking.clinicalStatus === "follow_up_required"
+                  ? "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800"
+                  : booking.clinicalStatus === "revisit"
+                  ? "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800"
+                  : "bg-primary/10 text-primary border-primary/20"}`}>
+                {booking.clinicalStatus === "first_visit" ? "First Visit"
+                  : booking.clinicalStatus === "revisit" ? "Revisit"
+                  : booking.clinicalStatus === "follow_up_required" ? "Follow-up Required"
+                  : booking.clinicalStatus === "case_closed" ? "Case Closed"
+                  : booking.clinicalStatus}
+              </span>
+            </div>
           )}
 
           {/* Doctor notes indicator — doctor view */}
@@ -614,6 +624,63 @@ export function AppointmentCard({
               {complaints.length > maxChips && (
                 <span className="text-xs text-muted-foreground font-medium px-1">+{complaints.length - maxChips}</span>
               )}
+            </div>
+          )}
+
+          {/* Doctor: mini visit progress tracker */}
+          {role === 'doctor' && !isCancelled && (
+            <div className="pt-2">
+              <TooltipProvider delayDuration={400}>
+                <div className="flex items-start">
+                  {([
+                    { label: 'Booked',     key: null             },
+                    { label: 'Arrived',    key: 'checked_in'     },
+                    { label: 'In Tmt.',    key: 'in_consultation'},
+                    { label: 'Visit Done', key: 'completed',     tooltip: 'No Invoice generated' },
+                  ] as { label: string; key: string | null; tooltip?: string }[]).map((step, i) => {
+                    const ORDER: (string | null)[] = [null, 'checked_in', 'in_consultation', 'completed'];
+                    const curIdx = ORDER.indexOf(booking.visitStatus ?? null);
+                    const isDone = curIdx >= i;
+                    const isCurr = curIdx === i;
+                    const dot = (
+                      <div className="flex flex-col items-center shrink-0">
+                        <div className={`h-4 w-4 rounded-full flex items-center justify-center border-2 transition-all ${
+                          isDone
+                            ? isCurr && i < 3
+                              ? 'border-primary bg-primary ring-1 ring-primary/25 ring-offset-1 ring-offset-background'
+                              : 'border-primary bg-primary'
+                            : 'border-border/50 bg-background'
+                        }`}>
+                          {isDone
+                            ? <CheckCircle2 className="h-2.5 w-2.5 text-white" />
+                            : <span className="h-1 w-1 rounded-full bg-border/50" />
+                          }
+                        </div>
+                        <span className={`text-[8px] font-semibold mt-0.5 leading-none text-center whitespace-nowrap ${
+                          isDone ? 'text-primary' : 'text-muted-foreground/40'
+                        }`}>{step.label}</span>
+                      </div>
+                    );
+                    return (
+                      <div key={step.label} className="flex items-center flex-1 min-w-0">
+                        {step.tooltip ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-default">{dot}</div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">{step.tooltip}</TooltipContent>
+                          </Tooltip>
+                        ) : dot}
+                        {i < 3 && (
+                          <div className={`flex-1 h-0.5 mx-0.5 mb-3.5 transition-colors ${
+                            i < curIdx ? 'bg-primary/50' : 'bg-border/35'
+                          }`} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </TooltipProvider>
             </div>
           )}
         </div>
