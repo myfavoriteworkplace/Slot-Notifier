@@ -23,7 +23,7 @@ import {
   Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X,
   Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText,
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
-  Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, CreditCard,
+  Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, AlertCircle, CreditCard,
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
   ChevronLeft, ChevronRight, Save, Hash, Pill, Printer, ArrowLeft, ArrowRight
 } from "lucide-react";
@@ -87,6 +87,22 @@ interface SlotTiming {
   endHour: number;
   endMinute: number;
 }
+
+const OVERVIEW_VISIT_TYPE_LABELS: Record<string, string> = {
+  first_visit: "First Visit",
+  follow_up: "Follow Up",
+  emergency: "Emergency",
+  routine_checkup: "Routine Checkup",
+  consultation: "Consultation",
+  review: "Review",
+};
+
+const OVERVIEW_CLINICAL_STATUS: Record<string, { label: string; cls: string }> = {
+  first_visit:        { label: "First Visit",        cls: "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800" },
+  revisit:            { label: "Revisit",            cls: "bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-800" },
+  follow_up_required: { label: "Follow-up Required", cls: "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800" },
+  case_closed:        { label: "Case Closed",        cls: "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" },
+};
 
 const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
   { id: "1", label: "Early Morning", startHour: 8,  startMinute: 0,  endHour: 10, endMinute: 0  },
@@ -3466,60 +3482,96 @@ export default function ClinicDashboard() {
 
                           {/* OVERVIEW TAB */}
                           {getModalTab(booking.id) === 'overview' && (
-                            <div className="p-4">
+                            <div className="p-4 space-y-3">
+
+                              {/* Terminal reason banner — shown when a stored reason exists */}
+                              {booking.cancellationReason && (
+                                <div className={`flex items-start gap-1.5 text-[10px] font-semibold rounded-lg px-2.5 py-1.5 overflow-hidden border ${
+                                  booking.verificationStatus === 'no_show'
+                                    ? "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-700"
+                                    : (booking as any).visitStatus === 'left_early'
+                                    ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+                                    : "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800"
+                                }`}>
+                                  <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
+                                  <span className="leading-snug">{booking.cancellationReason}</span>
+                                </div>
+                              )}
+
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-                                {/* LEFT: Patient Info */}
-                                <div className="space-y-3">
-                                  <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                                    <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
+                                {/* LEFT: Patient */}
+                                <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                  <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-1.5">
+                                    <div className="flex items-center gap-1.5">
                                       <User className="h-3 w-3 text-primary" />
                                       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Patient</span>
                                     </div>
-                                    <div className="divide-y divide-border/40">
-                                      <div className="px-3 py-2.5 flex items-center gap-2">
-                                        <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                          <User className="h-3 w-3 text-primary" />
-                                        </div>
-                                        <span className="text-sm font-semibold text-foreground truncate">{booking.customerName}</span>
+                                    <span className="font-mono text-[10px] text-muted-foreground/60 bg-muted px-1.5 py-0.5 rounded">
+                                      REF-{getBookingNumber(booking).padStart(4, '0')}
+                                    </span>
+                                  </div>
+                                  <div className="divide-y divide-border/40">
+                                    {/* Name + PAT ID */}
+                                    <div className="px-3 py-2.5 flex items-start gap-2">
+                                      <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                                        <User className="h-3 w-3 text-primary" />
                                       </div>
-                                      {((booking as any).customerAge || (booking as any).customerGender) && (
-                                        <div className="px-3 py-2.5 grid grid-cols-2 gap-3">
-                                          {(booking as any).customerAge && (
-                                            <div className="flex items-center gap-2">
-                                              <div className="h-6 w-6 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                                                <CalendarDays className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                                              </div>
+                                      <div className="flex-1 min-w-0">
+                                        <span className="text-sm font-semibold text-foreground block truncate">{booking.customerName}</span>
+                                        {(booking as any).patientCode && (
+                                          <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 border border-primary/25 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                                            {(booking as any).patientCode}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {/* Age + Gender */}
+                                    {((booking as any).customerAge || (booking as any).customerGender) && (
+                                      <div className="px-3 py-2.5 grid grid-cols-2 gap-3">
+                                        {(booking as any).customerAge && (
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-6 w-6 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                                              <CalendarDays className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                                            </div>
+                                            <div>
+                                              <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Age</p>
                                               <span className="text-sm font-medium text-foreground">{(booking as any).customerAge} yrs</span>
                                             </div>
-                                          )}
-                                          {(booking as any).customerGender && (
-                                            <div className="flex items-center gap-2">
-                                              <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                                <User className="h-3 w-3 text-primary" />
-                                              </div>
+                                          </div>
+                                        )}
+                                        {(booking as any).customerGender && (
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-6 w-6 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+                                              <Users className="h-3 w-3 text-violet-500" />
+                                            </div>
+                                            <div>
+                                              <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Gender</p>
                                               <span className="text-sm font-medium text-foreground capitalize">{(booking as any).customerGender}</span>
                                             </div>
-                                          )}
-                                        </div>
-                                      )}
-                                      <div className="px-3 py-2.5 flex items-center gap-3">
-                                        <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                          <Phone className="h-3 w-3 text-primary" />
-                                        </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    {/* Phone */}
+                                    <div className="px-3 py-2.5 flex items-center gap-3">
+                                      <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                        <Phone className="h-3 w-3 text-primary" />
+                                      </div>
+                                      <div>
+                                        <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Phone</p>
                                         <span className="text-sm font-medium text-foreground">{booking.customerPhone}</span>
                                       </div>
-                                      <div className="px-3 py-2.5 flex items-center gap-3">
-                                        <div className="h-6 w-6 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                                          <Mail className="h-3 w-3 text-blue-500" />
-                                        </div>
-                                        <span className="text-xs text-muted-foreground break-all">{booking.customerEmail || "No email"}</span>
+                                    </div>
+                                    {/* Email */}
+                                    <div className="px-3 py-2.5 flex items-start gap-3">
+                                      <div className="h-6 w-6 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                                        <Mail className="h-3 w-3 text-blue-500" />
                                       </div>
-                                      {(booking as any).patientCode && (
-                                        <div className="px-3 py-2 bg-muted/10">
-                                          <span className="text-[10px] font-mono text-muted-foreground">Patient ID: {(booking as any).patientCode}</span>
-                                        </div>
-                                      )}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Email</p>
+                                        <span className="text-xs text-muted-foreground break-all">{booking.customerEmail || <span className="italic opacity-60">No email</span>}</span>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
@@ -3532,27 +3584,49 @@ export default function ClinicDashboard() {
                                       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Appointment</span>
                                     </div>
                                     <div className="divide-y divide-border/40">
+                                      {/* Date */}
                                       <div className="px-3 py-2.5">
-                                        <p className="text-xs text-muted-foreground font-medium mb-0.5">Date</p>
+                                        <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Date</p>
                                         <p className="text-sm font-bold text-foreground">{format(bookingDateTime, "MMM d, yyyy")}</p>
                                         <p className="text-xs text-muted-foreground">{format(bookingDateTime, "EEEE")}</p>
                                       </div>
+                                      {/* Time */}
                                       <div className="px-3 py-2.5">
-                                        <p className="text-xs text-muted-foreground font-medium mb-0.5">Time</p>
+                                        <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Time</p>
                                         <p className="text-sm font-bold text-foreground">{format(bookingDateTime, "h:mm a")}</p>
                                         <p className="text-xs text-muted-foreground">→ {format(new Date(booking.slot.endTime), "h:mm a")}</p>
                                       </div>
-                                      {booking.assignedDoctor && (
+                                      {/* Visit Type */}
+                                      {(booking as any).visitType && (
                                         <div className="px-3 py-2.5">
-                                          <p className="text-xs text-muted-foreground font-medium mb-0.5">Doctor</p>
-                                          <div className="flex items-center gap-1.5">
-                                            <div className="h-5 w-5 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                                              <span className="text-xs font-bold text-primary">{booking.assignedDoctor.charAt(0)}</span>
-                                            </div>
-                                            <p className="text-sm font-semibold text-foreground truncate">Dr. {booking.assignedDoctor}</p>
+                                          <p className="text-[10px] text-muted-foreground font-medium mb-1">Visit Type</p>
+                                          <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800">
+                                            {OVERVIEW_VISIT_TYPE_LABELS[(booking as any).visitType] ?? (booking as any).visitType}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {/* Treatment */}
+                                      {(booking as any).treatmentCategory && (
+                                        <div className="px-3 py-2.5">
+                                          <p className="text-[10px] text-muted-foreground font-medium mb-1">Treatment</p>
+                                          <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-lg bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
+                                            {(booking as any).treatmentCategory}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {/* Slot cost */}
+                                      {(booking as any).slotCost > 0 && (
+                                        <div className="px-3 py-2.5 flex items-center gap-3">
+                                          <div className="h-6 w-6 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                                            <IndianRupee className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                                          </div>
+                                          <div>
+                                            <p className="text-[10px] text-muted-foreground font-medium">Slot Cost</p>
+                                            <p className="text-sm font-bold text-foreground">₹{(booking as any).slotCost}</p>
                                           </div>
                                         </div>
                                       )}
+                                      {/* Booked at */}
                                       {booking.createdAt && (
                                         <div className="px-3 py-1.5 bg-muted/20">
                                           <span className="text-xs text-muted-foreground">Booked {format(new Date(booking.createdAt), "MMM d · h:mm a")}</span>
@@ -3585,6 +3659,79 @@ export default function ClinicDashboard() {
                                 </div>
 
                               </div>
+
+                              {/* Care Team & Status — full width */}
+                              <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+                                <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
+                                  <Stethoscope className="h-3 w-3 text-primary" />
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Care Team &amp; Status</span>
+                                </div>
+                                <div className="divide-y divide-border/40">
+                                  {/* Assigned Doctor */}
+                                  <div className="px-3 py-2.5 flex items-start gap-3">
+                                    <div className="h-6 w-6 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+                                      <Stethoscope className="h-3 w-3 text-primary" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Assigned Doctor</p>
+                                      {booking.assignedDoctor ? (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-sm font-semibold text-foreground">Dr. {booking.assignedDoctor}</span>
+                                          {booking.doctorApprovalStatus === 'pending' && (
+                                            <span className="inline-flex items-center text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded">
+                                              Awaiting approval
+                                            </span>
+                                          )}
+                                          {booking.doctorApprovalStatus === 'approved' && (
+                                            <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded">
+                                              Approved
+                                            </span>
+                                          )}
+                                          {booking.doctorApprovalStatus === 'declined' && (
+                                            <span className="inline-flex items-center text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 px-1.5 py-0.5 rounded">
+                                              Declined
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-sm italic text-muted-foreground/60">Not assigned</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {/* Consent + Clinical Status side by side */}
+                                  <div className="px-3 py-2.5 grid grid-cols-2 gap-4">
+                                    {/* Consent */}
+                                    <div>
+                                      <p className="text-[10px] text-muted-foreground font-medium mb-1">Consent</p>
+                                      {booking.consentSignedAt ? (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded">
+                                          <PenLine className="h-3 w-3" /> Signed
+                                        </span>
+                                      ) : (booking as any).consentToken ? (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded">
+                                          <Clock className="h-3 w-3" /> Link sent
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center text-[10px] font-semibold text-muted-foreground bg-muted border border-border/60 px-1.5 py-0.5 rounded">
+                                          Not sent
+                                        </span>
+                                      )}
+                                    </div>
+                                    {/* Clinical Status */}
+                                    <div>
+                                      <p className="text-[10px] text-muted-foreground font-medium mb-1">Clinical Status</p>
+                                      {booking.clinicalStatus ? (
+                                        <span className={`inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded border ${OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus]?.cls ?? "bg-muted text-muted-foreground border-border/60"}`}>
+                                          {OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus]?.label ?? booking.clinicalStatus}
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] italic text-muted-foreground/60">Not set</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
                             </div>
                           )}
 

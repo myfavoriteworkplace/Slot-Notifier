@@ -974,22 +974,35 @@ export function AppointmentCard({
 
       {/* Past-due indicator — slot passed with no action taken */}
       {isPastDue && (
-        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1">
-          <AlertTriangle className="h-3 w-3 shrink-0" />
-          Slot time has passed — please action this booking
-        </div>
+        <TooltipProvider delayDuration={600}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1 overflow-hidden cursor-default">
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+                <span className="truncate min-w-0">Slot time has passed — please action this booking</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" align="start" className="max-w-[220px] text-xs font-medium whitespace-normal">
+              Slot time has passed — please action this booking
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
 
-      {/* ── Reason pill — shown for terminal states that have a stored reason ── */}
+      {/* ── Reason banner — shown for terminal states that have a stored reason ── */}
       {(isCancelled || isNoShowState || isLeftEarlyState) && booking.cancellationReason && (
         <TooltipProvider delayDuration={600}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 min-w-0 overflow-hidden cursor-default">
-                <AlertCircle className={`h-3 w-3 shrink-0 ${isNoShowState ? "text-slate-400" : isLeftEarlyState ? "text-amber-500" : "text-rose-400"}`} />
-                <span className="text-[10px] font-medium text-muted-foreground italic truncate block min-w-0">
-                  {booking.cancellationReason}
-                </span>
+              <div className={`mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold rounded-lg px-2.5 py-1 overflow-hidden cursor-default border ${
+                isNoShowState
+                  ? "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-700"
+                  : isLeftEarlyState
+                  ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+                  : "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800"
+              }`}>
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                <span className="truncate min-w-0">{booking.cancellationReason}</span>
               </div>
             </TooltipTrigger>
             <TooltipContent side="top" align="start" className="max-w-[220px] text-xs font-medium whitespace-normal">

@@ -528,6 +528,52 @@ When an "Add" button controls the visibility of an inline add row or form, it mu
 
 ---
 
+## INFO / WARNING BANNER STRIPS
+
+Compact, single-line notification rows that sit inside a card body — between content rows and a progress strip, or at the top of a tab panel. **Never grow to two lines.**
+
+### Visual anatomy
+
+```tsx
+<TooltipProvider delayDuration={600}>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <div className="flex items-center gap-1.5
+        text-[10px] font-semibold rounded-lg px-2.5 py-1 overflow-hidden cursor-default border
+        {colour classes}">
+        <Icon className="h-3 w-3 shrink-0" />
+        <span className="truncate min-w-0">{message}</span>
+      </div>
+    </TooltipTrigger>
+    <TooltipContent side="top" align="start" className="max-w-[220px] text-xs font-medium whitespace-normal">
+      {message}
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+```
+
+### Colour tokens by intent
+
+| Intent | Text | Background | Border | Icon |
+|---|---|---|---|---|
+| Warning / past-due | `text-amber-600 dark:text-amber-400` | `bg-amber-50 dark:bg-amber-950/20` | `border-amber-200 dark:border-amber-800` | `AlertTriangle` |
+| No-show / absent | `text-slate-600 dark:text-slate-400` | `bg-slate-50 dark:bg-slate-950/20` | `border-slate-200 dark:border-slate-700` | `AlertCircle` |
+| Left early | `text-amber-600 dark:text-amber-400` | `bg-amber-50 dark:bg-amber-950/20` | `border-amber-200 dark:border-amber-800` | `AlertCircle` |
+| Cancelled / error | `text-rose-600 dark:text-rose-400` | `bg-rose-50 dark:bg-rose-950/20` | `border-rose-200 dark:border-rose-800` | `AlertCircle` |
+| Info / neutral | `text-sky-600 dark:text-sky-400` | `bg-sky-50 dark:bg-sky-950/20` | `border-sky-200 dark:border-sky-800` | `Info` |
+
+### Rules
+
+1. **Always** wrap text in `<span className="truncate min-w-0">` — the banner must never grow to a second line.
+2. **Always** wrap in `<TooltipProvider delayDuration={600}>` — truncated text must be fully readable on hover.
+3. Container **must** have `overflow-hidden` — this is the CSS prerequisite for `truncate` to work inside a flex row.
+4. Icon **must** be `shrink-0` — it must never be squeezed by long text.
+5. `TooltipContent` uses `max-w-[220px]` with `whitespace-normal` so the full message wraps inside the tooltip.
+6. **Never** use `italic` text inside a banner strip — italic is reserved for empty/missing-data fallback rows.
+7. In a card context, add the outer margin: `mx-3 sm:mx-4 mb-1`.
+
+---
+
 ## SECTION DIVIDERS & VISUAL WEIGHT
 
 | Divider type | When to use |

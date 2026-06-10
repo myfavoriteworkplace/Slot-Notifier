@@ -600,17 +600,73 @@ Both are stored on `bookings.visit_type` and `bookings.treatment_category`. They
 bookingNumber={String(booking.id).padStart(4, "0")}  // renders as #0023
 ```
 
-### Cancellation reason display
+### Info / Warning Banner Strips (inline card banners)
 
-When `booking.cancellationReason` is set, render it below the Cancelled badge:
+These are compact, single-line notification rows that appear **between the info rows and the progress strip** of a booking card. Two types exist:
+
+#### 1. Past-due warning (amber — slot time has passed)
 
 ```tsx
-{booking.verificationStatus === 'cancelled' && (booking as any).cancellationReason && (
-  <span className="text-[10px] italic text-muted-foreground/70 truncate max-w-[160px]">
-    {(booking as any).cancellationReason}
-  </span>
-)}
+<TooltipProvider delayDuration={600}>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5
+        text-[10px] font-semibold overflow-hidden cursor-default rounded-lg px-2.5 py-1 border
+        text-amber-600 dark:text-amber-400
+        bg-amber-50 dark:bg-amber-950/20
+        border-amber-200 dark:border-amber-800">
+        <AlertTriangle className="h-3 w-3 shrink-0" />
+        <span className="truncate min-w-0">Slot time has passed — please action this booking</span>
+      </div>
+    </TooltipTrigger>
+    <TooltipContent side="top" align="start" className="max-w-[220px] text-xs font-medium whitespace-normal">
+      Slot time has passed — please action this booking
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
 ```
+
+#### 2. Terminal reason banner (colour-coded by outcome)
+
+Shown when `booking.cancellationReason` is set. Colour is driven by the terminal state:
+
+| State | Text | Background | Border |
+|---|---|---|---|
+| No Show | `text-slate-600 dark:text-slate-400` | `bg-slate-50 dark:bg-slate-950/20` | `border-slate-200 dark:border-slate-700` |
+| Left Early | `text-amber-600 dark:text-amber-400` | `bg-amber-50 dark:bg-amber-950/20` | `border-amber-200 dark:border-amber-800` |
+| Cancelled | `text-rose-600 dark:text-rose-400` | `bg-rose-50 dark:bg-rose-950/20` | `border-rose-200 dark:border-rose-800` |
+
+```tsx
+<TooltipProvider delayDuration={600}>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <div className={`mx-3 sm:mx-4 mb-1 flex items-center gap-1.5
+        text-[10px] font-semibold rounded-lg px-2.5 py-1 overflow-hidden cursor-default border
+        ${isNoShowState
+          ? "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-700"
+          : isLeftEarlyState
+          ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+          : "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800"
+        }`}>
+        <AlertCircle className="h-3 w-3 shrink-0" />
+        <span className="truncate min-w-0">{booking.cancellationReason}</span>
+      </div>
+    </TooltipTrigger>
+    <TooltipContent side="top" align="start" className="max-w-[220px] text-xs font-medium whitespace-normal">
+      {booking.cancellationReason}
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+```
+
+#### Rules for all info/warning banner strips
+
+1. **Always** wrap text in `<span className="truncate min-w-0">` — never let the banner grow to two lines.
+2. **Always** wrap in `<TooltipProvider delayDuration={600}>` so truncated text is readable on hover.
+3. Container must have `overflow-hidden` — this is what makes `truncate` work inside a flex row.
+4. Icon must be `shrink-0` — it must never be squeezed by long text.
+5. `TooltipContent` max-width is `max-w-[220px]` with `whitespace-normal` so the full text wraps inside the tooltip.
+6. Never use `italic` on banner strip text — italic is reserved for empty/missing-data fallback rows.
 
 ---
 
@@ -1873,12 +1929,63 @@ The `Prescription / Records` parent tab has been removed. Diagnosis and Prescrip
 
 | Tab key | Label | Icon | Content |
 |---|---|---|---|
-| `overview` | Overview | `User` | Patient info, appointment details, chief complaints, clinical status, Clinical Records |
+| `overview` | Overview | `User` | Terminal reason banner · Patient card · Appointment card · Complaints · Care Team & Status |
+| `clinical` | Clinical | `ClipboardList` | Clinical status toggle buttons · `ClinicalRecordsTab` (admin mode) |
 | `notes` | Notes | `FileText` | `BookingNotesThread` (clinic_admin author) |
 | `actions` | Actions | `Settings` | Reschedule, consent, assign doctor |
 | `billing` | Billing | `IndianRupee` | Billing history panel |
 
-The `clinical` tab in the Clinic Dashboard keeps `<ClinicalRecordsTab>` embedded inside the `overview` tab's "Clinical Records" panel section — the internal Diagnosis/Prescription sub-tabs handle the tab bar in this context.
+---
+
+### 16.2a — Overview tab layout & field reference (Clinic Dashboard)
+
+The Overview tab uses a `space-y-3` vertical stack:
+
+```
+1. Terminal reason banner  (only if booking.cancellationReason is set)
+2. 2-column grid (sm:grid-cols-2)
+   └── LEFT:  Patient card
+   └── RIGHT: Appointment card  +  Complaints card (conditional)
+3. Care Team & Status card (full-width)
+```
+
+#### Patient card fields (left column)
+
+| Row | Field | Source | Notes |
+|---|---|---|---|
+| Header right | `REF-XXXX` | `getBookingNumber(booking).padStart(4,'0')` | Mono text, muted, right-aligned in header |
+| Name row | Full name | `booking.customerName` | + `PAT-XXXX` badge below if `patientCode` set |
+| Age / Gender | Age in years · Gender | `(booking as any).customerAge/customerGender` | 2-col grid row, amber icon for age, violet for gender |
+| Phone | Mobile | `booking.customerPhone` | Primary icon |
+| Email | Email address | `booking.customerEmail` | Blue icon; italic "No email" if absent |
+
+#### Appointment card fields (right column)
+
+| Row | Field | Source | Notes |
+|---|---|---|---|
+| Date | Full date + weekday | `booking.slot.startTime` | Two lines: date bold + weekday muted |
+| Time | Start → End | `booking.slot.startTime/endTime` | Two lines: start bold + `→ end` muted |
+| Visit Type | Labelled badge | `(booking as any).visitType` | Sky blue badge; uses `OVERVIEW_VISIT_TYPE_LABELS` map |
+| Treatment | Category badge | `(booking as any).treatmentCategory` | Violet badge |
+| Slot Cost | ₹ amount | `(booking as any).slotCost` | Emerald icon; hidden if `slotCost <= 0` |
+| Booked at | Timestamp | `booking.createdAt` | Footer row, muted |
+
+#### Care Team & Status card fields (full-width, below grid)
+
+| Row | Field | Source | Notes |
+|---|---|---|---|
+| Assigned Doctor | Name + approval chip | `booking.assignedDoctor` + `booking.doctorApprovalStatus` | Amber "Awaiting approval" · Emerald "Approved" · Rose "Declined"; italic "Not assigned" if none |
+| Consent | Status chip | `booking.consentSignedAt` / `booking.consentToken` | Emerald "Signed" · Amber "Link sent" · Muted "Not sent" |
+| Clinical Status | Read-only badge | `booking.clinicalStatus` | Uses `OVERVIEW_CLINICAL_STATUS` map (sky/violet/amber/emerald); italic "Not set" if absent |
+
+#### Terminal reason banner (top of tab)
+
+Shown when `booking.cancellationReason` is non-null. Follows the **Info/Warning Banner Strip** pattern (see §8, "Info/Warning Banner Strips"). Colour is chosen by state:
+- `verificationStatus === 'no_show'` → slate
+- `visitStatus === 'left_early'` → amber  
+- everything else (cancelled) → rose
+
+No tooltip on the modal version — text is `leading-snug` and wraps naturally inside the wider modal panel.
 
 ---
 
