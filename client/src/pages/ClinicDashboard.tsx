@@ -75,7 +75,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Slot, Booking, PatientBill, ClinicalRecord, Patient } from "@shared/schema";
-import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload, KeyRound, CalendarOff, Repeat2, Tag } from "lucide-react";
+import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload, KeyRound, CalendarOff, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import noBookingsImg from "@assets/Copilot_20260603_191746_1780494897553.png";
@@ -3241,6 +3241,15 @@ export default function ClinicDashboard() {
                   const isConfirmed = booking.verificationStatus === 'confirmed' || !!booking.confirmedBy;
                   const isCancelled = booking.verificationStatus === 'cancelled';
 
+                  // Visit lifecycle states
+                  const modalIsVisitCompleted     = (booking as any).visitStatus === 'completed';
+                  const modalIsTreatmentCompleted = (booking as any).visitStatus === 'treatment_completed' || modalIsVisitCompleted;
+                  const modalIsInConsultation     = (booking as any).visitStatus === 'in_consultation';
+                  const modalIsCheckedIn          = (booking as any).visitStatus === 'checked_in';
+                  const modalIsNoShow             = booking.verificationStatus === 'no_show';
+                  const modalIsLeftEarly          = (booking as any).visitStatus === 'patient_left_early';
+                  const modalIsTerminal           = isCancelled || modalIsNoShow || modalIsLeftEarly;
+
                   // Top accent bar — TIME dimension (when is the appointment?)
                   const accentBar = isBookingToday
                     ? "bg-gradient-to-r from-sky-400 to-cyan-400"
@@ -3369,20 +3378,41 @@ export default function ClinicDashboard() {
                                   REF-{getBookingNumber(booking).padStart(4, '0')}
                                 </span>
                               </div>
-                              {/* Status text row — smart states, no pill backgrounds */}
+                              {/* Status text row — full lifecycle priority chain */}
                               <div className="flex items-center gap-2 mt-1 flex-wrap">
                                 {isCancelled ? (
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-xs font-bold text-rose-300 flex items-center gap-1">
-                                      <X className="h-2.5 w-2.5" />
-                                      Cancelled
+                                      <X className="h-2.5 w-2.5" />Cancelled
                                     </span>
                                     {booking.cancellationReason && (
-                                      <span className="text-xs italic text-white/50">
-                                        {booking.cancellationReason}
-                                      </span>
+                                      <span className="text-xs italic text-white/50">{booking.cancellationReason}</span>
                                     )}
                                   </div>
+                                ) : modalIsNoShow ? (
+                                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1">
+                                    <UserX className="h-2.5 w-2.5" />No Show
+                                  </span>
+                                ) : modalIsLeftEarly ? (
+                                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                                    <LogOut className="h-2.5 w-2.5" />Left Early
+                                  </span>
+                                ) : modalIsVisitCompleted ? (
+                                  <span className="text-xs font-bold text-emerald-300 flex items-center gap-1">
+                                    <ShieldCheck className="h-2.5 w-2.5" />Visit Done
+                                  </span>
+                                ) : modalIsTreatmentCompleted ? (
+                                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                                    <CheckCircle2 className="h-2.5 w-2.5" />Tmt. Done
+                                  </span>
+                                ) : modalIsInConsultation ? (
+                                  <span className="text-xs font-bold text-teal-300 flex items-center gap-1">
+                                    <Stethoscope className="h-2.5 w-2.5" />With Doctor
+                                  </span>
+                                ) : modalIsCheckedIn ? (
+                                  <span className="text-xs font-bold text-sky-300 flex items-center gap-1">
+                                    <CheckCircle2 className="h-2.5 w-2.5" />Arrived
+                                  </span>
                                 ) : isConfirmed ? (
                                   <span className="text-xs font-bold text-emerald-300 flex items-center gap-1">
                                     {booking.confirmedBy === 'doctor'
@@ -3392,7 +3422,7 @@ export default function ClinicDashboard() {
                                       ? `Confirmed by Dr. ${booking.assignedDoctor?.split(' ')[0] || 'Doctor'}`
                                       : booking.confirmedBy === 'admin'
                                       ? 'Confirmed by Admin'
-                                      : 'Payment Confirmed'}
+                                      : 'Confirmed'}
                                   </span>
                                 ) : booking.assignedDoctor && booking.doctorApprovalStatus === 'pending' ? (
                                   <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
@@ -3410,8 +3440,7 @@ export default function ClinicDashboard() {
                                 )}
                                 {booking.consentSignedAt && (
                                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-white/70">
-                                    <PenLine className="h-2.5 w-2.5" />
-                                    Consent Signed
+                                    <PenLine className="h-2.5 w-2.5" />Consent Signed
                                   </span>
                                 )}
                               </div>
@@ -3511,66 +3540,35 @@ export default function ClinicDashboard() {
                               : 'booked';
 
                             return (
-                              <div className="px-4 pt-3 pb-4 space-y-1.5">
+                              <div className="px-4 pt-3 pb-4 space-y-2.5">
 
-                                {/* ── Patient identity header — matches card header ── */}
-                                <div className="flex items-start justify-between gap-2 pb-2 border-b border-border/30">
-                                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                    <div className="shrink-0 h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 dark:border-primary/30 flex items-center justify-center">
-                                      <span className="text-sm font-bold text-primary dark:text-primary/80 leading-none">
-                                        {booking.customerName.charAt(0).toUpperCase()}
+                                {/* ── Compact patient contact strip ── */}
+                                <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2 space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {(booking as any).patientCode ? (
+                                      <span className="font-mono font-bold text-xs text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md shrink-0">
+                                        {(booking as any).patientCode}
                                       </span>
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className="font-bold text-sm leading-tight">{booking.customerName}</span>
-                                        <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/60 px-1.5 py-0.5 rounded-md shrink-0">
-                                          #{getBookingNumber(booking)}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-1 mt-0.5">
-                                        {(booking as any).patientCode ? (
-                                          <span className="font-mono font-bold text-xs text-primary bg-primary/10 border border-primary/20 px-1.5 py-px rounded-md shrink-0">
-                                            {(booking as any).patientCode}
-                                          </span>
-                                        ) : (
-                                          <span className="font-mono text-xs text-muted-foreground/40 shrink-0">--</span>
-                                        )}
-                                      </div>
-                                      <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                                        <Phone className="h-2.5 w-2.5 shrink-0" />
-                                        <span className="shrink-0">{booking.customerPhone || "--"}</span>
-                                        <span className="opacity-30 shrink-0 px-0.5">·</span>
-                                        <span className="shrink-0">{(booking as any).customerAge ? `${(booking as any).customerAge}y` : "--"}</span>
-                                        <span className="opacity-30 shrink-0 px-0.5">·</span>
-                                        <span className="shrink-0 truncate capitalize">{(booking as any).customerGender || "--"}</span>
-                                      </div>
-                                      {booking.customerEmail && (
-                                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                                          <Mail className="h-2.5 w-2.5 shrink-0 text-blue-500" />
-                                          <span className="truncate">{booking.customerEmail}</span>
-                                        </div>
-                                      )}
+                                    ) : null}
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                                      <Phone className="h-2.5 w-2.5 shrink-0" />
+                                      <span className="shrink-0">{booking.customerPhone || "--"}</span>
+                                      <span className="opacity-30 shrink-0 px-0.5">·</span>
+                                      <span className="shrink-0">{(booking as any).customerAge ? `${(booking as any).customerAge}y` : "--"}</span>
+                                      <span className="opacity-30 shrink-0 px-0.5">·</span>
+                                      <span className="shrink-0 capitalize">{(booking as any).customerGender || "--"}</span>
                                     </div>
                                   </div>
+                                  {booking.customerEmail && (
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Mail className="h-2.5 w-2.5 shrink-0 text-blue-500" />
+                                      <span className="truncate">{booking.customerEmail}</span>
+                                    </div>
+                                  )}
                                 </div>
 
-                                {/* ── Info rows — same style as AppointmentCard ── */}
-                                <div className="py-1 space-y-1.5">
-
-                                  {/* Date + time */}
-                                  <div className="flex items-center gap-2 text-xs min-w-0 overflow-hidden">
-                                    <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                                      <CalendarDays className="h-2.5 w-2.5 text-primary" />
-                                    </div>
-                                    <span className="font-semibold text-foreground shrink-0">{format(bookingDateTime, "EEE, d MMM yyyy")}</span>
-                                    {ovRelBadge}
-                                    <span className="text-muted-foreground font-medium shrink-0">
-                                      {format(bookingDateTime, "h:mm a")}
-                                      <span className="mx-1 opacity-40">→</span>
-                                      {format(new Date(booking.slot.endTime), "h:mm a")}
-                                    </span>
-                                  </div>
+                                {/* ── Info rows ── */}
+                                <div className="space-y-1.5">
 
                                   {/* Visit Type */}
                                   <div className="flex items-center gap-2 text-xs min-w-0">
@@ -4188,89 +4186,218 @@ export default function ClinicDashboard() {
 
                         </div>
 
-                        {/* ── PERSISTENT FOOTER ── */}
-                        <div className="shrink-0 px-4 py-2.5 border-t border-border/50 bg-muted/10 flex gap-2">
-                          {/* Confirm / Confirmed status */}
-                          {!isBookingPast && booking.verificationStatus !== 'confirmed' && (
-                            <Button
-                              className="flex-1 gap-1.5 h-11 text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:from-emerald-700 active:to-teal-700 active:scale-[0.98] border-0 shadow-md shadow-emerald-500/20 text-white transition-all"
-                              onClick={() => confirmBookingMutation.mutate(booking.id)}
-                              disabled={confirmBookingMutation.isPending}
-                              data-testid={`button-dialog-confirm-${booking.id}`}
-                            >
-                              {confirmBookingMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                              Confirm
-                            </Button>
-                          )}
-                          {booking.verificationStatus === 'confirmed' && (
-                            <div className="flex-1 flex items-center gap-1.5 px-3 h-11 rounded-lg bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                              <span className="text-xs font-semibold">Confirmed</span>
-                              {booking.confirmedBy && (
-                                <span className="text-xs font-normal opacity-75">· by {booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}</span>
-                              )}
-                            </div>
-                          )}
-                          {/* Cancel Booking */}
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="flex-1 gap-1.5 h-11 text-xs font-bold text-destructive border-destructive/30 hover:bg-destructive/5 hover:border-destructive/50 active:bg-destructive/10 active:scale-[0.98] transition-all"
-                                data-testid={`button-dialog-cancel-${booking.id}`}
-                              >
-                                <X className="h-3.5 w-3.5" />
-                                Cancel
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will cancel {booking.customerName}'s appointment and send them a cancellation email.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <div className="px-1 py-2 space-y-3">
-                                <div className="space-y-1.5">
-                                  <label className="text-sm font-medium text-foreground">Reason for cancellation</label>
-                                  <select
-                                    value={cancelReason}
-                                    onChange={e => { setCancelReason(e.target.value); setCancelReasonOther(""); }}
-                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                  >
-                                    <option value="">Select a reason…</option>
-                                    <option value="Patient requested cancellation">Patient requested cancellation</option>
-                                    <option value="Doctor unavailable">Doctor unavailable</option>
-                                    <option value="Clinic closure / emergency">Clinic closure / emergency</option>
-                                    <option value="Patient no-show">Patient no-show</option>
-                                    <option value="Rescheduled to another slot">Rescheduled to another slot</option>
-                                    <option value="Other">Other</option>
-                                  </select>
+                        {/* ── PERSISTENT FOOTER — lifecycle-aware ── */}
+                        <div className="shrink-0 px-4 py-2.5 border-t border-border/50 bg-muted/10 space-y-2">
+
+                          {/* Cancel dialog (shared, single instance) */}
+                          {(() => {
+                            const CancelDialog = ({ trigger }: { trigger: React.ReactNode }) => (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Cancel booking?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will cancel {booking.customerName}'s appointment and send them a cancellation email.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <div className="px-1 py-2 space-y-3">
+                                    <div className="space-y-1.5">
+                                      <label className="text-sm font-medium text-foreground">Reason for cancellation</label>
+                                      <select
+                                        value={cancelReason}
+                                        onChange={e => { setCancelReason(e.target.value); setCancelReasonOther(""); }}
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                      >
+                                        <option value="">Select a reason…</option>
+                                        <option value="Patient requested cancellation">Patient requested cancellation</option>
+                                        <option value="Doctor unavailable">Doctor unavailable</option>
+                                        <option value="Clinic closure / emergency">Clinic closure / emergency</option>
+                                        <option value="Patient no-show">Patient no-show</option>
+                                        <option value="Rescheduled to another slot">Rescheduled to another slot</option>
+                                        <option value="Other">Other</option>
+                                      </select>
+                                    </div>
+                                    {cancelReason === "Other" && (
+                                      <div className="space-y-1.5">
+                                        <label className="text-sm font-medium text-foreground">Please specify</label>
+                                        <Input
+                                          value={cancelReasonOther}
+                                          onChange={e => setCancelReasonOther(e.target.value)}
+                                          placeholder="e.g. Patient requested cancellation"
+                                          autoFocus
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel onClick={() => { setCancelReason(""); setCancelReasonOther(""); }}>Back</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => cancelBookingMutation.mutate({ id: booking.id, reason: cancelReason === "Other" ? cancelReasonOther.trim() : cancelReason })}
+                                      className="bg-destructive text-destructive-foreground"
+                                      disabled={!cancelReason || (cancelReason === "Other" && !cancelReasonOther.trim())}
+                                    >
+                                      Cancel Booking
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            );
+
+                            /* ── Stage 5: Visit Completed ── */
+                            if (modalIsVisitCompleted) return (
+                              <>
+                                <Button
+                                  className="w-full gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
+                                  onClick={() => handleOpenBilling(booking)}
+                                  data-testid={`button-dialog-bill-done-${booking.id}`}
+                                >
+                                  <IndianRupee className="h-4 w-4" />Bill Generated ↓
+                                </Button>
+                                <div className="flex gap-2">
+                                  <Button variant="outline" size="sm"
+                                    className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                    onClick={() => setOpenBookingId(null)}
+                                    data-testid={`button-dialog-summary-${booking.id}`}>
+                                    <ClipboardList className="h-3 w-3" />View Summary
+                                  </Button>
+                                  <Button variant="outline" size="sm"
+                                    className="flex-1 h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                                    onClick={() => { setBookingName(booking.customerName); setBookingPhone(booking.customerPhone); setBookingEmail(booking.customerEmail || ""); setActivePanel('book-a-slot'); setOpenBookingId(null); }}
+                                    data-testid={`button-dialog-rebook-${booking.id}`}>
+                                    <CalendarPlus className="h-3 w-3" />Rebook
+                                  </Button>
                                 </div>
-                                {cancelReason === "Other" && (
-                                  <div className="space-y-1.5">
-                                    <label className="text-sm font-medium text-foreground">Please specify</label>
-                                    <Input
-                                      value={cancelReasonOther}
-                                      onChange={e => setCancelReasonOther(e.target.value)}
-                                      placeholder="e.g. Patient requested cancellation"
-                                      autoFocus
-                                    />
+                              </>
+                            );
+
+                            /* ── Stage 4: Treatment Completed → Mark Visit Done ── */
+                            if (modalIsTreatmentCompleted) return (
+                              <>
+                                <Button
+                                  className="w-full gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
+                                  onClick={() => completeVisitMutation.mutate(booking.id)}
+                                  disabled={completeVisitMutation.isPending}
+                                  data-testid={`button-dialog-visit-done-${booking.id}`}
+                                >
+                                  {completeVisitMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                                  Mark Visit Done
+                                </Button>
+                                <div className="flex gap-2">
+                                  <Button variant="outline" size="sm"
+                                    className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                    onClick={() => handleOpenBilling(booking)}
+                                    data-testid={`button-dialog-bill-tmt-${booking.id}`}>
+                                    <IndianRupee className="h-3 w-3" />₹ Bill
+                                  </Button>
+                                  <CancelDialog trigger={
+                                    <Button variant="ghost" size="sm"
+                                      className="flex-1 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                                      data-testid={`button-dialog-cancel-tmt-${booking.id}`}>
+                                      <X className="h-3 w-3" />Cancel
+                                    </Button>
+                                  } />
+                                </div>
+                              </>
+                            );
+
+                            /* ── Stage 3: In Consultation ── */
+                            if (modalIsInConsultation) return (
+                              <>
+                                <Button variant="outline"
+                                  className="w-full h-11 text-sm font-medium text-teal-600 dark:text-teal-400 border-teal-200 dark:border-teal-700 bg-teal-50/60 dark:bg-teal-950/10 cursor-not-allowed gap-2 pointer-events-none"
+                                  disabled data-testid={`button-dialog-in-tmt-${booking.id}`}>
+                                  <Activity className="h-4 w-4" />In Treatment
+                                </Button>
+                                <div className="flex gap-2">
+                                  <Button variant="outline" size="sm"
+                                    className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                    onClick={() => handleOpenBilling(booking)}
+                                    data-testid={`button-dialog-bill-consult-${booking.id}`}>
+                                    <IndianRupee className="h-3 w-3" />₹ Bill
+                                  </Button>
+                                  <CancelDialog trigger={
+                                    <Button variant="ghost" size="sm"
+                                      className="flex-1 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                                      data-testid={`button-dialog-cancel-consult-${booking.id}`}>
+                                      <X className="h-3 w-3" />Cancel
+                                    </Button>
+                                  } />
+                                </div>
+                              </>
+                            );
+
+                            /* ── Stage 2: Checked In / Arrived ── */
+                            if (modalIsCheckedIn) return (
+                              <>
+                                <Button variant="outline"
+                                  className="w-full h-11 text-sm font-medium text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 cursor-not-allowed gap-2 pointer-events-none"
+                                  disabled data-testid={`button-dialog-waiting-${booking.id}`}>
+                                  <Clock className="h-4 w-4" />Waiting for Doctor
+                                </Button>
+                                <div className="flex gap-2">
+                                  <Button variant="outline" size="sm"
+                                    className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                    onClick={() => handleOpenBilling(booking)}
+                                    data-testid={`button-dialog-bill-checkin-${booking.id}`}>
+                                    <IndianRupee className="h-3 w-3" />₹ Bill
+                                  </Button>
+                                  <CancelDialog trigger={
+                                    <Button variant="ghost" size="sm"
+                                      className="flex-1 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                                      data-testid={`button-dialog-cancel-checkin-${booking.id}`}>
+                                      <X className="h-3 w-3" />Cancel
+                                    </Button>
+                                  } />
+                                </div>
+                              </>
+                            );
+
+                            /* ── Terminal: Cancelled / No-show / Left Early ── */
+                            if (modalIsTerminal) return (
+                              <Button variant="outline"
+                                className="w-full h-11 text-sm font-medium text-primary hover:text-primary hover:bg-primary/5 gap-2 active:scale-[0.98] transition-all"
+                                onClick={() => { setBookingName(booking.customerName); setBookingPhone(booking.customerPhone); setBookingEmail(booking.customerEmail || ""); setActivePanel('book-a-slot'); setOpenBookingId(null); }}
+                                data-testid={`button-dialog-rebook-terminal-${booking.id}`}>
+                                <Repeat2 className="h-4 w-4" />Rebook
+                              </Button>
+                            );
+
+                            /* ── Stage 0/1: Pre-arrival (unconfirmed or confirmed) ── */
+                            return (
+                              <>
+                                {!isBookingPast && !isConfirmed && (
+                                  <Button
+                                    className="w-full gap-1.5 h-11 text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-[0.98] border-0 shadow-md shadow-emerald-500/20 text-white transition-all"
+                                    onClick={() => confirmBookingMutation.mutate(booking.id)}
+                                    disabled={confirmBookingMutation.isPending}
+                                    data-testid={`button-dialog-confirm-${booking.id}`}
+                                  >
+                                    {confirmBookingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                                    Confirm
+                                  </Button>
+                                )}
+                                {isConfirmed && (
+                                  <div className="flex items-center gap-1.5 px-3 h-11 rounded-lg bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="text-xs font-semibold">Confirmed</span>
+                                    {booking.confirmedBy && (
+                                      <span className="text-xs font-normal opacity-75">· by {booking.confirmedBy === 'doctor' ? `Dr. ${booking.assignedDoctor || 'Doctor'}` : 'Admin'}</span>
+                                    )}
                                   </div>
                                 )}
-                              </div>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel onClick={() => { setCancelReason(""); setCancelReasonOther(""); }}>Back</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => cancelBookingMutation.mutate({ id: booking.id, reason: cancelReason === "Other" ? cancelReasonOther.trim() : cancelReason })}
-                                  className="bg-destructive text-destructive-foreground"
-                                  disabled={!cancelReason || (cancelReason === "Other" && !cancelReasonOther.trim())}
-                                >
-                                  Cancel Booking
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                                <CancelDialog trigger={
+                                  <Button
+                                    variant="outline"
+                                    className="w-full gap-1.5 h-11 text-sm font-bold text-destructive border-destructive/30 hover:bg-destructive/5 hover:border-destructive/50 active:bg-destructive/10 active:scale-[0.98] transition-all"
+                                    data-testid={`button-dialog-cancel-${booking.id}`}
+                                  >
+                                    <X className="h-3.5 w-3.5" />Cancel
+                                  </Button>
+                                } />
+                              </>
+                            );
+                          })()}
                         </div>
 
                       </DialogContent>
