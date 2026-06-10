@@ -1644,28 +1644,68 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const requestedStart = new Date(startTime);
 
-      const slot = await storage.createSlot({
-        ownerId: null,
-        startTime: requestedStart,
-        endTime: new Date(endTime),
-        clinicName: clinicName || clinic.name,
-        clinicId: clinic.id,
-        isBooked: true,
-      } as any);
+      // ── Atomic: consume OTP + capacity re-check + insert (double-booking protection) ──
+      // Razorpay create-order already did a soft capacity check before payment, but that
+      // check is not binding — a concurrent booking could have filled the slot between
+      // order creation and payment verification. This transaction closes that window.
+      let slot: any;
+      let booking: any;
+      try {
+        await db.transaction(async (tx) => {
+          // 1. Consume OTP first — concurrent duplicate submission gets 0 rows (Race B)
+          const [consumed] = await tx.delete(emailOtps)
+            .where(eq(emailOtps.id, otpRow.id))
+            .returning({ id: emailOtps.id });
+          if (!consumed) {
+            const e = new Error("TOKEN_USED"); (e as any).code = "TOKEN_USED"; throw e;
+          }
 
-      const booking = await storage.createPublicBooking({
-        slotId: slot.id,
-        customerName,
-        customerPhone,
-        customerEmail,
-        description: description || null,
-        verificationCode: null,
-        verificationExpiresAt: null,
-        verificationStatus: 'email_verified',
-        paymentStatus: 'paid',
-        razorpayOrderId: razorpay_order_id,
-        razorpayPaymentId: razorpay_payment_id,
-      });
+          // 2. Re-check capacity inside transaction (Race A — slot filled after order created)
+          const txW0 = new Date(requestedStart.getTime() - 60_000);
+          const txW1 = new Date(requestedStart.getTime() + 60_000);
+          const txRows = await tx.select({ b: bookings, s: slots })
+            .from(bookings)
+            .innerJoin(slots, eq(bookings.slotId, slots.id))
+            .where(and(gte(slots.startTime, txW0), lte(slots.startTime, txW1), eq(slots.isCancelled, false)));
+          const txUsed = txRows
+            .filter(r => (r.s.clinicId === clinic.id || r.s.clinicName === (clinicName || clinic.name)) && !['cancelled', 'pending'].includes(r.b.verificationStatus ?? ''))
+            .reduce((sum: number, r: any) => sum + ((r.b as any).slotCost ?? 1), 0);
+          if (txUsed >= 3) {
+            const e = new Error("SLOT_FULL"); (e as any).code = "SLOT_FULL"; throw e;
+          }
+
+          // 3. Insert slot + booking atomically
+          const [newSlot] = await tx.insert(slots).values({
+            ownerId: null,
+            startTime: requestedStart,
+            endTime: new Date(endTime),
+            clinicName: clinicName || clinic.name,
+            clinicId: clinic.id,
+            isBooked: true,
+            isCancelled: false,
+          } as any).returning();
+          slot = newSlot;
+
+          const [newBooking] = await tx.insert(bookings).values({
+            slotId: slot.id,
+            customerName,
+            customerPhone,
+            customerEmail,
+            description: description || null,
+            verificationCode: null,
+            verificationExpiresAt: null,
+            verificationStatus: 'email_verified',
+            paymentStatus: 'paid',
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+          } as any).returning();
+          booking = newBooking;
+        });
+      } catch (txErr: any) {
+        if (txErr.code === "SLOT_FULL") return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
+        if (txErr.code === "TOKEN_USED") return res.status(409).json({ message: "Your booking session is already in progress. Please wait a moment and try again." });
+        throw txErr;
+      }
 
       // Link booking to the correct patient profile
       try {
@@ -1688,9 +1728,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         console.error('[PATIENT PROFILE] Failed to link:', e.message);
       }
 
-      // Consume the OTP token — one token, one booking
-      await db.delete(emailOtps).where(eq(emailOtps.id, otpRow.id));
-
+      // OTP was consumed inside the transaction above — send confirmation emails now
       await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id);
 
       if (customerPhone) {
@@ -1815,33 +1853,68 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const pubKey = pubBracketMap[pubHour] ?? (pubMin === 30 && pubHour === 12 ? "3" : undefined);
       const pubDefaultSection = pubKey ? pubDefaultCfg?.sections?.[pubKey] : undefined;
       const pubMax = pubConfigSlot?.maxBookings ?? pubDefaultSection?.maxBookings ?? 4;
-      const existingBookings = await storage.countVerifiedBookingsForClinicTime(clinic.id, clinic.name, requestedStart);
-      // Public patient booking always costs 1 slot unit
-      if (existingBookings + 1 > pubMax) {
-        return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
+      // ── Atomic: consume OTP + capacity re-check + insert (double-booking protection) ──
+      // Race A (two patients, same slot): capacity is re-checked inside the same DB transaction
+      //   so both concurrent requests cannot both pass the check before either inserts.
+      // Race B (same patient, duplicate submission): OTP token is deleted first inside the
+      //   transaction — the second concurrent request gets 0 rows back and is rejected with 409.
+      let slot: any;
+      let booking: any;
+      try {
+        await db.transaction(async (tx) => {
+          // 1. Consume OTP — concurrent duplicate gets 0 rows → TOKEN_USED (Race B)
+          const [consumed] = await tx.delete(emailOtps)
+            .where(eq(emailOtps.id, otpRow.id))
+            .returning({ id: emailOtps.id });
+          if (!consumed) {
+            const e = new Error("TOKEN_USED"); (e as any).code = "TOKEN_USED"; throw e;
+          }
+
+          // 2. Re-check capacity inside the transaction (Race A)
+          const txW0 = new Date(requestedStart.getTime() - 60_000);
+          const txW1 = new Date(requestedStart.getTime() + 60_000);
+          const txRows = await tx.select({ b: bookings, s: slots })
+            .from(bookings)
+            .innerJoin(slots, eq(bookings.slotId, slots.id))
+            .where(and(gte(slots.startTime, txW0), lte(slots.startTime, txW1), eq(slots.isCancelled, false)));
+          const txUsed = txRows
+            .filter(r => (r.s.clinicId === clinic.id || r.s.clinicName === (clinicName || clinic.name)) && !['cancelled', 'pending'].includes(r.b.verificationStatus ?? ''))
+            .reduce((sum: number, r: any) => sum + ((r.b as any).slotCost ?? 1), 0);
+          if (txUsed + 1 > pubMax) {
+            const e = new Error("SLOT_FULL"); (e as any).code = "SLOT_FULL"; throw e;
+          }
+
+          // 3. Insert slot + booking atomically
+          const [newSlot] = await tx.insert(slots).values({
+            ownerId: null,
+            startTime: requestedStart,
+            endTime: new Date(endTime),
+            clinicName: clinicName || clinic.name,
+            clinicId: clinic.id,
+            isBooked: true,
+            isCancelled: false,
+          } as any).returning();
+          slot = newSlot;
+
+          const [newBooking] = await tx.insert(bookings).values({
+            slotId: slot.id,
+            customerName,
+            customerPhone,
+            customerEmail,
+            customerAge: customerAge ? parseInt(customerAge) : null,
+            customerGender: customerGender || null,
+            description: description || null,
+            verificationCode: null,
+            verificationExpiresAt: null,
+            verificationStatus: 'email_verified',
+          } as any).returning();
+          booking = newBooking;
+        });
+      } catch (txErr: any) {
+        if (txErr.code === "SLOT_FULL") return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
+        if (txErr.code === "TOKEN_USED") return res.status(409).json({ message: "Your booking session is already in progress. Please wait a moment and try again." });
+        throw txErr;
       }
-
-      const slot = await storage.createSlot({
-        ownerId: null,
-        startTime: requestedStart,
-        endTime: new Date(endTime),
-        clinicName: clinicName || clinic.name,
-        clinicId: clinic.id,
-        isBooked: true,
-      } as any);
-
-      const booking = await storage.createPublicBooking({
-        slotId: slot.id,
-        customerName,
-        customerPhone,
-        customerEmail,
-        customerAge: customerAge ? parseInt(customerAge) : null,
-        customerGender: customerGender || null,
-        description: description || null,
-        verificationCode: null,
-        verificationExpiresAt: null,
-        verificationStatus: 'email_verified',
-      });
 
       // Link booking to the correct patient profile
       try {
@@ -1864,9 +1937,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         console.error('[PATIENT PROFILE] Failed to link:', e.message);
       }
 
-      // Consume the OTP token — one token, one booking
-      await db.delete(emailOtps).where(eq(emailOtps.id, otpRow.id));
-
+      // OTP was consumed inside the transaction above — send confirmation emails now
       await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id);
 
       if (customerPhone) {

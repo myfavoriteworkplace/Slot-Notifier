@@ -59,7 +59,7 @@ export function BookingProgressStrip({
                     ? <span className={`h-1.5 w-1.5 rounded-full ${dotDoneInner}`} />
                     : <span className="h-1.5 w-1.5 rounded-full bg-border/60" />}
                 </div>
-                <span className={`text-xs font-medium leading-none whitespace-nowrap ${wasDone ? labelDone : "text-muted-foreground/50"}`}>
+                <span className={`text-[10px] font-medium leading-none whitespace-nowrap ${wasDone ? labelDone : "text-muted-foreground/50"}`}>
                   {s.label}
                 </span>
               </div>
@@ -143,7 +143,7 @@ export function BookingProgressStrip({
               <div className={`h-4 w-4 rounded-full flex items-center justify-center border ${dotBg} ${dotBorder} transition-all`}>
                 {dotInner}
               </div>
-              <span className={`text-xs leading-none whitespace-nowrap transition-colors ${labelColor}`}>
+              <span className={`text-[10px] leading-none whitespace-nowrap transition-colors ${labelColor}`}>
                 {labelText}
               </span>
             </div>
