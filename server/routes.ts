@@ -4222,6 +4222,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // PATCH /api/auth/clinic/bookings/:id/patient-left-early
+  // Admin records that the patient walked out during or before consultation
+  app.patch("/api/auth/clinic/bookings/:id/patient-left-early", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const terminalStates = ['cancelled', 'no_show'];
+      if (terminalStates.includes(booking.verificationStatus)) {
+        return res.status(400).json({ message: "Cannot act on a terminal booking" });
+      }
+      if (booking.visitStatus === 'completed' || booking.visitStatus === 'treatment_completed') {
+        return res.status(400).json({ message: "Visit is already completed — use override if needed" });
+      }
+      const { reason } = req.body;
+      if (!reason?.trim()) return res.status(400).json({ message: "Reason is required" });
+      const prevVisit = booking.visitStatus || 'checked_in';
+      const [updated] = await db.update(bookings)
+        .set({ visitStatus: 'patient_left_early' })
+        .where(eq(bookings.id, bookingId))
+        .returning();
+      await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
+        VALUES (${bookingId}, ${prevVisit}, 'patient_left_early', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason})`);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── Public Doctor Profile (no auth) — supports /doctor/:id or /doctor/:username ──
   app.get("/api/public/doctor/:id", async (req, res) => {
     try {
@@ -4792,16 +4823,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const bill = await storage.updatePatientBill(id, clinicId, req.body);
 
       // Auto-close booking when all its bills are now paid
+      // Triggers from treatment_completed OR in_consultation (billing done before doctor marks done)
       if (req.body.paymentStatus === 'paid' && bill.bookingId) {
         try {
           const bookingBills = await storage.getPatientBillsByBookingId(bill.bookingId);
           const allPaid = bookingBills.length > 0 && bookingBills.every(b => b.paymentStatus === 'paid');
           if (allPaid) {
             const booking = await storage.getBookingById(bill.bookingId);
-            if (booking && booking.visitStatus === 'treatment_completed') {
+            const billableStates = ['treatment_completed', 'in_consultation'];
+            if (booking && billableStates.includes(booking.visitStatus || '')) {
               await storage.updateVisitStatus(bill.bookingId, 'completed', undefined, new Date());
               broadcastToClinic(String(clinicId), { type: 'visit_auto_completed', bookingId: bill.bookingId });
-              console.log(`[AUTO-COMPLETE] Booking ${bill.bookingId} auto-completed — all bills settled`);
+              console.log(`[AUTO-COMPLETE] Booking ${bill.bookingId} auto-completed from '${booking.visitStatus}' — all bills settled`);
             }
           }
         } catch (e: any) {

@@ -731,8 +731,9 @@ Additionally, a **fourth field** controls doctor assignment approval:
 | `in_consultation` | Doctor has started treating the patient | Doctor | `PATCH /api/doctor/bookings/:id/start-consultation` |
 | `treatment_completed` | Doctor finished treatment; awaiting admin closure | Doctor | `PATCH /api/doctor/bookings/:id/complete-visit` |
 | `completed` | Visit fully closed (billing done / admin confirmed) | Clinic admin or system | `PATCH /api/auth/clinic/bookings/:id/complete-visit` |
+| `patient_left_early` | Patient walked out mid-consultation before treatment was finished | Clinic admin | `PATCH /api/auth/clinic/bookings/:id/patient-left-early` |
 
-> **Auto-complete rule**: When a patient's bill is marked as **fully paid**, the system automatically sets `visitStatus = completed` and writes `visit_auto_completed` in the audit log. Admin manual closure is not required in this case.
+> **Auto-complete rule**: When a patient's bill is marked as **fully paid**, the system automatically sets `visitStatus = completed` and writes `visit_auto_completed` in the audit log — for bookings in **either** `treatment_completed` or `in_consultation` state (billing may be completed before the doctor formally marks treatment done).
 
 #### `doctorApprovalStatus` values
 
@@ -867,9 +868,9 @@ Every possible state transition, who triggers it, and what happens:
                ▼                  ▼                       ▼
         [CANCELLED]          [NO SHOW]              [CONFIRMED]
      Admin cancels         Admin marks           Admin clicks Confirm
-     at any point          no-show               (or doctor approves)
-     → sends cancel        → audit log           → sends confirmation
-       email to                                    email + WhatsApp
+     at any point          no-show (only if      (or doctor approves)
+     → sends cancel        NOT in_consultation)  → sends confirmation
+       email to            → audit log             email + WhatsApp
        patient                                     to patient
                │                  │                       │
                └──────────────────┴───────────────────────┘
@@ -882,33 +883,42 @@ Every possible state transition, who triggers it, and what happens:
                                                   checkedInAt: timestamp
                                                   → Doctor gets live alert
                                                            │
-                                                           │  Doctor clicks "Start Consultation"
-                                                           ▼
-                                                   [IN CONSULTATION]
-                                                  visitStatus: in_consultation
-                                                  → Clinic admin gets live alert
-                                                           │
-                                                   Doctor treats patient,
-                                                   adds clinical notes,
-                                                   prescriptions, X-rays
-                                                           │
-                                                           │  Doctor clicks "Done with Patient"
-                                                           ▼
-                                                [TREATMENT COMPLETED]
-                                                  visitStatus: treatment_completed
-                                                  → Admin sees "Mark Visit Complete" button
-                                                           │
-                                           ┌───────────────┴───────────────┐
-                                           │                               │
-                                           ▼                               ▼
-                                  Admin clicks               Bill marked as PAID
-                                "Mark Visit Complete"         (auto-triggered)
-                                           │                               │
-                                           └───────────────┬───────────────┘
-                                                           ▼
-                                                   [VISIT COMPLETED]
-                                                  visitStatus: completed
-                                                  completedAt: timestamp
+                                            ┌──────────────┘
+                                            │ Doctor clicks "Start Consultation"
+                                            ▼
+                                   [IN CONSULTATION]
+                                  visitStatus: in_consultation
+                                  → Clinic admin gets live alert
+                                            │
+                          ┌─────────────────┼─────────────────────┐
+                          │                 │                      │
+                          ▼                 │                      │
+               [PATIENT LEFT EARLY]         │               Bill marked PAID
+               visitStatus:                 │               (auto-complete)
+               patient_left_early           │                      │
+               Admin records reason         │                      │
+               → TERMINAL ─ ─ ─ ─ ─ ─ ─    │                      │
+                                            │                      │
+                                            │ Doctor clicks        │
+                                            │ "Done with Patient"  │
+                                            ▼                      │
+                                 [TREATMENT COMPLETED]             │
+                                  visitStatus: treatment_completed  │
+                                  → Admin sees "Mark Visit         │
+                                    Complete" button               │
+                                            │                      │
+                             ┌──────────────┤                      │
+                             │              │                      │
+                             ▼              ▼                      │
+                      Override          Admin clicks               │
+                      Complete       "Mark Visit Complete"         │
+                      (⋮ menu)                │                    │
+                             │               │                    │
+                             └───────────────┴────────────────────┘
+                                                        ▼
+                                               [VISIT COMPLETED]
+                                              visitStatus: completed
+                                              completedAt: timestamp
 ```
 
 ---
@@ -967,6 +977,20 @@ Each action below is available to a logged-in clinic admin via their session coo
 | **Body** | `{ reason?: string }` |
 | **DB changes** | `verificationStatus = 'no_show'`; reason written to `booking_state_log` |
 | **Notifications fired** | None (no patient notification on no-show) |
+| **Allowed when** | Any state **except** `in_consultation`, `treatment_completed`, and `completed` — a patient who has already been seen cannot be marked no-show |
+
+#### Mark Patient Left Early
+
+| Property | Value |
+|---|---|
+| **Trigger** | Admin opens ⋮ menu → "Patient Left Early" → mandatory reason → confirm |
+| **API** | `PATCH /api/auth/clinic/bookings/:id/patient-left-early` |
+| **Body** | `{ reason: string }` — reason is mandatory |
+| **DB changes** | `visitStatus = 'patient_left_early'`; reason written to `booking_state_log` |
+| **Precondition** | `visitStatus = 'in_consultation'` (the ⋮ button only appears when the doctor has already started) |
+| **Visual state** | Card shows amber "Left Early" badge, amber left border, amber progress strip with trail, "Patient Left Before Completion" footer banner |
+| **Blocks** | Once recorded, the card is terminal — no further lifecycle actions are available |
+| **Use case** | Patient felt unwell and walked out; patient had a medical emergency; patient decided not to proceed with treatment |
 
 #### Cancel a Booking
 
@@ -1015,7 +1039,7 @@ Each action below is available to a logged-in clinic admin via their session coo
 | **UI** | Opens the Billing Modal — itemised line items (treatment codes, quantities, prices) |
 | **API (create)** | `POST /api/auth/clinic/bills` — Body: `{ bookingId, items: [{ description, amount }] }` |
 | **API (mark paid)** | `PATCH /api/auth/clinic/bills/:id/paid` |
-| **Auto-complete trigger** | When bill is marked paid AND `visitStatus` is `treatment_completed`, the system auto-sets `visitStatus = 'completed'` and writes `visit_auto_completed` to audit log |
+| **Auto-complete trigger** | When bill is marked paid AND `visitStatus` is `treatment_completed` **or** `in_consultation`, the system auto-sets `visitStatus = 'completed'` and writes `visit_auto_completed` to audit log |
 
 ---
 

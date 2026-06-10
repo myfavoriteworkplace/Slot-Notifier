@@ -6,6 +6,7 @@ import {
   AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
   Stethoscope, MoreHorizontal, UserX, ShieldCheck, Bell,
   Clock, Tag, Repeat2, RefreshCw, Copy, Check, BadgeAlert,
+  LogOut, AlertTriangle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,9 +91,11 @@ export interface AppointmentCardProps {
   onUndoCheckIn?: () => void;
   onCompleteVisit?: () => void;
   onNoShow?: (reason?: string) => void;
+  onPatientLeftEarly?: (reason: string) => void;
   onSendReminder?: () => void;
   onOverrideComplete?: (reason: string) => void;
   onBookAgain?: () => void;
+  totalBillsCount?: number;
   // Doctor actions
   onApprove?: () => void;
   onDecline?: () => void;
@@ -110,6 +113,7 @@ export interface AppointmentCardProps {
   checkInPending?: boolean;
   completeVisitPending?: boolean;
   noShowPending?: boolean;
+  leftEarlyPending?: boolean;
   sendReminderPending?: boolean;
   overridePending?: boolean;
   approvePending?: boolean;
@@ -154,9 +158,11 @@ export function AppointmentCard({
   onUndoCheckIn,
   onCompleteVisit,
   onNoShow,
+  onPatientLeftEarly,
   onSendReminder,
   onOverrideComplete,
   onBookAgain,
+  totalBillsCount = 0,
   onApprove,
   onDecline,
   onStartConsultation,
@@ -172,6 +178,7 @@ export function AppointmentCard({
   checkInPending,
   completeVisitPending,
   noShowPending,
+  leftEarlyPending,
   sendReminderPending,
   overridePending,
   approvePending,
@@ -183,6 +190,7 @@ export function AppointmentCard({
   const [cancelReasonOther, setCancelReasonOther] = useState("");
   const [noShowReason, setNoShowReason] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
+  const [leftEarlyReason, setLeftEarlyReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [consentCopied, setConsentCopied] = useState(false);
   const [visitDoneOpen, setVisitDoneOpen] = useState(false);
@@ -206,26 +214,40 @@ export function AppointmentCard({
   const durationMin = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
   // ── Status helpers ──
-  const isCancelled  = booking.verificationStatus === "cancelled";
-  const isNoShowState = booking.verificationStatus === "no_show";
-  const isTerminal   = isCancelled || isNoShowState;
+  const isCancelled    = booking.verificationStatus === "cancelled";
+  const isNoShowState  = booking.verificationStatus === "no_show";
+  const isLeftEarlyState = booking.visitStatus === "patient_left_early";
+  const isTerminal     = isCancelled || isNoShowState || isLeftEarlyState;
 
   const isClinicConfirmed = booking.verificationStatus === "confirmed" || !!booking.confirmedBy;
   const isDoctorConfirmed = booking.doctorApprovalStatus === "approved" || booking.doctorApprovalStatus === "admin_confirmed";
   const isConfirmed = role === "clinic" ? isClinicConfirmed : isDoctorConfirmed;
   const isDoctorDeclined = role === "doctor" && booking.doctorApprovalStatus === "declined";
 
-  const isVisitCompleted       = booking.visitStatus === "completed";
-  const isOverrideCompleted    = (booking as any)._overrideCompleted === true; // set by API if needed
-  const isTreatmentCompleted   = booking.visitStatus === "treatment_completed" || isVisitCompleted;
-  const isInConsultation       = booking.visitStatus === "in_consultation";
-  const isCheckedIn            = booking.visitStatus === "checked_in";
+  const isVisitCompleted     = booking.visitStatus === "completed";
+  const isTreatmentCompleted = booking.visitStatus === "treatment_completed" || isVisitCompleted;
+  const isInConsultation     = booking.visitStatus === "in_consultation";
+  const isCheckedIn          = booking.visitStatus === "checked_in";
+
+  // Override: visit is complete but patient never physically checked in → stages 1–3 were skipped
+  const isOverrideCompleted = isVisitCompleted && !booking.checkedInAt && !isLeftEarlyState;
+
+  // Billing state for progress strip
+  const hasUnpaidBill = isVisitCompleted && openBillsCount > 0;
+  const noBill        = isVisitCompleted && totalBillsCount === 0;
+
+  // Past-due: slot time has passed but visit still unresolved (no terminal or active state)
+  const slotAgeMs    = Date.now() - startTime.getTime();
+  const isPastDue    = slotAgeMs > 2 * 60 * 60 * 1000
+    && !isTerminal && !isVisitCompleted && !isTreatmentCompleted
+    && !isInConsultation && !isCheckedIn;
 
   // Derive numeric lifecycle stage (0–4) for progress strip
   const lifecycleStage: LifecycleStage = isVisitCompleted ? 4
     : isTreatmentCompleted ? 3
     : isInConsultation ? 2
     : isCheckedIn ? 1
+    : isLeftEarlyState ? (booking.checkedInAt ? 1 : 0)
     : 0;
 
   // ── Visual classes ──
@@ -233,6 +255,8 @@ export function AppointmentCard({
     ? "bg-gradient-to-r from-slate-400 to-slate-300"
     : isCancelled
     ? "bg-gradient-to-r from-rose-400 to-rose-300"
+    : isLeftEarlyState
+    ? "bg-gradient-to-r from-amber-400 to-orange-300"
     : isVisitCompleted
     ? "bg-gradient-to-r from-emerald-400 to-teal-400"
     : isTreatmentCompleted
@@ -247,6 +271,8 @@ export function AppointmentCard({
     ? "border-l-[3px] border-l-rose-400 dark:border-l-rose-500"
     : isNoShowState
     ? "border-l-[3px] border-l-slate-400 dark:border-l-slate-500"
+    : isLeftEarlyState
+    ? "border-l-[3px] border-l-amber-400 dark:border-l-amber-500"
     : isVisitCompleted
     ? "border-l-[3px] border-l-emerald-400 dark:border-l-emerald-500"
     : isTreatmentCompleted
@@ -255,7 +281,7 @@ export function AppointmentCard({
     ? "border-l-[3px] border-l-emerald-400 dark:border-l-emerald-500"
     : "border-l-[3px] border-l-amber-400 dark:border-l-amber-500";
 
-  const headerBg = isNoShowState || isCancelled
+  const headerBg = isNoShowState || isCancelled || isLeftEarlyState
     ? "bg-muted/30"
     : isVisitCompleted
     ? "bg-gradient-to-r from-emerald-500/5 to-teal-500/5"
@@ -296,6 +322,11 @@ export function AppointmentCard({
     if (isNoShowState) return (
       <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
         <UserX className="h-2.5 w-2.5" />No Show
+      </span>
+    );
+    if (isLeftEarlyState) return (
+      <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+        <LogOut className="h-2.5 w-2.5" />Left Early
       </span>
     );
     if (isVisitCompleted) return (
@@ -352,6 +383,8 @@ export function AppointmentCard({
     ? "Appointment cancelled"
     : isNoShowState
     ? "Patient did not arrive"
+    : isLeftEarlyState
+    ? "Patient left before the visit was completed"
     : isVisitCompleted
     ? "Visit completed successfully"
     : isTreatmentCompleted
@@ -371,7 +404,7 @@ export function AppointmentCard({
     setCancelReason(""); setCancelReasonOther("");
   };
 
-  const canShowMoreMenu = role === "clinic" && !isCancelled && !isNoShowState;
+  const canShowMoreMenu = role === "clinic" && !isCancelled && !isNoShowState && !isLeftEarlyState;
 
   return (
     <Card
@@ -492,8 +525,8 @@ export function AppointmentCard({
                       />
                     )}
 
-                    {/* Mark No Show — only if not yet arrived, show AlertDialog inline */}
-                    {!isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+                    {/* Mark No Show — allowed when not yet arrived OR when arrived-but-not-called (checked in) */}
+                    {!isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors" data-testid={`button-no-show-${booking.id}`}>
@@ -537,6 +570,48 @@ export function AppointmentCard({
                           </span>
                         )}
                       </button>
+                    )}
+
+                    {/* Patient Left Early — for when patient is mid-consultation and walks out */}
+                    {isInConsultation && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
+                            data-testid={`button-left-early-${booking.id}`}
+                          >
+                            {leftEarlyPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogOut className="h-3 w-3" />}
+                            Patient Left Early
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Patient Left During Consultation?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Mark this visit as ended early. The visit record and any clinical notes will be preserved. A reason is required.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <div className="px-1 py-2">
+                            <label className="text-sm font-medium">Reason <span className="text-red-500">*</span></label>
+                            <Input
+                              className="mt-1.5"
+                              value={leftEarlyReason}
+                              onChange={(e) => setLeftEarlyReason(e.target.value)}
+                              placeholder="e.g. Patient felt unwell, will reschedule"
+                            />
+                          </div>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setLeftEarlyReason("")}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              disabled={!leftEarlyReason.trim()}
+                              onClick={() => { onPatientLeftEarly?.(leftEarlyReason.trim()); setLeftEarlyReason(""); }}
+                              className="bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+                            >
+                              Confirm — Patient Left
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
 
                     <div className="my-1 h-px bg-border/40" />
@@ -819,12 +894,24 @@ export function AppointmentCard({
         </div>
       </div>
 
+      {/* Past-due indicator — slot passed with no action taken */}
+      {isPastDue && (
+        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1">
+          <AlertTriangle className="h-3 w-3 shrink-0" />
+          Slot time has passed — please action this booking
+        </div>
+      )}
+
       {/* ── Progress Strip ── */}
       <div className="px-3 sm:px-4 pt-1.5 pb-0.5 border-t border-border/30">
         <BookingProgressStrip
           stage={lifecycleStage}
           isCancelled={isCancelled}
           isNoShow={isNoShowState}
+          isOverride={isOverrideCompleted}
+          isLeftEarly={isLeftEarlyState}
+          hasUnpaidBill={hasUnpaidBill}
+          noBill={noBill}
         />
       </div>
 
@@ -848,6 +935,13 @@ export function AppointmentCard({
           {isNoShowState && (
             <div className="flex items-center justify-center gap-2 h-9 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-semibold">
               <UserX className="h-3.5 w-3.5" />Patient Did Not Arrive
+            </div>
+          )}
+
+          {/* Terminal: Patient Left Early */}
+          {isLeftEarlyState && (
+            <div className="flex items-center justify-center gap-2 h-9 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-semibold">
+              <LogOut className="h-3.5 w-3.5" />Patient Left Before Completion
             </div>
           )}
 

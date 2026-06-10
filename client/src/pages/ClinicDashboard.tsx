@@ -1371,6 +1371,19 @@ export default function ClinicDashboard() {
     onError: (error: any) => notify.apiError(error, "Failed to override complete"),
   });
 
+  const patientLeftEarlyMutation = useMutation({
+    mutationFn: async ({ bookingId, reason }: { bookingId: number; reason: string }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/patient-left-early`, { reason });
+      if (!response.ok) throw new Error('Failed to mark patient left early');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      notify.success("Recorded — patient left before completion");
+    },
+    onError: (error: any) => notify.apiError(error, "Failed to record early departure"),
+  });
+
   const requestConsentMutation = useMutation({
     mutationFn: async (bookingId: number) => {
       const response = await apiRequest('POST', `/api/auth/clinic/bookings/${bookingId}/request-consent`, {});
@@ -3298,6 +3311,9 @@ export default function ClinicDashboard() {
                       sendReminderPending={sendReminderMutation.isPending}
                       onOverrideComplete={(reason) => overrideCompleteMutation.mutate({ bookingId: booking.id, reason })}
                       overridePending={overrideCompleteMutation.isPending}
+                      onPatientLeftEarly={(reason) => patientLeftEarlyMutation.mutate({ bookingId: booking.id, reason })}
+                      leftEarlyPending={patientLeftEarlyMutation.isPending}
+                      totalBillsCount={allBills.filter(b => b.bookingId === booking.id).length}
                       onBookAgain={() => {
                         setBookingName(booking.customerName);
                         setBookingPhone(booking.customerPhone);
