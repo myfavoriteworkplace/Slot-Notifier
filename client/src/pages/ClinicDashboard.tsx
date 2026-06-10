@@ -3539,6 +3539,16 @@ export default function ClinicDashboard() {
                               : isConfirmed ? 'confirmed'
                               : 'booked';
 
+                            // Parse visitType + treatmentCategory from description
+                            // (same logic as AppointmentCard — no dedicated DB columns)
+                            const rawOverviewDesc = booking.description ?? "";
+                            const ovVisitType = (booking as any).visitType
+                              || rawOverviewDesc.match(/Visit:\s*([^|,\n]+)/)?.[1]?.trim()
+                              || null;
+                            const ovTreatmentCategory = (booking as any).treatmentCategory
+                              || rawOverviewDesc.match(/Category:\s*([^|,\n]+)/)?.[1]?.trim()
+                              || null;
+
                             return (
                               <div className="px-4 pt-3 pb-4 space-y-2.5">
 
@@ -3567,76 +3577,60 @@ export default function ClinicDashboard() {
                                   )}
                                 </div>
 
-                                {/* ── Info rows ── */}
-                                <div className="space-y-1.5">
+                                {/* ── Info grid — 2 equal columns ── */}
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
 
-                                  {/* Visit Type */}
-                                  <div className="flex items-center gap-2 text-xs min-w-0">
+                                  {/* Row 1 left — Visit Type */}
+                                  <div className="flex items-center gap-1.5 text-xs min-w-0">
                                     <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                       <Repeat2 className="h-2.5 w-2.5 text-muted-foreground" />
                                     </div>
-                                    <span className="text-muted-foreground shrink-0">Visit Type:</span>
-                                    {(booking as any).visitType ? (
-                                      <span className="inline-flex items-center gap-1 font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
-                                        {OVERVIEW_VISIT_TYPE_LABELS[(booking as any).visitType] ?? (booking as any).visitType}
+                                    <span className="text-muted-foreground shrink-0">Visit:</span>
+                                    {ovVisitType ? (
+                                      <span className="inline-flex items-center font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
+                                        {OVERVIEW_VISIT_TYPE_LABELS[ovVisitType] ?? ovVisitType}
                                       </span>
                                     ) : (
                                       <span className="text-muted-foreground/50">–</span>
                                     )}
                                   </div>
 
-                                  {/* Treatment */}
-                                  <div className="flex items-center gap-2 text-xs min-w-0">
-                                    <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                                      <Tag className="h-2.5 w-2.5 text-muted-foreground" />
-                                    </div>
-                                    <span className="text-muted-foreground shrink-0">Treatment:</span>
-                                    {(booking as any).treatmentCategory ? (
-                                      <div className="flex items-center gap-1.5 min-w-0">
-                                        <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
-                                          {(booking as any).treatmentCategory}
-                                        </span>
-                                        {(booking as any).slotCost > 1 && (
-                                          <span className="shrink-0 text-muted-foreground font-medium">· {(booking as any).slotCost} slots</span>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <span className="text-muted-foreground/50">–</span>
-                                    )}
-                                  </div>
-
-                                  {/* Slot Cost */}
-                                  {(booking as any).slotCost > 0 && (
-                                    <div className="flex items-center gap-2 text-xs min-w-0">
-                                      <div className="h-4 w-4 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
-                                        <IndianRupee className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
-                                      </div>
-                                      <span className="text-muted-foreground shrink-0">Slot Cost:</span>
-                                      <span className="font-semibold text-foreground">₹{(booking as any).slotCost}</span>
-                                    </div>
-                                  )}
-
-                                  {/* Assigned Doctor */}
-                                  <div className="flex items-center gap-2 text-xs min-w-0">
+                                  {/* Row 1 right — Assigned Doctor */}
+                                  <div className="flex items-center gap-1.5 text-xs min-w-0">
                                     <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                                       <Stethoscope className="h-2.5 w-2.5 text-primary" />
                                     </div>
-                                    <span className="text-muted-foreground shrink-0">Assigned:</span>
+                                    <span className="text-muted-foreground shrink-0">Dr:</span>
                                     {booking.assignedDoctor ? (
-                                      <>
+                                      <div className="flex items-center gap-1 min-w-0">
                                         <span className="font-semibold text-primary truncate">Dr. {booking.assignedDoctor}</span>
-                                        {booking.doctorApprovalStatus === 'pending' && <span className="text-amber-600 dark:text-amber-400 shrink-0 truncate">· Awaiting approval</span>}
-                                        {booking.doctorApprovalStatus === 'approved' && <span className="text-emerald-600 dark:text-emerald-400 shrink-0">· Approved ✓</span>}
-                                        {booking.doctorApprovalStatus === 'admin_confirmed' && <span className="text-emerald-600 dark:text-emerald-400 shrink-0">· Admin confirmed ✓</span>}
-                                        {booking.doctorApprovalStatus === 'declined' && <span className="text-rose-600 dark:text-rose-400 shrink-0">· Declined ✗</span>}
-                                      </>
+                                        {booking.doctorApprovalStatus === 'pending' && <span className="text-amber-600 dark:text-amber-400 shrink-0">· Awaiting</span>}
+                                        {booking.doctorApprovalStatus === 'approved' && <span className="text-emerald-600 dark:text-emerald-400 shrink-0">· ✓</span>}
+                                        {booking.doctorApprovalStatus === 'admin_confirmed' && <span className="text-emerald-600 dark:text-emerald-400 shrink-0">· ✓</span>}
+                                        {booking.doctorApprovalStatus === 'declined' && <span className="text-rose-600 dark:text-rose-400 shrink-0">· ✗</span>}
+                                      </div>
                                     ) : (
                                       <span className="text-muted-foreground/50">–</span>
                                     )}
                                   </div>
 
-                                  {/* Consent — read-only status */}
-                                  <div className="flex items-center gap-2 text-xs min-w-0">
+                                  {/* Row 2 left — Treatment */}
+                                  <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                    <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                      <Tag className="h-2.5 w-2.5 text-muted-foreground" />
+                                    </div>
+                                    <span className="text-muted-foreground shrink-0">Tmt:</span>
+                                    {ovTreatmentCategory ? (
+                                      <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
+                                        {ovTreatmentCategory}
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground/50">–</span>
+                                    )}
+                                  </div>
+
+                                  {/* Row 2 right — Consent */}
+                                  <div className="flex items-center gap-1.5 text-xs min-w-0">
                                     <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                       <PenLine className="h-2.5 w-2.5 text-muted-foreground" />
                                     </div>
@@ -3647,16 +3641,48 @@ export default function ClinicDashboard() {
                                       </span>
                                     ) : (booking as any).consentToken ? (
                                       <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
-                                        <Clock className="h-2.5 w-2.5" />Consent Sent
+                                        <Clock className="h-2.5 w-2.5" />Sent
                                       </span>
                                     ) : (
                                       <span className="text-muted-foreground/50">–</span>
                                     )}
                                   </div>
 
-                                  {/* Clinical Status */}
+                                  {/* Row 3 left — Slot Cost */}
+                                  <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                    <div className="h-4 w-4 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
+                                      <IndianRupee className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+                                    </div>
+                                    <span className="text-muted-foreground shrink-0">Cost:</span>
+                                    {(booking as any).slotCost > 0 ? (
+                                      <span className="font-semibold text-foreground">₹{(booking as any).slotCost}</span>
+                                    ) : (
+                                      <span className="text-muted-foreground/50">–</span>
+                                    )}
+                                  </div>
+
+                                  {/* Row 3 right — Chief Complaints */}
+                                  <div className="flex items-start gap-1.5 text-xs min-w-0">
+                                    <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
+                                      <ClipboardList className="h-2.5 w-2.5 text-muted-foreground" />
+                                    </div>
+                                    <span className="text-muted-foreground shrink-0 pt-0.5">CC:</span>
+                                    {complaints.length > 0 ? (
+                                      <div className="flex flex-wrap gap-1">
+                                        {complaints.map((c, idx) => (
+                                          <span key={idx} className="inline-flex items-center font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                                            {c}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground/50 pt-0.5">–</span>
+                                    )}
+                                  </div>
+
+                                  {/* Clinical Status — full width if present */}
                                   {booking.clinicalStatus && OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus] && (
-                                    <div className="flex items-center gap-2 text-xs min-w-0">
+                                    <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
                                       <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                         <ClipboardCheck className="h-2.5 w-2.5 text-muted-foreground" />
                                       </div>
@@ -3667,40 +3693,21 @@ export default function ClinicDashboard() {
                                     </div>
                                   )}
 
-                                  {/* Chief Complaints */}
-                                  <div className="flex items-start gap-2 text-xs min-w-0">
-                                    <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
-                                      <ClipboardList className="h-2.5 w-2.5 text-muted-foreground" />
-                                    </div>
-                                    <span className="text-muted-foreground shrink-0 pt-0.5">Complaints:</span>
-                                    {complaints.length > 0 ? (
-                                      <div className="flex flex-wrap gap-1">
-                                        {complaints.map((c, i) => (
-                                          <span key={i} className="inline-flex items-center font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
-                                            {c}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <span className="text-muted-foreground/50 pt-0.5">–</span>
-                                    )}
-                                  </div>
-
-                                  {/* Booked at */}
-                                  {booking.createdAt && (
-                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-0.5">
-                                      <Clock className="h-2.5 w-2.5 shrink-0 opacity-50" />
-                                      <span>Booked {format(new Date(booking.createdAt), "MMM d · h:mm a")}</span>
-                                    </div>
-                                  )}
-
                                 </div>
+
+                                {/* ── Booked at (full width) ── */}
+                                {booking.createdAt && (
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Clock className="h-2.5 w-2.5 shrink-0 opacity-50" />
+                                    <span>Booked {format(new Date(booking.createdAt), "MMM d · h:mm a")}</span>
+                                  </div>
+                                )}
 
                                 {/* ── Past-due banner ── */}
                                 {ovIsPastDue && (
-                                  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1 overflow-hidden">
+                                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
                                     <AlertTriangle className="h-3 w-3 shrink-0" />
-                                    <span className="truncate min-w-0">Slot time has passed — please action this booking</span>
+                                    <span className="min-w-0">Slot time has passed — please action this booking</span>
                                   </div>
                                 )}
 
