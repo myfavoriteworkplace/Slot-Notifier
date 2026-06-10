@@ -188,13 +188,17 @@ export function AppointmentCard({
 }: AppointmentCardProps) {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonOther, setCancelReasonOther] = useState("");
-  const [noShowReason, setNoShowReason] = useState("");
+  const [noShowPredefined, setNoShowPredefined] = useState("");
+  const [noShowCustom, setNoShowCustom] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
   const [leftEarlyReason, setLeftEarlyReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [consentCopied, setConsentCopied] = useState(false);
   const [visitDoneOpen, setVisitDoneOpen] = useState(false);
   const [visitDoneReason, setVisitDoneReason] = useState("");
+  const [visitMenuOpen, setVisitMenuOpen] = useState(false);
+  const [visitMenuPredefined, setVisitMenuPredefined] = useState("");
+  const [visitMenuCustom, setVisitMenuCustom] = useState("");
 
   function handleMarkVisitDone() {
     if (openBillsCount > 0) {
@@ -541,13 +545,45 @@ export function AppointmentCard({
                               {booking.customerName} will be marked as no-show. You can still rebook them.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
-                          <div className="px-1 py-2">
-                            <label className="text-sm font-medium">Reason (optional)</label>
-                            <Input className="mt-1.5" value={noShowReason} onChange={(e) => setNoShowReason(e.target.value)} placeholder="e.g. Patient didn't call" />
+                          <div className="px-1 py-2 space-y-3">
+                            <div className="space-y-1.5">
+                              <label className="text-sm font-medium">Reason (optional)</label>
+                              <select
+                                value={noShowPredefined}
+                                onChange={(e) => { setNoShowPredefined(e.target.value); setNoShowCustom(""); }}
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                              >
+                                <option value="">Select a reason…</option>
+                                <option>Patient didn't respond to calls</option>
+                                <option>Patient forgot the appointment</option>
+                                <option>Phone unreachable</option>
+                                <option>Patient rescheduled elsewhere</option>
+                                <option>Repeat no-show</option>
+                                <option value="Other">Other (specify)</option>
+                              </select>
+                            </div>
+                            {noShowPredefined === "Other" && (
+                              <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Please specify</label>
+                                <Input
+                                  value={noShowCustom}
+                                  onChange={(e) => setNoShowCustom(e.target.value)}
+                                  placeholder="e.g. Patient called to cancel"
+                                  autoFocus
+                                />
+                              </div>
+                            )}
                           </div>
                           <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setNoShowReason("")}>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => { onNoShow?.(noShowReason || undefined); setNoShowReason(""); }} className="bg-amber-600 text-white hover:bg-amber-700">
+                            <AlertDialogCancel onClick={() => { setNoShowPredefined(""); setNoShowCustom(""); }}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => {
+                                const reason = noShowPredefined === "Other" ? noShowCustom.trim() : noShowPredefined;
+                                onNoShow?.(reason || undefined);
+                                setNoShowPredefined(""); setNoShowCustom("");
+                              }}
+                              className="bg-amber-600 text-white hover:bg-amber-700"
+                            >
                               Mark No Show
                             </AlertDialogAction>
                           </AlertDialogFooter>
@@ -557,19 +593,68 @@ export function AppointmentCard({
 
                     {/* Mark Visit Done — normal Stage 3→4 path */}
                     {isTreatmentCompleted && !isVisitCompleted && (
-                      <button
-                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors"
-                        onClick={() => { handleMarkVisitDone(); }}
-                        data-testid={`button-menu-visit-done-${booking.id}`}
-                      >
-                        <CheckCircle2 className="h-3 w-3" />
-                        Mark Visit Done
-                        {openBillsCount > 0 && (
-                          <span className="ml-auto text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full px-1.5 py-0.5">
-                            {openBillsCount} unpaid
-                          </span>
-                        )}
-                      </button>
+                      <>
+                        <button
+                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setVisitMenuOpen(true); }}
+                          data-testid={`button-menu-visit-done-${booking.id}`}
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          Mark Visit Done
+                          {openBillsCount > 0 && (
+                            <span className="ml-auto text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full px-1.5 py-0.5">
+                              {openBillsCount} unpaid
+                            </span>
+                          )}
+                        </button>
+                        <AlertDialog open={visitMenuOpen} onOpenChange={(open) => { if (!open) { setVisitMenuPredefined(""); setVisitMenuCustom(""); } setVisitMenuOpen(open); }}>
+                          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Mark Visit as Done?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Confirm that {booking.customerName}'s visit has been completed. Select a reason for record-keeping.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <div className="px-1 py-2 space-y-3">
+                              <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Reason (optional)</label>
+                                <select
+                                  value={visitMenuPredefined}
+                                  onChange={(e) => { setVisitMenuPredefined(e.target.value); setVisitMenuCustom(""); }}
+                                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                >
+                                  <option value="">Select a reason…</option>
+                                  <option>Visit completed as scheduled</option>
+                                  <option>Early discharge by doctor</option>
+                                  <option>Patient requested early exit</option>
+                                  <option>Treatment deferred to next visit</option>
+                                  <option value="Other">Other (specify)</option>
+                                </select>
+                              </div>
+                              {visitMenuPredefined === "Other" && (
+                                <div className="space-y-1.5">
+                                  <label className="text-sm font-medium">Please specify</label>
+                                  <Input
+                                    value={visitMenuCustom}
+                                    onChange={(e) => setVisitMenuCustom(e.target.value)}
+                                    placeholder="e.g. Patient discharged with prescription"
+                                    autoFocus
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={() => { setVisitMenuPredefined(""); setVisitMenuCustom(""); }}>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => { setVisitMenuOpen(false); handleMarkVisitDone(); }}
+                                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                              >
+                                <ShieldCheck className="h-3.5 w-3.5 mr-1" />Confirm Visit Done
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
                     )}
 
                     {/* Patient Left Early — for when patient is mid-consultation and walks out */}
@@ -728,13 +813,6 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Cancellation / no-show reason */}
-          {(isCancelled || isNoShowState) && booking.cancellationReason && (
-            <div className="flex items-start gap-2 text-xs min-w-0">
-              <AlertCircle className="h-3 w-3 text-muted-foreground shrink-0 mt-px" />
-              <span className="text-muted-foreground italic truncate">{booking.cancellationReason}</span>
-            </div>
-          )}
 
           {/* Doctor assignment — clinic view */}
           {role === "clinic" && (() => {
@@ -900,6 +978,25 @@ export function AppointmentCard({
           <AlertTriangle className="h-3 w-3 shrink-0" />
           Slot time has passed — please action this booking
         </div>
+      )}
+
+      {/* ── Reason pill — shown for terminal states that have a stored reason ── */}
+      {(isCancelled || isNoShowState || isLeftEarlyState) && booking.cancellationReason && (
+        <TooltipProvider delayDuration={600}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 min-w-0 overflow-hidden cursor-default">
+                <AlertCircle className={`h-3 w-3 shrink-0 ${isNoShowState ? "text-slate-400" : isLeftEarlyState ? "text-amber-500" : "text-rose-400"}`} />
+                <span className="text-[10px] font-medium text-muted-foreground italic truncate block min-w-0">
+                  {booking.cancellationReason}
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" align="start" className="max-w-[220px] text-xs font-medium whitespace-normal">
+              {booking.cancellationReason}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
 
       {/* ── Progress Strip ── */}
