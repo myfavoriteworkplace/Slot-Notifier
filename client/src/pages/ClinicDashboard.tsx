@@ -3306,6 +3306,7 @@ export default function ClinicDashboard() {
                       }}
                       onRequestConsent={() => requestConsentMutation.mutate(booking.id)}
                       consentRequestPending={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
+                      onOpenActionTab={() => { setOpenBookingId(booking.id); setModalTab(booking.id, 'actions'); }}
                       checkInPending={checkInMutation.isPending}
                       completeVisitPending={completeVisitMutation.isPending}
                       cancelPending={cancelBookingMutation.isPending}

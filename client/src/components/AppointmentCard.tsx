@@ -5,7 +5,7 @@ import {
   Building2, Loader2, IndianRupee, ClipboardList, FileText,
   AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
   Stethoscope, MoreHorizontal, UserX, ShieldCheck, Bell,
-  Clock, Tag, Repeat2,
+  Clock, Tag, Repeat2, RefreshCw, Copy, Check,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -98,6 +98,7 @@ export interface AppointmentCardProps {
   onOpenNotes?: () => void;
   onOpenRecords?: () => void;
   onRequestConsent?: () => void;
+  onOpenActionTab?: () => void;
   // Loading states
   confirmPending?: boolean;
   cancelPending?: boolean;
@@ -159,6 +160,7 @@ export function AppointmentCard({
   onOpenNotes,
   onOpenRecords,
   onRequestConsent,
+  onOpenActionTab,
   confirmPending,
   cancelPending,
   assignDoctorPending,
@@ -177,6 +179,7 @@ export function AppointmentCard({
   const [noShowReason, setNoShowReason] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [consentCopied, setConsentCopied] = useState(false);
 
   // ── Date helpers ──
   const startTime = new Date(booking.slot.startTime);
@@ -576,7 +579,7 @@ export function AppointmentCard({
             <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
               <Repeat2 className="h-2.5 w-2.5 text-muted-foreground" />
             </div>
-            <span className="text-muted-foreground shrink-0 w-[100px]">Visit Type:</span>
+            <span className="text-muted-foreground shrink-0 w-[82px]">Visit Type:</span>
             {visitTypeLabel ? (
               <span className="inline-flex items-center gap-1 font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
                 {visitTypeLabel}
@@ -591,7 +594,7 @@ export function AppointmentCard({
             <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
               <Tag className="h-2.5 w-2.5 text-muted-foreground" />
             </div>
-            <span className="text-muted-foreground shrink-0 w-[100px]">Treatment:</span>
+            <span className="text-muted-foreground shrink-0 w-[82px]">Treatment:</span>
             {treatmentCategory ? (
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
@@ -642,7 +645,7 @@ export function AppointmentCard({
                   <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                     <Stethoscope className="h-2.5 w-2.5 text-primary" />
                   </div>
-                  <span className="text-muted-foreground shrink-0 w-[100px]">Assigned Doctor:</span>
+                  <span className="text-muted-foreground shrink-0 w-[82px]">Assigned:</span>
                   <span className="font-semibold text-primary truncate">Dr. {booking.assignedDoctor}</span>
                   {drStatus && <span className="truncate">{drStatus}</span>}
                 </div>
@@ -654,42 +657,14 @@ export function AppointmentCard({
                   <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                     <Stethoscope className="h-2.5 w-2.5 text-muted-foreground" />
                   </div>
-                  <span className="text-muted-foreground shrink-0 w-[100px]">Assigned Doctor:</span>
-                  {(booking.clinicDoctors ?? []).length > 0 ? (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/20 active:scale-[0.98] min-h-[22px] px-2 rounded-md transition-colors"
-                          data-testid={`button-assign-inline-${booking.id}`}
-                        >
-                          <UserPlus className="h-2.5 w-2.5" />Assign
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-52 p-1.5 rounded-xl shadow-lg" side="top" onClick={(e) => e.stopPropagation()}>
-                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">Select a doctor</p>
-                        <div className="space-y-0.5">
-                          {(booking.clinicDoctors ?? []).map((doc, idx) => (
-                            <button key={idx}
-                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-primary/5 active:bg-primary/10 transition-colors text-left"
-                              onClick={(e) => { e.stopPropagation(); onAssignDoctor?.(doc.name, doc.email ?? ""); }}
-                              disabled={assignDoctorPending}
-                            >
-                              <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                                <span className="text-xs font-bold text-primary">{doc.name.charAt(0)}</span>
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-xs font-semibold truncate">Dr. {doc.name}</p>
-                                <p className="text-xs text-muted-foreground truncate">{doc.specialization}</p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  ) : (
-                    <span className="italic text-muted-foreground/50">–</span>
-                  )}
+                  <span className="text-muted-foreground shrink-0 w-[82px]">Assigned:</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onOpenActionTab?.(); }}
+                    data-testid={`button-assign-doctor-${booking.id}`}
+                    className="inline-flex items-center gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all"
+                  >
+                    <UserPlus className="h-2.5 w-2.5" />Assign Doctor →
+                  </button>
                 </div>
               );
             }
@@ -698,7 +673,7 @@ export function AppointmentCard({
                 <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                   <Stethoscope className="h-2.5 w-2.5 text-muted-foreground" />
                 </div>
-                <span className="text-muted-foreground shrink-0 w-[100px]">Assigned Doctor:</span>
+                <span className="text-muted-foreground shrink-0 w-[82px]">Assigned:</span>
                 <span className="text-muted-foreground/50">–</span>
               </div>
             );
@@ -710,34 +685,55 @@ export function AppointmentCard({
               <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                 <PenLine className="h-2.5 w-2.5 text-muted-foreground" />
               </div>
-              <span className="text-muted-foreground shrink-0 w-[100px]">Consent:</span>
+              <span className="text-muted-foreground shrink-0 w-[82px]">Consent:</span>
               {booking.consentSignedAt ? (
                 <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                   <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
                 </span>
               ) : booking.consentToken ? (
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-1.5">
                   <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
-                    <Clock className="h-2.5 w-2.5" />Sent
+                    <Clock className="h-2.5 w-2.5" />Consent Sent
                   </span>
-                  {onRequestConsent && (
-                    <button
-                      onClick={onRequestConsent}
-                      disabled={consentRequestPending}
-                      data-testid={`button-resend-consent-inline-${booking.id}`}
-                      className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
-                    >
-                      {consentRequestPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <PenLine className="h-2.5 w-2.5" />}
-                      Resend →
-                    </button>
-                  )}
+                  <TooltipProvider delayDuration={400}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onRequestConsent?.(); }}
+                          disabled={consentRequestPending}
+                          data-testid={`button-resend-consent-icon-${booking.id}`}
+                          className="h-[22px] w-[22px] inline-flex items-center justify-center rounded-md text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 active:scale-95 transition-all disabled:opacity-50"
+                        >
+                          {consentRequestPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">Resend consent link</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(`${window.location.origin}/consent/${booking.consentToken}`);
+                            setConsentCopied(true);
+                            setTimeout(() => setConsentCopied(false), 2000);
+                          }}
+                          data-testid={`button-copy-consent-link-${booking.id}`}
+                          className="h-[22px] w-[22px] inline-flex items-center justify-center rounded-md text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 active:scale-95 transition-all"
+                        >
+                          {consentCopied ? <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">{consentCopied ? "Copied!" : "Copy consent link"}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">
                   <span className="text-muted-foreground/50">–</span>
                   {onRequestConsent && (
                     <button
-                      onClick={onRequestConsent}
+                      onClick={(e) => { e.stopPropagation(); onRequestConsent(); }}
                       disabled={consentRequestPending}
                       data-testid={`button-request-consent-inline-${booking.id}`}
                       className="inline-flex items-center gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
@@ -771,7 +767,7 @@ export function AppointmentCard({
             <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
               <ClipboardList className="h-2.5 w-2.5 text-muted-foreground" />
             </div>
-            <span className="text-muted-foreground shrink-0 w-[100px] pt-0.5">Chief Complaints:</span>
+            <span className="text-muted-foreground shrink-0 w-[82px] pt-0.5">Complaints:</span>
             {complaints.length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {complaints.slice(0, maxChips).map((c, i) => (
