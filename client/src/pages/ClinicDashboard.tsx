@@ -479,7 +479,7 @@ export default function ClinicDashboard() {
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: isAuthenticated && activePanel === 'accounts',
+    enabled: isAuthenticated && (activePanel === 'accounts' || activePanel === 'bookings'),
   });
 
   // Patient directory
@@ -3308,6 +3308,7 @@ export default function ClinicDashboard() {
                       onRequestConsent={() => requestConsentMutation.mutate(booking.id)}
                       consentRequestPending={requestConsentMutation.isPending && requestConsentMutation.variables === booking.id}
                       onOpenActionTab={() => { setOpenBookingId(booking.id); setModalTab(booking.id, 'actions'); }}
+                      openBillsCount={allBills.filter(b => b.bookingId === booking.id && b.paymentStatus !== 'paid').length}
                       checkInPending={checkInMutation.isPending}
                       completeVisitPending={completeVisitMutation.isPending}
                       cancelPending={cancelBookingMutation.isPending}

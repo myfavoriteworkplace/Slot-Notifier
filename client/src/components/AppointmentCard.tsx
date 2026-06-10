@@ -5,7 +5,7 @@ import {
   Building2, Loader2, IndianRupee, ClipboardList, FileText,
   AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
   Stethoscope, MoreHorizontal, UserX, ShieldCheck, Bell,
-  Clock, Tag, Repeat2, RefreshCw, Copy, Check,
+  Clock, Tag, Repeat2, RefreshCw, Copy, Check, BadgeAlert,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,9 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogDescription,
   AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -99,6 +102,7 @@ export interface AppointmentCardProps {
   onOpenRecords?: () => void;
   onRequestConsent?: () => void;
   onOpenActionTab?: () => void;
+  openBillsCount?: number;
   // Loading states
   confirmPending?: boolean;
   cancelPending?: boolean;
@@ -161,6 +165,7 @@ export function AppointmentCard({
   onOpenRecords,
   onRequestConsent,
   onOpenActionTab,
+  openBillsCount = 0,
   confirmPending,
   cancelPending,
   assignDoctorPending,
@@ -180,6 +185,16 @@ export function AppointmentCard({
   const [overrideReason, setOverrideReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [consentCopied, setConsentCopied] = useState(false);
+  const [visitDoneOpen, setVisitDoneOpen] = useState(false);
+  const [visitDoneReason, setVisitDoneReason] = useState("");
+
+  function handleMarkVisitDone() {
+    if (openBillsCount > 0) {
+      setVisitDoneOpen(true);
+    } else {
+      onCompleteVisit?.();
+    }
+  }
 
   // ── Date helpers ──
   const startTime = new Date(booking.slot.startTime);
@@ -507,10 +522,27 @@ export function AppointmentCard({
                       </AlertDialog>
                     )}
 
+                    {/* Mark Visit Done — normal Stage 3→4 path */}
+                    {isTreatmentCompleted && !isVisitCompleted && (
+                      <button
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors"
+                        onClick={() => { handleMarkVisitDone(); }}
+                        data-testid={`button-menu-visit-done-${booking.id}`}
+                      >
+                        <CheckCircle2 className="h-3 w-3" />
+                        Mark Visit Done
+                        {openBillsCount > 0 && (
+                          <span className="ml-auto text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full px-1.5 py-0.5">
+                            {openBillsCount} unpaid
+                          </span>
+                        )}
+                      </button>
+                    )}
+
                     <div className="my-1 h-px bg-border/40" />
 
-                    {/* Override complete — available at any non-terminal, non-completed state */}
-                    {!isVisitCompleted && (
+                    {/* Override complete — only when intermediate stages not yet reached (skip path) */}
+                    {!isVisitCompleted && !isTreatmentCompleted && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-colors" data-testid={`button-override-${booking.id}`}>
@@ -869,16 +901,21 @@ export function AppointmentCard({
             </Button>
           )}
 
-          {/* Stage 4 — Treatment Completed: Mark Visit Complete (green, active) */}
+          {/* Stage 4 — Treatment Completed: Mark Visit Done (green, active) */}
           {!isTerminal && isTreatmentCompleted && !isVisitCompleted && (
             <Button
               className="w-full h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
-              onClick={() => onCompleteVisit?.()}
+              onClick={handleMarkVisitDone}
               disabled={completeVisitPending}
-              data-testid={`button-mark-visit-complete-${booking.id}`}
+              data-testid={`button-mark-visit-done-${booking.id}`}
             >
               {completeVisitPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
-              Mark Visit Complete
+              Mark Visit Done
+              {openBillsCount > 0 && (
+                <span className="text-[10px] font-semibold bg-white/20 rounded-full px-1.5 py-0.5 ml-1">
+                  {openBillsCount} unpaid
+                </span>
+              )}
             </Button>
           )}
 
@@ -1001,6 +1038,53 @@ export function AppointmentCard({
                   disabled={!cancelReason || (cancelReason === "Other" && !cancelReasonOther.trim())}
                 >
                   Cancel Booking
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Open-bills warning dialog — shown before marking Visit Done when unpaid bills exist */}
+          <AlertDialog open={visitDoneOpen} onOpenChange={(open) => { if (!open) setVisitDoneReason(""); setVisitDoneOpen(open); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <BadgeAlert className="h-4 w-4 text-amber-500" />
+                  Unpaid Bills Found
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This booking has <strong>{openBillsCount} unpaid bill(s)</strong>. Select a reason to mark the visit as done anyway, or go to billing to settle them first.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="px-1 py-2 space-y-1.5">
+                <label className="text-sm font-medium">Reason <span className="text-destructive">*</span></label>
+                <Select value={visitDoneReason} onValueChange={setVisitDoneReason}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a reason…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="settle_later">Bills to be settled separately</SelectItem>
+                    <SelectItem value="deferred">Patient deferred payment</SelectItem>
+                    <SelectItem value="waived">Waived / Pro bono</SelectItem>
+                    <SelectItem value="billing_error">Error in billing</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="sm:mr-auto"
+                  onClick={() => { setVisitDoneOpen(false); setVisitDoneReason(""); onBill?.(); }}
+                >
+                  <IndianRupee className="h-3 w-3 mr-1" />Go to Billing
+                </Button>
+                <AlertDialogCancel onClick={() => setVisitDoneReason("")}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { onCompleteVisit?.(); setVisitDoneOpen(false); setVisitDoneReason(""); }}
+                  disabled={!visitDoneReason}
+                  className="bg-emerald-600 text-white hover:bg-emerald-700"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5 mr-1" />Mark Visit Done
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

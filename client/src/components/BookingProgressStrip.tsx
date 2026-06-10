@@ -5,7 +5,7 @@ export type LifecycleStage = 0 | 1 | 2 | 3 | 4;
 const STAGES = [
   { key: "booked", label: "Booked" },
   { key: "arrived", label: "Arrived" },
-  { key: "in_treatment", label: "In Treatment" },
+  { key: "in_treatment", label: "In Tmt." },
   { key: "tmt_done", label: "Tmt. Done" },
   { key: "visit_done", label: "Visit Done" },
 ] as const;
@@ -31,7 +31,7 @@ export function BookingProgressStrip({
           return (
             <div key={s.key} className="flex items-center gap-1 shrink-0">
               {i > 0 && (
-                <div className={`h-px w-4 sm:w-6 ${wasDone ? "bg-red-400/60" : "bg-border/40"}`} />
+                <div className={`h-px w-3 sm:w-4 ${wasDone ? "bg-red-400/60" : "bg-border/40"}`} />
               )}
               <div className="flex flex-col items-center gap-0.5">
                 <div className={`h-4 w-4 rounded-full flex items-center justify-center
@@ -102,7 +102,7 @@ export function BookingProgressStrip({
         return (
           <div key={s.key} className="flex items-center gap-1 shrink-0">
             {i > 0 && (
-              <div className={`h-px w-4 sm:w-6 transition-colors ${i <= stage ? lineColor : "bg-border/40"}`} />
+              <div className={`h-px w-3 sm:w-4 transition-colors ${i <= stage ? lineColor : "bg-border/40"}`} />
             )}
             <div className="flex flex-col items-center gap-0.5">
               <div className={`h-4 w-4 rounded-full flex items-center justify-center border ${dotBg} ${dotBorder} transition-all`}>

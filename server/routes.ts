@@ -4790,6 +4790,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
       const bill = await storage.updatePatientBill(id, clinicId, req.body);
+
+      // Auto-close booking when all its bills are now paid
+      if (req.body.paymentStatus === 'paid' && bill.bookingId) {
+        try {
+          const bookingBills = await storage.getPatientBillsByBookingId(bill.bookingId);
+          const allPaid = bookingBills.length > 0 && bookingBills.every(b => b.paymentStatus === 'paid');
+          if (allPaid) {
+            const booking = await storage.getBookingById(bill.bookingId);
+            if (booking && booking.visitStatus === 'treatment_completed') {
+              await storage.updateVisitStatus(bill.bookingId, 'completed', undefined, new Date());
+              broadcastToClinic(String(clinicId), { type: 'visit_auto_completed', bookingId: bill.bookingId });
+              console.log(`[AUTO-COMPLETE] Booking ${bill.bookingId} auto-completed — all bills settled`);
+            }
+          }
+        } catch (e: any) {
+          console.error('[AUTO-COMPLETE] Failed:', e.message);
+        }
+      }
+
       res.json(bill);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
