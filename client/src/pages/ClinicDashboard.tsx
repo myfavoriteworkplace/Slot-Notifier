@@ -1382,6 +1382,7 @@ export default function ClinicDashboard() {
     },
     onSuccess: (data, bookingId) => {
       setConsentUrls(prev => ({ ...prev, [bookingId]: data.consentUrl }));
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
       notify.success("Consent request sent", { description: "WhatsApp link sent to the patient." });
     },
     onError: (error: any) => {

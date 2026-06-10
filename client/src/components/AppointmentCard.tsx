@@ -393,8 +393,8 @@ export function AppointmentCard({
                     #{bookingNumber}
                   </span>
                 </div>
-                {/* Row 2: PAT code · Phone · Age · Gender — always all 4, -- when missing */}
-                <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground overflow-hidden">
+                {/* Row 2: PAT code only */}
+                <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
                   {booking.patientCode ? (
                     <span className="font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-px rounded-md shrink-0">
                       {booking.patientCode}
@@ -402,9 +402,11 @@ export function AppointmentCard({
                   ) : (
                     <span className="font-mono text-muted-foreground/40 shrink-0">--</span>
                   )}
-                  <span className="opacity-30 shrink-0 px-0.5">·</span>
+                </div>
+                {/* Row 3: Phone · Age · Gender */}
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Phone className="h-2.5 w-2.5 shrink-0" />
-                  <span className="shrink-0 ml-0.5">{booking.customerPhone || "--"}</span>
+                  <span className="shrink-0">{booking.customerPhone || "--"}</span>
                   <span className="opacity-30 shrink-0 px-0.5">·</span>
                   <span className="shrink-0">{booking.customerAge ? `${booking.customerAge}y` : "--"}</span>
                   <span className="opacity-30 shrink-0 px-0.5">·</span>
@@ -579,7 +581,7 @@ export function AppointmentCard({
             <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
               <Repeat2 className="h-2.5 w-2.5 text-muted-foreground" />
             </div>
-            <span className="text-muted-foreground shrink-0 w-[82px]">Visit Type:</span>
+            <span className="text-muted-foreground shrink-0">Visit Type:</span>
             {visitTypeLabel ? (
               <span className="inline-flex items-center gap-1 font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md">
                 {visitTypeLabel}
@@ -594,7 +596,7 @@ export function AppointmentCard({
             <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
               <Tag className="h-2.5 w-2.5 text-muted-foreground" />
             </div>
-            <span className="text-muted-foreground shrink-0 w-[82px]">Treatment:</span>
+            <span className="text-muted-foreground shrink-0">Treatment:</span>
             {treatmentCategory ? (
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
@@ -645,7 +647,7 @@ export function AppointmentCard({
                   <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                     <Stethoscope className="h-2.5 w-2.5 text-primary" />
                   </div>
-                  <span className="text-muted-foreground shrink-0 w-[82px]">Assigned:</span>
+                  <span className="text-muted-foreground shrink-0">Assigned:</span>
                   <span className="font-semibold text-primary truncate">Dr. {booking.assignedDoctor}</span>
                   {drStatus && <span className="truncate">{drStatus}</span>}
                 </div>
@@ -657,7 +659,7 @@ export function AppointmentCard({
                   <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                     <Stethoscope className="h-2.5 w-2.5 text-muted-foreground" />
                   </div>
-                  <span className="text-muted-foreground shrink-0 w-[82px]">Assigned:</span>
+                  <span className="text-muted-foreground shrink-0">Assigned:</span>
                   <button
                     onClick={(e) => { e.stopPropagation(); onOpenActionTab?.(); }}
                     data-testid={`button-assign-doctor-${booking.id}`}
@@ -673,7 +675,7 @@ export function AppointmentCard({
                 <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                   <Stethoscope className="h-2.5 w-2.5 text-muted-foreground" />
                 </div>
-                <span className="text-muted-foreground shrink-0 w-[82px]">Assigned:</span>
+                <span className="text-muted-foreground shrink-0">Assigned:</span>
                 <span className="text-muted-foreground/50">–</span>
               </div>
             );
@@ -685,7 +687,7 @@ export function AppointmentCard({
               <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                 <PenLine className="h-2.5 w-2.5 text-muted-foreground" />
               </div>
-              <span className="text-muted-foreground shrink-0 w-[82px]">Consent:</span>
+              <span className="text-muted-foreground shrink-0">Consent:</span>
               {booking.consentSignedAt ? (
                 <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                   <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
@@ -729,20 +731,19 @@ export function AppointmentCard({
                   </TooltipProvider>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5">
+                onRequestConsent ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onRequestConsent(); }}
+                    disabled={consentRequestPending}
+                    data-testid={`button-request-consent-inline-${booking.id}`}
+                    className="inline-flex items-center gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
+                  >
+                    {consentRequestPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <PenLine className="h-2.5 w-2.5" />}
+                    Send Link →
+                  </button>
+                ) : (
                   <span className="text-muted-foreground/50">–</span>
-                  {onRequestConsent && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onRequestConsent(); }}
-                      disabled={consentRequestPending}
-                      data-testid={`button-request-consent-inline-${booking.id}`}
-                      className="inline-flex items-center gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
-                    >
-                      {consentRequestPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <PenLine className="h-2.5 w-2.5" />}
-                      Send Link →
-                    </button>
-                  )}
-                </div>
+                )
               )}
             </div>
           )}
@@ -767,7 +768,7 @@ export function AppointmentCard({
             <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
               <ClipboardList className="h-2.5 w-2.5 text-muted-foreground" />
             </div>
-            <span className="text-muted-foreground shrink-0 w-[82px] pt-0.5">Complaints:</span>
+            <span className="text-muted-foreground shrink-0 pt-0.5">Complaints:</span>
             {complaints.length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {complaints.slice(0, maxChips).map((c, i) => (
