@@ -246,13 +246,17 @@ export function AppointmentCard({
     && !isTerminal && !isVisitCompleted && !isTreatmentCompleted
     && !isInConsultation && !isCheckedIn;
 
-  // Derive numeric lifecycle stage (0–4) for progress strip
-  const lifecycleStage: LifecycleStage = isVisitCompleted ? 4
-    : isTreatmentCompleted ? 3
-    : isInConsultation ? 2
-    : isCheckedIn ? 1
-    : isLeftEarlyState ? (booking.checkedInAt ? 1 : 0)
-    : 0;
+  // Derive string lifecycle stage for progress strip
+  const lifecycleStage: LifecycleStage =
+    isCancelled ? "cancelled"
+    : isNoShowState ? "no_show"
+    : isLeftEarlyState ? "left_early"
+    : isVisitCompleted ? "visit_completed"
+    : isTreatmentCompleted ? "treatment_completed"
+    : isInConsultation ? "in_consultation"
+    : isCheckedIn ? "checked_in"
+    : isConfirmed ? "confirmed"
+    : "booked";
 
   // ── Visual classes ──
   const accentBar = isNoShowState
@@ -271,7 +275,12 @@ export function AppointmentCard({
     ? "bg-gradient-to-r from-slate-300 to-slate-200"
     : "bg-gradient-to-r from-primary to-accent";
 
-  const leftBorder = isCancelled
+  // Full-border for active live states; left-border accent for everything else
+  const cardBorderClass = isInConsultation
+    ? "border-2 border-teal-400/70 shadow-sm shadow-teal-400/10"
+    : role === "doctor" && isCheckedIn
+    ? "border-2 border-primary/60 shadow-sm shadow-primary/10"
+    : isCancelled
     ? "border-l-[3px] border-l-rose-400 dark:border-l-rose-500"
     : isNoShowState
     ? "border-l-[3px] border-l-slate-400 dark:border-l-slate-500"
@@ -295,11 +304,6 @@ export function AppointmentCard({
     ? "bg-gradient-to-r from-sky-500/10 to-cyan-500/5"
     : "bg-gradient-to-r from-primary/5 to-accent/5";
 
-  const ringClass = role === "doctor" && isCheckedIn
-    ? "ring-2 ring-primary/40 ring-offset-2 animate-[pulse_2s_ease-in-out_infinite]"
-    : isInConsultation
-    ? "ring-2 ring-teal-400/60 ring-offset-2"
-    : "";
 
   // ── Derived display values ──
   const displayClinicName = clinicName || booking.clinicName || booking.clinic?.name;
@@ -412,11 +416,11 @@ export function AppointmentCard({
 
   return (
     <Card
-      className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${leftBorder} ${ringClass}`}
+      className={`overflow-hidden border-border/50 hover:shadow-lg hover:border-primary/20 dark:hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 group flex flex-col ${(isPast || isTerminal) ? "opacity-80" : ""} ${cardBorderClass}`}
       data-testid={`card-booking-${booking.id}`}
     >
-      {/* Accent bar */}
-      <div className={`h-[3px] ${accentBar}`} />
+      {/* Accent bar — pulse when actively in-progress */}
+      <div className={`h-[3px] ${accentBar} ${isInConsultation || (role === "doctor" && isCheckedIn) ? "animate-pulse" : ""}`} />
 
       {/* Clickable body */}
       <div
@@ -933,11 +937,17 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Clinical status — doctor view */}
+          {/* Clinical status — doctor view, labelled row */}
           {role === "doctor" && booking.clinicalStatus && CLINICAL_STATUS_LABELS[booking.clinicalStatus] && (
-            <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border ${CLINICAL_STATUS_LABELS[booking.clinicalStatus].cls}`}>
-              {CLINICAL_STATUS_LABELS[booking.clinicalStatus].label}
-            </span>
+            <div className="flex items-center gap-2 text-xs min-w-0">
+              <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                <ClipboardList className="h-2.5 w-2.5 text-muted-foreground" />
+              </div>
+              <span className="text-muted-foreground shrink-0">Clinical Status:</span>
+              <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border shrink-0 ${CLINICAL_STATUS_LABELS[booking.clinicalStatus].cls}`}>
+                {CLINICAL_STATUS_LABELS[booking.clinicalStatus].label}
+              </span>
+            </div>
           )}
 
           {/* Doctor notes indicator */}
