@@ -3552,29 +3552,30 @@ export default function ClinicDashboard() {
                             return (
                               <div className="px-4 pt-3 pb-4 space-y-2.5">
 
-                                {/* ── Compact patient contact strip ── */}
-                                <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2 space-y-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    {(booking as any).patientCode ? (
-                                      <span className="font-mono font-bold text-xs text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md shrink-0">
-                                        {(booking as any).patientCode}
-                                      </span>
-                                    ) : null}
+                                {/* ── Patient contact strip — 2-column grid ── */}
+                                <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2 space-y-1.5">
+                                  {(booking as any).patientCode && (
+                                    <span className="font-mono font-bold text-xs text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md inline-block">
+                                      {(booking as any).patientCode}
+                                    </span>
+                                  )}
+                                  <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                                     <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
                                       <Phone className="h-2.5 w-2.5 shrink-0" />
-                                      <span className="shrink-0">{booking.customerPhone || "--"}</span>
-                                      <span className="opacity-30 shrink-0 px-0.5">·</span>
+                                      <span className="truncate">{booking.customerPhone || "--"}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
                                       <span className="shrink-0">{(booking as any).customerAge ? `${(booking as any).customerAge}y` : "--"}</span>
-                                      <span className="opacity-30 shrink-0 px-0.5">·</span>
+                                      <span className="opacity-30 shrink-0">·</span>
                                       <span className="shrink-0 capitalize">{(booking as any).customerGender || "--"}</span>
                                     </div>
+                                    {booking.customerEmail && (
+                                      <div className="col-span-2 flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                                        <Mail className="h-2.5 w-2.5 shrink-0 text-blue-500" />
+                                        <span className="truncate">{booking.customerEmail}</span>
+                                      </div>
+                                    )}
                                   </div>
-                                  {booking.customerEmail && (
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <Mail className="h-2.5 w-2.5 shrink-0 text-blue-500" />
-                                      <span className="truncate">{booking.customerEmail}</span>
-                                    </div>
-                                  )}
                                 </div>
 
                                 {/* ── Info grid — 2 equal columns ── */}
@@ -3585,7 +3586,7 @@ export default function ClinicDashboard() {
                                     <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                       <Repeat2 className="h-2.5 w-2.5 text-muted-foreground" />
                                     </div>
-                                    <span className="text-muted-foreground shrink-0">Visit:</span>
+                                    <span className="text-muted-foreground shrink-0">Visit Type:</span>
                                     {ovVisitType ? (
                                       <span className="inline-flex items-center font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
                                         {OVERVIEW_VISIT_TYPE_LABELS[ovVisitType] ?? ovVisitType}
@@ -3600,7 +3601,7 @@ export default function ClinicDashboard() {
                                     <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                                       <Stethoscope className="h-2.5 w-2.5 text-primary" />
                                     </div>
-                                    <span className="text-muted-foreground shrink-0">Dr:</span>
+                                    <span className="text-muted-foreground shrink-0">Assigned:</span>
                                     {booking.assignedDoctor ? (
                                       <div className="flex items-center gap-1 min-w-0">
                                         <span className="font-semibold text-primary truncate">Dr. {booking.assignedDoctor}</span>
@@ -3619,7 +3620,7 @@ export default function ClinicDashboard() {
                                     <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                       <Tag className="h-2.5 w-2.5 text-muted-foreground" />
                                     </div>
-                                    <span className="text-muted-foreground shrink-0">Tmt:</span>
+                                    <span className="text-muted-foreground shrink-0">Treatment:</span>
                                     {ovTreatmentCategory ? (
                                       <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
                                         {ovTreatmentCategory}
@@ -3666,7 +3667,7 @@ export default function ClinicDashboard() {
                                     <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
                                       <ClipboardList className="h-2.5 w-2.5 text-muted-foreground" />
                                     </div>
-                                    <span className="text-muted-foreground shrink-0 pt-0.5">CC:</span>
+                                    <span className="text-muted-foreground shrink-0 pt-0.5">Complaints:</span>
                                     {complaints.length > 0 ? (
                                       <div className="flex flex-wrap gap-1">
                                         {complaints.map((c, idx) => (

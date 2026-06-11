@@ -772,6 +772,16 @@ export function AppointmentCard({
             </span>
           </div>
 
+          {/* Clinic name — doctor view, just under date */}
+          {role === "doctor" && displayClinicName && (
+            <div className="flex items-center gap-2 text-xs min-w-0">
+              <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                <Building2 className="h-2.5 w-2.5 text-muted-foreground" />
+              </div>
+              <span className="font-medium truncate">{displayClinicName}{clinicCity ? ` (${clinicCity})` : ""}</span>
+            </div>
+          )}
+
           {/* Visit Type */}
           <div className="flex items-center gap-2 text-xs min-w-0">
             <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
@@ -806,17 +816,6 @@ export function AppointmentCard({
               <span className="text-muted-foreground/50">–</span>
             )}
           </div>
-
-          {/* Clinic name — doctor view */}
-          {role === "doctor" && displayClinicName && (
-            <div className="flex items-center gap-2 text-xs min-w-0">
-              <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                <Building2 className="h-2.5 w-2.5 text-muted-foreground" />
-              </div>
-              <span className="font-medium truncate">{displayClinicName}{clinicCity ? ` (${clinicCity})` : ""}</span>
-            </div>
-          )}
-
 
           {/* Doctor assignment — clinic view */}
           {role === "clinic" && (() => {
@@ -1336,16 +1335,28 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 1 — Booked (Read Only): approved/confirmed, not arrived */}
+          {/* Stage 1 — Booked: approved/confirmed, not arrived */}
           {booking.doctorApprovalStatus !== "pending" && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
-            <Button
-              variant="outline"
-              className="w-full h-10 text-sm font-medium text-muted-foreground border-border/60 bg-muted/20 cursor-not-allowed gap-2 pointer-events-none"
-              disabled
-              data-testid={`button-booked-readonly-${booking.id}`}
-            >
-              <CalendarDays className="h-3.5 w-3.5" />Booked (Read Only)
-            </Button>
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-full cursor-not-allowed">
+                    <Button
+                      variant="outline"
+                      className="w-full h-10 text-sm font-medium text-muted-foreground border-border/60 bg-muted/20 gap-2 pointer-events-none"
+                      disabled
+                      tabIndex={-1}
+                      data-testid={`button-booked-readonly-${booking.id}`}
+                    >
+                      <CalendarDays className="h-3.5 w-3.5" />Booked
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                  Waiting for patient to arrive — no action required
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
 
           {/* Stage 2 — Arrived: Start Consultation (blue, active) */}
@@ -1374,28 +1385,52 @@ export function AppointmentCard({
             </Button>
           )}
 
-          {/* Stage 4 — Treatment Completed (Read Only) */}
+          {/* Stage 4 — Treatment Completed */}
           {isTreatmentCompleted && !isVisitCompleted && (
-            <Button
-              variant="outline"
-              className="w-full h-10 text-sm font-medium text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/10 cursor-not-allowed gap-2 pointer-events-none"
-              disabled
-              data-testid={`button-consult-complete-${booking.id}`}
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />Consultation Completed (Read Only)
-            </Button>
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-full cursor-not-allowed">
+                    <Button
+                      variant="outline"
+                      className="w-full h-10 text-sm font-medium text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/10 gap-2 pointer-events-none"
+                      disabled
+                      tabIndex={-1}
+                      data-testid={`button-consult-complete-${booking.id}`}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />Consultation Completed
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[220px] text-center">
+                  Your consultation is done — waiting for the clinic to close the visit
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
 
-          {/* Stage 5 — Visit Completed (Read Only) */}
+          {/* Stage 5 — Visit Completed */}
           {isVisitCompleted && (
-            <Button
-              variant="outline"
-              className="w-full h-10 text-sm font-medium text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/10 cursor-not-allowed gap-2 pointer-events-none"
-              disabled
-              data-testid={`button-visit-complete-readonly-${booking.id}`}
-            >
-              <ShieldCheck className="h-3.5 w-3.5" />Visit Completed (Read Only)
-            </Button>
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-full cursor-not-allowed">
+                    <Button
+                      variant="outline"
+                      className="w-full h-10 text-sm font-medium text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/10 gap-2 pointer-events-none"
+                      disabled
+                      tabIndex={-1}
+                      data-testid={`button-visit-complete-readonly-${booking.id}`}
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" />Visit Completed
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                  Visit complete — managed by the clinic
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
 
           {/* ── SECONDARY buttons ── */}
