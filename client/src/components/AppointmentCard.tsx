@@ -63,6 +63,7 @@ export interface BookingWithSlot {
   consentSignedAt?: Date | string | null;
   consentToken?: string | null;
   cancellationReason?: string | null;
+  visitCompletionNote?: string | null;
   createdAt?: Date | string | null;
   patientCode?: string | null;
   slot: { startTime: string | Date; endTime: string | Date };
@@ -89,7 +90,7 @@ export interface AppointmentCardProps {
   onAssignDoctor?: (doctorName: string, doctorEmail: string) => void;
   onCheckIn?: () => void;
   onUndoCheckIn?: () => void;
-  onCompleteVisit?: () => void;
+  onCompleteVisit?: (note?: string) => void;
   onNoShow?: (reason?: string) => void;
   onPatientLeftEarly?: (reason: string) => void;
   onSendReminder?: () => void;
@@ -202,12 +203,14 @@ export function AppointmentCard({
   const [visitMenuOpen, setVisitMenuOpen] = useState(false);
   const [visitMenuPredefined, setVisitMenuPredefined] = useState("");
   const [visitMenuCustom, setVisitMenuCustom] = useState("");
+  const [pendingVisitNote, setPendingVisitNote] = useState<string | undefined>();
 
-  function handleMarkVisitDone() {
+  function handleMarkVisitDone(note?: string) {
     if (openBillsCount > 0) {
+      setPendingVisitNote(note);
       setVisitDoneOpen(true);
     } else {
-      onCompleteVisit?.();
+      onCompleteVisit?.(note);
     }
   }
 
@@ -248,6 +251,12 @@ export function AppointmentCard({
   const isPastDue    = slotAgeMs > 2 * 60 * 60 * 1000
     && !isTerminal && !isVisitCompleted && !isTreatmentCompleted
     && !isInConsultation && !isCheckedIn;
+
+  // Past-day: appointment was on a previous calendar day (disables Confirm button)
+  const isPastDay = isPast && !isToday;
+
+  // Delayed check-in: patient arrived after the slot's end time
+  const isCheckedInLate = !!booking.checkedInAt && new Date(booking.checkedInAt) > endTime;
 
   // Derive string lifecycle stage for progress strip
   const lifecycleStage: LifecycleStage =
@@ -552,6 +561,12 @@ export function AppointmentCard({
                               {booking.customerName} will be marked as no-show. You can still rebook them.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
+                          {openBillsCount > 0 && (
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md px-2.5 py-1.5 mx-0">
+                              <AlertTriangle className="h-3 w-3 shrink-0" />
+                              <span>{openBillsCount} unpaid bill{openBillsCount > 1 ? 's' : ''} on this booking — consider settling in billing first.</span>
+                            </div>
+                          )}
                           <div className="px-1 py-2 space-y-3">
                             <div className="space-y-1.5">
                               <label className="text-sm font-medium">Reason (optional)</label>
@@ -653,7 +668,11 @@ export function AppointmentCard({
                             <AlertDialogFooter>
                               <AlertDialogCancel onClick={() => { setVisitMenuPredefined(""); setVisitMenuCustom(""); }}>Cancel</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() => { setVisitMenuOpen(false); handleMarkVisitDone(); }}
+                                onClick={() => {
+                                  const reason = visitMenuPredefined === "Other" ? visitMenuCustom.trim() : visitMenuPredefined;
+                                  setVisitMenuOpen(false);
+                                  handleMarkVisitDone(reason || undefined);
+                                }}
                                 className="bg-emerald-600 text-white hover:bg-emerald-700"
                               >
                                 <ShieldCheck className="h-3.5 w-3.5 mr-1" />Confirm Visit Done
@@ -1028,22 +1047,22 @@ export function AppointmentCard({
 
       {/* Past-due indicator — slot passed with no action taken */}
       {isPastDue && (
-        <TooltipProvider delayDuration={600}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1 overflow-hidden cursor-default">
-                <AlertTriangle className="h-3 w-3 shrink-0" />
-                <span className="truncate min-w-0">Slot time has passed — please action this booking</span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="top" align="start" className="max-w-[220px] text-xs font-medium whitespace-normal">
-              Slot time has passed — please action this booking
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1">
+          <AlertTriangle className="h-3 w-3 shrink-0" />
+          <span className="truncate min-w-0 flex-1">Slot time has passed — please action this booking</span>
+          {role === "clinic" && onOpenActionTab && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenActionTab?.(); }}
+              className="shrink-0 underline underline-offset-2 hover:no-underline"
+              data-testid={`link-reschedule-pastdue-${booking.id}`}
+            >
+              Reschedule
+            </button>
+          )}
+        </div>
       )}
 
-      {/* ── Reason banner — shown for terminal states that have a stored reason ── */}
+      {/* ── Reason banner — terminal cancellation/no-show/left-early reasons ── */}
       {(isCancelled || isNoShowState || isLeftEarlyState) && booking.cancellationReason && (
         <TooltipProvider delayDuration={600}>
           <Tooltip>
@@ -1066,6 +1085,43 @@ export function AppointmentCard({
         </TooltipProvider>
       )}
 
+      {/* ── Visit completion note banner — shown when visit is done and a note was recorded ── */}
+      {isVisitCompleted && (booking as any).visitCompletionNote && (
+        <TooltipProvider delayDuration={600}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold rounded-lg px-2.5 py-1 overflow-hidden cursor-default border text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                <span className="truncate min-w-0">{(booking as any).visitCompletionNote}</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" align="start" className="max-w-[220px] text-xs font-medium whitespace-normal">
+              {(booking as any).visitCompletionNote}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+
+      {/* ── Persistent unpaid bill banner — visit complete but bills outstanding ── */}
+      {isVisitCompleted && openBillsCount > 0 && (
+        <div
+          className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1 cursor-pointer hover:bg-amber-100/60 dark:hover:bg-amber-950/30 transition-colors"
+          onClick={(e) => { e.stopPropagation(); onBill?.(); }}
+          data-testid={`banner-unpaid-bill-${booking.id}`}
+        >
+          <IndianRupee className="h-3 w-3 shrink-0" />
+          <span className="truncate min-w-0 flex-1">{openBillsCount} unpaid bill{openBillsCount > 1 ? 's' : ''} — tap to settle</span>
+        </div>
+      )}
+
+      {/* ── Delayed check-in banner — patient arrived after the slot end time ── */}
+      {isCheckedInLate && !isTerminal && !isVisitCompleted && (
+        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg px-2.5 py-1">
+          <Clock className="h-3 w-3 shrink-0" />
+          <span className="truncate min-w-0">Arrived after scheduled slot time</span>
+        </div>
+      )}
+
       {/* ── Progress Strip ── */}
       <div className="px-3 sm:px-4 pt-1.5 pb-0.5 border-t border-border/30">
         <BookingProgressStrip
@@ -1078,10 +1134,11 @@ export function AppointmentCard({
           noBill={noBill}
           cancellationReason={(booking as any).cancellationReason ?? null}
           confirmedBy={(booking as any).confirmedBy ?? null}
+          visitCompletionNote={(booking as any).visitCompletionNote ?? null}
           stageBeforeCancel={
             isLeftEarlyState ? 3 :
             (isCancelled || isNoShowState) ? (
-              (booking as any).visitStatus === 'visit_completed' ? 4 :
+              (booking as any).visitStatus === 'completed' ? 4 :
               ((booking as any).visitStatus === 'treatment_completed' || (booking as any).visitStatus === 'in_consultation') ? 3 :
               (!!(booking as any).checkedInAt || (booking as any).visitStatus === 'checked_in') ? 2 :
               !!(booking as any).confirmedBy ? 1 :
@@ -1123,15 +1180,28 @@ export function AppointmentCard({
 
           {/* Stage 1 — Pending: Confirm Appointment (blue, active) */}
           {!isTerminal && !isClinicConfirmed && (
-            <Button
-              className="w-full h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
-              onClick={() => onConfirm?.()}
-              disabled={confirmPending}
-              data-testid={`button-confirm-${booking.id}`}
-            >
-              {confirmPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-              Confirm Appointment
-            </Button>
+            <TooltipProvider delayDuration={400}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="w-full">
+                    <Button
+                      className="w-full h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => !isPastDay && onConfirm?.()}
+                      disabled={confirmPending || isPastDay}
+                      data-testid={`button-confirm-${booking.id}`}
+                    >
+                      {confirmPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                      {isPastDay ? "Past Appointment" : "Confirm Appointment"}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {isPastDay && (
+                  <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                    This appointment was on a past day. Use Reschedule to move it to a new slot.
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           )}
 
           {/* Stage 1b — Confirmed, not yet arrived: Mark Arrived (sky, active) */}
@@ -1189,15 +1259,26 @@ export function AppointmentCard({
             </Button>
           )}
 
-          {/* Stage 5 — Visit Completed: Bill Generated (green) */}
+          {/* Stage 5 — Visit Completed */}
           {!isTerminal && isVisitCompleted && (
-            <Button
-              className="w-full h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
-              onClick={() => onBill?.()}
-              data-testid={`button-bill-complete-${booking.id}`}
-            >
-              <IndianRupee className="h-3.5 w-3.5" />Bill Generated ↓
-            </Button>
+            noBill ? (
+              <Button
+                variant="outline"
+                className="w-full h-10 text-sm font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/10 cursor-default gap-2 pointer-events-none"
+                disabled
+                data-testid={`button-no-dues-${booking.id}`}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />No Dues
+              </Button>
+            ) : (
+              <Button
+                className="w-full h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
+                onClick={() => onBill?.()}
+                data-testid={`button-bill-complete-${booking.id}`}
+              >
+                <IndianRupee className="h-3.5 w-3.5" />{openBillsCount > 0 ? `${openBillsCount} Unpaid Bill${openBillsCount > 1 ? 's' : ''} ↓` : "Download Bill ↓"}
+              </Button>
+            )
           )}
 
           {/* ── SECONDARY buttons ── */}
@@ -1350,7 +1431,7 @@ export function AppointmentCard({
                 </Button>
                 <AlertDialogCancel onClick={() => setVisitDoneReason("")}>Cancel</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={() => { onCompleteVisit?.(); setVisitDoneOpen(false); setVisitDoneReason(""); }}
+                  onClick={() => { onCompleteVisit?.(pendingVisitNote); setVisitDoneOpen(false); setVisitDoneReason(""); setPendingVisitNote(undefined); }}
                   disabled={!visitDoneReason}
                   className="bg-emerald-600 text-white hover:bg-emerald-700"
                 >

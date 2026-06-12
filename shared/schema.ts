@@ -111,6 +111,7 @@ export const bookings = pgTable("bookings", {
   consentToken: varchar("consent_token", { length: 255 }),
   paymentAmount: integer("payment_amount"),
   cancellationReason: text("cancellation_reason"),
+  visitCompletionNote: text("visit_completion_note"),
   slotCost: integer("slot_cost").default(1),
   createdAt: timestamp("created_at").defaultNow(),
 });

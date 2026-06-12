@@ -37,6 +37,8 @@ export interface BookingProgressStripProps {
   confirmedBy?: string | null;
   /** Highest step index (0–4) that was reached before the booking became terminal */
   stageBeforeCancel?: number;
+  /** Reason the admin recorded when closing the visit (normal or override) */
+  visitCompletionNote?: string | null;
 }
 
 // ──────────────── Steps ────────────────
@@ -74,6 +76,7 @@ export function BookingProgressStrip({
   cancellationReason,
   confirmedBy,
   stageBeforeCancel = 0,
+  visitCompletionNote,
 }: BookingProgressStripProps) {
 
   const isTerminal = TERMINAL.has(stage) || isCancelled || isNoShow || isLeftEarly;
@@ -202,18 +205,21 @@ export function BookingProgressStrip({
             labelColor= "text-orange-500 dark:text-orange-400 line-through";
           } else if (isLast && isCurrent) {
             if (hasUnpaidBill) {
+              // Amber: visit done but unpaid bills remain — needs attention
               dotBg     = "bg-amber-50 dark:bg-amber-950/20";
               dotBorder = "border-amber-400 dark:border-amber-600";
               dotInner  = <CheckCircle2 className="h-2.5 w-2.5 text-amber-500 dark:text-amber-400" />;
               lineColor = "bg-amber-300/60 dark:bg-amber-700/40";
               labelColor= "text-amber-600 dark:text-amber-400 font-semibold";
             } else if (noBill) {
-              dotBg     = "bg-amber-50 dark:bg-amber-950/20";
-              dotBorder = "border-amber-400 dark:border-amber-600";
-              dotInner  = <CheckCircle2 className="h-2.5 w-2.5 text-amber-500 dark:text-amber-400" />;
+              // Green dashed: visit done intentionally with no invoice (free, waived, etc.)
+              dotBg     = "bg-emerald-50 dark:bg-emerald-950/20";
+              dotBorder = "border-dashed border-emerald-400 dark:border-emerald-600";
+              dotInner  = <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 dark:text-emerald-400" />;
               lineColor = "bg-emerald-300 dark:bg-emerald-700";
-              labelColor= "text-amber-600 dark:text-amber-400 font-semibold";
+              labelColor= "text-emerald-600 dark:text-emerald-400 font-semibold";
             } else {
+              // Solid green: fully done
               dotBg     = "bg-emerald-50 dark:bg-emerald-950/20";
               dotBorder = "border-emerald-400 dark:border-emerald-600";
               dotInner  = <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 dark:text-emerald-400" />;
@@ -248,7 +254,8 @@ export function BookingProgressStrip({
           // Tooltip content for specific steps
           const isConfirmedStep = i === 1 && (isCompleted || isCurrent);
           const isLastStep      = isLast && isCurrent;
-          const hasStepTooltip  = (isConfirmedStep && confirmedBy) || (isLastStep && (noBill || hasUnpaidBill));
+          const hasStepTooltip  = (isConfirmedStep && confirmedBy)
+            || (isLastStep && (noBill || hasUnpaidBill || !!visitCompletionNote || isOverride));
 
           let tooltipText = "";
           if (isConfirmedStep && confirmedBy) {
@@ -257,10 +264,16 @@ export function BookingProgressStrip({
               : confirmedBy === "admin"
               ? "Confirmed by Clinic Admin"
               : `Confirmed by ${confirmedBy}`;
-          } else if (isLastStep && hasUnpaidBill) {
-            tooltipText = "Bill pending — invoice not yet settled";
-          } else if (isLastStep && noBill) {
-            tooltipText = "No invoice generated";
+          } else if (isLastStep) {
+            if (visitCompletionNote) {
+              tooltipText = visitCompletionNote;
+            } else if (hasUnpaidBill) {
+              tooltipText = "Bill pending — invoice not yet settled";
+            } else if (noBill) {
+              tooltipText = "No invoice generated for this visit";
+            } else if (isOverride) {
+              tooltipText = "Visit force-completed by admin — some stages were skipped";
+            }
           }
 
           const dotEl = (

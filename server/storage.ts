@@ -480,10 +480,11 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null): Promise<Booking> {
+  async updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null, visitCompletionNote?: string | null): Promise<Booking> {
     const setFields: Record<string, any> = { visitStatus };
     if (checkedInAt !== undefined) setFields.checkedInAt = checkedInAt;
     if (completedAt !== undefined) setFields.completedAt = completedAt;
+    if (visitCompletionNote !== undefined) setFields.visitCompletionNote = visitCompletionNote;
     const [updated] = await db.update(bookings)
       .set(setFields)
       .where(eq(bookings.id, id))

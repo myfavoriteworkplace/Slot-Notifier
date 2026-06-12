@@ -3431,7 +3431,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const booking = await storage.getBookingById(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
-      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date());
+      const { note } = req.body ?? {};
+      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date(), note?.trim() || null);
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4285,7 +4286,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       const { reason } = req.body;
       const prevVisit = (booking as any).visitStatus || 'booked';
-      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date());
+      const overrideNote = reason?.trim() ? `Override: ${reason.trim()}` : 'Admin override';
+      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date(), overrideNote);
       // Audit log
       await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
         VALUES (${bookingId}, ${prevVisit}, 'completed_override', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason || 'Admin override'})`);

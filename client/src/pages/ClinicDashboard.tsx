@@ -1339,8 +1339,8 @@ export default function ClinicDashboard() {
   });
 
   const completeVisitMutation = useMutation({
-    mutationFn: async (bookingId: number) => {
-      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/complete-visit`, {});
+    mutationFn: async ({ bookingId, note }: { bookingId: number; note?: string }) => {
+      const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/complete-visit`, { note });
       if (!response.ok) throw new Error('Failed to complete visit');
       return response.json();
     },
@@ -3331,7 +3331,7 @@ export default function ClinicDashboard() {
                       confirmPending={confirmBookingMutation.isPending}
                       onCheckIn={() => checkInMutation.mutate({ bookingId: booking.id })}
                       onUndoCheckIn={() => checkInMutation.mutate({ bookingId: booking.id, undo: true })}
-                      onCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
+                      onCompleteVisit={(note) => completeVisitMutation.mutate({ bookingId: booking.id, note })}
                       onNoShow={(reason) => noShowMutation.mutate({ bookingId: booking.id, reason })}
                       noShowPending={noShowMutation.isPending}
                       onSendReminder={() => sendReminderMutation.mutate(booking.id)}
@@ -3709,7 +3709,13 @@ export default function ClinicDashboard() {
                                 {ovIsPastDue && (
                                   <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5">
                                     <AlertTriangle className="h-3 w-3 shrink-0" />
-                                    <span className="min-w-0">Slot time has passed — please action this booking</span>
+                                    <span className="min-w-0 flex-1">Slot time has passed — please action this booking</span>
+                                    <button
+                                      onClick={() => setModalTab(booking.id, 'actions')}
+                                      className="shrink-0 text-xs underline underline-offset-2 hover:no-underline"
+                                    >
+                                      Reschedule
+                                    </button>
                                   </div>
                                 )}
 
@@ -3727,6 +3733,29 @@ export default function ClinicDashboard() {
                                   </div>
                                 )}
 
+                                {/* ── Visit completion note banner ── */}
+                                {(booking as any).visitCompletionNote && (booking as any).visitStatus === 'completed' && (
+                                  <div className="flex items-start gap-1.5 text-[10px] font-semibold rounded-lg px-2.5 py-1.5 border text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+                                    <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
+                                    <span className="leading-snug">{(booking as any).visitCompletionNote}</span>
+                                  </div>
+                                )}
+
+                                {/* ── Unpaid bills banner (visit complete) ── */}
+                                {(() => {
+                                  const ovBills = allBills.filter(b => b.bookingId === booking.id);
+                                  const ovOpen = ovBills.filter(b => b.paymentStatus !== 'paid').length;
+                                  return (booking as any).visitStatus === 'completed' && ovOpen > 0 ? (
+                                    <div
+                                      className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-amber-100/60 dark:hover:bg-amber-950/30 transition-colors"
+                                      onClick={() => setModalTab(booking.id, 'billing')}
+                                    >
+                                      <IndianRupee className="h-3 w-3 shrink-0" />
+                                      <span className="flex-1">{ovOpen} unpaid bill{ovOpen > 1 ? 's' : ''} — tap to settle</span>
+                                    </div>
+                                  ) : null;
+                                })()}
+
                                 {/* ── Progress strip ── */}
                                 <div className="pt-1">
                                   <BookingProgressStrip
@@ -3743,6 +3772,14 @@ export default function ClinicDashboard() {
                                     completedAt={(booking as any).completedAt ?? undefined}
                                     cancellationReason={booking.cancellationReason ?? null}
                                     confirmedBy={(booking as any).confirmedBy ?? null}
+                                    visitCompletionNote={(booking as any).visitCompletionNote ?? null}
+                                    hasUnpaidBill={(() => {
+                                      const bills = allBills.filter(b => b.bookingId === booking.id);
+                                      return (booking as any).visitStatus === 'completed' && bills.filter(b => b.paymentStatus !== 'paid').length > 0;
+                                    })()}
+                                    noBill={(() => {
+                                      return (booking as any).visitStatus === 'completed' && allBills.filter(b => b.bookingId === booking.id).length === 0;
+                                    })()}
                                     stageBeforeCancel={
                                       (isCancelled || booking.verificationStatus === 'no_show' || (booking as any).visitStatus === 'patient_left_early') ? (
                                         (booking as any).visitStatus === 'completed' ? 4 :
@@ -4274,16 +4311,30 @@ export default function ClinicDashboard() {
 
                             /* ── Stage 5: Visit Completed ── */
                             if (modalIsVisitCompleted) {
-                              const modalHasBills = allBills.some(b => b.bookingId === booking.id);
+                              const modalBookingBills = allBills.filter(b => b.bookingId === booking.id);
+                              const modalNoBill = modalBookingBills.length === 0;
+                              const modalOpenBills = modalBookingBills.filter(b => b.paymentStatus !== 'paid').length;
                               return (
                               <>
-                                <Button
-                                  className="w-full gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
-                                  onClick={() => handleOpenBilling(booking)}
-                                  data-testid={`button-dialog-bill-done-${booking.id}`}
-                                >
-                                  <IndianRupee className="h-4 w-4" />{modalHasBills ? "View Bill ↓" : "Generate Invoice"}
-                                </Button>
+                                {modalNoBill ? (
+                                  <Button
+                                    variant="outline"
+                                    className="w-full gap-1.5 h-11 text-sm font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/10 cursor-default pointer-events-none border-0"
+                                    disabled
+                                    data-testid={`button-dialog-no-dues-${booking.id}`}
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />No Dues
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    className="w-full gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
+                                    onClick={() => handleOpenBilling(booking)}
+                                    data-testid={`button-dialog-bill-done-${booking.id}`}
+                                  >
+                                    <IndianRupee className="h-4 w-4" />
+                                    {modalOpenBills > 0 ? `${modalOpenBills} Unpaid Bill${modalOpenBills > 1 ? 's' : ''} ↓` : "Download Bill ↓"}
+                                  </Button>
+                                )}
                                 <div className="flex gap-2">
                                   <Button variant="outline" size="sm"
                                     className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
@@ -4307,7 +4358,7 @@ export default function ClinicDashboard() {
                               <>
                                 <Button
                                   className="w-full gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
-                                  onClick={() => completeVisitMutation.mutate(booking.id)}
+                                  onClick={() => completeVisitMutation.mutate({ bookingId: booking.id })}
                                   disabled={completeVisitMutation.isPending}
                                   data-testid={`button-dialog-visit-done-${booking.id}`}
                                 >
