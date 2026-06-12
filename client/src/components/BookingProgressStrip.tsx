@@ -1,4 +1,4 @@
-import { CheckCircle2, LogOut, UserX, X } from "lucide-react";
+import { CheckCircle2, LogOut, UserX } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -31,16 +31,22 @@ export interface BookingProgressStripProps {
   noBill?: boolean;
   checkedInAt?: Date | string | null;
   completedAt?: Date | string | null;
+  /** Reason for cancellation / no-show / left-early — shown as tooltip */
+  cancellationReason?: string | null;
+  /** Who confirmed the booking ("admin" | "doctor") — shown as tooltip on confirmed step */
+  confirmedBy?: string | null;
+  /** Highest step index (0–4) that was reached before the booking became terminal */
+  stageBeforeCancel?: number;
 }
 
 // ──────────────── Steps ────────────────
 
 const STEPS = [
-  { key: "booked",       label: "Booked"    },
-  { key: "confirmed",    label: "Confmd."   },
-  { key: "checked_in",   label: "Arrived"   },
-  { key: "in_tmt",       label: "In Tmt."   },
-  { key: "visit_done",   label: "Visit Done" },
+  { key: "booked",    label: "Booked"     },
+  { key: "confirmed", label: "Confmd."    },
+  { key: "checked_in",label: "Arrived"    },
+  { key: "in_tmt",    label: "In Tmt."    },
+  { key: "visit_done",label: "Visit Done" },
 ] as const;
 
 function stageToIndex(stage: LifecycleStage): number {
@@ -51,7 +57,7 @@ function stageToIndex(stage: LifecycleStage): number {
     case "in_consultation":      return 3;
     case "treatment_completed":  return 3;
     case "visit_completed":      return 4;
-    default:                     return -1; // terminal
+    default:                     return -1;
   }
 }
 
@@ -59,61 +65,114 @@ function stageToIndex(stage: LifecycleStage): number {
 
 export function BookingProgressStrip({
   stage,
-  isCancelled  = false,
-  isNoShow     = false,
-  isOverride   = false,
-  isLeftEarly  = false,
+  isCancelled   = false,
+  isNoShow      = false,
+  isOverride    = false,
+  isLeftEarly   = false,
   hasUnpaidBill = false,
   noBill        = false,
+  cancellationReason,
+  confirmedBy,
+  stageBeforeCancel = 0,
 }: BookingProgressStripProps) {
 
   const isTerminal = TERMINAL.has(stage) || isCancelled || isNoShow || isLeftEarly;
 
   // ── Terminal render ──
   if (isTerminal) {
-    const isNo    = isNoShow  || stage === "no_show";
+    const isNo    = isNoShow   || stage === "no_show";
     const isEarly = isLeftEarly || stage === "left_early";
-    const trailColor  = isEarly ? "bg-amber-300/50" : "bg-rose-300/50";
-    const doneBorder  = isEarly ? "border-amber-300 dark:border-amber-700" : "border-rose-300 dark:border-rose-700";
-    const doneBg      = isEarly ? "bg-amber-50 dark:bg-amber-950/20" : "bg-rose-50 dark:bg-rose-950/20";
-    const doneInner   = isEarly ? "bg-amber-400" : "bg-rose-400";
-    const doneLabel   = isEarly ? "text-amber-500 dark:text-amber-400" : "text-rose-500 dark:text-rose-400";
-    const badgeCls    = isNo
-      ? "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700"
+    const isCx    = !isNo && !isEarly;
+
+    // Colour palette for completed-before-terminal steps
+    const redDotBg     = "bg-rose-50 dark:bg-rose-950/20";
+    const redDotBorder = "border-rose-300 dark:border-rose-700";
+    const redInner     = "bg-rose-400";
+    const redLabel     = "text-rose-500 dark:text-rose-400";
+    const redLine      = "bg-rose-300/50";
+
+    const earlyDotBg     = "bg-amber-50 dark:bg-amber-950/20";
+    const earlyDotBorder = "border-amber-300 dark:border-amber-700";
+    const earlyInner     = "bg-amber-400";
+    const earlyLabel     = "text-amber-500 dark:text-amber-400";
+    const earlyLine      = "bg-amber-300/50";
+
+    const noDotBg     = "bg-slate-50 dark:bg-slate-900/40";
+    const noDotBorder = "border-slate-300 dark:border-slate-700";
+    const noInner     = "bg-slate-400";
+    const noLabel     = "text-slate-500 dark:text-slate-400";
+    const noLine      = "bg-slate-300/50";
+
+    const termDotBg     = isCx ? redDotBg     : isEarly ? earlyDotBg     : noDotBg;
+    const termDotBorder = isCx ? redDotBorder : isEarly ? earlyDotBorder : noDotBorder;
+    const termInner     = isCx ? redInner     : isEarly ? earlyInner     : noInner;
+    const termLabel     = isCx ? redLabel     : isEarly ? earlyLabel     : noLabel;
+
+    // Tooltip text for the last-reached step
+    const termTooltip = cancellationReason
+      ? cancellationReason
+      : isNo
+      ? "Patient did not arrive"
       : isEarly
-      ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
-      : "text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800";
-    const badgeLabel  = isNo ? "No Show" : isEarly ? "Left Early" : "Cancelled";
-    const BadgeIcon   = isNo ? UserX : isEarly ? LogOut : X;
+      ? "Patient left before the visit was completed"
+      : "Appointment cancelled";
 
     return (
-      <div className="flex items-center w-full px-1 py-0.5 gap-0">
-        {STEPS.map((s, i) => {
-          const pastStage = 0; // always 0 for terminal (nothing was reached)
-          const wasDone = i < pastStage;
-          return (
-            <div key={s.key} className="contents">
-              {i > 0 && (
-                <div className={`flex-1 h-px min-w-[6px] ${wasDone ? trailColor : "bg-border/30"}`} />
-              )}
+      <TooltipProvider delayDuration={300}>
+        <div className="flex items-center w-full px-1 py-0.5 gap-0">
+          {STEPS.map((s, i) => {
+            const wasDone    = i <= stageBeforeCancel;
+            const isLastDone = i === stageBeforeCancel;
+
+            let dotBg: string, dotBorder: string, dotInner: React.ReactNode, lineColor: string, labelCls: string;
+
+            if (wasDone) {
+              // All completed stages shown in terminal colour (red/amber/slate)
+              dotBg     = termDotBg;
+              dotBorder = termDotBorder;
+              dotInner  = <span className={`h-1.5 w-1.5 rounded-full ${termInner}`} />;
+              lineColor = isCx ? redLine : isEarly ? earlyLine : noLine;
+              labelCls  = termLabel;
+            } else {
+              dotBg     = "bg-muted";
+              dotBorder = "border-border/30";
+              dotInner  = <span className="h-1.5 w-1.5 rounded-full bg-border/40" />;
+              lineColor = "bg-border/30";
+              labelCls  = "text-muted-foreground/30";
+            }
+
+            const dotEl = (
               <div className="flex flex-col items-center gap-0.5 shrink-0">
-                <div className={`h-4 w-4 rounded-full flex items-center justify-center border ${wasDone ? `${doneBg} ${doneBorder}` : "bg-muted border-border/30"}`}>
-                  {wasDone
-                    ? <span className={`h-1.5 w-1.5 rounded-full ${doneInner}`} />
-                    : <span className="h-1.5 w-1.5 rounded-full bg-border/40" />}
+                <div className={`h-4 w-4 rounded-full flex items-center justify-center border ${dotBg} ${dotBorder}`}>
+                  {dotInner}
                 </div>
-                <span className={`text-[9px] font-medium leading-none whitespace-nowrap ${wasDone ? doneLabel : "text-muted-foreground/30"}`}>
+                <span className={`text-[9px] font-medium leading-none whitespace-nowrap ${labelCls}`}>
                   {s.label}
                 </span>
               </div>
-            </div>
-          );
-        })}
-        <div className={`ml-2 shrink-0 flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${badgeCls}`}>
-          <BadgeIcon className="h-2.5 w-2.5" />
-          {badgeLabel}
+            );
+
+            return (
+              <div key={s.key} className="contents">
+                {i > 0 && (
+                  <div className={`flex-1 h-px min-w-[6px] ${i <= stageBeforeCancel ? lineColor : "bg-border/30"}`} />
+                )}
+                {/* Tooltip only on the last completed dot */}
+                {isLastDone ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-default">{dotEl}</div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                      {termTooltip}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : dotEl}
+              </div>
+            );
+          })}
         </div>
-      </div>
+      </TooltipProvider>
     );
   }
 
@@ -186,7 +245,23 @@ export function BookingProgressStrip({
             labelColor= "text-muted-foreground/40";
           }
 
-          const lastStepTooltip = isLast && (noBill || hasUnpaidBill);
+          // Tooltip content for specific steps
+          const isConfirmedStep = i === 1 && (isCompleted || isCurrent);
+          const isLastStep      = isLast && isCurrent;
+          const hasStepTooltip  = (isConfirmedStep && confirmedBy) || (isLastStep && (noBill || hasUnpaidBill));
+
+          let tooltipText = "";
+          if (isConfirmedStep && confirmedBy) {
+            tooltipText = confirmedBy === "doctor"
+              ? "Confirmed by Doctor"
+              : confirmedBy === "admin"
+              ? "Confirmed by Clinic Admin"
+              : `Confirmed by ${confirmedBy}`;
+          } else if (isLastStep && hasUnpaidBill) {
+            tooltipText = "Bill pending — invoice not yet settled";
+          } else if (isLastStep && noBill) {
+            tooltipText = "No invoice generated";
+          }
 
           const dotEl = (
             <div className="flex flex-col items-center gap-0.5 shrink-0">
@@ -204,25 +279,19 @@ export function BookingProgressStrip({
               {i > 0 && (
                 <div className={`flex-1 h-px min-w-[4px] transition-colors ${i <= curStep && !isSkipped ? lineColor : "bg-border/40"}`} />
               )}
-              {lastStepTooltip ? (
+              {hasStepTooltip ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="cursor-default">{dotEl}</div>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    {hasUnpaidBill ? "Bill pending — invoice not yet settled" : "No Invoice generated"}
+                  <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                    {tooltipText}
                   </TooltipContent>
                 </Tooltip>
               ) : dotEl}
             </div>
           );
         })}
-
-        {curStep === 4 && hasUnpaidBill && (
-          <div className="ml-1.5 shrink-0 flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full">
-            Bill Due
-          </div>
-        )}
       </div>
     </TooltipProvider>
   );

@@ -131,6 +131,7 @@ const VISIT_TYPE_LABELS: Record<string, string> = {
   routine_checkup: "Routine Checkup",
   consultation: "Consultation",
   review: "Review",
+  booked_by_patient: "Booked by Patient",
 };
 
 const CLINICAL_STATUS_LABELS: Record<string, { label: string; cls: string }> = {
@@ -194,6 +195,7 @@ export function AppointmentCard({
   const [leftEarlyReason, setLeftEarlyReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [consentCopied, setConsentCopied] = useState(false);
+  const [consentJustSent, setConsentJustSent] = useState(false);
   const [visitDoneOpen, setVisitDoneOpen] = useState(false);
   const [visitDoneReason, setVisitDoneReason] = useState("");
   const [visitMenuOpen, setVisitMenuOpen] = useState(false);
@@ -441,7 +443,7 @@ export function AppointmentCard({
                   {booking.customerName.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 space-y-0.5">
                 {/* Row 1: Name + booking number only */}
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-sm leading-tight truncate">{booking.customerName}</span>
@@ -450,7 +452,7 @@ export function AppointmentCard({
                   </span>
                 </div>
                 {/* Row 2: PAT code only */}
-                <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   {booking.patientCode ? (
                     <span className="font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-px rounded-md shrink-0">
                       {booking.patientCode}
@@ -509,7 +511,7 @@ export function AppointmentCard({
                   <PopoverTrigger asChild>
                     <button
                       onClick={(e) => e.stopPropagation()}
-                      className="h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/60 active:scale-[0.95] transition-all"
+                      className="h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground bg-muted/50 border border-border/50 hover:bg-muted hover:border-border/80 active:scale-[0.95] transition-all"
                       data-testid={`button-more-${booking.id}`}
                     >
                       <MoreHorizontal className="h-3.5 w-3.5" />
@@ -869,8 +871,8 @@ export function AppointmentCard({
             );
           })()}
 
-          {/* Consent Status — clinic view, always shown */}
-          {role === "clinic" && (
+          {/* Consent Status — clinic + doctor view */}
+          {(role === "clinic" || role === "doctor") && (
             <div className="flex items-center gap-2 text-xs min-w-0" onClick={(e) => e.stopPropagation()}>
               <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                 <PenLine className="h-2.5 w-2.5 text-muted-foreground" />
@@ -880,7 +882,7 @@ export function AppointmentCard({
                 <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                   <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
                 </span>
-              ) : booking.consentToken ? (
+              ) : (booking.consentToken || consentJustSent) ? (
                 <div className="flex items-center gap-1.5">
                   <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
                     <Clock className="h-2.5 w-2.5" />Consent Sent
@@ -921,7 +923,7 @@ export function AppointmentCard({
               ) : (
                 onRequestConsent ? (
                   <button
-                    onClick={(e) => { e.stopPropagation(); onRequestConsent(); }}
+                    onClick={(e) => { e.stopPropagation(); onRequestConsent(); setConsentJustSent(true); }}
                     disabled={consentRequestPending}
                     data-testid={`button-request-consent-inline-${booking.id}`}
                     className="inline-flex items-center gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
@@ -936,8 +938,8 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Clinical status — doctor view, labelled row */}
-          {role === "doctor" && booking.clinicalStatus && CLINICAL_STATUS_LABELS[booking.clinicalStatus] && (
+          {/* Clinical status — shown for both clinic and doctor roles */}
+          {booking.clinicalStatus && CLINICAL_STATUS_LABELS[booking.clinicalStatus] && (
             <div className="flex items-center gap-2 text-xs min-w-0">
               <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                 <ClipboardList className="h-2.5 w-2.5 text-muted-foreground" />
@@ -1031,6 +1033,17 @@ export function AppointmentCard({
           isLeftEarly={isLeftEarlyState}
           hasUnpaidBill={hasUnpaidBill}
           noBill={noBill}
+          cancellationReason={(booking as any).cancellationReason ?? null}
+          confirmedBy={(booking as any).confirmedBy ?? null}
+          stageBeforeCancel={
+            (isCancelled || isNoShowState || isLeftEarlyState) ? (
+              (booking as any).visitStatus === 'visit_completed' ? 4 :
+              ((booking as any).visitStatus === 'treatment_completed' || (booking as any).visitStatus === 'in_consultation') ? 3 :
+              (!!(booking as any).checkedInAt || (booking as any).visitStatus === 'checked_in') ? 2 :
+              !!(booking as any).confirmedBy ? 1 :
+              0
+            ) : 0
+          }
         />
       </div>
 

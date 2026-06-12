@@ -317,6 +317,15 @@ export default function DoctorDashboard() {
     onError: () => notify.error("Failed to decline appointment"),
   });
 
+  const requestConsentMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("POST", `/api/doctor/bookings/${id}/request-consent`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
+      notify.success("Consent link sent", { description: "The patient will receive a WhatsApp message with the consent form link." });
+    },
+    onError: () => notify.error("Failed to send consent link"),
+  });
+
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1117,6 +1126,8 @@ export default function DoctorDashboard() {
                         startConsultPending={startConsultationMutation.isPending}
                         onDoctorCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
                         completeVisitPending={completeVisitMutation.isPending}
+                        onRequestConsent={() => requestConsentMutation.mutate(booking.id)}
+                        consentRequestPending={requestConsentMutation.isPending}
                       />
                     );
                   })}

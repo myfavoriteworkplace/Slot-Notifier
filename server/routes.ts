@@ -1907,6 +1907,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             verificationCode: null,
             verificationExpiresAt: null,
             verificationStatus: 'email_verified',
+            visitType: 'booked_by_patient',
+            treatmentCategory: 'consultation',
           } as any).returning();
           booking = newBooking;
         });
@@ -4379,6 +4381,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         clinic.name,
         consentUrl,
       );
+
+      res.json({ success: true, consentUrl });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/doctor/bookings/:id/request-consent
+  // Doctor-authenticated endpoint — generates / refreshes consent token and sends WhatsApp link
+  app.post("/api/doctor/bookings/:id/request-consent", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const bookingId = Number(req.params.id);
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found" });
+      const clinic = await storage.getClinic(slot.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+      await storage.createConsentToken(bookingId, clinic.id, token, expiresAt);
+
+      const baseUrl = process.env.FRONTEND_URL || `${req.protocol}://${req.get("host")}`;
+      const consentUrl = `${baseUrl}/consent/${token}`;
+
+      await sendWhatsAppConsentLink(booking.customerPhone, booking.customerName, clinic.name, consentUrl);
 
       res.json({ success: true, consentUrl });
     } catch (err: any) {

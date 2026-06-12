@@ -96,6 +96,7 @@ const OVERVIEW_VISIT_TYPE_LABELS: Record<string, string> = {
   routine_checkup: "Routine Checkup",
   consultation: "Consultation",
   review: "Review",
+  booked_by_patient: "Booked by Patient",
 };
 
 const OVERVIEW_CLINICAL_STATUS: Record<string, { label: string; cls: string }> = {
@@ -3730,8 +3731,22 @@ export default function ClinicDashboard() {
                                 <div className="pt-1">
                                   <BookingProgressStrip
                                     stage={ovProgressStage}
+                                    isCancelled={isCancelled}
+                                    isNoShow={booking.verificationStatus === 'no_show'}
+                                    isLeftEarly={(booking as any).visitStatus === 'left_early'}
                                     checkedInAt={booking.checkedInAt ?? undefined}
                                     completedAt={(booking as any).completedAt ?? undefined}
+                                    cancellationReason={booking.cancellationReason ?? null}
+                                    confirmedBy={(booking as any).confirmedBy ?? null}
+                                    stageBeforeCancel={
+                                      (isCancelled || booking.verificationStatus === 'no_show' || (booking as any).visitStatus === 'left_early') ? (
+                                        (booking as any).visitStatus === 'visit_completed' ? 4 :
+                                        ((booking as any).visitStatus === 'treatment_completed' || (booking as any).visitStatus === 'in_consultation') ? 3 :
+                                        (!!(booking as any).checkedInAt || (booking as any).visitStatus === 'checked_in') ? 2 :
+                                        !!(booking as any).confirmedBy ? 1 :
+                                        0
+                                      ) : 0
+                                    }
                                   />
                                 </div>
 
