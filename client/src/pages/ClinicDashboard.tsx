@@ -4268,14 +4268,16 @@ export default function ClinicDashboard() {
                             );
 
                             /* ── Stage 5: Visit Completed ── */
-                            if (modalIsVisitCompleted) return (
+                            if (modalIsVisitCompleted) {
+                              const modalHasBills = allBills.some(b => b.bookingId === booking.id);
+                              return (
                               <>
                                 <Button
                                   className="w-full gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
                                   onClick={() => handleOpenBilling(booking)}
                                   data-testid={`button-dialog-bill-done-${booking.id}`}
                                 >
-                                  <IndianRupee className="h-4 w-4" />Bill Generated ↓
+                                  <IndianRupee className="h-4 w-4" />{modalHasBills ? "View Bill ↓" : "Generate Invoice"}
                                 </Button>
                                 <div className="flex gap-2">
                                   <Button variant="outline" size="sm"
@@ -4293,6 +4295,7 @@ export default function ClinicDashboard() {
                                 </div>
                               </>
                             );
+                            }
 
                             /* ── Stage 4: Treatment Completed → Mark Visit Done ── */
                             if (modalIsTreatmentCompleted) return (

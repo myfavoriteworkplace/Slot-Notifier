@@ -191,7 +191,8 @@ export function AppointmentCard({
   const [cancelReasonOther, setCancelReasonOther] = useState("");
   const [noShowPredefined, setNoShowPredefined] = useState("");
   const [noShowCustom, setNoShowCustom] = useState("");
-  const [overrideReason, setOverrideReason] = useState("");
+  const [overridePredefined, setOverridePredefined] = useState("");
+  const [overrideCustom, setOverrideCustom] = useState("");
   const [leftEarlyReason, setLeftEarlyReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [consentCopied, setConsentCopied] = useState(false);
@@ -375,7 +376,7 @@ export function AppointmentCard({
         <span className="relative flex h-1.5 w-1.5 shrink-0">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
-        </span>Awaiting DR
+        </span>Awaiting Dr
       </span>
     );
     return (
@@ -705,7 +706,9 @@ export function AppointmentCard({
                       </AlertDialog>
                     )}
 
-                    <div className="my-1 h-px bg-border/40" />
+                    {(!isVisitCompleted && !isTreatmentCompleted) && (
+                      <div className="my-1 h-px bg-border/40" />
+                    )}
 
                     {/* Override complete — only when intermediate stages not yet reached (skip path) */}
                     {!isVisitCompleted && !isTreatmentCompleted && (
@@ -716,22 +719,57 @@ export function AppointmentCard({
                             Mark Visit Complete ↗
                           </button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent>
+                        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                           <AlertDialogHeader>
                             <AlertDialogTitle>Force Complete Visit?</AlertDialogTitle>
                             <AlertDialogDescription>
                               This will mark the visit as complete, skipping intermediate steps. Skipped stages will be flagged in the audit log.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
-                          <div className="px-1 py-2 space-y-1.5">
-                            <label className="text-sm font-medium">Reason <span className="text-destructive">*</span></label>
-                            <Input value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} placeholder="e.g. Admin override, patient left early" />
+                          <div className="px-1 py-2 space-y-3">
+                            {openBillsCount > 0 && (
+                              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                                {openBillsCount} unpaid bill{openBillsCount !== 1 ? "s" : ""} — consider settling payment before closing
+                              </div>
+                            )}
+                            <div className="space-y-1.5">
+                              <label className="text-sm font-medium">Reason <span className="text-destructive">*</span></label>
+                              <select
+                                value={overridePredefined}
+                                onChange={(e) => { setOverridePredefined(e.target.value); setOverrideCustom(""); }}
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                              >
+                                <option value="">Select a reason…</option>
+                                <option>Admin override — technical issue</option>
+                                <option>Patient confirmed treatment done verbally</option>
+                                <option>Doctor completed off-system</option>
+                                <option>Short visit — no check-in needed</option>
+                                <option>Emergency clinic closure</option>
+                                <option value="Other">Other (specify)</option>
+                              </select>
+                            </div>
+                            {overridePredefined === "Other" && (
+                              <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Please specify</label>
+                                <Input
+                                  value={overrideCustom}
+                                  onChange={(e) => setOverrideCustom(e.target.value)}
+                                  placeholder="e.g. Patient confirmed, no paperwork needed"
+                                  autoFocus
+                                />
+                              </div>
+                            )}
                           </div>
                           <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setOverrideReason("")}>Cancel</AlertDialogCancel>
+                            <AlertDialogCancel onClick={() => { setOverridePredefined(""); setOverrideCustom(""); }}>Cancel</AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={() => { onOverrideComplete?.(overrideReason); setOverrideReason(""); }}
-                              disabled={!overrideReason.trim()}
+                              onClick={() => {
+                                const reason = overridePredefined === "Other" ? overrideCustom.trim() : overridePredefined;
+                                onOverrideComplete?.(reason);
+                                setOverridePredefined(""); setOverrideCustom("");
+                              }}
+                              disabled={!overridePredefined || (overridePredefined === "Other" && !overrideCustom.trim())}
                               className="bg-orange-600 text-white hover:bg-orange-700"
                             >
                               Override &amp; Complete
@@ -739,6 +777,11 @@ export function AppointmentCard({
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
+                    )}
+
+                    {/* No actions fallback — visit is fully completed, nothing left to do */}
+                    {isVisitCompleted && (
+                      <p className="text-xs text-center text-muted-foreground/50 py-2 px-2">No actions available</p>
                     )}
                   </PopoverContent>
                 </Popover>
@@ -1036,7 +1079,8 @@ export function AppointmentCard({
           cancellationReason={(booking as any).cancellationReason ?? null}
           confirmedBy={(booking as any).confirmedBy ?? null}
           stageBeforeCancel={
-            (isCancelled || isNoShowState || isLeftEarlyState) ? (
+            isLeftEarlyState ? 3 :
+            (isCancelled || isNoShowState) ? (
               (booking as any).visitStatus === 'visit_completed' ? 4 :
               ((booking as any).visitStatus === 'treatment_completed' || (booking as any).visitStatus === 'in_consultation') ? 3 :
               (!!(booking as any).checkedInAt || (booking as any).visitStatus === 'checked_in') ? 2 :
