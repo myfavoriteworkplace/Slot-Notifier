@@ -537,7 +537,7 @@ export function AppointmentCard({
                     )}
 
                     {/* Mark No Show — allowed when not yet arrived OR when arrived-but-not-called (checked in) */}
-                    {!isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+                    {!isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors" data-testid={`button-no-show-${booking.id}`}>

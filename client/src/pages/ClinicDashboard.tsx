@@ -3244,7 +3244,7 @@ export default function ClinicDashboard() {
 
                   // Visit lifecycle states
                   const modalIsVisitCompleted     = (booking as any).visitStatus === 'completed';
-                  const modalIsTreatmentCompleted = (booking as any).visitStatus === 'treatment_completed' || modalIsVisitCompleted;
+                  const modalIsTreatmentCompleted = (booking as any).visitStatus === 'treatment_completed';
                   const modalIsInConsultation     = (booking as any).visitStatus === 'in_consultation';
                   const modalIsCheckedIn          = (booking as any).visitStatus === 'checked_in';
                   const modalIsNoShow             = booking.verificationStatus === 'no_show';
@@ -3531,12 +3531,12 @@ export default function ClinicDashboard() {
 
                             const ovProgressStage: LifecycleStage =
                               booking.verificationStatus === 'no_show' ? 'no_show'
-                              : (booking as any).visitStatus === 'left_early' ? 'left_early'
+                              : (booking as any).visitStatus === 'patient_left_early' ? 'left_early'
                               : isCancelled ? 'cancelled'
-                              : (booking as any).visitStatus === 'visit_completed' ? 'visit_completed'
+                              : (booking as any).visitStatus === 'completed' ? 'visit_completed'
                               : (booking as any).visitStatus === 'treatment_completed' ? 'treatment_completed'
                               : (booking as any).visitStatus === 'in_consultation' ? 'in_consultation'
-                              : booking.verificationStatus === 'checked_in' ? 'checked_in'
+                              : (booking as any).visitStatus === 'checked_in' ? 'checked_in'
                               : isConfirmed ? 'confirmed'
                               : 'booked';
 
@@ -3718,7 +3718,7 @@ export default function ClinicDashboard() {
                                   <div className={`flex items-start gap-1.5 text-[10px] font-semibold rounded-lg px-2.5 py-1.5 border ${
                                     booking.verificationStatus === 'no_show'
                                       ? "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-700"
-                                      : (booking as any).visitStatus === 'left_early'
+                                      : (booking as any).visitStatus === 'patient_left_early'
                                       ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
                                       : "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800"
                                   }`}>
@@ -3733,14 +3733,19 @@ export default function ClinicDashboard() {
                                     stage={ovProgressStage}
                                     isCancelled={isCancelled}
                                     isNoShow={booking.verificationStatus === 'no_show'}
-                                    isLeftEarly={(booking as any).visitStatus === 'left_early'}
+                                    isLeftEarly={(booking as any).visitStatus === 'patient_left_early'}
+                                    isOverride={
+                                      (booking as any).visitStatus === 'completed' &&
+                                      !(booking as any).checkedInAt &&
+                                      (booking as any).visitStatus !== 'patient_left_early'
+                                    }
                                     checkedInAt={booking.checkedInAt ?? undefined}
                                     completedAt={(booking as any).completedAt ?? undefined}
                                     cancellationReason={booking.cancellationReason ?? null}
                                     confirmedBy={(booking as any).confirmedBy ?? null}
                                     stageBeforeCancel={
-                                      (isCancelled || booking.verificationStatus === 'no_show' || (booking as any).visitStatus === 'left_early') ? (
-                                        (booking as any).visitStatus === 'visit_completed' ? 4 :
+                                      (isCancelled || booking.verificationStatus === 'no_show' || (booking as any).visitStatus === 'patient_left_early') ? (
+                                        (booking as any).visitStatus === 'completed' ? 4 :
                                         ((booking as any).visitStatus === 'treatment_completed' || (booking as any).visitStatus === 'in_consultation') ? 3 :
                                         (!!(booking as any).checkedInAt || (booking as any).visitStatus === 'checked_in') ? 2 :
                                         !!(booking as any).confirmedBy ? 1 :
