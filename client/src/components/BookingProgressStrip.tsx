@@ -297,7 +297,13 @@ export function BookingProgressStrip({
                   <TooltipTrigger asChild>
                     <div className="cursor-default">{dotEl}</div>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                  <TooltipContent
+                    side="top"
+                    align="center"
+                    avoidCollisions={true}
+                    collisionPadding={12}
+                    className="text-xs max-w-[180px] text-center whitespace-normal"
+                  >
                     {tooltipText}
                   </TooltipContent>
                 </Tooltip>
