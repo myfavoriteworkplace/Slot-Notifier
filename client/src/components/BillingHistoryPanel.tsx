@@ -93,6 +93,7 @@ export interface BillingHistoryPanelProps {
   bookingId: number;
   clinicId: number;
   patientName: string;
+  patientId?: number;
   patientPhone?: string;
   patientEmail?: string;
   patientCode?: string;
@@ -132,7 +133,8 @@ function groupByCategory(items: ServiceItemWithMeta[]) {
 }
 
 function uniqueBillNumber(bookingId: number) {
-  return `DFT-${bookingId}-${Date.now()}`;
+  const uid = crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
+  return `DFT-${bookingId}-${uid}`;
 }
 
 function computeTotals(services: ServiceItem[], discountPct: number, taxPct: number) {
@@ -351,7 +353,7 @@ function InvoicePreviewModal({
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export function BillingHistoryPanel({
-  bookingId, clinicId, patientName, patientPhone, patientEmail, patientCode,
+  bookingId, clinicId, patientName, patientId, patientPhone, patientEmail, patientCode,
   onGenerateReceipt, onPrintBill, onConsolidatedReceipt,
 }: BillingHistoryPanelProps) {
 
@@ -383,8 +385,13 @@ export function BillingHistoryPanel({
   });
 
   const { data: patientHistory = [] } = useQuery<PatientBill[]>({
-    queryKey: ["/api/auth/clinic/bills/patient-by-email", patientEmail || patientPhone],
+    queryKey: ["/api/auth/clinic/bills/patient-history", patientId ?? patientEmail ?? patientPhone],
     queryFn: async () => {
+      if (patientId) {
+        const res = await apiRequest("GET", `/api/auth/clinic/bills/patient-by-id/${patientId}`);
+        if (!res.ok) return [];
+        return res.json();
+      }
       if (patientEmail) {
         const res = await apiRequest("GET", `/api/auth/clinic/bills/patient-by-email/${encodeURIComponent(patientEmail)}`);
         if (!res.ok) return [];
@@ -397,7 +404,7 @@ export function BillingHistoryPanel({
       }
       return [];
     },
-    enabled: !!(patientEmail || patientPhone),
+    enabled: !!(patientId || patientEmail || patientPhone),
   });
 
   const { data: pharmacy = [] } = useQuery<PharmacyStockItem[]>({
@@ -503,6 +510,7 @@ export function BillingHistoryPanel({
         const { subtotal, total } = computeTotals([newItem], 0, 0);
         const res = await apiRequest("POST", "/api/auth/clinic/bills", {
           bookingId,
+          patientId: patientId || null,
           billNumber: uniqueBillNumber(bookingId),
           patientName: patientName || "Patient",
           patientPhone: patientPhone || "",

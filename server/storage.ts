@@ -188,7 +188,8 @@ export interface IStorage {
   // Patient Bills
   createPatientBill(data: InsertPatientBill): Promise<PatientBill>;
   getPatientBillsByClinicId(clinicId: number): Promise<PatientBill[]>;
-  getPatientBillsByBookingId(bookingId: number): Promise<PatientBill[]>;
+  getPatientBillsByBookingId(bookingId: number, clinicId: number): Promise<PatientBill[]>;
+  getPatientBillsByPatientId(clinicId: number, patientId: number): Promise<PatientBill[]>;
   getPatientBillsByPhone(clinicId: number, phone: string): Promise<PatientBill[]>;
   getPatientBillsByEmail(clinicId: number, email: string): Promise<PatientBill[]>;
   updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill>;
@@ -1118,9 +1119,15 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(patientBills.createdAt));
   }
 
-  async getPatientBillsByBookingId(bookingId: number): Promise<PatientBill[]> {
+  async getPatientBillsByBookingId(bookingId: number, clinicId: number): Promise<PatientBill[]> {
     return db.select().from(patientBills)
-      .where(eq(patientBills.bookingId, bookingId))
+      .where(and(eq(patientBills.bookingId, bookingId), eq(patientBills.clinicId, clinicId)))
+      .orderBy(desc(patientBills.createdAt));
+  }
+
+  async getPatientBillsByPatientId(clinicId: number, patientId: number): Promise<PatientBill[]> {
+    return db.select().from(patientBills)
+      .where(and(eq(patientBills.clinicId, clinicId), eq(patientBills.patientId, patientId)))
       .orderBy(desc(patientBills.createdAt));
   }
 

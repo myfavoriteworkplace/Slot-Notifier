@@ -74,6 +74,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useState, useEffect, useRef, useCallback } from "react";
+import type { ElementType } from "react";
 import type { Slot, Booking, PatientBill, ClinicalRecord, Patient } from "@shared/schema";
 import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload, KeyRound, CalendarOff, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
@@ -4239,6 +4240,7 @@ export default function ClinicDashboard() {
                                 bookingId={booking.id}
                                 clinicId={clinic.id}
                                 patientName={booking.customerName}
+                                patientId={(booking as any).patientId || undefined}
                                 patientPhone={booking.customerPhone}
                                 patientEmail={booking.customerEmail || ""}
                                 patientCode={(booking as any).patientCode || undefined}
@@ -7546,7 +7548,7 @@ export default function ClinicDashboard() {
                   { icon: Phone,     label: "Phone",        key: "clinicPhone",   placeholder: "e.g. +91 98765 43210" },
                   { icon: Mail,      label: "Email",        key: "clinicEmail",   placeholder: "e.g. clinic@example.com" },
                   { icon: MapPin,    label: "Location",     key: "clinicAddress", placeholder: "e.g. Kochi" },
-                ] as { icon: React.ElementType; label: string; key: string; placeholder: string }[]).map(({ icon: Icon, label, key, placeholder }) => (
+                ] as { icon: ElementType; label: string; key: string; placeholder: string }[]).map(({ icon: Icon, label, key, placeholder }) => (
                   <div key={key} className="flex items-start gap-2">
                     <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                       <Icon className="h-3.5 w-3.5 text-primary" />

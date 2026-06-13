@@ -4876,6 +4876,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // GET /api/auth/clinic/bills/patient-by-id/:patientId — all bills for a patient by patientId
+  app.get("/api/auth/clinic/bills/patient-by-id/:patientId", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const patientId = parseInt(req.params.patientId);
+      if (isNaN(patientId)) return res.status(400).json({ message: "Invalid patient ID" });
+      const bills = await storage.getPatientBillsByPatientId(clinicId, patientId);
+      res.json(bills);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // GET /api/auth/clinic/bills/booking/:bookingId — bills for a specific booking
   app.get("/api/auth/clinic/bills/booking/:bookingId", isAuthenticated, async (req, res) => {
     try {
@@ -4883,7 +4895,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
       const bookingId = parseInt(req.params.bookingId);
       if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
-      const bills = await storage.getPatientBillsByBookingId(bookingId);
+      const bills = await storage.getPatientBillsByBookingId(bookingId, clinicId);
       res.json(bills);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
@@ -4893,7 +4905,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
-      const { bookingId, billNumber, patientName, patientPhone, patientEmail,
+      const { bookingId, billNumber, patientName, patientPhone, patientEmail, patientId,
               services, subtotal, discountPct, taxPct, total,
               paymentMethod, paymentStatus, notes } = req.body;
       if (!patientName || !billNumber) {
@@ -4902,6 +4914,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const bill = await storage.createPatientBill({
         clinicId,
         bookingId: bookingId || null,
+        patientId: patientId || null,
         billNumber,
         patientName,
         patientPhone: patientPhone || null,
