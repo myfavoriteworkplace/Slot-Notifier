@@ -1907,8 +1907,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             verificationCode: null,
             verificationExpiresAt: null,
             verificationStatus: 'email_verified',
-            visitType: 'booked_by_patient',
-            treatmentCategory: 'consultation',
           } as any).returning();
           booking = newBooking;
         });

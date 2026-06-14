@@ -1086,7 +1086,9 @@ export default function ClinicDashboard() {
       return format(bookingDate, 'yyyy-MM-dd') === todayStr;
     }
     if (quickFilter === 'upcoming') {
-      return bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr;
+      return bookingDate >= todayStart
+        && format(bookingDate, 'yyyy-MM-dd') !== todayStr
+        && booking.visitStatus !== 'completed';
     }
     if (quickFilter === 'past') {
       return bookingDate < todayStart;

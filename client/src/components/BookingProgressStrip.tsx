@@ -130,12 +130,21 @@ export function BookingProgressStrip({
             let dotBg: string, dotBorder: string, dotInner: React.ReactNode, lineColor: string, labelCls: string;
 
             if (wasDone) {
-              // All completed stages shown in terminal colour (red/amber/slate)
-              dotBg     = termDotBg;
-              dotBorder = termDotBorder;
-              dotInner  = <span className={`h-1.5 w-1.5 rounded-full ${termInner}`} />;
-              lineColor = isCx ? redLine : isEarly ? earlyLine : noLine;
-              labelCls  = termLabel;
+              if (isLastDone) {
+                // Terminal event dot — shown in terminal colour (slate/rose/amber)
+                dotBg     = termDotBg;
+                dotBorder = termDotBorder;
+                dotInner  = <span className={`h-1.5 w-1.5 rounded-full ${termInner}`} />;
+                lineColor = isCx ? redLine : isEarly ? earlyLine : noLine;
+                labelCls  = termLabel;
+              } else {
+                // Steps that genuinely occurred before the terminal event — shown in green
+                dotBg     = "bg-emerald-50 dark:bg-emerald-950/20";
+                dotBorder = "border-emerald-400 dark:border-emerald-600";
+                dotInner  = <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 dark:text-emerald-400" />;
+                lineColor = "bg-emerald-300 dark:bg-emerald-700";
+                labelCls  = "text-emerald-600 dark:text-emerald-400 font-semibold";
+              }
             } else {
               dotBg     = "bg-muted";
               dotBorder = "border-border/30";
@@ -204,14 +213,7 @@ export function BookingProgressStrip({
             lineColor = "bg-orange-300/40";
             labelColor= "text-orange-500 dark:text-orange-400 line-through";
           } else if (isLast && isCurrent) {
-            if (hasUnpaidBill) {
-              // Amber: visit done but unpaid bills remain — needs attention
-              dotBg     = "bg-amber-50 dark:bg-amber-950/20";
-              dotBorder = "border-amber-400 dark:border-amber-600";
-              dotInner  = <CheckCircle2 className="h-2.5 w-2.5 text-amber-500 dark:text-amber-400" />;
-              lineColor = "bg-amber-300/60 dark:bg-amber-700/40";
-              labelColor= "text-amber-600 dark:text-amber-400 font-semibold";
-            } else if (noBill) {
+            if (noBill) {
               // Green dashed: visit done intentionally with no invoice (free, waived, etc.)
               dotBg     = "bg-emerald-50 dark:bg-emerald-950/20";
               dotBorder = "border-dashed border-emerald-400 dark:border-emerald-600";

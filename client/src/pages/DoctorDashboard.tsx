@@ -528,7 +528,7 @@ export default function DoctorDashboard() {
   });
   const upcomingBookings = confirmedBookings.filter((b: any) => {
     const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-    return d && d >= new Date();
+    return d && d >= new Date() && b.visitStatus !== 'completed';
   });
 
   const now = new Date();
@@ -550,7 +550,7 @@ export default function DoctorDashboard() {
     const bdt = b.slot?.startTime ? new Date(b.slot.startTime) : null;
     let matchesDate = true;
     if (quickFilter === "today") matchesDate = bd === todayStr;
-    else if (quickFilter === "upcoming") matchesDate = bdt ? bdt >= new Date() : false;
+    else if (quickFilter === "upcoming") matchesDate = bdt ? bdt >= new Date() && b.visitStatus !== 'completed' : false;
     else if (quickFilter === "pending-7days") matchesDate = bdt ? bdt >= now && bdt <= next7 : false;
     else if (quickFilter === "confirmed-7days") matchesDate = bdt ? bdt >= now && bdt <= next7 : false;
     else matchesDate = !appointmentDateFilter || bd === appointmentDateFilter;

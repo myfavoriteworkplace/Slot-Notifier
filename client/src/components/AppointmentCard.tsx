@@ -1491,8 +1491,8 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 1 — Booked: approved/confirmed, not arrived */}
-          {booking.doctorApprovalStatus !== "pending" && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
+          {/* Stage 1 — Booked: approved/confirmed, not arrived, not a terminal state */}
+          {booking.doctorApprovalStatus !== "pending" && !isTerminal && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
             <TooltipProvider delayDuration={700}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1513,6 +1513,19 @@ export function AppointmentCard({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          )}
+
+          {/* Terminal state indicator — shown instead of Booked button */}
+          {isTerminal && (
+            <div className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-muted/40 border border-border/40">
+              <span className="text-xs text-muted-foreground">
+                {isNoShowState
+                  ? "Patient did not arrive"
+                  : isCancelled
+                  ? "Appointment cancelled"
+                  : "Patient left before completion"}
+              </span>
+            </div>
           )}
 
           {/* Stage 2 — Arrived: Start Consultation (blue, active) */}

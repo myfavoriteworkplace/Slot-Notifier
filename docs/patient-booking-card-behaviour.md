@@ -924,3 +924,198 @@ Removed the `isPastDay` variable declaration and replaced all four usages with `
 ---
 
 *Section added: June 2026. Reflects AppointmentCard.tsx and BookingProgressStrip.tsx after the June 2026 audit.*
+
+---
+
+## 17. Inconsistency & Bug Audit — June 2026 (Batch 2)
+
+This section documents a second round of review covering 5 reported issues plus 1 additional inconsistency found during analysis. All 6 items were fixed.
+
+---
+
+### Issue 1 — Visit-completed bookings appearing in "Upcoming Bookings"
+
+**Problem found:**
+Both the Clinic Dashboard and Doctor Dashboard "Upcoming" filters were **purely date-based** — they only checked whether the slot date falls in the future. No check on `visitStatus`. A booking that the clinic had already marked "Visit Complete" (via override or early completion), but whose scheduled slot date was still in the future, would continue to appear in the "Upcoming Bookings" view and inflate the "Upcoming" stat card count.
+
+**Root cause:**
+- ClinicDashboard.tsx `quickFilter === 'upcoming'` (line 1088): `bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr`
+- DoctorDashboard.tsx `upcomingBookings` (line 529): `d && d >= new Date()`
+- DoctorDashboard.tsx `quickFilter === "upcoming"` branch (line 553): `bdt >= new Date()`
+
+None of these conditions checked `visitStatus`.
+
+**Fix applied:**
+Added `&& booking.visitStatus !== 'completed'` / `&& b.visitStatus !== 'completed'` to all three filter conditions:
+
+- **ClinicDashboard.tsx**: `bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr && booking.visitStatus !== 'completed'`
+- **DoctorDashboard.tsx** `upcomingBookings`: `d && d >= new Date() && b.visitStatus !== 'completed'`
+- **DoctorDashboard.tsx** quickFilter branch: `bdt >= new Date() && b.visitStatus !== 'completed'`
+
+Completed visits now only appear in the "All" or "Past" views, not "Upcoming".
+
+**Status: ✅ Fixed**
+
+---
+
+### Issue 2 — Doctor card showed "Waiting for patient to arrive" tooltip on No Show, Cancelled, and Left Early bookings
+
+**Problem found:**
+The "Booked" read-only button in the doctor footer (the Stage 1 placeholder shown when the doctor is approved but the patient hasn't arrived yet) had this condition:
+```
+booking.doctorApprovalStatus !== "pending"
+  && !isCheckedIn && !isInConsultation
+  && !isTreatmentCompleted && !isVisitCompleted
+```
+This condition did not exclude terminal states (`isNoShowState`, `isCancelled`, `isLeftEarlyState`). Since none of the "not in active state" checks are true for a terminal booking, the "Booked" button would render with its tooltip saying "Waiting for patient to arrive — no action required". For a No Show booking, this is factually wrong.
+
+Additionally, the entire doctor footer section had **no output for terminal states** — no button, no text, blank footer. The `isDoctorDeclined` path renders "Appointment Declined" text, but cancelled, no-show, and left-early had no equivalent indicator.
+
+**Fix applied (two parts):**
+
+**Part 1 — "Booked" button now excludes terminal states:**
+Added `!isTerminal` to the condition:
+```
+booking.doctorApprovalStatus !== "pending" && !isTerminal && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted
+```
+
+**Part 2 — Terminal state indicator added:**
+A new block renders after the "Booked" button section (which is now hidden for terminal states) showing a contextual muted message:
+```
+{isTerminal && (
+  <div ... bg-muted/40 border border-border/40>
+    {isNoShowState ? "Patient did not arrive"
+    : isCancelled ? "Appointment cancelled"
+    : "Patient left before completion"}
+  </div>
+)}
+```
+
+**Status: ✅ Fixed**
+
+---
+
+### Issue 3 — Progress strip "Visit Done" dot showed amber when visit was complete but bills were unpaid
+
+**Problem found:**
+The `isLast && isCurrent` branch in the normal render of BookingProgressStrip.tsx had three colour paths for the Visit Done dot:
+1. `hasUnpaidBill` → **amber** dot + amber line
+2. `noBill` → dashed green dot
+3. Otherwise → solid green dot
+
+When a visit was marked complete with outstanding bills, the Visit Done dot (step 4) showed amber. The user correctly identified that the visit IS done — the billing status is already communicated separately (primary footer button shows "N Unpaid Bills ↓", the amber billing banner appears on the card). Having the progress strip dot also turn amber created visual confusion about whether the visit was actually complete.
+
+**Fix applied:**
+Removed the `hasUnpaidBill` amber branch entirely from the Visit Done dot. The dot now has only two variations:
+- `noBill` → dashed green (no invoice was generated)
+- Otherwise → solid green (visit done, billed or not)
+
+The billing tooltip (`"Bill pending — invoice not yet settled"`) on the Visit Done dot is preserved — the dot itself is green, but hovering still tells the user about pending bills.
+
+**Status: ✅ Fixed**
+
+---
+
+### Issue 4 — No Show progress strip: completed steps shown in slate instead of green
+
+**Problem found:**
+In the terminal render of BookingProgressStrip.tsx, ALL steps that were completed before the terminal event used the same terminal colour palette:
+- Cancelled → rose for all completed steps
+- No Show → slate for all completed steps
+- Left Early → amber for all completed steps
+
+Steps that genuinely happened (the patient booked, the clinic confirmed) were coloured the same as the terminal event itself. This misrepresented the appointment history. For example, a confirmed booking where the patient no-showed should show: Booked (green ✓) → Confirmed (green ✓) → Arrived (slate dot — no-show happened here).
+
+**Fix applied:**
+The terminal render now splits `wasDone` steps into two categories:
+
+```
+if (wasDone) {
+  if (isLastDone) {
+    // Terminal event dot — slate/rose/amber in terminal colour
+  } else {
+    // Steps that genuinely occurred — shown in green (emerald checkmark)
+  }
+}
+```
+
+- Steps 0 to `stageBeforeCancel - 1`: green emerald checkmark (they genuinely happened)
+- Step `stageBeforeCancel` (the last reached step): terminal colour dot with the tooltip (reason text)
+- Steps after `stageBeforeCancel`: grey (never reached)
+
+This applies equally to all terminal states: No Show (slate terminal dot), Cancelled (rose terminal dot), Left Early (amber terminal dot). The genuinely completed prior steps always show green regardless of which terminal state occurred.
+
+**Status: ✅ Fixed**
+
+---
+
+### Issue 5 — Visit Type and Treatment not displayed for patient-booked appointments
+
+**Problem found (two parts):**
+
+**Part A — Schema mismatch (primary bug):**
+`visitType` and `treatmentCategory` were added to the database via raw SQL migrations in `db.ts`, but were **never added to `shared/schema.ts`** (the Drizzle ORM schema definition). As a result:
+- Drizzle's `insert().values()` silently ignores these fields even when cast with `as any` — Drizzle only maps columns it knows from the schema.
+- Drizzle's `select().from(bookings)` also does not include them in query results.
+- The frontend receives `booking.visitType = undefined` for all bookings.
+- The card falls back to parsing the `description` field (`Visit: X` pattern), which doesn't match the free-text patient descriptions. Both fields show "–".
+
+**Part B — Wrong hardcoded values:**
+Even with the schema fixed, `server/routes.ts` was hardcoding `visitType: 'booked_by_patient'` and `treatmentCategory: 'consultation'` for every patient-booked appointment. Per the existing documentation ("Both are stored on `bookings.visit_type` and `bookings.treatment_category`. They are set by clinic admin when booking — never by the patient."), patients do not and should not choose these fields. The patient booking form has no UI for them. Storing a technical placeholder like `'booked_by_patient'` adds noise without clinical value.
+
+**Fix applied (two parts):**
+
+**Part A — Added to schema:**
+`visitType` and `treatmentCategory` added to the `bookings` table definition in `shared/schema.ts`:
+```ts
+visitType: varchar("visit_type", { length: 50 }),
+treatmentCategory: varchar("treatment_category", { length: 255 }),
+```
+These columns already exist in the database (created by the `db.ts` migration). Adding them to the schema makes Drizzle select them in queries and map them correctly in query results.
+
+**Part B — Removed hardcoded placeholders from patient booking:**
+In `server/routes.ts`, the patient booking insert no longer sets these fields. They default to `null` in the database, and the card displays "–" for both. The clinic admin sets the actual visit type and treatment category when reviewing and confirming the booking.
+
+**Status: ✅ Fixed**
+
+> **Note for production deployment:** The `visit_type` and `treatment_category` columns already exist in the Render production database (added by the `db.ts` startup migration). No additional SQL is required for this fix.
+
+---
+
+### Additional finding — Doctor footer blank for terminal states (No Show / Cancelled / Left Early)
+
+**Problem found:**
+The doctor footer section (`role === "doctor" && !isDoctorDeclined`) produced a **completely empty footer** for terminal bookings — no button, no text, blank space. The `isDoctorDeclined` path renders "Appointment Declined" text as a clear indicator, but there was no equivalent for the other three terminal states. A doctor looking at a no-show booking in their list would see a normal card with no footer indication of the outcome.
+
+**Fix applied:**
+Added a terminal state indicator inside the doctor footer. After the (now terminal-excluded) "Booked" button and before the active Stage 2 button, a muted text block renders whenever `isTerminal`:
+```
+{isTerminal && (
+  <div className="w-full ... bg-muted/40 border border-border/40">
+    <span className="text-xs text-muted-foreground">
+      {isNoShowState ? "Patient did not arrive"
+      : isCancelled ? "Appointment cancelled"
+      : "Patient left before completion"}
+    </span>
+  </div>
+)}
+```
+
+**Status: ✅ Fixed**
+
+---
+
+### Summary Table
+
+| ID | Issue | Status |
+|---|---|---|
+| 1 | Visit-completed bookings appeared in "Upcoming Bookings" (Clinic + Doctor dashboards) | ✅ Fixed: `visitStatus !== 'completed'` added to all upcoming filters |
+| 2 | Doctor card showed "Waiting for patient to arrive" tooltip on No Show / Cancelled / Left Early | ✅ Fixed: `!isTerminal` added to "Booked" button condition |
+| 3 | Progress strip "Visit Done" dot amber when visit complete + unpaid bills | ✅ Fixed: Visit Done dot always green; billing communicated via button/banner only |
+| 4 | No Show progress strip: completed steps shown in slate (terminal colour) instead of green | ✅ Fixed: Prior completed steps now show green; only last step shows terminal colour |
+| 5 | Visit Type and Treatment not displayed for patient bookings (schema missing + wrong defaults) | ✅ Fixed: Added columns to `shared/schema.ts`; removed hardcoded placeholders from patient booking insert |
+| + | Doctor footer blank (no text) for terminal bookings | ✅ Fixed: Terminal state indicator added to doctor footer |
+
+---
+
+*Section added: June 2026 (Batch 2). Reflects AppointmentCard.tsx, BookingProgressStrip.tsx, ClinicDashboard.tsx, DoctorDashboard.tsx, server/routes.ts, and shared/schema.ts.*

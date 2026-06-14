@@ -113,6 +113,8 @@ export const bookings = pgTable("bookings", {
   cancellationReason: text("cancellation_reason"),
   visitCompletionNote: text("visit_completion_note"),
   slotCost: integer("slot_cost").default(1),
+  visitType: varchar("visit_type", { length: 50 }),
+  treatmentCategory: varchar("treatment_category", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
