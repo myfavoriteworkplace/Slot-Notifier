@@ -233,16 +233,25 @@ export function BookingProgressStrip({
             lineColor = "bg-emerald-300 dark:bg-emerald-700";
             labelColor= "text-emerald-600 dark:text-emerald-400 font-semibold";
           } else if (isCurrent) {
-            dotBg     = "bg-sky-50 dark:bg-sky-950/20";
-            dotBorder = "border-sky-400 dark:border-sky-500";
-            dotInner  = (
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-sky-500" />
-              </span>
-            );
-            lineColor = "bg-border/40";
-            labelColor= "text-sky-600 dark:text-sky-400 font-bold";
+            if (stage === "treatment_completed" && i === 3) {
+              // Amber checkmark — doctor marked treatment done; visually distinct from active in_consultation
+              dotBg     = "bg-amber-50 dark:bg-amber-950/20";
+              dotBorder = "border-amber-400 dark:border-amber-600";
+              dotInner  = <CheckCircle2 className="h-2.5 w-2.5 text-amber-500 dark:text-amber-400" />;
+              lineColor = "bg-border/40";
+              labelColor= "text-amber-600 dark:text-amber-400 font-semibold";
+            } else {
+              dotBg     = "bg-sky-50 dark:bg-sky-950/20";
+              dotBorder = "border-sky-400 dark:border-sky-500";
+              dotInner  = (
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-sky-500" />
+                </span>
+              );
+              lineColor = "bg-border/40";
+              labelColor= "text-sky-600 dark:text-sky-400 font-bold";
+            }
           } else {
             dotBg     = "bg-muted";
             dotBorder = "border-border/50";

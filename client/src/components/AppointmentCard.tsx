@@ -252,9 +252,6 @@ export function AppointmentCard({
     && !isTerminal && !isVisitCompleted && !isTreatmentCompleted
     && !isInConsultation && !isCheckedIn;
 
-  // Past-day: appointment was on a previous calendar day (disables Confirm button)
-  const isPastDay = isPast && !isToday;
-
   // Delayed check-in: patient arrived after the slot's end time
   const isCheckedInLate = !!booking.checkedInAt && new Date(booking.checkedInAt) > endTime;
 
@@ -267,7 +264,7 @@ export function AppointmentCard({
     : isTreatmentCompleted ? "treatment_completed"
     : isInConsultation ? "in_consultation"
     : isCheckedIn ? "checked_in"
-    : isConfirmed ? "confirmed"
+    : isClinicConfirmed ? "confirmed"
     : "booked";
 
   // ── Visual classes ──
@@ -292,6 +289,8 @@ export function AppointmentCard({
     ? "border-2 border-teal-400/70 shadow-sm shadow-teal-400/10"
     : role === "doctor" && isCheckedIn
     ? "border-2 border-primary/60 shadow-sm shadow-primary/10"
+    : isCheckedIn
+    ? "border-l-[3px] border-l-sky-400 dark:border-l-sky-500"
     : isCancelled
     ? "border-l-[3px] border-l-rose-400 dark:border-l-rose-500"
     : isNoShowState
@@ -375,17 +374,17 @@ export function AppointmentCard({
         </span>Arrived
       </span>
     );
-    if (isConfirmed) return (
-      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-        <CheckCircle2 className="h-2.5 w-2.5" />Confirmed
-      </span>
-    );
     if (booking.assignedDoctor && booking.doctorApprovalStatus === "pending") return (
       <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
         <span className="relative flex h-1.5 w-1.5 shrink-0">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
         </span>Awaiting Dr
+      </span>
+    );
+    if (isConfirmed) return (
+      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+        <CheckCircle2 className="h-2.5 w-2.5" />Confirmed
       </span>
     );
     return (
@@ -413,6 +412,8 @@ export function AppointmentCard({
     ? "Patient currently with doctor"
     : isCheckedIn
     ? "Patient checked in — waiting for doctor"
+    : (booking.assignedDoctor && booking.doctorApprovalStatus === "pending")
+    ? "Doctor assigned — awaiting their confirmation"
     : isConfirmed
     ? "Appointment confirmed"
     : "Appointment awaiting confirmation";
@@ -424,7 +425,7 @@ export function AppointmentCard({
     setCancelReason(""); setCancelReasonOther("");
   };
 
-  const canShowMoreMenu = role === "clinic" && !isCancelled && !isNoShowState && !isLeftEarlyState;
+  const canShowMoreMenu = role === "clinic" && !isCancelled && !isNoShowState && !isLeftEarlyState && !isVisitCompleted;
 
   return (
     <Card
@@ -531,12 +532,12 @@ export function AppointmentCard({
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">Actions</p>
 
                     {/* Assign Doctor */}
-                    {!isVisitCompleted && !isTreatmentCompleted && (booking.clinicDoctors ?? []).length > 0 && (
+                    {!isVisitCompleted && !isTreatmentCompleted && !isInConsultation && (booking.clinicDoctors ?? []).length > 0 && (
                       <MenuButton icon={<Stethoscope className="h-3 w-3" />} label="Reassign Doctor" onClick={() => {}} />
                     )}
 
                     {/* Send Reminder — only for booked/confirmed, not past */}
-                    {!isVisitCompleted && !isTreatmentCompleted && !isPast && (
+                    {!isVisitCompleted && !isTreatmentCompleted && !isPast && !isCheckedIn && !isInConsultation && (
                       <MenuButton
                         icon={sendReminderPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
                         label="Send Reminder"
@@ -545,7 +546,7 @@ export function AppointmentCard({
                       />
                     )}
 
-                    {/* Mark No Show — allowed when not yet arrived OR when arrived-but-not-called (checked in) */}
+                    {/* Mark No Show — only for unconfirmed or confirmed-not-arrived stages (patient truly did not show) */}
                     {!isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -683,8 +684,8 @@ export function AppointmentCard({
                       </>
                     )}
 
-                    {/* Patient Left Early — for when patient is mid-consultation and walks out */}
-                    {isInConsultation && (
+                    {/* Patient Left Early — for when patient leaves waiting room (checked_in) or mid-consultation */}
+                    {(isCheckedIn || isInConsultation) && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <button
@@ -697,9 +698,9 @@ export function AppointmentCard({
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Patient Left During Consultation?</AlertDialogTitle>
+                            <AlertDialogTitle>Patient Left Before Visit Completed?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Mark this visit as ended early. The visit record and any clinical notes will be preserved. A reason is required.
+                              Mark this visit as ended early. The visit record will be preserved. A reason is required.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <div className="px-1 py-2">
@@ -725,8 +726,15 @@ export function AppointmentCard({
                       </AlertDialog>
                     )}
 
+                    {/* Stage 3b info — explain why override is unavailable once doctor has finished */}
+                    {isTreatmentCompleted && !isVisitCompleted && (
+                      <p className="text-[10px] text-muted-foreground/50 px-2 pb-1">Force-complete not available — use "Mark Visit Done" above.</p>
+                    )}
+
                     {(!isVisitCompleted && !isTreatmentCompleted) && (
-                      <div className="my-1 h-px bg-border/40" />
+                      <div className="mt-1 pt-1 border-t border-border/40">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50 px-2 pb-0.5">Admin Override</p>
+                      </div>
                     )}
 
                     {/* Override complete — only when intermediate stages not yet reached (skip path) */}
@@ -1186,16 +1194,16 @@ export function AppointmentCard({
                   <span className="w-full">
                     <Button
                       className="w-full h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => !isPastDay && onConfirm?.()}
-                      disabled={confirmPending || isPastDay}
+                      onClick={() => !isPast && onConfirm?.()}
+                      disabled={confirmPending || isPast}
                       data-testid={`button-confirm-${booking.id}`}
                     >
                       {confirmPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                      {isPastDay ? "Past Appointment" : "Confirm Appointment"}
+                      {isPast ? "Past Appointment" : "Confirm Appointment"}
                     </Button>
                   </span>
                 </TooltipTrigger>
-                {isPastDay && (
+                {isPast && (
                   <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
                     This appointment was on a past day. Use Reschedule to move it to a new slot.
                   </TooltipContent>
@@ -1303,8 +1311,8 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stages 2 / 3 / 4 — ₹ Bill + Cancel */}
-          {!isTerminal && (isCheckedIn || isInConsultation || (isTreatmentCompleted && !isVisitCompleted)) && (
+          {/* Stages 2 / 3a — ₹ Bill + Cancel (patient can still leave without treatment) */}
+          {!isTerminal && (isCheckedIn || isInConsultation) && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
                 className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
@@ -1321,6 +1329,16 @@ export function AppointmentCard({
                 Cancel
               </Button>
             </div>
+          )}
+
+          {/* Stage 3b — ₹ Bill only (doctor has already treated patient; Cancel is inappropriate here) */}
+          {!isTerminal && isTreatmentCompleted && !isVisitCompleted && (
+            <Button variant="outline" size="sm"
+              className="w-full h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+              onClick={() => onBill?.()}
+              data-testid={`button-bill-tmt-${booking.id}`}>
+              <IndianRupee className="h-3 w-3" />₹ Bill
+            </Button>
           )}
 
           {/* Stage 5 — View Summary + Rebook */}

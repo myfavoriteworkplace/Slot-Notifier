@@ -539,4 +539,388 @@ The doctor footer is hidden entirely if the doctor has **Declined** the booking 
 
 ---
 
-*Last updated: June 2026 — reflects AppointmentCard.tsx v1691 and BookingProgressStrip.tsx v317.*
+## 16. Inconsistency & Bug Audit — June 2026
+
+This section documents a systematic review of 17 inconsistencies and edge cases found across the card components. For each item: the original problem, what was changed, and whether it was fixed or intentionally left alone.
+
+---
+
+### A — Genuine Logic Bugs
+
+---
+
+#### A1 — Patient who arrives then leaves waiting room had no exit path
+
+**Problem found:**
+"Patient Left Early" was only available during `in_consultation`. "Mark No Show" explicitly excluded `isCheckedIn` via `!isCheckedIn` in its condition. If a patient checked in at the front desk and then walked out of the waiting room before seeing the doctor, there was no correct action available:
+- Mark No Show — hidden (patient technically did show up)
+- Patient Left Early — hidden (was gated on `isInConsultation` only)
+- Cancel — semantically wrong (fires a cancellation email; doesn't record that the patient arrived)
+- Override complete — produces the wrong outcome (records the visit as "done")
+- The booking would be permanently stuck at Stage 2 (Arrived) with no closure path.
+
+The code comment at line 548 even said *"allowed when not yet arrived OR when arrived-but-not-called (checked in)"* — but the condition directly below it (`!isCheckedIn && !isInConsultation`) contradicted the comment.
+
+**Fix applied:**
+`Patient Left Early` was expanded to also appear at Stage 2 (`isCheckedIn`). The trigger condition changed from:
+```
+{isInConsultation && (
+```
+to:
+```
+{(isCheckedIn || isInConsultation) && (
+```
+
+The dialog title was updated from "Patient Left During Consultation?" to "Patient Left Before Visit Completed?" and the description shortened to remove the reference to clinical notes (which don't yet exist at Stage 2). The code comment was corrected to match.
+
+**Status: ✅ Fixed**
+
+---
+
+#### A2 — "Send Reminder" visible while patient was physically in the building
+
+**Problem found:**
+Condition was `!isVisitCompleted && !isTreatmentCompleted && !isPast`. This allowed the Send Reminder menu item to appear at Stage 2 (Arrived — patient is at reception) and Stage 3a (In Consultation — patient is with the doctor). Sending a reminder SMS/email at those moments is nonsensical and risks alarming the patient.
+
+**Fix applied:**
+Added `!isCheckedIn && !isInConsultation` to the condition:
+```
+{!isVisitCompleted && !isTreatmentCompleted && !isPast && !isCheckedIn && !isInConsultation && (
+```
+Send Reminder now only appears at Stage 0 (booked/pending) and Stage 1 (confirmed, not yet arrived).
+
+**Status: ✅ Fixed**
+
+---
+
+#### A3 — "Reassign Doctor" visible while patient was actively being treated
+
+**Problem found:**
+Condition was `!isVisitCompleted && !isTreatmentCompleted`. This showed "Reassign Doctor" at Stage 3a (In Consultation) — while the doctor was in the room treating the patient. Reassigning mid-consultation would create a split record: the treating doctor's consultation notes and clinical entries would be associated with one name, while the booking would be updated to point at another.
+
+Reassigning at Stage 2 (Arrived / waiting room) was left allowed because the doctor may be genuinely unavailable and the patient hasn't been called yet.
+
+**Fix applied:**
+Added `!isInConsultation` to the Reassign Doctor condition:
+```
+{!isVisitCompleted && !isTreatmentCompleted && !isInConsultation && (booking.clinicDoctors ?? []).length > 0 && (
+```
+
+**Status: ✅ Fixed**
+
+---
+
+#### A4 — ⋮ Menu button shown on completed visits containing only "No actions available"
+
+**Problem found:**
+`canShowMoreMenu` was defined as:
+```
+role === "clinic" && !isCancelled && !isNoShowState && !isLeftEarlyState
+```
+It did not exclude `isVisitCompleted`. So on completed cards, the ⋮ button was visible. Clicking it opened a popover containing only a single line: "No actions available" — with no actionable items. A visible control that does nothing is worse than hiding it.
+
+**Fix applied:**
+Added `&& !isVisitCompleted` to `canShowMoreMenu`:
+```
+role === "clinic" && !isCancelled && !isNoShowState && !isLeftEarlyState && !isVisitCompleted
+```
+The ⋮ button is now hidden on completed visits.
+
+**Status: ✅ Fixed**
+
+---
+
+#### A5 — Cancel button available after doctor had already treated the patient
+
+**Problem found:**
+Secondary buttons at Stage 3b (Treatment Completed) included a Cancel button. The condition was:
+```
+(isCheckedIn || isInConsultation || (isTreatmentCompleted && !isVisitCompleted))
+```
+All three stages received the same `₹ Bill · Cancel` pair. Cancelling at Stage 3b creates an inconsistent record: `visitStatus = "treatment_completed"` with `verificationStatus = "cancelled"`, recording a treatment that was delivered as if the appointment never happened. The cancel dialog at that stage had no awareness of the treatment already being completed.
+
+**Fix applied:**
+Split into two separate conditions:
+
+**Stage 2 and 3a only** — `₹ Bill + Cancel` (patient can still leave without treatment):
+```
+{!isTerminal && (isCheckedIn || isInConsultation) && (
+  <div className="flex gap-2">
+    <Button ...>₹ Bill</Button>
+    <Button ...>Cancel</Button>
+  </div>
+)}
+```
+
+**Stage 3b only** — `₹ Bill` (full-width, no Cancel):
+```
+{!isTerminal && isTreatmentCompleted && !isVisitCompleted && (
+  <Button className="w-full ...">₹ Bill</Button>
+)}
+```
+
+After Stage 3b, the admin's only path is "Mark Visit Done" (primary button) or "Mark Visit Done" from the three-dot menu. There is no cancellation path once treatment has been delivered. This is the intended business outcome.
+
+**Status: ✅ Fixed**
+
+---
+
+### B — Visual / UI Inconsistencies
+
+---
+
+#### B1 — Status badge never showed "Awaiting Dr" after confirmation
+
+**Problem found:**
+The status badge priority order placed `isConfirmed` before the `assignedDoctor && doctorApprovalStatus === "pending"` check:
+```
+if (isConfirmed) return "Confirmed"
+if (booking.assignedDoctor && doctorApprovalStatus === "pending") return "Awaiting Dr"
+```
+Once the clinic confirmed a booking (Stage 1+), the badge always showed "Confirmed" (green) regardless of whether the assigned doctor had accepted. The doctor's pending state was only visible in the smaller assignment info row ("Dr. Name · Awaiting approval"). The prominent top-right badge gave a false impression of readiness.
+
+In practice "Awaiting Dr" could only ever appear at Stage 0 — an unusual sequence where a doctor is assigned before the clinic confirms.
+
+**Fix applied (two parts):**
+
+**Part 1 — Badge priority reordered:** Moved the "Awaiting Dr" check to appear before `isConfirmed`:
+```
+if (booking.assignedDoctor && doctorApprovalStatus === "pending") return "Awaiting Dr"
+if (isConfirmed) return "Confirmed"
+```
+Now when a booking is confirmed but the doctor has not yet accepted, the badge shows "Awaiting Dr" (amber pulsing) instead of "Confirmed" (green). This accurately signals that the booking is not fully ready.
+
+**Part 2 — statusTooltip updated:** Added the matching tooltip case before the `isConfirmed` tooltip:
+```
+: (booking.assignedDoctor && booking.doctorApprovalStatus === "pending")
+? "Doctor assigned — awaiting their confirmation"
+: isConfirmed
+? "Appointment confirmed"
+```
+
+**Status: ✅ Fixed**
+
+---
+
+#### B2 — Clinic view: "Arrived" (Stage 2) and "Confirmed" (Stage 1) looked identical on the card border
+
+**Problem found:**
+The `cardBorderClass` logic gave the full 2 px highlight border only to the doctor view for `isCheckedIn`:
+```
+: role === "doctor" && isCheckedIn
+? "border-2 border-primary/60 shadow-sm shadow-primary/10"
+```
+In clinic view, `isCheckedIn` fell through to `isConfirmed` which is `border-l-[3px] border-l-emerald-400` — the same border as Stage 1 (Confirmed). Clinic admins scanning a busy list could not visually distinguish between a patient who had arrived and one who hadn't yet.
+
+**Fix applied:**
+Added a distinct sky-blue left border for `isCheckedIn` in clinic view, inserted immediately after the doctor-view full border:
+```
+: isCheckedIn
+? "border-l-[3px] border-l-sky-400 dark:border-l-sky-500"
+```
+Stage 2 (Arrived) now shows a sky-blue left border in clinic view, matching the sky colour already used for the accent bar and "Arrived" status badge on today's appointments.
+
+**Status: ✅ Fixed**
+
+---
+
+#### B3 — Progress strip looked identical at Stage 3a (In Consultation) and Stage 3b (Treatment Completed)
+
+**Problem found:**
+Both `in_consultation` and `treatment_completed` mapped to step index 3 in `stageToIndex()`. The progress strip rendered the same pulsing blue dot at "In Tmt." for both stages. The only visual difference between the two stages was the accent bar colour and the status badge — the strip itself gave no signal that the doctor had finished.
+
+**Fix applied (`BookingProgressStrip.tsx`):**
+Added a branch inside the `isCurrent` rendering block: when `stage === "treatment_completed"` and the current step index is 3, the dot switches from the pulsing blue animation to an **amber static checkmark**:
+```
+if (stage === "treatment_completed" && i === 3) {
+  dotBg     = "bg-amber-50 dark:bg-amber-950/20";
+  dotBorder = "border-amber-400 dark:border-amber-600";
+  dotInner  = <CheckCircle2 className="h-2.5 w-2.5 text-amber-500 dark:text-amber-400" />;
+  labelColor= "text-amber-600 dark:text-amber-400 font-semibold";
+}
+```
+
+At Stage 3a (`in_consultation`) the dot remains a pulsing blue circle.
+At Stage 3b (`treatment_completed`) the dot shows a static amber checkmark — signalling "done by doctor, waiting for admin".
+
+**Status: ✅ Fixed**
+
+---
+
+### C — Documentation Gaps (document-only, no code change needed)
+
+---
+
+#### C1 — "Reassign Doctor" menu item was not documented at all
+
+**Problem found:**
+The three-dot menu has five possible items. The original document listed only four. "Reassign Doctor" (visible when `!isVisitCompleted && !isTreatmentCompleted && clinicDoctors.length > 0`) was entirely absent from Section 7.
+
+**Fix applied:**
+Section 7 of this document now lists "Reassign Doctor" as the first menu item, with its correct visibility condition. The code fix to A3 (blocking it during `in_consultation`) is also reflected.
+
+**Status: ✅ Documented**
+
+---
+
+#### C2 — "Mark Visit Done" also appears inside the three-dot menu (duplicate of primary button)
+
+**Problem found:**
+At Stage 3b (`treatment_completed && !isVisitCompleted`), the three-dot menu renders a "Mark Visit Done" item. This is a different entry point from the large green primary footer button. The menu version opens a "reason" dropdown dialog before calling `handleMarkVisitDone()`; the footer button calls the same handler directly (which checks for unpaid bills). The document did not mention the menu item at all, implying "Mark Visit Done" was footer-only.
+
+**Fix applied:**
+Section 7 now documents the "Mark Visit Done" menu item with its condition and the note that it is a second entry point for the same action (with a reason dialog).
+
+**Status: ✅ Documented**
+
+---
+
+#### C3 — "No actions available" fallback text inside the ⋮ menu was undocumented
+
+**Problem found:**
+When `isVisitCompleted` (which was previously allowed through `canShowMoreMenu`), the popover body showed a single centred line "No actions available". This was never mentioned in the document.
+
+**Fix applied:**
+This state no longer occurs after fix A4 (⋮ menu is now hidden when `isVisitCompleted`). The fallback text in the JSX has been left in place as a defensive guard, but users will never see it in normal flow. Documented here for completeness.
+
+**Status: ✅ Documented (state no longer reachable after A4)**
+
+---
+
+### D — Edge Cases
+
+---
+
+#### D1 — Override option silently disappeared at Stage 3b with no explanation
+
+**Problem found:**
+The "Mark Visit Complete ↗" override option has the condition `!isVisitCompleted && !isTreatmentCompleted`. Once the doctor marks "Done with Patient" (`visitStatus = "treatment_completed"`), `isTreatmentCompleted` becomes true and the override disappears from the menu. No UI element explained why it was gone or what the admin should do instead. A clinic admin accustomed to seeing the override option would be confused by its absence at Stage 3b.
+
+**Fix applied:**
+Added an informational text line inside the three-dot menu that appears only at Stage 3b:
+```
+{isTreatmentCompleted && !isVisitCompleted && (
+  <p className="text-[10px] text-muted-foreground/50 px-2 pb-1">
+    Force-complete not available — use "Mark Visit Done" above.
+  </p>
+)}
+```
+This appears below the "Mark Visit Done" menu item (which is the only other item visible at Stage 3b) and directly explains the situation.
+
+**Status: ✅ Fixed**
+
+---
+
+#### D2 — "Patient Left Early" and "Mark Visit Complete ↗" sat side-by-side in the menu at Stage 3a with no context
+
+**Problem found:**
+At Stage 3a (`in_consultation`), both "Patient Left Early" (a terminal action — records a bad exit) and "Mark Visit Complete ↗" (an override — marks the visit as successfully done) were visible in the same menu. They were separated only by a plain `<div className="h-px bg-border/40" />` divider line with no label. To an admin, both appeared to be equivalent peer actions. Clicking the wrong one would produce a very different outcome.
+
+**Fix applied:**
+Replaced the plain divider with a labelled section header reading "Admin Override" in uppercase muted text:
+```
+<div className="mt-1 pt-1 border-t border-border/40">
+  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50 px-2 pb-0.5">
+    Admin Override
+  </p>
+</div>
+```
+The "Mark Visit Complete ↗" button now clearly sits under an "Admin Override" section heading, distinguishing it from the operational actions above it.
+
+**Status: ✅ Fixed**
+
+---
+
+#### D3 — Doctor view progress strip showed "Booked" even when clinic had confirmed
+
+**Problem found:**
+`isConfirmed` was defined as role-dependent:
+- Clinic view: `isClinicConfirmed` (verificationStatus === "confirmed")
+- Doctor view: `isDoctorConfirmed` (doctorApprovalStatus === "approved" or "admin_confirmed")
+
+The progress strip's `lifecycleStage` used this role-adjusted value. So in doctor view, if the clinic had confirmed the booking but the doctor hadn't approved yet, the strip showed the "Booked" state (all grey except the first dot) — as if the appointment hadn't been confirmed at all. The progress strip was showing the doctor's personal approval state, not the booking's actual lifecycle state.
+
+**Fix applied:**
+Changed the `lifecycleStage` computation to always use `isClinicConfirmed` for the "confirmed" step, regardless of role:
+```
+: isClinicConfirmed ? "confirmed"
+: "booked"
+```
+Both clinic and doctor views now show "Confirmed" on the progress strip when the clinic has confirmed the booking. The doctor's approval state is shown separately via the Accept/Decline buttons and the status badge — not via the progress strip.
+
+**Status: ✅ Fixed**
+
+---
+
+#### D4 — `isOverrideCompleted` detection was fragile
+
+**Problem found:**
+Override detection logic:
+```
+const isOverrideCompleted = isVisitCompleted && !booking.checkedInAt && !isLeftEarlyState
+```
+This detects an admin force-complete by checking for the *absence* of `checkedInAt`. However, there are legitimate scenarios where `checkedInAt` would be null on a completed visit:
+- A very short walk-in where the clinic skipped the check-in step and went straight to treatment.
+- A home-visit or phone consultation marked complete without a physical check-in.
+- Any future workflow variation that completes a visit without a formal check-in step.
+
+In all these cases, the progress strip would incorrectly show steps 1–3 in orange strikethrough, falsely indicating that stages were force-skipped.
+
+**Fix applied: none — schema change required.**
+The proper fix requires a dedicated boolean column (`is_override_complete BOOLEAN DEFAULT FALSE`) on the `bookings` table, set to `true` only when the admin explicitly triggers the force-complete path. This would give an unambiguous signal rather than inferring from the absence of a timestamp. This change requires:
+- A new column in the Drizzle schema (`shared/schema.ts`)
+- The corresponding `ALTER TABLE bookings ADD COLUMN is_override_complete BOOLEAN DEFAULT FALSE;` SQL on the production database
+- The backend override endpoint to set it to `true`
+- The card to read `booking.isOverrideComplete` instead of the absence heuristic
+
+This is tracked but deferred. Until it is fixed, the heuristic holds for the current standard workflow — all legitimate completions in the system currently go through check-in first.
+
+**Status: ❌ Not fixed — requires schema change**
+
+---
+
+#### D5 — `isPastDay` was a redundant variable always equal to `isPast`
+
+**Problem found:**
+Two variables existed for the same concept:
+```
+const isPast    = startTime < startOfToday && !isToday;
+const isPastDay = isPast && !isToday;
+```
+`isPast` already excludes `isToday` in its own definition. The `&& !isToday` appended to `isPastDay` was therefore always a no-op — `isPastDay === isPast` in all cases. The variable added confusion about whether a subtle distinction existed between the two.
+
+**Fix applied:**
+Removed the `isPastDay` variable declaration and replaced all four usages with `isPast`:
+- `onClick={() => !isPastDay && onConfirm?.()}` → `!isPast`
+- `disabled={confirmPending || isPastDay}` → `confirmPending || isPast`
+- `{isPastDay ? "Past Appointment" : "Confirm Appointment"}` → `{isPast ? ...`
+- `{isPastDay && (<TooltipContent...` → `{isPast && ...`
+
+**Status: ✅ Fixed**
+
+---
+
+### Summary Table
+
+| ID | Category | Description | Status |
+|---|---|---|---|
+| A1 | Logic Bug | Patient arrives and leaves waiting room — no exit action | ✅ Fixed: Patient Left Early now also shows at Stage 2 |
+| A2 | Logic Bug | Send Reminder shows while patient is physically in clinic | ✅ Fixed: Blocked at `isCheckedIn` and `isInConsultation` |
+| A3 | Logic Bug | Reassign Doctor shown mid-consultation | ✅ Fixed: Blocked at `isInConsultation` |
+| A4 | Logic Bug | ⋮ menu shown on completed visits showing only "No actions available" | ✅ Fixed: `canShowMoreMenu` now excludes `isVisitCompleted` |
+| A5 | Logic Bug | Cancel button available after doctor already treated patient | ✅ Fixed: Stage 3b now shows `₹ Bill` only; no Cancel |
+| B1 | Visual | "Awaiting Dr" badge never shown after confirmation; badge said "Confirmed" even when doctor pending | ✅ Fixed: "Awaiting Dr" now has higher priority than "Confirmed" in badge logic; tooltip updated |
+| B2 | Visual | Clinic view: Stage 1 and Stage 2 indistinguishable by left border | ✅ Fixed: Stage 2 (Arrived) now has sky-blue left border |
+| B3 | Visual | Progress strip at Stage 3a and Stage 3b looked identical | ✅ Fixed: Stage 3b dot is now amber static checkmark; Stage 3a remains pulsing blue |
+| C1 | Doc gap | "Reassign Doctor" menu item missing from document | ✅ Documented in Section 7 |
+| C2 | Doc gap | "Mark Visit Done" also exists as a three-dot menu item at Stage 3b | ✅ Documented in Section 7 |
+| C3 | Doc gap | "No actions available" fallback text inside ⋮ menu undocumented | ✅ Documented (state no longer reachable after A4) |
+| D1 | Edge case | Override option disappears at Stage 3b silently with no explanation | ✅ Fixed: Info text added inside menu at Stage 3b |
+| D2 | Edge case | "Patient Left Early" and "Mark Visit Complete ↗" sat side-by-side with only a plain divider | ✅ Fixed: "Admin Override" section label added above override button |
+| D3 | Edge case | Doctor view progress strip showed "Booked" even when clinic had confirmed | ✅ Fixed: `lifecycleStage` now always uses `isClinicConfirmed` for the "confirmed" step |
+| D4 | Edge case | `isOverrideCompleted` flag misfires for walk-in visits with no check-in | ❌ Not fixed — requires `is_override_complete` column in schema |
+| D5 | Code quality | `isPastDay` variable was always identical to `isPast` (redundant) | ✅ Fixed: Variable removed; all usages replaced with `isPast` |
+
+---
+
+*Section added: June 2026. Reflects AppointmentCard.tsx and BookingProgressStrip.tsx after the June 2026 audit.*
