@@ -496,7 +496,7 @@ export function AppointmentCard({
                       <StatusBadge />
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" align="end" className="text-xs font-medium">
+                  <TooltipContent side="bottom" align="end" className="text-xs font-medium max-w-[200px] whitespace-normal">
                     {statusTooltip}
                   </TooltipContent>
                 </Tooltip>
@@ -1454,7 +1454,7 @@ export function AppointmentCard({
           {/* ── PRIMARY button ── */}
 
           {/* Pending approval — Approve / Decline (two-button primary row) */}
-          {booking.doctorApprovalStatus === "pending" && (
+          {booking.doctorApprovalStatus === "pending" && !isVisitCompleted && !isTreatmentCompleted && !isTerminal && (
             <div className="flex gap-2">
               <Button size="sm"
                 className="flex-1 h-10 text-xs font-semibold bg-green-600 hover:bg-green-700 text-white gap-1.5 active:scale-[0.98]"
