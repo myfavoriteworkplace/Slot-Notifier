@@ -689,6 +689,37 @@ app.use((req, res, next) => {
       `);
       log("patient identity columns ready", "system");
 
+      // ── Backfill patientCode for legacy patients that are missing one ──────
+      try {
+        await db.execute(sql`
+          UPDATE patients p
+          SET patient_code = 'PAT-' || LPAD(CAST(sub.rn AS TEXT), 4, '0')
+          FROM (
+            SELECT id,
+                   ROW_NUMBER() OVER (PARTITION BY clinic_id ORDER BY created_at ASC NULLS LAST, id ASC) AS rn
+            FROM patients
+            WHERE patient_code IS NULL
+          ) sub
+          WHERE p.id = sub.id
+        `);
+        log("patientCode backfill complete", "DATABASE");
+      } catch (e: any) {
+        console.error("[DATABASE] patientCode backfill failed (non-fatal):", e.message);
+      }
+
+      // ── Unique constraint on (clinic_id, patient_code) ────────────────────
+      try {
+        await db.execute(sql`
+          ALTER TABLE patients
+            ADD CONSTRAINT patients_clinic_patient_code_unique UNIQUE (clinic_id, patient_code)
+        `);
+        log("patients (clinic_id, patient_code) unique constraint added", "DATABASE");
+      } catch (e: any) {
+        if (!e.message?.includes("already exists")) {
+          console.error("[DATABASE] patients unique constraint failed (non-fatal):", e.message);
+        }
+      }
+
       // ── Backfill: create patient records from historical bookings ───────────
       // Safe to run every startup — only touches bookings where patient_id IS NULL.
       // Becomes a no-op once all bookings are linked.

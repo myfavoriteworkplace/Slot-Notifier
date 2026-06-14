@@ -187,7 +187,7 @@ export interface IStorage {
 
   // Patient Bills
   createPatientBill(data: InsertPatientBill): Promise<PatientBill>;
-  getPatientBillsByClinicId(clinicId: number): Promise<PatientBill[]>;
+  getPatientBillsByClinicId(clinicId: number): Promise<(PatientBill & { patientCode?: string | null })[]>;
   getPatientBillsByBookingId(bookingId: number, clinicId: number): Promise<PatientBill[]>;
   getPatientBillsByPatientId(clinicId: number, patientId: number): Promise<PatientBill[]>;
   getPatientBillsByPhone(clinicId: number, phone: string): Promise<PatientBill[]>;
@@ -1113,10 +1113,16 @@ export class DatabaseStorage implements IStorage {
     return bill;
   }
 
-  async getPatientBillsByClinicId(clinicId: number): Promise<PatientBill[]> {
-    return db.select().from(patientBills)
-      .where(eq(patientBills.clinicId, clinicId))
-      .orderBy(desc(patientBills.createdAt));
+  async getPatientBillsByClinicId(clinicId: number): Promise<(PatientBill & { patientCode?: string | null })[]> {
+    const rows = await db.select({
+      bill: patientBills,
+      patientCode: patients.patientCode,
+    })
+    .from(patientBills)
+    .leftJoin(patients, eq(patientBills.patientId, patients.id))
+    .where(eq(patientBills.clinicId, clinicId))
+    .orderBy(desc(patientBills.createdAt));
+    return rows.map(r => ({ ...r.bill, patientCode: r.patientCode ?? null }));
   }
 
   async getPatientBillsByBookingId(bookingId: number, clinicId: number): Promise<PatientBill[]> {

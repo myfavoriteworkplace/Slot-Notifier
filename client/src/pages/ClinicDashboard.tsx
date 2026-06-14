@@ -490,7 +490,7 @@ export default function ClinicDashboard() {
   }, [savedSlotConfigs]);
 
   // All clinic bills — loaded on demand only when the Accounts panel is open
-  const { data: allBills = [] } = useQuery<PatientBill[]>({
+  const { data: allBills = [] } = useQuery<(PatientBill & { patientCode?: string | null })[]>({
     queryKey: ['/api/auth/clinic/bills'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/auth/clinic/bills');
@@ -6475,19 +6475,25 @@ export default function ClinicDashboard() {
 
             // ── Patient grouping (email → phone → name) ─────────────────
             type PatientGroup = {
-              key: string; name: string; email: string; phone: string;
-              bills: PatientBill[];
+              key: string; patientId?: number | null; patientCode?: string | null;
+              name: string; email: string; phone: string;
+              bills: (PatientBill & { patientCode?: string | null })[];
               totalBilled: number; totalCollected: number; outstanding: number;
               oldestUnpaidDays: number; hasOverdue: boolean;
             };
             const groupMap = new Map<string, PatientGroup>();
             for (const bill of allBills) {
-              const key = bill.patientEmail?.toLowerCase().trim()
-                || bill.patientPhone?.trim()
-                || bill.patientName.toLowerCase().trim();
+              // Group by patientId (reliable FK) first; fall back to text strings for legacy bills
+              const key = bill.patientId
+                ? `pid:${bill.patientId}`
+                : (bill.patientEmail?.toLowerCase().trim()
+                    || bill.patientPhone?.trim()
+                    || bill.patientName.toLowerCase().trim());
               if (!groupMap.has(key)) {
                 groupMap.set(key, {
                   key,
+                  patientId: bill.patientId ?? null,
+                  patientCode: (bill as any).patientCode ?? null,
                   name: bill.patientName,
                   email: bill.patientEmail ?? "",
                   phone: bill.patientPhone ?? "",
@@ -6502,6 +6508,7 @@ export default function ClinicDashboard() {
               if ((bill.patientEmail ?? "").length > g.email.length) g.email = bill.patientEmail!;
               if ((bill.patientPhone ?? "").length > g.phone.length) g.phone = bill.patientPhone!;
               if (bill.patientName.length > g.name.length) g.name = bill.patientName;
+              if (!g.patientCode && (bill as any).patientCode) g.patientCode = (bill as any).patientCode;
             }
             const patientGroups: PatientGroup[] = [...groupMap.values()].map(g => {
               const totalBilled = g.bills.reduce((s, b) => s + (b.total ?? 0), 0);
@@ -6524,6 +6531,7 @@ export default function ClinicDashboard() {
                   g.name.toLowerCase().includes(q) ||
                   g.email.toLowerCase().includes(q) ||
                   g.phone.includes(accountsSearch) ||
+                  (g.patientCode ?? "").toLowerCase().includes(q) ||
                   g.bills.some(b => (b.billNumber ?? "").toLowerCase().includes(q))
                 )
               : patientGroups;
@@ -6629,19 +6637,19 @@ export default function ClinicDashboard() {
                 {/* ── Stats (shared) ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="rounded-xl border border-border/60 bg-card p-4">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Patients</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Patients</p>
                     <p className="text-2xl font-black text-foreground">{uniquePatients}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{paidCount} receipts paid</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{paidCount} receipts paid</p>
                   </div>
                   <div className="rounded-xl border border-border/60 bg-card p-4">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Collected</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Collected</p>
                     <p className="text-2xl font-black text-primary">₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">from paid bills</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">from paid bills</p>
                   </div>
                   <div className="rounded-xl border border-border/60 bg-card p-4">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Outstanding</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Outstanding</p>
                     <p className="text-2xl font-black text-amber-600">₹{pendingAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">pending + partial</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">pending + partial</p>
                   </div>
                   <button
                     onClick={() => { setAccountsView('register'); setAccountsStatusFilter(accountsStatusFilter === 'overdue' ? 'all' : 'overdue'); }}
@@ -6652,11 +6660,11 @@ export default function ClinicDashboard() {
                         : 'border-border/60 bg-card'
                     }`}
                   >
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-red-600/80 dark:text-red-400/80 mb-1">Overdue</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-red-600/80 dark:text-red-400/80 mb-1">Overdue</p>
                     <p className={`text-2xl font-black ${overdueList.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
                       {overdueList.length > 0 ? `₹${overdueAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
                     </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {overdueList.length > 0 ? `${overdueList.length} bill${overdueList.length !== 1 ? 's' : ''} · 3+ days` : 'no overdue bills'}
                     </p>
                   </button>
@@ -6767,21 +6775,26 @@ export default function ClinicDashboard() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-sm font-bold text-foreground truncate">{group.name}</p>
+                                {group.patientCode && (
+                                  <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-2 py-0.5 rounded-md shrink-0">
+                                    {group.patientCode}
+                                  </span>
+                                )}
                                 {aging && (
-                                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${aging.cls}`}>
-                                    <Clock className="h-2 w-2" />{aging.label} overdue
+                                  <span className={`inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${aging.cls}`}>
+                                    <Clock className="h-3 w-3" />{aging.label} overdue
                                   </span>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                 {group.email && (
-                                  <span className="text-[10px] text-muted-foreground truncate">{group.email}</span>
+                                  <span className="text-xs text-muted-foreground truncate">{group.email}</span>
                                 )}
                                 {group.email && group.phone && (
-                                  <span className="text-[10px] text-muted-foreground/40">·</span>
+                                  <span className="text-xs text-muted-foreground/40">·</span>
                                 )}
                                 {group.phone && (
-                                  <span className="text-[10px] text-muted-foreground">{group.phone}</span>
+                                  <span className="text-xs text-muted-foreground">{group.phone}</span>
                                 )}
                               </div>
                             </div>
@@ -6789,21 +6802,21 @@ export default function ClinicDashboard() {
                             {/* Financial summary */}
                             <div className="hidden sm:flex items-center gap-4 shrink-0 text-right">
                               <div>
-                                <p className="text-[10px] text-muted-foreground">Billed</p>
+                                <p className="text-xs text-muted-foreground">Billed</p>
                                 <p className="text-xs font-bold text-foreground">₹{group.totalBilled.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
                               </div>
                               <div>
-                                <p className="text-[10px] text-muted-foreground">Collected</p>
+                                <p className="text-xs text-muted-foreground">Collected</p>
                                 <p className="text-xs font-bold text-emerald-600">₹{group.totalCollected.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
                               </div>
                               <div>
-                                <p className="text-[10px] text-muted-foreground">Balance</p>
+                                <p className="text-xs text-muted-foreground">Balance</p>
                                 <p className={`text-xs font-bold ${group.outstanding > 0 ? (group.hasOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600') : 'text-muted-foreground'}`}>
                                   {group.outstanding > 0 ? `₹${group.outstanding.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-[10px] text-muted-foreground">Visits</p>
+                                <p className="text-xs text-muted-foreground">Visits</p>
                                 <p className="text-xs font-bold text-foreground">{group.bills.length}</p>
                               </div>
                             </div>
@@ -6813,7 +6826,7 @@ export default function ClinicDashboard() {
                               <p className={`text-sm font-bold ${group.outstanding > 0 ? (group.hasOverdue ? 'text-red-600' : 'text-amber-600') : 'text-emerald-600'}`}>
                                 {group.outstanding > 0 ? `₹${group.outstanding.toLocaleString('en-IN', { maximumFractionDigits: 0 })} due` : '✓ Settled'}
                               </p>
-                              <p className="text-[10px] text-muted-foreground">{group.bills.length} visit{group.bills.length !== 1 ? 's' : ''}</p>
+                              <p className="text-xs text-muted-foreground">{group.bills.length} visit{group.bills.length !== 1 ? 's' : ''}</p>
                             </div>
 
                             <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -6824,10 +6837,10 @@ export default function ClinicDashboard() {
                             <div className="border-t border-border/40 bg-muted/5 divide-y divide-border/30">
                               {/* Column header */}
                               <div className="hidden sm:grid grid-cols-[1fr_110px_90px_1fr] gap-3 px-4 py-1.5 bg-muted/30">
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Receipt #</span>
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Date</span>
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground text-right">Amount</span>
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground text-right">Status / Actions</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Receipt #</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Date</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Amount</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Status / Actions</span>
                               </div>
                               {sortedBills.map(bill => {
                                 const od = isOverdue(bill);
@@ -6844,7 +6857,7 @@ export default function ClinicDashboard() {
                                     <div className="min-w-0">
                                       <p className="text-xs font-mono font-semibold text-foreground truncate">{bill.billNumber}</p>
                                       {svcs.length > 0 && (
-                                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                                        <p className="text-xs text-muted-foreground truncate mt-0.5">
                                           {svcs.slice(0, 2).map(s => s.description).join(', ')}{svcs.length > 2 ? ` +${svcs.length - 2} more` : ''}
                                         </p>
                                       )}
@@ -6857,27 +6870,27 @@ export default function ClinicDashboard() {
                                     </p>
                                     <div className="flex items-center justify-end gap-1.5">
                                       {bill.paymentStatus === 'paid' && (
-                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
-                                          <CheckCircle2 className="h-2.5 w-2.5" /> Paid
+                                        <span className="inline-flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
+                                          <CheckCircle2 className="h-3 w-3" /> Paid
                                         </span>
                                       )}
                                       {bill.paymentStatus === 'pending' && (
-                                        <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 border ${od ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border-red-300/60 dark:border-red-800/40' : 'bg-amber-500/10 text-amber-600 border-amber-500/20'}`}>
-                                          <Clock className="h-2.5 w-2.5" /> Pending
+                                        <span className={`inline-flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full shrink-0 border ${od ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border-red-300/60 dark:border-red-800/40' : 'bg-amber-500/10 text-amber-600 border-amber-500/20'}`}>
+                                          <Clock className="h-3 w-3" /> Pending
                                         </span>
                                       )}
                                       {bill.paymentStatus === 'partial' && (
-                                        <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 border ${od ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border-red-300/60 dark:border-red-800/40' : 'bg-blue-500/10 text-blue-600 border-blue-500/20'}`}>
+                                        <span className={`inline-flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full shrink-0 border ${od ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border-red-300/60 dark:border-red-800/40' : 'bg-blue-500/10 text-blue-600 border-blue-500/20'}`}>
                                           Partial
                                         </span>
                                       )}
                                       <button
-                                        className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[9px] font-bold px-2 py-1 rounded-lg border ${nxt === 'paid' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-400' : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400'}`}
+                                        className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg border ${nxt === 'paid' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-400' : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400'}`}
                                         onClick={() => updateBillStatusMutation.mutate({ id: bill.id, paymentStatus: nxt })}
                                         disabled={isUpd}
                                         data-testid={`ledger-status-toggle-${bill.id}`}
                                       >
-                                        {isUpd ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : nxt === 'paid' ? <><CheckCircle2 className="h-2.5 w-2.5" /> Mark Paid</> : <><Clock className="h-2.5 w-2.5" /> Unpaid</>}
+                                        {isUpd ? <Loader2 className="h-3 w-3 animate-spin" /> : nxt === 'paid' ? <><CheckCircle2 className="h-3 w-3" /> Mark Paid</> : <><Clock className="h-3 w-3" /> Unpaid</>}
                                       </button>
                                       <button
                                         className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground"
@@ -6893,12 +6906,23 @@ export default function ClinicDashboard() {
                               })}
                               {/* Patient total footer */}
                               <div className="px-4 py-2 bg-muted/20 flex items-center justify-between gap-2 flex-wrap">
-                                <p className="text-[10px] text-muted-foreground">{group.bills.length} visit{group.bills.length !== 1 ? 's' : ''} total</p>
+                                <div className="flex items-center gap-3">
+                                  <p className="text-xs text-muted-foreground">{group.bills.length} visit{group.bills.length !== 1 ? 's' : ''} total</p>
+                                  {group.patientId && (
+                                    <button
+                                      className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                                      onClick={() => { setActivePanel('patients'); setSelectedPatientId(group.patientId!); }}
+                                      data-testid={`ledger-view-profile-${group.patientId}`}
+                                    >
+                                      View Profile →
+                                    </button>
+                                  )}
+                                </div>
                                 <div className="flex items-center gap-4">
-                                  <span className="text-[10px] text-muted-foreground">Billed <span className="font-bold text-foreground">₹{group.totalBilled.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span></span>
-                                  <span className="text-[10px] text-muted-foreground">Collected <span className="font-bold text-emerald-600">₹{group.totalCollected.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span></span>
+                                  <span className="text-xs text-muted-foreground">Billed <span className="font-bold text-foreground">₹{group.totalBilled.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span></span>
+                                  <span className="text-xs text-muted-foreground">Collected <span className="font-bold text-emerald-600">₹{group.totalCollected.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span></span>
                                   {group.outstanding > 0 && (
-                                    <span className="text-[10px] text-muted-foreground">Balance <span className={`font-bold ${group.hasOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600'}`}>₹{group.outstanding.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span></span>
+                                    <span className="text-xs text-muted-foreground">Balance <span className={`font-bold ${group.hasOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600'}`}>₹{group.outstanding.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span></span>
                                   )}
                                 </div>
                               </div>
@@ -6955,11 +6979,11 @@ export default function ClinicDashboard() {
                     ) : (
                       <div className="rounded-xl border border-border/60 overflow-hidden">
                         <div className="hidden sm:grid grid-cols-[1fr_130px_100px_90px_1fr] gap-4 px-4 py-2 bg-muted/40 border-b border-border/50">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Patient</span>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Receipt #</span>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Date</span>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right">Amount</span>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-center">Status</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Patient</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Receipt #</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Date</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Amount</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">Status</span>
                         </div>
                         <div className="divide-y divide-border/40">
                           {filteredRegister.map(bill => {
@@ -6978,12 +7002,12 @@ export default function ClinicDashboard() {
                                 <div className="min-w-0">
                                   <p className="text-sm font-semibold text-foreground truncate">{bill.patientName}</p>
                                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                    {bill.patientEmail && <p className="text-[10px] text-muted-foreground truncate">{bill.patientEmail}</p>}
-                                    {bill.patientEmail && bill.patientPhone && <span className="text-[10px] text-muted-foreground/40">·</span>}
-                                    {bill.patientPhone && <p className="text-[10px] text-muted-foreground">{bill.patientPhone}</p>}
+                                    {bill.patientEmail && <p className="text-xs text-muted-foreground truncate">{bill.patientEmail}</p>}
+                                    {bill.patientEmail && bill.patientPhone && <span className="text-xs text-muted-foreground/40">·</span>}
+                                    {bill.patientPhone && <p className="text-xs text-muted-foreground">{bill.patientPhone}</p>}
                                     {overdue && (
-                                      <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300/60 dark:border-red-800/40 shrink-0" data-testid={`accounts-overdue-badge-${bill.id}`}>
-                                        <Clock className="h-2 w-2" />{daysAgo}d overdue
+                                      <span className="inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300/60 dark:border-red-800/40 shrink-0" data-testid={`accounts-overdue-badge-${bill.id}`}>
+                                        <Clock className="h-3 w-3" />{daysAgo}d overdue
                                       </span>
                                     )}
                                   </div>
@@ -6994,26 +7018,26 @@ export default function ClinicDashboard() {
                                   ₹{(bill.total ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                                 </p>
                                 <div className="flex items-center justify-end gap-1.5">
-                                  {bill.paymentStatus === 'paid' && <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0"><CheckCircle2 className="h-2.5 w-2.5" /> Paid</span>}
-                                  {bill.paymentStatus === 'pending' && <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${overdue ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300/60 dark:border-red-800/40' : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'}`}><Clock className="h-2.5 w-2.5" /> Pending</span>}
-                                  {bill.paymentStatus === 'partial' && <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${overdue ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300/60 dark:border-red-800/40' : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'}`}>Partial</span>}
+                                  {bill.paymentStatus === 'paid' && <span className="inline-flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0"><CheckCircle2 className="h-3 w-3" /> Paid</span>}
+                                  {bill.paymentStatus === 'pending' && <span className={`inline-flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full shrink-0 ${overdue ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300/60 dark:border-red-800/40' : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'}`}><Clock className="h-3 w-3" /> Pending</span>}
+                                  {bill.paymentStatus === 'partial' && <span className={`inline-flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full shrink-0 ${overdue ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300/60 dark:border-red-800/40' : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'}`}>Partial</span>}
                                   <button
-                                    className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[9px] font-bold px-2 py-1 rounded-lg border ${nextStatus === 'paid' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-400' : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400'}`}
+                                    className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg border ${nextStatus === 'paid' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-400' : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400'}`}
                                     onClick={() => updateBillStatusMutation.mutate({ id: bill.id, paymentStatus: nextStatus })}
                                     disabled={isUpdating}
                                     data-testid={`accounts-status-toggle-${bill.id}`}
                                   >
-                                    {isUpdating ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : nextStatus === 'paid' ? <><CheckCircle2 className="h-2.5 w-2.5" /> Mark Paid</> : <><Clock className="h-2.5 w-2.5" /> Unpaid</>}
+                                    {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : nextStatus === 'paid' ? <><CheckCircle2 className="h-3 w-3" /> Mark Paid</> : <><Clock className="h-3 w-3" /> Unpaid</>}
                                   </button>
                                   <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground" onClick={() => printBillFromRecord(bill)} title="Download PDF" data-testid={`accounts-print-${bill.id}`}>
                                     <Download className="h-3.5 w-3.5" />
                                   </button>
                                   {billDeleteConfirm === bill.id ? (
                                     <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
-                                      <button className="text-[9px] font-bold px-2 py-1 rounded-lg bg-red-50 border border-red-300 text-red-700 hover:bg-red-100 dark:bg-red-950/40 dark:border-red-700 dark:text-red-400" onClick={() => { deleteBillMutation.mutate(bill.id); setBillDeleteConfirm(null); }} disabled={deleteBillMutation.isPending} data-testid={`accounts-delete-confirm-${bill.id}`}>
-                                        {deleteBillMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin inline" /> : "Yes, delete"}
+                                      <button className="text-xs font-bold px-2 py-1 rounded-lg bg-red-50 border border-red-300 text-red-700 hover:bg-red-100 dark:bg-red-950/40 dark:border-red-700 dark:text-red-400" onClick={() => { deleteBillMutation.mutate(bill.id); setBillDeleteConfirm(null); }} disabled={deleteBillMutation.isPending} data-testid={`accounts-delete-confirm-${bill.id}`}>
+                                        {deleteBillMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin inline" /> : "Yes, delete"}
                                       </button>
-                                      <button className="text-[9px] font-bold px-2 py-1 rounded-lg border border-border/60 text-muted-foreground hover:text-foreground" onClick={() => setBillDeleteConfirm(null)} data-testid={`accounts-delete-cancel-${bill.id}`}>Cancel</button>
+                                      <button className="text-xs font-bold px-2 py-1 rounded-lg border border-border/60 text-muted-foreground hover:text-foreground" onClick={() => setBillDeleteConfirm(null)} data-testid={`accounts-delete-cancel-${bill.id}`}>Cancel</button>
                                     </div>
                                   ) : (
                                     <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-600 dark:hover:text-red-400" onClick={() => setBillDeleteConfirm(bill.id)} title="Delete" data-testid={`accounts-delete-${bill.id}`}>
@@ -7027,11 +7051,11 @@ export default function ClinicDashboard() {
                         </div>
                         {/* Register totals row */}
                         <div className="px-4 py-2.5 bg-muted/30 border-t border-border/50 flex items-center justify-between gap-4 flex-wrap">
-                          <p className="text-[10px] text-muted-foreground">{filteredRegister.length} record{filteredRegister.length !== 1 ? 's' : ''} shown</p>
+                          <p className="text-xs text-muted-foreground">{filteredRegister.length} record{filteredRegister.length !== 1 ? 's' : ''} shown</p>
                           <div className="flex items-center gap-4">
-                            <span className="text-[10px] text-muted-foreground">Total <span className="font-bold text-foreground">₹{filteredRegister.reduce((s, b) => s + (b.total ?? 0), 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span></span>
-                            <span className="text-[10px] text-muted-foreground">Collected <span className="font-bold text-emerald-600">₹{filteredRegister.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + (b.total ?? 0), 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span></span>
-                            <span className="text-[10px] text-muted-foreground">Outstanding <span className="font-bold text-amber-600">₹{filteredRegister.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + (b.total ?? 0), 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span></span>
+                            <span className="text-xs text-muted-foreground">Total <span className="font-bold text-foreground">₹{filteredRegister.reduce((s, b) => s + (b.total ?? 0), 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span></span>
+                            <span className="text-xs text-muted-foreground">Collected <span className="font-bold text-emerald-600">₹{filteredRegister.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + (b.total ?? 0), 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span></span>
+                            <span className="text-xs text-muted-foreground">Outstanding <span className="font-bold text-amber-600">₹{filteredRegister.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + (b.total ?? 0), 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span></span>
                           </div>
                         </div>
                       </div>
@@ -7190,14 +7214,14 @@ export default function ClinicDashboard() {
                 ) : (
                   <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
                     {/* Table header */}
-                    <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center px-4 py-2.5 bg-muted/30 border-b border-border/50 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center px-4 py-2.5 bg-muted/30 border-b border-border/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                       <span className="w-20">PAT Code</span>
                       <span>Name</span>
                       <span>Email</span>
                       <span>Phone</span>
                       <span className="w-14 text-right">Visits</span>
                       <span className="w-24 text-right">Last Visit</span>
-                      <span className="w-24 text-right">Billed</span>
+                      <span className="w-24 text-right">Collected</span>
                     </div>
 
                     <div className="divide-y divide-border/50">
@@ -7210,18 +7234,18 @@ export default function ClinicDashboard() {
                         >
                           {/* Desktop row */}
                           <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center">
-                            <span className="w-20 font-mono text-[11px] font-bold bg-rose-500/10 text-rose-600 px-2 py-1 rounded-md">
+                            <span className="w-20 font-mono text-xs font-bold bg-rose-500/10 text-rose-600 px-2 py-1 rounded-md">
                               {patient.patientCode ?? '—'}
                             </span>
                             <span className="text-sm font-medium text-foreground truncate group-hover:text-rose-600 transition-colors">{patient.name ?? '—'}</span>
-                            <span className="text-[11px] text-muted-foreground truncate">{patient.email ?? '—'}</span>
-                            <span className="text-[11px] text-muted-foreground truncate">{patient.phone ?? '—'}</span>
+                            <span className="text-xs text-muted-foreground truncate">{patient.email ?? '—'}</span>
+                            <span className="text-xs text-muted-foreground truncate">{patient.phone ?? '—'}</span>
                             <span className="w-14 text-right">
-                              <span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-primary/10 text-primary text-[11px] font-bold px-1.5">
+                              <span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-primary/10 text-primary text-xs font-bold px-1.5">
                                 {patient.visitCount}
                               </span>
                             </span>
-                            <span className="w-24 text-right text-[11px] text-muted-foreground">
+                            <span className="w-24 text-right text-xs text-muted-foreground">
                               {patient.lastVisitAt ? format(new Date(patient.lastVisitAt), 'dd MMM yyyy') : '—'}
                             </span>
                             <span className="w-24 text-right text-sm font-semibold text-emerald-600">
@@ -7238,20 +7262,20 @@ export default function ClinicDashboard() {
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="text-sm font-semibold text-foreground truncate">{patient.name ?? '—'}</p>
-                                  <span className="font-mono text-[9px] font-bold bg-rose-500/10 text-rose-600 px-1.5 py-0.5 rounded-md shrink-0">
+                                  <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 px-1.5 py-0.5 rounded-md shrink-0">
                                     {patient.patientCode ?? '—'}
                                   </span>
                                 </div>
-                                <p className="text-[11px] text-muted-foreground truncate">{patient.email ?? '—'}</p>
-                                <p className="text-[11px] text-muted-foreground">{patient.phone ?? '—'}</p>
+                                <p className="text-xs text-muted-foreground truncate">{patient.email ?? '—'}</p>
+                                <p className="text-xs text-muted-foreground">{patient.phone ?? '—'}</p>
                               </div>
                             </div>
                             <div className="text-right shrink-0">
                               <p className="text-sm font-bold text-emerald-600">
                                 {patient.totalBilled > 0 ? `₹${patient.totalBilled.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
                               </p>
-                              <p className="text-[10px] text-muted-foreground">{patient.visitCount} visit{patient.visitCount !== 1 ? 's' : ''}</p>
-                              <p className="text-[10px] text-muted-foreground">
+                              <p className="text-xs text-muted-foreground">{patient.visitCount} visit{patient.visitCount !== 1 ? 's' : ''}</p>
+                              <p className="text-xs text-muted-foreground">
                                 {patient.lastVisitAt ? format(new Date(patient.lastVisitAt), 'dd MMM') : '—'}
                               </p>
                             </div>
@@ -7262,11 +7286,11 @@ export default function ClinicDashboard() {
 
                     {/* Footer */}
                     <div className="px-4 py-2.5 bg-muted/30 border-t border-border/50 flex items-center justify-between gap-3 flex-wrap">
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         Showing {sorted.length} of {totalPatients} patient{totalPatients !== 1 ? 's' : ''}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        Total billed <span className="font-bold text-emerald-600">₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                      <p className="text-xs text-muted-foreground">
+                        Total collected <span className="font-bold text-emerald-600">₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                       </p>
                     </div>
                   </div>
@@ -7274,7 +7298,7 @@ export default function ClinicDashboard() {
 
                 {/* "Click a row to view history" hint */}
                 {sorted.length > 0 && (
-                  <p className="text-center text-[11px] text-muted-foreground mt-2">
+                  <p className="text-center text-xs text-muted-foreground mt-2">
                     Click any patient row to view their full visit history
                   </p>
                 )}
@@ -7305,13 +7329,13 @@ export default function ClinicDashboard() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-base font-bold text-foreground">{selPatient?.name ?? 'Patient'}</p>
                             {selPatient?.patientCode && (
-                              <span className="font-mono text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-2 py-0.5 rounded-md">
+                              <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-2 py-0.5 rounded-md">
                                 {selPatient.patientCode}
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-muted-foreground truncate">{selPatient?.email ?? '—'}</p>
-                          <p className="text-[11px] text-muted-foreground">{selPatient?.phone ?? '—'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{selPatient?.email ?? '—'}</p>
+                          <p className="text-xs text-muted-foreground">{selPatient?.phone ?? '—'}</p>
                         </div>
                         <button
                           onClick={() => setSelectedPatientId(null)}
