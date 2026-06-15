@@ -75,6 +75,7 @@ interface NotificationBellProps {
   unreadCount: number;
   onMarkRead: (id: number) => void;
   onMarkAllRead: () => void;
+  onNavigate?: (n: Notification) => void;
 }
 
 function NotificationBellPanel({
@@ -82,6 +83,7 @@ function NotificationBellPanel({
   unreadCount,
   onMarkRead,
   onMarkAllRead,
+  onNavigate,
 }: NotificationBellProps) {
   const todayItems     = notifications.filter(n => isToday(new Date(n.createdAt!)));
   const yesterdayItems = notifications.filter(n => isYesterday(new Date(n.createdAt!)));
@@ -168,7 +170,10 @@ function NotificationBellPanel({
                         className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 active:bg-muted/70 ${
                           !n.read ? "bg-primary/5" : ""
                         }`}
-                        onClick={() => !n.read && onMarkRead(n.id)}
+                        onClick={() => {
+                          if (!n.read) onMarkRead(n.id);
+                          onNavigate?.(n);
+                        }}
                       >
                         {/* Unread dot */}
                         <div className="shrink-0 w-2 flex justify-center pt-2.5">
@@ -236,7 +241,7 @@ export function Header() {
   const { user, logout, isAuthenticated } = useAuth();
   const { clinic, isAuthenticated: isClinicAuthenticated, logout: clinicLogout } = useClinicAuth();
   const { doctor, isAuthenticated: isDoctorAuthenticated, logout: doctorLogout } = useDoctorAuth();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { data: notifications = [] } = useNotifications();
   const { mutate: markRead } = useMarkNotificationRead();
   const { mutate: markAllRead } = useMarkAllNotificationsRead();
@@ -341,12 +346,32 @@ export function Header() {
       : []),
   ];
 
+  /* ── Notification deep-link navigation ── */
+  const handleNotifNavigate = (n: Notification) => {
+    const type = (n as any).type as string | undefined;
+    const bookingId = (n as any).bookingId as number | undefined;
+
+    if (type === "doctor_on_leave" || type === "doctor_leave_cancelled") {
+      setLocation("/clinic-dashboard?panel=manage-doctors");
+      return;
+    }
+    if (bookingId) {
+      if (isClinicAuthenticated || isAuthenticated) {
+        const notifType = type ?? "";
+        setLocation(`/clinic-dashboard?openBooking=${bookingId}&notifType=${notifType}`);
+      } else if (isDoctorAuthenticated) {
+        setLocation(`/doctor-dashboard?openBooking=${bookingId}`);
+      }
+    }
+  };
+
   /* ── Bell props (shared for all roles) ── */
   const bellProps: NotificationBellProps = {
     notifications,
     unreadCount,
     onMarkRead:    (id: number) => markRead(id),
     onMarkAllRead: ()           => markAllRead(),
+    onNavigate:    handleNotifNavigate,
   };
 
   /* ── Auth block ── */

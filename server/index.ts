@@ -812,6 +812,15 @@ app.use((req, res, next) => {
       } catch (e: any) {
         log(`notifications FK drop warning: ${e.message}`, "system");
       }
+
+      // ── Add type + booking_id columns to notifications (deep-link support) ──
+      try {
+        await db.execute(sql`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type varchar(80);`);
+        await db.execute(sql`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS booking_id integer;`);
+        log("notifications type + booking_id columns ensured", "system");
+      } catch (e: any) {
+        log(`notifications column migration warning: ${e.message}`, "system");
+      }
       // ─────────────────────────────────────────────────────────────────────────
 
     } catch (dbErr: any) {

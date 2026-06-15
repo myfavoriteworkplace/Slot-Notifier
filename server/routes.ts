@@ -1743,8 +1743,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           userId: String(clinic.id),
           message: `Paid booking confirmed — ${customerName} on ${dateStr} at ${timeStr}`,
           read: false,
+          type: "paid_booking_confirmed",
+          bookingId: booking.id,
         });
-        broadcastToClinic(String(clinic.id), { type: "paid_booking", notification: paidNotif });
+        broadcastToClinic(String(clinic.id), { type: "paid_booking_confirmed", bookingId: booking.id, notification: paidNotif });
       } catch (e: any) {
         console.error('[NOTIFICATION] Paid booking notification failed:', e.message);
       }
@@ -1951,8 +1953,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           userId: String(clinic.id),
           message: notifMessage,
           read: false,
+          type: "new_booking",
+          bookingId: booking.id,
         });
-        broadcastToClinic(String(clinic.id), { type: "new_booking", notification });
+        broadcastToClinic(String(clinic.id), { type: "new_booking", bookingId: booking.id, notification });
       } catch (e: any) {
         console.error('[NOTIFICATION] Failed to create or broadcast:', e.message);
       }
@@ -3355,8 +3359,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             userId: String(clinic.id),
             message: `Booking #${bookingId} for ${booking.customerName} rescheduled to ${newDateStr}`,
             read: false,
+            type: "booking_rescheduled",
+            bookingId,
           });
-          broadcastToClinic(String(clinic.id), { type: "booking_rescheduled", notification: reschedNotif });
+          broadcastToClinic(String(clinic.id), { type: "booking_rescheduled", bookingId, notification: reschedNotif });
         } catch (e: any) {
           console.error('[NOTIFICATION] Reschedule notification failed:', e.message);
         }
@@ -3372,8 +3378,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(reschedDoc.id),
               message: `Appointment for ${booking.customerName} has been rescheduled to ${newTimeStr}`,
               read: false,
+              type: "booking_rescheduled",
+              bookingId,
             });
-            broadcastToDoctor(String(reschedDoc.id), { type: "booking_rescheduled", notification: reschedDocNotif });
+            broadcastToDoctor(String(reschedDoc.id), { type: "booking_rescheduled", bookingId, notification: reschedDocNotif });
           }
         } catch (e: any) {
           console.error('[NOTIFICATION] Reschedule doctor notification failed:', e.message);
@@ -3425,8 +3433,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(doc.id),
               message: `Clinic admin updated ${booking.customerName}'s clinical status to "${label}"`,
               read: false,
+              type: notifType,
+              bookingId,
             });
-            broadcastToDoctor(String(doc.id), { type: notifType, notification: notif });
+            broadcastToDoctor(String(doc.id), { type: notifType, bookingId, notification: notif });
           }
         } catch (e: any) { console.error('[NOTIFICATION] Clinical status (clinic) notification failed:', e.message); }
       }
@@ -3453,8 +3463,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (doc) {
             const slot = await storage.getSlot(booking.slotId);
             const timeStr = slot ? new Date(slot.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
-            const notif = await storage.createNotification({ userId: String(doc.id), message: `${booking.customerName} is in the waiting room${timeStr ? ` — ${timeStr} slot` : ''}`, read: false });
-            broadcastToDoctor(String(doc.id), { type: "patient_checked_in", notification: notif });
+            const notif = await storage.createNotification({ userId: String(doc.id), message: `${booking.customerName} is in the waiting room${timeStr ? ` — ${timeStr} slot` : ''}`, read: false, type: "patient_checked_in", bookingId });
+            broadcastToDoctor(String(doc.id), { type: "patient_checked_in", bookingId, notification: notif });
           }
         } catch (e: any) { console.error('[NOTIFICATION] Check-in notification failed:', e.message); }
       }
@@ -3561,8 +3571,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(overriddenDoc.id),
               message: `Admin confirmed ${booking.customerName}'s appointment on your behalf${dateStr ? ` on ${dateStr}` : ''} — no action needed`,
               read: false,
+              type: "admin_confirmed",
+              bookingId,
             });
-            broadcastToDoctor(String(overriddenDoc.id), { type: "admin_confirmed", notification: overrideNotif });
+            broadcastToDoctor(String(overriddenDoc.id), { type: "admin_confirmed", bookingId, notification: overrideNotif });
           }
         } catch (e: any) {
           console.error('[NOTIFICATION] Admin override notification failed:', e.message);
@@ -3617,8 +3629,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           userId: String(clinicId),
           message: `Booking for ${booking.customerName} has been cancelled`,
           read: false,
+          type: "booking_cancelled",
+          bookingId,
         });
-        broadcastToClinic(String(clinicId), { type: "booking_cancelled", notification: notif });
+        broadcastToClinic(String(clinicId), { type: "booking_cancelled", bookingId, notification: notif });
       } catch (e: any) {
         console.error('[NOTIFICATION] Cancel notification failed:', e.message);
       }
@@ -3633,8 +3647,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(cancelDoc.id),
               message: `Appointment for ${booking.customerName}${dateStr ? ` on ${dateStr}` : ''} has been cancelled by the clinic`,
               read: false,
+              type: "booking_cancelled",
+              bookingId,
             });
-            broadcastToDoctor(String(cancelDoc.id), { type: "booking_cancelled", notification: cancelDocNotif });
+            broadcastToDoctor(String(cancelDoc.id), { type: "booking_cancelled", bookingId, notification: cancelDocNotif });
           }
         } catch (e: any) {
           console.error('[NOTIFICATION] Cancel doctor notification failed:', e.message);
@@ -3698,8 +3714,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(assignedDoc.id),
               message: `New appointment assigned: ${booking.customerName} on ${dateStr}${timeStr ? ` at ${timeStr}` : ''} — awaiting your approval`,
               read: false,
+              type: "doctor_assigned",
+              bookingId,
             });
-            broadcastToDoctor(String(assignedDoc.id), { type: "doctor_assigned", notification: assignNotif });
+            broadcastToDoctor(String(assignedDoc.id), { type: "doctor_assigned", bookingId, notification: assignNotif });
           }
         } catch (e: any) {
           console.error('[NOTIFICATION] Doctor assignment notification failed:', e.message);
@@ -3773,8 +3791,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             userId: String(doctorClinic.id),
             message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} confirmed ${booking.customerName}'s appointment${dateStr ? ` on ${dateStr}` : ''}`,
             read: false,
+            type: "doctor_approved",
+            bookingId: booking.id,
           });
-          broadcastToClinic(String(doctorClinic.id), { type: "doctor_approved", notification: approveNotif });
+          broadcastToClinic(String(doctorClinic.id), { type: "doctor_approved", bookingId: booking.id, notification: approveNotif });
         } catch (e: any) {
           console.error('[NOTIFICATION] Doctor approve notification failed:', e.message);
         }
@@ -3820,8 +3840,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(clinicForDecline.id),
               message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} declined ${booking.customerName}'s appointment on ${dateStr} — reassignment needed`,
               read: false,
+              type: "doctor_declined",
+              bookingId: booking.id,
             });
-            broadcastToClinic(String(clinicForDecline.id), { type: "doctor_declined", notification: declineNotif });
+            broadcastToClinic(String(clinicForDecline.id), { type: "doctor_declined", bookingId: booking.id, notification: declineNotif });
           } catch (e: any) {
             console.error('[NOTIFICATION] Doctor decline notification failed:', e.message);
           }
@@ -4107,6 +4129,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             userId: String(clinic.id),
             message: `Dr. ${d.name} has marked ${leaveDateFmt} as leave${reason ? ` — ${reason}` : ''}`,
             read: false,
+            type: "doctor_on_leave",
           });
           broadcastToClinic(String(clinic.id), { type: "doctor_on_leave", notification: leaveNotif });
         }
@@ -4137,6 +4160,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             userId: String(clinic.id),
             message: `Dr. ${d.name} cancelled a leave and is now available`,
             read: false,
+            type: "doctor_leave_cancelled",
           });
           broadcastToClinic(String(clinic.id), { type: "doctor_leave_cancelled", notification: cancelLeaveNotif });
         }
@@ -4210,8 +4234,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             if (slot) {
               const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
               if (clinic) {
-                const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false });
-                broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", notification: notif });
+                const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false, type: "case_closed_by_doctor", bookingId: Number(req.params.id) });
+                broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", bookingId: Number(req.params.id), notification: notif });
               }
             }
           }
@@ -4278,6 +4302,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 userId: String(noteSlot.clinicId),
                 message: `${authorName} added a note on ${noteBooking.customerName}'s booking: "${previewText}"`,
                 read: false,
+                type: "booking_note_added",
+                bookingId,
               });
               broadcastToClinic(String(noteSlot.clinicId), { type: "booking_note_added", bookingId, notification: clinicNoteNotif });
             }
@@ -4288,6 +4314,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 userId: String(noteDoc.id),
                 message: `${authorName} added a note on ${noteBooking.customerName}'s booking: "${previewText}"`,
                 read: false,
+                type: "booking_note_added",
+                bookingId,
               });
               broadcastToDoctor(String(noteDoc.id), { type: "booking_note_added", bookingId, notification: docNoteNotif });
             }
@@ -4324,8 +4352,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (slot) {
             const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
             if (clinic) {
-              const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false });
-              broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", notification: notif });
+              const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false, type: "case_closed_by_doctor", bookingId: Number(req.params.id) });
+              broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", bookingId: Number(req.params.id), notification: notif });
             }
           }
         } catch (e: any) { console.error('[NOTIFICATION] Case closed (doctor) notification failed:', e.message); }
@@ -4351,8 +4379,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (slot) {
           const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
           if (clinic) {
-            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has started consultation with ${booking.customerName}`, read: false });
-            broadcastToClinic(String(clinic.id), { type: "consultation_started", notification: notif });
+            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has started consultation with ${booking.customerName}`, read: false, type: "consultation_started", bookingId });
+            broadcastToClinic(String(clinic.id), { type: "consultation_started", bookingId, notification: notif });
           }
         }
       } catch (e: any) { console.error('[NOTIFICATION] Start consultation notification failed:', e.message); }
@@ -4377,8 +4405,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (slot) {
           const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
           if (clinic) {
-            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has completed treatment for ${booking.customerName} — please mark the visit as complete`, read: false });
-            broadcastToClinic(String(clinic.id), { type: "treatment_completed", notification: notif });
+            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has completed treatment for ${booking.customerName} — please mark the visit as complete`, read: false, type: "visit_completed", bookingId });
+            broadcastToClinic(String(clinic.id), { type: "visit_completed", bookingId, notification: notif });
           }
         }
       } catch (e: any) { console.error('[NOTIFICATION] Treatment complete notification failed:', e.message); }
@@ -4413,8 +4441,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(nsDoc.id),
               message: `${booking.customerName} did not show up for their appointment — marked as No-Show`,
               read: false,
+              type: "patient_no_show",
+              bookingId,
             });
-            broadcastToDoctor(String(nsDoc.id), { type: "patient_no_show", notification: nsNotif });
+            broadcastToDoctor(String(nsDoc.id), { type: "patient_no_show", bookingId, notification: nsNotif });
           }
         } catch (e: any) {
           console.error('[NOTIFICATION] No-show doctor notification failed:', e.message);
@@ -4479,8 +4509,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(ocDoc.id),
               message: `${booking.customerName}'s visit was marked complete by clinic admin${reason ? ` — "${reason}"` : ''}`,
               read: false,
+              type: "visit_override_completed",
+              bookingId,
             });
-            broadcastToDoctor(String(ocDoc.id), { type: "visit_override_completed", notification: ocNotif });
+            broadcastToDoctor(String(ocDoc.id), { type: "visit_override_completed", bookingId, notification: ocNotif });
           }
         } catch (e: any) {
           console.error('[NOTIFICATION] Override complete doctor notification failed:', e.message);
@@ -4528,8 +4560,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(pleDoc.id),
               message: `${booking.customerName} left early${reason ? ` — "${reason}"` : ''}`,
               read: false,
+              type: "patient_left_early",
+              bookingId,
             });
-            broadcastToDoctor(String(pleDoc.id), { type: "patient_left_early", notification: pleNotif });
+            broadcastToDoctor(String(pleDoc.id), { type: "patient_left_early", bookingId, notification: pleNotif });
           }
         } catch (e: any) {
           console.error('[NOTIFICATION] Patient left early doctor notification failed:', e.message);
@@ -4607,8 +4641,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(clinicConsentDoc.id),
               message: `Clinic sent a consent form request to ${booking.customerName}`,
               read: false,
+              type: "consent_requested",
+              bookingId,
             });
-            broadcastToDoctor(String(clinicConsentDoc.id), { type: "consent_requested", notification: clinicConsentNotif });
+            broadcastToDoctor(String(clinicConsentDoc.id), { type: "consent_requested", bookingId, notification: clinicConsentNotif });
           }
         } catch (e: any) {
           console.error('[NOTIFICATION] Clinic consent request doctor notification failed:', e.message);
@@ -4652,8 +4688,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           userId: String(clinic.id),
           message: `Consent form requested for ${booking.customerName} by Dr. ${sess.doctorEmail}`,
           read: false,
+          type: "consent_requested",
+          bookingId,
         });
-        broadcastToClinic(String(clinic.id), { type: "consent_requested", notification: drConsentNotif });
+        broadcastToClinic(String(clinic.id), { type: "consent_requested", bookingId, notification: drConsentNotif });
       } catch (e: any) {
         console.error('[NOTIFICATION] Doctor consent request notification failed:', e.message);
       }
@@ -4720,8 +4758,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             userId: String(consentClinicId),
             message: `Consent signed by ${record.booking.customerName}${dateStr ? ` for appointment on ${dateStr}` : ''}`,
             read: false,
+            type: "consent_signed",
+            bookingId: record.booking.id,
           });
-          broadcastToClinic(String(consentClinicId), { type: "consent_signed", notification: consentNotif });
+          broadcastToClinic(String(consentClinicId), { type: "consent_signed", bookingId: record.booking.id, notification: consentNotif });
         }
       } catch (e: any) {
         console.error('[NOTIFICATION] Consent sign notification failed:', e.message);
@@ -4795,6 +4835,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             userId: String(clinicId),
             message: `${doctorName || 'Doctor'} created a clinical record for ${patientName}${prescription ? ' (includes prescription)' : ''}`,
             read: false,
+            type: "clinical_record_created",
+            bookingId: Number(bookingId),
           });
           broadcastToClinic(String(clinicId), { type: "clinical_record_created", bookingId: Number(bookingId), notification: crNotif });
         } catch (e: any) {
@@ -4832,6 +4874,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             userId: String(record.clinicId),
             message: `${record.doctorName || 'Doctor'} updated clinical record for ${record.patientName}${prescription !== undefined ? ' (prescription updated)' : ''}`,
             read: false,
+            type: "clinical_record_updated",
+            bookingId: record.bookingId,
           });
           broadcastToClinic(String(record.clinicId), { type: "clinical_record_updated", bookingId: record.bookingId, notification: crUpdateNotif });
         } catch (e: any) {

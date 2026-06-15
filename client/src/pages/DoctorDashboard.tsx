@@ -121,6 +121,20 @@ export default function DoctorDashboard() {
     if (!isLoading && !isAuthenticated) setLocation("/clinic-login");
   }, [isLoading, isAuthenticated, setLocation]);
 
+  // ── Notification deep-link: read URL params once on mount ──────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const openBookingParam = params.get("openBooking");
+    if (openBookingParam) {
+      const bookingId = parseInt(openBookingParam, 10);
+      if (!isNaN(bookingId)) {
+        setActiveTab("appointments");
+        setPatientModalId(bookingId);
+      }
+    }
+  }, []); // Only run once on mount
+  // ──────────────────────────────────────────────────────────────────────────
+
   function slugify(name: string) {
     return "dr-" + name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   }

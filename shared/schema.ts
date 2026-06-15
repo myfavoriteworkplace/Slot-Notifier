@@ -123,6 +123,8 @@ export const notifications = pgTable("notifications", {
   userId: varchar("user_id").notNull(),
   message: text("message").notNull(),
   read: boolean("read").default(false).notNull(),
+  type: varchar("type", { length: 80 }),
+  bookingId: integer("booking_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

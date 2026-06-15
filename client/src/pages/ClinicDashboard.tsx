@@ -270,6 +270,38 @@ export default function ClinicDashboard() {
     }
   }, [clinic]);
 
+  // ── Notification deep-link: read URL params once on mount ──────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const openBookingParam = params.get("openBooking");
+    const panelParam = params.get("panel");
+    const notifType = params.get("notifType") ?? "";
+
+    if (panelParam) {
+      setActivePanel(panelParam as any);
+      return;
+    }
+    if (openBookingParam) {
+      const bookingId = parseInt(openBookingParam, 10);
+      if (!isNaN(bookingId)) {
+        setActivePanel("bookings");
+        setOpenBookingId(bookingId);
+        const tabMap: Record<string, "overview" | "clinical" | "notes" | "actions" | "billing"> = {
+          clinical_record_created: "clinical",
+          clinical_record_updated: "clinical",
+          case_closed_by_doctor: "clinical",
+          booking_note_added: "notes",
+          consent_requested: "actions",
+          consent_signed: "actions",
+        };
+        if (notifType && tabMap[notifType]) {
+          setModalTab(bookingId, tabMap[notifType]);
+        }
+      }
+    }
+  }, []); // Only run once on mount
+  // ──────────────────────────────────────────────────────────────────────────
+
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
   const [quickFilter, setQuickFilter] = useState<'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week' | 'today-confirmed' | 'pending-7days' | 'all-pending' | 'confirmed-7days'>('today');
