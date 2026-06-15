@@ -3,7 +3,7 @@ import QRCode from "react-qr-code";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import { useDoctorAuth } from "@/hooks/use-doctor-auth";
-import { useLocation, useSearch } from "wouter";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -62,7 +62,6 @@ function MediaThumb({ url }: { url: string }) {
 export default function DoctorDashboard() {
   const { doctor, isLoading, isAuthenticated, logout, isLoggingOut } = useDoctorAuth();
   const [_, setLocation] = useLocation();
-  const search = useSearch();
 
   const [activeTab, setActiveTab] = useState<Tab>("appointments");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
@@ -122,20 +121,32 @@ export default function DoctorDashboard() {
     if (!isLoading && !isAuthenticated) setLocation("/clinic-login");
   }, [isLoading, isAuthenticated, setLocation]);
 
-  // ── Notification deep-link: react to URL search params ────────────────────
-  useEffect(() => {
-    if (!search) return;
-    const params = new URLSearchParams(search);
-    const openBookingParam = params.get("openBooking");
-    if (openBookingParam) {
-      const bookingId = parseInt(openBookingParam, 10);
-      if (!isNaN(bookingId)) {
-        setActiveTab("appointments");
-        setPatientModalId(bookingId);
-        setLocation(window.location.pathname, { replace: true });
-      }
+  // ── Notification deep-link helpers ────────────────────────────────────────
+  const applyDoctorNotifNav = (detail: { bookingId?: number }) => {
+    if (detail.bookingId) {
+      setActiveTab("appointments");
+      setPatientModalId(detail.bookingId);
     }
-  }, [search]); // Re-runs whenever URL search string changes
+  };
+
+  // Case A: user already on /doctor-dashboard — custom event fires directly
+  useEffect(() => {
+    const handler = (e: Event) => {
+      applyDoctorNotifNav((e as CustomEvent).detail);
+    };
+    window.addEventListener("notif-navigate", handler);
+    return () => window.removeEventListener("notif-navigate", handler);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Case B: user navigated from a different page — pick up from sessionStorage on mount
+  useEffect(() => {
+    const pending = sessionStorage.getItem("pendingNotifNav");
+    if (!pending) return;
+    sessionStorage.removeItem("pendingNotifNav");
+    try {
+      applyDoctorNotifNav(JSON.parse(pending));
+    } catch {}
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // ──────────────────────────────────────────────────────────────────────────
 
   function slugify(name: string) {

@@ -354,17 +354,33 @@ export function Header() {
     const type = n.type ?? undefined;
     const bookingId = n.bookingId ?? undefined;
 
+    let targetPath: string | null = null;
+    const detail: { bookingId?: number; notifType?: string; panel?: string } = {};
+
     if (type === "doctor_on_leave" || type === "doctor_leave_cancelled") {
-      setLocation("/clinic-dashboard?panel=manage-doctors");
-      return;
-    }
-    if (bookingId) {
+      targetPath = "/clinic-dashboard";
+      detail.panel = "manage-doctors";
+    } else if (bookingId) {
       if (isClinicAuthenticated || isAuthenticated) {
-        const notifType = type ?? "";
-        setLocation(`/clinic-dashboard?openBooking=${bookingId}&notifType=${notifType}`);
+        targetPath = "/clinic-dashboard";
+        detail.bookingId = bookingId;
+        detail.notifType = type;
       } else if (isDoctorAuthenticated) {
-        setLocation(`/doctor-dashboard?openBooking=${bookingId}`);
+        targetPath = "/doctor-dashboard";
+        detail.bookingId = bookingId;
+        detail.notifType = type;
       }
+    }
+
+    if (!targetPath) return;
+
+    if (window.location.pathname === targetPath) {
+      // Already on the right page — fire event directly, no URL change
+      window.dispatchEvent(new CustomEvent("notif-navigate", { detail }));
+    } else {
+      // Navigating from a different page — store detail for the dashboard to pick up on mount
+      sessionStorage.setItem("pendingNotifNav", JSON.stringify(detail));
+      setLocation(targetPath);
     }
   };
 

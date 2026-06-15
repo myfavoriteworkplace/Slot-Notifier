@@ -14,7 +14,7 @@ import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
-import { useLocation, useSearch } from "wouter";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
@@ -227,7 +227,6 @@ function ClinicDashboardSkeleton() {
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut, refetch: refetchClinic } = useClinicAuth();
   const [_, setLocation] = useLocation();
-  const search = useSearch();
 
   const updateLogoMutation = useMutation({
     mutationFn: async (logoUrl: string) => {
@@ -271,39 +270,45 @@ export default function ClinicDashboard() {
     }
   }, [clinic]);
 
-  // ── Notification deep-link: react to URL search params ────────────────────
-  useEffect(() => {
-    if (!search) return;
-    const params = new URLSearchParams(search);
-    const openBookingParam = params.get("openBooking");
-    const panelParam = params.get("panel");
-    const notifType = params.get("notifType") ?? "";
-
-    if (panelParam) {
-      setActivePanel(panelParam as any);
-      setLocation(window.location.pathname, { replace: true });
-      return;
-    }
-    if (openBookingParam) {
-      const bookingId = parseInt(openBookingParam, 10);
-      if (!isNaN(bookingId)) {
-        setActivePanel("bookings");
-        setOpenBookingId(bookingId);
-        const tabMap: Record<string, "overview" | "clinical" | "notes" | "actions" | "billing"> = {
-          clinical_record_created: "clinical",
-          clinical_record_updated: "clinical",
-          case_closed_by_doctor: "clinical",
-          booking_note_added: "notes",
-          consent_requested: "actions",
-          consent_signed: "actions",
-        };
-        if (notifType && tabMap[notifType]) {
-          setModalTab(bookingId, tabMap[notifType]);
-        }
-        setLocation(window.location.pathname, { replace: true });
+  // ── Notification deep-link helpers ────────────────────────────────────────
+  const applyClinicNotifNav = (detail: { bookingId?: number; notifType?: string; panel?: string }) => {
+    const tabMap: Record<string, "overview" | "clinical" | "notes" | "actions" | "billing"> = {
+      clinical_record_created: "clinical",
+      clinical_record_updated: "clinical",
+      case_closed_by_doctor: "clinical",
+      booking_note_added: "notes",
+      consent_requested: "actions",
+      consent_signed: "actions",
+    };
+    if (detail.panel) {
+      setActivePanel(detail.panel as any);
+    } else if (detail.bookingId) {
+      setActivePanel("bookings");
+      setOpenBookingId(detail.bookingId);
+      if (detail.notifType && tabMap[detail.notifType]) {
+        setModalTab(detail.bookingId, tabMap[detail.notifType]);
       }
     }
-  }, [search]); // Re-runs whenever URL search string changes
+  };
+
+  // Case A: user already on /clinic-dashboard — custom event fires directly
+  useEffect(() => {
+    const handler = (e: Event) => {
+      applyClinicNotifNav((e as CustomEvent).detail);
+    };
+    window.addEventListener("notif-navigate", handler);
+    return () => window.removeEventListener("notif-navigate", handler);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Case B: user navigated from a different page — pick up from sessionStorage on mount
+  useEffect(() => {
+    const pending = sessionStorage.getItem("pendingNotifNav");
+    if (!pending) return;
+    sessionStorage.removeItem("pendingNotifNav");
+    try {
+      applyClinicNotifNav(JSON.parse(pending));
+    } catch {}
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // ──────────────────────────────────────────────────────────────────────────
 
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
