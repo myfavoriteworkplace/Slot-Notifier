@@ -4279,7 +4279,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 message: `${authorName} added a note on ${noteBooking.customerName}'s booking: "${previewText}"`,
                 read: false,
               });
-              broadcastToClinic(String(noteSlot.clinicId), { type: "booking_note_added", notification: clinicNoteNotif });
+              broadcastToClinic(String(noteSlot.clinicId), { type: "booking_note_added", bookingId, notification: clinicNoteNotif });
             }
           } else if (authorType === 'clinic_admin' && noteBooking.assignedDoctorEmail) {
             const [noteDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, noteBooking.assignedDoctorEmail)).limit(1);
@@ -4289,7 +4289,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 message: `${authorName} added a note on ${noteBooking.customerName}'s booking: "${previewText}"`,
                 read: false,
               });
-              broadcastToDoctor(String(noteDoc.id), { type: "booking_note_added", notification: docNoteNotif });
+              broadcastToDoctor(String(noteDoc.id), { type: "booking_note_added", bookingId, notification: docNoteNotif });
             }
           }
         }
@@ -4796,7 +4796,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             message: `${doctorName || 'Doctor'} created a clinical record for ${patientName}${prescription ? ' (includes prescription)' : ''}`,
             read: false,
           });
-          broadcastToClinic(String(clinicId), { type: "clinical_record_created", notification: crNotif });
+          broadcastToClinic(String(clinicId), { type: "clinical_record_created", bookingId: Number(bookingId), notification: crNotif });
         } catch (e: any) {
           console.error('[NOTIFICATION] Clinical record created notification failed:', e.message);
         }
@@ -4833,7 +4833,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             message: `${record.doctorName || 'Doctor'} updated clinical record for ${record.patientName}${prescription !== undefined ? ' (prescription updated)' : ''}`,
             read: false,
           });
-          broadcastToClinic(String(record.clinicId), { type: "clinical_record_updated", notification: crUpdateNotif });
+          broadcastToClinic(String(record.clinicId), { type: "clinical_record_updated", bookingId: record.bookingId, notification: crUpdateNotif });
         } catch (e: any) {
           console.error('[NOTIFICATION] Clinical record updated notification failed:', e.message);
         }

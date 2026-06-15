@@ -158,6 +158,73 @@ All notification code is **fire-and-forget** wrapped in try/catch so a notificat
 
 ---
 
+## Real-Time UI Cache Invalidation (Frontend Sync)
+
+When a WebSocket message arrives, `useNotificationSocket` (mounted globally in `Header.tsx`) now does two things:
+1. **Shows a toast + plays a sound** — only when the message contains a `notification` payload (human-readable).
+2. **Invalidates the relevant React Query cache keys** — for EVERY message, regardless of whether there is a notification payload. This ensures dashboards update instantly without a manual page refresh.
+
+### Query Key Invalidation Map
+
+| Event type(s) | Query key invalidated | Dashboard affected |
+|---|---|---|
+| `new_booking`, `paid_booking_confirmed`, `booking_rescheduled`, `booking_cancelled`, `doctor_approved`, `doctor_declined`, `doctor_assigned`, `admin_confirmed`, `patient_checked_in`, `consultation_started`, `visit_completed`, `visit_auto_completed`, `visit_override_completed`, `patient_no_show`, `patient_left_early`, `clinical_status_updated`, `case_closed_by_doctor`, `case_closed_by_clinic`, `consent_signed`, `consent_requested`, `booking_note_added` | `['/api/auth/clinic/bookings']` | Clinic Dashboard + Doctor Dashboard |
+| `doctor_on_leave`, `doctor_leave_cancelled` | `['/api/clinic/doctor-leaves/all']` | Clinic Dashboard (leave calendar) |
+| `doctor_on_leave`, `doctor_leave_cancelled` | `['/api/doctor/leaves']` | Doctor Dashboard (leave list) |
+| `visit_auto_completed` | `['/api/auth/clinic/bills']` | Clinic Dashboard (bills tab) |
+| `visit_auto_completed` (when `bookingId` present) | `['/api/auth/clinic/bills/booking', bookingId]` | Clinic Dashboard (per-booking bill) |
+| `clinical_record_created`, `clinical_record_updated` (when `bookingId` present) | `['/api/clinical-records/booking', bookingId]` | Clinical Records tab in booking card |
+| `booking_note_added` (when `bookingId` present) | `['/api/booking', bookingId, 'notes']` | Booking Notes thread |
+
+### Scenarios Requiring Instant UI Update
+
+| # | Scenario | Who sees the update | What updates |
+|---|---|---|---|
+| S-1 | Patient submits a new booking | Clinic admin (on ClinicDashboard) | New booking card appears in the bookings list |
+| S-2 | Doctor approves their assignment | Clinic admin | Booking card shows "Confirmed" status |
+| S-3 | Doctor declines their assignment | Clinic admin | Booking card shows "Declined" — reassignment needed |
+| S-4 | Clinic cancels a booking | Assigned doctor (on DoctorDashboard) | Booking card disappears from doctor's list |
+| S-5 | Clinic reschedules a booking | Assigned doctor | Booking card shows new date/time |
+| S-6 | Doctor marks a leave day | Clinic admin | Doctor-leave calendar and the "Doctor On Leave" overlay on booking cards update |
+| S-7 | Doctor cancels a leave | Clinic admin | Leave calendar clears that date |
+| S-8 | Doctor creates a clinical record | Clinic admin | Clinical Records tab in the booking card shows the new record |
+| S-9 | Doctor updates a clinical record | Clinic admin | Updated record visible immediately in the tab |
+| S-10 | Doctor writes a booking note | Clinic admin | Note appears in the shared notes thread |
+| S-11 | Clinic admin writes a booking note | Assigned doctor | Note appears in the shared notes thread |
+| S-12 | Visit auto-completes (all bills paid) | Clinic admin | Booking card shows "Completed"; Bills tab shows the settled bill |
+| S-13 | Patient marked No-Show | Assigned doctor | Booking card status updates |
+| S-14 | Admin force-completes or marks patient left early | Assigned doctor | Booking card status updates |
+| S-15 | Clinical status updated (any value) | Assigned doctor | Booking card clinical status badge updates |
+| S-16 | Consent form signed by patient | Clinic admin | Booking card shows green "Signed ✓" badge |
+| S-17 | Consent form requested | The other party (clinic or doctor) | Booking card shows "Consent Requested" |
+
+### WebSocket Message Payloads
+
+Messages that carry a `bookingId` field enable **targeted** cache invalidation (only the specific booking's notes/records/bills are refetched rather than the whole list):
+
+```ts
+// Booking note added — includes bookingId
+{ type: "booking_note_added", bookingId: 123, notification: { message: "..." } }
+
+// Clinical record created — includes bookingId
+{ type: "clinical_record_created", bookingId: 123, notification: { message: "..." } }
+
+// Clinical record updated — includes bookingId
+{ type: "clinical_record_updated", bookingId: 123, notification: { message: "..." } }
+
+// Visit auto-completed — includes bookingId (no notification field — data-only push)
+{ type: "visit_auto_completed", bookingId: 123 }
+```
+
+> **Note on `visit_auto_completed`:** This event has no `notification` payload (no toast/sound shown). It is a pure data-refresh signal — the booking card and bills update silently in the background. This avoids spamming the clinic admin with a toast every time all bills happen to be settled.
+
+### Implementation Location
+
+All invalidation logic lives in `client/src/hooks/use-notifications.ts` → `applyQueryInvalidations()`.  
+The hook is mounted once in `client/src/components/Header.tsx` (line ~243) and runs for the logged-in session (clinic or doctor).
+
+---
+
 ## In-App Notification Event Types
 
 The `type` field on WebSocket broadcasts lets the frontend react to specific events in real time (e.g. invalidate a query cache, show a toast, play a sound).
