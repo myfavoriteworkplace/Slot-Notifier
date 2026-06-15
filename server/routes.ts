@@ -3361,6 +3361,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           console.error('[NOTIFICATION] Reschedule notification failed:', e.message);
         }
       }
+
+      // G6 — Notify assigned doctor that the appointment was rescheduled
+      if (booking.assignedDoctorEmail && newSlot) {
+        try {
+          const [reschedDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
+          if (reschedDoc) {
+            const newTimeStr = format(new Date(newSlot.startTime), 'EEE d MMM, h:mm a');
+            const reschedDocNotif = await storage.createNotification({
+              userId: String(reschedDoc.id),
+              message: `Appointment for ${booking.customerName} has been rescheduled to ${newTimeStr}`,
+              read: false,
+            });
+            broadcastToDoctor(String(reschedDoc.id), { type: "booking_rescheduled", notification: reschedDocNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Reschedule doctor notification failed:', e.message);
+        }
+      }
+
+      // G7 — WhatsApp notification to patient on reschedule
+      if (booking.customerPhone && newSlot) {
+        try {
+          const { sendWhatsAppMessage } = await import('./whatsapp.service');
+          const newFmtStr = format(new Date(newSlot.startTime), 'EEE d MMM, h:mm a');
+          sendWhatsAppMessage(
+            booking.customerPhone,
+            `Hi ${booking.customerName}, your appointment at ${clinic?.name || 'the clinic'} has been rescheduled to *${newFmtStr}*. Please reply if you have any questions.`
+          ).catch(() => {});
+        } catch { /* WhatsApp unavailable */ }
+      }
+
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -3379,14 +3410,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .set({ clinicalStatus: clinicalStatus ?? null })
         .where(eq(bookings.id, bookingId))
         .returning();
-      if (clinicalStatus === 'case_closed' && booking.assignedDoctorEmail) {
+      // G10 — Notify assigned doctor on ALL clinical status changes (not just case_closed)
+      if (clinicalStatus && booking.assignedDoctorEmail) {
         try {
           const [doc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
           if (doc) {
-            const notif = await storage.createNotification({ userId: String(doc.id), message: `Clinic admin marked ${booking.customerName}'s case as closed`, read: false });
-            broadcastToDoctor(String(doc.id), { type: "case_closed_by_clinic", notification: notif });
+            const statusLabels: Record<string, string> = {
+              first_visit: 'First Visit', revisit: 'Revisit',
+              follow_up_required: 'Follow-up Required', case_closed: 'Case Closed',
+            };
+            const label = statusLabels[clinicalStatus] ?? clinicalStatus;
+            const notifType = clinicalStatus === 'case_closed' ? 'case_closed_by_clinic' : 'clinical_status_updated';
+            const notif = await storage.createNotification({
+              userId: String(doc.id),
+              message: `Clinic admin updated ${booking.customerName}'s clinical status to "${label}"`,
+              read: false,
+            });
+            broadcastToDoctor(String(doc.id), { type: notifType, notification: notif });
           }
-        } catch (e: any) { console.error('[NOTIFICATION] Case closed (clinic) notification failed:', e.message); }
+        } catch (e: any) { console.error('[NOTIFICATION] Clinical status (clinic) notification failed:', e.message); }
       }
       res.json(updated);
     } catch (err: any) {
@@ -3579,6 +3621,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         broadcastToClinic(String(clinicId), { type: "booking_cancelled", notification: notif });
       } catch (e: any) {
         console.error('[NOTIFICATION] Cancel notification failed:', e.message);
+      }
+
+      // G3 — Notify assigned doctor the appointment was cancelled
+      if (booking.assignedDoctorEmail) {
+        try {
+          const [cancelDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
+          if (cancelDoc) {
+            const dateStr = slot ? new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '';
+            const cancelDocNotif = await storage.createNotification({
+              userId: String(cancelDoc.id),
+              message: `Appointment for ${booking.customerName}${dateStr ? ` on ${dateStr}` : ''} has been cancelled by the clinic`,
+              read: false,
+            });
+            broadcastToDoctor(String(cancelDoc.id), { type: "booking_cancelled", notification: cancelDocNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Cancel doctor notification failed:', e.message);
+        }
       }
 
       res.json({ message: "Booking cancelled successfully" });
@@ -3824,6 +3884,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Forbidden" });
     try {
       const clinic = await storage.archiveClinic(Number(req.params.id));
+      // G16 — Email clinic owner that their account was suspended
+      if (resend && clinic?.email) {
+        const archiveEmail = RESEND_MODE === 'PRODUCTION' ? clinic.email : TEST_EMAIL;
+        resend.emails.send({
+          from: EMAIL_FROM,
+          to: archiveEmail,
+          subject: `Your BookMySlot clinic account has been suspended`,
+          html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;background:#f9fafb;border-radius:12px"><h2 style="color:#dc2626;margin-top:0">Account Suspended</h2><p style="color:#374151">Dear <strong>${clinic.name}</strong>,</p><p style="color:#374151">Your clinic account on BookMySlot has been <strong>suspended</strong> by the platform administrator. During this period you will not be able to accept new bookings.</p><p style="color:#374151">Please contact <a href="mailto:support@bookmyslot.dental" style="color:#0F9B6E">support@bookmyslot.dental</a> if you believe this is an error or to discuss reinstatement.</p><p style="color:#d1d5db;font-size:11px;margin-top:24px">Powered by BookMySlot</p></div>`,
+        }).catch(() => {});
+      }
       res.json(clinic);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -3834,6 +3904,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Forbidden" });
     try {
       const clinic = await storage.unarchiveClinic(Number(req.params.id));
+      // G16 — Email clinic owner that their account was reinstated
+      if (resend && clinic?.email) {
+        const unarchiveEmail = RESEND_MODE === 'PRODUCTION' ? clinic.email : TEST_EMAIL;
+        resend.emails.send({
+          from: EMAIL_FROM,
+          to: unarchiveEmail,
+          subject: `Your BookMySlot clinic account has been reinstated`,
+          html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;background:#f9fafb;border-radius:12px"><h2 style="color:#059669;margin-top:0">Account Reinstated</h2><p style="color:#374151">Dear <strong>${clinic.name}</strong>,</p><p style="color:#374151">Great news — your clinic account on BookMySlot has been <strong>reinstated</strong>. You can now log in and resume accepting appointments.</p><p style="color:#374151">If you have any questions, contact <a href="mailto:support@bookmyslot.dental" style="color:#0F9B6E">support@bookmyslot.dental</a>.</p><p style="color:#d1d5db;font-size:11px;margin-top:24px">Powered by BookMySlot</p></div>`,
+        }).catch(() => {});
+      }
       res.json(clinic);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -3846,6 +3926,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { username, password } = req.body;
       const hash = await bcrypt.hash(password, 10);
       await storage.updateClinicCredentials(Number(req.params.id), username, hash);
+      // G17 — Email clinic owner their new credentials
+      const credClinic = await storage.getClinic(Number(req.params.id));
+      if (resend && credClinic?.email) {
+        const credEmail = RESEND_MODE === 'PRODUCTION' ? credClinic.email : TEST_EMAIL;
+        resend.emails.send({
+          from: EMAIL_FROM,
+          to: credEmail,
+          subject: `Your BookMySlot login credentials have been updated`,
+          html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;background:#f9fafb;border-radius:12px"><h2 style="color:#085041;margin-top:0">Credentials Updated</h2><p style="color:#374151">Dear <strong>${credClinic.name}</strong>,</p><p style="color:#374151">Your BookMySlot clinic login credentials have been updated by the platform administrator.</p><table style="width:100%;border-collapse:collapse;margin:16px 0;background:#fff;border-radius:8px;overflow:hidden"><tr style="background:#f3f4f6"><td style="padding:10px 12px;font-size:13px;color:#6b7280;font-weight:600">Username</td><td style="padding:10px 12px;font-size:14px;color:#0d1f1a;font-weight:700">${username}</td></tr><tr><td style="padding:10px 12px;font-size:13px;color:#6b7280;font-weight:600">Password</td><td style="padding:10px 12px;font-size:14px;color:#0d1f1a;font-weight:700">${password}</td></tr></table><p style="color:#dc2626;font-size:13px">Please change your password after logging in and keep these credentials safe.</p><p style="color:#d1d5db;font-size:11px;margin-top:24px">Powered by BookMySlot</p></div>`,
+        }).catch(() => {});
+      }
       res.json({ message: "Credentials updated" });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4003,6 +4094,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { leaveDate, reason } = req.body;
       if (!leaveDate) return res.status(400).json({ message: "leaveDate is required" });
       const leave = await storage.addDoctorLeave({ doctorId: d.id, leaveDate, reason: reason || null });
+
+      // G5 — Notify all linked clinic admins that this doctor is on leave
+      try {
+        const linkedClinics = await db.select({ clinic: clinics })
+          .from(clinics)
+          .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
+          .where(eq(clinicDoctors.doctorId, d.id));
+        const leaveDateFmt = new Date(leaveDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+        for (const { clinic } of linkedClinics) {
+          const leaveNotif = await storage.createNotification({
+            userId: String(clinic.id),
+            message: `Dr. ${d.name} has marked ${leaveDateFmt} as leave${reason ? ` — ${reason}` : ''}`,
+            read: false,
+          });
+          broadcastToClinic(String(clinic.id), { type: "doctor_on_leave", notification: leaveNotif });
+        }
+      } catch (e: any) {
+        console.error('[NOTIFICATION] Doctor leave notification failed:', e.message);
+      }
+
       res.status(201).json(leave);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
@@ -4014,6 +4125,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const d = await storage.getDoctorByEmail(sess.doctorEmail);
       if (!d) return res.status(404).json({ message: "Doctor not found" });
       await storage.removeDoctorLeave(Number(req.params.id), d.id);
+
+      // G20 — Notify all linked clinic admins that the doctor cancelled their leave
+      try {
+        const linkedClinics = await db.select({ clinic: clinics })
+          .from(clinics)
+          .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
+          .where(eq(clinicDoctors.doctorId, d.id));
+        for (const { clinic } of linkedClinics) {
+          const cancelLeaveNotif = await storage.createNotification({
+            userId: String(clinic.id),
+            message: `Dr. ${d.name} cancelled a leave and is now available`,
+            read: false,
+          });
+          broadcastToClinic(String(clinic.id), { type: "doctor_leave_cancelled", notification: cancelLeaveNotif });
+        }
+      } catch (e: any) {
+        console.error('[NOTIFICATION] Doctor leave cancel notification failed:', e.message);
+      }
+
       res.sendStatus(204);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
@@ -4135,6 +4265,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         authorName,
         content: content.trim(),
       });
+
+      // G8 — Notify the other party: clinic → doctor, doctor → clinic
+      try {
+        const noteBooking = await storage.getBookingById(bookingId);
+        if (noteBooking) {
+          const previewText = content.trim().length > 60 ? content.trim().slice(0, 60) + '…' : content.trim();
+          if (authorType === 'doctor') {
+            const noteSlot = await storage.getSlot(noteBooking.slotId);
+            if (noteSlot?.clinicId) {
+              const clinicNoteNotif = await storage.createNotification({
+                userId: String(noteSlot.clinicId),
+                message: `${authorName} added a note on ${noteBooking.customerName}'s booking: "${previewText}"`,
+                read: false,
+              });
+              broadcastToClinic(String(noteSlot.clinicId), { type: "booking_note_added", notification: clinicNoteNotif });
+            }
+          } else if (authorType === 'clinic_admin' && noteBooking.assignedDoctorEmail) {
+            const [noteDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, noteBooking.assignedDoctorEmail)).limit(1);
+            if (noteDoc) {
+              const docNoteNotif = await storage.createNotification({
+                userId: String(noteDoc.id),
+                message: `${authorName} added a note on ${noteBooking.customerName}'s booking: "${previewText}"`,
+                read: false,
+              });
+              broadcastToDoctor(String(noteDoc.id), { type: "booking_note_added", notification: docNoteNotif });
+            }
+          }
+        }
+      } catch (e: any) {
+        console.error('[NOTIFICATION] Booking note notification failed:', e.message);
+      }
+
       res.json(note);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4241,6 +4403,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Audit log
       await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
         VALUES (${bookingId}, ${booking.verificationStatus}, 'no_show', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason || null})`);
+
+      // G11 — Notify assigned doctor that patient is a no-show
+      if (booking.assignedDoctorEmail) {
+        try {
+          const [nsDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
+          if (nsDoc) {
+            const nsNotif = await storage.createNotification({
+              userId: String(nsDoc.id),
+              message: `${booking.customerName} did not show up for their appointment — marked as No-Show`,
+              read: false,
+            });
+            broadcastToDoctor(String(nsDoc.id), { type: "patient_no_show", notification: nsNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] No-show doctor notification failed:', e.message);
+        }
+      }
+
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4289,6 +4469,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Audit log
       await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
         VALUES (${bookingId}, ${prevVisit}, 'completed_override', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason || 'Admin override'})`);
+
+      // G12 — Notify assigned doctor the visit was force-completed by admin
+      if (booking.assignedDoctorEmail) {
+        try {
+          const [ocDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
+          if (ocDoc) {
+            const ocNotif = await storage.createNotification({
+              userId: String(ocDoc.id),
+              message: `${booking.customerName}'s visit was marked complete by clinic admin${reason ? ` — "${reason}"` : ''}`,
+              read: false,
+            });
+            broadcastToDoctor(String(ocDoc.id), { type: "visit_override_completed", notification: ocNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Override complete doctor notification failed:', e.message);
+        }
+      }
+
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4320,6 +4518,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .returning();
       await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
         VALUES (${bookingId}, ${prevVisit}, 'patient_left_early', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason})`);
+
+      // G12b — Notify assigned doctor that patient left early
+      if (booking.assignedDoctorEmail) {
+        try {
+          const [pleDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
+          if (pleDoc) {
+            const pleNotif = await storage.createNotification({
+              userId: String(pleDoc.id),
+              message: `${booking.customerName} left early${reason ? ` — "${reason}"` : ''}`,
+              read: false,
+            });
+            broadcastToDoctor(String(pleDoc.id), { type: "patient_left_early", notification: pleNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Patient left early doctor notification failed:', e.message);
+        }
+      }
+
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4382,6 +4598,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         consentUrl,
       );
 
+      // G15 — Notify assigned doctor that the clinic sent a consent form request
+      if ((booking as any).assignedDoctorEmail) {
+        try {
+          const [clinicConsentDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, (booking as any).assignedDoctorEmail)).limit(1);
+          if (clinicConsentDoc) {
+            const clinicConsentNotif = await storage.createNotification({
+              userId: String(clinicConsentDoc.id),
+              message: `Clinic sent a consent form request to ${booking.customerName}`,
+              read: false,
+            });
+            broadcastToDoctor(String(clinicConsentDoc.id), { type: "consent_requested", notification: clinicConsentNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Clinic consent request doctor notification failed:', e.message);
+        }
+      }
+
       res.json({ success: true, consentUrl });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4412,6 +4645,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const consentUrl = `${baseUrl}/consent/${token}`;
 
       await sendWhatsAppConsentLink(booking.customerPhone, booking.customerName, clinic.name, consentUrl);
+
+      // G14 — Notify clinic admin that the doctor requested a consent form
+      try {
+        const drConsentNotif = await storage.createNotification({
+          userId: String(clinic.id),
+          message: `Consent form requested for ${booking.customerName} by Dr. ${sess.doctorEmail}`,
+          read: false,
+        });
+        broadcastToClinic(String(clinic.id), { type: "consent_requested", notification: drConsentNotif });
+      } catch (e: any) {
+        console.error('[NOTIFICATION] Doctor consent request notification failed:', e.message);
+      }
 
       res.json({ success: true, consentUrl });
     } catch (err: any) {
@@ -4542,6 +4787,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         prescription: prescription || null,
         notes: notes || null,
       });
+
+      // G9 — Notify clinic admin that a clinical record was created
+      if (clinicId) {
+        try {
+          const crNotif = await storage.createNotification({
+            userId: String(clinicId),
+            message: `${doctorName || 'Doctor'} created a clinical record for ${patientName}${prescription ? ' (includes prescription)' : ''}`,
+            read: false,
+          });
+          broadcastToClinic(String(clinicId), { type: "clinical_record_created", notification: crNotif });
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Clinical record created notification failed:', e.message);
+        }
+      }
+
       res.status(201).json(record);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4564,6 +4824,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         ...(notes !== undefined ? { notes } : {}),
         ...(doctorName !== undefined ? { doctorName } : {}),
       });
+
+      // G9b — Notify clinic admin that a clinical record was updated
+      if (record.clinicId) {
+        try {
+          const crUpdateNotif = await storage.createNotification({
+            userId: String(record.clinicId),
+            message: `${record.doctorName || 'Doctor'} updated clinical record for ${record.patientName}${prescription !== undefined ? ' (prescription updated)' : ''}`,
+            read: false,
+          });
+          broadcastToClinic(String(record.clinicId), { type: "clinical_record_updated", notification: crUpdateNotif });
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Clinical record updated notification failed:', e.message);
+        }
+      }
+
       res.json(record);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4956,6 +5231,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           }
         } catch (e: any) {
           console.error('[AUTO-COMPLETE] Failed:', e.message);
+        }
+
+        // G13 — Auto-send payment confirmation email to patient when bill is marked paid
+        if (bill.patientEmail || bill.patientPhone) {
+          try {
+            const billClinic = await storage.getClinicById(clinicId);
+            const clinicNameForBill = billClinic?.name || 'Your clinic';
+            const billServices = (bill.services ?? []) as { description: string; amount: number }[];
+            const billLineItems = billServices.map(s => `<tr><td style="padding:4px 8px">${s.description}</td><td style="padding:4px 8px;text-align:right">₹${Number(s.amount).toFixed(0)}</td></tr>`).join('');
+            if (resend && bill.patientEmail) {
+              const paidToEmail = RESEND_MODE === 'PRODUCTION' ? bill.patientEmail : TEST_EMAIL;
+              resend.emails.send({
+                from: EMAIL_FROM,
+                to: paidToEmail,
+                subject: `Payment Confirmed — ${clinicNameForBill}`,
+                html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;background:#f9fafb;border-radius:12px"><div style="background:#085041;border-radius:8px;padding:20px;text-align:center;margin-bottom:20px"><h2 style="color:#fff;margin:0;font-size:20px">${clinicNameForBill}</h2><p style="color:#a7f3d0;margin:6px 0 0;font-size:13px">Payment Confirmation</p></div><p style="color:#374151">Dear <strong>${bill.patientName}</strong>,</p><p style="color:#374151">Your bill <strong>${bill.billNumber}</strong> has been marked as <strong style="color:#059669">Paid</strong>.</p><table style="width:100%;border-collapse:collapse;margin:16px 0;background:#fff;border-radius:8px;overflow:hidden"><thead><tr style="background:#f3f4f6"><th style="padding:8px;text-align:left;color:#6b7280;font-size:13px">Item</th><th style="padding:8px;text-align:right;color:#6b7280;font-size:13px">Amount</th></tr></thead><tbody style="font-size:13px;color:#374151">${billLineItems}</tbody><tfoot><tr style="border-top:2px solid #e5e7eb"><td style="padding:8px;font-weight:700">Total Paid</td><td style="padding:8px;text-align:right;font-weight:700;color:#059669">₹${Number(bill.total ?? 0).toFixed(0)}</td></tr></tfoot></table><p style="color:#6b7280;font-size:12px;text-align:center">Thank you for choosing ${clinicNameForBill}. We wish you a speedy recovery.</p><p style="color:#d1d5db;font-size:11px;text-align:center;margin-top:16px">Powered by BookMySlot</p></div>`,
+              }).catch(() => {});
+            }
+          } catch (e: any) {
+            console.error('[AUTO-NOTIFY-PAID] Failed:', e.message);
+          }
         }
       }
 
