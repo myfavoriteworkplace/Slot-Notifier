@@ -3,7 +3,7 @@ import QRCode from "react-qr-code";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import { useDoctorAuth } from "@/hooks/use-doctor-auth";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -62,6 +62,7 @@ function MediaThumb({ url }: { url: string }) {
 export default function DoctorDashboard() {
   const { doctor, isLoading, isAuthenticated, logout, isLoggingOut } = useDoctorAuth();
   const [_, setLocation] = useLocation();
+  const search = useSearch();
 
   const [activeTab, setActiveTab] = useState<Tab>("appointments");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
@@ -121,18 +122,20 @@ export default function DoctorDashboard() {
     if (!isLoading && !isAuthenticated) setLocation("/clinic-login");
   }, [isLoading, isAuthenticated, setLocation]);
 
-  // ── Notification deep-link: read URL params once on mount ──────────────────
+  // ── Notification deep-link: react to URL search params ────────────────────
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    if (!search) return;
+    const params = new URLSearchParams(search);
     const openBookingParam = params.get("openBooking");
     if (openBookingParam) {
       const bookingId = parseInt(openBookingParam, 10);
       if (!isNaN(bookingId)) {
         setActiveTab("appointments");
         setPatientModalId(bookingId);
+        setLocation(window.location.pathname, { replace: true });
       }
     }
-  }, []); // Only run once on mount
+  }, [search]); // Re-runs whenever URL search string changes
   // ──────────────────────────────────────────────────────────────────────────
 
   function slugify(name: string) {

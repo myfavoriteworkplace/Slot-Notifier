@@ -14,7 +14,7 @@ import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
@@ -227,6 +227,7 @@ function ClinicDashboardSkeleton() {
 export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut, refetch: refetchClinic } = useClinicAuth();
   const [_, setLocation] = useLocation();
+  const search = useSearch();
 
   const updateLogoMutation = useMutation({
     mutationFn: async (logoUrl: string) => {
@@ -270,15 +271,17 @@ export default function ClinicDashboard() {
     }
   }, [clinic]);
 
-  // ── Notification deep-link: read URL params once on mount ──────────────────
+  // ── Notification deep-link: react to URL search params ────────────────────
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    if (!search) return;
+    const params = new URLSearchParams(search);
     const openBookingParam = params.get("openBooking");
     const panelParam = params.get("panel");
     const notifType = params.get("notifType") ?? "";
 
     if (panelParam) {
       setActivePanel(panelParam as any);
+      setLocation(window.location.pathname, { replace: true });
       return;
     }
     if (openBookingParam) {
@@ -297,9 +300,10 @@ export default function ClinicDashboard() {
         if (notifType && tabMap[notifType]) {
           setModalTab(bookingId, tabMap[notifType]);
         }
+        setLocation(window.location.pathname, { replace: true });
       }
     }
-  }, []); // Only run once on mount
+  }, [search]); // Re-runs whenever URL search string changes
   // ──────────────────────────────────────────────────────────────────────────
 
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);

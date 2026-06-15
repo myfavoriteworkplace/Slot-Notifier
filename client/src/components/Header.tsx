@@ -85,6 +85,8 @@ function NotificationBellPanel({
   onMarkAllRead,
   onNavigate,
 }: NotificationBellProps) {
+  const [open, setOpen] = useState(false);
+
   const todayItems     = notifications.filter(n => isToday(new Date(n.createdAt!)));
   const yesterdayItems = notifications.filter(n => isYesterday(new Date(n.createdAt!)));
   const earlierItems   = notifications.filter(
@@ -98,7 +100,7 @@ function NotificationBellPanel({
   ].filter(g => g.items.length > 0);
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           className="relative h-9 w-9 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted/80 transition-colors"
@@ -172,6 +174,7 @@ function NotificationBellPanel({
                         }`}
                         onClick={() => {
                           if (!n.read) onMarkRead(n.id);
+                          setOpen(false);
                           onNavigate?.(n);
                         }}
                       >
@@ -348,8 +351,8 @@ export function Header() {
 
   /* ── Notification deep-link navigation ── */
   const handleNotifNavigate = (n: Notification) => {
-    const type = (n as any).type as string | undefined;
-    const bookingId = (n as any).bookingId as number | undefined;
+    const type = n.type ?? undefined;
+    const bookingId = n.bookingId ?? undefined;
 
     if (type === "doctor_on_leave" || type === "doctor_leave_cancelled") {
       setLocation("/clinic-dashboard?panel=manage-doctors");
