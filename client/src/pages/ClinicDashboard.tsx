@@ -333,6 +333,17 @@ export default function ClinicDashboard() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Bookings patient search
+  const [bookingPatientSearch, setBookingPatientSearch] = useState("");
+  const [bookingPatientResults, setBookingPatientResults] = useState<Patient[]>([]);
+  const [bookingPatientResultsLoading, setBookingPatientResultsLoading] = useState(false);
+  const [activePatientFilter, setActivePatientFilter] = useState<{ id: number; name: string; patientCode: string | null } | null>(null);
+  const [patientSearchFocused, setPatientSearchFocused] = useState(false);
+  const [patientSearchHighlightIdx, setPatientSearchHighlightIdx] = useState(-1);
+  const patientSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const patientSearchInputRef = useRef<HTMLInputElement>(null);
+
   const [bookingDescription, setBookingDescription] = useState("");
   const [bookingDate, setBookingDate] = useState<Date>(startOfToday());
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -888,6 +899,40 @@ export default function ClinicDashboard() {
     setShowSuggestions(false);
   };
 
+  const fetchBookingPatientSearch = useCallback(async (q: string) => {
+    if (q.length < 2) { setBookingPatientResults([]); return; }
+    setBookingPatientResultsLoading(true);
+    try {
+      const res = await apiRequest('GET', `/api/auth/clinic/patients/search?q=${encodeURIComponent(q)}`);
+      if (res.ok) setBookingPatientResults(await res.json());
+      else setBookingPatientResults([]);
+    } catch { setBookingPatientResults([]); }
+    finally { setBookingPatientResultsLoading(false); }
+  }, []);
+
+  const handleBookingPatientSearchInput = (val: string) => {
+    setBookingPatientSearch(val);
+    setPatientSearchHighlightIdx(-1);
+    if (!val.trim()) { setBookingPatientResults([]); return; }
+    if (patientSearchDebounceRef.current) clearTimeout(patientSearchDebounceRef.current);
+    patientSearchDebounceRef.current = setTimeout(() => fetchBookingPatientSearch(val.trim()), 250);
+  };
+
+  const applyBookingPatientFilter = (p: Patient) => {
+    setActivePatientFilter({ id: p.id, name: p.name, patientCode: p.patientCode ?? null });
+    setBookingPatientSearch("");
+    setBookingPatientResults([]);
+    setPatientSearchFocused(false);
+    setPatientSearchHighlightIdx(-1);
+  };
+
+  const clearBookingPatientFilter = () => {
+    setActivePatientFilter(null);
+    setBookingPatientSearch("");
+    setBookingPatientResults([]);
+    setPatientSearchHighlightIdx(-1);
+  };
+
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest('POST', '/api/auth/clinic/bookings', data);
@@ -1132,6 +1177,9 @@ export default function ClinicDashboard() {
       if (groupA !== groupB) return groupA - groupB;
     }
     return new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime();
+  })?.filter(booking => {
+    if (!activePatientFilter) return true;
+    return (booking as any).patientId === activePatientFilter.id;
   });
 
   const handleOpenBilling = async (booking: BookingWithSlot, existingBill?: PatientBill) => {
@@ -2951,6 +2999,147 @@ export default function ClinicDashboard() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          </div>
+
+          {/* Patient search bar */}
+          <div className="relative">
+            {activePatientFilter ? (
+              /* Active filter chip — shows selected patient, click × to clear */
+              <div className="flex items-center gap-2.5 bg-card border border-primary/40 rounded-xl px-3 py-2 shadow-sm ring-1 ring-primary/10">
+                <div className="h-6 w-6 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                  <User className="h-3 w-3 text-primary" />
+                </div>
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <span className="text-xs font-semibold text-foreground truncate">{activePatientFilter.name}</span>
+                  {activePatientFilter.patientCode && (
+                    <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1.5 py-0.5 rounded-md shrink-0">
+                      {activePatientFilter.patientCode}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground/70 shrink-0">
+                    · {filteredBookings?.length ?? 0} booking{(filteredBookings?.length ?? 0) !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <button
+                  onClick={clearBookingPatientFilter}
+                  className="h-5 w-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                  data-testid="button-clear-patient-filter"
+                  title="Clear patient filter"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              /* Search input */
+              <div className={`flex items-center gap-2.5 bg-card border rounded-xl px-3 py-2 shadow-sm transition-all duration-150 ${
+                patientSearchFocused
+                  ? 'border-primary/50 ring-1 ring-primary/20 shadow-md'
+                  : 'border-border/50 hover:border-border'
+              }`}>
+                {bookingPatientResultsLoading
+                  ? <Loader2 className="h-3.5 w-3.5 text-primary shrink-0 animate-spin" />
+                  : <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                }
+                <input
+                  ref={patientSearchInputRef}
+                  type="text"
+                  value={bookingPatientSearch}
+                  onChange={e => handleBookingPatientSearchInput(e.target.value)}
+                  onFocus={() => setPatientSearchFocused(true)}
+                  onBlur={() => setTimeout(() => { setPatientSearchFocused(false); setPatientSearchHighlightIdx(-1); }, 160)}
+                  onKeyDown={e => {
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setPatientSearchHighlightIdx(i => Math.min(i + 1, bookingPatientResults.length - 1));
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setPatientSearchHighlightIdx(i => Math.max(i - 1, -1));
+                    } else if (e.key === 'Enter' && patientSearchHighlightIdx >= 0 && bookingPatientResults[patientSearchHighlightIdx]) {
+                      e.preventDefault();
+                      applyBookingPatientFilter(bookingPatientResults[patientSearchHighlightIdx]);
+                    } else if (e.key === 'Escape') {
+                      setBookingPatientSearch("");
+                      setBookingPatientResults([]);
+                      setPatientSearchFocused(false);
+                      patientSearchInputRef.current?.blur();
+                    }
+                  }}
+                  placeholder="Search patient — name, PAT code, phone or email…"
+                  className="flex-1 min-w-0 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/55 outline-none border-none focus:ring-0 h-5 leading-none"
+                  data-testid="input-booking-patient-search"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                {bookingPatientSearch && (
+                  <button
+                    onMouseDown={e => { e.preventDefault(); setBookingPatientSearch(""); setBookingPatientResults([]); }}
+                    className="shrink-0 h-4 w-4 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Dropdown results */}
+            {patientSearchFocused && !activePatientFilter && (
+              <>
+                {bookingPatientResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border/70 rounded-xl shadow-2xl overflow-hidden">
+                    {bookingPatientResults.map((p, i) => (
+                      <button
+                        key={p.id}
+                        onMouseDown={e => { e.preventDefault(); applyBookingPatientFilter(p); }}
+                        onMouseEnter={() => setPatientSearchHighlightIdx(i)}
+                        className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors border-b border-border/30 last:border-0 ${
+                          i === patientSearchHighlightIdx ? 'bg-primary/10' : 'hover:bg-muted/60'
+                        }`}
+                        data-testid={`result-patient-${p.id}`}
+                      >
+                        <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 font-bold text-xs text-primary">
+                          {p.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-semibold text-foreground">{p.name}</span>
+                            {p.patientCode && (
+                              <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1 py-0.5 rounded-md leading-none">
+                                {p.patientCode}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {p.phone && (
+                              <span className="text-xs text-muted-foreground">
+                                ••••• {p.phone.slice(-4)}
+                              </span>
+                            )}
+                            {p.phone && p.email && <span className="text-muted-foreground/30">·</span>}
+                            {p.email && (
+                              <span className="text-xs text-muted-foreground truncate max-w-[160px]">{p.email}</span>
+                            )}
+                          </div>
+                        </div>
+                        {(p.visitCount ?? 0) > 0 && (
+                          <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0 tabular-nums">
+                            {p.visitCount}v
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {bookingPatientSearch.length >= 2 && !bookingPatientResultsLoading && bookingPatientResults.length === 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border/70 rounded-xl shadow-2xl px-4 py-3.5 text-center">
+                    <p className="text-xs text-muted-foreground">
+                      No patients found for{" "}
+                      <span className="font-semibold text-foreground">"{bookingPatientSearch}"</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">Try a different name, phone, email or PAT code</p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Compact single-line date range filter */}

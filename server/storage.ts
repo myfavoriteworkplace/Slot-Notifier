@@ -1268,15 +1268,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchPatients(clinicId: number, query: string): Promise<Patient[]> {
-    const q = `%${query.toLowerCase()}%`;
+    const q = query.toLowerCase().trim();
+    const qLike  = `%${q}%`;
+    const qStart = `${q}%`;
     return db.select().from(patients)
       .where(and(
         eq(patients.clinicId, clinicId),
-        sql`(LOWER(${patients.name}) LIKE ${q} OR LOWER(COALESCE(${patients.email}, '')) LIKE ${q} OR COALESCE(${patients.phone}, '') LIKE ${q})`,
-        sql`${patients.patientCode} IS NOT NULL`
+        sql`${patients.patientCode} IS NOT NULL`,
+        sql`(
+          LOWER(${patients.name}) LIKE ${qLike}
+          OR LOWER(COALESCE(${patients.email}, '')) LIKE ${qLike}
+          OR COALESCE(${patients.phone}, '') LIKE ${qLike}
+          OR LOWER(COALESCE(${patients.patientCode}, '')) LIKE ${qLike}
+        )`
       ))
-      .orderBy(desc(patients.lastVisitAt))
-      .limit(10);
+      .orderBy(
+        sql`CASE
+          WHEN LOWER(COALESCE(${patients.patientCode}, '')) = ${q}     THEN 0
+          WHEN LOWER(COALESCE(${patients.patientCode}, '')) LIKE ${qStart} THEN 1
+          WHEN LOWER(${patients.name}) LIKE ${qStart}                  THEN 2
+          WHEN COALESCE(${patients.phone}, '') LIKE ${qStart}          THEN 3
+          ELSE 4
+        END`,
+        desc(patients.lastVisitAt)
+      )
+      .limit(8);
   }
 
   async getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]> {
