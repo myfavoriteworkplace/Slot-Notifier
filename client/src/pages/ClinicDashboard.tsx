@@ -1810,6 +1810,7 @@ export default function ClinicDashboard() {
       const _saveTot = _saveSub - _saveDiscAmt + _saveTaxAmt;
       const _billPayload = {
         bookingId: billingBooking.id,
+        patientId: (billingBooking as any).patientId ?? null,
         billNumber: billingDetails.receiptNumber,
         patientName: billingDetails.patientName,
         patientPhone: billingDetails.patientPhone,

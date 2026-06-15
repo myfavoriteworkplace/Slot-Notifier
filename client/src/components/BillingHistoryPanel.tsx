@@ -654,6 +654,7 @@ export function BillingHistoryPanel({
       if (existingEmptyDraft) return existingEmptyDraft;
       const res = await apiRequest("POST", "/api/auth/clinic/bills", {
         bookingId,
+        patientId: patientId || null,
         billNumber: uniqueBillNumber(bookingId),
         patientName: patientName || "Patient",
         patientPhone: patientPhone || "",
@@ -760,6 +761,7 @@ export function BillingHistoryPanel({
         const { subtotal, total } = computeTotals(newServices, 0, 0);
         const res = await apiRequest("POST", "/api/auth/clinic/bills", {
           bookingId,
+          patientId: patientId || null,
           billNumber: uniqueBillNumber(bookingId),
           patientName: patientName || "Patient",
           patientPhone: patientPhone || "",
@@ -1507,6 +1509,17 @@ export function BillingHistoryPanel({
 
   return (
     <div className="space-y-3">
+
+      {/* Patient identity strip */}
+      {patientCode && (
+        <div className="flex items-center gap-1.5 px-0.5">
+          <User className="h-3 w-3 text-muted-foreground shrink-0" />
+          <span className="text-xs font-semibold text-foreground truncate">{patientName}</span>
+          <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1.5 py-0.5 rounded-md shrink-0">
+            {patientCode}
+          </span>
+        </div>
+      )}
 
       {/* Settled banner — when all bills are paid */}
       {bills.length > 0 && allCurrentFullyPaid && (

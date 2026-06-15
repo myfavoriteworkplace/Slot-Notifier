@@ -187,6 +187,7 @@ export interface IStorage {
 
   // Patient Bills
   createPatientBill(data: InsertPatientBill): Promise<PatientBill>;
+  getPatientBillById(id: number, clinicId: number): Promise<PatientBill | null>;
   getPatientBillsByClinicId(clinicId: number): Promise<(PatientBill & { patientCode?: string | null })[]>;
   getPatientBillsByBookingId(bookingId: number, clinicId: number): Promise<PatientBill[]>;
   getPatientBillsByPatientId(clinicId: number, patientId: number): Promise<PatientBill[]>;
@@ -1111,6 +1112,13 @@ export class DatabaseStorage implements IStorage {
   async createPatientBill(data: InsertPatientBill): Promise<PatientBill> {
     const [bill] = await db.insert(patientBills).values(data).returning();
     return bill;
+  }
+
+  async getPatientBillById(id: number, clinicId: number): Promise<PatientBill | null> {
+    const [bill] = await db.select().from(patientBills)
+      .where(and(eq(patientBills.id, id), eq(patientBills.clinicId, clinicId)))
+      .limit(1);
+    return bill ?? null;
   }
 
   async getPatientBillsByClinicId(clinicId: number): Promise<(PatientBill & { patientCode?: string | null })[]> {

@@ -4983,8 +4983,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
 
-      const bills = await storage.getPatientBillsByClinicId(clinicId);
-      const bill = bills.find(b => b.id === id);
+      const bill = await storage.getPatientBillById(id, clinicId);
       if (!bill) return res.status(404).json({ message: "Bill not found" });
       if (!bill.patientEmail && !bill.patientPhone) {
         return res.json({ success: true, message: "No contact info — notification skipped" });
