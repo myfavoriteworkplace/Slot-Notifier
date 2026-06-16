@@ -462,14 +462,16 @@ export function AppointmentCard({
                     #{bookingNumber}
                   </span>
                 </div>
-                {/* Row 2: PAT code only */}
+                {/* Row 2: PAT code or REF fallback */}
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   {booking.patientCode ? (
                     <span className="font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-px rounded-md shrink-0">
                       {booking.patientCode}
                     </span>
                   ) : (
-                    <span className="font-mono text-muted-foreground/40 shrink-0">--</span>
+                    <span className="font-mono text-xs text-muted-foreground/60 bg-muted/50 border border-border/50 px-1.5 py-px rounded-md shrink-0">
+                      REF-{bookingNumber}
+                    </span>
                   )}
                 </div>
                 {/* Row 3: Phone · Age · Gender */}
@@ -1187,7 +1189,7 @@ export function AppointmentCard({
           )}
 
           {/* Stage 1 — Pending: Confirm Appointment (blue, active) */}
-          {!isTerminal && !isClinicConfirmed && (
+          {!isTerminal && !isClinicConfirmed && !isVisitCompleted && !isTreatmentCompleted && !isCheckedIn && !isInConsultation && (
             <TooltipProvider delayDuration={400}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1674,7 +1676,7 @@ export function AppointmentCard({
             </div>
           )}
 
-          {/* Stage 5 — View Summary + Rebook */}
+          {/* Stage 5 — View Summary (+ Rebook for clinic admin only) */}
           {isVisitCompleted && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
@@ -1682,12 +1684,6 @@ export function AppointmentCard({
                 onClick={() => onCardClick()}
                 data-testid={`button-view-summary-doc-${booking.id}`}>
                 <ClipboardList className="h-3 w-3" />View Summary
-              </Button>
-              <Button variant="outline" size="sm"
-                className="flex-1 h-8 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
-                onClick={() => onBookAgain?.()}
-                data-testid={`button-rebook-doc-${booking.id}`}>
-                <CalendarPlus className="h-3 w-3" />Rebook
               </Button>
             </div>
           )}

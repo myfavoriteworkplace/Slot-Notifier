@@ -1148,8 +1148,8 @@ export default function DoctorDashboard() {
                         onDecline={() => declineMutation.mutate(booking.id)}
                         onOpenNotes={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
                         onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('records'); setStatusDraft(booking.clinicalStatus || ""); }}
-                        approvePending={approveMutation.isPending}
-                        declinePending={declineMutation.isPending}
+                        approvePending={approveMutation.isPending && (approveMutation.variables as number) === booking.id}
+                        declinePending={declineMutation.isPending && (declineMutation.variables as number) === booking.id}
                         onStartConsultation={() => startConsultationMutation.mutate(booking.id)}
                         startConsultPending={startConsultationMutation.isPending}
                         onDoctorCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
@@ -2198,15 +2198,32 @@ export default function DoctorDashboard() {
                       {b.customerName?.[0]?.toUpperCase() ?? "?"}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-white text-base leading-tight">{b.customerName}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-white text-base leading-tight">{b.customerName}</p>
+                        {(b.customerAge || b.customerGender) && (
+                          <span className="text-xs text-white/55 shrink-0">
+                            {b.customerAge ? `${b.customerAge}y` : ""}
+                            {b.customerAge && b.customerGender ? " · " : ""}
+                            {b.customerGender ? (b.customerGender as string).charAt(0).toUpperCase() + (b.customerGender as string).slice(1) : ""}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-0.5 text-white/60 text-xs flex-wrap">
                         <span className="flex items-center gap-1"><Hash className="h-2.5 w-2.5" />REF-{String(b.id).padStart(4, "0")}</span>
                         <span>·</span>
                         <span className="flex items-center gap-1 truncate"><Building2 className="h-2.5 w-2.5 shrink-0" />{modalClinicName}</span>
                       </div>
                       {startTime && (
-                        <p className="text-white/50 text-xs mt-0.5">
-                          {startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        <p className="text-white/50 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span>{startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          {(() => {
+                            const now = new Date(); now.setHours(0, 0, 0, 0);
+                            const apptDay = new Date(startTime); apptDay.setHours(0, 0, 0, 0);
+                            const diff = Math.round((apptDay.getTime() - now.getTime()) / 86400000);
+                            if (diff === 0) return <span className="text-xs font-semibold text-sky-300 bg-sky-500/20 border border-sky-400/30 px-1.5 py-px rounded-full">Today</span>;
+                            if (diff === 1) return <span className="text-xs font-semibold text-amber-300 bg-amber-500/20 border border-amber-400/30 px-1.5 py-px rounded-full">Tomorrow</span>;
+                            return null;
+                          })()}
                         </p>
                       )}
                     </div>

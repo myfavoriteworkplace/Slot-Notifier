@@ -270,6 +270,10 @@ export default function ClinicDashboard() {
     }
   }, [clinic]);
 
+  // ── Tab badge dots + notification highlight (Issues 3 & 4) ───────────────
+  const [tabBadges, setTabBadges] = useState<Record<number, string[]>>({});
+  const [notifHighlight, setNotifHighlight] = useState<{ bookingId: number; tab: string; ts: number } | null>(null);
+
   // ── Notification deep-link helpers ────────────────────────────────────────
   const applyClinicNotifNav = (detail: { bookingId?: number; notifType?: string; panel?: string }) => {
     const tabMap: Record<string, "overview" | "clinical" | "notes" | "actions" | "billing"> = {
@@ -286,7 +290,18 @@ export default function ClinicDashboard() {
       setActivePanel("bookings");
       setOpenBookingId(detail.bookingId);
       if (detail.notifType && tabMap[detail.notifType]) {
-        setModalTab(detail.bookingId, tabMap[detail.notifType]);
+        const tab = tabMap[detail.notifType];
+        setModalTab(detail.bookingId, tab);
+        // Issue 3: highlight the panel briefly
+        const ts = Date.now();
+        setNotifHighlight({ bookingId: detail.bookingId, tab, ts });
+        setTimeout(() => setNotifHighlight(prev => prev?.ts === ts ? null : prev), 2500);
+        // Issue 4: add badge dot on the tab
+        setTabBadges(prev => {
+          const current = prev[detail.bookingId!] || [];
+          if (current.includes(tab)) return prev;
+          return { ...prev, [detail.bookingId!]: [...current, tab] };
+        });
       }
     }
   };
@@ -3508,7 +3523,7 @@ export default function ClinicDashboard() {
 
                   const complaints = booking.description
                     ? CHIEF_COMPLAINTS.filter(c =>
-                        booking.description!.split(/[,.\s]+/).map(p => p.trim().toLowerCase()).includes(c.toLowerCase())
+                        booking.description!.toLowerCase().includes(c.toLowerCase())
                       )
                     : [];
 
@@ -3559,9 +3574,18 @@ export default function ClinicDashboard() {
                       leftEarlyPending={patientLeftEarlyMutation.isPending}
                       totalBillsCount={allBills.filter(b => b.bookingId === booking.id).length}
                       onBookAgain={() => {
+                        const _desc = booking.description ?? "";
+                        const _rebookDesc = _desc.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
+                        const _rebookVisit = (_desc.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
+                        const _rebookCategory = (_desc.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
                         setBookingName(booking.customerName);
                         setBookingPhone(booking.customerPhone);
                         setBookingEmail(booking.customerEmail || "");
+                        setBookingAge(String((booking as any).customerAge || ""));
+                        setBookingGender((booking as any).customerGender || "");
+                        setBookingDescription(_rebookDesc);
+                        setBookingVisitType(_rebookVisit);
+                        setBookingAppointmentCategory(_rebookCategory);
                         setActivePanel('book-a-slot');
                         setOpenBookingId(null);
                       }}
@@ -3595,6 +3619,13 @@ export default function ClinicDashboard() {
                                 <span className="font-mono text-xs uppercase tracking-widest text-white/60 bg-white/10 border border-white/20 px-1.5 py-0.5 rounded-md shrink-0">
                                   REF-{getBookingNumber(booking).padStart(4, '0')}
                                 </span>
+                                {((booking as any).customerAge || (booking as any).customerGender) && (
+                                  <span className="text-xs text-white/55 shrink-0">
+                                    {(booking as any).customerAge ? `${(booking as any).customerAge}y` : ""}
+                                    {(booking as any).customerAge && (booking as any).customerGender ? " · " : ""}
+                                    {(booking as any).customerGender ? ((booking as any).customerGender as string).charAt(0).toUpperCase() + ((booking as any).customerGender as string).slice(1) : ""}
+                                  </span>
+                                )}
                               </div>
                               {/* Status text row — full lifecycle priority chain */}
                               <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -3707,11 +3738,15 @@ export default function ClinicDashboard() {
                             { key: 'billing',  label: 'Billing',  icon: <IndianRupee className="h-3.5 w-3.5" /> },
                           ] as const).map(({ key, label, icon }) => {
                             const isActive = getModalTab(booking.id) === key;
+                            const hasBadge = (tabBadges[booking.id] || []).includes(key);
                             return (
                               <button
                                 key={key}
-                                onClick={() => setModalTab(booking.id, key)}
-                                className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/40 ${
+                                onClick={() => {
+                                  setModalTab(booking.id, key);
+                                  if (hasBadge) setTabBadges(prev => ({ ...prev, [booking.id]: (prev[booking.id] || []).filter(t => t !== key) }));
+                                }}
+                                className={`relative flex-1 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 min-h-[44px] text-xs font-semibold transition-all border-b-2 focus-visible:outline-none active:bg-muted/40 ${
                                   isActive
                                     ? 'text-primary border-primary'
                                     : 'text-muted-foreground border-transparent hover:text-foreground hover:border-muted-foreground/30 active:text-foreground'
@@ -3720,13 +3755,16 @@ export default function ClinicDashboard() {
                               >
                                 {icon}
                                 <span className="text-xs leading-none">{label}</span>
+                                {hasBadge && (
+                                  <span className="absolute top-1 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-1 ring-card animate-pulse" />
+                                )}
                               </button>
                             );
                           })}
                         </div>
 
                         {/* ── TAB PANELS ── */}
-                        <div className="overflow-y-auto flex-1">
+                        <div className={`overflow-y-auto flex-1 transition-[box-shadow] duration-500 ${notifHighlight?.bookingId === booking.id ? "ring-2 ring-inset ring-primary/40" : ""}`}>
 
                           {/* OVERVIEW TAB — enlarged patient card, same row style as AppointmentCard */}
                           {getModalTab(booking.id) === 'overview' && (() => {
@@ -4562,7 +4600,16 @@ export default function ClinicDashboard() {
                                   </Button>
                                   <Button variant="outline" size="sm"
                                     className="flex-1 h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
-                                    onClick={() => { setBookingName(booking.customerName); setBookingPhone(booking.customerPhone); setBookingEmail(booking.customerEmail || ""); setActivePanel('book-a-slot'); setOpenBookingId(null); }}
+                                    onClick={() => {
+                                      const _d = booking.description ?? "";
+                                      const _rd = _d.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
+                                      const _rv = (_d.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
+                                      const _rc = (_d.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
+                                      setBookingName(booking.customerName); setBookingPhone(booking.customerPhone); setBookingEmail(booking.customerEmail || "");
+                                      setBookingAge(String((booking as any).customerAge || "")); setBookingGender((booking as any).customerGender || "");
+                                      setBookingDescription(_rd); setBookingVisitType(_rv); setBookingAppointmentCategory(_rc);
+                                      setActivePanel('book-a-slot'); setOpenBookingId(null);
+                                    }}
                                     data-testid={`button-dialog-rebook-${booking.id}`}>
                                     <CalendarPlus className="h-3 w-3" />Rebook
                                   </Button>
@@ -4657,7 +4704,16 @@ export default function ClinicDashboard() {
                             if (modalIsTerminal) return (
                               <Button variant="outline"
                                 className="w-full h-11 text-sm font-medium text-primary hover:text-primary hover:bg-primary/5 gap-2 active:scale-[0.98] transition-all"
-                                onClick={() => { setBookingName(booking.customerName); setBookingPhone(booking.customerPhone); setBookingEmail(booking.customerEmail || ""); setActivePanel('book-a-slot'); setOpenBookingId(null); }}
+                                onClick={() => {
+                                  const _d = booking.description ?? "";
+                                  const _rd = _d.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
+                                  const _rv = (_d.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
+                                  const _rc = (_d.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
+                                  setBookingName(booking.customerName); setBookingPhone(booking.customerPhone); setBookingEmail(booking.customerEmail || "");
+                                  setBookingAge(String((booking as any).customerAge || "")); setBookingGender((booking as any).customerGender || "");
+                                  setBookingDescription(_rd); setBookingVisitType(_rv); setBookingAppointmentCategory(_rc);
+                                  setActivePanel('book-a-slot'); setOpenBookingId(null);
+                                }}
                                 data-testid={`button-dialog-rebook-terminal-${booking.id}`}>
                                 <Repeat2 className="h-4 w-4" />Rebook
                               </Button>
