@@ -3808,30 +3808,66 @@ export default function ClinicDashboard() {
                             return (
                               <div className="px-4 pt-3 pb-4 space-y-2.5">
 
-                                {/* ── Patient contact strip — 2-column grid ── */}
-                                <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2 space-y-1.5">
-                                  {(booking as any).patientCode && (
-                                    <span className="font-mono font-bold text-xs text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md inline-block">
-                                      {(booking as any).patientCode}
-                                    </span>
-                                  )}
-                                  <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
-                                      <Phone className="h-2.5 w-2.5 shrink-0" />
-                                      <span className="truncate">{booking.customerPhone || "--"}</span>
+                                {/* ── Patient info card — matches info grid row pattern ── */}
+                                <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
+
+                                  {/* Patient ID */}
+                                  <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                    <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                      <User className="h-3 w-3 text-primary" />
                                     </div>
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
-                                      <span className="shrink-0">{(booking as any).customerAge ? `${(booking as any).customerAge}y` : "--"}</span>
-                                      <span className="opacity-30 shrink-0">·</span>
-                                      <span className="shrink-0 capitalize">{(booking as any).customerGender || "--"}</span>
-                                    </div>
-                                    {booking.customerEmail && (
-                                      <div className="col-span-2 flex items-center gap-1 text-xs text-muted-foreground min-w-0">
-                                        <Mail className="h-2.5 w-2.5 shrink-0 text-blue-500" />
-                                        <span className="truncate">{booking.customerEmail}</span>
-                                      </div>
+                                    <span className="text-muted-foreground shrink-0">Patient ID:</span>
+                                    {(booking as any).patientCode ? (
+                                      <span className="font-mono font-bold text-primary truncate">{(booking as any).patientCode}</span>
+                                    ) : (
+                                      <span className="text-muted-foreground/50">–</span>
                                     )}
                                   </div>
+
+                                  {/* Phone */}
+                                  <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                    <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                      <Phone className="h-3 w-3 text-muted-foreground" />
+                                    </div>
+                                    <span className="text-muted-foreground shrink-0">Phone:</span>
+                                    <span className={`truncate ${booking.customerPhone ? "font-semibold text-foreground" : "text-muted-foreground/50"}`}>
+                                      {booking.customerPhone || "–"}
+                                    </span>
+                                  </div>
+
+                                  {/* Email — full width */}
+                                  <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                                    <div className="h-5 w-5 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0">
+                                      <Mail className="h-3 w-3 text-blue-500" />
+                                    </div>
+                                    <span className="text-muted-foreground shrink-0">Email:</span>
+                                    <span className={`truncate ${booking.customerEmail ? "font-semibold text-foreground" : "text-muted-foreground/50"}`}>
+                                      {booking.customerEmail || "–"}
+                                    </span>
+                                  </div>
+
+                                  {/* Age */}
+                                  <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                    <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                      <CalendarDays className="h-3 w-3 text-muted-foreground" />
+                                    </div>
+                                    <span className="text-muted-foreground shrink-0">Age:</span>
+                                    <span className={(booking as any).customerAge ? "font-semibold text-foreground" : "text-muted-foreground/50"}>
+                                      {(booking as any).customerAge ? `${(booking as any).customerAge}y` : "–"}
+                                    </span>
+                                  </div>
+
+                                  {/* Gender */}
+                                  <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                    <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                      <Users className="h-3 w-3 text-muted-foreground" />
+                                    </div>
+                                    <span className="text-muted-foreground shrink-0">Gender:</span>
+                                    <span className={(booking as any).customerGender ? "font-semibold text-foreground capitalize" : "text-muted-foreground/50"}>
+                                      {(booking as any).customerGender || "–"}
+                                    </span>
+                                  </div>
+
                                 </div>
 
                                 {/* ── Info grid — 2 equal columns ── */}
@@ -3952,11 +3988,14 @@ export default function ClinicDashboard() {
 
                                 </div>
 
-                                {/* ── Booked at (full width) ── */}
+                                {/* ── Booked at — same row pattern as info grid ── */}
                                 {booking.createdAt && (
-                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                    <Clock className="h-2.5 w-2.5 shrink-0 opacity-50" />
-                                    <span>Booked {format(new Date(booking.createdAt), "MMM d · h:mm a")}</span>
+                                  <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                    <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                      <Clock className="h-3 w-3 text-muted-foreground" />
+                                    </div>
+                                    <span className="text-muted-foreground shrink-0">Booked:</span>
+                                    <span className="font-semibold text-foreground">{format(new Date(booking.createdAt), "MMM d · h:mm a")}</span>
                                   </div>
                                 )}
 
