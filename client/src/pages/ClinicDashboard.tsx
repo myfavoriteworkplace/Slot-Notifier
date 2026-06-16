@@ -3839,8 +3839,8 @@ export default function ClinicDashboard() {
 
                                   {/* Row 1 left — Visit Type */}
                                   <div className="flex items-center gap-1.5 text-xs min-w-0">
-                                    <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                                      <Repeat2 className="h-2.5 w-2.5 text-muted-foreground" />
+                                    <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                      <Repeat2 className="h-3 w-3 text-muted-foreground" />
                                     </div>
                                     <span className="text-muted-foreground shrink-0">Visit Type:</span>
                                     {ovVisitType ? (
@@ -3854,8 +3854,8 @@ export default function ClinicDashboard() {
 
                                   {/* Row 1 right — Assigned Doctor */}
                                   <div className="flex items-center gap-1.5 text-xs min-w-0">
-                                    <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                                      <Stethoscope className="h-2.5 w-2.5 text-primary" />
+                                    <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                      <Stethoscope className="h-3 w-3 text-primary" />
                                     </div>
                                     <span className="text-muted-foreground shrink-0">Assigned:</span>
                                     {booking.assignedDoctor ? (
@@ -3873,8 +3873,8 @@ export default function ClinicDashboard() {
 
                                   {/* Row 2 left — Treatment */}
                                   <div className="flex items-center gap-1.5 text-xs min-w-0">
-                                    <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                                      <Tag className="h-2.5 w-2.5 text-muted-foreground" />
+                                    <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                      <Tag className="h-3 w-3 text-muted-foreground" />
                                     </div>
                                     <span className="text-muted-foreground shrink-0">Treatment:</span>
                                     {ovTreatmentCategory ? (
@@ -3888,8 +3888,8 @@ export default function ClinicDashboard() {
 
                                   {/* Row 2 right — Consent */}
                                   <div className="flex items-center gap-1.5 text-xs min-w-0">
-                                    <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                                      <PenLine className="h-2.5 w-2.5 text-muted-foreground" />
+                                    <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                      <PenLine className="h-3 w-3 text-muted-foreground" />
                                     </div>
                                     <span className="text-muted-foreground shrink-0">Consent:</span>
                                     {booking.consentSignedAt ? (
@@ -3907,8 +3907,8 @@ export default function ClinicDashboard() {
 
                                   {/* Row 3 left — Slot Cost */}
                                   <div className="flex items-center gap-1.5 text-xs min-w-0">
-                                    <div className="h-4 w-4 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
-                                      <IndianRupee className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+                                    <div className="h-5 w-5 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
+                                      <IndianRupee className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                                     </div>
                                     <span className="text-muted-foreground shrink-0">Cost:</span>
                                     {(booking as any).slotCost > 0 ? (
@@ -3920,8 +3920,8 @@ export default function ClinicDashboard() {
 
                                   {/* Row 3 right — Chief Complaints */}
                                   <div className="flex items-start gap-1.5 text-xs min-w-0">
-                                    <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
-                                      <ClipboardList className="h-2.5 w-2.5 text-muted-foreground" />
+                                    <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
+                                      <ClipboardList className="h-3 w-3 text-muted-foreground" />
                                     </div>
                                     <span className="text-muted-foreground shrink-0 pt-0.5">Complaints:</span>
                                     {complaints.length > 0 ? (
@@ -3940,8 +3940,8 @@ export default function ClinicDashboard() {
                                   {/* Clinical Status — full width if present */}
                                   {booking.clinicalStatus && OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus] && (
                                     <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
-                                      <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                                        <ClipboardCheck className="h-2.5 w-2.5 text-muted-foreground" />
+                                      <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                        <ClipboardCheck className="h-3 w-3 text-muted-foreground" />
                                       </div>
                                       <span className="text-muted-foreground shrink-0">Clinical:</span>
                                       <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border ${OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus].cls}`}>
@@ -3976,7 +3976,7 @@ export default function ClinicDashboard() {
 
                                 {/* ── Terminal reason banner ── */}
                                 {booking.cancellationReason && (
-                                  <div className={`flex items-start gap-1.5 text-[10px] font-semibold rounded-lg px-2.5 py-1.5 border ${
+                                  <div className={`flex items-start gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5 border ${
                                     booking.verificationStatus === 'no_show'
                                       ? "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-700"
                                       : (booking as any).visitStatus === 'patient_left_early'
@@ -3990,7 +3990,7 @@ export default function ClinicDashboard() {
 
                                 {/* ── Visit completion note banner ── */}
                                 {(booking as any).visitCompletionNote && (booking as any).visitStatus === 'completed' && (
-                                  <div className="flex items-start gap-1.5 text-[10px] font-semibold rounded-lg px-2.5 py-1.5 border text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+                                  <div className="flex items-start gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5 border text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
                                     <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
                                     <span className="leading-snug">{(booking as any).visitCompletionNote}</span>
                                   </div>
@@ -4063,30 +4063,23 @@ export default function ClinicDashboard() {
                                 </div>
                                 <div className="px-3 py-3 flex flex-wrap gap-2">
                                   {([
-                                    { value: 'first_visit', label: 'First Visit' },
-                                    { value: 'revisit', label: 'Revisit' },
-                                    { value: 'follow_up_required', label: 'Follow-up Required' },
-                                    { value: 'case_closed', label: 'Case Closed' },
-                                  ] as const).map(({ value, label }) => {
+                                    { value: 'follow_up_required', label: 'Follow-up Required', Icon: Clock,         activeClass: 'bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-200 dark:shadow-amber-900/30' },
+                                    { value: 'case_closed',        label: 'Case Closed',        Icon: CheckCircle2,  activeClass: 'bg-emerald-500 text-white border-emerald-500 shadow-sm shadow-emerald-200 dark:shadow-emerald-900/30' },
+                                  ] as const).map(({ value, label, Icon, activeClass }) => {
                                     const isActive = booking.clinicalStatus === value;
                                     return (
                                       <button
                                         key={value}
                                         onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: value })}
                                         disabled={updateClinicalStatusMutation.isPending}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                                        className={`inline-flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-xl text-sm font-semibold border transition-all active:scale-[0.97] ${
                                           isActive
-                                            ? value === 'case_closed'
-                                              ? 'bg-green-500 text-white border-green-500'
-                                              : value === 'follow_up_required'
-                                              ? 'bg-amber-500 text-white border-amber-500'
-                                              : value === 'revisit'
-                                              ? 'bg-blue-500 text-white border-blue-500'
-                                              : 'bg-primary text-primary-foreground border-primary'
-                                            : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                                            ? activeClass
+                                            : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground hover:bg-muted/30'
                                         }`}
                                         data-testid={`clinical-status-${value}-${booking.id}`}
                                       >
+                                        <Icon className="h-4 w-4 shrink-0" />
                                         {label}
                                       </button>
                                     );
@@ -4136,7 +4129,7 @@ export default function ClinicDashboard() {
                                   </div>
                                   {rescheduleBookingId === booking.id ? (
                                     <button
-                                      className="text-xs font-semibold text-muted-foreground hover:text-foreground active:text-foreground transition-colors min-h-[36px] px-1"
+                                      className="text-xs font-semibold text-muted-foreground hover:text-foreground active:text-foreground transition-colors min-h-[44px] px-2"
                                       onClick={() => { setRescheduleBookingId(null); setRescheduleSlot(null); }}
                                       data-testid="button-cancel-reschedule"
                                     >
@@ -4144,7 +4137,7 @@ export default function ClinicDashboard() {
                                     </button>
                                   ) : (
                                     <button
-                                      className="text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors min-h-[36px] px-1"
+                                      className="text-xs font-semibold text-primary hover:text-primary/80 active:text-primary/60 transition-colors min-h-[44px] px-2"
                                       onClick={() => { setRescheduleBookingId(booking.id); setRescheduleDate(new Date(booking.slot.startTime)); }}
                                       data-testid="button-start-reschedule"
                                     >
@@ -4187,7 +4180,7 @@ export default function ClinicDashboard() {
                                     </div>
                                     <div className="space-y-1.5">
                                       <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
-                                      <div className="grid grid-cols-5 gap-1.5">
+                                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                                         {slotTimings.map((slot) => {
                                           const slotTime = new Date(rescheduleDate);
                                           slotTime.setHours(slot.startHour, slot.startMinute, 0, 0);
@@ -4212,10 +4205,10 @@ export default function ClinicDashboard() {
                                               }`}
                                               data-testid={`reschedule-slot-${slot.id}`}
                                             >
-                                              <span className="text-[10px] font-bold leading-tight px-1 text-center">{slot.label}</span>
-                                              <span className="text-[9px] opacity-60 leading-tight mt-0.5">{formatTime(slot.startHour, slot.startMinute)}</span>
+                                              <span className="text-xs font-bold leading-tight px-1 text-center">{slot.label}</span>
+                                              <span className="text-xs opacity-60 leading-tight mt-0.5">{formatTime(slot.startHour, slot.startMinute)}</span>
                                               {isFull && (
-                                                <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
+                                                <span className="absolute -top-1.5 -right-1.5 text-xs font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
                                               )}
                                             </button>
                                           );
@@ -4360,10 +4353,10 @@ export default function ClinicDashboard() {
                                         <div className="mx-2.5 mt-2.5 px-3 py-2 rounded-lg bg-primary/6 border border-primary/20 flex items-start gap-2">
                                           <span className="text-base shrink-0 mt-0.5">💡</span>
                                           <div className="min-w-0">
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-primary/70 mb-1">Suggested specialization</p>
+                                            <p className="text-xs font-bold uppercase tracking-wider text-primary/70 mb-1">Suggested specialization</p>
                                             <div className="flex flex-wrap gap-1">
                                               {suggested.map(sp => (
-                                                <span key={sp} className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">
+                                                <span key={sp} className="text-xs font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">
                                                   {sp}
                                                 </span>
                                               ))}
@@ -4408,7 +4401,7 @@ export default function ClinicDashboard() {
                                             </div>
                                             {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
                                             {!isAssigned && isBestMatch && (
-                                              <span className="shrink-0 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+                                              <span className="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 rounded-full">
                                                 Best match
                                               </span>
                                             )}
@@ -4461,7 +4454,7 @@ export default function ClinicDashboard() {
                                             </div>
                                             {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
                                             {!isAssigned && isBestMatchDoc && (
-                                              <span className="shrink-0 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+                                              <span className="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 rounded-full">
                                                 Best match
                                               </span>
                                             )}
