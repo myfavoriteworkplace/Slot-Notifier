@@ -6357,7 +6357,7 @@ export default function ClinicDashboard() {
                             <SelectContent>
                               <SelectItem value="First Visit">First Visit</SelectItem>
                               <SelectItem value="Re-visit">Re-visit</SelectItem>
-                              <SelectItem value="Follow-up Required">Follow-up Required</SelectItem>
+                              <SelectItem value="Follow-up Required">Follow up</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>

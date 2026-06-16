@@ -2271,8 +2271,6 @@ export default function DoctorDashboard() {
                               <SelectValue placeholder="Select status…" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="first_visit">First Visit</SelectItem>
-                              <SelectItem value="revisit">Revisit</SelectItem>
                               <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
                               <SelectItem value="case_closed">Case Closed</SelectItem>
                             </SelectContent>
