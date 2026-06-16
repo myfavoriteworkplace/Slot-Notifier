@@ -2209,9 +2209,9 @@ export default function DoctorDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-white/60 text-xs flex-wrap">
-                        <span className="flex items-center gap-1"><Hash className="h-2.5 w-2.5" />REF-{String(b.id).padStart(4, "0")}</span>
+                        <span className="flex items-center gap-1"><Hash className="h-3 w-3" />REF-{String(b.id).padStart(4, "0")}</span>
                         <span>·</span>
-                        <span className="flex items-center gap-1 truncate"><Building2 className="h-2.5 w-2.5 shrink-0" />{modalClinicName}</span>
+                        <span className="flex items-center gap-1 truncate"><Building2 className="h-3 w-3 shrink-0" />{modalClinicName}</span>
                       </div>
                       {startTime && (
                         <p className="text-white/50 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">

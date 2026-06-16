@@ -402,10 +402,10 @@ function MedicineCombobox({
                 <div className="flex flex-col items-start min-w-0 flex-1">
                   <span className="text-xs font-medium text-foreground truncate leading-tight">{item.medicineName}</span>
                   {item.dosage && (
-                    <span className="text-[10px] text-muted-foreground leading-none mt-0.5">{item.dosage}</span>
+                    <span className="text-xs text-muted-foreground leading-none mt-0.5">{item.dosage}</span>
                   )}
                 </div>
-                <span className={`text-[9px] shrink-0 px-1.5 py-0.5 rounded-full font-semibold leading-none whitespace-nowrap ${
+                <span className={`text-xs shrink-0 px-1.5 py-0.5 rounded-full font-semibold leading-none whitespace-nowrap ${
                   expired ? "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400"
                   : oos    ? "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400"
                   : low    ? "bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400"
@@ -467,28 +467,28 @@ function HistoryRow({
   return (
     <div className="px-3 py-2">
       <button
-        className="w-full flex items-center justify-between gap-2 text-left min-h-[32px]"
+        className="w-full flex items-center justify-between gap-2 text-left min-h-[44px]"
         onClick={() => setExpanded(v => !v)}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[10px] text-muted-foreground font-medium shrink-0">
+          <span className="text-xs text-muted-foreground font-medium shrink-0">
             {format(new Date(record.createdAt!), "MMM d, yyyy")}
           </span>
           {preview && (
-            <span className="text-[10px] text-primary/70 font-semibold truncate">{preview}</span>
+            <span className="text-xs text-primary/70 font-semibold truncate">{preview}</span>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <Button size="sm" variant="ghost"
-            className="h-5 px-1.5 text-[9px] text-muted-foreground hover:text-primary"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
             onClick={e => { e.stopPropagation(); onPdf(); }}>
-            <Download className="h-2.5 w-2.5" />
+            <Download className="h-3.5 w-3.5" />
           </Button>
           {mode === "doctor" && onEdit && (
             <Button size="sm" variant="ghost"
-              className="h-5 px-1.5 text-[9px] text-muted-foreground hover:text-primary"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
               onClick={e => { e.stopPropagation(); onEdit(); }}>
-              <Pencil className="h-2.5 w-2.5" />
+              <Pencil className="h-3.5 w-3.5" />
             </Button>
           )}
           {expanded
@@ -500,15 +500,15 @@ function HistoryRow({
       {expanded && (
         <div className="mt-2 space-y-1.5 animate-in slide-in-from-top-1 duration-150">
           {record.doctorName && (
-            <p className="text-[9px] text-muted-foreground flex items-center gap-1">
-              <Stethoscope className="h-2.5 w-2.5" /> Dr. {record.doctorName}
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Stethoscope className="h-3 w-3" /> Dr. {record.doctorName}
             </p>
           )}
           {type === "diagnosis" && record.diagnosis && record.diagnosis.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {record.diagnosis.map(d => (
                 <Badge key={d} variant="outline"
-                  className="text-[9px] px-1.5 py-0 rounded-full border-primary/20 bg-primary/5 text-primary">
+                  className="text-xs px-1.5 py-0 rounded-full border-primary/20 bg-primary/5 text-primary">
                   {d}
                 </Badge>
               ))}
@@ -732,16 +732,16 @@ export default function ClinicalRecordsTab({
             key={tab}
             onClick={() => { setActiveTab(tab); resetForms(); }}
             data-testid={`tab-${tab}`}
-            className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[11px] font-semibold transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1.5 min-h-[44px] rounded-md text-xs font-semibold transition-all ${
               active
                 ? "bg-white dark:bg-background shadow-sm text-primary border border-primary/20"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Icon className="h-3 w-3" />
+            <Icon className="h-3.5 w-3.5" />
             {label}
             {count > 0 && (
-              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold leading-none ${
+              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold leading-none ${
                 active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
               }`}>{count}</span>
             )}
@@ -769,7 +769,7 @@ export default function ClinicalRecordsTab({
               <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <ClipboardList className="h-3 w-3 text-primary" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-primary">
                     {dxEditId ? "Edit Diagnosis" : "New Diagnosis"}
                   </span>
                 </div>
@@ -781,14 +781,14 @@ export default function ClinicalRecordsTab({
 
                 {/* Tag picker */}
                 <div>
-                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Select diagnosis <span className="normal-case font-normal">(one or more)</span>
                   </Label>
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
                     {DIAGNOSIS_TAGS.map(tag => (
                       <button key={tag} type="button" onClick={() => toggleTag(tag)}
                         data-testid={`tag-diagnosis-${tag.toLowerCase()}`}
-                        className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold transition-all ${
+                        className={`text-xs px-2.5 py-1.5 rounded-full border font-semibold transition-all active:scale-95 ${
                           dxTags.includes(tag)
                             ? "bg-primary text-white border-primary"
                             : "border-border/60 text-muted-foreground hover:border-primary/50 hover:text-primary"
@@ -802,10 +802,10 @@ export default function ClinicalRecordsTab({
                 {/* Selected preview */}
                 {dxTags.length > 0 && (
                   <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-border/30">
-                    <span className="text-[9px] text-muted-foreground uppercase font-semibold mr-0.5">Selected:</span>
+                    <span className="text-xs text-muted-foreground uppercase font-semibold mr-0.5">Selected:</span>
                     {dxTags.map(t => (
                       <Badge key={t} variant="outline"
-                        className="text-[10px] px-2 py-0.5 rounded-full border-primary/30 bg-primary/8 text-primary font-semibold gap-1">
+                        className="text-xs px-2 py-0.5 rounded-full border-primary/30 bg-primary/8 text-primary font-semibold gap-1">
                         {t}
                         <button onClick={() => toggleTag(t)} className="hover:text-destructive ml-0.5">
                           <X className="h-2.5 w-2.5" />
@@ -817,7 +817,7 @@ export default function ClinicalRecordsTab({
 
                 {/* Optional notes */}
                 <div>
-                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Notes <span className="normal-case font-normal">(optional)</span>
                   </Label>
                   <textarea
@@ -865,32 +865,32 @@ export default function ClinicalRecordsTab({
               <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
                   <ClipboardList className="h-3 w-3 text-primary" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Latest Diagnosis</span>
-                  <span className="text-[9px] text-primary/60 font-medium">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Latest Diagnosis</span>
+                  <span className="text-xs text-muted-foreground/60 font-medium">
                     {format(new Date(latestDx.createdAt!), "MMM d, yyyy · h:mm a")}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button size="sm" variant="outline"
-                    className="h-6 px-2 text-[10px] gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                    className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/10"
                     onClick={() => generatePrescriptionPDF(latestDx, clinicName)}
                     data-testid="button-download-dx-pdf">
-                    <Download className="h-2.5 w-2.5" />
+                    <Download className="h-3.5 w-3.5" />
                   </Button>
                   {mode === "doctor" && (
                     <>
                       <Button size="sm" variant="ghost"
-                        className="h-6 px-2 text-[10px] gap-1 text-muted-foreground hover:text-primary"
+                        className="h-7 px-2.5 text-xs gap-1 text-muted-foreground hover:text-primary"
                         onClick={() => startEditDx(latestDx)}
                         data-testid="button-edit-dx">
-                        <Pencil className="h-2.5 w-2.5" /> Edit
+                        <Pencil className="h-3 w-3" /> Edit
                       </Button>
                       <Button size="sm" variant="ghost"
-                        className="h-6 px-2 text-[10px] text-muted-foreground hover:text-destructive"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                         onClick={() => deleteMutation.mutate(latestDx.id)}
                         disabled={deleteMutation.isPending}
                         data-testid="button-delete-dx">
-                        <Trash2 className="h-2.5 w-2.5" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </>
                   )}
@@ -898,20 +898,20 @@ export default function ClinicalRecordsTab({
               </div>
               <div className="px-3 py-2.5 space-y-2">
                 {latestDx.doctorName && (
-                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Stethoscope className="h-3 w-3" /> Dr. {latestDx.doctorName}
                   </p>
                 )}
                 <div className="flex flex-wrap gap-1">
                   {latestDx.diagnosis!.map(d => (
                     <Badge key={d} variant="outline"
-                      className="text-[10px] px-2 py-0.5 rounded-full border-primary/30 bg-primary/8 text-primary font-semibold">
+                      className="text-xs px-2 py-0.5 rounded-full border-primary/30 bg-primary/8 text-primary font-semibold">
                       {d}
                     </Badge>
                   ))}
                 </div>
                 {latestDx.notes && (
-                  <p className="text-[10px] text-muted-foreground leading-relaxed whitespace-pre-line border-t border-border/30 pt-2">
+                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line border-t border-border/30 pt-2">
                     {latestDx.notes}
                   </p>
                 )}
@@ -922,7 +922,7 @@ export default function ClinicalRecordsTab({
               <div className="flex flex-col items-center gap-2 py-6 text-center rounded-xl border border-dashed border-border/60 bg-muted/10">
                 <ClipboardList className="h-7 w-7 text-muted-foreground/30" />
                 <p className="text-xs font-medium text-muted-foreground">No diagnosis recorded yet</p>
-                {mode === "doctor" && <p className="text-[10px] text-muted-foreground/60">Use the button above to add one</p>}
+                {mode === "doctor" && <p className="text-xs text-muted-foreground/60">Use the button above to add one</p>}
               </div>
             )
           )}
@@ -932,7 +932,7 @@ export default function ClinicalRecordsTab({
             <div>
               <button
                 onClick={() => setShowDxHistory(v => !v)}
-                className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-primary font-medium w-full py-1 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-dx-history">
                 {showDxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 {showDxHistory ? "Hide" : `Show ${historyDx.length} older`} diagnosis {historyDx.length === 1 ? "entry" : "entries"}
@@ -968,7 +968,7 @@ export default function ClinicalRecordsTab({
               <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Pill className="h-3 w-3 text-primary" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-primary">
                     {rxEditId ? "Edit Prescription" : "New Prescription"}
                   </span>
                 </div>
@@ -981,7 +981,7 @@ export default function ClinicalRecordsTab({
                 {/* ── Compact prescription grid ─────────────────────────── */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                       <Pill className="h-3 w-3" /> Medicines
                     </Label>
                   </div>
@@ -991,7 +991,7 @@ export default function ClinicalRecordsTab({
                     <div className="min-w-[560px]">
                       <div className="grid gap-x-1 mb-1 px-1" style={{ gridTemplateColumns: "1fr 62px 40px 58px 40px 66px 70px 22px" }}>
                         {["Medicine", "Dosage", "Qty", "Freq", "Dur.", "Unit", "Route", ""].map((h, i) => (
-                          <span key={i} className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70 truncate">{h}</span>
+                          <span key={i} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 truncate">{h}</span>
                         ))}
                       </div>
 
@@ -1068,8 +1068,8 @@ export default function ClinicalRecordsTab({
                             </button>
                             </div>{/* end inner grid row */}
                             {stockWarn && (
-                              <div className="flex items-center gap-1 text-[10px] pl-1 leading-none">
-                                <AlertTriangle className={`h-2.5 w-2.5 shrink-0 ${stockWarn.type === "low" ? "text-amber-500" : "text-red-500"}`} />
+                              <div className="flex items-center gap-1 text-xs pl-1 leading-none">
+                                <AlertTriangle className={`h-3 w-3 shrink-0 ${stockWarn.type === "low" ? "text-amber-500" : "text-red-500"}`} />
                                 <span className={stockWarn.type === "low" ? "text-amber-500" : "text-red-500"}>
                                   {stockWarn.type === "expired" ? "Expired — do not dispense"
                                    : stockWarn.type === "oos"   ? "Out of stock at this clinic"
@@ -1084,7 +1084,7 @@ export default function ClinicalRecordsTab({
 
                       {/* Add medicine row link */}
                       <button type="button" onClick={addRxRow}
-                        className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors min-h-[44px]"
                         data-testid="button-add-medicine-row">
                         <Plus className="h-3 w-3" /> Add medicine
                       </button>
@@ -1128,32 +1128,32 @@ export default function ClinicalRecordsTab({
               <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
                   <Pill className="h-3 w-3 text-primary" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Latest Prescription</span>
-                  <span className="text-[9px] text-primary/60 font-medium">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Latest Prescription</span>
+                  <span className="text-xs text-muted-foreground/60 font-medium">
                     {format(new Date(latestRx.createdAt!), "MMM d, yyyy · h:mm a")}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button size="sm" variant="outline"
-                    className="h-6 px-2 text-[10px] gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                    className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/10"
                     onClick={() => generatePrescriptionPDF(latestRx, clinicName)}
                     data-testid="button-download-rx-pdf">
-                    <Download className="h-2.5 w-2.5" />
+                    <Download className="h-3.5 w-3.5" />
                   </Button>
                   {mode === "doctor" && (
                     <>
                       <Button size="sm" variant="ghost"
-                        className="h-6 px-2 text-[10px] gap-1 text-muted-foreground hover:text-primary"
+                        className="h-7 px-2.5 text-xs gap-1 text-muted-foreground hover:text-primary"
                         onClick={() => startEditRx(latestRx)}
                         data-testid="button-edit-rx">
-                        <Pencil className="h-2.5 w-2.5" /> Edit
+                        <Pencil className="h-3 w-3" /> Edit
                       </Button>
                       <Button size="sm" variant="ghost"
-                        className="h-6 px-2 text-[10px] text-muted-foreground hover:text-destructive"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                         onClick={() => deleteMutation.mutate(latestRx.id)}
                         disabled={deleteMutation.isPending}
                         data-testid="button-delete-rx">
-                        <Trash2 className="h-2.5 w-2.5" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </>
                   )}
@@ -1161,7 +1161,7 @@ export default function ClinicalRecordsTab({
               </div>
               <div className="px-3 py-2.5 space-y-2">
                 {latestRx.doctorName && (
-                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Stethoscope className="h-3 w-3" /> Dr. {latestRx.doctorName}
                   </p>
                 )}
@@ -1173,7 +1173,7 @@ export default function ClinicalRecordsTab({
               <div className="flex flex-col items-center gap-2 py-6 text-center rounded-xl border border-dashed border-border/60 bg-muted/10">
                 <Pill className="h-7 w-7 text-muted-foreground/30" />
                 <p className="text-xs font-medium text-muted-foreground">No prescription recorded yet</p>
-                {mode === "doctor" && <p className="text-[10px] text-muted-foreground/60">Use the button above to add one</p>}
+                {mode === "doctor" && <p className="text-xs text-muted-foreground/60">Use the button above to add one</p>}
               </div>
             )
           )}
@@ -1183,7 +1183,7 @@ export default function ClinicalRecordsTab({
             <div>
               <button
                 onClick={() => setShowRxHistory(v => !v)}
-                className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-primary font-medium w-full py-1 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-rx-history">
                 {showRxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 {showRxHistory ? "Hide" : `Show ${historyRx.length} older`} prescription {historyRx.length === 1 ? "entry" : "entries"}
