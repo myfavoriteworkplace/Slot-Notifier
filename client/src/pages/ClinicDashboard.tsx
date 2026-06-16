@@ -3868,12 +3868,10 @@ export default function ClinicDashboard() {
                                     </span>
                                   </div>
 
-                                </div>
+                                  {/* ── Zone B divider ── */}
+                                  <div className="col-span-2 border-t border-border/50 my-0.5" />
 
-                                {/* ── Info grid — 2 equal columns ── */}
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-
-                                  {/* Row 1 left — Visit Type */}
+                                  {/* Visit Type */}
                                   <div className="flex items-center gap-1.5 text-xs min-w-0">
                                     <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                       <Repeat2 className="h-3 w-3 text-muted-foreground" />
@@ -3888,7 +3886,7 @@ export default function ClinicDashboard() {
                                     )}
                                   </div>
 
-                                  {/* Row 1 right — Assigned Doctor */}
+                                  {/* Assigned Doctor */}
                                   <div className="flex items-center gap-1.5 text-xs min-w-0">
                                     <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                                       <Stethoscope className="h-3 w-3 text-primary" />
@@ -3907,7 +3905,7 @@ export default function ClinicDashboard() {
                                     )}
                                   </div>
 
-                                  {/* Row 2 left — Treatment */}
+                                  {/* Treatment */}
                                   <div className="flex items-center gap-1.5 text-xs min-w-0">
                                     <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                       <Tag className="h-3 w-3 text-muted-foreground" />
@@ -3922,7 +3920,7 @@ export default function ClinicDashboard() {
                                     )}
                                   </div>
 
-                                  {/* Row 2 right — Consent */}
+                                  {/* Consent */}
                                   <div className="flex items-center gap-1.5 text-xs min-w-0">
                                     <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                                       <PenLine className="h-3 w-3 text-muted-foreground" />
@@ -3941,7 +3939,7 @@ export default function ClinicDashboard() {
                                     )}
                                   </div>
 
-                                  {/* Row 3 left — Slot Cost */}
+                                  {/* Cost */}
                                   <div className="flex items-center gap-1.5 text-xs min-w-0">
                                     <div className="h-5 w-5 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
                                       <IndianRupee className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
@@ -3954,8 +3952,19 @@ export default function ClinicDashboard() {
                                     )}
                                   </div>
 
-                                  {/* Row 3 right — Chief Complaints */}
-                                  <div className="flex items-start gap-1.5 text-xs min-w-0">
+                                  {/* Booked — paired with Cost */}
+                                  {booking.createdAt ? (
+                                    <div className="flex items-center gap-1.5 text-xs min-w-0">
+                                      <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                        <Clock className="h-3 w-3 text-muted-foreground" />
+                                      </div>
+                                      <span className="text-muted-foreground shrink-0">Booked:</span>
+                                      <span className="font-semibold text-foreground truncate">{format(new Date(booking.createdAt), "MMM d · h:mm a")}</span>
+                                    </div>
+                                  ) : <div />}
+
+                                  {/* Complaints — full width */}
+                                  <div className="col-span-2 flex items-start gap-1.5 text-xs min-w-0">
                                     <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
                                       <ClipboardList className="h-3 w-3 text-muted-foreground" />
                                     </div>
@@ -3973,7 +3982,7 @@ export default function ClinicDashboard() {
                                     )}
                                   </div>
 
-                                  {/* Clinical Status — full width if present */}
+                                  {/* Clinical — full width, conditional */}
                                   {booking.clinicalStatus && OVERVIEW_CLINICAL_STATUS[booking.clinicalStatus] && (
                                     <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
                                       <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
@@ -3987,17 +3996,6 @@ export default function ClinicDashboard() {
                                   )}
 
                                 </div>
-
-                                {/* ── Booked at — same row pattern as info grid ── */}
-                                {booking.createdAt && (
-                                  <div className="flex items-center gap-1.5 text-xs min-w-0">
-                                    <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                                      <Clock className="h-3 w-3 text-muted-foreground" />
-                                    </div>
-                                    <span className="text-muted-foreground shrink-0">Booked:</span>
-                                    <span className="font-semibold text-foreground">{format(new Date(booking.createdAt), "MMM d · h:mm a")}</span>
-                                  </div>
-                                )}
 
                                 {/* ── Past-due banner ── */}
                                 {ovIsPastDue && (
