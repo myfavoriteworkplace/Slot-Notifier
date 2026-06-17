@@ -3830,9 +3830,18 @@ export default function ClinicDashboard() {
                                       <Phone className="h-3 w-3 text-muted-foreground" />
                                     </div>
                                     <span className="text-muted-foreground shrink-0">Phone:</span>
-                                    <span className={`truncate ${booking.customerPhone ? "font-semibold text-foreground" : "text-muted-foreground/50"}`}>
-                                      {booking.customerPhone || "–"}
-                                    </span>
+                                    {booking.customerPhone ? (
+                                      <>
+                                        <a href={`tel:${booking.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">
+                                          {booking.customerPhone}
+                                        </a>
+                                        <a href={`tel:${booking.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors ml-auto" title="Call patient">
+                                          <Phone className="h-2.5 w-2.5 text-primary" />
+                                        </a>
+                                      </>
+                                    ) : (
+                                      <span className="text-muted-foreground/50">–</span>
+                                    )}
                                   </div>
 
                                   {/* Email — full width */}

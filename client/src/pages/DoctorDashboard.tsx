@@ -2303,9 +2303,18 @@ export default function DoctorDashboard() {
                               <Phone className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="text-muted-foreground shrink-0">Phone:</span>
-                            <span className={b.customerPhone ? "font-semibold text-foreground truncate" : "text-muted-foreground/50"}>
-                              {b.customerPhone || "–"}
-                            </span>
+                            {b.customerPhone ? (
+                              <>
+                                <a href={`tel:${b.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">
+                                  {b.customerPhone}
+                                </a>
+                                <a href={`tel:${b.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors ml-auto" title="Call patient">
+                                  <Phone className="h-2.5 w-2.5 text-primary" />
+                                </a>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground/50">–</span>
+                            )}
                           </div>
 
                           {/* Visit Type */}
