@@ -26,7 +26,7 @@ import {
   Info, X, Filter, BadgeCheck, RotateCcw, User, Award, BookOpen, Plus, Pencil, Trash2,
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
   Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound,
-  MoreHorizontal, CalendarOff, Phone, Pill
+  MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -59,6 +59,31 @@ function MediaThumb({ url }: { url: string }) {
   );
 }
 
+const DR_VISIT_TYPE_LABELS: Record<string, string> = {
+  first_visit: "First Visit",
+  follow_up: "Follow Up",
+  emergency: "Emergency",
+  routine_checkup: "Routine Checkup",
+  consultation: "Consultation",
+  review: "Review",
+  booked_by_patient: "Booked by Patient",
+};
+
+const DR_CLINICAL_STATUS: Record<string, { label: string; cls: string }> = {
+  first_visit:        { label: "First Visit",        cls: "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800" },
+  revisit:            { label: "Revisit",            cls: "bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-800" },
+  follow_up_required: { label: "Follow-up Required", cls: "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800" },
+  case_closed:        { label: "Case Closed",        cls: "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" },
+};
+
+const DR_CHIEF_COMPLAINTS = [
+  "Toothache", "Tooth sensitivity", "Sensitivity to hot/cold/sweet",
+  "Sharp or throbbing pain", "Jaw pain", "Bleeding gums", "Swollen or red gums",
+  "Receding gums", "Bad breath", "Broken or chipped tooth", "Loose tooth",
+  "Dry mouth", "Mouth sores", "Difficulty chewing", "Difficulty swallowing",
+  "Teeth grinding", "Clicking jaw", "Facial swelling", "Gum recession",
+];
+
 export default function DoctorDashboard() {
   const { doctor, isLoading, isAuthenticated, logout, isLoggingOut } = useDoctorAuth();
   const [_, setLocation] = useLocation();
@@ -87,7 +112,7 @@ export default function DoctorDashboard() {
 
   const [linkCopied, setLinkCopied] = useState(false);
   const [patientModalId, setPatientModalId] = useState<number | null>(null);
-  const [patientModalTab, setPatientModalTab] = useState<'notes' | 'diagnosis' | 'prescription'>('notes');
+  const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription'>('overview');
   const [statusDraft, setStatusDraft] = useState("");
 
   const [certSheetOpen, setCertSheetOpen] = useState(false);
@@ -1143,7 +1168,7 @@ export default function DoctorDashboard() {
                         })()}
                         clinicName={clinicName}
                         clinicCity={clinicCity ?? undefined}
-                        onCardClick={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
+                        onCardClick={() => { setPatientModalId(booking.id); setPatientModalTab('overview'); setStatusDraft(booking.clinicalStatus || ""); }}
                         onApprove={() => approveMutation.mutate(booking.id)}
                         onDecline={() => declineMutation.mutate(booking.id)}
                         onOpenNotes={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
@@ -2231,9 +2256,10 @@ export default function DoctorDashboard() {
                   <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
                 </div>
 
-                {/* Tab strip — Notes | Diagnosis | Prescription */}
+                {/* Tab strip — Overview | Notes | Diagnosis | Prescription */}
                 <div className="shrink-0 flex border-b border-border/60 bg-card">
                   {([
+                    { key: 'overview'     as const, label: 'Overview',    icon: <User className="h-3.5 w-3.5" /> },
                     { key: 'notes'        as const, label: 'Notes',       icon: <FileText className="h-3.5 w-3.5" /> },
                     { key: 'diagnosis'    as const, label: 'Diagnosis',   icon: <ClipboardList className="h-3.5 w-3.5" /> },
                     { key: 'prescription' as const, label: 'Prescription',icon: <Pill className="h-3.5 w-3.5" /> },
@@ -2259,6 +2285,114 @@ export default function DoctorDashboard() {
 
                 {/* Tab panels */}
                 <div className="overflow-y-auto flex-1">
+
+                  {/* OVERVIEW TAB */}
+                  {patientModalTab === 'overview' && (() => {
+                    const drVisitType = (b as any).visitType || null;
+                    const drTreatment = (b as any).treatmentCategory || null;
+                    const drComplaints = b.description
+                      ? DR_CHIEF_COMPLAINTS.filter(c => b.description!.toLowerCase().includes(c.toLowerCase()))
+                      : [];
+                    return (
+                      <div className="px-4 pt-3 pb-4">
+                        <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
+
+                          {/* Phone */}
+                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                            <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                              <Phone className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                            <span className="text-muted-foreground shrink-0">Phone:</span>
+                            <span className={b.customerPhone ? "font-semibold text-foreground truncate" : "text-muted-foreground/50"}>
+                              {b.customerPhone || "–"}
+                            </span>
+                          </div>
+
+                          {/* Visit Type */}
+                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                            <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                              <Repeat2 className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                            <span className="text-muted-foreground shrink-0">Visit Type:</span>
+                            {drVisitType ? (
+                              <span className="inline-flex items-center font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
+                                {DR_VISIT_TYPE_LABELS[drVisitType] ?? drVisitType}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/50">–</span>
+                            )}
+                          </div>
+
+                          {/* Consent */}
+                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                            <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                              <PenLine className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                            <span className="text-muted-foreground shrink-0">Consent:</span>
+                            {b.consentSignedAt ? (
+                              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
+                                <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
+                              </span>
+                            ) : (b as any).consentToken ? (
+                              <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
+                                <Clock className="h-2.5 w-2.5" />Sent
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/50">–</span>
+                            )}
+                          </div>
+
+                          {/* Treatment */}
+                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                            <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                              <Tag className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                            <span className="text-muted-foreground shrink-0">Treatment:</span>
+                            {drTreatment ? (
+                              <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
+                                {drTreatment}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/50">–</span>
+                            )}
+                          </div>
+
+                          {/* Complaints — full width */}
+                          <div className="col-span-2 flex items-start gap-1.5 text-xs min-w-0">
+                            <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
+                              <ClipboardList className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                            <span className="text-muted-foreground shrink-0 pt-0.5">Complaints:</span>
+                            {drComplaints.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {drComplaints.map((c, idx) => (
+                                  <span key={idx} className="inline-flex items-center font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                                    {c}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground/50 pt-0.5">–</span>
+                            )}
+                          </div>
+
+                          {/* Clinical Status — full width, conditional */}
+                          {b.clinicalStatus && DR_CLINICAL_STATUS[b.clinicalStatus] && (
+                            <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                              <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                <ClipboardCheck className="h-3 w-3 text-muted-foreground" />
+                              </div>
+                              <span className="text-muted-foreground shrink-0">Clinical:</span>
+                              <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border ${DR_CLINICAL_STATUS[b.clinicalStatus].cls}`}>
+                                {DR_CLINICAL_STATUS[b.clinicalStatus].label}
+                              </span>
+                            </div>
+                          )}
+
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* NOTES TAB */}
                   {patientModalTab === 'notes' && (
