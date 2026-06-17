@@ -2308,7 +2308,10 @@ export default function DoctorDashboard() {
                                 <a href={`tel:${b.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">
                                   {b.customerPhone}
                                 </a>
-                                <a href={`tel:${b.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors ml-auto" title="Call patient">
+                                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.customerPhone!); notify("Phone copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
+                                  <Copy className="h-2.5 w-2.5 text-muted-foreground" />
+                                </button>
+                                <a href={`tel:${b.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient">
                                   <Phone className="h-2.5 w-2.5 text-primary" />
                                 </a>
                               </>
@@ -2342,12 +2345,8 @@ export default function DoctorDashboard() {
                               <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                                 <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
                               </span>
-                            ) : (b as any).consentToken ? (
-                              <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
-                                <Clock className="h-2.5 w-2.5" />Sent
-                              </span>
                             ) : (
-                              <span className="text-muted-foreground/50">–</span>
+                              <span className="text-muted-foreground/60">Not signed</span>
                             )}
                           </div>
 
@@ -2397,6 +2396,27 @@ export default function DoctorDashboard() {
                               </span>
                             </div>
                           )}
+
+                          {/* Confirmed by — full width, conditional */}
+                          {(() => {
+                            const cb = (b as any).confirmedBy;
+                            const das = b.doctorApprovalStatus;
+                            const confirmedByLabel =
+                              cb === 'doctor' ? `Dr. ${b.assignedDoctor?.split(' ')[0] || 'Doctor'}` :
+                              cb === 'admin' ? 'Clinic Admin' :
+                              das === 'admin_confirmed' ? 'Clinic Admin' :
+                              null;
+                            if (!confirmedByLabel) return null;
+                            return (
+                              <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                                <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                  <CheckCircle2 className="h-3 w-3 text-primary" />
+                                </div>
+                                <span className="text-muted-foreground shrink-0">Confirmed by:</span>
+                                <span className="font-semibold text-foreground">{confirmedByLabel}</span>
+                              </div>
+                            );
+                          })()}
 
                         </div>
                       </div>

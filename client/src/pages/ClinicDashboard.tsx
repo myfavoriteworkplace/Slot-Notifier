@@ -1131,10 +1131,12 @@ export default function ClinicDashboard() {
     return bookingDateStr === todayStr;
   }).length || 0;
 
-  // Count future bookings (including today)
+  // Count upcoming bookings (after today, non-completed — matches the "upcoming" filter chip)
   const futureBookingsCount = bookings?.filter(b => {
-    const bookingDate = new Date(b.slot.startTime);
-    return bookingDate >= todayStart;
+    const bookingDateStr = format(new Date(b.slot.startTime), 'yyyy-MM-dd');
+    return bookingDateStr > todayStr &&
+      b.visitStatus !== 'completed' &&
+      b.visitStatus !== 'patient_left_early';
   }).length || 0;
 
   // Count past bookings (before today)
@@ -3818,7 +3820,12 @@ export default function ClinicDashboard() {
                                     </div>
                                     <span className="text-muted-foreground shrink-0">Patient ID:</span>
                                     {(booking as any).patientCode ? (
-                                      <span className="font-mono font-bold text-primary truncate">{(booking as any).patientCode}</span>
+                                      <>
+                                        <span className="font-mono font-bold text-primary truncate">{(booking as any).patientCode}</span>
+                                        <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText((booking as any).patientCode); notify("Patient ID copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy Patient ID">
+                                          <Copy className="h-2.5 w-2.5 text-muted-foreground" />
+                                        </button>
+                                      </>
                                     ) : (
                                       <span className="text-muted-foreground/50">–</span>
                                     )}
@@ -3835,7 +3842,10 @@ export default function ClinicDashboard() {
                                         <a href={`tel:${booking.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">
                                           {booking.customerPhone}
                                         </a>
-                                        <a href={`tel:${booking.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors ml-auto" title="Call patient">
+                                        <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerPhone!); notify("Phone copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
+                                          <Copy className="h-2.5 w-2.5 text-muted-foreground" />
+                                        </button>
+                                        <a href={`tel:${booking.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient">
                                           <Phone className="h-2.5 w-2.5 text-primary" />
                                         </a>
                                       </>
@@ -3850,9 +3860,16 @@ export default function ClinicDashboard() {
                                       <Mail className="h-3 w-3 text-blue-500" />
                                     </div>
                                     <span className="text-muted-foreground shrink-0">Email:</span>
-                                    <span className={`truncate ${booking.customerEmail ? "font-semibold text-foreground" : "text-muted-foreground/50"}`}>
-                                      {booking.customerEmail || "–"}
-                                    </span>
+                                    {booking.customerEmail ? (
+                                      <>
+                                        <span className="font-semibold text-foreground truncate min-w-0">{booking.customerEmail}</span>
+                                        <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerEmail!); notify("Email copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy email">
+                                          <Copy className="h-2.5 w-2.5 text-muted-foreground" />
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <span className="text-muted-foreground/50">–</span>
+                                    )}
                                   </div>
 
                                   {/* Age */}
@@ -3939,23 +3956,19 @@ export default function ClinicDashboard() {
                                       <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                                         <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
                                       </span>
-                                    ) : (booking as any).consentToken ? (
-                                      <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
-                                        <Clock className="h-2.5 w-2.5" />Sent
-                                      </span>
                                     ) : (
-                                      <span className="text-muted-foreground/50">–</span>
+                                      <span className="text-muted-foreground/60">Not signed</span>
                                     )}
                                   </div>
 
-                                  {/* Cost */}
+                                  {/* Slot Units */}
                                   <div className="flex items-center gap-1.5 text-xs min-w-0">
-                                    <div className="h-5 w-5 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
-                                      <IndianRupee className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                                    <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                      <Clock className="h-3 w-3 text-muted-foreground" />
                                     </div>
-                                    <span className="text-muted-foreground shrink-0">Cost:</span>
+                                    <span className="text-muted-foreground shrink-0">Slots:</span>
                                     {(booking as any).slotCost > 0 ? (
-                                      <span className="font-semibold text-foreground">₹{(booking as any).slotCost}</span>
+                                      <span className="font-semibold text-foreground">{(booking as any).slotCost} slot{(booking as any).slotCost !== 1 ? 's' : ''}</span>
                                     ) : (
                                       <span className="text-muted-foreground/50">–</span>
                                     )}
@@ -4003,6 +4016,27 @@ export default function ClinicDashboard() {
                                       </span>
                                     </div>
                                   )}
+
+                                  {/* Confirmed by — full width, conditional */}
+                                  {(() => {
+                                    const cb = (booking as any).confirmedBy;
+                                    const das = booking.doctorApprovalStatus;
+                                    const confirmedByLabel =
+                                      cb === 'doctor' ? `Dr. ${booking.assignedDoctor?.split(' ')[0] || 'Doctor'}` :
+                                      cb === 'admin' ? 'Clinic Admin' :
+                                      das === 'admin_confirmed' ? 'Clinic Admin' :
+                                      null;
+                                    if (!confirmedByLabel) return null;
+                                    return (
+                                      <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                                        <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                          <CheckCircle2 className="h-3 w-3 text-primary" />
+                                        </div>
+                                        <span className="text-muted-foreground shrink-0">Confirmed by:</span>
+                                        <span className="font-semibold text-foreground">{confirmedByLabel}</span>
+                                      </div>
+                                    );
+                                  })()}
 
                                 </div>
 

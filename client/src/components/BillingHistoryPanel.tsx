@@ -990,58 +990,62 @@ export function BillingHistoryPanel({
               </div>
             )}
 
-            {/* Inline Add Entry form */}
+            {/* Inline Add Entry form — compact table-row style */}
             {isActiveBill && canEdit && addFormOpenInCard && (
-              <div className="px-3 py-3 border-b border-border/40 bg-muted/5 space-y-2 animate-in slide-in-from-top-1 duration-150">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">New Entry</span>
-                  <button onClick={() => setAddFormOpenInCard(false)} className="p-1 rounded hover:bg-muted/60 text-muted-foreground">
-                    <X className="h-3.5 w-3.5" />
+              <div className="px-3 py-2.5 border-b border-border/40 bg-muted/5 animate-in slide-in-from-top-1 duration-150 space-y-2">
+                {/* Header row */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex-1">Add Entry</span>
+                  <button onClick={() => setAddFormOpenInCard(false)} className="p-1 rounded hover:bg-muted/60 text-muted-foreground shrink-0">
+                    <X className="h-3 w-3" />
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="col-span-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description *</Label>
-                    <Input value={addForm.description}
-                      onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
-                      placeholder="e.g. Dental cleaning, Root canal…"
-                      className="h-8 text-xs mt-0.5" data-testid="input-entry-description" />
+                {/* Single-row input strip — wraps on very small screens */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Input
+                    value={addForm.description}
+                    onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Description…"
+                    className="h-8 text-xs flex-[3] min-w-[120px]"
+                    data-testid="input-entry-description"
+                  />
+                  <Select value={addForm.category} onValueChange={v => setAddForm(f => ({ ...f, category: v }))}>
+                    <SelectTrigger className="h-8 text-xs flex-[2] min-w-[90px]" data-testid="select-entry-category">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <Input
+                    type="number" min="1" value={addForm.qty}
+                    onChange={e => setAddForm(f => ({ ...f, qty: e.target.value }))}
+                    placeholder="Qty"
+                    className="h-8 text-xs w-14 shrink-0"
+                    data-testid="input-entry-qty"
+                  />
+                  <div className="relative shrink-0 w-24">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
+                    <Input
+                      type="number" min="0" step="0.01" value={addForm.unitPrice}
+                      onChange={e => setAddForm(f => ({ ...f, unitPrice: e.target.value }))}
+                      placeholder="Price"
+                      className="pl-5 h-8 text-xs"
+                      data-testid="input-entry-unit-price"
+                    />
                   </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</Label>
-                    <Select value={addForm.category} onValueChange={v => setAddForm(f => ({ ...f, category: v }))}>
-                      <SelectTrigger className="h-8 text-xs mt-0.5" data-testid="select-entry-category"><SelectValue /></SelectTrigger>
-                      <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Qty</Label>
-                    <Input type="number" min="1" value={addForm.qty}
-                      onChange={e => setAddForm(f => ({ ...f, qty: e.target.value }))}
-                      className="h-8 text-xs mt-0.5" data-testid="input-entry-qty" />
-                  </div>
-                  <div className="col-span-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unit Price (₹) *</Label>
-                    <div className="relative mt-0.5">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
-                      <Input type="number" min="0" step="0.01" value={addForm.unitPrice}
-                        onChange={e => setAddForm(f => ({ ...f, unitPrice: e.target.value }))}
-                        placeholder="0.00" className="pl-5 h-8 text-xs" data-testid="input-entry-unit-price" />
-                    </div>
-                    {addForm.qty && addForm.unitPrice && parseFloat(addForm.qty) > 0 && parseFloat(addForm.unitPrice) > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Total: ₹{(parseFloat(addForm.qty) * parseFloat(addForm.unitPrice)).toFixed(0)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-2 justify-end pt-1">
-                  <Button size="sm" variant="ghost" onClick={() => setAddFormOpenInCard(false)} className="h-8 text-xs">Cancel</Button>
-                  <Button size="sm" onClick={handleAddEntry} disabled={addChargeMutation.isPending}
-                    className="h-8 text-xs gap-1 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground"
-                    data-testid="button-save-entry">
+                  <span className="text-xs font-semibold text-foreground shrink-0 w-16 text-right tabular-nums">
+                    {addForm.qty && addForm.unitPrice && parseFloat(addForm.qty) > 0 && parseFloat(addForm.unitPrice) > 0
+                      ? `₹${(parseFloat(addForm.qty) * parseFloat(addForm.unitPrice)).toFixed(0)}`
+                      : <span className="text-muted-foreground/40 font-normal">Total</span>}
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={handleAddEntry}
+                    disabled={addChargeMutation.isPending}
+                    className="h-8 text-xs px-3 shrink-0 gap-1 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground"
+                    data-testid="button-save-entry"
+                  >
                     {addChargeMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                    Add to Bill
+                    Add
                   </Button>
                 </div>
               </div>
