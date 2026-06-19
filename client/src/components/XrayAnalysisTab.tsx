@@ -7,6 +7,7 @@ import {
   X, ZoomIn, RotateCcw, Info, Microscope,
 } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { API_BASE_URL } from "@/lib/queryClient";
 
 interface XrayLocation {
   x: number;
@@ -156,7 +157,7 @@ export default function XrayAnalysisTab() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch("/api/xray/analyse", {
+      const res = await fetch(`${API_BASE_URL}/api/xray/analyse`, {
         method: "POST",
         body: form,
         credentials: "include",
