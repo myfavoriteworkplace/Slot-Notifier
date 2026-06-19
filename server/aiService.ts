@@ -1,5 +1,3 @@
-import FormData from "form-data";
-
 const AI_SERVICE_URL =
   process.env.AI_SERVICE_URL ||
   "https://itsmyfavoriteworkplace-bookmyslot-ai-service.hf.space";
@@ -49,7 +47,7 @@ export async function analyseXray(
   mimeType: string
 ): Promise<AnalyseResponse> {
   const form = new FormData();
-  form.append("file", imageBuffer, { filename, contentType: mimeType });
+  form.append("file", new Blob([imageBuffer], { type: mimeType }), filename);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90_000);
@@ -57,8 +55,7 @@ export async function analyseXray(
   try {
     const response = await fetch(`${AI_SERVICE_URL}/analyse-xray`, {
       method: "POST",
-      body: form as any,
-      headers: form.getHeaders(),
+      body: form,
       signal: controller.signal,
     });
 
