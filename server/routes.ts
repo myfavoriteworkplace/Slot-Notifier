@@ -15,6 +15,8 @@ import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
+import multer from "multer";
+import { wakeAndAnalyse } from "./aiService";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
@@ -5434,6 +5436,62 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const analytics = await storage.getClinicAnalytics(clinicId, range);
       res.json(analytics);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── X-RAY ANALYSIS ────────────────────────────────────────────────────────
+  // POST /api/xray/analyse
+  // Accepts a dental X-ray image, proxies it to the Hugging Face AI service,
+  // and returns detected findings. Doctor session required.
+  const xrayUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+    fileFilter: (_req, file, cb) => {
+      const allowed = ["image/jpeg", "image/png", "image/webp", "image/bmp"];
+      if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error("Only JPEG, PNG, WebP and BMP images are accepted."));
+      }
+    },
+  });
+
+  app.post("/api/xray/analyse", xrayUpload.single("file"), async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== "doctor" || !sess.doctorEmail) {
+      return res.status(401).json({ success: false, message: "Not authenticated. Please log in as a doctor." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No image file provided." });
+    }
+    try {
+      const result = await wakeAndAnalyse(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype
+      );
+      if (!result.success) {
+        return res.status(502).json({
+          success: false,
+          message: result.message || "AI analysis failed. Please try again.",
+        });
+      }
+      return res.json({
+        success: true,
+        findings: result.analysis?.findings ?? [],
+      });
+    } catch (err: any) {
+      if (err.name === "AbortError" || err.message?.includes("abort")) {
+        return res.status(504).json({
+          success: false,
+          message: "AI service timed out. The service may be waking up — please try again in 30 seconds.",
+        });
+      }
+      console.error("[X-Ray] AI service error:", err.message);
+      return res.status(503).json({
+        success: false,
+        message: "AI service is currently unavailable. Please try again shortly.",
+      });
+    }
   });
 
   return createServer(app);

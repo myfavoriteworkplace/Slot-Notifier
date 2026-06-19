@@ -64,5 +64,6 @@ RAZORPAY_WEBHOOK_SECRET = "webhook_secret_placeholder"
 PORT = "5000"
 NODE_ENV = "development"
 FRONTEND_URL = "http://localhost:5000"
+AI_SERVICE_URL = "https://itsmyfavoriteworkplace-bookmyslot-ai-service.hf.space"
 
 [userenv.development]

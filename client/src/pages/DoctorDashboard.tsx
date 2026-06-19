@@ -26,7 +26,7 @@ import {
   Info, X, Filter, BadgeCheck, RotateCcw, User, Award, BookOpen, Plus, Pencil, Trash2,
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
   Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound,
-  MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck
+  MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck, Microscope
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -35,9 +35,10 @@ import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/sc
 import { format, differenceInCalendarDays } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
 import { AppointmentCard } from "@/components/AppointmentCard";
+import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 
 type QuickFilter = "all" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days";
-type Tab = "appointments" | "profile" | "certifications" | "cases" | "leaves";
+type Tab = "appointments" | "profile" | "certifications" | "cases" | "leaves" | "xray";
 
 function isVideo(url: string) {
   return /\.(mp4|webm|ogg|mov)$/i.test(url) || url.includes("youtube.com") || url.includes("youtu.be") || url.includes("vimeo.com");
@@ -617,7 +618,8 @@ export default function DoctorDashboard() {
     { key: "profile"       as Tab, label: "My Profile",       subtitle: "Edit your details",     icon: User,        activeClass: "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400",     iconClass: "bg-violet-500/10 border-violet-500/20 text-violet-600",     dotClass: "bg-violet-500" },
     { key: "certifications"as Tab, label: "Certifications",   subtitle: "Degrees & awards",      icon: Award,       activeClass: "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400",             iconClass: "bg-blue-500/10 border-blue-500/20 text-blue-600",           dotClass: "bg-blue-500" },
     { key: "cases"         as Tab, label: "Case Studies",     subtitle: "Patient cases",         icon: BookOpen,    activeClass: "bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400",             iconClass: "bg-teal-500/10 border-teal-500/20 text-teal-600",           dotClass: "bg-teal-500" },
-    { key: "leaves"        as Tab, label: "Leave Management", subtitle: "Time off & availability",icon: CalendarOff, activeClass: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400",         iconClass: "bg-amber-500/10 border-amber-500/20 text-amber-600",        dotClass: "bg-amber-500" },
+    { key: "leaves"        as Tab, label: "Leave Management", subtitle: "Time off & availability",icon: CalendarOff,  activeClass: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400",         iconClass: "bg-amber-500/10 border-amber-500/20 text-amber-600",        dotClass: "bg-amber-500" },
+    { key: "xray"          as Tab, label: "Analyse X-Ray",    subtitle: "AI dental findings",     icon: Microscope,  activeClass: "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400",     iconClass: "bg-violet-500/10 border-violet-500/20 text-violet-600",     dotClass: "bg-violet-500" },
   ];
 
   return (
@@ -1907,6 +1909,18 @@ export default function DoctorDashboard() {
                       <p className="text-xs text-amber-600/70 dark:text-amber-400/60 italic">No leaves marked yet. Select a date on the calendar above.</p>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─────────────── X-RAY ANALYSIS ─────────────── */}
+          {activeTab === "xray" && (
+            <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+              <div className="flex">
+                <div className="w-1.5 bg-violet-500/60 shrink-0" />
+                <div className="flex-1 px-5 py-5 bg-gradient-to-r from-violet-500/[0.06] to-transparent">
+                  <XrayAnalysisTab />
                 </div>
               </div>
             </div>
