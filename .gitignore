@@ -16,3 +16,13 @@ attached_assets/*
 !attached_assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png
 !attached_assets/WhatsApp_Image_2026-05-13_at_9.00.41_PM_1778687930285.jpeg
 !attached_assets/Copilot_20260603_191746_1780494897553.png
+
+# ── Replit-specific — not needed on Render or any other deployment ──────────
+# These files are only relevant when running inside the Replit environment.
+# They must not reach the Render build or any other CI/CD pipeline.
+.replit
+.local/
+.agents/
+.cache/
+.upm/
+generated-icon.png
