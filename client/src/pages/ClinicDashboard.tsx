@@ -176,7 +176,7 @@ function BookingCardSkeleton() {
 
 function ClinicDashboardSkeleton() {
   return (
-    <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-8">
+    <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-0">
       {/* Header skeleton — mirrors dark gradient hero */}
       <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
@@ -2491,7 +2491,7 @@ export default function ClinicDashboard() {
   }).length ?? 0;
 
   return (
-    <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-8">
+    <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-0">
 
       {/* Subscription payment pending banner */}
       {(clinic as any)?.subscriptionStatus === "pending_payment" && (
@@ -2814,7 +2814,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {allBills.length > 0 && (
-                    <span className="text-[9px] font-bold bg-primary/15 text-primary px-1.5 py-0.5 rounded-full">{allBills.length}</span>
+                    <span className="text-xs font-bold bg-primary/15 text-primary px-1.5 py-0.5 rounded-full">{allBills.length}</span>
                   )}
                   {activePanel === 'accounts' && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
                 </div>
@@ -2834,7 +2834,7 @@ export default function ClinicDashboard() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {patientDirectory.length > 0 && (
-                    <span className="text-[9px] font-bold bg-rose-500/15 text-rose-600 px-1.5 py-0.5 rounded-full">{patientDirectory.length}</span>
+                    <span className="text-xs font-bold bg-rose-500/15 text-rose-600 px-1.5 py-0.5 rounded-full">{patientDirectory.length}</span>
                   )}
                   {activePanel === 'patients' && <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />}
                 </div>
@@ -2878,15 +2878,15 @@ export default function ClinicDashboard() {
                   />
                 </div>
                 {/* Label */}
-                <p className="text-[9px] text-muted-foreground text-center leading-relaxed">
+                <p className="text-xs text-muted-foreground text-center leading-relaxed">
                   Patients scan to visit your clinic page
                 </p>
                 {/* URL row */}
                 <div className="w-full rounded-xl border border-border/50 bg-muted/30 px-2.5 py-2">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Clinic Page URL</p>
-                      <p className="text-[10px] text-foreground truncate font-mono mt-0.5">/clinic/{clinic.username || clinic.id}</p>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Clinic Page URL</p>
+                      <p className="text-xs text-foreground truncate font-mono mt-0.5">/clinic/{clinic.username || clinic.id}</p>
                     </div>
                     <button
                       onClick={() => copyClinicUrl('about')}
@@ -3082,7 +3082,7 @@ export default function ClinicDashboard() {
                 </div>
                 <button
                   onClick={clearBookingPatientFilter}
-                  className="h-5 w-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                  className="h-9 w-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 active:scale-[0.97]"
                   data-testid="button-clear-patient-filter"
                   title="Clear patient filter"
                 >
@@ -3133,7 +3133,7 @@ export default function ClinicDashboard() {
                 {bookingPatientSearch && (
                   <button
                     onMouseDown={e => { e.preventDefault(); setBookingPatientSearch(""); setBookingPatientResults([]); }}
-                    className="shrink-0 h-4 w-4 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                    className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -3212,7 +3212,7 @@ export default function ClinicDashboard() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={`h-9 px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
+                  className={`min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
                     filterDate
                       ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
                       : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
@@ -3235,7 +3235,7 @@ export default function ClinicDashboard() {
                   variant="ghost"
                   size="sm"
                   disabled={!filterDate}
-                  className={`h-9 px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
+                  className={`min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
                     filterEndDate
                       ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
                       : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
@@ -3255,7 +3255,7 @@ export default function ClinicDashboard() {
                 <div className="w-px h-4 bg-border/50 mx-0.5 shrink-0" />
                 <button
                   onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); }}
-                  className="inline-flex items-center gap-1 h-9 px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
+                  className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
                   data-testid="button-clear-date-filter"
                 >
                   <X className="h-3 w-3" />
@@ -3319,7 +3319,7 @@ export default function ClinicDashboard() {
             {(quickFilter === 'this-week' || quickFilter === 'next-week') && (
               <button
                 onClick={() => setQuickFilter('all')}
-                className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
               >
                 Clear
               </button>
@@ -5047,7 +5047,7 @@ export default function ClinicDashboard() {
                       Closed
                     </span>
                     <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                      <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded text-[9px] font-bold bg-muted border border-border/60 text-foreground leading-none">3</span>
+                      <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded text-xs font-bold bg-muted border border-border/60 text-foreground leading-none">3</span>
                       max bookings
                     </span>
                     <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground/50">
@@ -5107,7 +5107,7 @@ export default function ClinicDashboard() {
                                   {format(day, 'd')}
                                 </div>
                                 {!isPast && dayCfg.isClosed && (
-                                  <div className="text-[9px] font-bold uppercase text-rose-500 mt-0.5 leading-none">closed</div>
+                                  <div className="text-xs font-bold uppercase text-rose-500 mt-0.5 leading-none">closed</div>
                                 )}
                               </button>
                             );
@@ -5146,7 +5146,7 @@ export default function ClinicDashboard() {
                                   }`}
                                 >
                                   {isClosed ? (
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full leading-none ${
                                       isPast
                                         ? 'text-muted-foreground/60 bg-muted border border-border/30'
                                         : 'text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25'
@@ -5154,7 +5154,7 @@ export default function ClinicDashboard() {
                                   ) : (
                                     <>
                                       <span className={`text-sm font-bold leading-none ${isPast ? 'text-muted-foreground/50' : 'text-foreground'}`}>{secCfg.maxBookings}</span>
-                                      <span className="text-[10px] text-muted-foreground mt-0.5 leading-none">slots</span>
+                                      <span className="text-xs text-muted-foreground mt-0.5 leading-none">slots</span>
                                     </>
                                   )}
                                 </button>
@@ -5217,7 +5217,7 @@ export default function ClinicDashboard() {
                             </p>
                           </div>
                           {isSunday && (
-                            <Badge variant="outline" className="text-[10px] border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 shrink-0">
+                            <Badge variant="outline" className="text-xs border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 shrink-0">
                               Sunday
                             </Badge>
                           )}
@@ -5230,12 +5230,12 @@ export default function ClinicDashboard() {
                           <div>
                             <p className="text-xs font-bold text-foreground leading-tight">Slots configuration</p>
                             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">Adjust values below, then click Save to apply</p>
-                            <p className="text-[11px] text-primary/70 mt-1 font-medium">1 slot ≈ 25 min (20 min treatment + 5 min buffer)</p>
+                            <p className="text-xs text-primary/70 mt-1 font-medium">1 slot ≈ 25 min (20 min treatment + 5 min buffer)</p>
                           </div>
                           {cfg.isClosed ? (
                             <div className="py-4 px-3 text-center rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10">
                               <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 leading-relaxed">All bookings closed for selected date(s)</p>
-                              <p className="text-[11px] text-rose-500/70 mt-1">Toggle "Close Bookings" below the grid to re-enable slots</p>
+                              <p className="text-xs text-rose-500/70 mt-1">Toggle "Close Bookings" below the grid to re-enable slots</p>
                             </div>
                           ) : (
                             <>
@@ -5267,7 +5267,7 @@ export default function ClinicDashboard() {
                                         max={30}
                                         value={secCfg.maxBookings}
                                         onChange={(e) => { const v = parseInt(e.target.value) || 0; getActiveDates().forEach(d => updateSectionCapacity(d, slot.id, v)); }}
-                                        className="w-12 h-8 text-center text-sm px-1 font-semibold"
+                                        className="w-12 min-h-[44px] text-center text-sm px-1 font-semibold"
                                         inputMode="numeric"
                                         onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                                         disabled={secCfg.isCancelled}
@@ -5381,7 +5381,7 @@ export default function ClinicDashboard() {
 
                           return (
                             <Dialog open={!!pendingBulkAction} onOpenChange={(open) => { if (!open) setPendingBulkAction(null); }}>
-                              <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden gap-0">
+                              <DialogContent className="w-[95vw] max-w-md rounded-2xl p-0 overflow-hidden gap-0">
                                 {/* Header */}
                                 <div className={`px-5 pt-5 pb-4 border-b border-border/40 ${cfg.isClosed ? 'bg-rose-50/60 dark:bg-rose-500/10' : 'bg-primary/[0.03]'}`}>
                                   <DialogTitle className="text-base font-bold leading-tight">
@@ -5401,7 +5401,7 @@ export default function ClinicDashboard() {
                                       ? 'border-rose-300/60 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10'
                                       : 'border-primary/25 bg-primary/[0.04]'
                                   }`}>
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">What will be applied</p>
+                                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">What will be applied</p>
                                     {cfg.isClosed ? (
                                       <div className="flex items-center gap-2">
                                         <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
@@ -5429,7 +5429,7 @@ export default function ClinicDashboard() {
 
                                   {/* Scope */}
                                   <div className="rounded-xl border border-border/40 bg-muted/20 p-3 space-y-2">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Applies to</p>
+                                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Applies to</p>
                                     {isDefaultAction ? (
                                       <p className="text-sm text-foreground leading-relaxed">
                                         All future dates that <span className="font-semibold">haven't been individually configured</span>. Dates you've already saved separately will not be changed.
@@ -5441,7 +5441,7 @@ export default function ClinicDashboard() {
                                         </p>
                                         <div className="flex flex-wrap gap-1.5">
                                           {sundaysThisMonth.map(d => (
-                                            <span key={d.toISOString()} className="text-[11px] font-medium bg-background border border-border/60 px-2 py-0.5 rounded-full">
+                                            <span key={d.toISOString()} className="text-xs font-medium bg-background border border-border/60 px-2 py-0.5 rounded-full">
                                               {format(d, 'EEE d MMM')}
                                             </span>
                                           ))}
@@ -5498,7 +5498,7 @@ export default function ClinicDashboard() {
                           const n = rangeDays.length;
                           return (
                             <Dialog open={showSaveRangeConfirm} onOpenChange={(open) => { if (!open) setShowSaveRangeConfirm(false); }}>
-                              <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden gap-0">
+                              <DialogContent className="w-[95vw] max-w-md rounded-2xl p-0 overflow-hidden gap-0">
                                 {/* Header */}
                                 <div className={`px-5 pt-5 pb-4 border-b border-border/40 ${cfg.isClosed ? 'bg-rose-50/60 dark:bg-rose-500/10' : 'bg-blue-50/60 dark:bg-blue-500/10'}`}>
                                   <DialogTitle className="text-base font-bold leading-tight">
@@ -5516,7 +5516,7 @@ export default function ClinicDashboard() {
                                       ? 'border-rose-300/60 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10'
                                       : 'border-blue-300/40 dark:border-blue-500/20 bg-blue-50/40 dark:bg-blue-500/[0.04]'
                                   }`}>
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">What will be saved to each day</p>
+                                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">What will be saved to each day</p>
                                     {cfg.isClosed ? (
                                       <div className="flex items-center gap-2">
                                         <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
@@ -5544,12 +5544,12 @@ export default function ClinicDashboard() {
 
                                   {/* Date list */}
                                   <div className="rounded-xl border border-border/40 bg-muted/20 p-3 space-y-2">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                                       Applies to {n} day{n !== 1 ? 's' : ''}
                                     </p>
                                     <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
                                       {rangeDays.map(d => (
-                                        <span key={d.toISOString()} className={`text-[11px] font-medium border px-2 py-0.5 rounded-full ${
+                                        <span key={d.toISOString()} className={`text-xs font-medium border px-2 py-0.5 rounded-full ${
                                           d.getDay() === 0 || d.getDay() === 6
                                             ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/25 text-rose-600 dark:text-rose-400'
                                             : 'bg-background border-border/60'
@@ -5785,7 +5785,7 @@ export default function ClinicDashboard() {
                                     </span>
                                   )}
                                 </div>
-                                <span className="absolute -bottom-1 -right-1 font-mono text-[9px] font-bold bg-muted border border-border/60 text-muted-foreground px-1 py-px rounded-full leading-none">
+                                <span className="absolute -bottom-1 -right-1 font-mono text-xs font-bold bg-muted border border-border/60 text-muted-foreground px-1 py-px rounded-full leading-none">
                                   {String(index + 1).padStart(2, '0')}
                                 </span>
                               </div>
@@ -5796,12 +5796,12 @@ export default function ClinicDashboard() {
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="font-bold text-sm tracking-tight">Dr. {doctor.name}</p>
                                   {isOnLeaveToday ? (
-                                    <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-px rounded-full">
+                                    <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-px rounded-full">
                                       <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
                                       On Leave
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-px rounded-full">
+                                    <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-px rounded-full">
                                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                       Active
                                     </span>
@@ -5810,11 +5810,11 @@ export default function ClinicDashboard() {
 
                                 {/* Specialization + degree badges */}
                                 <div className="flex items-center gap-2 flex-wrap mt-1">
-                                  <span className="inline-flex items-center text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">
+                                  <span className="inline-flex items-center text-xs font-medium bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">
                                     {doctor.specialization}
                                   </span>
                                   {doctor.degree && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-muted border border-border/60 px-2 py-0.5 rounded-full">
+                                    <span className="inline-flex items-center gap-1 text-xs font-mono text-muted-foreground bg-muted border border-border/60 px-2 py-0.5 rounded-full">
                                       <GraduationCap className="h-2.5 w-2.5" />
                                       {doctor.degree}
                                     </span>
@@ -6057,7 +6057,7 @@ export default function ClinicDashboard() {
                       target="_blank"
                       rel="noopener noreferrer"
                       data-testid="link-preview-about"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 transition-colors text-violet-700 dark:text-violet-400 text-xs font-semibold min-h-[36px]"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 transition-colors text-violet-700 dark:text-violet-400 text-xs font-semibold min-h-[44px]"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
                       Preview
@@ -6072,7 +6072,7 @@ export default function ClinicDashboard() {
                     <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Clinic Name</span>
                     <p className="text-sm font-semibold text-foreground truncate">{clinic?.name}</p>
                   </div>
-                  <Badge variant="outline" className="text-[10px] border-muted-foreground/30 text-muted-foreground shrink-0">
+                  <Badge variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground shrink-0">
                     Managed by platform
                   </Badge>
                 </div>
@@ -6183,13 +6183,13 @@ export default function ClinicDashboard() {
                       <MapPin className="h-3.5 w-3.5 text-violet-600 shrink-0" />
                       <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Map Location</span>
                       {profileLatitude && profileLongitude && (
-                        <span className="ml-auto text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-full px-2 py-0.5">
+                        <span className="ml-auto text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-full px-2 py-0.5">
                           Pin saved
                         </span>
                       )}
                     </div>
                     <div className="p-3">
-                      <p className="text-[11px] text-muted-foreground mb-2">
+                      <p className="text-xs text-muted-foreground mb-2">
                         Search your clinic or click on the map to set a pin. Patients see this on your public profile.
                       </p>
                       <MapLocationPicker
@@ -7282,7 +7282,7 @@ export default function ClinicDashboard() {
                                         </span>
                                       )}
                                       <button
-                                        className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg border ${nxt === 'paid' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-400' : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400'}`}
+                                        className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg border transition-colors active:scale-[0.97] ${nxt === 'paid' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-400' : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400'}`}
                                         onClick={() => updateBillStatusMutation.mutate({ id: bill.id, paymentStatus: nxt })}
                                         disabled={isUpd}
                                         data-testid={`ledger-status-toggle-${bill.id}`}
@@ -7290,7 +7290,7 @@ export default function ClinicDashboard() {
                                         {isUpd ? <Loader2 className="h-3 w-3 animate-spin" /> : nxt === 'paid' ? <><CheckCircle2 className="h-3 w-3" /> Mark Paid</> : <><Clock className="h-3 w-3" /> Unpaid</>}
                                       </button>
                                       <button
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                                        className="p-2 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors active:scale-[0.97]"
                                         onClick={() => printBillFromRecord(bill)}
                                         title="Download PDF"
                                         data-testid={`ledger-print-${bill.id}`}
@@ -7559,7 +7559,7 @@ export default function ClinicDashboard() {
                         }`} />
                       </div>
                       <p className="text-xl font-bold text-foreground">{value}</p>
-                      <p className="text-[11px] text-muted-foreground">{label}</p>
+                      <p className="text-xs text-muted-foreground">{label}</p>
                     </div>
                   ))}
                 </div>
@@ -7582,7 +7582,7 @@ export default function ClinicDashboard() {
                         key={s}
                         onClick={() => setPatientSort(s)}
                         data-testid={`button-sort-${s}`}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${patientSort === s ? 'bg-rose-500/10 text-rose-600' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${patientSort === s ? 'bg-rose-500/10 text-rose-600' : 'text-muted-foreground hover:text-foreground'}`}
                       >
                         <ArrowUpDown className="h-3 w-3" />
                         {s === 'recent' ? 'Recent' : s === 'visits' ? 'Most Visits' : 'Highest Billed'}
@@ -7604,7 +7604,7 @@ export default function ClinicDashboard() {
                     <p className="text-sm font-semibold text-muted-foreground">
                       {patientSearch ? 'No patients match your search' : 'No patients yet'}
                     </p>
-                    <p className="text-[11px] text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {patientSearch ? 'Try a different name, email, or PAT code' : 'Patients appear here once they book with email OTP verification'}
                     </p>
                   </div>
@@ -7752,7 +7752,7 @@ export default function ClinicDashboard() {
                         ].map(({ label, value }) => (
                           <div key={label} className="px-4 py-3 text-center">
                             <p className="text-base font-bold text-foreground">{value}</p>
-                            <p className="text-[10px] text-muted-foreground">{label}</p>
+                            <p className="text-xs text-muted-foreground">{label}</p>
                           </div>
                         ))}
                       </div>
@@ -7768,7 +7768,7 @@ export default function ClinicDashboard() {
 
                             {/* Visit Timeline */}
                             <section>
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
+                              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
                                 Visit Timeline ({visitBookings.length})
                               </p>
                               {visitBookings.length === 0 ? (
@@ -7791,15 +7791,15 @@ export default function ClinicDashboard() {
                                             <span className="text-[12px] font-semibold text-foreground">
                                               {format(new Date(bk.slot.startTime), 'dd MMM yyyy')}
                                             </span>
-                                            <span className="text-[11px] text-muted-foreground">
+                                            <span className="text-xs text-muted-foreground">
                                               {format(new Date(bk.slot.startTime), 'h:mm a')} – {format(new Date(bk.slot.endTime), 'h:mm a')}
                                             </span>
                                           </div>
                                           <div className="flex items-center gap-2 shrink-0">
-                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${statusColor}`}>
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full capitalize ${statusColor}`}>
                                               {bk.verificationStatus}
                                             </span>
-                                            <span className="text-[10px] text-muted-foreground font-mono">#{bk.id}</span>
+                                            <span className="text-xs text-muted-foreground font-mono">#{bk.id}</span>
                                           </div>
                                         </div>
 
@@ -7808,7 +7808,7 @@ export default function ClinicDashboard() {
                                           {bk.assignedDoctor && (
                                             <div className="flex items-center gap-2">
                                               <Stethoscope className="h-3 w-3 text-muted-foreground shrink-0" />
-                                              <span className="text-[11px] text-muted-foreground">Dr. {bk.assignedDoctor}</span>
+                                              <span className="text-xs text-muted-foreground">Dr. {bk.assignedDoctor}</span>
                                             </div>
                                           )}
 
@@ -7818,7 +7818,7 @@ export default function ClinicDashboard() {
                                               {(slotRecord.diagnosis as string[])?.length > 0 && (
                                                 <div className="flex flex-wrap gap-1">
                                                   {(slotRecord.diagnosis as string[]).map((d, i) => (
-                                                    <span key={i} className="text-[10px] bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded-md font-medium">{d}</span>
+                                                    <span key={i} className="text-xs bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded-md font-medium">{d}</span>
                                                   ))}
                                                 </div>
                                               )}
@@ -7831,13 +7831,13 @@ export default function ClinicDashboard() {
                                                   }
                                                 } catch { /* use raw text */ }
                                                 return (
-                                                  <p className="text-[11px] text-muted-foreground">
+                                                  <p className="text-xs text-muted-foreground">
                                                     <span className="font-semibold text-foreground">Rx: </span>{rxText}
                                                   </p>
                                                 );
                                               })()}
                                               {slotRecord.notes && (
-                                                <p className="text-[11px] text-muted-foreground">
+                                                <p className="text-xs text-muted-foreground">
                                                   <span className="font-semibold text-foreground">Notes: </span>{slotRecord.notes}
                                                 </p>
                                               )}
@@ -7851,10 +7851,10 @@ export default function ClinicDashboard() {
                                                 <div key={bill.id} className="flex items-center justify-between rounded-lg bg-muted/30 px-2.5 py-1.5">
                                                   <div className="flex items-center gap-2 min-w-0">
                                                     <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
-                                                    <span className="text-[11px] text-muted-foreground font-mono truncate">{bill.billNumber}</span>
+                                                    <span className="text-xs text-muted-foreground font-mono truncate">{bill.billNumber}</span>
                                                   </div>
                                                   <div className="flex items-center gap-2 shrink-0">
-                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${bill.paymentStatus === 'paid' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
+                                                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${bill.paymentStatus === 'paid' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
                                                       {bill.paymentStatus}
                                                     </span>
                                                     <span className="text-[12px] font-bold text-foreground">₹{(bill.total ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
@@ -7878,7 +7878,7 @@ export default function ClinicDashboard() {
                               if (unlinked.length === 0) return null;
                               return (
                                 <section>
-                                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
+                                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
                                     Other Bills ({unlinked.length})
                                   </p>
                                   <div className="space-y-1.5">
@@ -7888,13 +7888,13 @@ export default function ClinicDashboard() {
                                           <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                           <div className="min-w-0">
                                             <p className="text-[12px] font-semibold text-foreground font-mono">{bill.billNumber}</p>
-                                            <p className="text-[10px] text-muted-foreground">
+                                            <p className="text-xs text-muted-foreground">
                                               {bill.createdAt ? format(new Date(bill.createdAt), 'dd MMM yyyy') : '—'}
                                             </p>
                                           </div>
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0">
-                                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${bill.paymentStatus === 'paid' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
+                                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${bill.paymentStatus === 'paid' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
                                             {bill.paymentStatus}
                                           </span>
                                           <span className="text-sm font-bold text-foreground">₹{(bill.total ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
@@ -7947,7 +7947,7 @@ export default function ClinicDashboard() {
 
             {/* CLINIC INFORMATION */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2">Clinic Information</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-2">Clinic Information</p>
               <div className="rounded-xl border border-border/60 bg-muted/20 p-3 grid grid-cols-2 gap-x-4 gap-y-3">
                 {([
                   { icon: Building2, label: "Clinic Name",  key: "clinicName",    placeholder: "e.g. Bright Smiles Dental" },
@@ -7960,7 +7960,7 @@ export default function ClinicDashboard() {
                       <Icon className="h-3.5 w-3.5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-muted-foreground mb-0.5">{label}</p>
+                      <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
                       <Input
                         value={(billingDetails as any)[key]}
                         onChange={(e) => setBillingDetails(prev => ({ ...prev, [key]: e.target.value }))}
@@ -7978,12 +7978,12 @@ export default function ClinicDashboard() {
 
               {/* Receipt Details */}
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2">Receipt Details</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-primary mb-2">Receipt Details</p>
                 <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-3">
                   <div className="flex items-start gap-2">
                     <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-1" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-muted-foreground mb-0.5">Receipt No.</p>
+                      <p className="text-xs text-muted-foreground mb-0.5">Receipt No.</p>
                       <Input
                         value={billingDetails.receiptNumber}
                         onChange={(e) => setBillingDetails(prev => ({ ...prev, receiptNumber: e.target.value }))}
@@ -7995,7 +7995,7 @@ export default function ClinicDashboard() {
                   <div className="flex items-start gap-2">
                     <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-1" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-muted-foreground mb-0.5">Date</p>
+                      <p className="text-xs text-muted-foreground mb-0.5">Date</p>
                       <Input
                         value={billingDetails.date}
                         onChange={(e) => setBillingDetails(prev => ({ ...prev, date: e.target.value }))}
@@ -8009,12 +8009,12 @@ export default function ClinicDashboard() {
 
               {/* Patient Information */}
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2">Patient Information</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-primary mb-2">Patient Information</p>
                 <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-3">
                   <div className="flex items-start gap-2">
                     <User className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-1" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-muted-foreground mb-0.5">Patient Name</p>
+                      <p className="text-xs text-muted-foreground mb-0.5">Patient Name</p>
                       <Input
                         value={billingDetails.patientName}
                         onChange={(e) => setBillingDetails(prev => ({ ...prev, patientName: e.target.value }))}
@@ -8026,7 +8026,7 @@ export default function ClinicDashboard() {
                   <div className="flex items-start gap-2">
                     <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-1" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-muted-foreground mb-0.5">Phone</p>
+                      <p className="text-xs text-muted-foreground mb-0.5">Phone</p>
                       <Input
                         value={billingDetails.patientPhone}
                         onChange={(e) => setBillingDetails(prev => ({ ...prev, patientPhone: e.target.value }))}
@@ -8038,7 +8038,7 @@ export default function ClinicDashboard() {
                   <div className="flex items-start gap-2">
                     <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-1" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-muted-foreground mb-0.5">Email</p>
+                      <p className="text-xs text-muted-foreground mb-0.5">Email</p>
                       <Input
                         value={billingDetails.patientEmail}
                         onChange={(e) => setBillingDetails(prev => ({ ...prev, patientEmail: e.target.value }))}
@@ -8054,11 +8054,11 @@ export default function ClinicDashboard() {
             {/* SERVICES TABLE */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Services</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-primary">Services</p>
                 <button
                   type="button"
                   onClick={addServiceRow}
-                  className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/70 transition-colors"
+                  className="flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/70 transition-colors"
                 >
                   <Plus className="h-3 w-3" />
                   Add Service
@@ -8067,8 +8067,8 @@ export default function ClinicDashboard() {
               <div className="rounded-xl border border-border/60 overflow-hidden">
                 {/* Table header */}
                 <div className="grid grid-cols-[1fr_88px_32px] gap-2 px-3 py-2 bg-muted/40 border-b border-border/50">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Service / Item</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground text-right">Amount (₹)</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Service / Item</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground text-right">Amount (₹)</span>
                   <span />
                 </div>
                 {/* Rows */}
@@ -8104,7 +8104,7 @@ export default function ClinicDashboard() {
                 ))}
                 {/* Footer count */}
                 <div className="px-3 py-1.5 bg-muted/20 border-t border-border/30">
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     Total Items: {billingDetails.services.length}
                   </span>
                 </div>
@@ -8120,13 +8120,13 @@ export default function ClinicDashboard() {
               const fmt   = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
               return (
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2">Payment &amp; Summary</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-primary mb-2">Payment &amp; Summary</p>
                   <div className="grid grid-cols-2 gap-3">
 
                     {/* Left: payment fields */}
                     <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-2.5">
                       <div>
-                        <Label className="text-[10px] text-muted-foreground">Discount %</Label>
+                        <Label className="text-xs text-muted-foreground">Discount %</Label>
                         <Input
                           type="number" min="0" max="100"
                           value={billingDetails.discount}
@@ -8135,7 +8135,7 @@ export default function ClinicDashboard() {
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px] text-muted-foreground">Tax / GST %</Label>
+                        <Label className="text-xs text-muted-foreground">Tax / GST %</Label>
                         <Input
                           type="number" min="0"
                           value={billingDetails.tax}
@@ -8144,7 +8144,7 @@ export default function ClinicDashboard() {
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px] text-muted-foreground">Payment Method</Label>
+                        <Label className="text-xs text-muted-foreground">Payment Method</Label>
                         <Input
                           value={billingDetails.paymentMethod}
                           onChange={(e) => setBillingDetails(prev => ({ ...prev, paymentMethod: e.target.value }))}
@@ -8153,7 +8153,7 @@ export default function ClinicDashboard() {
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px] text-muted-foreground">
+                        <Label className="text-xs text-muted-foreground">
                           Transaction ID <span className="text-muted-foreground/50">(optional)</span>
                         </Label>
                         <Input
@@ -8164,7 +8164,7 @@ export default function ClinicDashboard() {
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px] text-muted-foreground">
+                        <Label className="text-xs text-muted-foreground">
                           Remarks <span className="text-muted-foreground/50">(optional)</span>
                         </Label>
                         <Input
@@ -8195,7 +8195,7 @@ export default function ClinicDashboard() {
                         )}
                       </div>
                       <div className="border-t border-primary/20 pt-2.5 mt-2.5">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">Total Amount Due</p>
+                        <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Total Amount Due</p>
                         <p className="text-2xl font-bold text-primary leading-none">₹{fmt(total)}</p>
                       </div>
                     </div>
@@ -8207,7 +8207,7 @@ export default function ClinicDashboard() {
 
             {/* PAYMENT STATUS */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2">Payment Status</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-2">Payment Status</p>
               <div className="flex gap-2">
                 {(["paid", "pending", "partial"] as const).map(s => (
                   <button
@@ -8247,7 +8247,7 @@ export default function ClinicDashboard() {
 
       {/* Reset Doctor Password Dialog */}
       <Dialog open={resetPwdOpen} onOpenChange={(open) => { setResetPwdOpen(open); if (!open) { setResetPwdNew(""); setResetPwdConfirm(""); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <KeyRound className="h-5 w-5 text-amber-600" />
