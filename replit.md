@@ -177,7 +177,9 @@ This project uses **three separate environments** with distinct purposes. Every 
 ### Build Notes
 - `npm run build` runs `script/build.ts`: (1) Vite build → `dist/public`, (2) esbuild bundles Express → `dist/index.cjs`.
 - `sourcemap: false` in `vite.config.ts` — disabled to prevent OOM on Render during the Vite bundle step (ClinicDashboard.tsx alone is 400KB+).
-- `manualChunks` in `vite.config.ts` splits vendor libraries into separate files to reduce peak memory during bundling.
+- `manualChunks` in `vite.config.ts` splits vendor libraries into 4 separate chunks (`react-core`, `lucide`, `ui-vendor`, `vendor`) to reduce peak Rollup memory during bundling. Without this, Render's heap is exhausted processing 3800+ lucide-react icon files in a single pass.
+- All Replit-specific plugins (`runtimeErrorOverlay`, `cartographer`, `devBanner`) are now guarded by `REPL_ID !== undefined` so they never load on Render's build environment.
+- If the Render build still OOMs after these changes, add `NODE_OPTIONS=--max-old-space-size=4096` as an Environment Variable in the Render dashboard (applies to the build command automatically).
 - If the Render build fails with "Exit handler never called" during `npm install`, clear the Render build cache: Dashboard → service → Manual Deploy → "Clear build cache & deploy".
 
 ### Render Build Commands Reference
