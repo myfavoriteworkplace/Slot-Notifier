@@ -2111,9 +2111,10 @@ export default function DoctorDashboard() {
       <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-background/95 backdrop-blur-md border-t border-border/50 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
         <div className="flex items-stretch">
           {([
-            { key: "appointments" as Tab, label: "Appointments", Icon: Calendar },
-            { key: "profile"       as Tab, label: "Profile",      Icon: User },
-            { key: "certifications" as Tab, label: "Certs",       Icon: Award },
+            { key: "appointments"   as Tab, label: "Appointments", Icon: Calendar },
+            { key: "profile"        as Tab, label: "Profile",      Icon: User },
+            { key: "certifications" as Tab, label: "Certs",        Icon: Award },
+            { key: "cases"          as Tab, label: "Cases",        Icon: BookOpen },
           ] as { key: Tab; label: string; Icon: any }[]).map(({ key, label, Icon }) => {
             const isActive = activeTab === key;
             return (
@@ -2129,20 +2130,17 @@ export default function DoctorDashboard() {
                 <Icon className="h-5 w-5" />
                 <span className="text-[10px] font-semibold">{label}</span>
                 {key === "appointments" && awaitingBookings.length > 0 && (
-                  <span className="absolute top-2 right-[22%] h-4 w-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">{awaitingBookings.length}</span>
+                  <span className="absolute top-2 right-[22%] h-4 w-4 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center leading-none">{awaitingBookings.length}</span>
                 )}
               </button>
             );
           })}
-          {/* More button */}
+          {/* More button — utility actions only */}
           <button
             onClick={() => setMoreDrawerOpen(true)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
-              activeTab === "cases" ? "text-primary" : "text-muted-foreground"
-            }`}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative text-muted-foreground"
             data-testid="bottom-nav-more"
           >
-            {activeTab === "cases" && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
             <MoreHorizontal className="h-5 w-5" />
             <span className="text-[10px] font-semibold">More</span>
           </button>
@@ -2156,18 +2154,6 @@ export default function DoctorDashboard() {
             <SheetTitle>More</SheetTitle>
           </SheetHeader>
           <div className="space-y-2 pb-6">
-            <button
-              onClick={() => { setActiveTab("cases"); setMoreDrawerOpen(false); }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-border/50 bg-background text-left hover:bg-muted/30 transition-colors active:scale-[0.98]"
-            >
-              <div className="h-9 w-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
-                <BookOpen className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-              </div>
-              <div>
-                <p className="font-semibold text-sm">Case Studies</p>
-                <p className="text-xs text-muted-foreground">Manage your clinical cases</p>
-              </div>
-            </button>
             <button
               onClick={() => { setChangePwdOpen(true); setMoreDrawerOpen(false); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-border/50 bg-background text-left hover:bg-muted/30 transition-colors active:scale-[0.98]"

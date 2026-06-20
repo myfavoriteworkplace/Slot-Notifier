@@ -26,6 +26,8 @@ import {
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
   ChevronLeft, ChevronRight, Save, Hash, Pill, Printer, ArrowLeft, ArrowRight
 } from "lucide-react";
+import { LiaTooth, LiaBone } from "react-icons/lia";
+import { MdBloodtype, MdMedicalServices, MdHealthAndSafety, MdChildCare, MdAutoFixHigh } from "react-icons/md";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle, DialogTrigger
@@ -414,19 +416,19 @@ export default function ClinicDashboard() {
   const COMPLAINTS_INITIAL_VISIBLE = 4;
   const [slotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
-  const DENTAL_CATEGORIES = [
-    { category: "Tooth Pain or Sensitivity",        emoji: "🦷", subIssues: ["Sensitivity to hot/cold/sweet", "Sharp or throbbing pain", "Pain while chewing", "Pain at night"],                     specialists: ["Endodontist", "General Dentist"] },
-    { category: "Gum Problems",                     emoji: "🩸", subIssues: ["Bleeding gums", "Swollen or red gums", "Receding gums", "Bad breath or bad taste"],                                  specialists: ["Periodontist", "General Dentist"] },
-    { category: "Tooth Decay / Cavities",           emoji: "🕳️", subIssues: ["Visible hole or black spot", "Pain when eating or drinking", "Food getting stuck"],                                   specialists: ["General Dentist", "Endodontist"] },
-    { category: "Broken, Chipped or Cracked Tooth", emoji: "💔", subIssues: ["Chipped or broken tooth", "Cracked tooth", "Worn down teeth"],                                                        specialists: ["Prosthodontist", "General Dentist"] },
-    { category: "Alignment or Bite Issues",         emoji: "🔀", subIssues: ["Crooked or crowded teeth", "Gaps between teeth", "Bite feels off or jaw discomfort"],                                 specialists: ["Orthodontist"] },
-    { category: "Missing Teeth",                    emoji: "🫥", subIssues: ["One tooth missing", "Multiple teeth missing", "Want replacement options"],                                            specialists: ["Prosthodontist", "Oral Surgeon"] },
-    { category: "Cosmetic / Smile Concerns",        emoji: "✨", subIssues: ["Yellow or stained teeth", "Want a whiter smile", "Uneven teeth shape", "Gaps I want closed"],                        specialists: ["Cosmetic Dentist", "Prosthodontist"] },
-    { category: "Swelling or Infection",            emoji: "🤒", subIssues: ["Swollen face or gum", "Pus or abscess", "Severe pain with swelling"],                                                specialists: ["Endodontist", "Oral Surgeon", "General Dentist"] },
-    { category: "Child's Dental Issues",            emoji: "👶", subIssues: ["Tooth decay in baby teeth", "Child complains of pain", "Thumb sucking habits", "Delayed tooth eruption"],           specialists: ["Pedodontist"] },
-    { category: "Jaw Pain or Other",                emoji: "🦴", subIssues: ["Jaw pain or clicking (TMJ)", "Dry mouth", "Mouth ulcers", "Suspicious growth or lump"],                             specialists: ["Oral Medicine Specialist", "Oral Surgeon", "General Dentist"] },
-    { category: "Wisdom Tooth Problems",            emoji: "😬", subIssues: ["Pain from wisdom tooth", "Swelling near wisdom tooth", "Difficulty opening mouth"],                                 specialists: ["Oral Surgeon", "General Dentist"] },
-    { category: "Preventive / Routine Care",        emoji: "🧹", subIssues: ["Regular checkup", "Cleaning or scaling", "Fluoride treatment"],                                                      specialists: ["General Dentist", "Dental Hygienist"] },
+  const DENTAL_CATEGORIES: Array<{ category: string; Icon: React.ComponentType<{ className?: string }>; subIssues: string[]; specialists: string[] }> = [
+    { category: "Tooth Pain or Sensitivity",        Icon: LiaTooth,          subIssues: ["Sensitivity to hot/cold/sweet", "Sharp or throbbing pain", "Pain while chewing", "Pain at night"],                     specialists: ["Endodontist", "General Dentist"] },
+    { category: "Gum Problems",                     Icon: MdBloodtype,       subIssues: ["Bleeding gums", "Swollen or red gums", "Receding gums", "Bad breath or bad taste"],                                  specialists: ["Periodontist", "General Dentist"] },
+    { category: "Tooth Decay / Cavities",           Icon: LiaTooth,          subIssues: ["Visible hole or black spot", "Pain when eating or drinking", "Food getting stuck"],                                   specialists: ["General Dentist", "Endodontist"] },
+    { category: "Broken, Chipped or Cracked Tooth", Icon: LiaTooth,          subIssues: ["Chipped or broken tooth", "Cracked tooth", "Worn down teeth"],                                                        specialists: ["Prosthodontist", "General Dentist"] },
+    { category: "Alignment or Bite Issues",         Icon: LiaTooth,          subIssues: ["Crooked or crowded teeth", "Gaps between teeth", "Bite feels off or jaw discomfort"],                                 specialists: ["Orthodontist"] },
+    { category: "Missing Teeth",                    Icon: LiaTooth,          subIssues: ["One tooth missing", "Multiple teeth missing", "Want replacement options"],                                            specialists: ["Prosthodontist", "Oral Surgeon"] },
+    { category: "Cosmetic / Smile Concerns",        Icon: MdAutoFixHigh,     subIssues: ["Yellow or stained teeth", "Want a whiter smile", "Uneven teeth shape", "Gaps I want closed"],                        specialists: ["Cosmetic Dentist", "Prosthodontist"] },
+    { category: "Swelling or Infection",            Icon: MdMedicalServices, subIssues: ["Swollen face or gum", "Pus or abscess", "Severe pain with swelling"],                                                specialists: ["Endodontist", "Oral Surgeon", "General Dentist"] },
+    { category: "Child's Dental Issues",            Icon: MdChildCare,       subIssues: ["Tooth decay in baby teeth", "Child complains of pain", "Thumb sucking habits", "Delayed tooth eruption"],           specialists: ["Pedodontist"] },
+    { category: "Jaw Pain or Other",                Icon: LiaBone,           subIssues: ["Jaw pain or clicking (TMJ)", "Dry mouth", "Mouth ulcers", "Suspicious growth or lump"],                             specialists: ["Oral Medicine Specialist", "Oral Surgeon", "General Dentist"] },
+    { category: "Wisdom Tooth Problems",            Icon: LiaTooth,          subIssues: ["Pain from wisdom tooth", "Swelling near wisdom tooth", "Difficulty opening mouth"],                                 specialists: ["Oral Surgeon", "General Dentist"] },
+    { category: "Preventive / Routine Care",        Icon: MdHealthAndSafety, subIssues: ["Regular checkup", "Cleaning or scaling", "Fluoride treatment"],                                                      specialists: ["General Dentist", "Dental Hygienist"] },
   ];
 
   const getRecommendedSpecialists = (descriptionText: string): string[] => {
@@ -6245,7 +6247,7 @@ export default function ClinicDashboard() {
                   </div>
                 </div>
               </div>
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 {bookingSuccess ? (
                   <div className="py-10 flex flex-col items-center gap-5 text-center">
                     <div className="relative">
@@ -6298,7 +6300,7 @@ export default function ClinicDashboard() {
                   <div className="flex flex-col lg:flex-row gap-6">
 
                     {/* ── LEFT: Patient Details ── */}
-                    <div className="flex-1 min-w-0 space-y-4">
+                    <div className="flex-1 min-w-0 space-y-3 sm:space-y-4">
                       <div className="flex items-center gap-2 pb-2 border-b border-border/30">
                         <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Patient Details</span>
@@ -6513,7 +6515,7 @@ export default function ClinicDashboard() {
                                   data-testid={`complaint-cat-${cat.category.replace(/[^\w]+/g, '-').toLowerCase()}`}
                                 >
                                   <span className="flex items-center gap-2 text-sm font-medium">
-                                    <span className="text-base leading-none">{cat.emoji}</span>
+                                    <cat.Icon className="h-4 w-4 text-muted-foreground shrink-0" />
                                     <span className="text-left leading-snug">{cat.category}</span>
                                     {hasSelected && (
                                       <span className="inline-flex items-center gap-0.5 bg-primary/10 text-primary border border-primary/20 text-xs px-1.5 py-0.5 rounded-full leading-none font-semibold">
@@ -6541,7 +6543,7 @@ export default function ClinicDashboard() {
                                                 : 'bg-background text-foreground border-border/60 hover:border-primary/40 hover:bg-primary/5 active:scale-95'
                                             }`}
                                           >
-                                            {isSelected && <span className="mr-1">✓</span>}{complaint}
+                                            {isSelected && <Check className="h-3 w-3 mr-1 shrink-0" />}{complaint}
                                           </button>
                                         );
                                       })}
@@ -6573,7 +6575,7 @@ export default function ClinicDashboard() {
                     <div className="lg:hidden h-px w-full bg-border/40" />
 
                     {/* ── RIGHT: Date & Slot Selection ── */}
-                    <div className="lg:w-[320px] shrink-0 space-y-4">
+                    <div className="lg:w-[320px] shrink-0 space-y-3 sm:space-y-4">
                       <div className="flex items-center gap-2 pb-2 border-b border-border/30">
                         <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Select Appointment</span>
@@ -8328,12 +8330,12 @@ export default function ClinicDashboard() {
           <button
             onClick={() => setClinicMoreDrawerOpen(true)}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
-              ['clinic-profile','book-a-slot','inventory','website','export-data','patients','analytics'].includes(activePanel)
+              ['clinic-profile','book-a-slot','inventory','pharmacy-stock','website','export-data','patients','analytics'].includes(activePanel)
                 ? 'text-primary' : 'text-muted-foreground'
             }`}
             data-testid="bottom-nav-clinic-more"
           >
-            {['clinic-profile','book-a-slot','inventory','website','export-data','patients','analytics'].includes(activePanel) && (
+            {['clinic-profile','book-a-slot','inventory','pharmacy-stock','website','export-data','patients','analytics'].includes(activePanel) && (
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />
             )}
             <MoreHorizontal className="h-5 w-5" />
@@ -8352,8 +8354,9 @@ export default function ClinicDashboard() {
             {([
               { key: 'clinic-profile' as const, label: 'Clinic Profile', desc: 'Edit public about page',   Icon: Building2,   cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
               { key: 'book-a-slot'    as const, label: 'Book a Slot',    desc: 'New patient appointment',  Icon: Plus,        cls: 'bg-primary/10 border-primary/20 text-primary' },
-              { key: 'inventory'      as const, label: 'Inventory',      desc: 'Stock, assets & alerts',   Icon: Package,     cls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' },
-              { key: 'website'        as const, label: 'Website',        desc: 'Theme & content',           Icon: Globe,       cls: 'bg-sky-500/10 border-sky-500/20 text-sky-600' },
+              { key: 'inventory'       as const, label: 'Inventory',       desc: 'Stock, assets & alerts',    Icon: Package,     cls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' },
+              { key: 'pharmacy-stock' as const, label: 'Pharmacy Stock',  desc: 'Medicines & supplies',      Icon: Pill,        cls: 'bg-teal-500/10 border-teal-500/20 text-teal-600' },
+              { key: 'website'        as const, label: 'Website',         desc: 'Theme & content',           Icon: Globe,       cls: 'bg-sky-500/10 border-sky-500/20 text-sky-600' },
               { key: 'export-data'   as const, label: 'Export Data',    desc: 'Download patient records',  Icon: Download,    cls: 'bg-amber-500/10 border-amber-500/20 text-amber-600' },
               { key: 'patients'       as const, label: 'Patients',       desc: 'Patient directory',         Icon: Users,       cls: 'bg-rose-500/10 border-rose-500/20 text-rose-600' },
               { key: 'analytics'     as const, label: 'Analytics',      desc: 'Clinic performance',        Icon: TrendingUp,  cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
