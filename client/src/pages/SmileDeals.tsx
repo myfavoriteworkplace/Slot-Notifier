@@ -1,11 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { SmileDeal, Clinic } from "@shared/schema";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Loader2, Play, Eye, Star, ChevronRight, Maximize2, ExternalLink, Phone, Mail, Globe, MapPin, Building2, CheckCircle2, Search, X, Zap, Clock, Check } from "lucide-react";
+import { Loader2, Play, Eye, Star, ChevronRight, Maximize2, ExternalLink, Phone, Mail, Globe, MapPin, Building2, CheckCircle2, Search, X, Zap, Clock, Check, Smile } from "lucide-react";
 import { Link } from "wouter";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LiaTooth } from "react-icons/lia";
 import { apiRequest } from "@/lib/queryClient";
 import { useTheme } from "next-themes";
 
@@ -312,7 +311,7 @@ function PlaceholderCard({ c }: { c: Palette }) {
     <div className="animate-in fade-in duration-300" style={{ height: "100%" }}>
       <div style={{ background: c.card, border: `1px dashed ${c.bdr}`, borderRadius: 20, overflow: "hidden", display: "flex", flexDirection: "column", height: "100%", minHeight: 300, opacity: 0.5 }}>
         <div style={{ height: 196, background: c.surface, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <LiaTooth style={{ width: 40, height: 40, color: c.T, opacity: 0.25 }} />
+          <Smile style={{ width: 40, height: 40, color: c.T, opacity: 0.25 }} />
         </div>
         <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", flex: 1, gap: 10 }}>
           <div style={{ height: 14, background: c.shimmer, borderRadius: 6, width: "65%" }} />
@@ -1261,7 +1260,7 @@ export default function SmileDeals() {
               /* Patient empty state */
               <div style={{ textAlign: "center", padding: "80px 0", color: c.muted }}>
                 <div style={{ marginBottom: 16, display: "flex", justifyContent: "center" }}>
-                  <LiaTooth style={{ width: 48, height: 48, color: c.muted, opacity: 0.5 }} />
+                  <Smile style={{ width: 48, height: 48, color: c.muted, opacity: 0.5 }} />
                 </div>
                 <p style={{ fontSize: 18, fontWeight: 600, color: c.txt, marginBottom: 8 }}>No patient deals yet</p>
                 <p style={{ fontSize: 14 }}>Check back soon for exclusive offers.</p>
