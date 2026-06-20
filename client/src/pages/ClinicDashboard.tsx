@@ -26,7 +26,7 @@ import {
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
   ChevronLeft, ChevronRight, Save, Hash, Pill, Printer, ArrowLeft, ArrowRight
 } from "lucide-react";
-import { LiaTooth, LiaBone } from "react-icons/lia";
+import { LiaToothSolid, LiaBoneSolid } from "react-icons/lia";
 import { MdBloodtype, MdMedicalServices, MdHealthAndSafety, MdChildCare, MdAutoFixHigh } from "react-icons/md";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -417,17 +417,17 @@ export default function ClinicDashboard() {
   const [slotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
   const DENTAL_CATEGORIES: Array<{ category: string; Icon: React.ComponentType<{ className?: string }>; subIssues: string[]; specialists: string[] }> = [
-    { category: "Tooth Pain or Sensitivity",        Icon: LiaTooth,          subIssues: ["Sensitivity to hot/cold/sweet", "Sharp or throbbing pain", "Pain while chewing", "Pain at night"],                     specialists: ["Endodontist", "General Dentist"] },
+    { category: "Tooth Pain or Sensitivity",        Icon: LiaToothSolid,     subIssues: ["Sensitivity to hot/cold/sweet", "Sharp or throbbing pain", "Pain while chewing", "Pain at night"],                     specialists: ["Endodontist", "General Dentist"] },
     { category: "Gum Problems",                     Icon: MdBloodtype,       subIssues: ["Bleeding gums", "Swollen or red gums", "Receding gums", "Bad breath or bad taste"],                                  specialists: ["Periodontist", "General Dentist"] },
-    { category: "Tooth Decay / Cavities",           Icon: LiaTooth,          subIssues: ["Visible hole or black spot", "Pain when eating or drinking", "Food getting stuck"],                                   specialists: ["General Dentist", "Endodontist"] },
-    { category: "Broken, Chipped or Cracked Tooth", Icon: LiaTooth,          subIssues: ["Chipped or broken tooth", "Cracked tooth", "Worn down teeth"],                                                        specialists: ["Prosthodontist", "General Dentist"] },
-    { category: "Alignment or Bite Issues",         Icon: LiaTooth,          subIssues: ["Crooked or crowded teeth", "Gaps between teeth", "Bite feels off or jaw discomfort"],                                 specialists: ["Orthodontist"] },
-    { category: "Missing Teeth",                    Icon: LiaTooth,          subIssues: ["One tooth missing", "Multiple teeth missing", "Want replacement options"],                                            specialists: ["Prosthodontist", "Oral Surgeon"] },
+    { category: "Tooth Decay / Cavities",           Icon: LiaToothSolid,          subIssues: ["Visible hole or black spot", "Pain when eating or drinking", "Food getting stuck"],                                   specialists: ["General Dentist", "Endodontist"] },
+    { category: "Broken, Chipped or Cracked Tooth", Icon: LiaToothSolid,          subIssues: ["Chipped or broken tooth", "Cracked tooth", "Worn down teeth"],                                                        specialists: ["Prosthodontist", "General Dentist"] },
+    { category: "Alignment or Bite Issues",         Icon: LiaToothSolid,          subIssues: ["Crooked or crowded teeth", "Gaps between teeth", "Bite feels off or jaw discomfort"],                                 specialists: ["Orthodontist"] },
+    { category: "Missing Teeth",                    Icon: LiaToothSolid,          subIssues: ["One tooth missing", "Multiple teeth missing", "Want replacement options"],                                            specialists: ["Prosthodontist", "Oral Surgeon"] },
     { category: "Cosmetic / Smile Concerns",        Icon: MdAutoFixHigh,     subIssues: ["Yellow or stained teeth", "Want a whiter smile", "Uneven teeth shape", "Gaps I want closed"],                        specialists: ["Cosmetic Dentist", "Prosthodontist"] },
     { category: "Swelling or Infection",            Icon: MdMedicalServices, subIssues: ["Swollen face or gum", "Pus or abscess", "Severe pain with swelling"],                                                specialists: ["Endodontist", "Oral Surgeon", "General Dentist"] },
     { category: "Child's Dental Issues",            Icon: MdChildCare,       subIssues: ["Tooth decay in baby teeth", "Child complains of pain", "Thumb sucking habits", "Delayed tooth eruption"],           specialists: ["Pedodontist"] },
-    { category: "Jaw Pain or Other",                Icon: LiaBone,           subIssues: ["Jaw pain or clicking (TMJ)", "Dry mouth", "Mouth ulcers", "Suspicious growth or lump"],                             specialists: ["Oral Medicine Specialist", "Oral Surgeon", "General Dentist"] },
-    { category: "Wisdom Tooth Problems",            Icon: LiaTooth,          subIssues: ["Pain from wisdom tooth", "Swelling near wisdom tooth", "Difficulty opening mouth"],                                 specialists: ["Oral Surgeon", "General Dentist"] },
+    { category: "Jaw Pain or Other",                Icon: LiaBoneSolid,           subIssues: ["Jaw pain or clicking (TMJ)", "Dry mouth", "Mouth ulcers", "Suspicious growth or lump"],                             specialists: ["Oral Medicine Specialist", "Oral Surgeon", "General Dentist"] },
+    { category: "Wisdom Tooth Problems",            Icon: LiaToothSolid,          subIssues: ["Pain from wisdom tooth", "Swelling near wisdom tooth", "Difficulty opening mouth"],                                 specialists: ["Oral Surgeon", "General Dentist"] },
     { category: "Preventive / Routine Care",        Icon: MdHealthAndSafety, subIssues: ["Regular checkup", "Cleaning or scaling", "Fluoride treatment"],                                                      specialists: ["General Dentist", "Dental Hygienist"] },
   ];
 
