@@ -49,7 +49,7 @@ function MediaThumb({ url }: { url: string }) {
     return (
       <div className="relative aspect-video rounded-xl overflow-hidden bg-muted/40 flex items-center justify-center border border-border/40 group">
         <Play className="h-8 w-8 text-primary/60 group-hover:text-primary transition-colors" />
-        <span className="absolute bottom-2 left-2 text-[10px] text-muted-foreground bg-background/70 rounded px-1">Video</span>
+        <span className="absolute bottom-2 left-2 text-xs text-muted-foreground bg-background/70 rounded px-1">Video</span>
       </div>
     );
   }
@@ -739,7 +739,7 @@ export default function DoctorDashboard() {
                         <Icon className="h-3.5 w-3.5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-2xl sm:text-lg font-extrabold text-white leading-none tabular-nums">{count}</p>
+                        <p className="text-lg sm:text-xl font-extrabold text-white leading-none tabular-nums">{count}</p>
                         <p className={`text-xs font-semibold mt-1 ${text} leading-snug`}>{shortLabel}</p>
                         {subTag && (
                           <span className={`inline-block text-xs font-medium ${text} opacity-60 mt-0.5 leading-none`}>{subTag}</span>
@@ -784,11 +784,11 @@ export default function DoctorDashboard() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold leading-tight">{label}</p>
-                    <p className="text-[10px] text-muted-foreground">{subtitle}</p>
+                    <p className="text-xs text-muted-foreground">{subtitle}</p>
                   </div>
                   {isActive && <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass}`} />}
                   {key === "appointments" && awaitingBookings.length > 0 && !isActive && (
-                    <span className="text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none shrink-0">{awaitingBookings.length}</span>
+                    <span className="text-xs font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none shrink-0">{awaitingBookings.length}</span>
                   )}
                 </button>
               );
@@ -815,7 +815,7 @@ export default function DoctorDashboard() {
                 />
               </div>
               {/* Label */}
-              <p className="text-[9px] text-muted-foreground text-center leading-relaxed">
+              <p className="text-xs text-muted-foreground text-center leading-relaxed">
                 Patients scan to view your profile
               </p>
               {/* URL row */}
@@ -823,7 +823,7 @@ export default function DoctorDashboard() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Profile URL</p>
-                    <p className="text-[10px] text-foreground truncate font-mono mt-0.5">/doctor/{(doctor as any).username || (doctor as any).id}</p>
+                    <p className="text-xs text-foreground truncate font-mono mt-0.5">/doctor/{(doctor as any).username || (doctor as any).id}</p>
                   </div>
                   <button
                     onClick={copyProfileLink}
@@ -870,7 +870,7 @@ export default function DoctorDashboard() {
                     >
                       {label}
                       {badge !== undefined && badge > 0 && (
-                        <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center ${isActive ? "bg-white/25 text-white" : "bg-amber-500 text-white"}`}>{badge}</span>
+                        <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center ${isActive ? "bg-white/25 text-white" : "bg-amber-500 text-white"}`}>{badge}</span>
                       )}
                     </button>
                   );
@@ -1002,7 +1002,7 @@ export default function DoctorDashboard() {
                             {quickFilter === 'awaiting' ? (
                               <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full">Active</span>
                             ) : awaitingBookings.length > 0 ? (
-                              <span className="text-[9px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none">{awaitingBookings.length}</span>
+                              <span className="text-xs font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none">{awaitingBookings.length}</span>
                             ) : null}
                           </div>
                         </CardContent>
@@ -1661,7 +1661,7 @@ export default function DoctorDashboard() {
                     {/* Calendar */}
                     <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-background shadow-sm pt-1 shrink-0">
                       {isLeavesLoading ? (
-                        <div className="w-[280px] h-[280px] p-3 space-y-2">
+                        <div className="w-full h-[280px] p-3 space-y-2">
                           <div className="flex justify-between px-1 pb-1">
                             <Skeleton className="h-4 w-4 rounded" />
                             <Skeleton className="h-4 w-28" />
@@ -1942,8 +1942,8 @@ export default function DoctorDashboard() {
                         <p className="text-xs text-muted-foreground mt-0.5">Highlight your credentials — these appear on your public profile.</p>
                       </div>
                     </div>
-                    <Button onClick={openNewCert} className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0">
-                      <Plus className="h-4 w-4 mr-2" />Add Certification
+                    <Button onClick={openNewCert} size="sm" className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0 h-9 px-3">
+                      <Plus className="h-4 w-4 sm:mr-1.5" /><span className="hidden sm:inline">Add Certification</span>
                     </Button>
                   </div>
                 </div>
@@ -1989,7 +1989,7 @@ export default function DoctorDashboard() {
                             </div>
                             {cert.issuer && <p className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" />{cert.issuer}</p>}
                           </div>
-                          {cert.year && <span className="shrink-0 text-[11px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">{cert.year}</span>}
+                          {cert.year && <span className="shrink-0 text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">{cert.year}</span>}
                         </div>
                         {cert.description && <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{cert.description}</p>}
                         <div className="flex gap-2 mt-auto pt-3 border-t border-border/40">
@@ -2020,8 +2020,8 @@ export default function DoctorDashboard() {
                         <p className="text-xs text-muted-foreground mt-0.5">Share your clinical cases with descriptions and media. Visible on your public profile.</p>
                       </div>
                     </div>
-                    <Button onClick={openNewCase} className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0">
-                      <Plus className="h-4 w-4 mr-2" />Add Case
+                    <Button onClick={openNewCase} size="sm" className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0 h-9 px-3">
+                      <Plus className="h-4 w-4 sm:mr-1.5" /><span className="hidden sm:inline">Add Case</span>
                     </Button>
                   </div>
                 </div>
@@ -2154,6 +2154,36 @@ export default function DoctorDashboard() {
             <SheetTitle>More</SheetTitle>
           </SheetHeader>
           <div className="space-y-2 pb-6">
+            {/* ── Overflow tab navigation ── */}
+            <button
+              onClick={() => { setActiveTab("leaves"); setMoreDrawerOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors active:scale-[0.98] text-left ${activeTab === "leaves" ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-700/40" : "border-border/50 bg-background hover:bg-muted/30"}`}
+              data-testid="drawer-nav-leaves"
+            >
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-amber-500/10 border border-amber-500/20">
+                <CalendarOff className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">Leave Management</p>
+                <p className="text-xs text-muted-foreground">Time off &amp; availability</p>
+              </div>
+              {activeTab === "leaves" && <div className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />}
+            </button>
+            <button
+              onClick={() => { setActiveTab("xray"); setMoreDrawerOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors active:scale-[0.98] text-left ${activeTab === "xray" ? "bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-700/40" : "border-border/50 bg-background hover:bg-muted/30"}`}
+              data-testid="drawer-nav-xray"
+            >
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-violet-500/10 border border-violet-500/20">
+                <Microscope className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">Analyse X-Ray</p>
+                <p className="text-xs text-muted-foreground">AI dental findings</p>
+              </div>
+              {activeTab === "xray" && <div className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />}
+            </button>
+            <div className="h-px bg-border/50 my-1" />
             <button
               onClick={() => { setChangePwdOpen(true); setMoreDrawerOpen(false); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-border/50 bg-background text-left hover:bg-muted/30 transition-colors active:scale-[0.98]"

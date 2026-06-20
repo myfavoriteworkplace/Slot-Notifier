@@ -642,7 +642,7 @@ export default function XrayAnalysisTab() {
                     min={50}
                     max={95}
                     step={1}
-                    className="w-20"
+                    className="w-24 flex-shrink-0"
                   />
                 </div>
               </div>
@@ -897,7 +897,7 @@ export default function XrayAnalysisTab() {
               <div className="px-4 py-2.5 border-t border-border bg-muted/20 flex-shrink-0 flex items-center gap-1.5">
                 <Zap className="h-3 w-3 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  Hover a finding to highlight its location on the image
+                  Tap or hover a finding to highlight its location on the image
                 </span>
               </div>
             </Card>
