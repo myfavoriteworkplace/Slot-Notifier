@@ -524,7 +524,7 @@ export function AppointmentCard({
                   <PopoverTrigger asChild>
                     <button
                       onClick={(e) => e.stopPropagation()}
-                      className="h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground bg-muted/50 border border-border/50 hover:bg-muted hover:border-border/80 active:scale-[0.95] transition-all"
+                      className="h-9 w-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground bg-muted/50 border border-border/50 hover:bg-muted hover:border-border/80 active:scale-[0.95] transition-all"
                       data-testid={`button-more-${booking.id}`}
                     >
                       <MoreHorizontal className="h-3.5 w-3.5" />
@@ -627,7 +627,7 @@ export function AppointmentCard({
                           <CheckCircle2 className="h-3 w-3" />
                           Mark Visit Done
                           {openBillsCount > 0 && (
-                            <span className="ml-auto text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full px-1.5 py-0.5">
+                            <span className="ml-auto text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full px-1.5 py-0.5">
                               {openBillsCount} unpaid
                             </span>
                           )}
@@ -730,12 +730,12 @@ export function AppointmentCard({
 
                     {/* Stage 3b info — explain why override is unavailable once doctor has finished */}
                     {isTreatmentCompleted && !isVisitCompleted && (
-                      <p className="text-[10px] text-muted-foreground/50 px-2 pb-1">Force-complete not available — use "Mark Visit Done" above.</p>
+                      <p className="text-xs text-muted-foreground/50 px-2 pb-1">Force-complete not available — use "Mark Visit Done" above.</p>
                     )}
 
                     {(!isVisitCompleted && !isTreatmentCompleted) && (
                       <div className="mt-1 pt-1 border-t border-border/40">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50 px-2 pb-0.5">Admin Override</p>
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground/50 px-2 pb-0.5">Admin Override</p>
                       </div>
                     )}
 
@@ -1057,7 +1057,7 @@ export function AppointmentCard({
 
       {/* Past-due indicator — slot passed with no action taken */}
       {isPastDue && (
-        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1">
+        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1">
           <AlertTriangle className="h-3 w-3 shrink-0" />
           <span className="truncate min-w-0 flex-1">Slot time has passed — please action this booking</span>
           {role === "clinic" && onOpenActionTab && (
@@ -1077,7 +1077,7 @@ export function AppointmentCard({
         <TooltipProvider delayDuration={600}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className={`mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold rounded-lg px-2.5 py-1 overflow-hidden cursor-default border ${
+              <div className={`mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1 overflow-hidden cursor-default border ${
                 isNoShowState
                   ? "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-700"
                   : isLeftEarlyState
@@ -1100,7 +1100,7 @@ export function AppointmentCard({
         <TooltipProvider delayDuration={600}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold rounded-lg px-2.5 py-1 overflow-hidden cursor-default border text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+              <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1 overflow-hidden cursor-default border text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
                 <AlertCircle className="h-3 w-3 shrink-0" />
                 <span className="truncate min-w-0">{(booking as any).visitCompletionNote}</span>
               </div>
@@ -1115,7 +1115,7 @@ export function AppointmentCard({
       {/* ── Persistent unpaid bill banner — visit complete but bills outstanding ── */}
       {isVisitCompleted && openBillsCount > 0 && (
         <div
-          className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1 cursor-pointer hover:bg-amber-100/60 dark:hover:bg-amber-950/30 transition-colors"
+          className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-2.5 py-1 cursor-pointer hover:bg-amber-100/60 dark:hover:bg-amber-950/30 transition-colors"
           onClick={(e) => { e.stopPropagation(); onBill?.(); }}
           data-testid={`banner-unpaid-bill-${booking.id}`}
         >
@@ -1126,7 +1126,7 @@ export function AppointmentCard({
 
       {/* ── Delayed check-in banner — patient arrived after the slot end time ── */}
       {isCheckedInLate && !isTerminal && !isVisitCompleted && (
-        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-[10px] font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg px-2.5 py-1">
+        <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg px-2.5 py-1">
           <Clock className="h-3 w-3 shrink-0" />
           <span className="truncate min-w-0">Arrived after scheduled slot time</span>
         </div>
@@ -1255,14 +1255,14 @@ export function AppointmentCard({
           {!isTerminal && isTreatmentCompleted && !isVisitCompleted && (
             <Button
               className="w-full h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
-              onClick={handleMarkVisitDone}
+              onClick={() => handleMarkVisitDone()}
               disabled={completeVisitPending}
               data-testid={`button-mark-visit-done-${booking.id}`}
             >
               {completeVisitPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
               Mark Visit Done
               {openBillsCount > 0 && (
-                <span className="text-[10px] font-semibold bg-white/20 rounded-full px-1.5 py-0.5 ml-1">
+                <span className="text-xs font-semibold bg-white/20 rounded-full px-1.5 py-0.5 ml-1">
                   {openBillsCount} unpaid
                 </span>
               )}
@@ -1297,13 +1297,13 @@ export function AppointmentCard({
           {!isTerminal && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
-                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onCardClick()}
                 data-testid={`button-view-${booking.id}`}>
                 <FileText className="h-3 w-3" />View
               </Button>
               <Button variant="ghost" size="sm"
-                className="flex-1 h-8 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
                 onClick={(e) => { e.stopPropagation(); setCancelOpen(true); }}
                 disabled={cancelPending}
                 data-testid={`button-cancel-booking-${booking.id}`}>
@@ -1317,13 +1317,13 @@ export function AppointmentCard({
           {!isTerminal && (isCheckedIn || isInConsultation) && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
-                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onBill?.()}
                 data-testid={`button-bill-${booking.id}`}>
                 <IndianRupee className="h-3 w-3" />₹ Bill
               </Button>
               <Button variant="ghost" size="sm"
-                className="flex-1 h-8 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
                 onClick={(e) => { e.stopPropagation(); setCancelOpen(true); }}
                 disabled={cancelPending}
                 data-testid={`button-cancel-booking-stage24-${booking.id}`}>
@@ -1336,7 +1336,7 @@ export function AppointmentCard({
           {/* Stage 3b — ₹ Bill only (doctor has already treated patient; Cancel is inappropriate here) */}
           {!isTerminal && isTreatmentCompleted && !isVisitCompleted && (
             <Button variant="outline" size="sm"
-              className="w-full h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+              className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
               onClick={() => onBill?.()}
               data-testid={`button-bill-tmt-${booking.id}`}>
               <IndianRupee className="h-3 w-3" />₹ Bill
@@ -1347,13 +1347,13 @@ export function AppointmentCard({
           {!isTerminal && isVisitCompleted && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
-                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onCardClick()}
                 data-testid={`button-view-summary-${booking.id}`}>
                 <ClipboardList className="h-3 w-3" />View Summary
               </Button>
               <Button variant="outline" size="sm"
-                className="flex-1 h-8 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
                 onClick={() => onBookAgain?.()}
                 data-testid={`button-rebook-${booking.id}`}>
                 <CalendarPlus className="h-3 w-3" />Rebook
@@ -1364,7 +1364,7 @@ export function AppointmentCard({
           {/* Terminal — Rebook only */}
           {isTerminal && (
             <Button variant="outline" size="sm"
-              className="w-full h-8 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
+              className="w-full h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
               onClick={() => onBookAgain?.()}
               data-testid={`button-rebook-terminal-${booking.id}`}>
               <Repeat2 className="h-3 w-3" />Rebook
@@ -1477,7 +1477,7 @@ export function AppointmentCard({
           {booking.doctorApprovalStatus === "pending" && !isVisitCompleted && !isTreatmentCompleted && !isTerminal && (
             <div className="flex gap-2">
               <Button size="sm"
-                className="flex-1 h-10 text-xs font-semibold bg-green-600 hover:bg-green-700 text-white gap-1.5 active:scale-[0.98]"
+                className="flex-1 h-10 text-xs font-semibold bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
                 onClick={() => onApprove?.()} disabled={approvePending || declinePending}
                 data-testid={`button-approve-${booking.id}`}>
                 {approvePending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
@@ -1546,7 +1546,7 @@ export function AppointmentCard({
           {/* Stage 3 — In Treatment: Done with Patient (violet, active) */}
           {isInConsultation && (
             <Button
-              className="w-full h-10 text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white gap-2 active:scale-[0.98] transition-all"
+              className="w-full h-10 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
               onClick={() => onDoctorCompleteVisit?.()}
               disabled={completeVisitPending}
               data-testid={`button-done-patient-${booking.id}`}
@@ -1609,7 +1609,7 @@ export function AppointmentCard({
           {/* Stage 1 — View Notes */}
           {booking.doctorApprovalStatus !== "pending" && !isCheckedIn && !isInConsultation && !isTreatmentCompleted && !isVisitCompleted && (
             <Button variant="outline" size="sm"
-              className="w-full h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+              className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
               onClick={() => onOpenNotes?.()}
               data-testid={`button-notes-${booking.id}`}>
               <FileText className="h-3 w-3" />View Notes
@@ -1620,13 +1620,13 @@ export function AppointmentCard({
           {isCheckedIn && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
-                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onOpenNotes?.()}
                 data-testid={`button-notes-arrived-${booking.id}`}>
                 <FileText className="h-3 w-3" />View Notes
               </Button>
               <Button variant="outline" size="sm"
-                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onOpenRecords?.()}
                 data-testid={`button-add-observation-${booking.id}`}>
                 <ClipboardList className="h-3 w-3" />Add Observation
@@ -1638,19 +1638,19 @@ export function AppointmentCard({
           {isInConsultation && (
             <div className="flex gap-1.5">
               <Button variant="outline" size="sm"
-                className="flex-1 h-8 text-xs font-medium gap-1 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
                 onClick={() => onOpenRecords?.()}
                 data-testid={`button-add-obs-${booking.id}`}>
                 <ClipboardList className="h-3 w-3" />Add Obs.
               </Button>
               <Button variant="outline" size="sm"
-                className="flex-1 h-8 text-xs font-medium gap-1 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
                 onClick={() => onOpenNotes?.()}
                 data-testid={`button-notes-consult-${booking.id}`}>
                 <FileText className="h-3 w-3" />Notes
               </Button>
               <Button size="sm"
-                className="flex-1 h-8 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 gap-1 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 gap-1 active:scale-[0.98]"
                 onClick={() => onOpenRecords?.()}
                 data-testid={`button-issue-rx-${booking.id}`}>
                 <Stethoscope className="h-3 w-3" />Issue Rx
@@ -1662,13 +1662,13 @@ export function AppointmentCard({
           {isTreatmentCompleted && !isVisitCompleted && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
-                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onOpenNotes?.()}
                 data-testid={`button-notes-tmt-${booking.id}`}>
                 <FileText className="h-3 w-3" />View Notes
               </Button>
               <Button variant="outline" size="sm"
-                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onOpenRecords?.()}
                 data-testid={`button-view-rx-${booking.id}`}>
                 <ClipboardList className="h-3 w-3" />View Rx / Rec
@@ -1680,7 +1680,7 @@ export function AppointmentCard({
           {isVisitCompleted && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
-                className="flex-1 h-8 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
                 onClick={() => onCardClick()}
                 data-testid={`button-view-summary-doc-${booking.id}`}>
                 <ClipboardList className="h-3 w-3" />View Summary
