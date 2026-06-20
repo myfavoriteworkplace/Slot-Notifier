@@ -25,7 +25,7 @@ import {
   Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, AlertCircle, CreditCard,
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
   ChevronLeft, ChevronRight, Save, Hash, Pill, Printer, ArrowLeft, ArrowRight,
-  Bone, Baby, Droplets, Stethoscope, ShieldCheck, Wand2, Sparkles,
+  Bone, Baby, Droplets, Wand2, Sparkles,
 } from "lucide-react";
 
 function ToothIcon({ style, className }: { style?: React.CSSProperties; className?: string }) {
