@@ -2471,240 +2471,13 @@ export default function DoctorDashboard() {
 
                         </div>
 
-                        {/* ── Overview Action Buttons ── */}
-                        <div className="px-4 pt-2 pb-3 space-y-2 border-t border-border/40">
-                          {(() => {
-                            const bIsTerminal = b.verificationStatus === 'cancelled' || b.verificationStatus === 'no_show' || (b as any).visitStatus === 'patient_left_early';
-                            const bIsNoShow = b.verificationStatus === 'no_show';
-                            const bIsCancelled = b.verificationStatus === 'cancelled';
-                            const bIsLeftEarly = (b as any).visitStatus === 'patient_left_early';
-                            const bIsVisitCompleted = (b as any).visitStatus === 'completed';
-                            const bIsTreatmentCompleted = (b as any).visitStatus === 'treatment_completed';
-                            const bIsInConsultation = (b as any).visitStatus === 'in_consultation';
-                            const bIsCheckedIn = (b as any).visitStatus === 'checked_in';
-                            const bIsPending = b.doctorApprovalStatus === 'pending';
-                            const bIsDeclined = b.doctorApprovalStatus === 'declined';
-
-                            return (
-                              <>
-                                {/* Declined */}
-                                {bIsDeclined && (
-                                  <div className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800">
-                                    <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">Appointment Declined</span>
-                                  </div>
-                                )}
-
-                                {/* Pending approval */}
-                                {bIsPending && !bIsVisitCompleted && !bIsTreatmentCompleted && !bIsTerminal && (
-                                  <div className="flex gap-2">
-                                    <Button size="sm"
-                                      className="flex-1 h-10 text-xs font-semibold bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
-                                      onClick={() => approveMutation.mutate(b.id)} disabled={approveMutation.isPending || declineMutation.isPending}
-                                      data-testid={`modal-button-approve-${b.id}`}>
-                                      {approveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                                      Accept
-                                    </Button>
-                                    <Button size="sm" variant="outline"
-                                      className="flex-1 h-10 text-xs font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 gap-1.5 active:scale-[0.98]"
-                                      onClick={() => declineMutation.mutate(b.id)} disabled={approveMutation.isPending || declineMutation.isPending}
-                                      data-testid={`modal-button-decline-${b.id}`}>
-                                      {declineMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-                                      Decline
-                                    </Button>
-                                  </div>
-                                )}
-
-                                {/* Terminal */}
-                                {bIsTerminal && (
-                                  <div className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-muted/40 border border-border/40">
-                                    <span className="text-xs text-muted-foreground">
-                                      {bIsNoShow ? "Patient did not arrive" : bIsCancelled ? "Appointment cancelled" : "Patient left before completion"}
-                                    </span>
-                                  </div>
-                                )}
-
-                                {/* Booked / Confirmed */}
-                                {!bIsPending && !bIsTerminal && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && (
-                                  <TooltipProvider delayDuration={700}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <div className="w-full cursor-not-allowed">
-                                          <Button
-                                            variant="outline"
-                                            className="w-full h-10 text-sm font-medium text-muted-foreground border-border/60 bg-muted/20 gap-2 pointer-events-none"
-                                            disabled
-                                            tabIndex={-1}
-                                            data-testid={`modal-button-booked-${b.id}`}
-                                          >
-                                            <CalendarDays className="h-3.5 w-3.5" />Booked
-                                          </Button>
-                                        </div>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                                        Waiting for patient to arrive — no action required
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
-
-                                {/* Arrived */}
-                                {bIsCheckedIn && (
-                                  <Button
-                                    className="w-full h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
-                                    onClick={() => startConsultationMutation.mutate(b.id)}
-                                    disabled={startConsultationMutation.isPending}
-                                    data-testid={`modal-button-start-consultation-${b.id}`}
-                                  >
-                                    {startConsultationMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
-                                    Start Consultation
-                                  </Button>
-                                )}
-
-                                {/* In Consultation */}
-                                {bIsInConsultation && (
-                                  <Button
-                                    className="w-full h-10 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
-                                    onClick={() => completeVisitMutation.mutate(b.id)}
-                                    disabled={completeVisitMutation.isPending}
-                                    data-testid={`modal-button-done-patient-${b.id}`}
-                                  >
-                                    {completeVisitMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                                    Done with Patient
-                                  </Button>
-                                )}
-
-                                {/* Treatment Completed */}
-                                {bIsTreatmentCompleted && !bIsVisitCompleted && (
-                                  <TooltipProvider delayDuration={700}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <div className="w-full cursor-not-allowed">
-                                          <Button
-                                            variant="outline"
-                                            className="w-full h-10 text-sm font-medium text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/10 gap-2 pointer-events-none"
-                                            disabled
-                                            tabIndex={-1}
-                                            data-testid={`modal-button-consult-complete-${b.id}`}
-                                          >
-                                            <CheckCircle2 className="h-3.5 w-3.5" />Consultation Completed
-                                          </Button>
-                                        </div>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top" className="text-xs max-w-[220px] text-center">
-                                        Your consultation is done — waiting for the clinic to close the visit
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
-
-                                {/* Visit Completed */}
-                                {bIsVisitCompleted && (
-                                  <TooltipProvider delayDuration={700}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <div className="w-full cursor-not-allowed">
-                                          <Button
-                                            variant="outline"
-                                            className="w-full h-10 text-sm font-medium text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/10 gap-2 pointer-events-none"
-                                            disabled
-                                            tabIndex={-1}
-                                            data-testid={`modal-button-visit-complete-${b.id}`}
-                                          >
-                                            <ShieldCheck className="h-3.5 w-3.5" />Visit Completed
-                                          </Button>
-                                        </div>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                                        Visit complete — managed by the clinic
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
-
-                                {/* Secondary buttons */}
-                                {!bIsPending && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && !bIsTerminal && !bIsDeclined && (
-                                  <Button variant="outline" size="sm"
-                                    className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                    onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
-                                    data-testid={`modal-button-notes-${b.id}`}>
-                                    <FileText className="h-3 w-3" />View Notes
-                                  </Button>
-                                )}
-                                {bIsCheckedIn && (
-                                  <div className="flex gap-2">
-                                    <Button variant="outline" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                      onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
-                                      data-testid={`modal-button-notes-arrived-${b.id}`}>
-                                      <FileText className="h-3 w-3" />View Notes
-                                    </Button>
-                                    <Button variant="outline" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                      onClick={() => setPatientModalTab('diagnosis')}
-                                      data-testid={`modal-button-add-observation-${b.id}`}>
-                                      <ClipboardList className="h-3 w-3" />Add Observation
-                                    </Button>
-                                  </div>
-                                )}
-                                {bIsInConsultation && (
-                                  <div className="flex gap-1.5">
-                                    <Button variant="outline" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
-                                      onClick={() => setPatientModalTab('diagnosis')}
-                                      data-testid={`modal-button-add-obs-${b.id}`}>
-                                      <ClipboardList className="h-3 w-3" />Add Obs.
-                                    </Button>
-                                    <Button variant="outline" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
-                                      onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
-                                      data-testid={`modal-button-notes-consult-${b.id}`}>
-                                      <FileText className="h-3 w-3" />Notes
-                                    </Button>
-                                    <Button size="sm"
-                                      className="flex-1 h-9 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 gap-1 active:scale-[0.98]"
-                                      onClick={() => setPatientModalTab('prescription')}
-                                      data-testid={`modal-button-issue-rx-${b.id}`}>
-                                      <Stethoscope className="h-3 w-3" />Issue Rx
-                                    </Button>
-                                  </div>
-                                )}
-                                {bIsTreatmentCompleted && !bIsVisitCompleted && (
-                                  <div className="flex gap-2">
-                                    <Button variant="outline" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                      onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
-                                      data-testid={`modal-button-notes-tmt-${b.id}`}>
-                                      <FileText className="h-3 w-3" />View Notes
-                                    </Button>
-                                    <Button variant="outline" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                      onClick={() => setPatientModalTab('diagnosis')}
-                                      data-testid={`modal-button-view-rx-${b.id}`}>
-                                      <ClipboardList className="h-3 w-3" />View Rx / Rec
-                                    </Button>
-                                  </div>
-                                )}
-                                {bIsVisitCompleted && (
-                                  <div className="flex gap-2">
-                                    <Button variant="outline" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                      onClick={() => setPatientModalTab('notes')}
-                                      data-testid={`modal-button-view-summary-${b.id}`}>
-                                      <ClipboardList className="h-3 w-3" />View Summary
-                                    </Button>
-                                  </div>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </div>
                       </div>
                     );
                   })()}
 
                   {/* NOTES TAB */}
                   {patientModalTab === 'notes' && (
-                    <div className="p-4 space-y-4">
+                    <div className="p-4 space-y-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
                         <div className="flex gap-2">
@@ -2778,6 +2551,219 @@ export default function DoctorDashboard() {
                       />
                     </div>
                   )}
+                </div>
+
+                {/* ── STICKY FOOTER — lifecycle action buttons ── */}
+                <div className="shrink-0 px-4 py-2.5 border-t border-border/50 bg-muted/10 space-y-2">
+                  {(() => {
+                    const bIsTerminal = b.verificationStatus === 'cancelled' || b.verificationStatus === 'no_show' || (b as any).visitStatus === 'patient_left_early';
+                    const bIsNoShow = b.verificationStatus === 'no_show';
+                    const bIsCancelled = b.verificationStatus === 'cancelled';
+                    const bIsVisitCompleted = (b as any).visitStatus === 'completed';
+                    const bIsTreatmentCompleted = (b as any).visitStatus === 'treatment_completed';
+                    const bIsInConsultation = (b as any).visitStatus === 'in_consultation';
+                    const bIsCheckedIn = (b as any).visitStatus === 'checked_in';
+                    const bIsPending = b.doctorApprovalStatus === 'pending';
+                    const bIsDeclined = b.doctorApprovalStatus === 'declined';
+
+                    return (
+                      <>
+                        {bIsDeclined && (
+                          <div className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800">
+                            <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">Appointment Declined</span>
+                          </div>
+                        )}
+
+                        {bIsPending && !bIsVisitCompleted && !bIsTreatmentCompleted && !bIsTerminal && (
+                          <div className="flex gap-2">
+                            <Button size="sm"
+                              className="flex-1 h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
+                              onClick={() => approveMutation.mutate(b.id)} disabled={approveMutation.isPending || declineMutation.isPending}
+                              data-testid={`modal-button-approve-${b.id}`}>
+                              {approveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                              Accept
+                            </Button>
+                            <Button size="sm" variant="outline"
+                              className="flex-1 h-11 text-sm font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 gap-1.5 active:scale-[0.98]"
+                              onClick={() => declineMutation.mutate(b.id)} disabled={approveMutation.isPending || declineMutation.isPending}
+                              data-testid={`modal-button-decline-${b.id}`}>
+                              {declineMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                              Decline
+                            </Button>
+                          </div>
+                        )}
+
+                        {bIsTerminal && (
+                          <div className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-muted/40 border border-border/40">
+                            <span className="text-xs text-muted-foreground">
+                              {bIsNoShow ? "Patient did not arrive" : bIsCancelled ? "Appointment cancelled" : "Patient left before completion"}
+                            </span>
+                          </div>
+                        )}
+
+                        {!bIsPending && !bIsTerminal && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && (
+                          <TooltipProvider delayDuration={700}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="w-full cursor-not-allowed">
+                                  <Button
+                                    variant="outline"
+                                    className="w-full h-11 text-sm font-medium text-muted-foreground border-border/60 bg-muted/20 gap-2 pointer-events-none"
+                                    disabled tabIndex={-1}
+                                    data-testid={`modal-button-booked-${b.id}`}
+                                  >
+                                    <CalendarDays className="h-3.5 w-3.5" />Booked — Waiting for Arrival
+                                  </Button>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                                Waiting for patient to arrive — no action required
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+
+                        {bIsCheckedIn && (
+                          <>
+                            <Button
+                              className="w-full h-11 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
+                              onClick={() => startConsultationMutation.mutate(b.id)}
+                              disabled={startConsultationMutation.isPending}
+                              data-testid={`modal-button-start-consultation-${b.id}`}
+                            >
+                              {startConsultationMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
+                              Start Consultation
+                            </Button>
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm"
+                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
+                                data-testid={`modal-button-notes-arrived-${b.id}`}>
+                                <FileText className="h-3 w-3" />View Notes
+                              </Button>
+                              <Button variant="outline" size="sm"
+                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                onClick={() => setPatientModalTab('diagnosis')}
+                                data-testid={`modal-button-add-observation-${b.id}`}>
+                                <ClipboardList className="h-3 w-3" />Add Observation
+                              </Button>
+                            </div>
+                          </>
+                        )}
+
+                        {bIsInConsultation && (
+                          <>
+                            <Button
+                              className="w-full h-11 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
+                              onClick={() => completeVisitMutation.mutate(b.id)}
+                              disabled={completeVisitMutation.isPending}
+                              data-testid={`modal-button-done-patient-${b.id}`}
+                            >
+                              {completeVisitMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                              Done with Patient
+                            </Button>
+                            <div className="flex gap-1.5">
+                              <Button variant="outline" size="sm"
+                                className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
+                                onClick={() => setPatientModalTab('diagnosis')}
+                                data-testid={`modal-button-add-obs-${b.id}`}>
+                                <ClipboardList className="h-3 w-3" />Add Obs.
+                              </Button>
+                              <Button variant="outline" size="sm"
+                                className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
+                                onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
+                                data-testid={`modal-button-notes-consult-${b.id}`}>
+                                <FileText className="h-3 w-3" />Notes
+                              </Button>
+                              <Button size="sm"
+                                className="flex-1 h-9 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 gap-1 active:scale-[0.98]"
+                                onClick={() => setPatientModalTab('prescription')}
+                                data-testid={`modal-button-issue-rx-${b.id}`}>
+                                <Stethoscope className="h-3 w-3" />Issue Rx
+                              </Button>
+                            </div>
+                          </>
+                        )}
+
+                        {bIsTreatmentCompleted && !bIsVisitCompleted && (
+                          <>
+                            <TooltipProvider delayDuration={700}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="w-full cursor-not-allowed">
+                                    <Button
+                                      variant="outline"
+                                      className="w-full h-11 text-sm font-medium text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/10 gap-2 pointer-events-none"
+                                      disabled tabIndex={-1}
+                                      data-testid={`modal-button-consult-complete-${b.id}`}
+                                    >
+                                      <CheckCircle2 className="h-3.5 w-3.5" />Consultation Completed
+                                    </Button>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs max-w-[220px] text-center">
+                                  Your consultation is done — waiting for the clinic to close the visit
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm"
+                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
+                                data-testid={`modal-button-notes-tmt-${b.id}`}>
+                                <FileText className="h-3 w-3" />View Notes
+                              </Button>
+                              <Button variant="outline" size="sm"
+                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                onClick={() => setPatientModalTab('diagnosis')}
+                                data-testid={`modal-button-view-rx-${b.id}`}>
+                                <ClipboardList className="h-3 w-3" />View Rx / Rec
+                              </Button>
+                            </div>
+                          </>
+                        )}
+
+                        {bIsVisitCompleted && (
+                          <>
+                            <TooltipProvider delayDuration={700}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="w-full cursor-not-allowed">
+                                    <Button
+                                      variant="outline"
+                                      className="w-full h-11 text-sm font-medium text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/10 gap-2 pointer-events-none"
+                                      disabled tabIndex={-1}
+                                      data-testid={`modal-button-visit-complete-${b.id}`}
+                                    >
+                                      <ShieldCheck className="h-3.5 w-3.5" />Visit Completed
+                                    </Button>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                                  Visit complete — managed by the clinic
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <Button variant="outline" size="sm"
+                              className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                              onClick={() => setPatientModalTab('notes')}
+                              data-testid={`modal-button-view-summary-${b.id}`}>
+                              <ClipboardList className="h-3 w-3" />View Summary
+                            </Button>
+                          </>
+                        )}
+
+                        {!bIsPending && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && !bIsTerminal && !bIsDeclined && (
+                          <Button variant="outline" size="sm"
+                            className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                            onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
+                            data-testid={`modal-button-notes-${b.id}`}>
+                            <FileText className="h-3 w-3" />View Notes
+                          </Button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </>
             );

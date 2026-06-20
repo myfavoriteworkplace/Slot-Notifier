@@ -75,7 +75,7 @@ import {
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { ElementType } from "react";
 import type { Slot, Booking, PatientBill, ClinicalRecord, Patient } from "@shared/schema";
-import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload, KeyRound, CalendarOff, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw } from "lucide-react";
+import { Stethoscope, Trash2, GraduationCap, UserPlus, Upload, KeyRound, CalendarOff, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import noBookingsImg from "@assets/Copilot_20260603_191746_1780494897553.png";
@@ -4165,236 +4165,6 @@ export default function ClinicDashboard() {
                             );
                           })()}
 
-                          {/* ── Overview Action Buttons ── */}
-                          {getModalTab(booking.id) === 'overview' && (() => {
-                            const mIsPast = isBookingPast;
-                            const mIsConfirmed = isConfirmed;
-                            const mIsCancelled = isCancelled;
-                            const mIsTerminal = modalIsTerminal;
-                            const mIsVisitCompleted = modalIsVisitCompleted;
-                            const mIsTreatmentCompleted = modalIsTreatmentCompleted;
-                            const mIsInConsultation = modalIsInConsultation;
-                            const mIsCheckedIn = modalIsCheckedIn;
-                            const mOpenBills = allBills.filter(b => b.bookingId === booking.id && b.paymentStatus !== 'paid').length;
-                            const mNoBill = allBills.filter(b => b.bookingId === booking.id).length === 0;
-
-                            return (
-                              <div className="px-4 pt-2 pb-3 space-y-2 border-t border-border/40">
-
-                                {/* Primary action */}
-                                {mIsCancelled && (
-                                  <div className="flex items-center justify-center gap-2 h-9 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-semibold">
-                                    <X className="h-3.5 w-3.5" />Appointment Cancelled
-                                  </div>
-                                )}
-                                {modalIsNoShow && (
-                                  <div className="flex items-center justify-center gap-2 h-9 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-semibold">
-                                    <UserX className="h-3.5 w-3.5" />Patient Did Not Arrive
-                                  </div>
-                                )}
-                                {modalIsLeftEarly && (
-                                  <div className="flex items-center justify-center gap-2 h-9 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-semibold">
-                                    <LogOut className="h-3.5 w-3.5" />Patient Left Before Completion
-                                  </div>
-                                )}
-                                {!mIsTerminal && !mIsConfirmed && !mIsVisitCompleted && !mIsTreatmentCompleted && !mIsCheckedIn && !mIsInConsultation && (
-                                  <TooltipProvider delayDuration={400}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="w-full">
-                                          <Button
-                                            className="w-full h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
-                                            onClick={() => !mIsPast && confirmBookingMutation.mutate(booking.id)}
-                                            disabled={confirmBookingMutation.isPending || mIsPast}
-                                            data-testid={`modal-button-confirm-${booking.id}`}
-                                          >
-                                            {confirmBookingMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                                            {mIsPast ? "Past Appointment" : "Confirm Appointment"}
-                                          </Button>
-                                        </span>
-                                      </TooltipTrigger>
-                                      {mIsPast && (
-                                        <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
-                                          This appointment was on a past day. Use Reschedule to move it to a new slot.
-                                        </TooltipContent>
-                                      )}
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
-                                {!mIsTerminal && mIsConfirmed && !mIsCheckedIn && !mIsInConsultation && !mIsTreatmentCompleted && !mIsVisitCompleted && (
-                                  <Button
-                                    className="w-full h-10 text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white gap-2 active:scale-[0.98] transition-all"
-                                    onClick={() => checkInMutation.mutate({ bookingId: booking.id })}
-                                    disabled={checkInMutation.isPending}
-                                    data-testid={`modal-button-checkin-${booking.id}`}
-                                  >
-                                    {checkInMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5" />}
-                                    Mark Arrived
-                                  </Button>
-                                )}
-                                {!mIsTerminal && mIsCheckedIn && (
-                                  <Button
-                                    variant="outline"
-                                    className="w-full h-10 text-sm font-medium text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 cursor-not-allowed gap-2 pointer-events-none"
-                                    disabled
-                                    data-testid={`modal-button-waiting-doctor-${booking.id}`}
-                                  >
-                                    <Clock className="h-3.5 w-3.5" />Waiting for Doctor
-                                  </Button>
-                                )}
-                                {!mIsTerminal && mIsInConsultation && (
-                                  <Button
-                                    variant="outline"
-                                    className="w-full h-10 text-sm font-medium text-teal-600 dark:text-teal-400 border-teal-200 dark:border-teal-700 bg-teal-50/60 dark:bg-teal-950/10 cursor-not-allowed gap-2 pointer-events-none"
-                                    disabled
-                                    data-testid={`modal-button-in-treatment-${booking.id}`}
-                                  >
-                                    <Activity className="h-3.5 w-3.5" />In Treatment
-                                  </Button>
-                                )}
-                                {!mIsTerminal && mIsTreatmentCompleted && !mIsVisitCompleted && (
-                                  <Button
-                                    className="w-full h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
-                                    onClick={() => {
-                                      if (mOpenBills > 0) {
-                                        setModalTab(booking.id, 'billing');
-                                      } else {
-                                        completeVisitMutation.mutate({ bookingId: booking.id });
-                                      }
-                                    }}
-                                    disabled={completeVisitMutation.isPending}
-                                    data-testid={`modal-button-mark-visit-done-${booking.id}`}
-                                  >
-                                    {completeVisitMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
-                                    Mark Visit Done
-                                    {mOpenBills > 0 && (
-                                      <span className="text-xs font-semibold bg-white/20 rounded-full px-1.5 py-0.5 ml-1">{mOpenBills} unpaid</span>
-                                    )}
-                                  </Button>
-                                )}
-                                {!mIsTerminal && mIsVisitCompleted && (
-                                  mNoBill ? (
-                                    <Button
-                                      variant="outline"
-                                      className="w-full h-10 text-sm font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/10 cursor-default gap-2 pointer-events-none"
-                                      disabled
-                                      data-testid={`modal-button-no-dues-${booking.id}`}
-                                    >
-                                      <CheckCircle2 className="h-3.5 w-3.5" />No Dues
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      className="w-full h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
-                                      onClick={() => setModalTab(booking.id, 'billing')}
-                                      data-testid={`modal-button-bill-complete-${booking.id}`}
-                                    >
-                                      <IndianRupee className="h-3.5 w-3.5" />{mOpenBills > 0 ? `${mOpenBills} Unpaid Bill${mOpenBills > 1 ? 's' : ''} ↓` : "Download Bill ↓"}
-                                    </Button>
-                                  )
-                                )}
-
-                                {/* Secondary actions */}
-                                {!mIsTerminal && !mIsCheckedIn && !mIsInConsultation && !mIsTreatmentCompleted && !mIsVisitCompleted && (
-                                  <div className="flex gap-2">
-                                    <Button variant="outline" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                      onClick={() => setModalTab(booking.id, 'actions')}
-                                      data-testid={`modal-button-view-actions-${booking.id}`}>
-                                      <Settings className="h-3 w-3" />Actions
-                                    </Button>
-                                    <Button variant="ghost" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
-                                      onClick={() => cancelBookingMutation.mutate({ id: booking.id, reason: 'Cancelled from detail view' })}
-                                      disabled={cancelBookingMutation.isPending}
-                                      data-testid={`modal-button-cancel-${booking.id}`}>
-                                      {cancelBookingMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                )}
-                                {!mIsTerminal && (mIsCheckedIn || mIsInConsultation) && (
-                                  <div className="flex gap-2">
-                                    <Button variant="outline" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                      onClick={() => setModalTab(booking.id, 'billing')}
-                                      data-testid={`modal-button-bill-${booking.id}`}>
-                                      <IndianRupee className="h-3 w-3" />₹ Bill
-                                    </Button>
-                                    <Button variant="ghost" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium text-destructive/70 hover:text-destructive hover:bg-destructive/5 gap-1.5 active:scale-[0.98]"
-                                      onClick={() => cancelBookingMutation.mutate({ id: booking.id, reason: 'Cancelled from detail view' })}
-                                      disabled={cancelBookingMutation.isPending}
-                                      data-testid={`modal-button-cancel-stage24-${booking.id}`}>
-                                      {cancelBookingMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                )}
-                                {!mIsTerminal && mIsTreatmentCompleted && !mIsVisitCompleted && (
-                                  <Button variant="outline" size="sm"
-                                    className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                    onClick={() => setModalTab(booking.id, 'billing')}
-                                    data-testid={`modal-button-bill-tmt-${booking.id}`}>
-                                    <IndianRupee className="h-3 w-3" />₹ Bill
-                                  </Button>
-                                )}
-                                {!mIsTerminal && mIsVisitCompleted && (
-                                  <div className="flex gap-2">
-                                    <Button variant="outline" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
-                                      onClick={() => setModalTab(booking.id, 'billing')}
-                                      data-testid={`modal-button-view-summary-${booking.id}`}>
-                                      <ClipboardList className="h-3 w-3" />View Summary
-                                    </Button>
-                                    <Button variant="outline" size="sm"
-                                      className="flex-1 h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
-                                      onClick={() => {
-                                        const _desc = booking.description ?? "";
-                                        const _rebookDesc = _desc.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
-                                        const _rebookVisit = (_desc.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
-                                        const _rebookCategory = (_desc.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
-                                        setBookingName(booking.customerName);
-                                        setBookingPhone(booking.customerPhone);
-                                        setBookingEmail(booking.customerEmail || "");
-                                        setBookingAge(String((booking as any).customerAge || ""));
-                                        setBookingGender((booking as any).customerGender || "");
-                                        setBookingDescription(_rebookDesc);
-                                        setBookingVisitType(_rebookVisit);
-                                        setBookingAppointmentCategory(_rebookCategory);
-                                        setActivePanel('book-a-slot');
-                                        setOpenBookingId(null);
-                                      }}
-                                      data-testid={`modal-button-rebook-${booking.id}`}>
-                                      <CalendarPlus className="h-3 w-3" />Rebook
-                                    </Button>
-                                  </div>
-                                )}
-                                {mIsTerminal && (
-                                  <Button variant="outline" size="sm"
-                                    className="w-full h-9 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 gap-1.5 active:scale-[0.98]"
-                                    onClick={() => {
-                                      const _desc = booking.description ?? "";
-                                      const _rebookDesc = _desc.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
-                                      const _rebookVisit = (_desc.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
-                                      const _rebookCategory = (_desc.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
-                                      setBookingName(booking.customerName);
-                                      setBookingPhone(booking.customerPhone);
-                                      setBookingEmail(booking.customerEmail || "");
-                                      setBookingAge(String((booking as any).customerAge || ""));
-                                      setBookingGender((booking as any).customerGender || "");
-                                      setBookingDescription(_rebookDesc);
-                                      setBookingVisitType(_rebookVisit);
-                                      setBookingAppointmentCategory(_rebookCategory);
-                                      setActivePanel('book-a-slot');
-                                      setOpenBookingId(null);
-                                    }}
-                                    data-testid={`modal-button-rebook-terminal-${booking.id}`}>
-                                    <Repeat2 className="h-3 w-3" />Rebook
-                                  </Button>
-                                )}
-                              </div>
-                            );
-                          })()}
 
                           {/* CLINICAL TAB */}
                           {getModalTab(booking.id) === 'clinical' && (
@@ -4696,7 +4466,7 @@ export default function ClinicDashboard() {
                                       if (!suggested.length) return null;
                                       return (
                                         <div className="mx-2.5 mt-2.5 px-3 py-2 rounded-lg bg-primary/6 border border-primary/20 flex items-start gap-2">
-                                          <span className="text-base shrink-0 mt-0.5">💡</span>
+                                          <Lightbulb className="h-4 w-4 text-primary/70 shrink-0 mt-0.5" />
                                           <div className="min-w-0">
                                             <p className="text-xs font-bold uppercase tracking-wider text-primary/70 mb-1">Suggested specialization</p>
                                             <div className="flex flex-wrap gap-1">
@@ -4741,7 +4511,7 @@ export default function ClinicDashboard() {
                                             <div className="flex-1 min-w-0">
                                               <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-white' : 'text-foreground'}`}>{clinic.doctorName}</p>
                                               <p className={`text-xs ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
-                                                {outOfOffice ? '⚠ Out of office' : (clinic.doctorSpecialization || 'Lead Doctor')}
+                                                {outOfOffice ? <span className="inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-amber-500" />Out of office</span> : (clinic.doctorSpecialization || 'Lead Doctor')}
                                               </p>
                                             </div>
                                             {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
@@ -4794,7 +4564,7 @@ export default function ClinicDashboard() {
                                             <div className="flex-1 min-w-0">
                                               <p className={`text-xs font-semibold leading-tight truncate ${isAssigned ? 'text-white' : 'text-foreground'}`}>Dr. {doctor.name}</p>
                                               <p className={`text-xs ${isAssigned ? 'text-white/70' : outOfOffice ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
-                                                {outOfOffice ? '⚠ Out of office' : `${doctor.specialization}${doctor.degree ? ` · ${doctor.degree}` : ''}`}
+                                                {outOfOffice ? <span className="inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-amber-500" />Out of office</span> : `${doctor.specialization}${doctor.degree ? ` · ${doctor.degree}` : ''}`}
                                               </p>
                                             </div>
                                             {isAssigned && <CheckCircle2 className="h-4 w-4 text-white shrink-0" />}
