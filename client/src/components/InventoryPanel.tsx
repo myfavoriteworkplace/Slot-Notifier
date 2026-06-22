@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, FormEvent } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
@@ -7,7 +7,7 @@ import {
   Package, Plus, Search, AlertTriangle, CheckCircle2, Clock,
   Trash2, Minus, PackagePlus, ClipboardList, ChevronDown, X,
   Wrench, FlaskConical, Stethoscope, Box, TrendingDown, TrendingUp,
-  ArrowUpDown, ShieldAlert, CalendarClock, Info,
+  ArrowUpDown, ShieldAlert, CalendarClock, Info, Pencil,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -154,22 +158,44 @@ function AlertStrip({
   );
 }
 
-function ConsumableCard({
+function ConsumableRow({
   item,
   categories,
-  onDeduct,
   onDetail,
+  onDelete,
 }: {
   item: InventoryItem;
   categories: InventoryCategory[];
-  onDeduct: (item: InventoryItem) => void;
   onDetail: (item: InventoryItem) => void;
+  onDelete: (id: number) => void;
 }) {
   const status = getItemStatus(item);
   const col = STATUS_COLORS[status];
-  const pct = getStockPercent(item);
   const cat = categories.find(c => c.id === item.categoryId);
   const Icon = TRACKING_ICONS[item.trackingType] ?? Package;
+
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjType, setAdjType] = useState<"add" | "deduct" | "adjust">("add");
+  const [adjQty, setAdjQty] = useState("");
+  const [adjReason, setAdjReason] = useState("");
+
+  const adjMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/clinic/inventory/transactions", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clinic/inventory/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clinic/inventory/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clinic/inventory/alerts"] });
+      notify.success("Stock updated");
+      setAdjustOpen(false); setAdjQty(""); setAdjReason("");
+    },
+    onError: () => notify.error("Failed to update stock"),
+  });
+
+  const handleAdjSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!adjQty || isNaN(Number(adjQty)) || Number(adjQty) < 0) return;
+    adjMutation.mutate({ itemId: item.id, type: adjType, qtyChange: Number(adjQty), reason: adjReason || null });
+  };
 
   const expiryLabel = () => {
     if (!item.expiryDate) return null;
@@ -182,54 +208,116 @@ function ConsumableCard({
 
   const exp = expiryLabel();
 
+  const leftBorderCls = status === "critical" ? "border-l-4 border-l-red-500" :
+    status === "low" ? "border-l-4 border-l-yellow-500" :
+    status === "expiry" ? "border-l-4 border-l-orange-500" : "";
+
   return (
-    <div
-      data-testid={`inventory-card-${item.id}`}
-      onClick={() => onDetail(item)}
-      className={`group relative bg-card rounded-xl border ${col.card} p-4 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md overflow-hidden`}
-    >
-      <div className={`absolute top-0 left-0 right-0 h-[3px] rounded-t-xl ${col.bar}`} />
-
-      <div className="flex items-start justify-between mb-2 mt-1">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${col.dot}`} />
-            <span className="text-sm font-bold text-foreground truncate">{item.name}</span>
+    <div data-testid={`inventory-row-${item.id}`} className={`border-b border-border/40 last:border-0 ${leftBorderCls} bg-card`}>
+      {/* Main row */}
+      <div className="group flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => onDetail(item)}>
+        <div className="shrink-0 h-7 w-7 rounded-lg bg-muted border border-border/60 flex items-center justify-center">
+          <Icon className={`h-3.5 w-3.5 ${col.text}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`h-2 w-2 rounded-full shrink-0 ${col.dot}`} />
+            <span className="text-sm font-semibold text-foreground truncate">{item.name}</span>
+            {cat && <span className="text-[10px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded shrink-0">{cat.name}</span>}
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-            <Icon className="h-3 w-3 shrink-0" />
+          <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
             <span className="capitalize">{item.trackingType}</span>
-            {cat && <><span>·</span><span>{cat.name}</span></>}
+            {item.reorderLevel !== null && <span>Reorder: <span className="font-medium text-yellow-600">{item.reorderLevel}</span></span>}
+            {item.criticalLevel !== null && <span>Critical: <span className="font-medium text-red-500">{item.criticalLevel}</span></span>}
           </div>
         </div>
-      </div>
-
-      <div className="flex items-baseline gap-1.5 mb-2">
-        <span className={`text-3xl font-extrabold tracking-tight leading-none ${col.text}`}>{item.currentQty}</span>
-        {item.unit && <span className="text-xs text-muted-foreground font-medium">{item.unit}</span>}
-        {item.reorderLevel !== null && (
-          <span className="ml-auto text-[10px] text-muted-foreground">min {item.reorderLevel}</span>
-        )}
-      </div>
-
-      <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-3">
-        <div className={`h-full rounded-full transition-all ${col.bar}`} style={{ width: `${pct}%` }} />
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div>
-          {exp && (
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${exp.cls}`}>{exp.text}</span>
-          )}
+        <div className="shrink-0 flex items-center gap-3">
+          {exp && <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${exp.cls}`}>{exp.text}</span>}
+          <span className={`text-xl font-extrabold tracking-tight ${col.text}`}>{item.currentQty}</span>
+          {item.unit && <span className="text-xs text-muted-foreground">{item.unit}</span>}
         </div>
-        <button
-          data-testid={`deduct-btn-${item.id}`}
-          onClick={(e) => { e.stopPropagation(); onDeduct(item); }}
-          className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground"
-        >
-          <Minus className="h-3 w-3" /> Deduct
-        </button>
+        {/* Inline actions (visible on hover) */}
+        <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+          <button
+            data-testid={`btn-update-stock-${item.id}`}
+            onClick={() => setAdjustOpen(v => !v)}
+            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border transition-colors ${adjustOpen ? "bg-emerald-600 text-white border-emerald-600" : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50"}`}
+          >
+            <ArrowUpDown className="h-3 w-3" /> Stock
+          </button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                data-testid={`btn-delete-inventory-${item.id}`}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                title="Delete"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {item.name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This item and its stock history will be permanently removed from inventory.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDelete(item.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
+
+      {/* Inline stock update form */}
+      {adjustOpen && (
+        <form onSubmit={handleAdjSubmit} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50/60 dark:bg-emerald-950/10 border-t border-emerald-200/40 dark:border-emerald-900/30 flex-wrap">
+          <div className="flex gap-1">
+            {(["add", "deduct", "adjust"] as const).map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setAdjType(t)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold capitalize border transition-all ${adjType === t ? "bg-emerald-600 text-white border-emerald-600" : "border-border text-muted-foreground hover:border-muted-foreground/50 bg-background"}`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <Input
+            data-testid={`input-adj-qty-${item.id}`}
+            type="number"
+            min={0}
+            placeholder={adjType === "adjust" ? "Set qty" : "Qty"}
+            value={adjQty}
+            onChange={e => setAdjQty(e.target.value)}
+            className="h-7 text-xs w-20 border-border/60"
+            required
+          />
+          <Input
+            data-testid={`input-adj-reason-${item.id}`}
+            placeholder="Reason (optional)"
+            value={adjReason}
+            onChange={e => setAdjReason(e.target.value)}
+            className="h-7 text-xs flex-1 min-w-[120px] border-border/60"
+          />
+          <Button
+            type="submit"
+            data-testid={`btn-adj-submit-${item.id}`}
+            disabled={adjMutation.isPending || !adjQty}
+            className="h-7 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {adjMutation.isPending ? "..." : "Save"}
+          </Button>
+          <button type="button" onClick={() => setAdjustOpen(false)} className="p-1 rounded text-muted-foreground hover:text-foreground">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </form>
+      )}
     </div>
   );
 }
@@ -989,26 +1077,36 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
             </div>
 
             {isLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-44 rounded-xl" />)}
+              <div className="rounded-xl border border-border/50 overflow-hidden">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-border/40 last:border-0">
+                    <Skeleton className="h-7 w-7 rounded-lg shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-40" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-6 w-10" />
+                    <Skeleton className="h-7 w-16" />
+                  </div>
+                ))}
               </div>
             ) : (
               <>
-                {/* Consumables */}
+                {/* Consumables — full-width table rows */}
                 {filteredConsumables.length > 0 && (
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Consumables & Perishables</span>
                       <span className="text-[10px] font-bold px-2 py-px rounded-full bg-muted text-muted-foreground border border-border">{filteredConsumables.length}</span>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-border/50 overflow-hidden">
                       {filteredConsumables.map(item => (
-                        <ConsumableCard
+                        <ConsumableRow
                           key={item.id}
                           item={item}
                           categories={categories}
-                          onDeduct={setDeductItem}
                           onDetail={setDetailItem}
+                          onDelete={(id) => deleteMutation.mutate(id)}
                         />
                       ))}
                     </div>
@@ -1018,7 +1116,7 @@ export function InventoryPanel({ clinicId }: { clinicId: number }) {
                 {/* Assets */}
                 {filteredAssets.length > 0 && (
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Instruments & Equipment</span>
                       <span className="text-[10px] font-bold px-2 py-px rounded-full bg-muted text-muted-foreground border border-border">{filteredAssets.length}</span>
                     </div>

@@ -908,11 +908,37 @@ export default function ClinicDashboard() {
     setPhoneError("");
     setBookingSuccess(false);
     setBookingShowReview(false);
-    setBookingSlotPanelOpen(false);
+    setBookingSlotPanelOpen(true);
     setBookingOpenCategory(null);
     setBookingAppointmentCategory("");
     setBookingVisitType("");
   };
+
+  // Auto-open slot panel when book-a-slot panel is activated
+  useEffect(() => {
+    if (activePanel === 'book-a-slot') {
+      setBookingSlotPanelOpen(true);
+    }
+  }, [activePanel]);
+
+  // Auto-advance booking date if all slots on selected day are full or past
+  useEffect(() => {
+    if (!adminSlotAvailability || adminSlotFetching || activePanel !== 'book-a-slot') return;
+    if (adminSlotAvailability.length === 0) return;
+    const now = new Date();
+    const allUnavailable = adminSlotAvailability.every(s =>
+      s.isCancelled || s.spotsLeft === 0 || now > new Date(s.startTimeISO)
+    );
+    if (allUnavailable) {
+      const nextDate = addDays(bookingDate, 1);
+      const maxDate = addDays(startOfToday(), 13);
+      if (nextDate <= maxDate) {
+        setBookingDate(nextDate);
+        setSelectedSlot(null);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminSlotAvailability, adminSlotFetching]);
 
   const cancelBookingMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
@@ -7618,7 +7644,8 @@ export default function ClinicDashboard() {
                 ) : (
                   <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
                     {/* Table header */}
-                    <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center px-4 py-2.5 bg-muted/30 border-b border-border/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    <div className="hidden sm:grid grid-cols-[1.5rem_auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center px-4 py-2.5 bg-muted/30 border-b border-border/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      <span className="text-center">#</span>
                       <span className="w-20">PAT Code</span>
                       <span>Name</span>
                       <span>Email</span>
@@ -7629,7 +7656,7 @@ export default function ClinicDashboard() {
                     </div>
 
                     <div className="divide-y divide-border/50">
-                      {sorted.map((patient) => (
+                      {sorted.map((patient, idx) => (
                         <div
                           key={patient.id}
                           data-testid={`row-patient-${patient.id}`}
@@ -7637,7 +7664,8 @@ export default function ClinicDashboard() {
                           className="px-4 py-3 hover:bg-rose-500/5 cursor-pointer transition-colors group"
                         >
                           {/* Desktop row */}
-                          <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center">
+                          <div className="hidden sm:grid grid-cols-[1.5rem_auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center">
+                            <span className="text-center text-[11px] font-semibold text-muted-foreground/60">{idx + 1}</span>
                             <span className="w-20 font-mono text-xs font-bold bg-rose-500/10 text-rose-600 px-2 py-1 rounded-md">
                               {patient.patientCode ?? '—'}
                             </span>

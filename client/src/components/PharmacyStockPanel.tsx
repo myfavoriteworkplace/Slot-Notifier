@@ -191,6 +191,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border/40 bg-muted/20">
+                  <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground w-8">#</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Medicine</th>
                   <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground">Dosage</th>
                   <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground">Unit Price</th>
@@ -202,6 +203,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
               <tbody className="divide-y divide-border/30">
                 {[1, 2, 3, 4, 5].map(i => (
                   <tr key={i} className="bg-background">
+                    <td className="px-3 py-3 text-center"><Skeleton className="h-3 w-4 mx-auto" /></td>
                     <td className="px-4 py-3">
                       <div className="space-y-1">
                         <Skeleton className="h-3.5 w-32" />
@@ -228,6 +230,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border/40 bg-muted/20">
+                  <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground w-8">#</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Medicine</th>
                   <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground">Dosage</th>
                   <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground">Unit Price</th>
@@ -241,6 +244,9 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                 {/* Inline add row */}
                 {showAddRow && (
                   <tr className="bg-orange-50/60 dark:bg-orange-950/10 border-b border-orange-200/40 dark:border-orange-900/30">
+                    <td className="px-3 py-2 text-center">
+                      <span className="text-[10px] text-muted-foreground/50">+</span>
+                    </td>
                     <td className="px-3 py-2">
                       <Input
                         autoFocus
@@ -327,7 +333,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                 {/* Empty state */}
                 {filtered.length === 0 && !showAddRow && (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <div className="py-12 text-center">
                         <div className="p-3 bg-muted/40 rounded-full w-fit mx-auto mb-3">
                           <Package className="h-6 w-6 text-muted-foreground/40" />
@@ -346,7 +352,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                 )}
 
                 {/* Data rows */}
-                {filtered.map(item => {
+                {filtered.map((item, rowIdx) => {
                   const expiring = isExpiringSoon(item.expiryDate);
                   const expired = isExpired(item.expiryDate);
                   const lowStock = item.availableQty <= 5;
@@ -355,6 +361,9 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                   if (isEditing) {
                     return (
                       <tr key={item.id} className="bg-orange-50/40 dark:bg-orange-950/10 border-b border-orange-200/40 dark:border-orange-900/30">
+                        <td className="px-3 py-2 text-center">
+                          <span className="text-[10px] text-muted-foreground/50">{rowIdx + 1}</span>
+                        </td>
                         <td className="px-3 py-2">
                           <Input
                             autoFocus
@@ -440,6 +449,9 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                       className={`group hover:bg-muted/20 transition-colors ${expired ? "opacity-60" : ""}`}
                       data-testid={`pharmacy-row-${item.id}`}
                     >
+                      <td className="px-3 py-2.5 text-center">
+                        <span className="text-[11px] font-semibold text-muted-foreground/50">{rowIdx + 1}</span>
+                      </td>
                       <td className="px-4 py-2.5">
                         <span className="font-semibold text-foreground">{item.medicineName}</span>
                       </td>

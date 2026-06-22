@@ -811,55 +811,58 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
     <div className="space-y-5">
 
       {/* ── Top header ── */}
-      <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
-        <div className="flex">
-          <div className="w-1.5 bg-sky-500/60 shrink-0" />
-          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-sky-500/[0.06] to-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
-                <Globe className="h-[18px] w-[18px] text-sky-600 dark:text-sky-400" />
-              </div>
-              <div>
-                <h2 className="text-base font-semibold tracking-tight">Clinic Website</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Configure your public clinic page. Patients can browse it before booking.
-                </p>
-              </div>
+      <div className="rounded-2xl border border-sky-200/60 dark:border-sky-900/40 bg-gradient-to-br from-sky-50/80 via-card to-card dark:from-sky-950/20 dark:via-card shadow-sm overflow-hidden">
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4">
+          {/* subtle glow orb */}
+          <div className="pointer-events-none absolute -top-6 -left-6 h-24 w-24 rounded-full bg-sky-400/10 blur-2xl" />
+          <div className="flex items-center gap-3 relative">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 shadow-md shadow-sky-500/25 flex items-center justify-center shrink-0">
+              <Globe className="h-5 w-5 text-white" />
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {previewUrl && (
-                <>
-                  {/* Mobile: open preview in-app sheet */}
-                  <Button
-                    variant="outline"
-                    className="gap-2 rounded-xl min-h-[44px] sm:hidden"
-                    onClick={() => setPreviewSheetOpen(true)}
-                    data-testid="button-preview-mobile"
-                  >
-                    <Smartphone className="h-3.5 w-3.5" />
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold tracking-tight text-foreground">Clinic Website</h2>
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-900/40">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Configure your public clinic page — patients browse it before booking.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 relative">
+            {previewUrl && (
+              <>
+                <Button
+                  variant="outline"
+                  className="gap-2 rounded-xl min-h-[44px] sm:hidden border-sky-200/60 dark:border-sky-900/40"
+                  onClick={() => setPreviewSheetOpen(true)}
+                  data-testid="button-preview-mobile"
+                >
+                  <Smartphone className="h-3.5 w-3.5" />
+                  Preview
+                </Button>
+                <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="hidden sm:block">
+                  <Button variant="outline" className="gap-2 rounded-xl min-h-[44px] border-sky-200/60 dark:border-sky-900/40 hover:border-sky-400/60">
+                    <Eye className="h-3.5 w-3.5" />
                     Preview
+                    <ExternalLink className="h-3 w-3 opacity-60" />
                   </Button>
-                  {/* Desktop: open in new tab */}
-                  <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="hidden sm:block">
-                    <Button variant="outline" className="gap-2 rounded-xl min-h-[44px]">
-                      <Eye className="h-3.5 w-3.5" />
-                      Preview
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </a>
-                </>
-              )}
-              <Button
-                className="gap-2 rounded-xl min-h-[44px]"
-                onClick={handleSave}
-                disabled={saveMutation.isPending}
-                data-testid="button-save-website"
-              >
-                <Save className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Save Website</span>
-                <span className="sm:hidden">Save</span>
-              </Button>
-            </div>
+                </a>
+              </>
+            )}
+            <Button
+              className="gap-2 rounded-xl min-h-[44px] bg-sky-600 hover:bg-sky-700 shadow-md shadow-sky-600/20"
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+              data-testid="button-save-website"
+            >
+              <Save className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{saveMutation.isPending ? "Saving…" : "Save Website"}</span>
+              <span className="sm:hidden">{saveMutation.isPending ? "…" : "Save"}</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -870,12 +873,12 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
       <div className="rounded-2xl border border-border/60 overflow-hidden shadow-sm">
 
         {/* Panel header bar */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-muted/40 border-b border-border/50">
+        <div className="flex items-center justify-between px-5 py-3 bg-muted/30 border-b border-border/50">
           <div className="flex items-center gap-2.5">
             <Layout className="h-4 w-4 text-primary" />
-            <span className="font-semibold text-sm text-foreground">Website Structure</span>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {themeLabel} theme · {liveServices.length} services · {liveGallery.length} photos
+            <span className="font-bold text-sm text-foreground">Website Structure</span>
+            <span className="hidden sm:inline text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border/40">
+              {themeLabel} · {liveServices.length} svc · {liveGallery.length} photos
             </span>
           </div>
           {previewUrl && (
@@ -883,18 +886,18 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
               href={previewUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-primary font-semibold flex items-center gap-1 hover:underline active:underline active:opacity-70"
+              className="text-xs text-sky-600 dark:text-sky-400 font-semibold flex items-center gap-1 hover:underline active:underline active:opacity-70"
             >
-              Open live page <ExternalLink className="h-2.5 w-2.5" />
+              Open live <ExternalLink className="h-2.5 w-2.5" />
             </a>
           )}
         </div>
 
         {/* 2-pane body */}
-        <div className="flex flex-col lg:flex-row bg-background" style={{ minHeight: "clamp(400px, 60vh, 600px)" }}>
+        <div className="flex flex-col lg:flex-row bg-background" style={{ minHeight: "clamp(480px, 66vh, 680px)" }}>
 
           {/* ── Mobile: horizontal tab strip (hidden on desktop) ── */}
-          <div className="lg:hidden flex overflow-x-auto gap-1 p-2 border-b border-border/40" style={{ scrollbarWidth: "none" }}>
+          <div className="lg:hidden flex overflow-x-auto gap-1.5 p-2.5 border-b border-border/40 bg-muted/10" style={{ scrollbarWidth: "none" }}>
             {MAP_ROWS.map((row) => {
               const Icon = row.icon;
               const isActive = openSection === row.id;
@@ -903,11 +906,11 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                   key={row.id}
                   onClick={() => row.editable ? setOpenSection(row.id as Section) : undefined}
                   disabled={!row.editable}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border whitespace-nowrap shrink-0 transition-all min-h-[44px] text-xs font-semibold ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border whitespace-nowrap shrink-0 transition-all min-h-[44px] text-xs font-bold ${
                     isActive
-                      ? "bg-primary/10 border-primary/30 text-primary"
-                      : "border-border/40 text-muted-foreground hover:bg-muted/50 active:scale-[0.97]"
-                  } ${!row.editable ? "opacity-50 cursor-default" : ""}`}
+                      ? "bg-sky-500/10 border-sky-400/40 text-sky-700 dark:text-sky-400 shadow-sm"
+                      : "border-border/40 text-muted-foreground hover:bg-muted/50 active:scale-[0.97] bg-background"
+                  } ${!row.editable ? "opacity-40 cursor-default" : ""}`}
                   data-testid={`mobile-tab-${row.id}`}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -918,7 +921,7 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           </div>
 
           {/* ── Left: section navigator (desktop only) ── */}
-          <div className="hidden lg:flex lg:flex-col w-52 shrink-0 border-r border-border/40 divide-y divide-border/30 overflow-y-auto">
+          <div className="hidden lg:flex lg:flex-col w-56 shrink-0 border-r border-border/40 divide-y divide-border/20 overflow-y-auto bg-muted/10">
             {MAP_ROWS.map((row) => {
               const Icon = row.icon;
               const isActive = openSection === row.id;
@@ -931,15 +934,14 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 return (
                   <div
                     key={row.id}
-                    className="flex items-center gap-2.5 px-3 py-2.5 opacity-50"
+                    className="flex items-center gap-2.5 px-3.5 py-3 opacity-40"
                   >
-                    <div className={`w-0.5 h-5 rounded-full shrink-0 ${row.accent}`} />
-                    <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
-                      <Icon className="h-2.5 w-2.5 text-muted-foreground" />
+                    <div className={`h-6 w-6 rounded-lg flex items-center justify-center shrink-0 bg-muted`}>
+                      <Icon className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-foreground leading-none truncate">{row.label}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 italic flex items-center gap-1">
+                      <p className="text-xs font-semibold text-foreground leading-none truncate">{row.label}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
                         <Lock className="h-2 w-2" /> auto
                       </p>
                     </div>
@@ -952,20 +954,19 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
                 <button
                   key={row.id}
                   onClick={() => setOpenSection(row.id as Section)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-all group ${
+                  className={`w-full flex items-center gap-2.5 px-3.5 py-3 text-left transition-all group ${
                     isActive
-                      ? "bg-primary/8 border-l-2 border-primary"
-                      : "hover:bg-muted/50 active:bg-muted/70 border-l-2 border-transparent"
+                      ? "bg-sky-500/[0.07] border-l-[3px] border-sky-500"
+                      : "hover:bg-muted/50 active:bg-muted/70 border-l-[3px] border-transparent"
                   }`}
                   data-testid={`map-row-${row.id}`}
                 >
-                  <div className={`w-0.5 h-5 rounded-full shrink-0 ${row.accent} ${isActive ? "opacity-100" : "opacity-40 group-hover:opacity-70"}`} />
-                  <div className={`h-5 w-5 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-primary/10" : "bg-muted"}`}>
-                    <Icon className={`h-2.5 w-2.5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                  <div className={`h-6 w-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isActive ? `${row.accent} bg-opacity-15` : "bg-muted group-hover:bg-muted/80"}`}>
+                    <Icon className={`h-3 w-3 ${isActive ? "text-sky-600 dark:text-sky-400" : "text-muted-foreground"}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-xs font-semibold leading-none truncate ${isActive ? "text-primary" : "text-foreground"}`}>{row.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{row.status}</p>
+                    <p className={`text-xs font-bold leading-none truncate ${isActive ? "text-sky-700 dark:text-sky-400" : "text-foreground"}`}>{row.label}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{row.status}</p>
                   </div>
                   <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />
                 </button>
@@ -977,18 +978,18 @@ export default function WebsiteConfigPanel({ clinic }: WebsiteConfigPanelProps) 
           <div className="flex-1 flex flex-col overflow-hidden">
 
             {/* Section label bar */}
-            <div className="flex items-center justify-between px-4 py-2 border-b border-border/40 bg-muted/20 shrink-0">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-border/40 bg-gradient-to-r from-muted/30 to-transparent shrink-0">
               <div className="flex items-center gap-2">
-                <Eye className="h-3 w-3 text-primary" />
+                <Eye className="h-3 w-3 text-sky-600 dark:text-sky-400" />
                 <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   {activeRow?.label ?? "Preview"}
                 </span>
               </div>
-              <span className="text-xs text-muted-foreground/60 italic">updates as you type</span>
+              <span className="text-[10px] text-muted-foreground/50 italic">live preview</span>
             </div>
 
             {/* Mini preview strip */}
-            <div className="h-44 shrink-0 border-b border-border/40 overflow-hidden">
+            <div className="h-52 shrink-0 border-b border-border/40 overflow-hidden">
               {PreviewPane()}
             </div>
 
