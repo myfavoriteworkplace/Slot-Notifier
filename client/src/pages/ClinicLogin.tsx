@@ -40,7 +40,16 @@ export default function ClinicLogin() {
   const [doctorEmail, setDoctorEmail] = useState("");
   const [doctorPassword, setDoctorPassword] = useState("");
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<"clinic" | "doctor">("clinic");
+  const [location, setLocation] = useLocation();
+  const initialTab = ((): "clinic" | "doctor" => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("tab") === "doctor" ? "doctor" : "clinic";
+    } catch {
+      return "clinic";
+    }
+  })();
+  const [activeTab, setActiveTab] = useState<"clinic" | "doctor">(initialTab);
   const [showClinicPassword, setShowClinicPassword] = useState(false);
   const [showDoctorPassword, setShowDoctorPassword] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
@@ -53,7 +62,6 @@ export default function ClinicLogin() {
   const { login: clinicLogin, isLoggingIn: isClinicLoggingIn, isAuthenticated: isClinicAuthenticated } = useClinicAuth();
   const { login: doctorLogin, isLoggingIn: isDoctorLoggingIn, isAuthenticated: isDoctorAuthenticated } = useDoctorAuth();
   const { isAuthenticated: isAdminAuthenticated } = useAuth();
-  const [_, setLocation] = useLocation();
 
   useEffect(() => {
     if (isClinicAuthenticated) setLocation("/clinic-dashboard");

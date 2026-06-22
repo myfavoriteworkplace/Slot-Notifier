@@ -467,7 +467,7 @@ async function sendDoctorAssignmentEmail(
   const finalEmail  = RESEND_MODE === 'PRODUCTION' ? doctorEmail : TEST_EMAIL;
   const apptDate    = startTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const apptTime    = startTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-  const dashLink    = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
+  const dashLink    = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login?tab=doctor`;
   const html = emailShell(
     'linear-gradient(90deg,#7c3aed,#a78bfa)',
     `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
@@ -515,7 +515,7 @@ async function sendDoctorAdminConfirmEmail(
   const apptDate    = startTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const apptTime    = startTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   const calLink     = makeGoogleCalLink(`Patient: ${patientName} at ${clinicName}`, startTime);
-  const dashLink    = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
+  const dashLink    = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login?tab=doctor`;
   const html = emailShell(
     'linear-gradient(90deg,#d97706,#f59e0b)',
     `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
@@ -625,7 +625,7 @@ async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLi
 }
 
 async function sendDoctorWelcomeEmail(email: string, doctorName: string, clinicName: string, tempPassword: string) {
-  const loginUrl = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
+  const loginUrl = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login?tab=doctor`;
   if (!resend) {
     console.log(`[EMAIL MOCK] Doctor welcome: ${email} — Login: ${email}, Password: ${tempPassword}`);
     return;

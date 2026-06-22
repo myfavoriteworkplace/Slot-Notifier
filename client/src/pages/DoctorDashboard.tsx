@@ -144,7 +144,7 @@ export default function DoctorDashboard() {
   const [changePwdConfirm, setChangePwdConfirm] = useState("");
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) setLocation("/clinic-login");
+    if (!isLoading && !isAuthenticated) setLocation("/clinic-login?tab=doctor");
   }, [isLoading, isAuthenticated, setLocation]);
 
   // ── Notification deep-link helpers ────────────────────────────────────────
