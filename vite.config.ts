@@ -42,27 +42,29 @@ export default defineConfig({
             return "vendor";
           }
 
-          // ── Definitive TDZ fix ────────────────────────────────────────────
+          // ── ClinicDashboard gets its own synchronous chunk ────────────────
           //
-          // ClinicDashboard is React.lazy(). Its chunk must NOT co-bundle any
-          // other app-source module, because Rollup can mis-order const/let
-          // initialisation when circular chunk refs exist, triggering a
-          // ReferenceError: Cannot access 'X' before initialisation in prod.
+          // ClinicDashboard.tsx is ~8 000 lines. Keeping it in a separate
+          // output file reduces peak Rollup memory during the build.
           //
-          // Previous fix only moved /components/ here, leaving hooks, lib,
-          // shared schema, etc. still bundled inside the ClinicDashboard chunk
-          // — those cross-reference components, recreating the circularity.
+          // IMPORTANT: this is a *static* import in App.tsx (not React.lazy).
+          // A static import produces a synchronous chunk: the browser fetches
+          // and fully evaluates it BEFORE the index chunk runs. This means
+          // every const/let in ClinicDashboard.tsx is always initialised before
+          // any React render, making ReferenceError TDZ impossible.
           //
-          // Fix: every non-page app-source file (components, hooks, lib,
-          // shared schema, assets helpers) goes into "app-shared".
-          // app-shared is a synchronous dependency of the index entry chunk
-          // (App.tsx imports Header, queryClient, useClinicAuth, etc.), so it
-          // is always fully initialised before any lazy chunk ever executes.
-          // The ClinicDashboard lazy chunk therefore contains ONLY
-          // ClinicDashboard.tsx and has zero modules to mis-order.
-          //
-          // Rule: anything under client/src OR shared/ that is NOT a page file
-          // → app-shared.
+          // Previous attempts used React.lazy (dynamic async chunk). Async
+          // chunks can be loaded at any time after the main bundle, and Rollup's
+          // live-binding interop for async chunks can mis-order const
+          // initialisation in minified output → TDZ ("Cannot access 'X' before
+          // initialisation"). Removing lazy() eliminates this class of bug
+          // permanently regardless of what is inside ClinicDashboard.tsx.
+          if (id.includes("/client/src/pages/ClinicDashboard")) {
+            return "clinic-dashboard";
+          }
+
+          // All other app-source (components, hooks, lib, shared schema) →
+          // app-shared. This is also synchronous and initialised before index.
           if (!id.includes("/node_modules/")) {
             const isAppSource =
               id.includes("/client/src/") || id.includes("/shared/");

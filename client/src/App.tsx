@@ -7,7 +7,7 @@ import { ThemeProvider } from "next-themes";
 import { Header } from "@/components/Header";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { Server, Database, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
@@ -17,7 +17,7 @@ import Dashboard from "@/pages/Dashboard";
 import Book from "@/pages/Book";
 import Admin from "@/pages/Admin";
 import ClinicLogin from "@/pages/ClinicLogin";
-const ClinicDashboard = lazy(() => import("@/pages/ClinicDashboard"));
+import ClinicDashboard from "@/pages/ClinicDashboard";
 import ClinicAbout from "@/pages/ClinicAbout";
 import SetupPassword from "@/pages/SetupPassword";
 import SmileDeals from "@/pages/SmileDeals";
@@ -140,13 +140,7 @@ function Router() {
       <Route path="/book" component={Book} />
       <Route path="/admin" component={Admin} />
       <Route path="/clinic-login" component={ClinicLogin} />
-      <Route path="/clinic-dashboard">
-          {() => (
-            <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
-              <ClinicDashboard />
-            </Suspense>
-          )}
-        </Route>
+      <Route path="/clinic-dashboard" component={ClinicDashboard} />
       <Route path="/clinic/:slug" component={ClinicAbout} />
       <Route path="/about" component={ClinicAbout} />
       <Route path="/setup-password" component={SetupPassword} />
