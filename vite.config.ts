@@ -38,6 +38,33 @@ export default defineConfig({
           if (id.includes("node_modules/lucide-react/")) {
             return "icons";
           }
+          if (
+            id.includes("node_modules/react/") ||
+            id.includes("node_modules/react-dom/") ||
+            id.includes("node_modules/scheduler/") ||
+            id.includes("node_modules/@tanstack/") ||
+            id.includes("node_modules/wouter/")
+          ) {
+            return "react-core";
+          }
+          if (
+            id.includes("node_modules/@radix-ui/") ||
+            id.includes("node_modules/cmdk/") ||
+            id.includes("node_modules/class-variance-authority/") ||
+            id.includes("node_modules/clsx/") ||
+            id.includes("node_modules/tailwind-merge/") ||
+            id.includes("node_modules/next-themes/") ||
+            id.includes("node_modules/vaul/") ||
+            id.includes("node_modules/sonner/")
+          ) {
+            return "ui-vendor";
+          }
+          if (
+            id.includes("node_modules/jspdf/") ||
+            id.includes("node_modules/jspdf-autotable/")
+          ) {
+            return "pdf";
+          }
           if (id.includes("node_modules/")) {
             return "vendor";
           }
