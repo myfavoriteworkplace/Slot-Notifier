@@ -41,15 +41,27 @@ export default defineConfig({
           if (id.includes("node_modules/")) {
             return "vendor";
           }
-          // Break diamond deps inside the lazy ClinicDashboard chunk:
-          // BookingProgressStrip is imported by both ClinicDashboard (direct)
-          // and AppointmentCard; ImageUpload is imported by both ClinicDashboard
-          // (direct) and WebsiteConfigPanel. Putting them in a separate chunk
-          // guarantees they are initialised before the ClinicDashboard chunk runs.
-          if (id.includes("/components/BookingProgressStrip")) {
-            return "clinic-shared";
-          }
-          if (id.includes("/components/ImageUpload")) {
+          // Extract every component that is ONLY imported by the lazy
+          // ClinicDashboard chunk into a named "clinic-shared" chunk.
+          // This makes the lazy ClinicDashboard-*.js file contain only
+          // ClinicDashboard.tsx itself — no inter-component deps remain inside
+          // the chunk, so Rollup cannot produce a TDZ ordering issue there.
+          //
+          // Components shared with other pages (AppointmentCard, BookingNotesThread,
+          // ClinicalRecordsTab, SpecializationInput, BookingProgressStrip…) are
+          // already placed in the index chunk by Rollup; we do NOT list them here.
+          const CLINIC_ONLY_COMPONENTS = [
+            "/components/ImageUpload",
+            "/components/MapLocationPicker",
+            "/components/ExportDataPanel",
+            "/components/PharmacyStockPanel",
+            "/components/WebsiteConfigPanel",
+            "/components/BillingHistoryPanel",
+            "/components/ClinicAnalyticsPanel",
+            "/components/InventoryPanel",
+            "/components/panels/",
+          ];
+          if (CLINIC_ONLY_COMPONENTS.some((p) => id.includes(p))) {
             return "clinic-shared";
           }
         },
