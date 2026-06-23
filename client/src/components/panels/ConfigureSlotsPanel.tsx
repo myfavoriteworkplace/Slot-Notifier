@@ -1,0 +1,703 @@
+import React from "react";
+import { format, startOfDay, startOfToday, addDays, isSameDay, differenceInCalendarDays, isAfter, startOfWeek } from "date-fns";
+import {
+  Clock, CalendarDays, ChevronLeft, ChevronRight, Save, Info, Loader2,
+  AlertTriangle, Sun, X,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Calendar as CalendarIcon } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import { ChevronUp, ChevronDown } from "lucide-react";
+
+type SlotTiming = { id: string; label: string; startHour: number; startMinute: number; endHour: number; endMinute: number };
+type SectionConfig = { maxBookings: number; isCancelled: boolean };
+type DayConfig = { isClosed: boolean; sections: Record<string, SectionConfig> };
+
+interface ConfigureSlotsPanelProps {
+  defaultConfigData: unknown;
+  hasDefaultConfig: boolean;
+  rangeStart: Date | null; setRangeStart: (d: Date | null) => void;
+  rangeEnd: Date | null; setRangeEnd: (d: Date | null) => void;
+  datePickerOpen: boolean; setDatePickerOpen: (v: boolean) => void;
+  endDatePickerOpen: boolean; setEndDatePickerOpen: (v: boolean) => void;
+  calendarWeekStart: Date; setCalendarWeekStart: (fn: (prev: Date) => Date) => void;
+  configDate: Date; setConfigDate: (d: Date) => void;
+  slotTimings: SlotTiming[];
+  isDateInSelection: (d: Date) => boolean;
+  getConfigForDate: (d: Date) => DayConfig;
+  handleSlotDateClick: (d: Date) => void;
+  getActiveDates: () => Date[];
+  updateDayClosedState: (d: Date, val: boolean) => void;
+  updateSectionCapacity: (d: Date, slotId: string, v: number) => void;
+  updateSectionCancelled: (d: Date, slotId: string, val: boolean) => void;
+  saveDayConfiguration: () => void;
+  isSavingConfig: boolean;
+  showSaveRangeConfirm: boolean; setShowSaveRangeConfirm: (v: boolean) => void;
+  pendingBulkAction: string | null; setPendingBulkAction: (v: string | null) => void;
+  isBulkApplying: boolean;
+  applyBulkConfig: (action: string) => void;
+  showHowItWorks: boolean; setShowHowItWorks: (fn: (v: boolean) => boolean) => void;
+  getDatesInRange: (start: Date, end: Date) => Date[];
+  formatTime: (h: number, m: number) => string;
+  DEFAULT_SECTION_CAPACITY: Record<string, number>;
+}
+
+export default function ConfigureSlotsPanel({
+  defaultConfigData,
+  hasDefaultConfig,
+  rangeStart, setRangeStart,
+  rangeEnd, setRangeEnd,
+  datePickerOpen, setDatePickerOpen,
+  endDatePickerOpen, setEndDatePickerOpen,
+  calendarWeekStart, setCalendarWeekStart,
+  configDate, setConfigDate,
+  slotTimings,
+  isDateInSelection,
+  getConfigForDate,
+  handleSlotDateClick,
+  getActiveDates,
+  updateDayClosedState,
+  updateSectionCapacity,
+  updateSectionCancelled,
+  saveDayConfiguration,
+  isSavingConfig,
+  showSaveRangeConfirm, setShowSaveRangeConfirm,
+  pendingBulkAction, setPendingBulkAction,
+  isBulkApplying,
+  applyBulkConfig,
+  showHowItWorks, setShowHowItWorks,
+  getDatesInRange,
+  formatTime,
+  DEFAULT_SECTION_CAPACITY,
+}: ConfigureSlotsPanelProps) {
+  const cfg = getConfigForDate(configDate);
+
+  return (
+    <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+      <div className="flex border-b border-border/40">
+        <div className="w-1.5 bg-blue-500/60 shrink-0" />
+        <div className="flex-1 px-5 py-4 bg-gradient-to-r from-blue-500/[0.06] to-transparent flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+            <Clock className="h-[18px] w-[18px] text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold tracking-tight">Configure Slots</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Set capacity per slot, close days, and apply bulk schedules</p>
+          </div>
+        </div>
+      </div>
+
+      {defaultConfigData !== undefined && !hasDefaultConfig && (
+        <div className="flex items-start gap-3 px-5 py-3.5 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/25">
+          <div className="h-7 w-7 rounded-lg bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/30 flex items-center justify-center shrink-0 mt-0.5">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 leading-tight">No default schedule set</p>
+            <p className="text-xs text-amber-700/80 dark:text-amber-400/80 mt-0.5 leading-relaxed">
+              Your booking page currently shows only <span className="font-semibold">3 slots</span> per session as a fallback. Configure your capacity below, then click <span className="font-semibold">All Future Days</span> to apply it as your clinic's default.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="p-3 sm:p-5">
+        <div className="flex flex-col lg:flex-row gap-5 lg:items-start">
+
+          {/* LEFT: Grid & Selection */}
+          <div className="w-full flex-1 min-w-0 space-y-3 sm:space-y-4">
+
+            {/* Date Range Selection */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Date range</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From</span>
+                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline" size="sm"
+                        className="h-11 gap-2 text-sm font-normal w-full sm:min-w-[155px] justify-start"
+                        data-testid="button-start-date"
+                      >
+                        <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        {rangeStart ? format(rangeStart, 'd MMM yyyy') : <span className="text-muted-foreground">Start date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={rangeStart ?? undefined}
+                        onSelect={(day) => {
+                          if (!day) return;
+                          setRangeStart(day);
+                          setConfigDate(day);
+                          if (rangeEnd && day > rangeEnd) setRangeEnd(null);
+                          setDatePickerOpen(false);
+                        }}
+                        disabled={{ before: startOfToday() }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <ChevronRight className="h-4 w-4 text-muted-foreground mb-2 hidden sm:block shrink-0" />
+
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">To <span className="normal-case font-normal">(optional)</span></span>
+                  <div className="flex items-center gap-1">
+                    <Popover open={endDatePickerOpen} onOpenChange={setEndDatePickerOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline" size="sm"
+                          className={`h-11 gap-2 text-sm font-normal w-full sm:min-w-[155px] justify-start ${rangeEnd ? 'text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-500/5' : ''}`}
+                          data-testid="button-end-date"
+                        >
+                          <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                          {rangeEnd ? format(rangeEnd, 'd MMM yyyy') : <span className="text-muted-foreground">End date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={rangeEnd ?? undefined}
+                          onSelect={(day) => {
+                            if (!day) return;
+                            setRangeEnd(day);
+                            setEndDatePickerOpen(false);
+                          }}
+                          disabled={{ before: rangeStart ?? startOfToday() }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    {rangeEnd && (
+                      <button
+                        onClick={() => setRangeEnd(null)}
+                        className="h-11 w-11 flex items-center justify-center rounded-md border border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/50 active:scale-95 transition-all"
+                        data-testid="button-clear-end-date"
+                        aria-label="Clear end date"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {rangeStart && rangeEnd && (
+                  <div className="col-span-2 sm:col-span-1 mb-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 sm:self-end">
+                    <CalendarDays className="h-3.5 w-3.5 text-blue-500" />
+                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                      {differenceInCalendarDays(rangeEnd, rangeStart) + 1} days selected
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Week Navigation */}
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setCalendarWeekStart(prev => addDays(prev, -7))}
+                className="h-11 w-11 p-0 shrink-0"
+                disabled={!isAfter(calendarWeekStart, startOfWeek(startOfToday(), { weekStartsOn: 1 }))}
+                data-testid="button-prev-week"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="min-w-0 text-sm font-semibold text-center tabular-nums flex flex-col items-center leading-tight">
+                <span className="text-xs font-normal text-muted-foreground uppercase tracking-wide">Viewing week</span>
+                <span className="truncate w-full text-center">{format(calendarWeekStart, "d MMM")} – {format(addDays(calendarWeekStart, 6), "d MMM yyyy")}</span>
+              </span>
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setCalendarWeekStart(prev => addDays(prev, 7))}
+                className="h-11 w-11 p-0 shrink-0"
+                data-testid="button-next-week"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Grid legend */}
+            <div className="flex items-center justify-between gap-3 px-1 py-1">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-blue-500/30 border border-blue-400/60 inline-block" />
+                  Selected
+                </span>
+                <span className="flex items-center gap-1 text-xs font-medium text-rose-500">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-rose-500/20 border border-rose-400/40 inline-block" />
+                  Closed
+                </span>
+                <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                  <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded text-xs font-bold bg-muted border border-border/60 text-foreground leading-none">3</span>
+                  max bookings
+                </span>
+                <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground/50">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-muted/60 border border-border/30 inline-block" />
+                  Past — locked
+                </span>
+              </div>
+              <span className="hidden sm:block text-xs font-medium text-primary/70 whitespace-nowrap shrink-0">Click a date header below to configure, then Save to apply</span>
+            </div>
+
+            {/* Calendar Grid */}
+            {(() => {
+              const weekDays = Array.from({ length: 7 }, (_, i) => addDays(calendarWeekStart, i));
+              return (
+                <div className="w-full overflow-x-auto rounded-xl border border-border/40">
+                  <div className="min-w-[580px]">
+                    <div className="grid border-b-2 border-border/60 bg-muted/60" style={{ gridTemplateColumns: '100px repeat(7, 1fr)' }}>
+                      <div className="px-3 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-r border-border/40 flex items-center">Slots</div>
+                      {weekDays.map((day, i) => {
+                        const isSun = day.getDay() === 0;
+                        const isSat = day.getDay() === 6;
+                        const isToday = isSameDay(day, new Date());
+                        const isPast = !isToday && startOfDay(day) < startOfToday();
+                        const isSelected = !isPast && isDateInSelection(day);
+                        const isEdge = !isPast && (isSameDay(day, rangeStart ?? configDate) || (rangeEnd !== null && isSameDay(day, rangeEnd)));
+                        const dayCfg = getConfigForDate(day);
+                        return (
+                          <button
+                            key={i}
+                            onClick={isPast ? undefined : () => handleSlotDateClick(day)}
+                            disabled={isPast}
+                            data-testid={`calendar-day-${format(day, 'yyyy-MM-dd')}`}
+                            className={`relative px-1 py-2.5 text-center border-l border-border/40 transition-all ${
+                              isPast
+                                ? 'opacity-40 cursor-not-allowed bg-muted/40'
+                                : isEdge
+                                ? 'bg-blue-500/30 ring-1 ring-inset ring-blue-400/60'
+                                : isSelected
+                                ? 'bg-blue-500/15'
+                                : 'hover:bg-primary/5 cursor-pointer'
+                            }`}
+                          >
+                            {!isPast && (isEdge || isSelected) && (
+                              <div className="absolute top-0 left-0 right-0 h-[3px] bg-blue-500/70 rounded-b-sm" />
+                            )}
+                            <div className={`text-xs uppercase tracking-wide font-bold ${
+                              isPast ? 'text-muted-foreground/40' : isSun || isSat ? 'text-rose-500' : isToday ? 'text-primary' : 'text-foreground/70'
+                            }`}>{format(day, 'EEE')}</div>
+                            <div className={`text-base font-black mt-0.5 leading-none ${
+                              isPast
+                                ? 'text-muted-foreground/40'
+                                : isToday
+                                ? 'h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center mx-auto text-[13px] font-bold'
+                                : isSun || isSat ? 'text-rose-500' : 'text-foreground'
+                            }`}>
+                              {format(day, 'd')}
+                            </div>
+                            {!isPast && dayCfg.isClosed && (
+                              <div className="text-xs font-bold uppercase text-rose-500 mt-0.5 leading-none">closed</div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {slotTimings.map((slot) => (
+                      <div
+                        key={slot.id}
+                        className="grid border-b border-border/20 last:border-0"
+                        style={{ gridTemplateColumns: '100px repeat(7, 1fr)' }}
+                      >
+                        <div className="px-3 py-2.5 bg-muted/10 border-r border-border/20 flex flex-col justify-center">
+                          <span className="text-xs font-semibold leading-tight">{slot.label}</span>
+                          <span className="text-xs text-muted-foreground leading-tight mt-0.5">
+                            {formatTime(slot.startHour, slot.startMinute)}–{formatTime(slot.endHour, slot.endMinute)}
+                          </span>
+                        </div>
+                        {weekDays.map((day, di) => {
+                          const dayCfg = getConfigForDate(day);
+                          const secCfg = dayCfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
+                          const isClosed = dayCfg.isClosed || secCfg.isCancelled;
+                          const isSelected = isDateInSelection(day);
+                          const isToday = isSameDay(day, new Date());
+                          const isPast = !isToday && startOfDay(day) < startOfToday();
+                          return (
+                            <button
+                              key={di}
+                              onClick={isPast ? undefined : () => handleSlotDateClick(day)}
+                              disabled={isPast}
+                              className={`px-1 py-2 border-l border-border/20 flex flex-col items-center justify-center min-h-[44px] transition-all ${
+                                isPast
+                                  ? 'opacity-35 cursor-not-allowed bg-muted/20'
+                                  : isSelected ? 'bg-blue-500/15 active:bg-blue-500/25' : isToday ? 'bg-primary/5 active:bg-primary/10' : 'hover:bg-muted/25 active:bg-muted/40'
+                              }`}
+                            >
+                              {isClosed ? (
+                                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                                  isPast
+                                    ? 'text-muted-foreground/60 bg-muted border border-border/30'
+                                    : 'text-rose-500 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25'
+                                }`}>Closed</span>
+                              ) : (
+                                <>
+                                  <span className={`text-sm font-bold leading-none ${isPast ? 'text-muted-foreground/50' : 'text-foreground'}`}>{secCfg.maxBookings}</span>
+                                  <span className="text-xs text-muted-foreground mt-0.5 leading-none">slots</span>
+                                </>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Close Bookings toggle */}
+            {(() => {
+              const cbCfg = getConfigForDate(configDate);
+              return (
+                <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                  cbCfg.isClosed
+                    ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30'
+                    : 'bg-muted/20 border-border/40'
+                }`}>
+                  <Switch
+                    checked={cbCfg.isClosed}
+                    onCheckedChange={(val) => getActiveDates().forEach(d => updateDayClosedState(d, val))}
+                    data-testid="toggle-day-closed"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold leading-tight">Close Bookings for Selected Date(s)</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Prevents patients from booking any slot on the selected date(s)</p>
+                  </div>
+                  {cbCfg.isClosed && <Badge className="text-xs bg-rose-500 text-white border-0 shrink-0">Closed</Badge>}
+                </div>
+              );
+            })()}
+
+          </div>
+
+          {/* RIGHT: Day Editor */}
+          <div className="w-full lg:w-72 shrink-0">
+            <div className="sticky top-[70px]">
+
+              <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                <div className={`px-4 py-3 border-b transition-colors ${
+                  cfg.isClosed
+                    ? 'bg-gradient-to-r from-rose-500/[0.08] to-transparent border-rose-200/50 dark:border-rose-500/20'
+                    : 'bg-gradient-to-r from-blue-500/[0.08] to-transparent border-blue-200/40 dark:border-blue-500/25'
+                }`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold leading-tight">
+                        {rangeStart && rangeEnd
+                          ? `${format(rangeStart, 'EEE d MMM')} – ${format(rangeEnd, 'EEE d MMM yyyy')}`
+                          : format(configDate, 'EEEE, d MMMM yyyy')}
+                      </p>
+                    </div>
+                    {configDate.getDay() === 0 && (
+                      <Badge variant="outline" className="text-xs border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 shrink-0">
+                        Sunday
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs font-bold text-foreground leading-tight">Slots configuration</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">Adjust values below, then click Save to apply</p>
+                      <p className="text-xs text-primary/70 mt-1 font-medium">1 slot ≈ 25 min (20 min treatment + 5 min buffer)</p>
+                    </div>
+                    {cfg.isClosed ? (
+                      <div className="py-4 px-3 text-center rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10">
+                        <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 leading-relaxed">All bookings closed for selected date(s)</p>
+                        <p className="text-xs text-rose-500/70 mt-1">Toggle "Close Bookings" below the grid to re-enable slots</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center px-3 pb-0.5">
+                          <div className="flex-1" />
+                          <span className="w-12 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Max</span>
+                          <span className="w-10 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Close</span>
+                        </div>
+                        {slotTimings.map((slot) => {
+                          const secCfg = cfg.sections[slot.id] ?? { maxBookings: DEFAULT_SECTION_CAPACITY[slot.id] ?? 3, isCancelled: false };
+                          return (
+                            <div
+                              key={slot.id}
+                              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${
+                                secCfg.isCancelled
+                                  ? 'bg-muted/20 border-border/20 opacity-60'
+                                  : 'bg-background border-border/40 hover:border-blue-300/50 dark:hover:border-blue-500/30'
+                              }`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold leading-tight truncate">{slot.label}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{formatTime(slot.startHour, slot.startMinute)}–{formatTime(slot.endHour, slot.endMinute)}</p>
+                              </div>
+                              <div className="flex items-center shrink-0">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={30}
+                                  value={secCfg.maxBookings}
+                                  onChange={(e) => { const v = parseInt(e.target.value) || 0; getActiveDates().forEach(d => updateSectionCapacity(d, slot.id, v)); }}
+                                  className="w-12 min-h-[44px] text-center text-sm px-1 font-semibold"
+                                  inputMode="numeric"
+                                  onFocus={(e) => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                                  disabled={secCfg.isCancelled}
+                                  data-testid={`input-capacity-${slot.id}`}
+                                />
+                              </div>
+                              <div className="flex items-center justify-center w-10 shrink-0 border-l border-border/30">
+                                <Switch
+                                  checked={secCfg.isCancelled}
+                                  onCheckedChange={(val) => getActiveDates().forEach(d => updateSectionCancelled(d, slot.id, val))}
+                                  className="scale-[0.80] data-[state=checked]:bg-rose-500"
+                                  data-testid={`switch-close-${slot.id}`}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+
+                  <Button
+                    className="w-full h-11 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white border-0 shadow-md shadow-blue-500/20 dark:bg-blue-500 dark:hover:bg-blue-600 transition-all"
+                    onClick={() => rangeStart && rangeEnd ? setShowSaveRangeConfirm(true) : saveDayConfiguration()}
+                    disabled={isSavingConfig}
+                    data-testid="button-save-day-config"
+                  >
+                    {isSavingConfig ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</>
+                    ) : (
+                      <><Save className="h-4 w-4 mr-2" /> Save Slot Configuration</>
+                    )}
+                  </Button>
+
+                  <div className="border-t border-border/30 pt-3 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                      Apply to <ChevronRight className="h-3.5 w-3.5 inline-block" />
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setPendingBulkAction('future-days')}
+                        disabled={isBulkApplying}
+                        className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 border-primary/30 bg-primary/[0.04] hover:bg-primary/[0.10] hover:border-primary/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        data-testid="button-apply-all-future"
+                      >
+                        {isBulkApplying
+                          ? <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                          : <CalendarDays className="h-4 w-4 text-primary" />}
+                        <span className="text-xs font-bold text-primary text-center leading-tight">All Future Days</span>
+                        <span className="text-xs text-primary/60 text-center leading-tight">Default for all dates</span>
+                      </button>
+                      <button
+                        onClick={() => setPendingBulkAction('sundays-this-month')}
+                        disabled={isBulkApplying}
+                        className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 border-amber-500/30 bg-amber-50/40 dark:bg-amber-500/[0.04] hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-500/50 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        data-testid="button-apply-sundays"
+                      >
+                        {isBulkApplying
+                          ? <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
+                          : <Sun className="h-4 w-4 text-amber-500" />}
+                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400 text-center leading-tight">All Sundays</span>
+                        <span className="text-xs text-amber-600/60 dark:text-amber-400/60 text-center leading-tight">This month</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* How to configure slots */}
+                  <div className="rounded-xl border border-border/40 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowHowItWorks(h => !h)}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/30 active:bg-muted/50 transition-colors"
+                      data-testid="button-toggle-how-it-works"
+                    >
+                      <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-xs font-semibold text-muted-foreground flex-1">How to configure slots</span>
+                      {showHowItWorks
+                        ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                        : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                    </button>
+                    {showHowItWorks && (
+                      <div className="px-4 pb-4 pt-2.5 grid grid-cols-1 gap-y-2.5 border-t border-border/30 bg-muted/10">
+                        {([
+                          { icon: "📅", node: <>Tap any column in the grid above to load that day's config here.</> },
+                          { icon: "↔️", node: <>For a date range: use the <strong className="text-foreground">From</strong> and <strong className="text-foreground">To</strong> pickers above the grid.</> },
+                          { icon: "🔴", node: <><strong className="text-foreground font-bold">Close Bookings</strong> blocks all slots on the selected date(s).</> },
+                          { icon: "🔢", node: <>Adjust <strong className="text-foreground">Max</strong> to control how many patients can book each session.</> },
+                          { icon: "🔕", node: <>The <strong className="text-foreground">Close</strong> switch cancels a single session without closing the whole day.</> },
+                          { icon: "💾", node: <><strong className="text-foreground">Save</strong> writes the config to the selected date(s).</> },
+                          { icon: "📋", node: <><strong className="text-primary font-bold">All Future Days</strong> sets this as your clinic's default schedule.</> },
+                          { icon: "☀️", node: <><strong className="text-amber-600 dark:text-amber-400 font-bold">All Sundays</strong> writes this config to every Sunday this month.</> },
+                        ] as { icon: string; node: React.ReactNode }[]).map(({ icon, node }, idx) => (
+                          <div key={idx} className="flex items-start gap-2">
+                            <span className="text-sm shrink-0 leading-5 mt-0.5">{icon}</span>
+                            <p className="text-xs text-muted-foreground leading-relaxed">{node}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bulk Apply Confirmation Dialog */}
+                  {(() => {
+                    const today = new Date();
+                    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                    const monthEnd   = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                    const sundaysThisMonth = getDatesInRange(monthStart, monthEnd).filter((d: Date) => d.getDay() === 0);
+                    const isDefaultAction  = pendingBulkAction === 'future-days';
+                    return (
+                      <Dialog open={!!pendingBulkAction} onOpenChange={(open) => { if (!open) setPendingBulkAction(null); }}>
+                        <DialogContent className="w-[95vw] max-w-md rounded-2xl p-0 overflow-hidden gap-0">
+                          <div className={`px-5 pt-5 pb-4 border-b border-border/40 ${cfg.isClosed ? 'bg-rose-50/60 dark:bg-rose-500/10' : 'bg-primary/[0.03]'}`}>
+                            <DialogTitle className="text-base font-bold leading-tight">
+                              {isDefaultAction ? 'Apply to All Future Days?' : `Apply to All Sundays in ${format(today, 'MMMM yyyy')}?`}
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-muted-foreground mt-1">
+                              {isDefaultAction
+                                ? "This updates your clinic's default template for future dates."
+                                : `This overwrites slot config for every Sunday in ${format(today, 'MMMM yyyy')}.`}
+                            </DialogDescription>
+                          </div>
+                          <div className="px-5 py-4 space-y-3">
+                            <div className={`rounded-xl border p-3 space-y-1.5 ${cfg.isClosed ? 'border-rose-300/60 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10' : 'border-primary/25 bg-primary/[0.04]'}`}>
+                              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">What will be applied</p>
+                              {cfg.isClosed ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                                  <p className="text-sm font-semibold text-rose-700 dark:text-rose-400">Day Closed — no bookings accepted</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                                    <p className="text-sm font-semibold text-primary">Day Open — bookings accepted</p>
+                                  </div>
+                                  {slotTimings.map(slot => {
+                                    const secCfg = cfg.sections[slot.id] ?? { maxBookings: 3, isCancelled: false };
+                                    return (
+                                      <p key={slot.id} className="text-xs text-muted-foreground pl-4">
+                                        {secCfg.isCancelled ? `${slot.label}: Closed` : `${slot.label}: up to ${secCfg.maxBookings} slot${secCfg.maxBookings !== 1 ? 's' : ''} (≈${secCfg.maxBookings * 25} min)`}
+                                      </p>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                            <div className="rounded-xl border border-border/40 bg-muted/20 p-3 space-y-2">
+                              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Applies to</p>
+                              {isDefaultAction ? (
+                                <p className="text-sm text-foreground leading-relaxed">All future dates that <span className="font-semibold">haven't been individually configured</span>. Dates you've already saved separately will not be changed.</p>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  <p className="text-sm text-foreground">{sundaysThisMonth.length} Sunday{sundaysThisMonth.length !== 1 ? 's' : ''} in {format(today, 'MMMM yyyy')}:</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {sundaysThisMonth.map(d => (
+                                      <span key={d.toISOString()} className="text-xs font-medium bg-background border border-border/60 px-2 py-0.5 rounded-full">{format(d, 'EEE d MMM')}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-start gap-2 px-0.5">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                              <p className="text-xs text-muted-foreground">Bookings already confirmed on those dates will <span className="font-semibold">not</span> be cancelled automatically.</p>
+                            </div>
+                          </div>
+                          <div className="px-5 pb-5 flex gap-2.5">
+                            <Button variant="outline" onClick={() => setPendingBulkAction(null)} className="flex-1" data-testid="button-bulk-cancel">Go Back</Button>
+                            <Button
+                              onClick={() => { if (pendingBulkAction) { applyBulkConfig(pendingBulkAction); setPendingBulkAction(null); } }}
+                              disabled={isBulkApplying}
+                              className={`flex-1 border-0 shadow-sm ${cfg.isClosed ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/20' : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20'}`}
+                              data-testid="button-bulk-confirm"
+                            >
+                              {isBulkApplying ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Applying…</> : isDefaultAction ? 'Yes, Set as Default' : `Yes, Apply to ${sundaysThisMonth.length} Sunday${sundaysThisMonth.length !== 1 ? 's' : ''}`}
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    );
+                  })()}
+
+                  {/* Save Range Confirmation Dialog */}
+                  {rangeStart && rangeEnd && (() => {
+                    const rangeDays = getDatesInRange(rangeStart, rangeEnd);
+                    const n = rangeDays.length;
+                    return (
+                      <Dialog open={showSaveRangeConfirm} onOpenChange={(open) => { if (!open) setShowSaveRangeConfirm(false); }}>
+                        <DialogContent className="w-[95vw] max-w-md rounded-2xl p-0 overflow-hidden gap-0">
+                          <div className={`px-5 pt-5 pb-4 border-b border-border/40 ${cfg.isClosed ? 'bg-rose-50/60 dark:bg-rose-500/10' : 'bg-blue-50/60 dark:bg-blue-500/10'}`}>
+                            <DialogTitle className="text-base font-bold leading-tight">Save Range — {format(rangeStart, 'd MMM')} to {format(rangeEnd, 'd MMM yyyy')}</DialogTitle>
+                            <DialogDescription className="text-xs text-muted-foreground mt-1">This will overwrite slot configuration for {n} day{n !== 1 ? 's' : ''}. Review what will be saved.</DialogDescription>
+                          </div>
+                          <div className="px-5 py-4 space-y-3">
+                            <div className={`rounded-xl border p-3 space-y-1.5 ${cfg.isClosed ? 'border-rose-300/60 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10' : 'border-blue-300/40 dark:border-blue-500/20 bg-blue-50/40 dark:bg-blue-500/[0.04]'}`}>
+                              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">What will be saved to each day</p>
+                              {cfg.isClosed ? (
+                                <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" /><p className="text-sm font-semibold text-rose-700 dark:text-rose-400">Day Closed — no bookings accepted</p></div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" /><p className="text-sm font-semibold text-primary">Day Open — bookings accepted</p></div>
+                                  {slotTimings.map(slot => {
+                                    const secCfg = cfg.sections[slot.id] ?? { maxBookings: 3, isCancelled: false };
+                                    return <p key={slot.id} className="text-xs text-muted-foreground pl-4">{secCfg.isCancelled ? `${slot.label}: Closed` : `${slot.label}: up to ${secCfg.maxBookings} slot${secCfg.maxBookings !== 1 ? 's' : ''} (≈${secCfg.maxBookings * 25} min)`}</p>;
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                            <div className="rounded-xl border border-border/40 bg-muted/20 p-3 space-y-2">
+                              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Applies to {n} day{n !== 1 ? 's' : ''}</p>
+                              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                                {rangeDays.map(d => (
+                                  <span key={d.toISOString()} className={`text-xs font-medium border px-2 py-0.5 rounded-full ${d.getDay() === 0 || d.getDay() === 6 ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/25 text-rose-600 dark:text-rose-400' : 'bg-background border-border/60'}`}>{format(d, 'EEE d MMM')}</span>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-2 px-0.5">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                              <p className="text-xs text-muted-foreground">Bookings already confirmed on those dates will <span className="font-semibold">not</span> be cancelled automatically.</p>
+                            </div>
+                          </div>
+                          <div className="px-5 pb-5 flex gap-2.5">
+                            <Button variant="outline" onClick={() => setShowSaveRangeConfirm(false)} className="flex-1" data-testid="button-save-range-cancel">Go Back</Button>
+                            <Button
+                              onClick={() => { setShowSaveRangeConfirm(false); saveDayConfiguration(); }}
+                              disabled={isSavingConfig}
+                              className={`flex-1 border-0 shadow-sm ${cfg.isClosed ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/20' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'}`}
+                              data-testid="button-save-range-confirm"
+                            >
+                              {isSavingConfig ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Saving…</> : `Yes, Save ${n} Day${n !== 1 ? 's' : ''}`}
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    );
+                  })()}
+
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
