@@ -14,6 +14,7 @@ import PharmacyStockPanel from "@/components/PharmacyStockPanel";
 import WebsiteConfigPanel from "@/components/WebsiteConfigPanel";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
+import BookingsPanel from "@/components/BookingsPanel";
 import {
   type BillingService, type BillingDetails, type ClinicInfo,
   generateReceiptPDF, printBillFromRecord, generateConsentPdf,
@@ -246,10 +247,6 @@ export default function ClinicDashboard() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // ──────────────────────────────────────────────────────────────────────────
 
-  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
-  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
-  const [quickFilter, setQuickFilter] = useState<'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week' | 'today-confirmed' | 'pending-7days' | 'all-pending' | 'confirmed-7days'>('today');
-  const bookingsSectionRef = useRef<HTMLDivElement>(null);
   const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
 
   const copyClinicUrl = (type: 'booking' | 'about') => {
