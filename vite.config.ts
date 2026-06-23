@@ -41,19 +41,35 @@ export default defineConfig({
           if (id.includes("node_modules/")) {
             return "vendor";
           }
-          // All custom and UI components live in "clinic-shared" so that the
-          // lazy ClinicDashboard-*.js chunk contains only ClinicDashboard.tsx
-          // itself. With zero co-bundled modules in that chunk, Rollup has
-          // nothing to mis-order and the TDZ cannot occur.
+
+          // ── Definitive TDZ fix ────────────────────────────────────────────
           //
-          // clinic-shared becomes a synchronous dependency of the index chunk
-          // (index already imports shared UI) so it is fetched and initialised
-          // before any page — including the lazy ClinicDashboard — ever runs.
-          if (
-            id.includes("/client/src/components/") &&
-            !id.includes("/node_modules/")
-          ) {
-            return "clinic-shared";
+          // ClinicDashboard is React.lazy(). Its chunk must NOT co-bundle any
+          // other app-source module, because Rollup can mis-order const/let
+          // initialisation when circular chunk refs exist, triggering a
+          // ReferenceError: Cannot access 'X' before initialisation in prod.
+          //
+          // Previous fix only moved /components/ here, leaving hooks, lib,
+          // shared schema, etc. still bundled inside the ClinicDashboard chunk
+          // — those cross-reference components, recreating the circularity.
+          //
+          // Fix: every non-page app-source file (components, hooks, lib,
+          // shared schema, assets helpers) goes into "app-shared".
+          // app-shared is a synchronous dependency of the index entry chunk
+          // (App.tsx imports Header, queryClient, useClinicAuth, etc.), so it
+          // is always fully initialised before any lazy chunk ever executes.
+          // The ClinicDashboard lazy chunk therefore contains ONLY
+          // ClinicDashboard.tsx and has zero modules to mis-order.
+          //
+          // Rule: anything under client/src OR shared/ that is NOT a page file
+          // → app-shared.
+          if (!id.includes("/node_modules/")) {
+            const isAppSource =
+              id.includes("/client/src/") || id.includes("/shared/");
+            const isPageFile = id.includes("/client/src/pages/");
+            if (isAppSource && !isPageFile) {
+              return "app-shared";
+            }
           }
         },
       },
