@@ -41,27 +41,18 @@ export default defineConfig({
           if (id.includes("node_modules/")) {
             return "vendor";
           }
-          // Extract every component that is ONLY imported by the lazy
-          // ClinicDashboard chunk into a named "clinic-shared" chunk.
-          // This makes the lazy ClinicDashboard-*.js file contain only
-          // ClinicDashboard.tsx itself — no inter-component deps remain inside
-          // the chunk, so Rollup cannot produce a TDZ ordering issue there.
+          // All custom and UI components live in "clinic-shared" so that the
+          // lazy ClinicDashboard-*.js chunk contains only ClinicDashboard.tsx
+          // itself. With zero co-bundled modules in that chunk, Rollup has
+          // nothing to mis-order and the TDZ cannot occur.
           //
-          // Components shared with other pages (AppointmentCard, BookingNotesThread,
-          // ClinicalRecordsTab, SpecializationInput, BookingProgressStrip…) are
-          // already placed in the index chunk by Rollup; we do NOT list them here.
-          const CLINIC_ONLY_COMPONENTS = [
-            "/components/ImageUpload",
-            "/components/MapLocationPicker",
-            "/components/ExportDataPanel",
-            "/components/PharmacyStockPanel",
-            "/components/WebsiteConfigPanel",
-            "/components/BillingHistoryPanel",
-            "/components/ClinicAnalyticsPanel",
-            "/components/InventoryPanel",
-            "/components/panels/",
-          ];
-          if (CLINIC_ONLY_COMPONENTS.some((p) => id.includes(p))) {
+          // clinic-shared becomes a synchronous dependency of the index chunk
+          // (index already imports shared UI) so it is fetched and initialised
+          // before any page — including the lazy ClinicDashboard — ever runs.
+          if (
+            id.includes("/client/src/components/") &&
+            !id.includes("/node_modules/")
+          ) {
             return "clinic-shared";
           }
         },
