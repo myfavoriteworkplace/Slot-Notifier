@@ -4,3 +4,4 @@
 - [completeVisitMutation signature](visit-completion-note.md) — ClinicDashboard mutation takes { bookingId, note? }, not bare bookingId; all call sites must use object form.
 - [noBill vs hasUnpaidBill in progress strip](booking-progress-strip.md) — noBill (zero bills) shows green dashed border; hasUnpaidBill (bills exist but unpaid) shows amber. Both derive from totalBillsCount/openBillsCount props; openBillsCount uses paymentStatus !== 'paid' filter.
 - [Notification deep-link pattern](notif-deeplink.md) — 28 triggers need type+bookingId in notifications table; leaves navigate to manage-doctors panel; bookings open card+tab via URL params on dashboard mount.
+- [ClinicDashboard production TDZ fix](clinic-dashboard-tdz.md) — Rollup diamond-dep TDZ on /clinic-dashboard; fix is lazy-load + clinic-shared chunk.

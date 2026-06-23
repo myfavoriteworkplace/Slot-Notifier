@@ -41,6 +41,17 @@ export default defineConfig({
           if (id.includes("node_modules/")) {
             return "vendor";
           }
+          // Break diamond deps inside the lazy ClinicDashboard chunk:
+          // BookingProgressStrip is imported by both ClinicDashboard (direct)
+          // and AppointmentCard; ImageUpload is imported by both ClinicDashboard
+          // (direct) and WebsiteConfigPanel. Putting them in a separate chunk
+          // guarantees they are initialised before the ClinicDashboard chunk runs.
+          if (id.includes("/components/BookingProgressStrip")) {
+            return "clinic-shared";
+          }
+          if (id.includes("/components/ImageUpload")) {
+            return "clinic-shared";
+          }
         },
       },
     },
