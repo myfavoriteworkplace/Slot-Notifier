@@ -436,6 +436,42 @@ const loginRateLimiter = rateLimit({
   message: { message: "Too many login attempts, please try again after 15 minutes" },
 });
 
+// OTP send: max 5 requests per IP per 10 minutes (public endpoint, email cost + abuse risk)
+const otpSendRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many OTP requests. Please wait 10 minutes before trying again." },
+});
+
+// OTP verify: max 10 attempts per IP per 10 minutes (prevents brute-force)
+const otpVerifyRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many verification attempts. Please wait before trying again." },
+});
+
+// Public booking creation: max 20 per IP per hour (prevents spam bookings)
+const bookingCreateRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many booking requests. Please try again later." },
+});
+
+// Consent form sign: max 10 per IP per hour (public endpoint, prevents replay attacks)
+const consentSignRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many consent submissions. Please try again later." },
+});
+
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   const sess = req.session as any;
   if (req.session && (sess.adminLoggedIn || sess.doctorLoggedIn)) {
@@ -1274,7 +1310,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── OTP: send verification code ────────────────────────────────────────────
-  app.post("/api/public/otp/send", async (req, res) => {
+  app.post("/api/public/otp/send", otpSendRateLimiter, async (req, res) => {
     const OTP_SEND_MAX = 3;
     const OTP_SEND_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
     try {
@@ -1368,7 +1404,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── OTP: verify code and return session token ──────────────────────────────
-  app.post("/api/public/otp/verify", async (req, res) => {
+  app.post("/api/public/otp/verify", otpVerifyRateLimiter, async (req, res) => {
     const OTP_MAX_ATTEMPTS = 5;
     const OTP_LOCK_DURATION_MS = 30 * 60 * 1000; // 30 minutes
     try {
@@ -1806,7 +1842,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── PUBLIC BOOKING: clinic-approval path (pending) ─────────────────────────
-  app.post("/api/public/bookings", async (req, res) => {
+  app.post("/api/public/bookings", bookingCreateRateLimiter, async (req, res) => {
     try {
       const { customerName, customerPhone, customerEmail, customerAge, customerGender, clinicId, clinicName, startTime, endTime, description, verifiedToken } = req.body;
 
@@ -4731,7 +4767,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // POST /api/consent/:token/sign — public, patient submits their signature
-  app.post("/api/consent/:token/sign", async (req, res) => {
+  app.post("/api/consent/:token/sign", consentSignRateLimiter, async (req, res) => {
     try {
       const record = await storage.getConsentByToken(req.params.token);
       if (!record) return res.status(404).json({ message: "Invalid or expired consent link" });

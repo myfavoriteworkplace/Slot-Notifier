@@ -2,6 +2,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { registerRoutes } from "./routes";
@@ -16,6 +17,10 @@ const httpServer = createServer(app);
 
 // Trust proxy for deployments behind load balancers (Render, etc.)
 app.set("trust proxy", 1);
+
+// ------------------ COMPRESSION ------------------
+// Gzip all responses > 1 KB — reduces JS/JSON transfer by 60-80%
+app.use(compression());
 
 // Determine frontend URL(s)
 // FRONTEND_URL can be a comma-separated list of allowed origins

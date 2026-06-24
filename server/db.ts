@@ -472,6 +472,19 @@ export async function ensureSessionTable() {
     console.error("[DATABASE] Error ensuring booking_state_log table:", err.message);
   }
 
+  // Core query performance indexes
+  try {
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_bookings_clinic_id    ON bookings (clinic_id);
+      CREATE INDEX IF NOT EXISTS idx_bookings_patient_email ON bookings (patient_email);
+      CREATE INDEX IF NOT EXISTS idx_slots_clinic_id        ON slots (clinic_id);
+      CREATE INDEX IF NOT EXISTS idx_slots_date             ON slots (date);
+    `);
+    console.log("[DATABASE] Core query indexes ready.");
+  } catch (err: any) {
+    console.error("[DATABASE] Error creating core indexes:", err.message);
+  }
+
   // login_events audit table
   try {
     await pool.query(`

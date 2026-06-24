@@ -745,6 +745,196 @@ Add `justify-between` to the gradient row and wrap the title+icon in a `flex ite
 
 ---
 
+## PERFORMANCE & OPTIMISATION STANDARDS
+
+Every new feature — frontend or backend — must be evaluated against this checklist before code is written. These are not aspirational guidelines; they are mandatory gates derived from real production issues in this app.
+
+---
+
+### FRONTEND
+
+#### 1. Never load fonts that aren't used
+
+`client/index.html` loads exactly **three** Google Font families:
+- `DM Sans` — body font everywhere
+- `Outfit` — display headings only (`font-display` class)
+- `Sora` — Smile Deals dark page only
+
+**Rule:** Do not add a new font family to `index.html` unless it is actively applied via a Tailwind utility or CSS rule somewhere in the app. Every unused font is a wasted network request on every page load for every user.
+
+If a new font is genuinely needed for a feature, consolidate all three into the **single** `<link>` tag already present — do not add a fourth `<link>`.
+
+#### 2. New heavy pages must be lazy-loaded
+
+Any new `import` in `App.tsx` for a page that is not shown on the initial landing route must use `React.lazy()`:
+
+```tsx
+// WRONG — loaded in the initial JS bundle even if user never visits
+import NewAdminPanel from "@/pages/NewAdminPanel";
+
+// CORRECT — only downloaded when the user navigates to that route
+const NewAdminPanel = lazy(() => import("@/pages/NewAdminPanel"));
+```
+
+Already lazy: `ClinicDashboard`, `DoctorDashboard`, `Admin`, `Book`, `SmileDeals`.
+Already eager (acceptable — small, shown early): `Landing`, `ClinicLogin`, `ConsentForm`.
+
+#### 3. Gate queries on active panel / auth state
+
+Never fire a `useQuery` unconditionally in a component that mounts at startup.
+
+```tsx
+// WRONG — fires immediately on every page load, even when unauthenticated
+const { data } = useQuery({ queryKey: ['/api/auth/clinic/bookings'] });
+
+// CORRECT — only fires when the clinic is logged in AND the bookings panel is active
+const { data } = useQuery({
+  queryKey: ['/api/auth/clinic/bookings'],
+  enabled: isAuthenticated && activePanel === 'bookings',
+});
+```
+
+**Rule:** Every new `useQuery` added to a dashboard panel must have an `enabled:` guard. At minimum gate on `isAuthenticated`. Prefer also gating on `activePanel === 'panelName'` so data is fetched only when the user actually opens that tab.
+
+#### 4. Do not add memoization without profiling
+
+`useMemo`, `useCallback`, and `React.memo` have a cost — they add complexity and can cause stale-closure bugs. Do not add them speculatively.
+
+**When they are warranted (add a comment explaining why):**
+- A pure computation runs on every render and is measurably slow (e.g. sorting/filtering 500+ records)
+- A callback is passed as a prop to a `React.memo`-wrapped child and identity matters
+- A component re-renders visibly on every keystroke due to a parent state change
+
+**When they are NOT warranted:**
+- The component is small and renders rarely
+- The `staleTime: Infinity` QueryClient config already prevents re-renders from server state
+- The "optimisation" is just cosmetic
+
+#### 5. New images must use WebP and lazy-load
+
+Any image added to `client/src/assets/` or referenced in JSX must:
+1. Be converted to WebP before committing (saves 30–50% vs PNG/JPEG)
+2. Use `loading="lazy"` unless it is above the fold on the landing page
+
+```tsx
+// CORRECT
+<img src={heroImg} alt="Hero" loading="lazy" className="..." />
+
+// WRONG — PNG in assets, no lazy loading
+<img src={clinicImg} alt="Clinic" className="..." />
+```
+
+#### 6. New panel components must pass the import audit
+
+After creating any new panel file under `client/src/components/`, run:
+
+```bash
+python3 script/audit-panel-imports.py
+```
+
+Add the new panel path to the `PANELS` list in that script first. All panels must report `✅ OK` before committing. This prevents the `ReferenceError: X is not defined` production crashes caused by missing imports that Vite's dev server hides.
+
+---
+
+### BACKEND
+
+#### 7. New public endpoints must have a rate limiter
+
+Any `app.post` / `app.get` route that does not require `isAuthenticated` must be protected by a rate limiter. Use the existing pattern:
+
+```ts
+const myEndpointRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,   // time window
+  max: 5,                      // max requests per IP per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many requests. Please try again later." },
+});
+
+app.post("/api/public/my-endpoint", myEndpointRateLimiter, async (req, res) => { ... });
+```
+
+**Existing limits (do not change these values without discussion):**
+
+| Endpoint | Limiter | Window | Max |
+|---|---|---|---|
+| Login (all roles) | `loginRateLimiter` | 15 min | 10 |
+| OTP send | `otpSendRateLimiter` | 10 min | 5 |
+| OTP verify | `otpVerifyRateLimiter` | 10 min | 10 |
+| Public booking create | `bookingCreateRateLimiter` | 60 min | 20 |
+| Consent form sign | `consentSignRateLimiter` | 60 min | 10 |
+
+#### 8. New DB tables must have indexes on foreign keys and filter columns
+
+When adding a new table or column, define `CREATE INDEX IF NOT EXISTS` entries alongside the schema in `server/db.ts`.
+
+**Mandatory indexes for any new table:**
+- Every foreign key column (e.g. `clinic_id`, `booking_id`, `doctor_id`)
+- Any column used in a `WHERE`, `ORDER BY`, or `JOIN` in a frequent query
+- Timestamp columns used for range filters (`created_at`, `date`)
+
+```sql
+-- Example for a new "treatment_plans" table
+CREATE INDEX IF NOT EXISTS idx_treatment_plans_clinic_id ON treatment_plans (clinic_id);
+CREATE INDEX IF NOT EXISTS idx_treatment_plans_patient_email ON treatment_plans (patient_email);
+CREATE INDEX IF NOT EXISTS idx_treatment_plans_created_at ON treatment_plans (created_at DESC);
+```
+
+**Current core indexes (already in place — do not duplicate):**
+
+| Index | Table | Column |
+|---|---|---|
+| `idx_bookings_clinic_id` | bookings | clinic_id |
+| `idx_bookings_patient_email` | bookings | patient_email |
+| `idx_slots_clinic_id` | slots | clinic_id |
+| `idx_slots_date` | slots | date |
+| `IDX_session_expire` | session | expire |
+| `bsl_booking_id_idx` | booking_state_log | booking_id |
+| `login_events_created_at_idx` | login_events | created_at |
+
+#### 9. Never return unbounded query results
+
+Any new API route that fetches a list must have an explicit limit. Without this, a single endpoint can return thousands of rows as data grows.
+
+```ts
+// WRONG
+const bookings = await db.select().from(bookingsTable);
+
+// CORRECT — always limit, paginate, or filter by clinic/date
+const bookings = await db.select().from(bookingsTable)
+  .where(eq(bookingsTable.clinicId, clinicId))
+  .limit(200)
+  .orderBy(desc(bookingsTable.createdAt));
+```
+
+#### 10. Provide the exact SQL for any schema change
+
+The startup schema-sync in `server/db.ts` runs on Replit only — it does **not** run automatically on Render's production PostgreSQL. Every new `ALTER TABLE` or `CREATE TABLE` must be:
+1. Added to `server/db.ts` as a `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` block
+2. Called out explicitly in the task summary with the exact SQL so the developer can run it on the Render production DB manually
+
+---
+
+### PERFORMANCE CHECKLIST — add to your pre-submit review
+
+```
+Frontend
+[ ] No new font family added to index.html unless actively used in CSS/Tailwind
+[ ] New page-level components use React.lazy() in App.tsx
+[ ] Every new useQuery has an `enabled:` guard (at minimum isAuthenticated)
+[ ] No speculative useMemo/useCallback without a documented reason
+[ ] New images are WebP + loading="lazy"
+[ ] Panel import audit passes: python3 script/audit-panel-imports.py
+
+Backend
+[ ] Every new public endpoint has a rate limiter
+[ ] Every new DB table/column has CREATE INDEX IF NOT EXISTS for FK + filter columns
+[ ] No unbounded SELECT — every list query has .limit() or a WHERE clause
+[ ] Schema changes are called out with exact SQL for Render production DB
+```
+
+---
+
 ## PLACEHOLDER CONVENTIONS
 
 ### Visual Style (enforced globally)
