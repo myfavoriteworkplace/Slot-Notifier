@@ -71,6 +71,9 @@ import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingP
 import { AppointmentCard } from "@/components/AppointmentCard";
 import type { PatientBill, Patient } from "@shared/schema";
 
+type QuickFilterType = 'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week' | 'today-confirmed' | 'pending-7days' | 'all-pending' | 'confirmed-7days';
+type ModalTabType = 'overview' | 'clinical' | 'notes' | 'actions' | 'billing';
+
 interface BookingsPanelProps {
   clinic: any;
   isAuthenticated: boolean;
@@ -81,6 +84,17 @@ interface BookingsPanelProps {
   tabBadges: Record<number, string[]>;
   onNavigate: (panel: string) => void;
   onViewPatient: (patientId: number) => void;
+  quickFilter: QuickFilterType;
+  setQuickFilter: (f: QuickFilterType | ((p: QuickFilterType) => QuickFilterType)) => void;
+  filterDate: Date | undefined;
+  setFilterDate: (f: Date | undefined | ((p: Date | undefined) => Date | undefined)) => void;
+  filterEndDate: Date | undefined;
+  setFilterEndDate: (f: Date | undefined | ((p: Date | undefined) => Date | undefined)) => void;
+  bookingsSectionRef: { current: HTMLDivElement | null };
+  openBookingId: number | null;
+  setOpenBookingId: (f: number | null | ((p: number | null) => number | null)) => void;
+  modalTabs: Record<number, ModalTabType>;
+  setModalTabs: (f: Record<number, ModalTabType> | ((p: Record<number, ModalTabType>) => Record<number, ModalTabType>)) => void;
 }
 
 export default function BookingsPanel({
@@ -93,11 +107,18 @@ export default function BookingsPanel({
   tabBadges,
   onNavigate,
   onViewPatient,
+  quickFilter,
+  setQuickFilter,
+  filterDate,
+  setFilterDate,
+  filterEndDate,
+  setFilterEndDate,
+  bookingsSectionRef,
+  openBookingId,
+  setOpenBookingId,
+  modalTabs,
+  setModalTabs,
 }: BookingsPanelProps) {
-  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
-  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
-  const [quickFilter, setQuickFilter] = useState<'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week' | 'today-confirmed' | 'pending-7days' | 'all-pending' | 'confirmed-7days'>('today');
-  const bookingsSectionRef = useRef<HTMLDivElement>(null);
   const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
 
   const copyClinicUrl = (type: 'booking' | 'about') => {
@@ -115,11 +136,9 @@ export default function BookingsPanel({
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonOther, setCancelReasonOther] = useState("");
 
-  const [modalTabs, setModalTabs] = useState<Record<number, 'overview' | 'clinical' | 'notes' | 'actions' | 'billing'>>({});
   const getModalTab = (id: number) => modalTabs[id] ?? 'overview';
   const setModalTab = (id: number, tab: 'overview' | 'clinical' | 'notes' | 'actions' | 'billing') =>
     setModalTabs(prev => ({ ...prev, [id]: tab }));
-  const [openBookingId, setOpenBookingId] = useState<number | null>(null);
 
   const [rescheduleBookingId, setRescheduleBookingId] = useState<number | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState<Date>(startOfToday());
@@ -2617,8 +2636,7 @@ export default function BookingsPanel({
           </div>
         )}
         </div>
+        </div>
           </div>
-          </div>
-        )}
   );
 }
