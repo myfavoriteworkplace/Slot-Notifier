@@ -905,11 +905,9 @@ export default function DoctorDashboard() {
                     <Calendar className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">Today</span>
                   </span>
-                  {todayBookings.length > 0 && (
-                    <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-                      quickFilter === "today" ? "bg-white/25 text-white" : "bg-sky-500/15 text-sky-600"
-                    }`}>{todayBookings.length}</span>
-                  )}
+                  <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "today" ? "bg-white/25 text-white" : "bg-sky-500/15 text-sky-600"
+                  }`}>{todayBookings.length}</span>
                 </button>
 
                 {/* Upcoming */}
@@ -926,11 +924,9 @@ export default function DoctorDashboard() {
                     <TrendingUp className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">Upcoming</span>
                   </span>
-                  {upcomingBookings.length > 0 && (
-                    <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-                      quickFilter === "upcoming" ? "bg-white/25 text-white" : "bg-primary/15 text-primary"
-                    }`}>{upcomingBookings.length}</span>
-                  )}
+                  <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "upcoming" ? "bg-white/25 text-white" : "bg-primary/15 text-primary"
+                  }`}>{upcomingBookings.length}</span>
                 </button>
 
                 {/* Awaiting */}
@@ -947,11 +943,9 @@ export default function DoctorDashboard() {
                     <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">Awaiting</span>
                   </span>
-                  {awaitingBookings.length > 0 && (
-                    <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-                      quickFilter === "awaiting" ? "bg-white/25 text-white" : "bg-amber-500 text-white"
-                    }`}>{awaitingBookings.length}</span>
-                  )}
+                  <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "awaiting" ? "bg-white/25 text-white" : "bg-amber-500 text-white"
+                  }`}>{awaitingBookings.length}</span>
                 </button>
 
                 {/* All Bookings */}

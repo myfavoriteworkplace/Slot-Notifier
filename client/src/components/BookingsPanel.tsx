@@ -154,6 +154,7 @@ export default function BookingsPanel({
   setModalTabs,
 }: BookingsPanelProps) {
   const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const copyClinicUrl = (type: 'booking' | 'about') => {
     if (!clinic?.id) return;
@@ -723,12 +724,12 @@ export default function BookingsPanel({
             </div>
           </div>
         </div>
-        {/* Quick-filter chips */}
-        <div className="grid grid-cols-2 sm:flex sm:flex-row gap-1.5 sm:gap-2">
+        {/* Quick-filter chips + inline search — single unified row */}
+        <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2">
           {/* Today */}
           <button
             onClick={() => setQuickFilter(q => q === 'today' ? 'all' : 'today')}
-            className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2.5 min-h-[44px] rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
               quickFilter === 'today'
                 ? 'bg-sky-500 text-white border-sky-500 shadow-sm shadow-sky-500/20'
                 : 'bg-muted/50 border-border/60 text-foreground hover:border-sky-400/50 hover:text-sky-600'
@@ -739,17 +740,15 @@ export default function BookingsPanel({
               <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">Today</span>
             </span>
-            {todaysBookingsCount > 0 && (
-              <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-                quickFilter === 'today' ? 'bg-white/25 text-white' : 'bg-sky-500/15 text-sky-600'
-              }`}>{todaysBookingsCount}</span>
-            )}
+            <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'today' ? 'bg-white/25 text-white' : 'bg-sky-500/15 text-sky-600'
+            }`}>{todaysBookingsCount}</span>
           </button>
 
           {/* Upcoming */}
           <button
             onClick={() => setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming')}
-            className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2.5 min-h-[44px] rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
               quickFilter === 'upcoming'
                 ? 'bg-primary text-white border-primary shadow-sm shadow-primary/20'
                 : 'bg-muted/50 border-border/60 text-foreground hover:border-primary/50 hover:text-primary'
@@ -760,17 +759,15 @@ export default function BookingsPanel({
               <TrendingUp className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">Upcoming</span>
             </span>
-            {futureBookingsCount > 0 && (
-              <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-                quickFilter === 'upcoming' ? 'bg-white/25 text-white' : 'bg-primary/15 text-primary'
-              }`}>{futureBookingsCount}</span>
-            )}
+            <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'upcoming' ? 'bg-white/25 text-white' : 'bg-primary/15 text-primary'
+            }`}>{futureBookingsCount}</span>
           </button>
 
           {/* Past */}
           <button
             onClick={() => setQuickFilter(q => q === 'past' ? 'all' : 'past')}
-            className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2.5 min-h-[44px] rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
               quickFilter === 'past'
                 ? 'bg-slate-500 text-white border-slate-500 shadow-sm shadow-slate-500/20'
                 : 'bg-muted/50 border-border/60 text-foreground hover:border-slate-400/50 hover:text-slate-600'
@@ -781,17 +778,15 @@ export default function BookingsPanel({
               <History className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">Past</span>
             </span>
-            {pastBookingsCount > 0 && (
-              <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-                quickFilter === 'past' ? 'bg-white/25 text-white' : 'bg-slate-500/15 text-slate-600'
-              }`}>{pastBookingsCount}</span>
-            )}
+            <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'past' ? 'bg-white/25 text-white' : 'bg-slate-500/15 text-slate-600'
+            }`}>{pastBookingsCount}</span>
           </button>
 
           {/* All Bookings */}
           <button
             onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); }}
-            className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2.5 min-h-[44px] rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
               quickFilter === 'all' && !filterDate
                 ? 'bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-500/20'
                 : 'bg-muted/50 border-border/60 text-foreground hover:border-violet-400/50 hover:text-violet-600'
@@ -806,150 +801,165 @@ export default function BookingsPanel({
               quickFilter === 'all' && !filterDate ? 'bg-white/25 text-white' : 'bg-violet-500/15 text-violet-600'
             }`}>{bookings?.length || 0}</span>
           </button>
-        </div>
 
-        {/* Patient search bar */}
-        <div className="relative">
-          {activePatientFilter ? (
-            /* Active filter chip — shows selected patient, click × to clear */
-            <div className="flex items-center gap-2.5 bg-card border border-primary/40 rounded-xl px-3 py-2 shadow-sm ring-1 ring-primary/10">
-              <div className="h-6 w-6 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                <User className="h-3 w-3 text-primary" />
-              </div>
-              <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                <span className="text-xs font-semibold text-foreground truncate">{activePatientFilter.name}</span>
-                {activePatientFilter.patientCode && (
-                  <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1.5 py-0.5 rounded-md shrink-0">
-                    {activePatientFilter.patientCode}
+          {/* Search slot — magnifier, expanded input, or active-patient chip */}
+          <div className="relative w-full sm:flex-1">
+            {activePatientFilter ? (
+              /* Active patient filter chip */
+              <div className="flex items-center gap-2.5 bg-card border border-primary/40 rounded-xl px-3 min-h-[44px] shadow-sm ring-1 ring-primary/10">
+                <div className="h-6 w-6 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                  <User className="h-3 w-3 text-primary" />
+                </div>
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <span className="text-xs font-semibold text-foreground truncate">{activePatientFilter.name}</span>
+                  {activePatientFilter.patientCode && (
+                    <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1.5 py-0.5 rounded-md shrink-0">
+                      {activePatientFilter.patientCode}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground/70 shrink-0">
+                    · {filteredBookings?.length ?? 0} booking{(filteredBookings?.length ?? 0) !== 1 ? "s" : ""}
                   </span>
-                )}
-                <span className="text-xs text-muted-foreground/70 shrink-0">
-                  · {filteredBookings?.length ?? 0} booking{(filteredBookings?.length ?? 0) !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <button
-                onClick={clearBookingPatientFilter}
-                className="h-9 w-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 active:scale-[0.97]"
-                data-testid="button-clear-patient-filter"
-                title="Clear patient filter"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ) : (
-            /* Search input */
-            <div className={`flex items-center gap-2.5 bg-card border rounded-xl px-3 py-2 shadow-sm transition-all duration-150 ${
-              patientSearchFocused
-                ? 'border-primary/50 ring-1 ring-primary/20 shadow-md'
-                : 'border-border/50 hover:border-border'
-            }`}>
-              {bookingPatientResultsLoading
-                ? <Loader2 className="h-3.5 w-3.5 text-primary shrink-0 animate-spin" />
-                : <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              }
-              <input
-                ref={patientSearchInputRef}
-                type="text"
-                value={bookingPatientSearch}
-                onChange={e => handleBookingPatientSearchInput(e.target.value)}
-                onFocus={() => setPatientSearchFocused(true)}
-                onBlur={() => setTimeout(() => { setPatientSearchFocused(false); setPatientSearchHighlightIdx(-1); }, 160)}
-                onKeyDown={e => {
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    setPatientSearchHighlightIdx(i => Math.min(i + 1, bookingPatientResults.length - 1));
-                  } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    setPatientSearchHighlightIdx(i => Math.max(i - 1, -1));
-                  } else if (e.key === 'Enter' && patientSearchHighlightIdx >= 0 && bookingPatientResults[patientSearchHighlightIdx]) {
-                    e.preventDefault();
-                    applyBookingPatientFilter(bookingPatientResults[patientSearchHighlightIdx]);
-                  } else if (e.key === 'Escape') {
-                    setBookingPatientSearch("");
-                    setBookingPatientResults([]);
-                    setPatientSearchFocused(false);
-                    patientSearchInputRef.current?.blur();
-                  }
-                }}
-                placeholder="Search patient — name, PAT code, phone or email…"
-                className="flex-1 min-w-0 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/55 outline-none border-none focus:ring-0 h-5 leading-none"
-                data-testid="input-booking-patient-search"
-                autoComplete="off"
-                spellCheck={false}
-              />
-              {bookingPatientSearch && (
+                </div>
                 <button
-                  onMouseDown={e => { e.preventDefault(); setBookingPatientSearch(""); setBookingPatientResults([]); }}
-                  className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                  onClick={clearBookingPatientFilter}
+                  className="h-9 w-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 active:scale-[0.97]"
+                  data-testid="button-clear-patient-filter"
+                  title="Clear patient filter"
                 >
                   <X className="h-3 w-3" />
                 </button>
-              )}
-            </div>
-          )}
+              </div>
+            ) : searchOpen ? (
+              /* Expanded search input */
+              <div className={`flex items-center gap-2.5 bg-card border rounded-xl px-3 min-h-[44px] shadow-sm transition-all duration-150 ${
+                patientSearchFocused
+                  ? 'border-primary/50 ring-1 ring-primary/20 shadow-md'
+                  : 'border-border/50 hover:border-border'
+              }`}>
+                {bookingPatientResultsLoading
+                  ? <Loader2 className="h-3.5 w-3.5 text-primary shrink-0 animate-spin" />
+                  : <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                }
+                <input
+                  ref={patientSearchInputRef}
+                  type="text"
+                  value={bookingPatientSearch}
+                  onChange={e => handleBookingPatientSearchInput(e.target.value)}
+                  onFocus={() => setPatientSearchFocused(true)}
+                  onBlur={() => setTimeout(() => { setPatientSearchFocused(false); setPatientSearchHighlightIdx(-1); }, 160)}
+                  onKeyDown={e => {
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setPatientSearchHighlightIdx(i => Math.min(i + 1, bookingPatientResults.length - 1));
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setPatientSearchHighlightIdx(i => Math.max(i - 1, -1));
+                    } else if (e.key === 'Enter' && patientSearchHighlightIdx >= 0 && bookingPatientResults[patientSearchHighlightIdx]) {
+                      e.preventDefault();
+                      applyBookingPatientFilter(bookingPatientResults[patientSearchHighlightIdx]);
+                    } else if (e.key === 'Escape') {
+                      setBookingPatientSearch("");
+                      setBookingPatientResults([]);
+                      setPatientSearchFocused(false);
+                      setSearchOpen(false);
+                      patientSearchInputRef.current?.blur();
+                    }
+                  }}
+                  placeholder="Search patient — name, PAT code, phone or email…"
+                  className="flex-1 min-w-0 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/55 outline-none border-none focus:ring-0 h-5 leading-none"
+                  data-testid="input-booking-patient-search"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <button
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    setBookingPatientSearch("");
+                    setBookingPatientResults([]);
+                    setSearchOpen(false);
+                  }}
+                  className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                  title="Close search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              /* Collapsed — magnifier icon button */
+              <button
+                onClick={() => { setSearchOpen(true); setTimeout(() => patientSearchInputRef.current?.focus(), 50); }}
+                className="h-11 w-11 rounded-xl border bg-muted/50 border-border/60 flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97]"
+                data-testid="button-open-patient-search"
+                title="Search patient"
+              >
+                <Search className="h-4 w-4 text-muted-foreground" />
+              </button>
+            )}
 
-          {/* Dropdown results */}
-          {patientSearchFocused && !activePatientFilter && (
-            <>
-              {bookingPatientResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border/70 rounded-xl shadow-2xl overflow-hidden">
-                  {bookingPatientResults.map((p, i) => (
-                    <button
-                      key={p.id}
-                      onMouseDown={e => { e.preventDefault(); applyBookingPatientFilter(p); }}
-                      onMouseEnter={() => setPatientSearchHighlightIdx(i)}
-                      className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors border-b border-border/30 last:border-0 ${
-                        i === patientSearchHighlightIdx ? 'bg-primary/10' : 'hover:bg-muted/60'
-                      }`}
-                      data-testid={`result-patient-${p.id}`}
-                    >
-                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 font-bold text-xs text-primary">
-                        {p.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-semibold text-foreground">{p.name}</span>
-                          {p.patientCode && (
-                            <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1 py-0.5 rounded-md leading-none">
-                              {p.patientCode}
-                            </span>
-                          )}
+            {/* Dropdown results */}
+            {patientSearchFocused && !activePatientFilter && (
+              <>
+                {bookingPatientResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border/70 rounded-xl shadow-2xl overflow-hidden">
+                    {bookingPatientResults.map((p, i) => (
+                      <button
+                        key={p.id}
+                        onMouseDown={e => { e.preventDefault(); applyBookingPatientFilter(p); }}
+                        onMouseEnter={() => setPatientSearchHighlightIdx(i)}
+                        className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors border-b border-border/30 last:border-0 ${
+                          i === patientSearchHighlightIdx ? 'bg-primary/10' : 'hover:bg-muted/60'
+                        }`}
+                        data-testid={`result-patient-${p.id}`}
+                      >
+                        <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 font-bold text-xs text-primary">
+                          {p.name.charAt(0).toUpperCase()}
                         </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {p.phone && (
-                            <span className="text-xs text-muted-foreground">
-                              ••••• {p.phone.slice(-4)}
-                            </span>
-                          )}
-                          {p.phone && p.email && <span className="text-muted-foreground/30">·</span>}
-                          {p.email && (
-                            <span className="text-xs text-muted-foreground truncate max-w-[160px]">{p.email}</span>
-                          )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-semibold text-foreground">{p.name}</span>
+                            {p.patientCode && (
+                              <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1 py-0.5 rounded-md leading-none">
+                                {p.patientCode}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {p.phone && (
+                              <span className="text-xs text-muted-foreground">
+                                ••••• {p.phone.slice(-4)}
+                              </span>
+                            )}
+                            {p.phone && p.email && <span className="text-muted-foreground/30">·</span>}
+                            {p.email && (
+                              <span className="text-xs text-muted-foreground truncate max-w-[160px]">{p.email}</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      {(p.visitCount ?? 0) > 0 && (
-                        <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0 tabular-nums">
-                          {p.visitCount}v
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {bookingPatientSearch.length >= 2 && !bookingPatientResultsLoading && bookingPatientResults.length === 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border/70 rounded-xl shadow-2xl px-4 py-3.5 text-center">
-                  <p className="text-xs text-muted-foreground">
-                    No patients found for{" "}
-                    <span className="font-semibold text-foreground">"{bookingPatientSearch}"</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground/60 mt-0.5">Try a different name, phone, email or PAT code</p>
-                </div>
-              )}
-            </>
-          )}
+                        {(p.visitCount ?? 0) > 0 && (
+                          <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0 tabular-nums">
+                            {p.visitCount}v
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {bookingPatientSearch.length >= 2 && !bookingPatientResultsLoading && bookingPatientResults.length === 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border/70 rounded-xl shadow-2xl px-4 py-3.5 text-center">
+                    <p className="text-xs text-muted-foreground">
+                      No patients found for{" "}
+                      <span className="font-semibold text-foreground">"{bookingPatientSearch}"</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">Try a different name, phone, email or PAT code</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Compact single-line date range filter */}
+                {/* Compact single-line date range filter */}
         <div className="flex items-center gap-2 bg-card border border-border/50 rounded-xl px-3 py-2 shadow-sm">
           <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <span className="hidden sm:inline text-xs font-medium text-muted-foreground shrink-0">Date range:</span>
