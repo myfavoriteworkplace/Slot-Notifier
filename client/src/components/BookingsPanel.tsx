@@ -180,6 +180,7 @@ export default function BookingsPanel({
   const [rescheduleDate, setRescheduleDate] = useState<Date>(startOfToday());
   const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
   const [consentUrls, setConsentUrls] = useState<Record<number, string>>({});
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
   const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
 
   const [bookingPatientSearch, setBookingPatientSearch] = useState("");
@@ -1324,16 +1325,23 @@ export default function BookingsPanel({
                 const groupCfg = groupConfig[Math.max(0, group)];
                 return [
                   showDivider ? (
-                    <div key={`divider-group-${group}`} className="col-span-full flex items-center gap-3 mt-2 mb-1">
+                    <div key={`divider-group-${group}`} className="col-span-full flex items-center gap-2 mt-2 mb-1">
                       <div className="h-px flex-1 bg-border/50" />
                       <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${groupCfg.textColor} ${groupCfg.bg} ${groupCfg.border}`}>
                         {groupCfg.label}
                         <span className="font-black opacity-70">— {filteredBookings?.filter(b => getStatusGroup(b) === group).length ?? 0}</span>
                       </span>
                       <div className="h-px flex-1 bg-border/50" />
+                      <button
+                        onClick={() => setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }))}
+                        aria-label={collapsedGroups[group] ? `Expand ${groupCfg.label}` : `Collapse ${groupCfg.label}`}
+                        className={`h-11 w-11 flex items-center justify-center rounded-xl border border-border/50 bg-background hover:bg-muted/60 active:bg-muted/80 active:scale-[0.95] transition-all shrink-0`}
+                      >
+                        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${collapsedGroups[group] ? 'rotate-180' : ''}`} />
+                      </button>
                     </div>
                   ) : null,
-                  (
+                  collapsedGroups[group] ? null : (
                 <Dialog
                   key={booking.id}
                   open={openBookingId === booking.id}
