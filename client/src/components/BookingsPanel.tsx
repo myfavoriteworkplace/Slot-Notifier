@@ -730,7 +730,7 @@ export default function BookingsPanel({
         <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2">
           {/* Today */}
           <button
-            onClick={() => setQuickFilter(q => q === 'today' ? 'all' : 'today')}
+            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'today' ? 'all' : 'today'); }}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2.5 min-h-[44px] rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
               quickFilter === 'today'
                 ? 'bg-sky-500 text-white border-sky-500 shadow-sm shadow-sky-500/20'
@@ -749,7 +749,7 @@ export default function BookingsPanel({
 
           {/* Upcoming */}
           <button
-            onClick={() => setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming')}
+            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming'); }}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2.5 min-h-[44px] rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
               quickFilter === 'upcoming'
                 ? 'bg-primary text-white border-primary shadow-sm shadow-primary/20'
@@ -768,7 +768,7 @@ export default function BookingsPanel({
 
           {/* Past */}
           <button
-            onClick={() => setQuickFilter(q => q === 'past' ? 'all' : 'past')}
+            onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'past' ? 'all' : 'past'); }}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2.5 min-h-[44px] rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
               quickFilter === 'past'
                 ? 'bg-slate-500 text-white border-slate-500 shadow-sm shadow-slate-500/20'
@@ -789,7 +789,7 @@ export default function BookingsPanel({
           <button
             onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); }}
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2.5 min-h-[44px] rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
-              quickFilter === 'all' && !filterDate
+              quickFilter === 'all'
                 ? 'bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-500/20'
                 : 'bg-muted/50 border-border/60 text-foreground hover:border-violet-400/50 hover:text-violet-600'
             }`}
@@ -800,7 +800,7 @@ export default function BookingsPanel({
               <span className="truncate">All Bookings</span>
             </span>
             <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'all' && !filterDate ? 'bg-white/25 text-white' : 'bg-violet-500/15 text-violet-600'
+              quickFilter === 'all' ? 'bg-white/25 text-white' : 'bg-violet-500/15 text-violet-600'
             }`}>{bookings?.length || 0}</span>
           </button>
 
@@ -997,7 +997,7 @@ export default function BookingsPanel({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                <Calendar mode="single" selected={filterDate} onSelect={setFilterDate} initialFocus />
+                <Calendar mode="single" selected={filterDate} onSelect={(d) => { setQuickFilter('all'); setFilterDate(d); }} initialFocus />
               </PopoverContent>
             </Popover>
 
@@ -1020,23 +1020,21 @@ export default function BookingsPanel({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                <Calendar mode="single" selected={filterEndDate} onSelect={setFilterEndDate} initialFocus />
+                <Calendar mode="single" selected={filterEndDate} onSelect={(d) => { setQuickFilter('all'); setFilterEndDate(d); }} initialFocus />
               </PopoverContent>
             </Popover>
 
-            {(filterDate || filterEndDate) && (
-              <>
-                <div className="w-px h-4 bg-border/50 mx-0.5 shrink-0" />
-                <button
-                  onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); }}
-                  className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
-                  data-testid="button-clear-date-filter"
-                >
-                  <X className="h-3 w-3" />
-                  Clear
-                </button>
-              </>
-            )}
+            <div className={`flex items-center gap-1.5 transition-all ${filterDate || filterEndDate ? 'visible' : 'invisible pointer-events-none'}`}>
+              <div className="w-px h-4 bg-border/50 shrink-0" />
+              <button
+                onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); }}
+                className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
+                data-testid="button-clear-date-filter"
+              >
+                <X className="h-3 w-3" />
+                Clear
+              </button>
+            </div>
 
             {/* Divider before week chips */}
             <div className="w-px h-4 bg-border/40 mx-0.5 shrink-0" />
@@ -1046,7 +1044,7 @@ export default function BookingsPanel({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week')}
+                    onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week'); }}
                     data-testid="chip-filter-this-week"
                     className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
                       quickFilter === 'this-week'
@@ -1071,7 +1069,7 @@ export default function BookingsPanel({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week')}
+                    onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week'); }}
                     data-testid="chip-filter-next-week"
                     className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
                       quickFilter === 'next-week'
@@ -1092,14 +1090,16 @@ export default function BookingsPanel({
               </Tooltip>
             </TooltipProvider>
 
-            {(quickFilter === 'this-week' || quickFilter === 'next-week') && (
+            <div className={`transition-all ${quickFilter === 'this-week' || quickFilter === 'next-week' ? 'visible' : 'invisible pointer-events-none'}`}>
               <button
                 onClick={() => setQuickFilter('all')}
-                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
+                data-testid="button-clear-week-filter"
               >
+                <X className="h-3 w-3" />
                 Clear
               </button>
-            )}
+            </div>
 
             {/* Close button — pinned to the right */}
             <button
