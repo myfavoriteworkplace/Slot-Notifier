@@ -124,7 +124,7 @@ function BookingCardSkeleton() {
 
 function ClinicDashboardSkeleton() {
   return (
-    <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-0">
+    <div className="max-w-7xl mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-6 lg:pb-0">
       {/* Header skeleton — mirrors dark gradient hero */}
       <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
@@ -262,6 +262,7 @@ export default function ClinicDashboard() {
     notify.success("Copied to clipboard");
     setTimeout(() => setCopiedUrlType(null), 2000);
   };
+  const [heroStatsCollapsed, setHeroStatsCollapsed] = useState(false);
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonOther, setCancelReasonOther] = useState("");
@@ -953,7 +954,7 @@ export default function ClinicDashboard() {
   }).length ?? 0;
 
   return (
-    <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-0">
+    <div className="max-w-7xl mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-6 lg:pb-0">
 
       {/* Subscription payment pending banner */}
       {(clinic as any)?.subscriptionStatus === "pending_payment" && (
@@ -1065,21 +1066,22 @@ export default function ClinicDashboard() {
               </div>
             </div>
 
-            {/* Sign Out — desktop only. On mobile it lives in the More drawer. */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="hidden sm:inline-flex shrink-0 min-h-[44px] px-3 text-white/70 hover:text-white hover:bg-white/15 active:bg-white/25 active:scale-[0.97] border border-white/20 gap-2 text-xs transition-all"
-              data-testid="button-sign-out"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span className="font-semibold">Sign Out</span>
-            </Button>
           </div>
 
           {/* ── Live stats row ── */}
-          <div className="relative mt-5 pt-4 border-t border-white/[0.10] grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="relative mt-5">
+            <div className="flex items-center gap-2 pt-4">
+              <div className="flex-1 h-px bg-white/10" />
+              <button
+                onClick={() => setHeroStatsCollapsed(s => !s)}
+                className="h-7 w-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white/80 hover:bg-white/10 active:bg-white/15 transition-all active:scale-[0.97] shrink-0 motion-reduce:transition-none"
+                title={heroStatsCollapsed ? "Show stats" : "Hide stats"}
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${heroStatsCollapsed ? '' : 'rotate-180'}`} />
+              </button>
+            </div>
+            {!heroStatsCollapsed && (
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
               { label: "Confirmed Bookings Today",            shortLabel: "Confirmed Today",       subTag: null,          filter: 'today-confirmed' as const,  tooltip: "Appointments scheduled for today that have been confirmed by the clinic.",                                             value: todayConfirmedCount, Icon: CalendarIcon, text: "text-sky-300",      bg: "bg-sky-400/10",     border: "border-sky-400/20" },
               { label: "Confirmed Bookings (Next 7 Days)",    shortLabel: "Confirmed Bookings",    subTag: "Next 7 Days", filter: 'confirmed-7days' as const,  tooltip: "Confirmed appointments scheduled within the next 7 days. These are locked in.",                                        value: confirmedNext7Count, Icon: CheckCircle2, text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
@@ -1121,6 +1123,8 @@ export default function ClinicDashboard() {
                 </Tooltip>
               </TooltipProvider>
             ))}
+            </div>
+            )}
           </div>
         </div>
 
@@ -1132,7 +1136,7 @@ export default function ClinicDashboard() {
       <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
 
         {/* ===== LEFT SIDEBAR NAV ===== */}
-        <div className="hidden lg:block lg:w-56 shrink-0">
+        <div className="hidden lg:block lg:w-60 shrink-0">
           <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
             <div className="p-2 space-y-0.5">
 
