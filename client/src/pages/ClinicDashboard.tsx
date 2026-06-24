@@ -1002,13 +1002,21 @@ export default function ClinicDashboard() {
           {/* Radial highlight */}
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.07)_0%,transparent_60%)] pointer-events-none" />
 
-          <div className="relative flex items-start justify-between gap-4">
+          {/*
+           * Mobile: column, centred — avatar stacks above title, no side compression.
+           * Desktop (sm+): row, space-between — avatar left, sign-out right.
+           */}
+          <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
 
-            {/* Left: avatar + identity */}
-            <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+            {/* Identity block */}
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-5 min-w-0 w-full sm:w-auto">
 
-              {/* Logo with glow ring */}
-              <div className="shrink-0 relative mt-1">
+              {/*
+               * Logo with glow ring.
+               * pointer-events-none on mobile prevents accidental upload triggers
+               * when the user taps the hero card. Editable only on sm+ screens.
+               */}
+              <div className="shrink-0 relative sm:mt-1 pointer-events-none sm:pointer-events-auto">
                 <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-accent/35 via-primary/20 to-transparent blur-md pointer-events-none" />
                 <div className="relative ring-2 ring-white/25 rounded-2xl">
                   <ImageUpload
@@ -1022,10 +1030,10 @@ export default function ClinicDashboard() {
                 </div>
               </div>
 
-              {/* Name + status badges */}
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg sm:text-3xl font-extrabold text-white tracking-tight truncate">
+              {/* Name + status badges — centred on mobile, left-aligned on sm+ */}
+              <div className="min-w-0 text-center sm:text-left">
+                <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                  <h1 className="text-xl sm:text-3xl font-extrabold text-white tracking-tight truncate">
                     {clinic?.name}
                   </h1>
                   {clinic?.id && clinic.id >= 999 && (
@@ -1036,10 +1044,11 @@ export default function ClinicDashboard() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                <div className="flex items-center justify-center sm:justify-start gap-2 mt-2.5 flex-wrap">
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/80 bg-white/10 border border-white/20 px-2.5 py-1 rounded-full">
                     <Building2 className="h-3 w-3" />
-                    <span className="sm:hidden">Admin</span>
+                    {/* Shorter label on mobile to save space */}
+                    <span className="sm:hidden">Clinic Admin</span>
                     <span className="hidden sm:inline">Clinic Administration</span>
                   </span>
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-2.5 py-1 rounded-full">
@@ -1057,16 +1066,16 @@ export default function ClinicDashboard() {
               </div>
             </div>
 
-            {/* Sign out */}
+            {/* Sign Out — desktop only. On mobile it lives in the More drawer. */}
             <Button
               variant="ghost"
               size="sm"
               onClick={handleLogout}
-              className="shrink-0 min-h-[44px] px-3 text-white/70 hover:text-white hover:bg-white/15 active:bg-white/25 active:scale-[0.97] border border-white/20 gap-2 text-xs transition-all"
+              className="hidden sm:inline-flex shrink-0 min-h-[44px] px-3 text-white/70 hover:text-white hover:bg-white/15 active:bg-white/25 active:scale-[0.97] border border-white/20 gap-2 text-xs transition-all"
               data-testid="button-sign-out"
             >
               <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline font-semibold">Sign Out</span>
+              <span className="font-semibold">Sign Out</span>
             </Button>
           </div>
 
@@ -1859,7 +1868,7 @@ export default function ClinicDashboard() {
           <SheetHeader className="mb-4">
             <SheetTitle>More</SheetTitle>
           </SheetHeader>
-          <div className="grid grid-cols-2 gap-2 pb-6">
+          <div className="grid grid-cols-2 gap-2">
             {([
               { key: 'clinic-profile' as const, label: 'Clinic Profile', desc: 'Edit public about page',   Icon: Building2,   cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
               { key: 'book-a-slot'    as const, label: 'Book a Slot',    desc: 'New patient appointment',  Icon: Plus,        cls: 'bg-primary/10 border-primary/20 text-primary' },
@@ -1887,6 +1896,27 @@ export default function ClinicDashboard() {
                 </div>
               </button>
             ))}
+          </div>
+
+          {/* Sign Out — lives here on mobile; hidden from the green hero on small screens */}
+          <div className="mt-3 pt-3 border-t border-border/50 pb-4">
+            <button
+              onClick={() => { setClinicMoreDrawerOpen(false); handleLogout(); }}
+              disabled={isLoggingOut}
+              className="flex items-center gap-3 px-3 py-3 rounded-2xl border border-rose-200/60 dark:border-rose-900/40 bg-rose-50/60 dark:bg-rose-950/20 w-full text-left hover:bg-rose-100/60 dark:hover:bg-rose-950/40 transition-colors active:scale-[0.98] disabled:opacity-60"
+              data-testid="drawer-sign-out"
+            >
+              <div className="h-8 w-8 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-100 dark:bg-rose-950/40 flex items-center justify-center shrink-0 text-rose-500">
+                {isLoggingOut
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <LogOut className="h-4 w-4" />
+                }
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-sm leading-tight text-rose-600 dark:text-rose-400">Sign Out</p>
+                <p className="text-xs text-muted-foreground truncate">Exit clinic dashboard</p>
+              </div>
+            </button>
           </div>
         </SheetContent>
       </Sheet>
