@@ -11,7 +11,7 @@ import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import {
   SlotTiming, BookingWithSlot,
   OVERVIEW_VISIT_TYPE_LABELS, OVERVIEW_CLINICAL_STATUS,
-  DEFAULT_SECTION_CAPACITY,
+  DEFAULT_SECTION_CAPACITY, CHIEF_COMPLAINTS,
   getRecommendedSpecialists,
 } from "@/lib/clinic-constants";
 import {
