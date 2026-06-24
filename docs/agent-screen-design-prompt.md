@@ -693,6 +693,202 @@ Add `justify-between` to the gradient row and wrap the title+icon in a `flex ite
 
 ---
 
+## CODE QUALITY & READABILITY STANDARDS
+
+Write every line of code as if you are a senior developer handing it over to another human engineer — not as a machine generating output. The goal is code that is easy to read, easy to debug, and easy to extend without side-effects.
+
+This section is non-negotiable on all new files and all significant edits to existing files.
+
+---
+
+### 1. Naming Conventions
+
+Use names that describe *what something is or does*, not how it is implemented.
+
+| Construct | Convention | Example |
+|---|---|---|
+| React component | `PascalCase` | `BookingCard`, `PatientDirectoryPanel` |
+| Custom hook | `useXxx` | `useClinicAuth`, `useBookingStatus` |
+| Event handler | `handleXxx` | `handleSave`, `handleCancelBooking` |
+| Boolean state/prop | `isXxx` / `hasXxx` / `canXxx` | `isLoading`, `hasUnpaidBill`, `canEdit` |
+| TanStack query key | Exact API path string | `['/api/auth/clinic/bookings']` |
+| Magic number | Named constant at file top | `const MAX_VISIBLE_COMPLAINTS = 4` |
+| Loop variable | Descriptive, never single-letter | `(booking, idx)` not `(b, i)` |
+
+**Never abbreviate** variable names to save typing. `pat` is not `patient`. `bk` is not `booking`. The next developer — and the next agent — will not share your abbreviation context.
+
+---
+
+### 2. Maintainable Structure — Backend
+
+The backend follows a strict three-layer pattern. Understand it before adding any new feature:
+
+```
+Request → routes.ts (thin: validate + call storage) → storage.ts (fat: all DB logic) → DB
+```
+
+**Rules:**
+- Route handlers do three things only: authenticate, validate the request body with Zod, call storage, return the result.
+- All database queries live in `server/storage.ts`. Never write a `db.select(...)` directly inside a route handler.
+- `IStorage` in `server/storage.ts` is the single source of truth for all data operations — update it first when adding a new feature.
+
+```ts
+// WRONG — business logic inside the route handler
+app.post('/api/auth/clinic/bookings', isClinicAuthenticated, async (req, res) => {
+  const booking = await db.select().from(bookingsTable).where(...);
+  const updated = { ...booking, status: 'confirmed' };
+  await db.update(bookingsTable).set(updated).where(...);
+  res.json(updated);
+});
+
+// CORRECT — route is thin; logic lives in storage
+app.post('/api/auth/clinic/bookings/:id/confirm', isClinicAuthenticated, async (req, res) => {
+  const booking = await storage.confirmBooking(req.params.id, req.clinic.id);
+  res.json(booking);
+});
+```
+
+---
+
+### 3. Maintainable Structure — Frontend
+
+- **Extract components** when a JSX block exceeds ~60 lines or is used in two or more places.
+- **Panel components** go in `client/src/components/` — one file per panel, named `XxxPanel.tsx`.
+- **`App.tsx` is a router only.** No business logic, no data fetching, no conditional rendering beyond route guards.
+- **`useMutation` handlers** live in the component that owns the action. Never pass mutation functions as props through more than one level.
+- **State that only one component needs** stays local (`useState`). Never lift state to a parent just because it *might* be shared someday.
+
+---
+
+### 4. Debug-Friendly Code
+
+**Avoid nested ternaries.** If you need more than one level, extract to a named variable or early return.
+
+```tsx
+// WRONG — two levels of nesting, impossible to trace in a debugger
+const label = isConfirmed ? 'Confirmed' : isCancelled ? 'Cancelled' : 'Pending';
+
+// CORRECT — linear, readable, debuggable
+let label = 'Pending';
+if (isConfirmed) label = 'Confirmed';
+if (isCancelled) label = 'Cancelled';
+```
+
+**No boolean contortions.** Extract complex boolean expressions to a named constant with a clear name.
+
+```tsx
+// WRONG
+if (!!(booking?.verificationStatus === 'confirmed' && booking?.visitStatus !== 'completed')) { ... }
+
+// CORRECT
+const isActiveConfirmedBooking =
+  booking?.verificationStatus === 'confirmed' &&
+  booking?.visitStatus !== 'completed';
+if (isActiveConfirmedBooking) { ... }
+```
+
+**Explicit error responses on the backend.** Never send a bare status code — always include `{ message: "..." }` so the frontend and developer can understand what went wrong.
+
+```ts
+// WRONG
+res.status(400).end();
+
+// CORRECT
+res.status(400).json({ message: "Slot is already fully booked." });
+```
+
+**Console logs use `[TAG]` prefixes.** Every `console.log` / `console.error` in server code must use the tag pattern already established in this codebase:
+
+```ts
+console.log("[WHATSAPP] Sending message to", phone);
+console.error("[R2] Upload failed:", error.message);
+```
+
+---
+
+### 5. Inline Comments — Explain Intent, Not Mechanics
+
+A comment should explain *why* a decision was made, not re-state what the code already shows.
+
+```ts
+// WRONG — restates the obvious
+// loop through bookings
+for (const booking of bookings) { ... }
+
+// CORRECT — explains the non-obvious reason
+// Backend returns all statuses; we filter cancelled ones client-side
+// because the count badge on the tab must include them
+const visibleBookings = bookings.filter(b => b.verificationStatus !== 'cancelled');
+```
+
+**Add a comment whenever:**
+- You're working around a known quirk or constraint (e.g. a missing DB column, a Render limitation)
+- A state machine transition is non-obvious (booking status, visit status)
+- You're intentionally NOT doing something a reader would expect (e.g. not invalidating a cache key)
+- Dual-auth diverges — mark which branch is OIDC and which is email/password:
+  ```ts
+  // OIDC path (Replit) — user is already hydrated by passport
+  // Email/password path (local + Render) — must look up by ADMIN_EMAIL
+  ```
+
+---
+
+### 6. TypeScript Discipline
+
+- **Never use `any`.** If you genuinely cannot type something, use `unknown` and narrow it. If `any` is truly unavoidable, add a comment explaining why.
+- **Never use `@ts-ignore`.** Fix the type, don't suppress the error.
+- **Zod for all request bodies.** Every `POST`/`PATCH` route handler must parse `req.body` through a Zod schema before passing it to storage.
+- **No implicit `undefined` access.** Use optional chaining (`?.`) and nullish coalescing (`??`) — never assume a field exists on data returned from the API.
+
+---
+
+### 7. Linting
+
+This project uses **ESLint with `eslint-plugin-security`**. There is no Prettier config — formatting is enforced by matching the surrounding file's style.
+
+**Before finishing any backend change:**
+- Fix all `error`-level ESLint issues (`npx eslint server/`)
+- Treat `warn`-level security findings as blockers unless you can justify the exception in a comment
+
+**Formatting convention (match what already exists in each file):**
+- 2-space indent
+- Single quotes for TypeScript strings; double quotes inside JSX attribute values
+- No trailing commas in function parameter lists
+- Semicolons always present — never omit
+
+---
+
+### 8. The Three-Environment Rule (mandatory reminder)
+
+Every piece of code you write must work in all three environments:
+
+| Environment | Auth | API calls |
+|---|---|---|
+| Replit (AI dev only) | Replit OIDC | Same-origin `/api/...` via Vite proxy |
+| Local machine | `ADMIN_EMAIL` + `ADMIN_PASSWORD` | `VITE_API_URL` env var |
+| Render (production) | `ADMIN_EMAIL` + `ADMIN_PASSWORD` | Cross-origin via `VITE_API_URL` |
+
+Never add a Replit-only code path. Never hardcode `localhost`. Never use bare `/api/...` fetch URLs — always use `apiRequest()` from `@/lib/queryClient`.
+
+---
+
+### Code Quality Checklist
+
+Before finishing any new feature or significant edit:
+
+- [ ] No `any` type used without a comment explaining why
+- [ ] No `@ts-ignore` — the type is fixed, not suppressed
+- [ ] No bare `res.status(N).end()` — every error response includes `{ message: "..." }`
+- [ ] No nested ternaries deeper than one level — extracted to named variables or if/else
+- [ ] Complex boolean expressions extracted to a named `const isXxx` before use
+- [ ] All DB queries live in `server/storage.ts` — no `db.select(...)` directly in route handlers
+- [ ] New constants (magic numbers, visible limits, thresholds) named at the top of their file
+- [ ] Non-obvious logic has an inline comment explaining *why*, not *what*
+- [ ] Console logs in server code use a `[TAG]` prefix
+- [ ] Code works on Replit, local, and Render — no single-environment assumptions
+
+---
+
 ## QUICK CHECKLIST BEFORE SUBMITTING ANY NEW SCREEN
 
 ### Layout & Responsiveness
