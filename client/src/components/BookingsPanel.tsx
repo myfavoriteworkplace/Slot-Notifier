@@ -71,6 +71,38 @@ import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingP
 import { AppointmentCard } from "@/components/AppointmentCard";
 import type { PatientBill, Patient } from "@shared/schema";
 
+function BookingCardSkeleton() {
+  return (
+    <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+      <div className="h-1 bg-muted/40 rounded-t-2xl" />
+      <div className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-28 rounded-md" />
+              <Skeleton className="h-3 w-20 rounded-md" />
+            </div>
+          </div>
+          <Skeleton className="h-5 w-20 rounded-full" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-3.5 w-3.5 rounded-sm shrink-0" />
+          <Skeleton className="h-3.5 w-44 rounded-md" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-3.5 w-3.5 rounded-sm shrink-0" />
+          <Skeleton className="h-3.5 w-24 rounded-md" />
+        </div>
+        <div className="pt-2 border-t border-border/40 flex gap-3">
+          <Skeleton className="h-9 flex-1 rounded-xl" />
+          <Skeleton className="h-9 flex-1 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type QuickFilterType = 'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week' | 'today-confirmed' | 'pending-7days' | 'all-pending' | 'confirmed-7days';
 type ModalTabType = 'overview' | 'clinical' | 'notes' | 'actions' | 'billing';
 
