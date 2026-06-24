@@ -723,136 +723,89 @@ export default function BookingsPanel({
             </div>
           </div>
         </div>
-        {/* Stats Cards — click to filter */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+        {/* Quick-filter chips */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-row gap-1.5 sm:gap-2">
           {/* Today */}
-          <TooltipProvider delayDuration={700}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card
-                  className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'today' ? 'ring-2 ring-sky-400 border-sky-400/60' : 'border-border/50'}`}
-                  onClick={() => setQuickFilter(q => q === 'today' ? 'all' : 'today')}
-                  data-testid="card-filter-today"
-                >
-                  <div className="h-1 bg-gradient-to-r from-sky-400 to-cyan-400" />
-                  <CardContent className="p-3 sm:p-4 text-left flex flex-row items-start gap-2 sm:gap-3">
-                    <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${quickFilter === 'today' ? 'bg-sky-400/20' : 'bg-sky-400/10'}`}>
-                      <CalendarIcon className="h-3.5 w-3.5 text-sky-500" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-base sm:text-xl font-bold text-sky-600 dark:text-sky-400 leading-tight">{todaysBookingsCount}</p>
-                      <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings Today</p>
-                    </div>
-                    {quickFilter === 'today' && (
-                      <span className="hidden sm:inline ml-auto text-xs font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                    )}
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
-                All appointments scheduled for today
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <button
+            onClick={() => setQuickFilter(q => q === 'today' ? 'all' : 'today')}
+            className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+              quickFilter === 'today'
+                ? 'bg-sky-500 text-white border-sky-500 shadow-sm shadow-sky-500/20'
+                : 'bg-muted/50 border-border/60 text-foreground hover:border-sky-400/50 hover:text-sky-600'
+            }`}
+            data-testid="chip-filter-today"
+          >
+            <span className="flex items-center gap-1.5 min-w-0">
+              <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Today</span>
+            </span>
+            {todaysBookingsCount > 0 && (
+              <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                quickFilter === 'today' ? 'bg-white/25 text-white' : 'bg-sky-500/15 text-sky-600'
+              }`}>{todaysBookingsCount}</span>
+            )}
+          </button>
 
           {/* Upcoming */}
-          <TooltipProvider delayDuration={700}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card
-                  className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'upcoming' ? 'ring-2 ring-primary border-primary/60' : 'border-border/50'}`}
-                  onClick={() => setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming')}
-                  data-testid="card-filter-upcoming"
-                >
-                  <div className="h-1 bg-gradient-to-r from-primary to-accent" />
-                  <CardContent className="p-3 sm:p-4 text-left flex flex-row items-start gap-2 sm:gap-3">
-                    <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${quickFilter === 'upcoming' ? 'bg-primary/20' : 'bg-primary/10'}`}>
-                      <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-base sm:text-xl font-bold text-primary leading-tight">{futureBookingsCount}</p>
-                      <p className="text-xs font-medium text-muted-foreground leading-tight">All Upcoming Bookings</p>
-                    </div>
-                    {quickFilter === 'upcoming' && (
-                      <span className="hidden sm:inline ml-auto text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                    )}
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
-                Confirmed & pending appointments from tomorrow onwards
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <button
+            onClick={() => setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming')}
+            className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+              quickFilter === 'upcoming'
+                ? 'bg-primary text-white border-primary shadow-sm shadow-primary/20'
+                : 'bg-muted/50 border-border/60 text-foreground hover:border-primary/50 hover:text-primary'
+            }`}
+            data-testid="chip-filter-upcoming"
+          >
+            <span className="flex items-center gap-1.5 min-w-0">
+              <TrendingUp className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Upcoming</span>
+            </span>
+            {futureBookingsCount > 0 && (
+              <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                quickFilter === 'upcoming' ? 'bg-white/25 text-white' : 'bg-primary/15 text-primary'
+              }`}>{futureBookingsCount}</span>
+            )}
+          </button>
 
           {/* Past */}
-          <TooltipProvider delayDuration={700}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card
-                  className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${quickFilter === 'past' ? 'ring-2 ring-slate-400 border-slate-400' : 'border-border/50'}`}
-                  onClick={() => setQuickFilter(q => q === 'past' ? 'all' : 'past')}
-                  data-testid="card-filter-past"
-                >
-                  <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
-                  <CardContent className="p-3 sm:p-4 text-left flex flex-row items-start gap-2 sm:gap-3">
-                    <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${quickFilter === 'past' ? 'bg-muted' : 'bg-muted'}`}>
-                      <History className="h-3.5 w-3.5 text-muted-foreground" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-base sm:text-xl font-bold text-muted-foreground leading-tight">{pastBookingsCount}</p>
-                      <p className="text-xs font-medium text-muted-foreground leading-tight">All Past Bookings</p>
-                    </div>
-                    {quickFilter === 'past' && (
-                      <span className="hidden sm:inline ml-auto text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                    )}
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
-                All appointments that have already passed
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <button
+            onClick={() => setQuickFilter(q => q === 'past' ? 'all' : 'past')}
+            className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+              quickFilter === 'past'
+                ? 'bg-slate-500 text-white border-slate-500 shadow-sm shadow-slate-500/20'
+                : 'bg-muted/50 border-border/60 text-foreground hover:border-slate-400/50 hover:text-slate-600'
+            }`}
+            data-testid="chip-filter-past"
+          >
+            <span className="flex items-center gap-1.5 min-w-0">
+              <History className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Past</span>
+            </span>
+            {pastBookingsCount > 0 && (
+              <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                quickFilter === 'past' ? 'bg-white/25 text-white' : 'bg-slate-500/15 text-slate-600'
+              }`}>{pastBookingsCount}</span>
+            )}
+          </button>
 
-          {/* All — resets all filters */}
-          <TooltipProvider delayDuration={700}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card
-                  className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md ${
-                    quickFilter === 'all' && !filterDate
-                      ? 'ring-2 ring-violet-500 border-violet-400'
-                      : 'border-border/50'
-                  }`}
-                  onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); }}
-                  data-testid="card-filter-all"
-                >
-                  <div className={`h-1 bg-gradient-to-r ${quickFilter === 'all' && !filterDate ? 'from-violet-500 to-purple-400' : 'from-amber-500 to-orange-400'}`} />
-                  <CardContent className="p-3 sm:p-4 text-left flex flex-row items-start gap-2 sm:gap-3">
-                    <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${quickFilter === 'all' && !filterDate ? 'bg-violet-500/20' : 'bg-amber-500/10'}`}>
-                      <Filter className={`h-3.5 w-3.5 ${quickFilter === 'all' && !filterDate ? 'text-violet-500' : 'text-amber-500'}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className={`text-base sm:text-xl font-bold leading-tight ${quickFilter === 'all' && !filterDate ? 'text-violet-600' : 'text-amber-600'}`}>
-                        {bookings?.length || 0}
-                      </p>
-                      <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings</p>
-                    </div>
-                    {quickFilter === 'all' && !filterDate && (
-                      <span className="hidden sm:inline ml-auto text-xs font-bold uppercase tracking-wider text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-full shrink-0">Active</span>
-                    )}
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
-                {quickFilter === 'all' && !filterDate
-                  ? 'Showing all bookings — click a filter above to narrow down'
-                  : `${filteredBookings?.length || 0} bookings match your current filter — click to reset all`
-                }
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {/* All Bookings */}
+          <button
+            onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); }}
+            className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+              quickFilter === 'all' && !filterDate
+                ? 'bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-500/20'
+                : 'bg-muted/50 border-border/60 text-foreground hover:border-violet-400/50 hover:text-violet-600'
+            }`}
+            data-testid="chip-filter-all"
+          >
+            <span className="flex items-center gap-1.5 min-w-0">
+              <Filter className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">All Bookings</span>
+            </span>
+            <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'all' && !filterDate ? 'bg-white/25 text-white' : 'bg-violet-500/15 text-violet-600'
+            }`}>{bookings?.length || 0}</span>
+          </button>
         </div>
 
         {/* Patient search bar */}
