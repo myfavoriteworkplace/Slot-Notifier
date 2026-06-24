@@ -192,7 +192,8 @@ export default function PatientDirectoryPanel({
       ) : (
         <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
           {/* Table header */}
-          <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center px-4 py-2.5 bg-muted/30 border-b border-border/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          <div className="hidden sm:grid grid-cols-[1.5rem_auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center px-4 py-2.5 bg-muted/30 border-b border-border/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <span className="text-center">#</span>
             <span className="w-20">PAT Code</span>
             <span>Name</span>
             <span>Email</span>
@@ -203,7 +204,7 @@ export default function PatientDirectoryPanel({
           </div>
 
           <div className="divide-y divide-border/50">
-            {sorted.map((patient) => (
+            {sorted.map((patient, idx) => (
               <div
                 key={patient.id}
                 data-testid={`row-patient-${patient.id}`}
@@ -211,7 +212,8 @@ export default function PatientDirectoryPanel({
                 className="px-4 py-3 hover:bg-rose-500/5 cursor-pointer transition-colors group"
               >
                 {/* Desktop row */}
-                <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center">
+                <div className="hidden sm:grid grid-cols-[1.5rem_auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center">
+                  <span className="text-xs font-mono text-muted-foreground/60 text-center select-none">{idx + 1}</span>
                   <span className="w-20 font-mono text-xs font-bold bg-rose-500/10 text-rose-600 px-2 py-1 rounded-md">
                     {patient.patientCode ?? '—'}
                   </span>
@@ -234,8 +236,9 @@ export default function PatientDirectoryPanel({
                 {/* Mobile card */}
                 <div className="sm:hidden flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-9 w-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+                    <div className="h-9 w-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0 relative">
                       <User className="h-4 w-4 text-rose-500" />
+                      <span className="absolute -top-1.5 -left-1.5 h-4 w-4 rounded-full bg-muted border border-border/60 flex items-center justify-center text-[10px] font-bold text-muted-foreground">{idx + 1}</span>
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">

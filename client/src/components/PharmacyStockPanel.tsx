@@ -148,27 +148,30 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
       <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
 
         {/* Panel header */}
-        <div className="px-5 pt-5 pb-4 border-b border-border/50 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
-              <Pill className="h-[18px] w-[18px] text-orange-600 dark:text-orange-400" />
+        <div className="flex border-b border-border/50">
+          <div className="w-1.5 bg-orange-500/60 shrink-0" />
+          <div className="flex-1 px-5 py-4 bg-gradient-to-r from-orange-500/[0.06] to-transparent flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
+                <Pill className="h-[18px] w-[18px] text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold tracking-tight">Pharmacy Stock Catalog</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {items.length} medicine{items.length !== 1 ? "s" : ""} · pricing source for billing
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-base font-semibold tracking-tight">Pharmacy Stock Catalog</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {items.length} medicine{items.length !== 1 ? "s" : ""} · pricing source for billing
-              </p>
-            </div>
+            <Button
+              size="sm"
+              onClick={() => { cancelEdit(); setForm(emptyForm()); setShowAddRow(v => !v); }}
+              className={`h-8 gap-1.5 text-xs border-0 shrink-0 ${showAddRow ? "bg-muted text-foreground hover:bg-muted/80" : "bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white"}`}
+              data-testid="button-add-medicine"
+            >
+              {showAddRow ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+              {showAddRow ? "Cancel" : "Add Medicine"}
+            </Button>
           </div>
-          <Button
-            size="sm"
-            onClick={() => { cancelEdit(); setForm(emptyForm()); setShowAddRow(v => !v); }}
-            className={`h-8 gap-1.5 text-xs border-0 ${showAddRow ? "bg-muted text-foreground hover:bg-muted/80" : "bg-orange-500 hover:bg-orange-600 text-white"}`}
-            data-testid="button-add-medicine"
-          >
-            {showAddRow ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-            {showAddRow ? "Cancel" : "Add Medicine"}
-          </Button>
         </div>
 
         {/* Search */}
@@ -191,6 +194,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border/40 bg-muted/20">
+                  <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground w-8">#</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Medicine</th>
                   <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground">Dosage</th>
                   <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground">Unit Price</th>
@@ -202,6 +206,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
               <tbody className="divide-y divide-border/30">
                 {[1, 2, 3, 4, 5].map(i => (
                   <tr key={i} className="bg-background">
+                    <td className="px-3 py-3 text-center"><Skeleton className="h-3.5 w-4 mx-auto" /></td>
                     <td className="px-4 py-3">
                       <div className="space-y-1">
                         <Skeleton className="h-3.5 w-32" />
@@ -228,6 +233,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border/40 bg-muted/20">
+                  <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground w-8">#</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Medicine</th>
                   <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground">Dosage</th>
                   <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground">Unit Price</th>
@@ -241,6 +247,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                 {/* Inline add row */}
                 {showAddRow && (
                   <tr className="bg-orange-50/60 dark:bg-orange-950/10 border-b border-orange-200/40 dark:border-orange-900/30">
+                    <td className="px-3 py-2 text-center text-muted-foreground/40 font-mono select-none">+</td>
                     <td className="px-3 py-2">
                       <Input
                         autoFocus
@@ -327,7 +334,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                 {/* Empty state */}
                 {filtered.length === 0 && !showAddRow && (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <div className="py-12 text-center">
                         <div className="p-3 bg-muted/40 rounded-full w-fit mx-auto mb-3">
                           <Package className="h-6 w-6 text-muted-foreground/40" />
@@ -346,7 +353,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                 )}
 
                 {/* Data rows */}
-                {filtered.map(item => {
+                {filtered.map((item, idx) => {
                   const expiring = isExpiringSoon(item.expiryDate);
                   const expired = isExpired(item.expiryDate);
                   const lowStock = item.availableQty <= 5;
@@ -355,6 +362,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                   if (isEditing) {
                     return (
                       <tr key={item.id} className="bg-orange-50/40 dark:bg-orange-950/10 border-b border-orange-200/40 dark:border-orange-900/30">
+                        <td className="px-3 py-2 text-center text-muted-foreground/40 font-mono text-xs select-none">{idx + 1}</td>
                         <td className="px-3 py-2">
                           <Input
                             autoFocus
@@ -440,6 +448,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                       className={`group hover:bg-muted/20 transition-colors ${expired ? "opacity-60" : ""}`}
                       data-testid={`pharmacy-row-${item.id}`}
                     >
+                      <td className="px-3 py-2.5 text-center font-mono text-muted-foreground/50 text-xs select-none">{idx + 1}</td>
                       <td className="px-4 py-2.5">
                         <span className="font-semibold text-foreground">{item.medicineName}</span>
                       </td>
@@ -463,7 +472,7 @@ export default function PharmacyStockPanel({ clinicId }: PharmacyStockPanelProps
                         )}
                       </td>
                       <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                        <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity justify-end">
                           <button
                             onClick={() => startEdit(item)}
                             className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground"
