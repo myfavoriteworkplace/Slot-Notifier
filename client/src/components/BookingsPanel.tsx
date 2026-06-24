@@ -65,6 +65,7 @@ import {
   Info, ClipboardCheck, PenLine, Link2, ClipboardList, AlertTriangle, AlertCircle, CreditCard,
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal,
   ChevronLeft, ChevronRight, Save, Hash, Printer, ArrowLeft, ArrowRight,
+  Building2, ExternalLink, LogOut, Settings,
 } from "lucide-react";
 import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
