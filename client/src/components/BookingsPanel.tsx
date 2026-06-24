@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
+import noBookingsImg from "@assets/Copilot_20260603_191746_1780494897553.png";
 import {
   type BillingService, type BillingDetails, type ClinicInfo,
   generateReceiptPDF,

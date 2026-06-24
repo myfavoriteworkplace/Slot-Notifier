@@ -89,7 +89,6 @@ import type { Slot, Booking, PatientBill, ClinicalRecord, Patient } from "@share
 import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
-import noBookingsImg from "@assets/Copilot_20260603_191746_1780494897553.png";
 
 function BookingCardSkeleton() {
   return (
