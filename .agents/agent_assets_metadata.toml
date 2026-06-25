@@ -1,5 +1,16 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "A4UzRAUHHfY5StTGvWFAr"
+uri = "file://client/public/icons/master-1024.png"
+type = "image"
+title = "dental booking squircle icon"
+
+[[generated]]
+id = "f71bCM3OKWK86pzq5OItJ"
+uri = "file://client/public/icons/og-image.png"
+type = "image"
+title = "BookMySlot OG social banner"
 
 [[outputs]]
 id = "x3pxljJpq4fWfGuL9PF5o"
