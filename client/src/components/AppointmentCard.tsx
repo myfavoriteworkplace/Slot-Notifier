@@ -6,7 +6,7 @@ import {
   AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
   Stethoscope, MoreHorizontal, UserX, ShieldCheck, Bell,
   Clock, Tag, Repeat2, RefreshCw, Copy, Check, BadgeAlert,
-  LogOut, AlertTriangle,
+  LogOut, AlertTriangle, ChevronDown,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -204,6 +204,7 @@ export function AppointmentCard({
   const [visitMenuPredefined, setVisitMenuPredefined] = useState("");
   const [visitMenuCustom, setVisitMenuCustom] = useState("");
   const [pendingVisitNote, setPendingVisitNote] = useState<string | undefined>();
+  const [mobileExpanded, setMobileExpanded] = useState(false);
 
   function handleMarkVisitDone(note?: string) {
     if (openBillsCount > 0) {
@@ -822,8 +823,11 @@ export function AppointmentCard({
         {/* ── Info Rows ── */}
         <div className="px-3 sm:px-4 py-2 space-y-1.5">
 
-          {/* Date + time */}
-          <div className="flex items-center gap-2 text-xs min-w-0 overflow-hidden">
+          {/* Date + time — doubles as collapse toggle on mobile for clinic role (or doctor with no clinic name) */}
+          <div
+            className={`flex items-center gap-2 text-xs min-w-0 overflow-hidden ${(role === "clinic" || (role === "doctor" && !displayClinicName)) ? "cursor-pointer sm:cursor-default" : ""}`}
+            onClick={(role === "clinic" || (role === "doctor" && !displayClinicName)) ? (e) => { e.stopPropagation(); setMobileExpanded(v => !v); } : undefined}
+          >
             <div className="h-4 w-4 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
               <CalendarDays className="h-2.5 w-2.5 text-primary" />
             </div>
@@ -844,17 +848,33 @@ export function AppointmentCard({
               <span className="mx-1 opacity-40">→</span>
               {format(endTime, "h:mm a")}
             </span>
+            {/* Collapse chevron — visible on mobile only, shown when clinic role or doctor has no clinic name */}
+            {(role === "clinic" || (role === "doctor" && !displayClinicName)) && (
+              <ChevronDown
+                className={`h-3.5 w-3.5 text-muted-foreground shrink-0 ml-auto sm:hidden transition-transform duration-150 ${mobileExpanded ? "rotate-180" : ""}`}
+              />
+            )}
           </div>
 
-          {/* Clinic name — doctor view, just under date */}
+          {/* Clinic name — doctor view, just under date — doubles as collapse toggle on mobile */}
           {role === "doctor" && displayClinicName && (
-            <div className="flex items-center gap-2 text-xs min-w-0">
+            <div
+              className="flex items-center gap-2 text-xs min-w-0 cursor-pointer sm:cursor-default"
+              onClick={(e) => { e.stopPropagation(); setMobileExpanded(v => !v); }}
+            >
               <div className="h-4 w-4 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
                 <Building2 className="h-2.5 w-2.5 text-muted-foreground" />
               </div>
               <span className="font-medium truncate">{displayClinicName}{clinicCity ? ` (${clinicCity})` : ""}</span>
+              {/* Collapse chevron — visible on mobile only */}
+              <ChevronDown
+                className={`h-3.5 w-3.5 text-muted-foreground shrink-0 ml-auto sm:hidden transition-transform duration-150 ${mobileExpanded ? "rotate-180" : ""}`}
+              />
             </div>
           )}
+
+          {/* Collapsible detail rows — hidden on mobile until expanded */}
+          <div className={mobileExpanded ? "" : "hidden sm:block"}>
 
           {/* Visit Type */}
           <div className="flex items-center gap-2 text-xs min-w-0">
@@ -1052,8 +1072,13 @@ export function AppointmentCard({
               <span className="text-muted-foreground/50 pt-0.5">–</span>
             )}
           </div>
+
+          </div>{/* end collapsible detail rows */}
         </div>
       </div>
+
+      {/* Collapsible outer sections — banners, progress strip, footers; hidden on mobile until expanded */}
+      <div className={mobileExpanded ? "" : "hidden sm:block"}>
 
       {/* Past-due indicator — slot passed with no action taken */}
       {isPastDue && (
@@ -1697,6 +1722,8 @@ export function AppointmentCard({
           <X className="h-3.5 w-3.5" />Appointment Declined
         </div>
       )}
+
+      </div>{/* end collapsible outer sections */}
     </Card>
   );
 }
