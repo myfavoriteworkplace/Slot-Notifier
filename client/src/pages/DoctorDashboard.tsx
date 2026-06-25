@@ -895,14 +895,14 @@ export default function DoctorDashboard() {
               )}
 
               {/* Quick-filter chips */}
-              <div className="grid grid-cols-2 sm:flex sm:flex-row gap-1.5 sm:gap-2">
+              <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2">
                 {/* Today */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("today"); }}
-                  className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+                  className={`flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
                     quickFilter === "today"
-                      ? "bg-sky-500 text-white border-sky-500 shadow-sm shadow-sky-500/20"
-                      : "bg-muted/50 border-border/60 text-foreground hover:border-sky-400/50 hover:text-sky-600"
+                      ? "bg-sky-500/10 border-sky-400/50 text-sky-700 dark:text-sky-400"
+                      : "bg-transparent border-border text-muted-foreground hover:bg-sky-500/8 hover:border-sky-400/50 hover:text-sky-700 dark:hover:text-sky-400"
                   }`}
                   data-testid="chip-filter-today"
                 >
@@ -910,18 +910,18 @@ export default function DoctorDashboard() {
                     <Calendar className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">Today</span>
                   </span>
-                  <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-                    quickFilter === "today" ? "bg-white/25 text-white" : "bg-sky-500/15 text-sky-600"
+                  <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "today" ? "bg-sky-500/15 text-sky-700 dark:text-sky-400" : "bg-muted text-muted-foreground"
                   }`}>{todayBookings.length}</span>
                 </button>
 
                 {/* Upcoming */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("upcoming"); }}
-                  className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+                  className={`flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
                     quickFilter === "upcoming"
-                      ? "bg-primary text-white border-primary shadow-sm shadow-primary/20"
-                      : "bg-muted/50 border-border/60 text-foreground hover:border-primary/50 hover:text-primary"
+                      ? "bg-primary/10 border-primary/40 text-primary"
+                      : "bg-transparent border-border text-muted-foreground hover:bg-primary/8 hover:border-primary/50 hover:text-primary"
                   }`}
                   data-testid="chip-filter-upcoming"
                 >
@@ -929,18 +929,18 @@ export default function DoctorDashboard() {
                     <TrendingUp className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">Upcoming</span>
                   </span>
-                  <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-                    quickFilter === "upcoming" ? "bg-white/25 text-white" : "bg-primary/15 text-primary"
+                  <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "upcoming" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
                   }`}>{upcomingBookings.length}</span>
                 </button>
 
                 {/* Awaiting */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("awaiting"); }}
-                  className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+                  className={`flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
                     quickFilter === "awaiting"
-                      ? "bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-500/20"
-                      : "bg-muted/50 border-border/60 text-foreground hover:border-amber-400/50 hover:text-amber-600"
+                      ? "bg-amber-500/10 border-amber-400/50 text-amber-700 dark:text-amber-400"
+                      : "bg-transparent border-border text-muted-foreground hover:bg-amber-500/8 hover:border-amber-400/50 hover:text-amber-700 dark:hover:text-amber-400"
                   }`}
                   data-testid="chip-filter-awaiting"
                 >
@@ -948,18 +948,18 @@ export default function DoctorDashboard() {
                     <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">Awaiting</span>
                   </span>
-                  <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-                    quickFilter === "awaiting" ? "bg-white/25 text-white" : "bg-amber-500 text-white"
+                  <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "awaiting" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-muted text-muted-foreground"
                   }`}>{awaitingBookings.length}</span>
                 </button>
 
                 {/* All Bookings */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("all"); }}
-                  className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+                  className={`flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
                     quickFilter === "all"
-                      ? "bg-slate-600 text-white border-slate-600 shadow-sm shadow-slate-500/20"
-                      : "bg-muted/50 border-border/60 text-foreground hover:border-slate-400/50 hover:text-slate-600"
+                      ? "bg-primary/10 border-primary/40 text-primary"
+                      : "bg-transparent border-border text-muted-foreground hover:bg-primary/8 hover:border-primary/50 hover:text-primary"
                   }`}
                   data-testid="chip-filter-all"
                 >
@@ -967,8 +967,8 @@ export default function DoctorDashboard() {
                     <ClipboardList className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">All Bookings</span>
                   </span>
-                  <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-                    quickFilter === "all" ? "bg-white/25 text-white" : "bg-slate-500/15 text-slate-600"
+                  <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "all" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
                   }`}>{confirmedBookings.length}</span>
                 </button>
               </div>
@@ -977,8 +977,8 @@ export default function DoctorDashboard() {
               <div className="flex flex-wrap gap-2 items-center sm:justify-end">
                 {quickFilter === "all" && (
                   <div className="relative flex-1 min-w-[130px] sm:flex-none sm:w-44">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input type="date" className="pl-9 h-9 w-full" value={appointmentDateFilter} onChange={(e) => setAppointmentDateFilter(e.target.value)} />
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    <Input type="date" className="pl-9 h-10 w-full rounded-xl border-border text-xs bg-transparent" value={appointmentDateFilter} onChange={(e) => setAppointmentDateFilter(e.target.value)} />
                   </div>
                 )}
                 <div className={quickFilter === "all" ? "flex-1 min-w-[130px] sm:flex-none" : "w-full sm:w-auto"}>
@@ -998,36 +998,44 @@ export default function DoctorDashboard() {
               </div>
 
               {/* Dynamic section heading — matches clinic dashboard booking header style */}
-              <div className="rounded-2xl overflow-hidden border border-border/50 shadow-sm">
-                <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-bold text-white tracking-tight">
-                      {quickFilter === "today"          ? "Today's Appointments"
-                       : quickFilter === "upcoming"     ? "Upcoming Appointments"
-                       : quickFilter === "awaiting"     ? "All Pending Bookings"
-                       : quickFilter === "confirmed-7days" ? "Confirmed Bookings (Next 7 Days)"
-                       : quickFilter === "pending-7days"   ? "Pending Confirmations (Next 7 Days)"
-                       : appointmentDateFilter          ? "Filtered Appointments"
-                       : "All Appointments"}
-                    </h2>
-                    <p className="text-white/70 text-xs mt-0.5">
-                      {quickFilter === "today"          ? "Appointments assigned to you today"
-                       : quickFilter === "upcoming"     ? "Future appointments beyond today"
-                       : quickFilter === "awaiting"     ? "All unconfirmed bookings across all dates"
-                       : quickFilter === "confirmed-7days" ? "Confirmed appointments in the next 7 days"
-                       : quickFilter === "pending-7days"   ? "Pending confirmations in the next 7 days"
-                       : appointmentDateFilter          ? "Showing custom date range"
-                       : "All your patient appointments"}
-                    </p>
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                <div className="flex">
+                  <div className="w-1.5 bg-primary/60 shrink-0" />
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                        <Calendar className="h-[18px] w-[18px] text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <h2 className="text-base font-semibold tracking-tight">
+                          {quickFilter === "today"             ? "Today's Appointments"
+                           : quickFilter === "upcoming"        ? "Upcoming Appointments"
+                           : quickFilter === "awaiting"        ? "All Pending Bookings"
+                           : quickFilter === "confirmed-7days" ? "Confirmed Bookings (Next 7 Days)"
+                           : quickFilter === "pending-7days"   ? "Pending Confirmations (Next 7 Days)"
+                           : appointmentDateFilter             ? "Filtered Appointments"
+                           : "All Appointments"}
+                        </h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {quickFilter === "today"             ? "Appointments assigned to you today"
+                           : quickFilter === "upcoming"        ? "Future appointments beyond today"
+                           : quickFilter === "awaiting"        ? "All unconfirmed bookings across all dates"
+                           : quickFilter === "confirmed-7days" ? "Confirmed appointments in the next 7 days"
+                           : quickFilter === "pending-7days"   ? "Pending confirmations in the next 7 days"
+                           : appointmentDateFilter             ? "Showing custom date range"
+                           : "All your patient appointments"}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-muted-foreground tabular-nums shrink-0">
+                      {filteredBookings.length} {filteredBookings.length === 1 ? "appointment" : "appointments"}
+                    </span>
                   </div>
-                  <span className="text-white/60 text-sm font-semibold tabular-nums">
-                    {filteredBookings.length} {filteredBookings.length === 1 ? "appointment" : "appointments"}
-                  </span>
                 </div>
               </div>
 
               {isBookingsLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {[1,2,3,4,5,6].map(i => (
                     <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
                       <div className="flex items-center justify-between">
@@ -1046,7 +1054,7 @@ export default function DoctorDashboard() {
                   ))}
                 </div>
               ) : filteredBookings.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {filteredBookings.slice(0, 50).map((booking: any) => {
                     const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
                     const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;

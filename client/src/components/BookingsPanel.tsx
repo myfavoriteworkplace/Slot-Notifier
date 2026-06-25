@@ -1184,26 +1184,7 @@ export default function BookingsPanel({
         {/* ── Colour key: ─ horizontal dash = accentBar (top header strip)  │ vertical bar = left border ── */}
         {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && !legendCollapsed && (
           <div className="group flex flex-wrap items-center gap-x-3 gap-y-1.5 border border-border/40 rounded-lg bg-muted/20 px-3 py-1.5">
-            {/* WHEN group — header accent bar; only meaningful in grouped-all view */}
-            {quickFilter === 'all' && !filterDate && (
-              <>
-                <div className="flex items-center gap-2.5">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 w-9 mr-1 shrink-0">When</span>
-                  {([
-                    { color: "bg-sky-400",                     label: "Today",    text: "text-sky-500"                       },
-                    { color: "bg-primary",                     label: "Upcoming", text: "text-primary"                       },
-                    { color: "bg-slate-300 dark:bg-slate-500", label: "Past",     text: "text-slate-400 dark:text-slate-500" },
-                  ] as const).map(({ color, label, text }) => (
-                    <div key={label} className="flex items-center gap-1.5">
-                      <span className={`h-[5px] w-5 rounded-sm shrink-0 ${color}`} />
-                      <span className={`text-xs font-medium ${text}`}>{label}</span>
-                    </div>
-                  ))}
-                </div>
-                <span className="hidden sm:block h-3.5 w-px bg-border/60 shrink-0" />
-              </>
-            )}
-            {/* STATUS group — left border stripe; always shown */}
+            {/* STATUS group — left border stripe; always shown first */}
             <div className="flex items-center gap-2.5">
               <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 w-9 mr-1 shrink-0">Status</span>
               {([
@@ -1219,6 +1200,25 @@ export default function BookingsPanel({
                 </div>
               ))}
             </div>
+            {/* WHEN group — header accent bar; only in grouped-all mode */}
+            {quickFilter === 'all' && !filterDate && (
+              <>
+                <span className="hidden sm:block h-3.5 w-px bg-border/60 shrink-0" />
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 w-9 mr-1 shrink-0">When</span>
+                  {([
+                    { color: "bg-sky-400",                     label: "Today",    text: "text-sky-500"                       },
+                    { color: "bg-primary",                     label: "Upcoming", text: "text-primary"                       },
+                    { color: "bg-slate-300 dark:bg-slate-500", label: "Past",     text: "text-slate-400 dark:text-slate-500" },
+                  ] as const).map(({ color, label, text }) => (
+                    <div key={label} className="flex items-center gap-1.5">
+                      <span className={`h-[5px] w-5 rounded-sm shrink-0 ${color}`} />
+                      <span className={`text-xs font-medium ${text}`}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
             {/* Collapse × — appears on row hover */}
             <button
               onClick={() => setLegendCollapsed(true)}
@@ -1360,7 +1360,7 @@ export default function BookingsPanel({
                 const groupCfg = groupConfig[Math.max(0, group)];
                 return [
                   showDivider ? (
-                    <div key={`divider-group-${group}`} className="col-span-full flex items-center gap-2 mt-2 mb-1">
+                    <div key={`divider-group-${group}`} className="col-span-full flex items-center gap-2 mb-1">
                       <div className="h-px flex-1 bg-border/50" />
                       <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${groupCfg.textColor} ${groupCfg.bg} ${groupCfg.border}`}>
                         {groupCfg.label}
