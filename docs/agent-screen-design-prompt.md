@@ -25,11 +25,35 @@ Three icon sources — use each for its designated role:
 
 ---
 
+## MANDATORY RESPONSIVENESS RULE
+
+> **Every single line of code added and every component designed — no matter how small — must work correctly across all three screen sizes: laptop (≥ 1024 px), tablet (768–1023 px), and mobile (375–767 px).**
+
+This is not optional and does not require a reminder. It applies to:
+- New pages, panels, and cards
+- New filter strips, chip groups, and tab bars
+- New legend / key sections
+- New form fields, date pickers, and dialogs
+- New headers, section titles, and action rows
+- Any edit to an existing component — the change must not regress any breakpoint
+
+**Quick checklist before committing any UI change:**
+- [ ] Chips / tabs: use `w-[calc(50%-3px)] sm:w-auto` for 2-per-row grid on mobile; `sm:flex-nowrap` on desktop
+- [ ] Filter row close buttons: `hidden sm:flex` — never visible as a floating element on mobile
+- [ ] Section headers that combine title + count: embed count in subtitle on mobile, or use `truncate` on the title; never let two `shrink-0` siblings compete for width
+- [ ] Legend / key multi-row: use `grid grid-cols-[label-width_1fr_1fr_1fr]` for exact column alignment instead of separate flex rows
+- [ ] Week-selector chips (This Week / Next Week): use tint pattern `bg-X/10 text-X border-X/50` — never solid fill `bg-X text-white`
+- [ ] Static colored borders on filter chips: inactive state always shows a light tint of the chip's accent color — not `border-border`
+- [ ] No element requires horizontal scrolling at any breakpoint
+
+---
+
 ## PRIORITY ORDER
 
 1. **Desktop** — the primary surface. Design for a 1280 px canvas first. Every layout, spacing, and typographic decision starts here.
-2. **Mobile** — must work perfectly on 375 px screens without a separate design. Use responsive Tailwind breakpoints (`sm:`, `lg:`) to adapt the desktop layout downward. No horizontal scroll. No broken overflow.
-3. **Future React Native port** — write patterns today that will not need rewriting later. See the RN Parity section below.
+2. **Tablet** — must work at 768–1023 px. Multi-column layouts may collapse one step. No horizontal scroll.
+3. **Mobile** — must work perfectly on 375 px screens without a separate design. Use responsive Tailwind breakpoints (`sm:`, `lg:`) to adapt the desktop layout downward. No horizontal scroll. No broken overflow.
+4. **Future React Native port** — write patterns today that will not need rewriting later. See the RN Parity section below.
 
 ---
 

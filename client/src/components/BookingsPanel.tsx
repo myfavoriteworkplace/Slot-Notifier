@@ -735,7 +735,7 @@ export default function BookingsPanel({
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
               quickFilter === 'today'
                 ? 'bg-sky-500/10 border-sky-400/50 text-sky-700 dark:text-sky-400'
-                : 'bg-transparent border-border text-muted-foreground hover:bg-sky-500/10 hover:border-sky-400/50 hover:text-sky-700 dark:hover:text-sky-400'
+                : 'bg-transparent border-sky-400/30 text-muted-foreground hover:bg-sky-500/10 hover:text-sky-700 dark:hover:text-sky-400'
             }`}
             data-testid="chip-filter-today"
           >
@@ -754,7 +754,7 @@ export default function BookingsPanel({
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
               quickFilter === 'upcoming'
                 ? 'bg-primary/10 border-primary/40 text-primary'
-                : 'bg-transparent border-border text-muted-foreground hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
+                : 'bg-transparent border-primary/30 text-muted-foreground hover:bg-primary/10 hover:text-primary'
             }`}
             data-testid="chip-filter-upcoming"
           >
@@ -773,7 +773,7 @@ export default function BookingsPanel({
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
               quickFilter === 'past'
                 ? 'bg-slate-500/10 border-slate-400/40 text-slate-600 dark:text-slate-400'
-                : 'bg-transparent border-border text-muted-foreground hover:bg-slate-500/10 hover:border-slate-400/40 hover:text-slate-600 dark:hover:text-slate-400'
+                : 'bg-transparent border-slate-400/30 text-muted-foreground hover:bg-slate-500/10 hover:text-slate-600 dark:hover:text-slate-400'
             }`}
             data-testid="chip-filter-past"
           >
@@ -792,7 +792,7 @@ export default function BookingsPanel({
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
               quickFilter === 'all'
                 ? 'bg-primary/10 border-primary/40 text-primary'
-                : 'bg-transparent border-border text-muted-foreground hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
+                : 'bg-transparent border-primary/30 text-muted-foreground hover:bg-primary/10 hover:text-primary'
             }`}
             data-testid="chip-filter-all"
           >
@@ -1096,13 +1096,13 @@ export default function BookingsPanel({
                       data-testid="chip-filter-this-week"
                       className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
                         quickFilter === 'this-week'
-                          ? 'bg-violet-500 text-white border-violet-500 shadow-sm'
-                          : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400 hover:text-violet-600 active:bg-violet-500/10'
+                          ? 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-400/50'
+                          : 'bg-background text-muted-foreground border-violet-400/30 hover:text-violet-600 active:bg-violet-500/10'
                       }`}
                     >
                       <CalendarIcon className="h-3 w-3 shrink-0" />
                       This Week
-                      <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-white/20 text-white' : 'bg-violet-500/10 text-violet-600'}`}>
+                      <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-violet-500/15 text-violet-700 dark:text-violet-400' : 'bg-violet-500/10 text-violet-600'}`}>
                         {thisWeekCount}
                       </span>
                     </button>
@@ -1122,13 +1122,13 @@ export default function BookingsPanel({
                       data-testid="chip-filter-next-week"
                       className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
                         quickFilter === 'next-week'
-                          ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
-                          : 'bg-background text-muted-foreground border-border/60 hover:border-indigo-400 hover:text-indigo-600 active:bg-indigo-500/10'
+                          ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-400/50'
+                          : 'bg-background text-muted-foreground border-indigo-400/30 hover:text-indigo-600 active:bg-indigo-500/10'
                       }`}
                     >
                       <CalendarDays className="h-3 w-3 shrink-0" />
                       Next Week
-                      <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-600'}`}>
+                      <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400' : 'bg-indigo-500/10 text-indigo-600'}`}>
                         {nextWeekCount}
                       </span>
                     </button>
@@ -1217,50 +1217,50 @@ export default function BookingsPanel({
         {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && !legendCollapsed && (
           <div className="border border-border/40 rounded-lg bg-muted/20 px-3 py-2">
 
-            {/* ── Mobile layout: 3 + 2 explicit rows ── */}
-            <div className="flex flex-col gap-y-1 sm:hidden">
-              {/* STATUS row 1: label + first 3 */}
-              <div className="flex items-center gap-x-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 w-[46px] shrink-0">Status</span>
-                {([
-                  { color: "bg-emerald-400", label: "Confirmed", text: "text-emerald-500" },
-                  { color: "bg-amber-400",   label: "Pending",   text: "text-amber-500"   },
-                  { color: "bg-rose-400",    label: "Cancelled", text: "text-rose-500"    },
-                ] as const).map(({ color, label, text }) => (
-                  <div key={label} className="flex items-center gap-1 shrink-0">
-                    <span className={`h-4 w-[4px] rounded-sm shrink-0 ${color}`} />
-                    <span className={`text-xs font-medium ${text}`}>{label}</span>
-                  </div>
-                ))}
+            {/* ── Mobile layout: 4-col grid for exact vertical alignment ── */}
+            <div className="grid grid-cols-[46px_1fr_1fr_1fr] gap-x-2 gap-y-1.5 items-center sm:hidden">
+              {/* STATUS row 1: label | Confirmed | Pending | Cancelled */}
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50">Status</span>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
+                <span className="text-xs font-medium text-emerald-500 truncate">Confirmed</span>
               </div>
-              {/* STATUS row 2: spacer (matches label width) + last 2 */}
-              <div className="flex items-center gap-x-2">
-                <span className="w-[46px] shrink-0" />
-                {([
-                  { color: "bg-slate-400", label: "No Show",    text: "text-slate-500 dark:text-slate-400" },
-                  { color: "bg-teal-400",  label: "In Consult", text: "text-teal-600 dark:text-teal-400"   },
-                ] as const).map(({ color, label, text }) => (
-                  <div key={label} className="flex items-center gap-1 shrink-0">
-                    <span className={`h-4 w-[4px] rounded-sm shrink-0 ${color}`} />
-                    <span className={`text-xs font-medium ${text}`}>{label}</span>
-                  </div>
-                ))}
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-amber-400" />
+                <span className="text-xs font-medium text-amber-500 truncate">Pending</span>
               </div>
-              {/* WHEN row: label aligned with Status label above */}
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-rose-400" />
+                <span className="text-xs font-medium text-rose-500 truncate">Cancelled</span>
+              </div>
+              {/* STATUS row 2: empty | No Show | In Consult | empty */}
+              <span />
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-slate-400" />
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">No Show</span>
+              </div>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-teal-400" />
+                <span className="text-xs font-medium text-teal-600 dark:text-teal-400 truncate">In Consult</span>
+              </div>
+              <span />
+              {/* WHEN row: only when showing all bookings without a date filter */}
               {quickFilter === 'all' && !filterDate && (
-                <div className="flex items-center gap-x-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 w-[46px] shrink-0">When</span>
-                  {([
-                    { color: "bg-sky-400",                     label: "Today",    text: "text-sky-500"                       },
-                    { color: "bg-primary",                     label: "Upcoming", text: "text-primary"                       },
-                    { color: "bg-slate-300 dark:bg-slate-500", label: "Past",     text: "text-slate-400 dark:text-slate-500" },
-                  ] as const).map(({ color, label, text }) => (
-                    <div key={label} className="flex items-center gap-1 shrink-0">
-                      <span className={`h-[5px] w-5 rounded-sm shrink-0 ${color}`} />
-                      <span className={`text-xs font-medium ${text}`}>{label}</span>
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50">When</span>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <span className="h-[5px] w-5 rounded-sm shrink-0 bg-sky-400" />
+                    <span className="text-xs font-medium text-sky-500 truncate">Today</span>
+                  </div>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <span className="h-[5px] w-5 rounded-sm shrink-0 bg-primary" />
+                    <span className="text-xs font-medium text-primary truncate">Upcoming</span>
+                  </div>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <span className="h-[5px] w-5 rounded-sm shrink-0 bg-slate-300 dark:bg-slate-500" />
+                    <span className="text-xs font-medium text-slate-400 dark:text-slate-500 truncate">Past</span>
+                  </div>
+                </>
               )}
             </div>
 

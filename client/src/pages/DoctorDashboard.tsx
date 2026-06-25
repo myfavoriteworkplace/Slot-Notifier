@@ -920,10 +920,10 @@ export default function DoctorDashboard() {
                 {/* Today */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("today"); }}
-                  className={`flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+                  className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
                     quickFilter === "today"
                       ? "bg-sky-500/10 border-sky-400/50 text-sky-700 dark:text-sky-400"
-                      : "bg-transparent border-border text-muted-foreground hover:bg-sky-500/8 hover:border-sky-400/50 hover:text-sky-700 dark:hover:text-sky-400"
+                      : "bg-transparent border-sky-400/30 text-muted-foreground hover:bg-sky-500/8 hover:text-sky-700 dark:hover:text-sky-400"
                   }`}
                   data-testid="chip-filter-today"
                 >
@@ -939,10 +939,10 @@ export default function DoctorDashboard() {
                 {/* Upcoming */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("upcoming"); }}
-                  className={`flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+                  className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
                     quickFilter === "upcoming"
                       ? "bg-primary/10 border-primary/40 text-primary"
-                      : "bg-transparent border-border text-muted-foreground hover:bg-primary/8 hover:border-primary/50 hover:text-primary"
+                      : "bg-transparent border-primary/30 text-muted-foreground hover:bg-primary/8 hover:text-primary"
                   }`}
                   data-testid="chip-filter-upcoming"
                 >
@@ -958,10 +958,10 @@ export default function DoctorDashboard() {
                 {/* Awaiting */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("awaiting"); }}
-                  className={`flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+                  className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
                     quickFilter === "awaiting"
                       ? "bg-amber-500/10 border-amber-400/50 text-amber-700 dark:text-amber-400"
-                      : "bg-transparent border-border text-muted-foreground hover:bg-amber-500/8 hover:border-amber-400/50 hover:text-amber-700 dark:hover:text-amber-400"
+                      : "bg-transparent border-amber-400/30 text-muted-foreground hover:bg-amber-500/8 hover:text-amber-700 dark:hover:text-amber-400"
                   }`}
                   data-testid="chip-filter-awaiting"
                 >
@@ -977,10 +977,10 @@ export default function DoctorDashboard() {
                 {/* All Bookings */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("all"); }}
-                  className={`flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+                  className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
                     quickFilter === "all"
                       ? "bg-primary/10 border-primary/40 text-primary"
-                      : "bg-transparent border-border text-muted-foreground hover:bg-primary/8 hover:border-primary/50 hover:text-primary"
+                      : "bg-transparent border-primary/30 text-muted-foreground hover:bg-primary/8 hover:text-primary"
                   }`}
                   data-testid="chip-filter-all"
                 >
@@ -1100,13 +1100,13 @@ export default function DoctorDashboard() {
                           data-testid="chip-filter-this-week"
                           className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
                             quickFilter === 'this-week'
-                              ? 'bg-violet-500 text-white border-violet-500 shadow-sm'
-                              : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400 hover:text-violet-600 active:bg-violet-500/10'
+                              ? 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-400/50'
+                              : 'bg-background text-muted-foreground border-violet-400/30 hover:text-violet-600 active:bg-violet-500/10'
                           }`}
                         >
                           <Calendar className="h-3 w-3 shrink-0" />
                           This Week
-                          <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-white/20 text-white' : 'bg-violet-500/10 text-violet-600'}`}>
+                          <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-violet-500/15 text-violet-700 dark:text-violet-400' : 'bg-violet-500/10 text-violet-600'}`}>
                             {thisWeekCount}
                           </span>
                         </button>
@@ -1126,13 +1126,13 @@ export default function DoctorDashboard() {
                           data-testid="chip-filter-next-week"
                           className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
                             quickFilter === 'next-week'
-                              ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
-                              : 'bg-background text-muted-foreground border-border/60 hover:border-indigo-400 hover:text-indigo-600 active:bg-indigo-500/10'
+                              ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-400/50'
+                              : 'bg-background text-muted-foreground border-indigo-400/30 hover:text-indigo-600 active:bg-indigo-500/10'
                           }`}
                         >
                           <CalendarDays className="h-3 w-3 shrink-0" />
                           Next Week
-                          <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-600'}`}>
+                          <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400' : 'bg-indigo-500/10 text-indigo-600'}`}>
                             {nextWeekCount}
                           </span>
                         </button>
@@ -1155,8 +1155,8 @@ export default function DoctorDashboard() {
                     </button>
                   )}
 
-                  {/* Close — col-span-2 flex justify-end on mobile; ml-auto on desktop */}
-                  <div className="col-span-2 flex justify-end sm:flex-none sm:ml-auto">
+                  {/* Close — desktop only */}
+                  <div className="hidden sm:flex sm:ml-auto">
                     <button
                       onClick={() => setFilterRowOpen(false)}
                       className="h-11 w-11 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0"
@@ -1173,13 +1173,13 @@ export default function DoctorDashboard() {
               <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
                 <div className="flex">
                   <div className="w-1.5 bg-primary/60 shrink-0" />
-                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center justify-between gap-3">
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                         <Calendar className="h-[18px] w-[18px] text-primary" />
                       </div>
                       <div className="min-w-0">
-                        <h2 className="text-base font-semibold tracking-tight">
+                        <h2 className="text-sm sm:text-base font-semibold tracking-tight truncate">
                           {quickFilter === "today"             ? "Today's Appointments"
                            : quickFilter === "upcoming"        ? "Upcoming Appointments"
                            : quickFilter === "awaiting"        ? "All Pending Bookings"
@@ -1191,6 +1191,8 @@ export default function DoctorDashboard() {
                            : "All Appointments"}
                         </h2>
                         <p className="text-xs text-muted-foreground mt-0.5">
+                          <span className="tabular-nums font-semibold">{filteredBookings.length}</span>{" "}
+                          {filteredBookings.length === 1 ? "appointment" : "appointments"}{" · "}
                           {quickFilter === "today"             ? "Appointments assigned to you today"
                            : quickFilter === "upcoming"        ? "Future appointments beyond today"
                            : quickFilter === "awaiting"        ? "All unconfirmed bookings across all dates"
@@ -1203,9 +1205,6 @@ export default function DoctorDashboard() {
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs font-semibold text-muted-foreground tabular-nums shrink-0">
-                      {filteredBookings.length} {filteredBookings.length === 1 ? "appointment" : "appointments"}
-                    </span>
                   </div>
                 </div>
               </div>
