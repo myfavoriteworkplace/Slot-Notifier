@@ -997,141 +997,144 @@ export default function BookingsPanel({
 
         {/* Date range + Quick week — collapsible filter row */}
         {filterRowOpen && (
-          <div className="animate-in fade-in slide-in-from-top-1 duration-150 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 bg-card border border-border/50 rounded-xl px-3 py-2.5 shadow-sm">
+          <div className="animate-in fade-in slide-in-from-top-1 duration-150 grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 bg-card border border-border/50 rounded-xl px-3 py-3 shadow-sm">
 
-            {/* ── Sub-row 1: date range ── */}
-            <div className="flex items-center gap-1.5">
+            {/* Desktop-only: icon + label */}
+            <div className="hidden sm:flex sm:flex-none items-center gap-1.5">
               <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="hidden sm:inline text-xs font-medium text-muted-foreground shrink-0">Date range:</span>
+              <span className="text-xs font-medium text-muted-foreground shrink-0">Date range:</span>
+            </div>
 
-              {/* 2-col grid on mobile → flex-row on sm */}
-              <div className="grid grid-cols-2 gap-1.5 flex-1 sm:flex sm:flex-none sm:flex-row sm:items-center sm:gap-1.5">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={`w-full sm:w-auto min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
-                        filterDate
-                          ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
-                          : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
-                      }`}
-                    >
-                      <CalendarIcon className="h-3 w-3 mr-1.5 shrink-0" />
-                      {filterDate ? format(filterDate, "MMM d") : "Start"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                    <Calendar mode="single" selected={filterDate} onSelect={(d) => { setQuickFilter('all'); setFilterDate(d); }} initialFocus />
-                  </PopoverContent>
-                </Popover>
+            {/* Start picker — col 1 on mobile */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`w-full h-11 sm:w-auto sm:h-auto min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
+                    filterDate
+                      ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
+                      : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
+                  }`}
+                >
+                  <CalendarIcon className="h-3 w-3 mr-1.5 shrink-0" />
+                  {filterDate ? format(filterDate, "MMM d") : "Start"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                <Calendar mode="single" selected={filterDate} onSelect={(d) => { setQuickFilter('all'); setFilterDate(d); }} initialFocus />
+              </PopoverContent>
+            </Popover>
 
-                <span className="hidden sm:inline text-muted-foreground/40 text-xs shrink-0">→</span>
+            {/* Desktop-only: → arrow */}
+            <span className="hidden sm:inline text-muted-foreground/40 text-xs shrink-0">→</span>
 
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={!filterDate}
-                      className={`w-full sm:w-auto min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
-                        filterEndDate
-                          ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
-                          : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
-                      }`}
-                    >
-                      <CalendarIcon className="h-3 w-3 mr-1.5 shrink-0" />
-                      {filterEndDate ? format(filterEndDate, "MMM d") : "End"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                    <Calendar mode="single" selected={filterEndDate} onSelect={(d) => { setQuickFilter('all'); setFilterEndDate(d); }} initialFocus />
-                  </PopoverContent>
-                </Popover>
-              </div>
+            {/* End picker — col 2 on mobile */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!filterDate}
+                  className={`w-full h-11 sm:w-auto sm:h-auto min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
+                    filterEndDate
+                      ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
+                      : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
+                  }`}
+                >
+                  <CalendarIcon className="h-3 w-3 mr-1.5 shrink-0" />
+                  {filterEndDate ? format(filterEndDate, "MMM d") : "End"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                <Calendar mode="single" selected={filterEndDate} onSelect={(d) => { setQuickFilter('all'); setFilterEndDate(d); }} initialFocus />
+              </PopoverContent>
+            </Popover>
 
-              <div className={`flex items-center gap-1.5 transition-all ${filterDate || filterEndDate ? 'visible' : 'invisible pointer-events-none'}`}>
+            {/* Clear dates — full-width row on mobile (col-span-2), inline on desktop */}
+            {(filterDate || filterEndDate) && (
+              <div className="col-span-2 sm:col-span-1 flex items-center gap-1.5">
                 <div className="w-px h-4 bg-border/50 shrink-0 hidden sm:block" />
                 <button
                   onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); }}
-                  className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1 h-11 sm:h-auto min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
                   data-testid="button-clear-date-filter"
                 >
                   <X className="h-3 w-3" />
-                  Clear
+                  Clear dates
                 </button>
               </div>
-            </div>
+            )}
 
-            {/* Divider — desktop only */}
+            {/* Desktop-only divider */}
             <div className="hidden sm:block w-px h-4 bg-border/40 mx-0.5 shrink-0" />
 
-            {/* ── Sub-row 2: week chips ── */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <TooltipProvider delayDuration={700}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week'); }}
-                      data-testid="chip-filter-this-week"
-                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
-                        quickFilter === 'this-week'
-                          ? 'bg-violet-500 text-white border-violet-500 shadow-sm'
-                          : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400 hover:text-violet-600 active:bg-violet-500/10'
-                      }`}
-                    >
-                      <CalendarIcon className="h-3 w-3" />
-                      This Week
-                      <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-white/20 text-white' : 'bg-violet-500/10 text-violet-600'}`}>
-                        {thisWeekCount}
-                      </span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
-                    Bookings falling within the current Mon–Sun week
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            {/* This Week — col 1 on mobile */}
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week'); }}
+                    data-testid="chip-filter-this-week"
+                    className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
+                      quickFilter === 'this-week'
+                        ? 'bg-violet-500 text-white border-violet-500 shadow-sm'
+                        : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400 hover:text-violet-600 active:bg-violet-500/10'
+                    }`}
+                  >
+                    <CalendarIcon className="h-3 w-3 shrink-0" />
+                    This Week
+                    <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-white/20 text-white' : 'bg-violet-500/10 text-violet-600'}`}>
+                      {thisWeekCount}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                  Bookings falling within the current Mon–Sun week
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-              <TooltipProvider delayDuration={700}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week'); }}
-                      data-testid="chip-filter-next-week"
-                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
-                        quickFilter === 'next-week'
-                          ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
-                          : 'bg-background text-muted-foreground border-border/60 hover:border-indigo-400 hover:text-indigo-600 active:bg-indigo-500/10'
-                      }`}
-                    >
-                      <CalendarDays className="h-3 w-3" />
-                      Next Week
-                      <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-600'}`}>
-                        {nextWeekCount}
-                      </span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
-                    Bookings falling within next Mon–Sun week
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            {/* Next Week — col 2 on mobile */}
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week'); }}
+                    data-testid="chip-filter-next-week"
+                    className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
+                      quickFilter === 'next-week'
+                        ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
+                        : 'bg-background text-muted-foreground border-border/60 hover:border-indigo-400 hover:text-indigo-600 active:bg-indigo-500/10'
+                    }`}
+                  >
+                    <CalendarDays className="h-3 w-3 shrink-0" />
+                    Next Week
+                    <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-600'}`}>
+                      {nextWeekCount}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                  Bookings falling within next Mon–Sun week
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-              <div className={`transition-all ${quickFilter === 'this-week' || quickFilter === 'next-week' ? 'visible' : 'invisible pointer-events-none'}`}>
-                <button
-                  onClick={() => setQuickFilter('all')}
-                  className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
-                  data-testid="button-clear-week-filter"
-                >
-                  <X className="h-3 w-3" />
-                  Clear
-                </button>
-              </div>
-            </div>
+            {/* Clear week — full-width row on mobile (col-span-2), inline on desktop */}
+            {(quickFilter === 'this-week' || quickFilter === 'next-week') && (
+              <button
+                onClick={() => setQuickFilter('all')}
+                className="col-span-2 sm:col-span-1 w-full sm:w-auto h-11 sm:h-auto inline-flex items-center justify-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
+                data-testid="button-clear-week-filter"
+              >
+                <X className="h-3 w-3" />
+                Clear week
+              </button>
+            )}
 
-            {/* Close button — right-aligned on both mobile and desktop */}
-            <div className="flex justify-end sm:ml-auto sm:flex-none">
+            {/* Close — col-span-2 flex justify-end on mobile; ml-auto on desktop */}
+            <div className="col-span-2 flex justify-end sm:flex-none sm:ml-auto">
               <button
                 onClick={() => setFilterRowOpen(false)}
                 className="h-11 w-11 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0"
@@ -1192,10 +1195,10 @@ export default function BookingsPanel({
         <div className="p-5 space-y-5">
         {/* ── Colour key: ─ horizontal dash = accentBar (top header strip)  │ vertical bar = left border ── */}
         {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && !legendCollapsed && (
-          <div className="group flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-1 border border-border/40 rounded-lg bg-muted/20 px-3 py-2">
-            {/* STATUS group — left border stripe; always shown first */}
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 w-9 mr-1 shrink-0">Status</span>
+          <div className="group flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-x-3 border border-border/40 rounded-lg bg-muted/20 px-3 py-2">
+            {/* STATUS group — horizontally scrollable on mobile, no wrapping */}
+            <div className="flex items-center gap-x-2 overflow-x-auto">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 shrink-0">Status</span>
               {([
                 { color: "bg-emerald-400", label: "Confirmed",  text: "text-emerald-500"                  },
                 { color: "bg-amber-400",   label: "Pending",    text: "text-amber-500"                    },
@@ -1209,12 +1212,12 @@ export default function BookingsPanel({
                 </div>
               ))}
             </div>
-            {/* WHEN group — header accent bar; only in grouped-all mode */}
+            {/* WHEN group — horizontally scrollable on mobile; only in grouped-all mode */}
             {quickFilter === 'all' && !filterDate && (
               <>
                 <span className="hidden sm:block h-3.5 w-px bg-border/60 shrink-0" />
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 w-9 mr-1 shrink-0">When</span>
+                <div className="flex items-center gap-x-2 overflow-x-auto">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 shrink-0">When</span>
                   {([
                     { color: "bg-sky-400",                     label: "Today",    text: "text-sky-500"                       },
                     { color: "bg-primary",                     label: "Upcoming", text: "text-primary"                       },
@@ -1228,11 +1231,11 @@ export default function BookingsPanel({
                 </div>
               </>
             )}
-            {/* Collapse × — appears on row hover */}
+            {/* Collapse × — desktop only, appears on row hover */}
             <button
               onClick={() => setLegendCollapsed(true)}
               title="Hide legend"
-              className="self-end sm:ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-150 motion-reduce:transition-none p-1 rounded hover:bg-muted/60 text-muted-foreground/50 hover:text-muted-foreground shrink-0"
+              className="hidden sm:flex sm:ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-150 motion-reduce:transition-none p-1 rounded hover:bg-muted/60 text-muted-foreground/50 hover:text-muted-foreground shrink-0"
             >
               <X className="h-3 w-3" />
             </button>
