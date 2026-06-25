@@ -29,7 +29,6 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Link } from "wouter";
-import logoPath from "@assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png";
 
 const scrollIntoView = (e: React.FocusEvent<HTMLInputElement>) =>
   e.target.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -220,7 +219,7 @@ export default function ClinicLogin() {
 
             {/* Logo */}
             <div className="flex items-center gap-2.5 mb-auto">
-              <img src={logoPath} alt="bookMySlot logo" className="h-8 w-8 rounded-xl object-cover" />
+              <img src="/icons/favicon.svg" alt="bookMySlot logo" className="h-8 w-8 rounded-xl object-contain" />
               <div className="flex flex-col leading-none">
                 <span className="text-[15px] font-bold text-white tracking-tight" style={{ letterSpacing: "-.02em" }}>
                   book<span className="text-primary">My</span>Slot

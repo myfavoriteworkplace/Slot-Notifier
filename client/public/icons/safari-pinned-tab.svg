@@ -1,34 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- Tooth silhouette -->
-  <path fill="#000000" d="
-    M50 10
-    C38 10 28 18 26 28
-    C24 36 25 44 27 50
-    C29 56 30 62 30 68
-    C30 74 32 80 36 82
-    C38 83 40 82 42 80
-    C44 77 45 72 46 68
-    C47 64 48 62 50 62
-    C52 62 53 64 54 68
-    C55 72 56 77 58 80
-    C60 82 62 83 64 82
-    C68 80 70 74 70 68
-    C70 62 71 56 73 50
-    C75 44 76 36 74 28
-    C72 18 62 10 50 10Z
-  "/>
-  <!-- Checkmark badge circle -->
-  <circle fill="#000000" cx="68" cy="38" r="14"/>
-  <!-- Checkmark (cut out as white — using a path that matches the background = transparent trick not available in monochrome SVG, so we use a contrasting path) -->
-  <path fill="#000000" d="M68 38 m-7 0 l4 4 l8-8" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <!-- Calendar icon bottom-right -->
-  <rect x="68" y="72" width="22" height="18" rx="2" fill="#000000"/>
-  <rect x="70" y="70" width="4" height="4" rx="1" fill="#000000"/>
-  <rect x="84" y="70" width="4" height="4" rx="1" fill="#000000"/>
-  <line x1="68" y1="78" x2="90" y2="78" stroke="#ffffff" stroke-width="1.5"/>
-  <rect x="71" y="81" width="3" height="3" rx="0.5" fill="#ffffff"/>
-  <rect x="77" y="81" width="3" height="3" rx="0.5" fill="#ffffff"/>
-  <rect x="83" y="81" width="3" height="3" rx="0.5" fill="#ffffff"/>
-  <rect x="71" y="86" width="3" height="3" rx="0.5" fill="#ffffff"/>
-  <rect x="77" y="86" width="3" height="3" rx="0.5" fill="#ffffff"/>
+  <!-- BookMySlot logo — simplified monochrome mask for Safari pinned tab -->
+  <!-- Outer oval -->
+  <ellipse cx="50" cy="50" rx="37" ry="39" fill="black"/>
+  <!-- Inner cutout to suggest tooth/dental shape — white relief -->
+  <rect x="34" y="44" width="32" height="22" rx="5" fill="white"/>
+  <rect x="42" y="54" width="6" height="16" rx="2" fill="black"/>
+  <rect x="52" y="54" width="6" height="16" rx="2" fill="black"/>
+  <!-- Booking checkmark circle top-right -->
+  <circle cx="70" cy="34" r="11" fill="white"/>
+  <circle cx="70" cy="34" r="9" fill="black"/>
+  <path d="M65 34 l3.5 3.5 l6-6" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

@@ -10,7 +10,6 @@ import {
 } from "@/hooks/use-notifications";
 import { useState } from "react";
 import { useEffect } from "react";
-import logoPath from "@assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png";
 import {
   Bell,
   LogOut,
@@ -598,7 +597,7 @@ export function Header() {
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0"
             data-testid="link-home"
           >
-            <img src={logoPath} alt="bookMySlot logo" className="h-8 w-8 rounded-xl object-cover" />
+            <img src="/icons/favicon.svg" alt="bookMySlot logo" className="h-8 w-8 rounded-xl object-contain" />
             <div className="hidden sm:flex flex-col leading-none">
               <span
                 className="text-[15px] font-bold tracking-tight"
