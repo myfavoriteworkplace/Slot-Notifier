@@ -97,6 +97,7 @@ export default function DoctorDashboard() {
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
   const [filterRowOpen, setFilterRowOpen] = useState(false);
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
+  const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [heroStatsCollapsed, setHeroStatsCollapsed] = useState(false);
   const appointmentsSectionRef = useRef<HTMLDivElement>(null);
@@ -629,6 +630,7 @@ export default function DoctorDashboard() {
     else if (quickFilter === "next-week") matchesDate = bdt ? bdt >= nextWeekStart && bdt <= nextWeekEnd : false;
     else if (filterDate && filterEndDate) matchesDate = bdt ? bdt >= startOfDay(filterDate) && bdt <= endOfDay(filterEndDate) : false;
     else if (filterDate) matchesDate = bd === format(filterDate, 'yyyy-MM-dd');
+    else if (appointmentDateFilter) matchesDate = bd === appointmentDateFilter;
     return matchesClinic && matchesDate;
   });
 
