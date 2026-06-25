@@ -735,7 +735,7 @@ export default function BookingsPanel({
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
               quickFilter === 'today'
                 ? 'bg-sky-500/10 border-sky-400/50 text-sky-700 dark:text-sky-400'
-                : 'bg-transparent border-border text-muted-foreground hover:bg-sky-500/8 hover:border-sky-400/50 hover:text-sky-700 dark:hover:text-sky-400'
+                : 'bg-transparent border-border text-muted-foreground hover:bg-sky-500/10 hover:border-sky-400/50 hover:text-sky-700 dark:hover:text-sky-400'
             }`}
             data-testid="chip-filter-today"
           >
@@ -754,7 +754,7 @@ export default function BookingsPanel({
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
               quickFilter === 'upcoming'
                 ? 'bg-primary/10 border-primary/40 text-primary'
-                : 'bg-transparent border-border text-muted-foreground hover:bg-primary/8 hover:border-primary/50 hover:text-primary'
+                : 'bg-transparent border-border text-muted-foreground hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
             }`}
             data-testid="chip-filter-upcoming"
           >
@@ -773,7 +773,7 @@ export default function BookingsPanel({
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
               quickFilter === 'past'
                 ? 'bg-slate-500/10 border-slate-400/40 text-slate-600 dark:text-slate-400'
-                : 'bg-transparent border-border text-muted-foreground hover:bg-slate-500/8 hover:border-slate-400/50 hover:text-slate-600 dark:hover:text-slate-400'
+                : 'bg-transparent border-border text-muted-foreground hover:bg-slate-500/10 hover:border-slate-400/40 hover:text-slate-600 dark:hover:text-slate-400'
             }`}
             data-testid="chip-filter-past"
           >
@@ -792,7 +792,7 @@ export default function BookingsPanel({
             className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
               quickFilter === 'all'
                 ? 'bg-primary/10 border-primary/40 text-primary'
-                : 'bg-transparent border-border text-muted-foreground hover:bg-primary/8 hover:border-primary/50 hover:text-primary'
+                : 'bg-transparent border-border text-muted-foreground hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
             }`}
             data-testid="chip-filter-all"
           >
@@ -914,19 +914,19 @@ export default function BookingsPanel({
                   <button
                     onClick={() => setLegendCollapsed(false)}
                     title="Show colour legend"
-                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex flex-col items-center justify-center gap-[4px] hover:border-primary/40 hover:bg-muted/80 transition-all active:scale-[0.97]"
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex flex-col items-center justify-center gap-[5px] hover:border-primary/40 hover:bg-muted/80 transition-all active:scale-[0.97]"
                   >
-                    {/* Row 1: WHEN — horizontal dashes */}
+                    {/* Row 1: WHEN — horizontal dashes (3 × 5px = 21px total) */}
                     <div className="flex items-center gap-[3px]">
-                      <span className="h-[3px] w-[7px] rounded-sm bg-sky-400 shrink-0" />
-                      <span className="h-[3px] w-[7px] rounded-sm bg-primary shrink-0" />
-                      <span className="h-[3px] w-[7px] rounded-sm bg-slate-300 dark:bg-slate-500 shrink-0" />
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-sky-400 shrink-0" />
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-primary shrink-0" />
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-slate-400 dark:bg-slate-500 shrink-0" />
                     </div>
-                    {/* Row 2: STATUS — vertical bars */}
+                    {/* Row 2: STATUS — vertical bars (3 × 5px = 21px total) */}
                     <div className="flex items-end gap-[3px]">
-                      <span className="h-[10px] w-[3px] rounded-sm bg-emerald-400 shrink-0" />
-                      <span className="h-[10px] w-[3px] rounded-sm bg-amber-400 shrink-0" />
-                      <span className="h-[10px] w-[3px] rounded-sm bg-rose-400 shrink-0" />
+                      <span className="h-[9px] w-[5px] rounded-sm bg-emerald-400 shrink-0" />
+                      <span className="h-[9px] w-[5px] rounded-sm bg-amber-400 shrink-0" />
+                      <span className="h-[9px] w-[5px] rounded-sm bg-rose-400 shrink-0" />
                     </div>
                   </button>
                 )}

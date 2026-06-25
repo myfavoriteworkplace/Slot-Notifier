@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
@@ -26,18 +27,19 @@ import {
   Info, X, Filter, BadgeCheck, RotateCcw, User, Award, BookOpen, Plus, Pencil, Trash2,
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
   Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound,
-  MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck, Microscope, RefreshCw
+  MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck, Microscope, RefreshCw,
+  SlidersHorizontal
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/schema";
-import { format, differenceInCalendarDays } from "date-fns";
+import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, endOfWeek, addWeeks } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 
-type QuickFilter = "all" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days";
+type QuickFilter = "all" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days" | "this-week" | "next-week";
 type Tab = "appointments" | "profile" | "certifications" | "cases" | "leaves" | "xray";
 
 function isVideo(url: string) {
@@ -91,7 +93,9 @@ export default function DoctorDashboard() {
 
   const [activeTab, setActiveTab] = useState<Tab>("appointments");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
-  const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
+  const [filterRowOpen, setFilterRowOpen] = useState(false);
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [heroStatsCollapsed, setHeroStatsCollapsed] = useState(false);
@@ -597,18 +601,34 @@ export default function DoctorDashboard() {
     return d && d >= now && d <= next7;
   }).length;
 
-  const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setAppointmentDateFilter(""); };
+  const thisWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const thisWeekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+  const nextWeekStart = startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
+  const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
+  const thisWeekCount = confirmedBookings.filter((b: any) => {
+    const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+    return d && d >= thisWeekStart && d <= thisWeekEnd;
+  }).length;
+  const nextWeekCount = confirmedBookings.filter((b: any) => {
+    const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+    return d && d >= nextWeekStart && d <= nextWeekEnd;
+  }).length;
+
+  const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setFilterDate(undefined); setFilterEndDate(undefined); };
 
   const filteredBookings = (quickFilter === "awaiting" || quickFilter === "pending-7days" ? awaitingBookings : confirmedBookings).filter((b: any) => {
     const matchesClinic = appointmentClinicFilter === "all" || b.clinicId === parseInt(appointmentClinicFilter);
-    const bd = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
     const bdt = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+    const bd = bdt ? format(bdt, 'yyyy-MM-dd') : "";
     let matchesDate = true;
     if (quickFilter === "today") matchesDate = bd === todayStr;
     else if (quickFilter === "upcoming") matchesDate = bdt ? bdt >= new Date() && b.visitStatus !== 'completed' : false;
     else if (quickFilter === "pending-7days") matchesDate = bdt ? bdt >= now && bdt <= next7 : false;
     else if (quickFilter === "confirmed-7days") matchesDate = bdt ? bdt >= now && bdt <= next7 : false;
-    else matchesDate = !appointmentDateFilter || bd === appointmentDateFilter;
+    else if (quickFilter === "this-week") matchesDate = bdt ? bdt >= thisWeekStart && bdt <= thisWeekEnd : false;
+    else if (quickFilter === "next-week") matchesDate = bdt ? bdt >= nextWeekStart && bdt <= nextWeekEnd : false;
+    else if (filterDate && filterEndDate) matchesDate = bdt ? bdt >= startOfDay(filterDate) && bdt <= endOfDay(filterEndDate) : false;
+    else if (filterDate) matchesDate = bd === format(filterDate, 'yyyy-MM-dd');
     return matchesClinic && matchesDate;
   });
 
