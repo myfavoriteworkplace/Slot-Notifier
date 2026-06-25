@@ -95,7 +95,7 @@ export default function DoctorDashboard() {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
-  const [filterRowOpen, setFilterRowOpen] = useState(false);
+  const [filterRowOpen, setFilterRowOpen] = useState(true);
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
@@ -630,7 +630,6 @@ export default function DoctorDashboard() {
     else if (quickFilter === "next-week") matchesDate = bdt ? bdt >= nextWeekStart && bdt <= nextWeekEnd : false;
     else if (filterDate && filterEndDate) matchesDate = bdt ? bdt >= startOfDay(filterDate) && bdt <= endOfDay(filterEndDate) : false;
     else if (filterDate) matchesDate = bd === format(filterDate, 'yyyy-MM-dd');
-    else if (appointmentDateFilter) matchesDate = bd === appointmentDateFilter;
     return matchesClinic && matchesDate;
   });
 
@@ -993,31 +992,171 @@ export default function DoctorDashboard() {
                     quickFilter === "all" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
                   }`}>{confirmedBookings.length}</span>
                 </button>
-              </div>
 
-              {/* Filters — date + clinic side-by-side */}
-              <div className="flex flex-wrap gap-2 items-center sm:justify-end">
-                {quickFilter === "all" && (
-                  <div className="relative flex-1 min-w-[130px] sm:flex-none sm:w-44">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    <Input type="date" className="pl-9 h-10 w-full rounded-xl border-border text-xs bg-transparent" value={appointmentDateFilter} onChange={(e) => setAppointmentDateFilter(e.target.value)} />
-                  </div>
+                {/* Filter row toggle — only visible when row is collapsed */}
+                {!filterRowOpen && (
+                  <button
+                    onClick={() => setFilterRowOpen(true)}
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97] shrink-0"
+                    data-testid="button-open-filter-row"
+                    title="Show date & week filters"
+                  >
+                    <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+                  </button>
                 )}
-                <div className={quickFilter === "all" ? "flex-1 min-w-[130px] sm:flex-none" : "w-full sm:w-auto"}>
+
+                {/* All Clinics — always visible, pinned right */}
+                <div className="ml-auto">
                   <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
-                    <SelectTrigger className="h-9 w-full sm:w-[170px]"><SelectValue placeholder="All Clinics" /></SelectTrigger>
+                    <SelectTrigger className="h-11 w-full sm:w-[170px] text-xs rounded-xl" data-testid="select-clinic-filter"><SelectValue placeholder="All Clinics" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Clinics</SelectItem>
                       {doctorClinics.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-                {(appointmentDateFilter || appointmentClinicFilter !== "all" || quickFilter !== "all") && (
-                  <Button variant="ghost" size="sm" className="h-9 text-muted-foreground hover:text-foreground shrink-0" onClick={() => { setQuickFilter("all"); setAppointmentDateFilter(""); setAppointmentClinicFilter("all"); }}>
-                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" />Clear
-                  </Button>
-                )}
               </div>
+
+              {/* Date range + Quick week — collapsible filter row */}
+              {filterRowOpen && (
+                <div className="animate-in fade-in slide-in-from-top-1 duration-150 flex flex-wrap items-center gap-2 bg-card border border-border/50 rounded-xl px-3 py-2 shadow-sm">
+
+                  {/* Date range section */}
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="hidden sm:inline text-xs font-medium text-muted-foreground shrink-0">Date range:</span>
+
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={`min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
+                          filterDate
+                            ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
+                            : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
+                        }`}
+                      >
+                        <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
+                        {filterDate ? format(filterDate, "MMM d") : "Start"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                      <CalendarPicker mode="single" selected={filterDate} onSelect={(d) => { setQuickFilter('all'); setFilterDate(d); }} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+
+                  <span className="text-muted-foreground/40 text-xs shrink-0">→</span>
+
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={!filterDate}
+                        className={`min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
+                          filterEndDate
+                            ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
+                            : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
+                        }`}
+                      >
+                        <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
+                        {filterEndDate ? format(filterEndDate, "MMM d") : "End"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                      <CalendarPicker mode="single" selected={filterEndDate} onSelect={(d) => { setQuickFilter('all'); setFilterEndDate(d); }} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+
+                  <div className={`flex items-center gap-1.5 transition-all ${filterDate || filterEndDate ? 'visible' : 'invisible pointer-events-none'}`}>
+                    <div className="w-px h-4 bg-border/50 shrink-0" />
+                    <button
+                      onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); }}
+                      className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
+                      data-testid="button-clear-date-filter"
+                    >
+                      <X className="h-3 w-3" />
+                      Clear
+                    </button>
+                  </div>
+
+                  {/* Divider before week chips */}
+                  <div className="w-px h-4 bg-border/40 mx-0.5 shrink-0" />
+
+                  {/* This Week chip */}
+                  <TooltipProvider delayDuration={700}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week'); }}
+                          data-testid="chip-filter-this-week"
+                          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
+                            quickFilter === 'this-week'
+                              ? 'bg-violet-500 text-white border-violet-500 shadow-sm'
+                              : 'bg-background text-muted-foreground border-border/60 hover:border-violet-400 hover:text-violet-600 active:bg-violet-500/10'
+                          }`}
+                        >
+                          <Calendar className="h-3 w-3" />
+                          This Week
+                          <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-white/20 text-white' : 'bg-violet-500/10 text-violet-600'}`}>
+                            {thisWeekCount}
+                          </span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                        Bookings falling within the current Mon–Sun week
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  {/* Next Week chip */}
+                  <TooltipProvider delayDuration={700}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week'); }}
+                          data-testid="chip-filter-next-week"
+                          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
+                            quickFilter === 'next-week'
+                              ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
+                              : 'bg-background text-muted-foreground border-border/60 hover:border-indigo-400 hover:text-indigo-600 active:bg-indigo-500/10'
+                          }`}
+                        >
+                          <CalendarDays className="h-3 w-3" />
+                          Next Week
+                          <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-600'}`}>
+                            {nextWeekCount}
+                          </span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                        Bookings falling within next Mon–Sun week
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <div className={`transition-all ${quickFilter === 'this-week' || quickFilter === 'next-week' ? 'visible' : 'invisible pointer-events-none'}`}>
+                    <button
+                      onClick={() => setQuickFilter('all')}
+                      className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
+                      data-testid="button-clear-week-filter"
+                    >
+                      <X className="h-3 w-3" />
+                      Clear
+                    </button>
+                  </div>
+
+                  {/* Close button — pinned right */}
+                  <button
+                    onClick={() => setFilterRowOpen(false)}
+                    className="ml-auto h-11 w-11 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0"
+                    data-testid="button-close-filter-row"
+                    title="Hide date & week filters"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
 
               {/* Dynamic section heading — matches clinic dashboard booking header style */}
               <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
@@ -1035,7 +1174,9 @@ export default function DoctorDashboard() {
                            : quickFilter === "awaiting"        ? "All Pending Bookings"
                            : quickFilter === "confirmed-7days" ? "Confirmed Bookings (Next 7 Days)"
                            : quickFilter === "pending-7days"   ? "Pending Confirmations (Next 7 Days)"
-                           : appointmentDateFilter             ? "Filtered Appointments"
+                           : quickFilter === "this-week"       ? "This Week's Appointments"
+                           : quickFilter === "next-week"       ? "Next Week's Appointments"
+                           : filterDate                        ? "Filtered Appointments"
                            : "All Appointments"}
                         </h2>
                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -1044,7 +1185,9 @@ export default function DoctorDashboard() {
                            : quickFilter === "awaiting"        ? "All unconfirmed bookings across all dates"
                            : quickFilter === "confirmed-7days" ? "Confirmed appointments in the next 7 days"
                            : quickFilter === "pending-7days"   ? "Pending confirmations in the next 7 days"
-                           : appointmentDateFilter             ? "Showing custom date range"
+                           : quickFilter === "this-week"       ? "Appointments within the current Mon–Sun week"
+                           : quickFilter === "next-week"       ? "Appointments within next Mon–Sun week"
+                           : filterDate                        ? "Showing custom date range"
                            : "All your patient appointments"}
                         </p>
                       </div>
