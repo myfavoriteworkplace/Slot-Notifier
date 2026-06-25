@@ -181,6 +181,7 @@ export default function BookingsPanel({
   const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
   const [consentUrls, setConsentUrls] = useState<Record<number, string>>({});
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
+  const [legendCollapsed, setLegendCollapsed] = useState(false);
   const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
 
   const [bookingPatientSearch, setBookingPatientSearch] = useState("");
@@ -1159,40 +1160,78 @@ export default function BookingsPanel({
           </div>
 
         <div className="p-5 space-y-5">
-        {/* Colour key — single-row on desktop, two-row on mobile; hidden for time-specific filters */}
-        {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && quickFilter === 'all' && !filterDate && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border border-border/40 rounded-lg bg-muted/20 px-3 py-2">
-            {/* WHEN group */}
-            <div className="flex items-center gap-2.5">
-              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50 w-10 shrink-0">When</span>
-              {([
-                { color: "bg-sky-400",                     label: "Today"    },
-                { color: "bg-primary",                     label: "Upcoming" },
-                { color: "bg-slate-300 dark:bg-slate-500", label: "Past"     },
-              ] as const).map(({ color, label }) => (
-                <div key={label} className="flex items-center gap-1.5">
-                  <span className={`h-[3px] w-4 rounded-full shrink-0 ${color}`} />
-                  <span className="text-xs text-muted-foreground/70">{label}</span>
-                </div>
-              ))}
+        {/* ── Colour key: horizontal dash = accentBar (top header strip), vertical bar = left border ── */}
+        {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && (
+          legendCollapsed ? (
+            /* ── Collapsed pill ── */
+            <button
+              onClick={() => setLegendCollapsed(false)}
+              title="Show colour legend"
+              className="flex items-center gap-1.5 h-7 px-2.5 rounded-full border border-border/50 bg-muted/20 hover:bg-muted/40 transition-colors duration-150 motion-reduce:transition-none"
+            >
+              {quickFilter === 'all' && !filterDate && (
+                <>
+                  <span className="h-[4px] w-3 rounded-sm bg-sky-400 shrink-0" />
+                  <span className="h-[4px] w-3 rounded-sm bg-primary shrink-0" />
+                  <span className="h-[4px] w-3 rounded-sm bg-slate-300 dark:bg-slate-500 shrink-0" />
+                  <span className="w-px h-3 bg-border/50 shrink-0 mx-0.5" />
+                </>
+              )}
+              <span className="h-3.5 w-[3px] rounded-sm bg-emerald-400 shrink-0" />
+              <span className="h-3.5 w-[3px] rounded-sm bg-amber-400 shrink-0" />
+              <span className="h-3.5 w-[3px] rounded-sm bg-rose-400 shrink-0" />
+              <span className="h-3.5 w-[3px] rounded-sm bg-slate-400 shrink-0" />
+              <span className="h-3.5 w-[3px] rounded-sm bg-teal-400 shrink-0" />
+              <ChevronDown className="h-3 w-3 text-muted-foreground/50 ml-0.5 shrink-0" />
+            </button>
+          ) : (
+            /* ── Expanded legend bar ── */
+            <div className="group flex flex-wrap items-center gap-x-3 gap-y-1.5 border border-border/40 rounded-lg bg-muted/20 px-3 py-1.5">
+              {/* WHEN group — header accent bar; only meaningful in grouped-all view */}
+              {quickFilter === 'all' && !filterDate && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 w-9 shrink-0">When</span>
+                    {([
+                      { color: "bg-sky-400",                     label: "Today",    text: "text-sky-500"                       },
+                      { color: "bg-primary",                     label: "Upcoming", text: "text-primary"                       },
+                      { color: "bg-slate-300 dark:bg-slate-500", label: "Past",     text: "text-slate-400 dark:text-slate-500" },
+                    ] as const).map(({ color, label, text }) => (
+                      <div key={label} className="flex items-center gap-1.5">
+                        <span className={`h-[5px] w-5 rounded-sm shrink-0 ${color}`} />
+                        <span className={`text-xs font-medium ${text}`}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <span className="hidden sm:block h-3.5 w-px bg-border/60 shrink-0" />
+                </>
+              )}
+              {/* STATUS group — left border stripe; always shown */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 w-9 shrink-0">Status</span>
+                {([
+                  { color: "bg-emerald-400", label: "Confirmed",  text: "text-emerald-500"                  },
+                  { color: "bg-amber-400",   label: "Pending",    text: "text-amber-500"                    },
+                  { color: "bg-rose-400",    label: "Cancelled",  text: "text-rose-500"                     },
+                  { color: "bg-slate-400",   label: "No Show",    text: "text-slate-500 dark:text-slate-400"},
+                  { color: "bg-teal-400",    label: "In Consult", text: "text-teal-600 dark:text-teal-400"  },
+                ] as const).map(({ color, label, text }) => (
+                  <div key={label} className="flex items-center gap-1.5">
+                    <span className={`h-4 w-[4px] rounded-sm shrink-0 ${color}`} />
+                    <span className={`text-xs font-medium ${text}`}>{label}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Collapse ×  — appears on row hover */}
+              <button
+                onClick={() => setLegendCollapsed(true)}
+                title="Hide legend"
+                className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-150 motion-reduce:transition-none p-1 rounded hover:bg-muted/60 text-muted-foreground/50 hover:text-muted-foreground shrink-0"
+              >
+                <X className="h-3 w-3" />
+              </button>
             </div>
-            {/* divider — visible on desktop only */}
-            <span className="hidden sm:block h-3.5 w-px bg-border/60 shrink-0" />
-            {/* STATUS group */}
-            <div className="flex items-center gap-2.5">
-              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50 w-10 shrink-0">Status</span>
-              {([
-                { color: "bg-emerald-400", label: "Confirmed" },
-                { color: "bg-amber-400",   label: "Pending"   },
-                { color: "bg-rose-400",    label: "Cancelled" },
-              ] as const).map(({ color, label }) => (
-                <div key={label} className="flex items-center gap-1.5">
-                  <span className={`h-3.5 w-[3px] rounded-full shrink-0 ${color}`} />
-                  <span className="text-xs text-muted-foreground/70">{label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          )
         )}
 
         {bookingsLoading ? (
