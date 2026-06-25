@@ -597,7 +597,7 @@ export function Header() {
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0"
             data-testid="link-home"
           >
-            <img src="/icons/favicon.svg" alt="bookMySlot logo" className="h-8 w-8 rounded-xl object-contain" />
+            <img src="/icons/logo.svg" alt="bookMySlot logo" className="h-8 w-8 object-contain" />
             <div className="hidden sm:flex flex-col leading-none">
               <span
                 className="text-[15px] font-bold tracking-tight"
