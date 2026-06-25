@@ -732,10 +732,10 @@ export default function BookingsPanel({
           {/* Today */}
           <button
             onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'today' ? 'all' : 'today'); }}
-            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2.5 min-h-[44px] rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
               quickFilter === 'today'
-                ? 'bg-sky-500 text-white border-sky-500 shadow-sm shadow-sky-500/20'
-                : 'bg-muted/50 border-border/60 text-foreground hover:border-sky-400/50 hover:text-sky-600'
+                ? 'bg-sky-500/10 border-sky-400/50 text-sky-700 dark:text-sky-400'
+                : 'bg-transparent border-border text-muted-foreground hover:bg-sky-500/8 hover:border-sky-400/50 hover:text-sky-700 dark:hover:text-sky-400'
             }`}
             data-testid="chip-filter-today"
           >
@@ -743,18 +743,18 @@ export default function BookingsPanel({
               <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">Today</span>
             </span>
-            <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'today' ? 'bg-white/25 text-white' : 'bg-sky-500/15 text-sky-600'
+            <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'today' ? 'bg-sky-500/15 text-sky-700 dark:text-sky-400' : 'bg-muted text-muted-foreground'
             }`}>{todaysBookingsCount}</span>
           </button>
 
           {/* Upcoming */}
           <button
             onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'upcoming' ? 'all' : 'upcoming'); }}
-            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2.5 min-h-[44px] rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
               quickFilter === 'upcoming'
-                ? 'bg-primary text-white border-primary shadow-sm shadow-primary/20'
-                : 'bg-muted/50 border-border/60 text-foreground hover:border-primary/50 hover:text-primary'
+                ? 'bg-primary/10 border-primary/40 text-primary'
+                : 'bg-transparent border-border text-muted-foreground hover:bg-primary/8 hover:border-primary/50 hover:text-primary'
             }`}
             data-testid="chip-filter-upcoming"
           >
@@ -762,18 +762,18 @@ export default function BookingsPanel({
               <TrendingUp className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">Upcoming</span>
             </span>
-            <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'upcoming' ? 'bg-white/25 text-white' : 'bg-primary/15 text-primary'
+            <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'upcoming' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
             }`}>{futureBookingsCount}</span>
           </button>
 
           {/* Past */}
           <button
             onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'past' ? 'all' : 'past'); }}
-            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2.5 min-h-[44px] rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
               quickFilter === 'past'
-                ? 'bg-slate-500 text-white border-slate-500 shadow-sm shadow-slate-500/20'
-                : 'bg-muted/50 border-border/60 text-foreground hover:border-slate-400/50 hover:text-slate-600'
+                ? 'bg-slate-500/10 border-slate-400/40 text-slate-600 dark:text-slate-400'
+                : 'bg-transparent border-border text-muted-foreground hover:bg-slate-500/8 hover:border-slate-400/50 hover:text-slate-600 dark:hover:text-slate-400'
             }`}
             data-testid="chip-filter-past"
           >
@@ -781,18 +781,18 @@ export default function BookingsPanel({
               <History className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">Past</span>
             </span>
-            <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'past' ? 'bg-white/25 text-white' : 'bg-slate-500/15 text-slate-600'
+            <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'past' ? 'bg-slate-500/15 text-slate-600 dark:text-slate-400' : 'bg-muted text-muted-foreground'
             }`}>{pastBookingsCount}</span>
           </button>
 
           {/* All Bookings */}
           <button
             onClick={() => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); }}
-            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2.5 min-h-[44px] rounded-xl border text-sm font-semibold transition-all active:scale-[0.97] ${
+            className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
               quickFilter === 'all'
-                ? 'bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-500/20'
-                : 'bg-muted/50 border-border/60 text-foreground hover:border-violet-400/50 hover:text-violet-600'
+                ? 'bg-primary/10 border-primary/40 text-primary'
+                : 'bg-transparent border-border text-muted-foreground hover:bg-primary/8 hover:border-primary/50 hover:text-primary'
             }`}
             data-testid="chip-filter-all"
           >
@@ -800,8 +800,8 @@ export default function BookingsPanel({
               <Filter className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">All Bookings</span>
             </span>
-            <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
-              quickFilter === 'all' ? 'bg-white/25 text-white' : 'bg-violet-500/15 text-violet-600'
+            <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+              quickFilter === 'all' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
             }`}>{bookings?.length || 0}</span>
           </button>
 
@@ -889,11 +889,11 @@ export default function BookingsPanel({
                 </button>
               </div>
             ) : (
-              /* Collapsed — magnifier + optional filter icon */
+              /* Collapsed — magnifier + optional filter icon + legend toggle */
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => { setSearchOpen(true); setTimeout(() => patientSearchInputRef.current?.focus(), 50); }}
-                  className="h-11 w-11 rounded-xl border bg-muted/50 border-border/60 flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97]"
+                  className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97]"
                   data-testid="button-open-patient-search"
                   title="Search patient"
                 >
@@ -902,11 +902,32 @@ export default function BookingsPanel({
                 {!filterRowOpen && (
                   <button
                     onClick={() => setFilterRowOpen(true)}
-                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border/60 flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97]"
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97]"
                     data-testid="button-open-filter-row"
                     title="Show date & week filters"
                   >
                     <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                )}
+                {/* Legend toggle — mini coloured-lines icon; only when legend is hidden */}
+                {legendCollapsed && (
+                  <button
+                    onClick={() => setLegendCollapsed(false)}
+                    title="Show colour legend"
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex flex-col items-center justify-center gap-[4px] hover:border-primary/40 hover:bg-muted/80 transition-all active:scale-[0.97]"
+                  >
+                    {/* Row 1: WHEN — horizontal dashes */}
+                    <div className="flex items-center gap-[3px]">
+                      <span className="h-[3px] w-[7px] rounded-sm bg-sky-400 shrink-0" />
+                      <span className="h-[3px] w-[7px] rounded-sm bg-primary shrink-0" />
+                      <span className="h-[3px] w-[7px] rounded-sm bg-slate-300 dark:bg-slate-500 shrink-0" />
+                    </div>
+                    {/* Row 2: STATUS — vertical bars */}
+                    <div className="flex items-end gap-[3px]">
+                      <span className="h-[10px] w-[3px] rounded-sm bg-emerald-400 shrink-0" />
+                      <span className="h-[10px] w-[3px] rounded-sm bg-amber-400 shrink-0" />
+                      <span className="h-[10px] w-[3px] rounded-sm bg-rose-400 shrink-0" />
+                    </div>
                   </button>
                 )}
               </div>
@@ -1160,78 +1181,53 @@ export default function BookingsPanel({
           </div>
 
         <div className="p-5 space-y-5">
-        {/* ── Colour key: horizontal dash = accentBar (top header strip), vertical bar = left border ── */}
-        {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && (
-          legendCollapsed ? (
-            /* ── Collapsed pill ── */
-            <button
-              onClick={() => setLegendCollapsed(false)}
-              title="Show colour legend"
-              className="flex items-center gap-1.5 h-7 px-2.5 rounded-full border border-border/50 bg-muted/20 hover:bg-muted/40 transition-colors duration-150 motion-reduce:transition-none"
-            >
-              {quickFilter === 'all' && !filterDate && (
-                <>
-                  <span className="h-[4px] w-3 rounded-sm bg-sky-400 shrink-0" />
-                  <span className="h-[4px] w-3 rounded-sm bg-primary shrink-0" />
-                  <span className="h-[4px] w-3 rounded-sm bg-slate-300 dark:bg-slate-500 shrink-0" />
-                  <span className="w-px h-3 bg-border/50 shrink-0 mx-0.5" />
-                </>
-              )}
-              <span className="h-3.5 w-[3px] rounded-sm bg-emerald-400 shrink-0" />
-              <span className="h-3.5 w-[3px] rounded-sm bg-amber-400 shrink-0" />
-              <span className="h-3.5 w-[3px] rounded-sm bg-rose-400 shrink-0" />
-              <span className="h-3.5 w-[3px] rounded-sm bg-slate-400 shrink-0" />
-              <span className="h-3.5 w-[3px] rounded-sm bg-teal-400 shrink-0" />
-              <ChevronDown className="h-3 w-3 text-muted-foreground/50 ml-0.5 shrink-0" />
-            </button>
-          ) : (
-            /* ── Expanded legend bar ── */
-            <div className="group flex flex-wrap items-center gap-x-3 gap-y-1.5 border border-border/40 rounded-lg bg-muted/20 px-3 py-1.5">
-              {/* WHEN group — header accent bar; only meaningful in grouped-all view */}
-              {quickFilter === 'all' && !filterDate && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 w-9 shrink-0">When</span>
-                    {([
-                      { color: "bg-sky-400",                     label: "Today",    text: "text-sky-500"                       },
-                      { color: "bg-primary",                     label: "Upcoming", text: "text-primary"                       },
-                      { color: "bg-slate-300 dark:bg-slate-500", label: "Past",     text: "text-slate-400 dark:text-slate-500" },
-                    ] as const).map(({ color, label, text }) => (
-                      <div key={label} className="flex items-center gap-1.5">
-                        <span className={`h-[5px] w-5 rounded-sm shrink-0 ${color}`} />
-                        <span className={`text-xs font-medium ${text}`}>{label}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <span className="hidden sm:block h-3.5 w-px bg-border/60 shrink-0" />
-                </>
-              )}
-              {/* STATUS group — left border stripe; always shown */}
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 w-9 shrink-0">Status</span>
-                {([
-                  { color: "bg-emerald-400", label: "Confirmed",  text: "text-emerald-500"                  },
-                  { color: "bg-amber-400",   label: "Pending",    text: "text-amber-500"                    },
-                  { color: "bg-rose-400",    label: "Cancelled",  text: "text-rose-500"                     },
-                  { color: "bg-slate-400",   label: "No Show",    text: "text-slate-500 dark:text-slate-400"},
-                  { color: "bg-teal-400",    label: "In Consult", text: "text-teal-600 dark:text-teal-400"  },
-                ] as const).map(({ color, label, text }) => (
-                  <div key={label} className="flex items-center gap-1.5">
-                    <span className={`h-4 w-[4px] rounded-sm shrink-0 ${color}`} />
-                    <span className={`text-xs font-medium ${text}`}>{label}</span>
-                  </div>
-                ))}
-              </div>
-              {/* Collapse ×  — appears on row hover */}
-              <button
-                onClick={() => setLegendCollapsed(true)}
-                title="Hide legend"
-                className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-150 motion-reduce:transition-none p-1 rounded hover:bg-muted/60 text-muted-foreground/50 hover:text-muted-foreground shrink-0"
-              >
-                <X className="h-3 w-3" />
-              </button>
+        {/* ── Colour key: ─ horizontal dash = accentBar (top header strip)  │ vertical bar = left border ── */}
+        {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && !legendCollapsed && (
+          <div className="group flex flex-wrap items-center gap-x-3 gap-y-1.5 border border-border/40 rounded-lg bg-muted/20 px-3 py-1.5">
+            {/* WHEN group — header accent bar; only meaningful in grouped-all view */}
+            {quickFilter === 'all' && !filterDate && (
+              <>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 w-9 mr-1 shrink-0">When</span>
+                  {([
+                    { color: "bg-sky-400",                     label: "Today",    text: "text-sky-500"                       },
+                    { color: "bg-primary",                     label: "Upcoming", text: "text-primary"                       },
+                    { color: "bg-slate-300 dark:bg-slate-500", label: "Past",     text: "text-slate-400 dark:text-slate-500" },
+                  ] as const).map(({ color, label, text }) => (
+                    <div key={label} className="flex items-center gap-1.5">
+                      <span className={`h-[5px] w-5 rounded-sm shrink-0 ${color}`} />
+                      <span className={`text-xs font-medium ${text}`}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+                <span className="hidden sm:block h-3.5 w-px bg-border/60 shrink-0" />
+              </>
+            )}
+            {/* STATUS group — left border stripe; always shown */}
+            <div className="flex items-center gap-2.5">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 w-9 mr-1 shrink-0">Status</span>
+              {([
+                { color: "bg-emerald-400", label: "Confirmed",  text: "text-emerald-500"                  },
+                { color: "bg-amber-400",   label: "Pending",    text: "text-amber-500"                    },
+                { color: "bg-rose-400",    label: "Cancelled",  text: "text-rose-500"                     },
+                { color: "bg-slate-400",   label: "No Show",    text: "text-slate-500 dark:text-slate-400"},
+                { color: "bg-teal-400",    label: "In Consult", text: "text-teal-600 dark:text-teal-400"  },
+              ] as const).map(({ color, label, text }) => (
+                <div key={label} className="flex items-center gap-1.5">
+                  <span className={`h-4 w-[4px] rounded-sm shrink-0 ${color}`} />
+                  <span className={`text-xs font-medium ${text}`}>{label}</span>
+                </div>
+              ))}
             </div>
-          )
+            {/* Collapse × — appears on row hover */}
+            <button
+              onClick={() => setLegendCollapsed(true)}
+              title="Hide legend"
+              className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-150 motion-reduce:transition-none p-1 rounded hover:bg-muted/60 text-muted-foreground/50 hover:text-muted-foreground shrink-0"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
         )}
 
         {bookingsLoading ? (
