@@ -273,7 +273,7 @@ export default function BookingsPanel({
     const clearAll = () => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); };
 
     // EC-C1: patient exists but has zero bookings at this clinic
-    if (_pt.length === 0) {
+    if (activePatientBookings.length === 0) {
       return {
         color: 'slate',
         headline: `${first} hasn't booked at this clinic yet`,
@@ -360,7 +360,7 @@ export default function BookingsPanel({
       return {
         color: 'amber',
         headline: `No appointment for ${first} on ${rangeLabel}`,
-        detail: `${first} has ${_pt.length} total booking(s) at this clinic, but none fall in the selected range.`,
+        detail: `${first} has ${activePatientBookings.length} total booking(s) at this clinic, but none fall in the selected range.`,
         actions: [{ label: 'Clear date filter', onClick: () => { setFilterDate(undefined); setFilterEndDate(undefined); } }],
       };
     }
@@ -393,7 +393,7 @@ export default function BookingsPanel({
       return {
         color: 'blue',
         headline: `${first} has no confirmed bookings in the next 7 days`,
-        detail: `They have ${_pt.length} booking(s) total. Some may still be awaiting confirmation.`,
+        detail: `They have ${activePatientBookings.length} booking(s) total. Some may still be awaiting confirmation.`,
         actions: [
           { label: 'View Upcoming', onClick: () => setQuickFilter('upcoming') },
           { label: 'View All Bookings', onClick: clearAll },
@@ -414,7 +414,7 @@ export default function BookingsPanel({
     // Fallback
     return {
       color: 'amber',
-      headline: `${first} has ${_pt.length} booking(s) but none match this filter`,
+      headline: `${first} has ${activePatientBookings.length} booking(s) but none match this filter`,
       detail: 'Clear all filters to see their full appointment history.',
       actions: [{ label: 'View All Bookings', onClick: clearAll }],
     };
@@ -467,6 +467,32 @@ export default function BookingsPanel({
   })?.filter(booking => {
     if (!activePatientFilter) return true;
     return (booking as any).patientId === activePatientFilter.id;
+  });
+
+  const activePatientBookings = activePatientFilter && bookings
+    ? bookings.filter(booking => (booking as any).patientId === activePatientFilter.id)
+    : [];
+
+  const patientPastBk = activePatientBookings.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    return bookingDate < todayStart;
+  });
+
+  const patientUpcomingBk = activePatientBookings.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    return bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr && booking.visitStatus !== 'completed' && booking.visitStatus !== 'patient_left_early';
+  });
+
+  const patientTodayBk = activePatientBookings.filter(booking => format(new Date(booking.slot.startTime), 'yyyy-MM-dd') === todayStr);
+  const patientLatestPast = [...patientPastBk].sort((a, b) => new Date(b.slot.startTime).getTime() - new Date(a.slot.startTime).getTime())[0];
+  const patientNearestNext = [...patientUpcomingBk].sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime())[0];
+  const patientNextWeekBk = activePatientBookings.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    return bookingDate >= nextWeekStart && bookingDate <= nextWeekEnd;
+  });
+  const patientThisWeekBk = activePatientBookings.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
   });
 
   const handleOpenBilling = async (booking: BookingWithSlot, existingBill?: PatientBill) => {
@@ -1496,7 +1522,7 @@ export default function BookingsPanel({
                 <div className="space-y-1.5 max-w-[280px]">
                   <p className="text-base font-semibold text-foreground">
                     {activePatientFilter
-                      ? (_pt.length === 0
+                      ? (activePatientBookings.length === 0
                           ? `${activePatientFilter.name.split(' ')[0]} has no bookings here`
                           : "No matching appointments")
                       : quickFilter === 'today'      ? "No bookings today"
@@ -1509,7 +1535,7 @@ export default function BookingsPanel({
                   </p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {activePatientFilter
-                      ? (_pt.length === 0
+                      ? (activePatientBookings.length === 0
                           ? "This patient is registered but hasn't booked here yet."
                           : "Their appointments exist — the active filter is hiding them.")
                       : quickFilter === 'today'      ? "No slots are booked for today. Check Upcoming for future appointments."
