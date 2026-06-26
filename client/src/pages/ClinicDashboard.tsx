@@ -1140,6 +1140,7 @@ export default function ClinicDashboard() {
           <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
             <div className="p-2 space-y-0.5">
 
+              {/* 1 — Bookings */}
               <button
                 onClick={() => setActivePanel('bookings')}
                 data-testid="nav-bookings"
@@ -1155,51 +1156,7 @@ export default function ClinicDashboard() {
                 {activePanel === 'bookings' && <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
               </button>
 
-              <button
-                onClick={() => setActivePanel('configure-slots')}
-                data-testid="nav-configure-slots"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'configure-slots' ? 'bg-blue-500/10 border border-blue-500/20' : 'border border-transparent hover:bg-muted/50'}`}
-              >
-                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'configure-slots' ? 'bg-blue-500/10 border-blue-500/20' : 'bg-muted/50 border-border/50'}`}>
-                  <Clock className={`h-4 w-4 ${activePanel === 'configure-slots' ? 'text-blue-500' : 'text-muted-foreground'}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'configure-slots' ? 'text-blue-600' : 'text-foreground'}`}>Configure Slots</p>
-                  <p className="text-xs text-muted-foreground">Capacity &amp; cancellation</p>
-                </div>
-                {activePanel === 'configure-slots' && <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />}
-              </button>
-
-              <button
-                onClick={() => setActivePanel('manage-doctors')}
-                data-testid="nav-manage-doctors"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'manage-doctors' ? 'bg-teal-500/10 border border-teal-500/20' : 'border border-transparent hover:bg-muted/50'}`}
-              >
-                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'manage-doctors' ? 'bg-teal-500/10 border-teal-500/20' : 'bg-muted/50 border-border/50'}`}>
-                  <Stethoscope className={`h-4 w-4 ${activePanel === 'manage-doctors' ? 'text-teal-600' : 'text-muted-foreground'}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'manage-doctors' ? 'text-teal-700 dark:text-teal-400' : 'text-foreground'}`}>Manage Doctors</p>
-                  <p className="text-xs text-muted-foreground">Add or remove doctors</p>
-                </div>
-                {activePanel === 'manage-doctors' && <div className="h-1.5 w-1.5 rounded-full bg-teal-500 shrink-0" />}
-              </button>
-
-              <button
-                onClick={() => setActivePanel('clinic-profile')}
-                data-testid="nav-clinic-profile"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'clinic-profile' ? 'bg-violet-500/10 border border-violet-500/20' : 'border border-transparent hover:bg-muted/50'}`}
-              >
-                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'clinic-profile' ? 'bg-violet-500/10 border-violet-500/20' : 'bg-muted/50 border-border/50'}`}>
-                  <Building2 className={`h-4 w-4 ${activePanel === 'clinic-profile' ? 'text-violet-600' : 'text-muted-foreground'}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'clinic-profile' ? 'text-violet-700 dark:text-violet-400' : 'text-foreground'}`}>Clinic Profile</p>
-                  <p className="text-xs text-muted-foreground">Edit public about page</p>
-                </div>
-                {activePanel === 'clinic-profile' && <div className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />}
-              </button>
-
+              {/* 2 — Book a Slot */}
               <button
                 onClick={() => setActivePanel('book-a-slot')}
                 data-testid="nav-book-a-slot"
@@ -1215,66 +1172,25 @@ export default function ClinicDashboard() {
                 {activePanel === 'book-a-slot' && <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
               </button>
 
+              {/* 3 — Patients */}
               <button
-                onClick={() => setActivePanel('export-data')}
-                data-testid="nav-export-data"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'export-data' ? 'bg-amber-500/10 border border-amber-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+                onClick={() => setActivePanel('patients')}
+                data-testid="nav-patients"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'patients' ? 'bg-rose-500/10 border border-rose-500/20' : 'border border-transparent hover:bg-muted/50'}`}
               >
-                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'export-data' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-muted/50 border-border/50'}`}>
-                  <Download className={`h-4 w-4 ${activePanel === 'export-data' ? 'text-amber-600' : 'text-muted-foreground'}`} />
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'patients' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Users className={`h-4 w-4 ${activePanel === 'patients' ? 'text-rose-500' : 'text-muted-foreground'}`} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'export-data' ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'}`}>Export Data</p>
-                  <p className="text-xs text-muted-foreground">Download patient records</p>
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'patients' ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'}`}>Patients</p>
+                  <p className="text-xs text-muted-foreground">Patient directory</p>
                 </div>
-                {activePanel === 'export-data' && <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />}
+                <div className="flex items-center gap-1 shrink-0">
+                  {activePanel === 'patients' && <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />}
+                </div>
               </button>
 
-              <button
-                onClick={() => setActivePanel('inventory')}
-                data-testid="nav-inventory"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'inventory' ? 'bg-emerald-500/10 border border-emerald-500/20' : 'border border-transparent hover:bg-muted/50'}`}
-              >
-                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'inventory' ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-muted/50 border-border/50'}`}>
-                  <Package className={`h-4 w-4 ${activePanel === 'inventory' ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'inventory' ? 'text-emerald-700 dark:text-emerald-400' : 'text-foreground'}`}>Inventory</p>
-                  <p className="text-xs text-muted-foreground">Stock, assets & alerts</p>
-                </div>
-                {activePanel === 'inventory' && <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />}
-              </button>
-
-              <button
-                onClick={() => setActivePanel('pharmacy-stock')}
-                data-testid="nav-pharmacy-stock"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'pharmacy-stock' ? 'bg-orange-500/10 border border-orange-500/20' : 'border border-transparent hover:bg-muted/50'}`}
-              >
-                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'pharmacy-stock' ? 'bg-orange-500/10 border-orange-500/20' : 'bg-muted/50 border-border/50'}`}>
-                  <Pill className={`h-4 w-4 ${activePanel === 'pharmacy-stock' ? 'text-orange-600' : 'text-muted-foreground'}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'pharmacy-stock' ? 'text-orange-700 dark:text-orange-400' : 'text-foreground'}`}>Pharmacy Stock</p>
-                  <p className="text-xs text-muted-foreground">Medicine catalog & pricing</p>
-                </div>
-                {activePanel === 'pharmacy-stock' && <div className="h-1.5 w-1.5 rounded-full bg-orange-500 shrink-0" />}
-              </button>
-
-              <button
-                onClick={() => setActivePanel('website')}
-                data-testid="nav-website"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'website' ? 'bg-sky-500/10 border border-sky-500/20' : 'border border-transparent hover:bg-muted/50'}`}
-              >
-                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'website' ? 'bg-sky-500/10 border-sky-500/20' : 'bg-muted/50 border-border/50'}`}>
-                  <Globe className={`h-4 w-4 ${activePanel === 'website' ? 'text-sky-600' : 'text-muted-foreground'}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'website' ? 'text-sky-700 dark:text-sky-400' : 'text-foreground'}`}>Clinic Website</p>
-                  <p className="text-xs text-muted-foreground">Theme & content</p>
-                </div>
-                {activePanel === 'website' && <div className="h-1.5 w-1.5 rounded-full bg-sky-500 shrink-0" />}
-              </button>
-
+              {/* 4 — Accounts */}
               <button
                 onClick={() => setActivePanel('accounts')}
                 data-testid="nav-accounts"
@@ -1295,23 +1211,103 @@ export default function ClinicDashboard() {
                 </div>
               </button>
 
+              {/* 5 — Configure Slots */}
               <button
-                onClick={() => setActivePanel('patients')}
-                data-testid="nav-patients"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'patients' ? 'bg-rose-500/10 border border-rose-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+                onClick={() => setActivePanel('configure-slots')}
+                data-testid="nav-configure-slots"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'configure-slots' ? 'bg-blue-500/10 border border-blue-500/20' : 'border border-transparent hover:bg-muted/50'}`}
               >
-                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'patients' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-muted/50 border-border/50'}`}>
-                  <Users className={`h-4 w-4 ${activePanel === 'patients' ? 'text-rose-500' : 'text-muted-foreground'}`} />
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'configure-slots' ? 'bg-blue-500/10 border-blue-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Clock className={`h-4 w-4 ${activePanel === 'configure-slots' ? 'text-blue-500' : 'text-muted-foreground'}`} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'patients' ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'}`}>Patients</p>
-                  <p className="text-xs text-muted-foreground">Patient directory</p>
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'configure-slots' ? 'text-blue-600' : 'text-foreground'}`}>Configure Slots</p>
+                  <p className="text-xs text-muted-foreground">Capacity &amp; cancellation</p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {activePanel === 'patients' && <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />}
-                </div>
+                {activePanel === 'configure-slots' && <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />}
               </button>
 
+              {/* 6 — Manage Doctors */}
+              <button
+                onClick={() => setActivePanel('manage-doctors')}
+                data-testid="nav-manage-doctors"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'manage-doctors' ? 'bg-teal-500/10 border border-teal-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'manage-doctors' ? 'bg-teal-500/10 border-teal-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Stethoscope className={`h-4 w-4 ${activePanel === 'manage-doctors' ? 'text-teal-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'manage-doctors' ? 'text-teal-700 dark:text-teal-400' : 'text-foreground'}`}>Manage Doctors</p>
+                  <p className="text-xs text-muted-foreground">Add or remove doctors</p>
+                </div>
+                {activePanel === 'manage-doctors' && <div className="h-1.5 w-1.5 rounded-full bg-teal-500 shrink-0" />}
+              </button>
+
+              {/* 7 — Inventory */}
+              <button
+                onClick={() => setActivePanel('inventory')}
+                data-testid="nav-inventory"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'inventory' ? 'bg-emerald-500/10 border border-emerald-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'inventory' ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Package className={`h-4 w-4 ${activePanel === 'inventory' ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'inventory' ? 'text-emerald-700 dark:text-emerald-400' : 'text-foreground'}`}>Inventory</p>
+                  <p className="text-xs text-muted-foreground">Stock, assets & alerts</p>
+                </div>
+                {activePanel === 'inventory' && <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />}
+              </button>
+
+              {/* 8 — Pharmacy Stock */}
+              <button
+                onClick={() => setActivePanel('pharmacy-stock')}
+                data-testid="nav-pharmacy-stock"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'pharmacy-stock' ? 'bg-orange-500/10 border border-orange-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'pharmacy-stock' ? 'bg-orange-500/10 border-orange-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Pill className={`h-4 w-4 ${activePanel === 'pharmacy-stock' ? 'text-orange-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'pharmacy-stock' ? 'text-orange-700 dark:text-orange-400' : 'text-foreground'}`}>Pharmacy Stock</p>
+                  <p className="text-xs text-muted-foreground">Medicine catalog & pricing</p>
+                </div>
+                {activePanel === 'pharmacy-stock' && <div className="h-1.5 w-1.5 rounded-full bg-orange-500 shrink-0" />}
+              </button>
+
+              {/* 9 — Clinic Profile */}
+              <button
+                onClick={() => setActivePanel('clinic-profile')}
+                data-testid="nav-clinic-profile"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'clinic-profile' ? 'bg-violet-500/10 border border-violet-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'clinic-profile' ? 'bg-violet-500/10 border-violet-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Building2 className={`h-4 w-4 ${activePanel === 'clinic-profile' ? 'text-violet-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'clinic-profile' ? 'text-violet-700 dark:text-violet-400' : 'text-foreground'}`}>Clinic Profile</p>
+                  <p className="text-xs text-muted-foreground">Edit public about page</p>
+                </div>
+                {activePanel === 'clinic-profile' && <div className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />}
+              </button>
+
+              {/* 10 — Clinic Website */}
+              <button
+                onClick={() => setActivePanel('website')}
+                data-testid="nav-website"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'website' ? 'bg-sky-500/10 border border-sky-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'website' ? 'bg-sky-500/10 border-sky-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Globe className={`h-4 w-4 ${activePanel === 'website' ? 'text-sky-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'website' ? 'text-sky-700 dark:text-sky-400' : 'text-foreground'}`}>Clinic Website</p>
+                  <p className="text-xs text-muted-foreground">Theme & content</p>
+                </div>
+                {activePanel === 'website' && <div className="h-1.5 w-1.5 rounded-full bg-sky-500 shrink-0" />}
+              </button>
+
+              {/* 11 — Analytics */}
               <button
                 onClick={() => setActivePanel('analytics')}
                 data-testid="nav-analytics"
@@ -1325,6 +1321,22 @@ export default function ClinicDashboard() {
                   <p className="text-xs text-muted-foreground">Clinic performance</p>
                 </div>
                 {activePanel === 'analytics' && <div className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />}
+              </button>
+
+              {/* 12 — Export Data */}
+              <button
+                onClick={() => setActivePanel('export-data')}
+                data-testid="nav-export-data"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'export-data' ? 'bg-amber-500/10 border border-amber-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'export-data' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <Download className={`h-4 w-4 ${activePanel === 'export-data' ? 'text-amber-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'export-data' ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'}`}>Export Data</p>
+                  <p className="text-xs text-muted-foreground">Download patient records</p>
+                </div>
+                {activePanel === 'export-data' && <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />}
               </button>
 
             </div>
@@ -1827,10 +1839,10 @@ export default function ClinicDashboard() {
       <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-background/95 backdrop-blur-md border-t border-border/50 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
         <div className="flex items-stretch">
           {([
-            { key: 'bookings'        as const, label: 'Bookings', Icon: CalendarIcon },
-            { key: 'configure-slots' as const, label: 'Slots',    Icon: Clock },
-            { key: 'manage-doctors'  as const, label: 'Doctors',  Icon: Stethoscope },
-            { key: 'accounts'        as const, label: 'Accounts', Icon: IndianRupee },
+            { key: 'bookings'   as const, label: 'Bookings', Icon: CalendarIcon },
+            { key: 'book-a-slot'as const, label: 'Book',     Icon: Plus },
+            { key: 'patients'   as const, label: 'Patients', Icon: Users },
+            { key: 'accounts'   as const, label: 'Accounts', Icon: IndianRupee },
           ]).map(({ key, label, Icon }) => {
             const isActive = activePanel === key;
             return (
@@ -1851,12 +1863,12 @@ export default function ClinicDashboard() {
           <button
             onClick={() => setClinicMoreDrawerOpen(true)}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
-              ['clinic-profile','book-a-slot','inventory','pharmacy-stock','website','export-data','patients','analytics'].includes(activePanel)
+              ['configure-slots','manage-doctors','inventory','pharmacy-stock','clinic-profile','website','analytics','export-data'].includes(activePanel)
                 ? 'text-primary' : 'text-muted-foreground'
             }`}
             data-testid="bottom-nav-clinic-more"
           >
-            {['clinic-profile','book-a-slot','inventory','pharmacy-stock','website','export-data','patients','analytics'].includes(activePanel) && (
+            {['configure-slots','manage-doctors','inventory','pharmacy-stock','clinic-profile','website','analytics','export-data'].includes(activePanel) && (
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />
             )}
             <MoreHorizontal className="h-5 w-5" />
@@ -1873,14 +1885,14 @@ export default function ClinicDashboard() {
           </SheetHeader>
           <div className="grid grid-cols-2 gap-2">
             {([
-              { key: 'clinic-profile' as const, label: 'Clinic Profile', desc: 'Edit public about page',   Icon: Building2,   cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
-              { key: 'book-a-slot'    as const, label: 'Book a Slot',    desc: 'New patient appointment',  Icon: Plus,        cls: 'bg-primary/10 border-primary/20 text-primary' },
-              { key: 'inventory'       as const, label: 'Inventory',       desc: 'Stock, assets & alerts',    Icon: Package,     cls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' },
-              { key: 'pharmacy-stock' as const, label: 'Pharmacy Stock',  desc: 'Medicines & supplies',      Icon: Pill,        cls: 'bg-teal-500/10 border-teal-500/20 text-teal-600' },
-              { key: 'website'        as const, label: 'Website',         desc: 'Theme & content',           Icon: Globe,       cls: 'bg-sky-500/10 border-sky-500/20 text-sky-600' },
-              { key: 'export-data'   as const, label: 'Export Data',    desc: 'Download patient records',  Icon: Download,    cls: 'bg-amber-500/10 border-amber-500/20 text-amber-600' },
-              { key: 'patients'       as const, label: 'Patients',       desc: 'Patient directory',         Icon: Users,       cls: 'bg-rose-500/10 border-rose-500/20 text-rose-600' },
-              { key: 'analytics'     as const, label: 'Analytics',      desc: 'Clinic performance',        Icon: TrendingUp,  cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
+              { key: 'configure-slots' as const, label: 'Configure Slots', desc: 'Capacity & cancellation',  Icon: Clock,       cls: 'bg-blue-500/10 border-blue-500/20 text-blue-600' },
+              { key: 'manage-doctors'  as const, label: 'Manage Doctors',  desc: 'Add or remove doctors',    Icon: Stethoscope, cls: 'bg-teal-500/10 border-teal-500/20 text-teal-600' },
+              { key: 'inventory'       as const, label: 'Inventory',        desc: 'Stock, assets & alerts',   Icon: Package,     cls: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' },
+              { key: 'pharmacy-stock'  as const, label: 'Pharmacy Stock',   desc: 'Medicines & supplies',     Icon: Pill,        cls: 'bg-orange-500/10 border-orange-500/20 text-orange-600' },
+              { key: 'clinic-profile'  as const, label: 'Clinic Profile',   desc: 'Edit public about page',   Icon: Building2,   cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
+              { key: 'website'         as const, label: 'Clinic Website',   desc: 'Theme & content',          Icon: Globe,       cls: 'bg-sky-500/10 border-sky-500/20 text-sky-600' },
+              { key: 'analytics'       as const, label: 'Analytics',        desc: 'Clinic performance',       Icon: TrendingUp,  cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
+              { key: 'export-data'     as const, label: 'Export Data',      desc: 'Download patient records', Icon: Download,    cls: 'bg-amber-500/10 border-amber-500/20 text-amber-600' },
             ]).map(({ key, label, desc, Icon, cls }) => (
               <button
                 key={key}

@@ -636,11 +636,11 @@ export default function DoctorDashboard() {
   const greet = new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening";
 
   const NAV_ITEMS = [
-    { key: "appointments"  as Tab, label: "Appointments",     subtitle: "Today's schedule",      icon: Calendar,    activeClass: "bg-primary/10 border-primary/20 text-primary",                                    iconClass: "bg-primary/10 border-primary/20 text-primary",              dotClass: "bg-primary" },
-    { key: "profile"       as Tab, label: "My Profile",       subtitle: "Edit your details",     icon: User,        activeClass: "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400",     iconClass: "bg-violet-500/10 border-violet-500/20 text-violet-600",     dotClass: "bg-violet-500" },
-    { key: "certifications"as Tab, label: "Certifications",   subtitle: "Degrees & awards",      icon: Award,       activeClass: "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400",             iconClass: "bg-blue-500/10 border-blue-500/20 text-blue-600",           dotClass: "bg-blue-500" },
-    { key: "cases"         as Tab, label: "Case Studies",     subtitle: "Patient cases",         icon: BookOpen,    activeClass: "bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400",             iconClass: "bg-teal-500/10 border-teal-500/20 text-teal-600",           dotClass: "bg-teal-500" },
-    { key: "leaves"        as Tab, label: "Leave Management", subtitle: "Time off & availability",icon: CalendarOff,  activeClass: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400",         iconClass: "bg-amber-500/10 border-amber-500/20 text-amber-600",        dotClass: "bg-amber-500" },
+    { key: "appointments"  as Tab, label: "Appointments",     subtitle: "Today's schedule",       icon: Calendar,    activeClass: "bg-primary/10 border-primary/20 text-primary",                                    iconClass: "bg-primary/10 border-primary/20 text-primary",              dotClass: "bg-primary" },
+    { key: "leaves"        as Tab, label: "Leave Management", subtitle: "Time off & availability", icon: CalendarOff, activeClass: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400",         iconClass: "bg-amber-500/10 border-amber-500/20 text-amber-600",        dotClass: "bg-amber-500" },
+    { key: "profile"       as Tab, label: "My Profile",       subtitle: "Edit your details",      icon: User,        activeClass: "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400",     iconClass: "bg-violet-500/10 border-violet-500/20 text-violet-600",     dotClass: "bg-violet-500" },
+    { key: "cases"         as Tab, label: "Case Studies",     subtitle: "Patient cases",          icon: BookOpen,    activeClass: "bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400",             iconClass: "bg-teal-500/10 border-teal-500/20 text-teal-600",          dotClass: "bg-teal-500" },
+    { key: "certifications"as Tab, label: "Certifications",   subtitle: "Degrees & awards",       icon: Award,       activeClass: "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400",             iconClass: "bg-blue-500/10 border-blue-500/20 text-blue-600",           dotClass: "bg-blue-500" },
     { key: "xray"          as Tab, label: "Analyse X-Ray",    subtitle: "AI dental findings",     icon: Microscope,  activeClass: "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400",     iconClass: "bg-violet-500/10 border-violet-500/20 text-violet-600",     dotClass: "bg-violet-500" },
   ];
 
@@ -2224,10 +2224,10 @@ export default function DoctorDashboard() {
       <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-background/95 backdrop-blur-md border-t border-border/50 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
         <div className="flex items-stretch">
           {([
-            { key: "appointments"   as Tab, label: "Appointments", Icon: Calendar },
-            { key: "profile"        as Tab, label: "Profile",      Icon: User },
-            { key: "certifications" as Tab, label: "Certs",        Icon: Award },
-            { key: "cases"          as Tab, label: "Cases",        Icon: BookOpen },
+            { key: "appointments" as Tab, label: "Appointments", Icon: Calendar },
+            { key: "leaves"       as Tab, label: "Leave",        Icon: CalendarOff },
+            { key: "profile"      as Tab, label: "Profile",      Icon: User },
+            { key: "cases"        as Tab, label: "Cases",        Icon: BookOpen },
           ] as { key: Tab; label: string; Icon: any }[]).map(({ key, label, Icon }) => {
             const isActive = activeTab === key;
             return (
@@ -2269,18 +2269,18 @@ export default function DoctorDashboard() {
           <div className="space-y-2 pb-6">
             {/* ── Overflow tab navigation ── */}
             <button
-              onClick={() => { setActiveTab("leaves"); setMoreDrawerOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors active:scale-[0.98] text-left ${activeTab === "leaves" ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-700/40" : "border-border/50 bg-background hover:bg-muted/30"}`}
-              data-testid="drawer-nav-leaves"
+              onClick={() => { setActiveTab("certifications"); setMoreDrawerOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors active:scale-[0.98] text-left ${activeTab === "certifications" ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-700/40" : "border-border/50 bg-background hover:bg-muted/30"}`}
+              data-testid="drawer-nav-certifications"
             >
-              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-amber-500/10 border border-amber-500/20">
-                <CalendarOff className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-blue-500/10 border border-blue-500/20">
+                <Award className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-sm">Leave Management</p>
-                <p className="text-xs text-muted-foreground">Time off &amp; availability</p>
+                <p className="font-semibold text-sm">Certifications</p>
+                <p className="text-xs text-muted-foreground">Degrees &amp; awards</p>
               </div>
-              {activeTab === "leaves" && <div className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />}
+              {activeTab === "certifications" && <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />}
             </button>
             <button
               onClick={() => { setActiveTab("xray"); setMoreDrawerOpen(false); }}
