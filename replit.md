@@ -1,5 +1,181 @@
 # BookMySlot
 
+## ✅ Pre-Deploy Checklist — Run Before Every Production Deploy
+
+Every agent and developer must work through this list before pushing to Render (or any production host). Each item maps to a real crash that happened in this project.
+
+---
+
+### Step 1 — Run the production build locally / in Replit
+
+```bash
+npm run build        # must exit 0
+```
+
+Or restart the **"Build Check"** workflow in Replit. `npm run dev` does **not** catch any of the issues below — they only appear in the minified Rollup/Vite output. Do not mark work done until this passes.
+
+---
+
+### Step 2 — Blocked / CJS library imports
+
+Replit's security policy blocks several packages at install time. These packages silently become `undefined` in Replit dev mode but cause a **TDZ crash** (`ReferenceError: Cannot access 'X' before initialization`) in the production Rollup bundle because of how Rollup converts CJS circular internals to ESM.
+
+**Scan for these imports before every deploy:**
+
+```bash
+grep -rn "from ['\"]jspdf['\"]" client/src/
+grep -rn "from ['\"]jspdf-autotable['\"]" client/src/
+grep -rn "import(.*jspdf" client/src/
+grep -rn "from ['\"]qr\.js['\"]" client/src/
+```
+
+**If any are found:** replace with the project stub:
+```ts
+import { jsPDF } from "@/lib/jspdf-stub";
+import autoTable from "@/lib/jspdf-stub";
+```
+The stub (`client/src/lib/jspdf-stub.ts`) is a no-op that logs a warning. PDF features silently disable instead of crashing the bundle.
+
+**General rule — before installing any new npm package:**
+1. Check if it is a CJS-only package (no `"module"` or `"exports"` field in its `package.json`).
+2. If it is CJS, wrap it in a project-level stub (like `jspdf-stub.ts`) that exports no-op implementations.
+3. Never import CJS packages with side-effects (auto-table plugin pattern) at the top level of any file that ends up in the ClinicDashboard chunk.
+
+---
+
+### Step 3 — Duplicate exports / TDZ from shared types
+
+Rollup renames symbols when the same export name appears in more than one file inside the same chunk. This causes `ReferenceError: Cannot access 'X' before initialization` at runtime (the symbol name is minified so the error message looks like `Cannot access 'It'`).
+
+**Scan for duplicate exports before every deploy:**
+
+```bash
+# Replace TypeName with any type/const you added or moved
+grep -rn "export.*BookingWithSlot" client/src/
+grep -rn "export.*SlotTiming" client/src/
+grep -rn "export.*BillingService" client/src/
+# General: check the type/const you just added
+grep -rn "export (type |interface |const |function )YourName" client/src/
+```
+
+**Rule:** All shared frontend types and constants have exactly one canonical home:
+- Types/constants: `client/src/lib/clinic-constants.tsx`
+- PDF utilities: `client/src/lib/clinic-pdf.ts`
+- PDF stub: `client/src/lib/jspdf-stub.ts`
+
+If a type already exists in one of these files, **import it — never redefine it**.
+
+---
+
+### Step 4 — Deleted imports still referenced in JSX
+
+When removing an import statement (e.g., deduplicating icon imports), verify every symbol in that statement is covered elsewhere **before** deleting it.
+
+```bash
+# Before removing an import, grep all symbols for usage
+grep -n "Stethoscope\|Trash2\|Upload\|Repeat2" client/src/pages/ClinicDashboard.tsx
+# If any appear outside import lines, they must remain imported
+```
+
+**Rule:** Never delete an import block in a large file without grepping every symbol in it. "Looks like a duplicate" is not sufficient — two separate `import { ... } from "lucide-react"` blocks in the same file are valid if they cover different icon names.
+
+---
+
+### Step 5 — API URL hygiene
+
+```bash
+# Must return 0 results
+grep -rn "fetch('/api" client/src/
+grep -rn 'fetch("/api' client/src/
+grep -rn "localhost" client/src/
+grep -rn "127\.0\.0\.1" client/src/
+```
+
+All API calls must go through `apiRequest()` from `@/lib/queryClient`. Bare `/api/...` paths break when frontend and backend are on different domains (Render split deploy).
+
+---
+
+### Step 6 — Environment variable prefixes
+
+```bash
+# All frontend env vars must start with VITE_
+grep -rn "process\.env\." client/src/
+grep -rn "import\.meta\.env\." client/src/ | grep -v "VITE_\|MODE\|DEV\|PROD\|BASE_URL"
+```
+
+Non-`VITE_` vars are stripped at Vite build time and silently become `undefined` in the browser.
+
+---
+
+### Step 7 — package-lock.json Replit URL contamination
+
+After installing any package inside Replit:
+
+```bash
+npm run fix-lockfile
+```
+
+Then verify:
+```bash
+grep "package-firewall.replit.local" package-lock.json
+# Must return nothing
+```
+
+Replit writes its internal proxy URL as `"resolved"` in `package-lock.json`. That hostname is unreachable on Render — the build will fail with `ENOTFOUND package-firewall.replit.local` at `npm install` time.
+
+---
+
+### Step 8 — New database columns/tables
+
+```bash
+# List any new tables or columns added since last deploy
+grep -n "CREATE TABLE\|ALTER TABLE\|ADD COLUMN" server/index.ts | tail -20
+```
+
+The auto-sync in `server/index.ts` only runs on Replit startup. It does **not** run automatically on Render's Postgres. For every new column or table, provide the exact SQL and run it manually against the Render database before deploying.
+
+---
+
+### Step 9 — CORS allowlist for new frontend domains
+
+```bash
+grep -n "FRONTEND_ORIGINS\|allowedOrigins" server/index.ts
+```
+
+If a new Render frontend URL is introduced, add it to the `FRONTEND_ORIGINS` array or update the `FRONTEND_URL` env var on the Render backend service. Missing CORS entries cause silent 401/403 errors that look like auth failures.
+
+---
+
+### Step 10 — Memory budget for the Vite build
+
+ClinicDashboard.tsx is 400KB+ source. The Vite production build is memory-intensive.
+
+```bash
+# If the build OOMs on Render, add this to Render's environment:
+NODE_OPTIONS=--max-old-space-size=4096
+```
+
+`manualChunks` in `vite.config.ts` already splits `react-core`, `lucide`, `ui-vendor`, and `vendor` into separate chunks. Do not remove or collapse these — it prevents Render's heap from being exhausted during the Lucide icon tree-shake pass.
+
+---
+
+### Quick Checklist Summary
+
+```
+[ ] npm run build exits 0 (Build Check workflow passes)
+[ ] No real jspdf / jspdf-autotable / qr.js imports — all use @/lib/jspdf-stub
+[ ] No duplicate exported type/const names across files in the same Rollup chunk
+[ ] No deleted import symbols that are still referenced in JSX
+[ ] No bare fetch('/api/...') or hardcoded localhost URLs
+[ ] All new frontend env vars have VITE_ prefix
+[ ] npm run fix-lockfile run after any package install
+[ ] New DB columns/tables have matching SQL queued for Render Postgres
+[ ] New frontend domains added to CORS allowlist
+[ ] vite.config.ts manualChunks config is intact
+```
+
+---
+
 ## ⚠️ Mandatory Agent Rules — Read First, Every Session
 
 These rules apply to **every agent** working on this repo, including forks and checkouts.
