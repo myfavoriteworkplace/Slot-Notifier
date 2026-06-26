@@ -259,24 +259,6 @@ export default function BookingsPanel({
     return d >= nextWeekStart && d <= nextWeekEnd;
   }).length || 0;
 
-  // ── Smart patient filter hint ──────────────────────────────────────────────
-  // Computed ignoring all date/status gates — used to tell the user WHERE the
-  // patient's bookings actually are when the active filter hides them.
-  const allPatientBookings = activePatientFilter
-    ? (bookings || []).filter(b => (b as any).patientId === activePatientFilter.id)
-    : [];
-
-  const _pt = allPatientBookings; // alias for brevity below
-  const patientTodayBk     = _pt.filter(b => format(new Date(b.slot.startTime), 'yyyy-MM-dd') === todayStr);
-  const patientPastBk      = _pt.filter(b => new Date(b.slot.startTime) < todayStart);
-  const patientUpcomingBk  = _pt.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= todayStart && format(d, 'yyyy-MM-dd') !== todayStr;
-  });
-  const patientThisWeekBk  = _pt.filter(b => { const d = new Date(b.slot.startTime); return d >= thisWeekStart && d <= thisWeekEnd; });
-  const patientNextWeekBk  = _pt.filter(b => { const d = new Date(b.slot.startTime); return d >= nextWeekStart && d <= nextWeekEnd; });
-  const patientLatestPast  = [...patientPastBk].sort((a, b) => new Date(b.slot.startTime).getTime() - new Date(a.slot.startTime).getTime())[0];
-  const patientNearestNext = [...patientUpcomingBk].sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime())[0];
 
   const patientHint: {
     color: 'amber' | 'blue' | 'slate';
