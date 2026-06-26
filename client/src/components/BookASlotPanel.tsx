@@ -75,6 +75,17 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
 
   const isPhoneValid = bookingPhone && validateIndianPhone(bookingPhone);
 
+  const { data: availDates } = useQuery<AvailDateInfo[]>({
+    queryKey: ['clinic-available-dates', clinic?.id],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/auth/clinic/available-dates?days=30');
+      if (!res.ok) throw new Error('Failed to fetch available dates');
+      return res.json();
+    },
+    enabled: !!clinic && isAuthenticated,
+    staleTime: 5 * 60_000,
+  });
+
   const dates = Array.from({ length: 30 }, (_, i) => addDays(startOfToday(), i));
 
   const selectedDateStr = format(bookingDate, 'yyyy-MM-dd');
@@ -171,17 +182,6 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
     },
     enabled: !!clinic,
     staleTime: 30_000,
-  });
-
-  const { data: availDates } = useQuery<AvailDateInfo[]>({
-    queryKey: ['clinic-available-dates', clinic?.id],
-    queryFn: async () => {
-      const res = await apiRequest('GET', '/api/auth/clinic/available-dates?days=30');
-      if (!res.ok) throw new Error('Failed to fetch available dates');
-      return res.json();
-    },
-    enabled: !!clinic && isAuthenticated,
-    staleTime: 5 * 60_000,
   });
 
   const createBookingMutation = useMutation({
