@@ -259,6 +259,61 @@ export default function BookingsPanel({
     return d >= nextWeekStart && d <= nextWeekEnd;
   }).length || 0;
 
+  const activePatientBookings = activePatientFilter && bookings
+    ? bookings.filter(booking => (booking as any).patientId === activePatientFilter.id)
+    : [];
+
+  const patientPastBk = activePatientBookings.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    return bookingDate < todayStart;
+  });
+
+  const patientUpcomingBk = activePatientBookings.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    return bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr && booking.visitStatus !== 'completed' && booking.visitStatus !== 'patient_left_early';
+  });
+
+  const patientTodayBk = activePatientBookings.filter(booking => format(new Date(booking.slot.startTime), 'yyyy-MM-dd') === todayStr);
+  const patientLatestPast = [...patientPastBk].sort((a, b) => new Date(b.slot.startTime).getTime() - new Date(a.slot.startTime).getTime())[0];
+  const patientNearestNext = [...patientUpcomingBk].sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime())[0];
+  const patientNextWeekBk = activePatientBookings.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    return bookingDate >= nextWeekStart && bookingDate <= nextWeekEnd;
+  });
+  const patientThisWeekBk = activePatientBookings.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
+  });
+
+  const filteredBookings = bookings?.filter(booking => {
+    const bookingDate = new Date(booking.slot.startTime);
+    if (quickFilter === 'today') return format(bookingDate, 'yyyy-MM-dd') === todayStr;
+    if (quickFilter === 'upcoming') return bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr && booking.visitStatus !== 'completed';
+    if (quickFilter === 'past') return bookingDate < todayStart;
+    if (quickFilter === 'this-week') return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
+    if (quickFilter === 'next-week') return bookingDate >= nextWeekStart && bookingDate <= nextWeekEnd;
+    if (quickFilter === 'today-confirmed') return format(bookingDate, 'yyyy-MM-dd') === todayStr && (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy);
+    if (quickFilter === 'pending-7days') return bookingDate >= todayStart && bookingDate <= statNext7DaysEnd && booking.verificationStatus !== 'confirmed' && !booking.confirmedBy;
+    if (quickFilter === 'all-pending') return booking.verificationStatus !== 'confirmed' && !booking.confirmedBy;
+    if (quickFilter === 'confirmed-7days') return bookingDate >= todayStart && bookingDate <= statNext7DaysEnd && (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy);
+    if (filterDate && filterEndDate) return bookingDate >= startOfDay(filterDate) && bookingDate <= endOfDay(filterEndDate);
+    else if (filterDate) {
+      const bookingDateStr = format(bookingDate, 'yyyy-MM-dd');
+      const filterDateStr = format(filterDate, 'yyyy-MM-dd');
+      return bookingDateStr === filterDateStr;
+    }
+    return true;
+  })?.sort((a, b) => {
+    if (quickFilter === 'all' && !filterDate) {
+      const groupA = getStatusGroup(a);
+      const groupB = getStatusGroup(b);
+      if (groupA !== groupB) return groupA - groupB;
+    }
+    return new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime();
+  })?.filter(booking => {
+    if (!activePatientFilter) return true;
+    return (booking as any).patientId === activePatientFilter.id;
+  });
 
   const patientHint: {
     color: 'amber' | 'blue' | 'slate';
@@ -427,62 +482,6 @@ export default function BookingsPanel({
     if (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy) return 1;
     return 0;
   };
-
-  const filteredBookings = bookings?.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    if (quickFilter === 'today') return format(bookingDate, 'yyyy-MM-dd') === todayStr;
-    if (quickFilter === 'upcoming') return bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr && booking.visitStatus !== 'completed';
-    if (quickFilter === 'past') return bookingDate < todayStart;
-    if (quickFilter === 'this-week') return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
-    if (quickFilter === 'next-week') return bookingDate >= nextWeekStart && bookingDate <= nextWeekEnd;
-    if (quickFilter === 'today-confirmed') return format(bookingDate, 'yyyy-MM-dd') === todayStr && (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy);
-    if (quickFilter === 'pending-7days') return bookingDate >= todayStart && bookingDate <= statNext7DaysEnd && booking.verificationStatus !== 'confirmed' && !booking.confirmedBy;
-    if (quickFilter === 'all-pending') return booking.verificationStatus !== 'confirmed' && !booking.confirmedBy;
-    if (quickFilter === 'confirmed-7days') return bookingDate >= todayStart && bookingDate <= statNext7DaysEnd && (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy);
-    if (filterDate && filterEndDate) return bookingDate >= startOfDay(filterDate) && bookingDate <= endOfDay(filterEndDate);
-    else if (filterDate) {
-      const bookingDateStr = format(bookingDate, 'yyyy-MM-dd');
-      const filterDateStr = format(filterDate, 'yyyy-MM-dd');
-      return bookingDateStr === filterDateStr;
-    }
-    return true;
-  })?.sort((a, b) => {
-    if (quickFilter === 'all' && !filterDate) {
-      const groupA = getStatusGroup(a);
-      const groupB = getStatusGroup(b);
-      if (groupA !== groupB) return groupA - groupB;
-    }
-    return new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime();
-  })?.filter(booking => {
-    if (!activePatientFilter) return true;
-    return (booking as any).patientId === activePatientFilter.id;
-  });
-
-  const activePatientBookings = activePatientFilter && bookings
-    ? bookings.filter(booking => (booking as any).patientId === activePatientFilter.id)
-    : [];
-
-  const patientPastBk = activePatientBookings.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    return bookingDate < todayStart;
-  });
-
-  const patientUpcomingBk = activePatientBookings.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    return bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr && booking.visitStatus !== 'completed' && booking.visitStatus !== 'patient_left_early';
-  });
-
-  const patientTodayBk = activePatientBookings.filter(booking => format(new Date(booking.slot.startTime), 'yyyy-MM-dd') === todayStr);
-  const patientLatestPast = [...patientPastBk].sort((a, b) => new Date(b.slot.startTime).getTime() - new Date(a.slot.startTime).getTime())[0];
-  const patientNearestNext = [...patientUpcomingBk].sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime())[0];
-  const patientNextWeekBk = activePatientBookings.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    return bookingDate >= nextWeekStart && bookingDate <= nextWeekEnd;
-  });
-  const patientThisWeekBk = activePatientBookings.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
-  });
 
   const handleOpenBilling = async (booking: BookingWithSlot, existingBill?: PatientBill) => {
     setBillingBooking(booking);
