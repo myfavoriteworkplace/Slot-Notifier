@@ -1,3 +1,4 @@
+- [Build Check rule](build-check-rule.md) — after any frontend feature, run "Build Check" workflow before handing back; catches TDZ/chunk errors invisible in dev
 - [BillingHistoryPanel design rules](billing-panel-design.md) — min font text-xs, category grouping, pharmacy desc parsing, active bill styling conventions
 - [Visit completion note flow](visit-completion-note.md) — visitCompletionNote stored on booking; saved via complete-visit (note param) and override-complete (reason prefixed "Override:"); displayed as green banner + progress strip tooltip.
 - [Booking status field names](booking-status-fields.md) — verificationStatus (pending/confirmed/cancelled/no_show) and visitStatus (null/checked_in/in_consultation/treatment_completed/completed/patient_left_early). No bare "status" field on bookings. stageBeforeCancel index 4 maps to visitStatus 'completed' (not 'visit_completed').

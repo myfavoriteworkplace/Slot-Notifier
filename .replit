@@ -49,12 +49,12 @@ waitForPort = 5000
 name = "Build Check"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run build"
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [agent]
 integrations = ["javascript_log_in_with_replit:2.0.0"]
