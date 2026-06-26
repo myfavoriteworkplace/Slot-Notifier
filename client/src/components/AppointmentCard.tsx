@@ -27,51 +27,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
-
-// ──────────────── Types ────────────────
-
-export interface ClinicDoctorEntry {
-  name: string;
-  specialization: string;
-  degree: string;
-  email?: string;
-}
-
-export interface BookingWithSlot {
-  id: number;
-  slotId?: number;
-  customerName: string;
-  customerPhone: string;
-  customerEmail?: string | null;
-  customerAge?: number | null;
-  customerGender?: string | null;
-  verificationStatus: string;
-  description?: string | null;
-  visitType?: string | null;
-  treatmentCategory?: string | null;
-  assignedDoctor?: string | null;
-  assignedDoctorEmail?: string | null;
-  doctorApprovalStatus?: string | null;
-  doctorNotes?: string | null;
-  clinicalStatus?: string | null;
-  visitStatus?: string | null;
-  checkedInAt?: Date | string | null;
-  completedAt?: Date | string | null;
-  slotCost?: number | null;
-  confirmedBy?: string | null;
-  consentSignature?: string | null;
-  consentSignedAt?: Date | string | null;
-  consentToken?: string | null;
-  cancellationReason?: string | null;
-  visitCompletionNote?: string | null;
-  createdAt?: Date | string | null;
-  patientCode?: string | null;
-  slot: { startTime: string | Date; endTime: string | Date };
-  clinicDoctors?: ClinicDoctorEntry[];
-  clinicId?: number;
-  clinic?: { name?: string; address?: string } | null;
-  clinicName?: string | null;
-}
+import type { BookingWithSlot } from "@/lib/clinic-constants";
 
 export type AppointmentCardRole = "clinic" | "doctor";
 

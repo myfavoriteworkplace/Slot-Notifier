@@ -4,6 +4,36 @@ Paste this at the start of every new screen or component request.
 
 ---
 
+## ⚠️ CRITICAL: Production Bundle TDZ Rule — Read Before Writing Any Component
+
+**This bug caused a production crash (`ReferenceError: Cannot access 'X' before initialization`) in the Bookings panel patient-search, visible only after deployment — not in `npm run dev`.**
+
+### What causes it
+
+Vite+Rollup bundles all ClinicDashboard code into one minified JS chunk. If the **same type name or `const` name is exported from two different source files** that land in the same chunk, Rollup renames one of them during minification. The initialization order chosen by the bundler can cause the renamed variable to be accessed before it's initialized (TDZ = Temporal Dead Zone).
+
+### The rule
+
+**There is one canonical file for all shared frontend types:** `client/src/lib/clinic-constants.tsx`
+
+| ✅ Correct | ❌ Wrong |
+|---|---|
+| `import type { BookingWithSlot } from "@/lib/clinic-constants"` | `interface BookingWithSlot { ... }` defined locally in a component |
+| `import type { SlotTiming } from "@/lib/clinic-constants"` | `type SlotTiming = { ... }` redefined in a new panel file |
+| Adding new shared types to `clinic-constants.tsx` | Copy-pasting a type from `clinic-constants` into a component file |
+
+### Before adding any new exported type or const
+
+Run: `grep -rn "export.*YourTypeName" client/src/`
+
+If the name already exists anywhere in `client/src/`, **import it** — never redefine it.
+
+### Testing
+
+**`npm run dev` will NOT reveal TDZ bugs.** Always run `npm run build` after any non-trivial component change and confirm the build completes without chunk errors before marking work done.
+
+---
+
 ## STACK
 
 React 18 + TypeScript · Vite · Wouter (no nested routes, no `<Outlet>`, no loader functions) · TanStack Query v5 · shadcn/ui + Radix UI · Tailwind CSS · Lucide icons · react-icons · Node / Express / Drizzle ORM / PostgreSQL.

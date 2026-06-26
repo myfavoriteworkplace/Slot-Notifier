@@ -343,3 +343,26 @@ git add package-lock.json  # ← safe to commit
 | Adding new env vars | Frontend → `VITE_` prefix. Backend → call out explicitly. |
 | Changing session config | `sameSite: "none"` + `secure: true` + `trust proxy: 1` are required for cross-origin Render. |
 | Changing font loading | `Sora` is the primary font. Consider `font-display: swap` if adding more. |
+
+---
+
+## ⚠️ Production Bundle: TDZ (Temporal Dead Zone) Rule
+
+**Background:** Vite/Rollup chunks all ClinicDashboard-related code into a single JS file for production. If the same type or `const` is exported from **more than one file** in that chunk, Rollup must rename one of them during minification. The renaming can produce a `ReferenceError: Cannot access 'X' before initialization` at runtime — even though development (with unminified, individually-loaded modules) works perfectly fine.
+
+**Known instance (fixed):** `BookingWithSlot` was defined in three places simultaneously:
+- `client/src/lib/clinic-constants.tsx` ← canonical source of truth
+- `client/src/components/AppointmentCard.tsx` ← was a duplicate interface (removed)
+- `client/src/components/ExportDataPanel.tsx` ← was a local type alias (removed)
+
+The production symptom was `ReferenceError: Cannot access 'It' before initialization` when opening the patient-search dropdown in the Bookings panel.
+
+### Rules every agent must follow
+
+1. **Single source of truth for shared types.** All shared frontend types (`BookingWithSlot`, `SlotTiming`, `SectionConfig`, `DayConfig`, etc.) live in `client/src/lib/clinic-constants.tsx`. Never redefine them locally in a component file — always `import type { ... } from "@/lib/clinic-constants"`.
+
+2. **No duplicate exports across files in the same chunk.** Before adding a new exported `const` or `interface` to any component under `client/src/components/` or `client/src/pages/`, search the repo first: `grep -rn "export.*YourName" client/src/`. If it already exists elsewhere, import it instead.
+
+3. **Test production builds locally before shipping UI changes.** Run `npm run build` and open `dist/public` to confirm no chunk errors. Development `npm run dev` will NOT catch TDZ issues — they only appear in minified bundles.
+
+4. **`as any` casts on shared types are a smell.** If you find yourself casting a typed booking object with `(b as any).someField`, that field should be added to the canonical `BookingWithSlot` type in `clinic-constants.tsx`, not worked around with a cast.

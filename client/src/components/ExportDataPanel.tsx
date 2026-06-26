@@ -13,17 +13,8 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { Clinic, Booking, Slot, ExportHistory, PatientBill } from "@shared/schema";
-
-type BookingWithSlot = Booking & {
-  slot: Slot;
-  assignedDoctor?: string | null;
-  patientCode?: string | null;
-  visitStatus?: string | null;
-  clinicalStatus?: string | null;
-  paymentStatus?: string | null;
-  paymentAmount?: number | null;
-};
+import type { Clinic, ExportHistory, PatientBill } from "@shared/schema";
+import type { BookingWithSlot } from "@/lib/clinic-constants";
 
 type ExportFormat = "xlsx" | "csv" | "pdf";
 type DatePreset   = "all" | "this-month" | "last-month" | "custom";
