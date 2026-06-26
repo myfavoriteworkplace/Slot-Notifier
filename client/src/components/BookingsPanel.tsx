@@ -271,9 +271,9 @@ export default function BookingsPanel({
 
     const first = activePatientFilter.name.split(' ')[0];
     const clearAll = () => { setQuickFilter('all'); setFilterDate(undefined); setFilterEndDate(undefined); };
+    const bookingCount = activePatientBookings.length;
 
-    // EC-C1: patient exists but has zero bookings at this clinic
-    if (activePatientBookings.length === 0) {
+    if (bookingCount === 0) {
       return {
         color: 'slate',
         headline: `${first} hasn't booked at this clinic yet`,
@@ -282,12 +282,11 @@ export default function BookingsPanel({
       };
     }
 
-    // EC-A1: Today filter — patient has bookings but not today
     if (quickFilter === 'today') {
       const actions: { label: string; onClick: () => void }[] = [];
-      if (patientPastBk.length > 0)     actions.push({ label: 'View Past Bookings',  onClick: () => setQuickFilter('past') });
-      if (patientUpcomingBk.length > 0) actions.push({ label: 'View Upcoming',        onClick: () => setQuickFilter('upcoming') });
-      if (actions.length === 0)         actions.push({ label: 'View All Bookings',    onClick: clearAll });
+      if (patientPastBk.length > 0) actions.push({ label: 'View Past Bookings', onClick: () => setQuickFilter('past') });
+      if (patientUpcomingBk.length > 0) actions.push({ label: 'View Upcoming', onClick: () => setQuickFilter('upcoming') });
+      if (actions.length === 0) actions.push({ label: 'View All Bookings', onClick: clearAll });
       const detail = patientLatestPast && patientNearestNext
         ? `Last visit: ${format(new Date(patientLatestPast.slot.startTime), 'MMM d')} · Next: ${format(new Date(patientNearestNext.slot.startTime), 'MMM d')}`
         : patientLatestPast
@@ -296,63 +295,58 @@ export default function BookingsPanel({
       return { color: 'amber', headline: `${first} has no booking today`, detail, actions };
     }
 
-    // EC-A2: Upcoming — patient has no future bookings
     if (quickFilter === 'upcoming') {
       const actions: { label: string; onClick: () => void }[] = [];
-      if (patientTodayBk.length > 0)   actions.push({ label: 'View Today',          onClick: () => setQuickFilter('today') });
-      if (patientPastBk.length > 0)    actions.push({ label: 'View Past Bookings',  onClick: () => setQuickFilter('past') });
-      if (actions.length === 0)        actions.push({ label: 'View All Bookings',   onClick: clearAll });
+      if (patientTodayBk.length > 0) actions.push({ label: 'View Today', onClick: () => setQuickFilter('today') });
+      if (patientPastBk.length > 0) actions.push({ label: 'View Past Bookings', onClick: () => setQuickFilter('past') });
+      if (actions.length === 0) actions.push({ label: 'View All Bookings', onClick: clearAll });
       const detail = patientLatestPast
         ? `Last visit was ${format(new Date(patientLatestPast.slot.startTime), 'MMM d, yyyy')}`
         : 'All their appointments have been completed or cancelled.';
       return { color: 'amber', headline: `${first} has no upcoming appointments`, detail, actions };
     }
 
-    // EC-A3: Past — patient has no past bookings
     if (quickFilter === 'past') {
       const actions: { label: string; onClick: () => void }[] = [];
-      if (patientTodayBk.length > 0)    actions.push({ label: 'View Today',     onClick: () => setQuickFilter('today') });
-      if (patientUpcomingBk.length > 0) actions.push({ label: 'View Upcoming',  onClick: () => setQuickFilter('upcoming') });
-      if (actions.length === 0)         actions.push({ label: 'View All Bookings', onClick: clearAll });
+      if (patientTodayBk.length > 0) actions.push({ label: 'View Today', onClick: () => setQuickFilter('today') });
+      if (patientUpcomingBk.length > 0) actions.push({ label: 'View Upcoming', onClick: () => setQuickFilter('upcoming') });
+      if (actions.length === 0) actions.push({ label: 'View All Bookings', onClick: clearAll });
       const detail = patientNearestNext
         ? `Next appointment: ${format(new Date(patientNearestNext.slot.startTime), 'MMM d, yyyy')}`
-        : `${first} has ${_pt.length} booking(s) but none in the past.`;
+        : `${first} has ${bookingCount} booking(s) but none in the past.`;
       return { color: 'amber', headline: `${first} has no past appointments`, detail, actions };
     }
 
-    // EC-A4: This Week
     if (quickFilter === 'this-week') {
       const actions: { label: string; onClick: () => void }[] = [];
-      if (patientNextWeekBk.length > 0)  actions.push({ label: 'Check Next Week', onClick: () => setQuickFilter('next-week') });
-      if (patientUpcomingBk.length > 0)  actions.push({ label: 'View Upcoming',   onClick: () => setQuickFilter('upcoming') });
-      else if (patientPastBk.length > 0) actions.push({ label: 'View Past',        onClick: () => setQuickFilter('past') });
-      if (actions.length === 0)          actions.push({ label: 'View All Bookings', onClick: clearAll });
+      if (patientNextWeekBk.length > 0) actions.push({ label: 'Check Next Week', onClick: () => setQuickFilter('next-week') });
+      if (patientUpcomingBk.length > 0) actions.push({ label: 'View Upcoming', onClick: () => setQuickFilter('upcoming') });
+      else if (patientPastBk.length > 0) actions.push({ label: 'View Past', onClick: () => setQuickFilter('past') });
+      if (actions.length === 0) actions.push({ label: 'View All Bookings', onClick: clearAll });
       const detail = patientNextWeekBk.length > 0
         ? `${first} has ${patientNextWeekBk.length} appointment(s) next week`
         : patientNearestNext
         ? `Next appointment: ${format(new Date(patientNearestNext.slot.startTime), 'MMM d, yyyy')}`
         : patientLatestPast
         ? `Last visit: ${format(new Date(patientLatestPast.slot.startTime), 'MMM d, yyyy')}`
-        : `${_pt.length} total booking(s) — none fall this week`;
+        : `${bookingCount} total booking(s) — none fall this week`;
       return { color: 'amber', headline: `${first} has no appointment this week`, detail, actions };
     }
 
-    // EC-A5: Next Week
     if (quickFilter === 'next-week') {
       const actions: { label: string; onClick: () => void }[] = [];
-      if (patientThisWeekBk.length > 0)  actions.push({ label: 'Check This Week', onClick: () => setQuickFilter('this-week') });
-      if (patientUpcomingBk.length > 0)  actions.push({ label: 'View Upcoming',   onClick: () => setQuickFilter('upcoming') });
-      else if (patientPastBk.length > 0) actions.push({ label: 'View Past',        onClick: () => setQuickFilter('past') });
-      if (actions.length === 0)          actions.push({ label: 'View All Bookings', onClick: clearAll });
+      if (patientThisWeekBk.length > 0) actions.push({ label: 'Check This Week', onClick: () => setQuickFilter('this-week') });
+      if (patientUpcomingBk.length > 0) actions.push({ label: 'View Upcoming', onClick: () => setQuickFilter('upcoming') });
+      else if (patientPastBk.length > 0) actions.push({ label: 'View Past', onClick: () => setQuickFilter('past') });
+      if (actions.length === 0) actions.push({ label: 'View All Bookings', onClick: clearAll });
       const detail = patientThisWeekBk.length > 0
         ? `${first} has ${patientThisWeekBk.length} appointment(s) this week`
         : patientNearestNext
         ? `Next appointment: ${format(new Date(patientNearestNext.slot.startTime), 'MMM d, yyyy')}`
-        : `${_pt.length} total booking(s) — none fall next week`;
+        : `${bookingCount} total booking(s) — none fall next week`;
       return { color: 'amber', headline: `${first} has no appointment next week`, detail, actions };
     }
 
-    // EC-A6/A7: Custom date range
     if (filterDate) {
       const rangeLabel = filterEndDate
         ? `${format(filterDate, 'MMM d')} – ${format(filterEndDate, 'MMM d')}`
@@ -360,12 +354,11 @@ export default function BookingsPanel({
       return {
         color: 'amber',
         headline: `No appointment for ${first} on ${rangeLabel}`,
-        detail: `${first} has ${activePatientBookings.length} total booking(s) at this clinic, but none fall in the selected range.`,
+        detail: `${first} has ${bookingCount} total booking(s) at this clinic, but none fall in the selected range.`,
         actions: [{ label: 'Clear date filter', onClick: () => { setFilterDate(undefined); setFilterEndDate(undefined); } }],
       };
     }
 
-    // EC-B1: today-confirmed — patient has today booking but it's pending
     if (quickFilter === 'today-confirmed' && patientTodayBk.length > 0) {
       return {
         color: 'blue',
@@ -375,7 +368,6 @@ export default function BookingsPanel({
       };
     }
 
-    // EC-B2: pending-7days — patient's upcoming bookings are all confirmed
     if (quickFilter === 'pending-7days') {
       const hasConfirmedUpcoming = patientUpcomingBk.some(b => b.verificationStatus === 'confirmed' || !!(b as any).confirmedBy);
       if (hasConfirmedUpcoming) {
@@ -388,12 +380,11 @@ export default function BookingsPanel({
       }
     }
 
-    // EC-B3: confirmed-7days — patient has upcoming bookings but all pending
     if (quickFilter === 'confirmed-7days') {
       return {
         color: 'blue',
         headline: `${first} has no confirmed bookings in the next 7 days`,
-        detail: `They have ${activePatientBookings.length} booking(s) total. Some may still be awaiting confirmation.`,
+        detail: `They have ${bookingCount} booking(s) total. Some may still be awaiting confirmation.`,
         actions: [
           { label: 'View Upcoming', onClick: () => setQuickFilter('upcoming') },
           { label: 'View All Bookings', onClick: clearAll },
@@ -401,7 +392,6 @@ export default function BookingsPanel({
       };
     }
 
-    // EC-B4: all-pending — patient's bookings are all confirmed
     if (quickFilter === 'all-pending') {
       return {
         color: 'blue',
@@ -411,10 +401,9 @@ export default function BookingsPanel({
       };
     }
 
-    // Fallback
     return {
       color: 'amber',
-      headline: `${first} has ${activePatientBookings.length} booking(s) but none match this filter`,
+      headline: `${first} has ${bookingCount} booking(s) but none match this filter`,
       detail: 'Clear all filters to see their full appointment history.',
       actions: [{ label: 'View All Bookings', onClick: clearAll }],
     };
