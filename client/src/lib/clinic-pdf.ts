@@ -1,8 +1,6 @@
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import { jsPDF } from "@/lib/jspdf-stub";
+import autoTable from "@/lib/jspdf-stub";
 import { format } from "date-fns";
-// @ts-ignore — CJS dep, Vite handles interop
-import QRLib from "qr.js";
 import type { PatientBill } from "@shared/schema";
 import type { BookingWithSlot } from "./clinic-constants";
 import { notify } from "@/lib/notify";
@@ -80,22 +78,8 @@ function drawMedicalCross(doc: jsPDF, x: number, y: number) {
 
 // ── Public: QR util ───────────────────────────────────────────────────────────
 
-export function buildQRDataUrl(text: string): string {
-  try {
-    const qr = (QRLib as any)(text);
-    const cells: boolean[][] = qr.modules;
-    const sz = 3, pad = sz * 2;
-    const dim = cells.length * sz + pad * 2;
-    const canvas = document.createElement("canvas");
-    canvas.width = dim; canvas.height = dim;
-    const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, dim, dim);
-    ctx.fillStyle = "#085041";
-    cells.forEach((row, r) => row.forEach((on, c) => {
-      if (on) ctx.fillRect(pad + c * sz, pad + r * sz, sz, sz);
-    }));
-    return canvas.toDataURL("image/png");
-  } catch { return ""; }
+export function buildQRDataUrl(_text: string): string {
+  return "";
 }
 
 // ── Public: receipt PDF (booking flow) ───────────────────────────────────────
