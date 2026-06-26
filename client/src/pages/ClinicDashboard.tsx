@@ -89,6 +89,7 @@ import type { ElementType } from "react";
 import type { Slot, Booking, PatientBill, ClinicalRecord, Patient } from "@shared/schema";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
+import { filterAndSortBookings, getBookingDisplayMeta, getBookingNumber } from "@/lib/booking-list";
 
 function BookingCardSkeleton() {
   return (
@@ -454,100 +455,22 @@ export default function ClinicDashboard() {
     return d >= nextWeekStart && d <= nextWeekEnd;
   }).length || 0;
 
-  // Define helper functions with explicit scoping to avoid TDZ errors during bundling
-  function getStatusGroup(booking: BookingWithSlot): number {
-    const d = new Date(booking.slot.startTime);
-    const isPast = d < todayStart && format(d, 'yyyy-MM-dd') !== todayStr;
-    if (isPast) return 2;
-    if (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy) return 1;
-    return 0;
-  }
-
-  function getBookingNumber(booking: BookingWithSlot): string {
-    if (!bookings) return "0";
-    // Get all bookings for the same date
-    const bookingDateStr = format(new Date(booking.slot.startTime), 'yyyy-MM-dd');
-    const dayBookings = bookings
-      .filter(b => format(new Date(b.slot.startTime), 'yyyy-MM-dd') === bookingDateStr)
-      .sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime());
-    
-    const index = dayBookings.findIndex(b => b.id === booking.id);
-    return (index + 1).toString();
-  }
-
-  // Apply filtering first, then sorting with explicit sort logic to avoid variable hoisting issues
-  const filteredAndSortedBookings = (() => {
-    if (!bookings) return [];
-    
-    let result = bookings.filter(booking => {
-      const bookingDate = new Date(booking.slot.startTime);
-
-      // Quick filter takes precedence over date picker
-      if (quickFilter === 'today') {
-        return format(bookingDate, 'yyyy-MM-dd') === todayStr;
-      }
-      if (quickFilter === 'upcoming') {
-        return bookingDate >= todayStart
-          && format(bookingDate, 'yyyy-MM-dd') !== todayStr
-          && booking.visitStatus !== 'completed';
-      }
-      if (quickFilter === 'past') {
-        return bookingDate < todayStart;
-      }
-      if (quickFilter === 'this-week') {
-        return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
-      }
-      if (quickFilter === 'next-week') {
-        return bookingDate >= nextWeekStart && bookingDate <= nextWeekEnd;
-      }
-      if (quickFilter === 'today-confirmed') {
-        return format(bookingDate, 'yyyy-MM-dd') === todayStr &&
-          (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy);
-      }
-      if (quickFilter === 'pending-7days') {
-        return bookingDate >= todayStart && bookingDate <= statNext7DaysEnd &&
-          booking.verificationStatus !== 'confirmed' && !booking.confirmedBy;
-      }
-      if (quickFilter === 'all-pending') {
-        return booking.verificationStatus !== 'confirmed' && !booking.confirmedBy;
-      }
-      if (quickFilter === 'confirmed-7days') {
-        return bookingDate >= todayStart && bookingDate <= statNext7DaysEnd &&
-          (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy);
-      }
-
-      if (filterDate && filterEndDate) {
-        return bookingDate >= startOfDay(filterDate) && bookingDate <= endOfDay(filterEndDate);
-      } else if (filterDate) {
-        // Compare using local date strings to avoid timezone issues
-        const bookingDateStr = format(bookingDate, 'yyyy-MM-dd');
-        const filterDateStr = format(filterDate, 'yyyy-MM-dd');
-        return bookingDateStr === filterDateStr;
-      }
-
-      return true;
-    });
-
-    // Apply sorting with inline logic to ensure proper variable binding
-    result = result.sort((a, b) => {
-      if (quickFilter === 'all' && !filterDate) {
-        const statusGroupA = getStatusGroup(a);
-        const statusGroupB = getStatusGroup(b);
-        if (statusGroupA !== statusGroupB) return statusGroupA - statusGroupB;
-      }
-      return new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime();
-    });
-
-    // Apply patient filter
-    result = result.filter(booking => {
-      if (!activePatientFilter) return true;
-      return (booking as any).patientId === activePatientFilter.id;
-    });
-
-    return result;
-  })();
-
-  const filteredBookings = filteredAndSortedBookings;
+  const filteredBookings = bookings
+    ? filterAndSortBookings({
+        bookings,
+        quickFilter,
+        activePatientFilter,
+        filterDate,
+        filterEndDate,
+        todayStart,
+        todayStr,
+        thisWeekStart,
+        thisWeekEnd,
+        nextWeekStart,
+        nextWeekEnd,
+        statNext7DaysEnd,
+      })
+    : [];
 
   const handleOpenBilling = async (booking: BookingWithSlot, existingBill?: PatientBill) => {
     setBillingBooking(booking);

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
@@ -71,6 +71,7 @@ import {
 import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
+import { filterAndSortBookings, getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber } from "@/lib/booking-list";
 import type { PatientBill, Patient } from "@shared/schema";
 
 function BookingCardSkeleton() {
@@ -214,7 +215,7 @@ export default function BookingsPanel({
   const nextWeekStart = startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
   const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
 
-  const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
+  const { data: bookings, isLoading: bookingsLoading, isError: bookingsError, error: bookingsErrorDetails, refetch: refetchBookings } = useQuery<BookingWithSlot[]>({
     queryKey: ['/api/auth/clinic/bookings'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/auth/clinic/bookings');
@@ -285,35 +286,31 @@ export default function BookingsPanel({
     return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
   });
 
-  const filteredBookings = bookings?.filter(booking => {
-    const bookingDate = new Date(booking.slot.startTime);
-    if (quickFilter === 'today') return format(bookingDate, 'yyyy-MM-dd') === todayStr;
-    if (quickFilter === 'upcoming') return bookingDate >= todayStart && format(bookingDate, 'yyyy-MM-dd') !== todayStr && booking.visitStatus !== 'completed';
-    if (quickFilter === 'past') return bookingDate < todayStart;
-    if (quickFilter === 'this-week') return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
-    if (quickFilter === 'next-week') return bookingDate >= nextWeekStart && bookingDate <= nextWeekEnd;
-    if (quickFilter === 'today-confirmed') return format(bookingDate, 'yyyy-MM-dd') === todayStr && (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy);
-    if (quickFilter === 'pending-7days') return bookingDate >= todayStart && bookingDate <= statNext7DaysEnd && booking.verificationStatus !== 'confirmed' && !booking.confirmedBy;
-    if (quickFilter === 'all-pending') return booking.verificationStatus !== 'confirmed' && !booking.confirmedBy;
-    if (quickFilter === 'confirmed-7days') return bookingDate >= todayStart && bookingDate <= statNext7DaysEnd && (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy);
-    if (filterDate && filterEndDate) return bookingDate >= startOfDay(filterDate) && bookingDate <= endOfDay(filterEndDate);
-    else if (filterDate) {
-      const bookingDateStr = format(bookingDate, 'yyyy-MM-dd');
-      const filterDateStr = format(filterDate, 'yyyy-MM-dd');
-      return bookingDateStr === filterDateStr;
-    }
-    return true;
-  })?.sort((a, b) => {
-    if (quickFilter === 'all' && !filterDate) {
-      const groupA = getStatusGroup(a);
-      const groupB = getStatusGroup(b);
-      if (groupA !== groupB) return groupA - groupB;
-    }
-    return new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime();
-  })?.filter(booking => {
-    if (!activePatientFilter) return true;
-    return (booking as any).patientId === activePatientFilter.id;
-  });
+  const filteredBookings = useMemo(() => {
+    if (!bookings) return [];
+    return filterAndSortBookings({
+      bookings,
+      quickFilter,
+      activePatientFilter,
+      filterDate,
+      filterEndDate,
+      todayStart,
+      todayStr,
+      thisWeekStart,
+      thisWeekEnd,
+      nextWeekStart,
+      nextWeekEnd,
+      statNext7DaysEnd,
+    });
+  }, [bookings, quickFilter, activePatientFilter, filterDate, filterEndDate, todayStart, todayStr, thisWeekStart, thisWeekEnd, nextWeekStart, nextWeekEnd, statNext7DaysEnd]);
+
+  const emptyStateMeta = useMemo(() => getBookingEmptyStateMeta({
+    activePatientFilter,
+    activePatientBookingsCount: activePatientBookings.length,
+    quickFilter,
+    filterDate,
+    filterEndDate,
+  }), [activePatientFilter, activePatientBookings.length, quickFilter, filterDate, filterEndDate]);
 
   const patientHint: {
     color: 'amber' | 'blue' | 'slate';
@@ -465,23 +462,16 @@ export default function BookingsPanel({
   })();
   // ─────────────────────────────────────────────────────────────────────────
 
-  const getBookingNumber = (booking: BookingWithSlot) => {
+  const bookingNumber = (booking: BookingWithSlot) => {
     if (!bookings) return "0";
-    const bookingDateStr = format(new Date(booking.slot.startTime), 'yyyy-MM-dd');
-    const dayBookings = bookings
-      .filter(b => format(new Date(b.slot.startTime), 'yyyy-MM-dd') === bookingDateStr)
-      .sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime());
-    const index = dayBookings.findIndex(b => b.id === booking.id);
-    return (index + 1).toString();
+    return getBookingNumber({ booking, bookings });
   };
 
-  const getStatusGroup = (booking: BookingWithSlot) => {
-    const d = new Date(booking.slot.startTime);
-    const isPast = d < todayStart && format(d, 'yyyy-MM-dd') !== todayStr;
-    if (isPast) return 2;
-    if (booking.verificationStatus === 'confirmed' || !!booking.confirmedBy) return 1;
-    return 0;
+  const statusGroup = (booking: BookingWithSlot) => {
+    return getBookingDisplayMeta({ booking, todayStart, todayStr }).group;
   };
+
+  const getActionState = (booking: BookingWithSlot) => getBookingActionState({ booking });
 
   const handleOpenBilling = async (booking: BookingWithSlot, existingBill?: PatientBill) => {
     setBillingBooking(booking);
@@ -1493,9 +1483,30 @@ export default function BookingsPanel({
               <BookingCardSkeleton key={i} />
             ))}
           </div>
+        ) : bookingsError ? (
+          <div className="col-span-full py-12 flex flex-col items-center gap-5 text-center bg-muted/10 rounded-2xl border border-dashed border-border/60">
+            <div className="rounded-2xl bg-rose-50 dark:bg-rose-900/20 p-3 text-rose-600 dark:text-rose-400 shadow-sm">
+              <AlertCircle className="h-8 w-8" />
+            </div>
+            <div className="space-y-1.5 max-w-[320px]">
+              <p className="text-base font-semibold text-foreground">We couldn’t load your bookings</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {bookingsErrorDetails instanceof Error ? bookingsErrorDetails.message : "The booking service is temporarily unavailable. Please try again in a moment."}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-9"
+              onClick={() => refetchBookings()}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Try again
+            </Button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredBookings?.length === 0 ? (
+            {filteredBookings.length === 0 ? (
               <div className="col-span-full py-12 flex flex-col items-center gap-5 text-center bg-muted/10 rounded-2xl border border-dashed border-border/60">
                 <div className="rounded-2xl overflow-hidden bg-white/70 dark:bg-muted/20 p-2 shadow-sm">
                   <img
@@ -1509,30 +1520,10 @@ export default function BookingsPanel({
                 {/* ── Headline + detail — context-aware per filter ── */}
                 <div className="space-y-1.5 max-w-[280px]">
                   <p className="text-base font-semibold text-foreground">
-                    {activePatientFilter
-                      ? (activePatientBookings.length === 0
-                          ? `${activePatientFilter.name.split(' ')[0]} has no bookings here`
-                          : "No matching appointments")
-                      : quickFilter === 'today'      ? "No bookings today"
-                      : quickFilter === 'upcoming'   ? "No upcoming appointments"
-                      : quickFilter === 'past'       ? "No past appointments"
-                      : quickFilter === 'this-week'  ? "Nothing scheduled this week"
-                      : quickFilter === 'next-week'  ? "Nothing booked next week"
-                      : filterDate                   ? "No appointments in this range"
-                      : "No bookings yet"}
+                    {emptyStateMeta.title}
                   </p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    {activePatientFilter
-                      ? (activePatientBookings.length === 0
-                          ? "This patient is registered but hasn't booked here yet."
-                          : "Their appointments exist — the active filter is hiding them.")
-                      : quickFilter === 'today'      ? "No slots are booked for today. Check Upcoming for future appointments."
-                      : quickFilter === 'upcoming'   ? "There are no future appointments. Past bookings may be in the Past filter."
-                      : quickFilter === 'past'       ? "No appointment history yet — your clinic is just getting started!"
-                      : quickFilter === 'this-week'  ? "No appointments fall within Mon–Sun of this week. Try Next Week or All Bookings."
-                      : quickFilter === 'next-week'  ? "No appointments are scheduled for next week yet."
-                      : filterDate                   ? "No bookings fall in the selected date range. Clear the date filter to see all."
-                      : "Once patients book a slot, their appointments will appear here."}
+                    {emptyStateMeta.detail}
                   </p>
                 </div>
 
@@ -1691,8 +1682,9 @@ export default function BookingsPanel({
                   : [];
 
                 const isPending = !isConfirmed && !isBookingPast;
-                const group = isGrouped ? getStatusGroup(booking) : -1;
+                const group = isGrouped ? statusGroup(booking) : -1;
                 const showDivider = isGrouped && group !== lastGroup;
+                const actionState = getActionState(booking);
                 if (isGrouped) lastGroup = group;
                 const groupCfg = groupConfig[Math.max(0, group)];
                 return [
@@ -1701,7 +1693,7 @@ export default function BookingsPanel({
                       <div className="h-px flex-1 bg-border/50" />
                       <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${groupCfg.textColor} ${groupCfg.bg} ${groupCfg.border}`}>
                         {groupCfg.label}
-                        <span className="font-black opacity-70">— {filteredBookings?.filter(b => getStatusGroup(b) === group).length ?? 0}</span>
+                        <span className="font-black opacity-70">— {filteredBookings?.filter(b => statusGroup(b) === group).length ?? 0}</span>
                       </span>
                       <div className="h-px flex-1 bg-border/50" />
                       <button
@@ -1722,25 +1714,25 @@ export default function BookingsPanel({
                   <AppointmentCard
                     role="clinic"
                     booking={booking}
-                    bookingNumber={getBookingNumber(booking)}
+                    bookingNumber={bookingNumber(booking)}
                     complaints={complaints}
                     onCardClick={() => setOpenBookingId(booking.id)}
-                    onConfirm={() => confirmBookingMutation.mutate(booking.id)}
-                    onCancel={(reason) => cancelBookingMutation.mutate({ id: booking.id, reason })}
+                    onConfirm={() => actionState.canConfirm && confirmBookingMutation.mutate(booking.id)}
+                    onCancel={(reason) => actionState.canCancel && cancelBookingMutation.mutate({ id: booking.id, reason })}
                     onBill={() => handleOpenBilling(booking)}
-                    onAssignDoctor={(name, email) => assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: name, doctorEmail: email })}
+                    onAssignDoctor={(name, email) => actionState.canAssignDoctor && assignDoctorMutation.mutate({ bookingId: booking.id, doctorName: name, doctorEmail: email })}
                     assignDoctorPending={assignDoctorMutation.isPending}
                     confirmPending={confirmBookingMutation.isPending}
-                    onCheckIn={() => checkInMutation.mutate({ bookingId: booking.id })}
-                    onUndoCheckIn={() => checkInMutation.mutate({ bookingId: booking.id, undo: true })}
-                    onCompleteVisit={(note) => completeVisitMutation.mutate({ bookingId: booking.id, note })}
-                    onNoShow={(reason) => noShowMutation.mutate({ bookingId: booking.id, reason })}
+                    onCheckIn={() => actionState.canCheckIn && checkInMutation.mutate({ bookingId: booking.id })}
+                    onUndoCheckIn={() => actionState.canCheckIn && checkInMutation.mutate({ bookingId: booking.id, undo: true })}
+                    onCompleteVisit={(note) => actionState.canCompleteVisit && completeVisitMutation.mutate({ bookingId: booking.id, note })}
+                    onNoShow={(reason) => actionState.canNoShow && noShowMutation.mutate({ bookingId: booking.id, reason })}
                     noShowPending={noShowMutation.isPending}
-                    onSendReminder={() => sendReminderMutation.mutate(booking.id)}
+                    onSendReminder={() => actionState.canSendReminder && sendReminderMutation.mutate(booking.id)}
                     sendReminderPending={sendReminderMutation.isPending}
-                    onOverrideComplete={(reason) => overrideCompleteMutation.mutate({ bookingId: booking.id, reason })}
+                    onOverrideComplete={(reason) => actionState.canOverrideComplete && overrideCompleteMutation.mutate({ bookingId: booking.id, reason })}
                     overridePending={overrideCompleteMutation.isPending}
-                    onPatientLeftEarly={(reason) => patientLeftEarlyMutation.mutate({ bookingId: booking.id, reason })}
+                    onPatientLeftEarly={(reason) => actionState.canPatientLeftEarly && patientLeftEarlyMutation.mutate({ bookingId: booking.id, reason })}
                     leftEarlyPending={patientLeftEarlyMutation.isPending}
                     totalBillsCount={allBills.filter(b => b.bookingId === booking.id).length}
                     onBookAgain={() => {
@@ -1787,7 +1779,7 @@ export default function BookingsPanel({
                                 {booking.customerName}
                               </DialogTitle>
                               <span className="font-mono text-xs uppercase tracking-widest text-white/60 bg-white/10 border border-white/20 px-1.5 py-0.5 rounded-md shrink-0">
-                                REF-{getBookingNumber(booking).padStart(4, '0')}
+                                REF-{bookingNumber(booking).padStart(4, '0')}
                               </span>
                               {((booking as any).customerAge || (booking as any).customerGender) && (
                                 <span className="text-xs text-white/55 shrink-0">
