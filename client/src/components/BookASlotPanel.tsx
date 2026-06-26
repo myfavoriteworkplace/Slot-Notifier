@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
@@ -72,6 +72,35 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
   const [complaintsExpanded, setComplaintsExpanded] = useState(false);
   const [bookingAppointmentCategory, setBookingAppointmentCategory] = useState("");
   const [bookingVisitType, setBookingVisitType] = useState("");
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = sessionStorage.getItem('clinic_rebook_data');
+    if (!stored) return;
+    try {
+      const data = JSON.parse(stored) as {
+        bookingName: string;
+        bookingPhone: string;
+        bookingEmail: string;
+        bookingAge: string;
+        bookingGender: string;
+        bookingDescription: string;
+        bookingVisitType: string;
+        bookingAppointmentCategory: string;
+      };
+      setBookingName(data.bookingName || "");
+      setBookingPhone(data.bookingPhone || "");
+      setBookingEmail(data.bookingEmail || "");
+      setBookingAge(data.bookingAge || "");
+      setBookingGender(data.bookingGender || "");
+      setBookingDescription(data.bookingDescription || "");
+      setBookingVisitType(data.bookingVisitType || "");
+      setBookingAppointmentCategory(data.bookingAppointmentCategory || "");
+      sessionStorage.removeItem('clinic_rebook_data');
+    } catch {
+      // no-op
+    }
+  }, []);
 
   const isPhoneValid = bookingPhone && validateIndianPhone(bookingPhone);
 

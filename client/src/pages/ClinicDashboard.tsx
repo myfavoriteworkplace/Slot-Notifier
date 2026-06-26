@@ -1343,6 +1343,7 @@ export default function ClinicDashboard() {
               allBills={allBills}
               notifHighlight={notifHighlight}
               tabBadges={tabBadges}
+              setTabBadges={setTabBadges}
               onNavigate={(panel) => setActivePanel(panel as any)}
               onViewPatient={handleViewPatient}
               quickFilter={quickFilter}

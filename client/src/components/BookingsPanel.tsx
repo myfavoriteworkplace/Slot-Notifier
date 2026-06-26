@@ -5,8 +5,9 @@ import { notify } from "@/lib/notify";
 import noBookingsImg from "@assets/Copilot_20260603_191746_1780494897553.png";
 import {
   type BillingService, type BillingDetails, type ClinicInfo,
-  generateReceiptPDF,
+  generateReceiptPDF, generateConsentPdf, printBillFromRecord,
 } from "@/lib/clinic-pdf";
+import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
 import {
@@ -125,6 +126,7 @@ interface BookingsPanelProps {
   setFilterDate: (f: Date | undefined | ((p: Date | undefined) => Date | undefined)) => void;
   filterEndDate: Date | undefined;
   setFilterEndDate: (f: Date | undefined | ((p: Date | undefined) => Date | undefined)) => void;
+  setTabBadges: (f: Record<number, string[]> | ((p: Record<number, string[]>) => Record<number, string[]>)) => void;
   bookingsSectionRef: { current: HTMLDivElement | null };
   openBookingId: number | null;
   setOpenBookingId: (f: number | null | ((p: number | null) => number | null)) => void;
@@ -153,6 +155,7 @@ export default function BookingsPanel({
   setOpenBookingId,
   modalTabs,
   setModalTabs,
+  setTabBadges,
 }: BookingsPanelProps) {
   const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -176,6 +179,24 @@ export default function BookingsPanel({
   const getModalTab = (id: number) => modalTabs[id] ?? 'overview';
   const setModalTab = (id: number, tab: 'overview' | 'clinical' | 'notes' | 'actions' | 'billing') =>
     setModalTabs(prev => ({ ...prev, [id]: tab }));
+
+  const persistRebookValues = (data: {
+    bookingName: string;
+    bookingPhone: string;
+    bookingEmail: string;
+    bookingAge: string;
+    bookingGender: string;
+    bookingDescription: string;
+    bookingVisitType: string;
+    bookingAppointmentCategory: string;
+  }) => {
+    if (typeof window === 'undefined') return;
+    try {
+      sessionStorage.setItem('clinic_rebook_data', JSON.stringify(data));
+    } catch {
+      // ignore
+    }
+  };
 
   const [rescheduleBookingId, setRescheduleBookingId] = useState<number | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState<Date>(startOfToday());
@@ -214,6 +235,7 @@ export default function BookingsPanel({
   const thisWeekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
   const nextWeekStart = startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
   const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
+  const dates = useMemo(() => Array.from({ length: 14 }, (_, idx) => addDays(startOfToday(), idx)), []);
 
   const { data: bookings, isLoading: bookingsLoading, isError: bookingsError, error: bookingsErrorDetails, refetch: refetchBookings } = useQuery<BookingWithSlot[]>({
     queryKey: ['/api/auth/clinic/bookings'],
@@ -1369,7 +1391,7 @@ export default function BookingsPanel({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setActivePanel("export-data")}
+              onClick={() => onNavigate("export-data")}
               className="gap-2 text-white/80 hover:text-white hover:bg-white/15 border border-white/20 text-xs"
               data-testid="button-go-to-export"
             >
@@ -1740,14 +1762,16 @@ export default function BookingsPanel({
                       const _rebookDesc = _desc.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
                       const _rebookVisit = (_desc.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
                       const _rebookCategory = (_desc.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
-                      setBookingName(booking.customerName);
-                      setBookingPhone(booking.customerPhone);
-                      setBookingEmail(booking.customerEmail || "");
-                      setBookingAge(String((booking as any).customerAge || ""));
-                      setBookingGender((booking as any).customerGender || "");
-                      setBookingDescription(_rebookDesc);
-                      setBookingVisitType(_rebookVisit);
-                      setBookingAppointmentCategory(_rebookCategory);
+                      persistRebookValues({
+                        bookingName: booking.customerName,
+                        bookingPhone: booking.customerPhone,
+                        bookingEmail: booking.customerEmail || "",
+                        bookingAge: String((booking as any).customerAge || ""),
+                        bookingGender: (booking as any).customerGender || "",
+                        bookingDescription: _rebookDesc,
+                        bookingVisitType: _rebookVisit,
+                        bookingAppointmentCategory: _rebookCategory,
+                      });
                       onNavigate('book-a-slot');
                       setOpenBookingId(null);
                     }}
@@ -1982,7 +2006,7 @@ export default function BookingsPanel({
                                   {(booking as any).patientCode ? (
                                     <>
                                       <span className="font-mono font-bold text-primary truncate">{(booking as any).patientCode}</span>
-                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText((booking as any).patientCode); notify("Patient ID copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy Patient ID">
+                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText((booking as any).patientCode); notify.success("Patient ID copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy Patient ID">
                                         <Copy className="h-2.5 w-2.5 text-muted-foreground" />
                                       </button>
                                     </>
@@ -2002,7 +2026,7 @@ export default function BookingsPanel({
                                       <a href={`tel:${booking.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">
                                         {booking.customerPhone}
                                       </a>
-                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerPhone!); notify("Phone copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
+                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
                                         <Copy className="h-2.5 w-2.5 text-muted-foreground" />
                                       </button>
                                       <a href={`tel:${booking.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient">
@@ -2023,7 +2047,7 @@ export default function BookingsPanel({
                                   {booking.customerEmail ? (
                                     <>
                                       <span className="font-semibold text-foreground truncate min-w-0">{booking.customerEmail}</span>
-                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerEmail!); notify("Email copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy email">
+                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(booking.customerEmail!); notify.success("Email copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy email">
                                         <Copy className="h-2.5 w-2.5 text-muted-foreground" />
                                       </button>
                                     </>
@@ -2135,7 +2159,7 @@ export default function BookingsPanel({
                                           navigator.clipboard.writeText(url);
                                           setCopiedConsentId(booking.id);
                                           setTimeout(() => setCopiedConsentId(null), 2000);
-                                          notify("Consent link copied!");
+                                          notify.success("Consent link copied!");
                                         }}
                                         className="h-[22px] w-[22px] inline-flex items-center justify-center rounded-md text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 active:scale-95 transition-all"
                                         title="Copy consent link"
@@ -2873,9 +2897,16 @@ export default function BookingsPanel({
                                     const _rd = _d.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
                                     const _rv = (_d.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
                                     const _rc = (_d.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
-                                    setBookingName(booking.customerName); setBookingPhone(booking.customerPhone); setBookingEmail(booking.customerEmail || "");
-                                    setBookingAge(String((booking as any).customerAge || "")); setBookingGender((booking as any).customerGender || "");
-                                    setBookingDescription(_rd); setBookingVisitType(_rv); setBookingAppointmentCategory(_rc);
+                                    persistRebookValues({
+                                      bookingName: booking.customerName,
+                                      bookingPhone: booking.customerPhone,
+                                      bookingEmail: booking.customerEmail || "",
+                                      bookingAge: String((booking as any).customerAge || ""),
+                                      bookingGender: (booking as any).customerGender || "",
+                                      bookingDescription: _rd,
+                                      bookingVisitType: _rv,
+                                      bookingAppointmentCategory: _rc,
+                                    });
                                     onNavigate('book-a-slot'); setOpenBookingId(null);
                                   }}
                                   data-testid={`button-dialog-rebook-${booking.id}`}>
@@ -2977,9 +3008,16 @@ export default function BookingsPanel({
                                 const _rd = _d.split(/\s*\|\s*/).filter((p: string) => !p.startsWith("Category:") && !p.startsWith("Visit:") && !p.startsWith("Age:") && !p.startsWith("Gender:")).join(", ").trim();
                                 const _rv = (_d.match(/Visit:\s*([^|]+)/)?.[1] ?? "").trim();
                                 const _rc = (_d.match(/Category:\s*([^|]+)/)?.[1] ?? "").trim();
-                                setBookingName(booking.customerName); setBookingPhone(booking.customerPhone); setBookingEmail(booking.customerEmail || "");
-                                setBookingAge(String((booking as any).customerAge || "")); setBookingGender((booking as any).customerGender || "");
-                                setBookingDescription(_rd); setBookingVisitType(_rv); setBookingAppointmentCategory(_rc);
+                                persistRebookValues({
+                                  bookingName: booking.customerName,
+                                  bookingPhone: booking.customerPhone,
+                                  bookingEmail: booking.customerEmail || "",
+                                  bookingAge: String((booking as any).customerAge || ""),
+                                  bookingGender: (booking as any).customerGender || "",
+                                  bookingDescription: _rd,
+                                  bookingVisitType: _rv,
+                                  bookingAppointmentCategory: _rc,
+                                });
                                 onNavigate('book-a-slot'); setOpenBookingId(null);
                               }}
                               data-testid={`button-dialog-rebook-terminal-${booking.id}`}>

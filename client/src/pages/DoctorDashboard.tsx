@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import QRCode from "react-qr-code";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
@@ -34,8 +34,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/schema";
-import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, endOfWeek, addWeeks } from "date-fns";
+import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, endOfWeek, addWeeks, addDays } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
+import { filterAndSortBookings } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 
@@ -582,6 +583,8 @@ export default function DoctorDashboard() {
   const awaitingBookings = myBookings.filter((b: any) => b.doctorApprovalStatus === 'pending');
   const confirmedBookings = myBookings.filter((b: any) => b.doctorApprovalStatus !== 'pending' && b.doctorApprovalStatus !== 'declined');
   const todayStr = new Date().toISOString().split("T")[0];
+  const todayStart = startOfDay(new Date());
+  const statNext7DaysEnd = addDays(todayStart, 7);
   const todayBookings = confirmedBookings.filter((b: any) => {
     const d = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
     return d === todayStr;
@@ -614,24 +617,26 @@ export default function DoctorDashboard() {
     const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
     return d && d >= nextWeekStart && d <= nextWeekEnd;
   }).length;
-
   const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setFilterDate(undefined); setFilterEndDate(undefined); };
 
-  const filteredBookings = (quickFilter === "awaiting" || quickFilter === "pending-7days" ? awaitingBookings : confirmedBookings).filter((b: any) => {
-    const matchesClinic = appointmentClinicFilter === "all" || b.clinicId === parseInt(appointmentClinicFilter);
-    const bdt = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-    const bd = bdt ? format(bdt, 'yyyy-MM-dd') : "";
-    let matchesDate = true;
-    if (quickFilter === "today") matchesDate = bd === todayStr;
-    else if (quickFilter === "upcoming") matchesDate = bdt ? bdt >= new Date() && b.visitStatus !== 'completed' : false;
-    else if (quickFilter === "pending-7days") matchesDate = bdt ? bdt >= now && bdt <= next7 : false;
-    else if (quickFilter === "confirmed-7days") matchesDate = bdt ? bdt >= now && bdt <= next7 : false;
-    else if (quickFilter === "this-week") matchesDate = bdt ? bdt >= thisWeekStart && bdt <= thisWeekEnd : false;
-    else if (quickFilter === "next-week") matchesDate = bdt ? bdt >= nextWeekStart && bdt <= nextWeekEnd : false;
-    else if (filterDate && filterEndDate) matchesDate = bdt ? bdt >= startOfDay(filterDate) && bdt <= endOfDay(filterEndDate) : false;
-    else if (filterDate) matchesDate = bd === format(filterDate, 'yyyy-MM-dd');
-    return matchesClinic && matchesDate;
-  });
+  const filteredBookings = useMemo(() => {
+    const sourceBookings = quickFilter === "awaiting" || quickFilter === "pending-7days" ? awaitingBookings : confirmedBookings;
+    const normalizedFilter = quickFilter === "awaiting" ? "all-pending" as QuickFilter : quickFilter;
+    return filterAndSortBookings({
+      bookings: sourceBookings,
+      quickFilter: normalizedFilter,
+      activePatientFilter: undefined,
+      filterDate,
+      filterEndDate,
+      todayStart,
+      todayStr,
+      thisWeekStart,
+      thisWeekEnd,
+      nextWeekStart,
+      nextWeekEnd,
+      statNext7DaysEnd,
+    }).filter((b: any) => appointmentClinicFilter === "all" || b.clinicId === parseInt(appointmentClinicFilter));
+  }, [awaitingBookings, confirmedBookings, quickFilter, appointmentClinicFilter, filterDate, filterEndDate, todayStart, todayStr, thisWeekStart, thisWeekEnd, nextWeekStart, nextWeekEnd, statNext7DaysEnd]);
 
   const greet = new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening";
 
@@ -1287,7 +1292,7 @@ export default function DoctorDashboard() {
                         onApprove={() => approveMutation.mutate(booking.id)}
                         onDecline={() => declineMutation.mutate(booking.id)}
                         onOpenNotes={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
-                        onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('records'); setStatusDraft(booking.clinicalStatus || ""); }}
+                        onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
                         approvePending={approveMutation.isPending && (approveMutation.variables as number) === booking.id}
                         declinePending={declineMutation.isPending && (declineMutation.variables as number) === booking.id}
                         onStartConsultation={() => startConsultationMutation.mutate(booking.id)}
@@ -2456,7 +2461,7 @@ export default function DoctorDashboard() {
                                 <a href={`tel:${b.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">
                                   {b.customerPhone}
                                 </a>
-                                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.customerPhone!); notify("Phone copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
+                                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
                                   <Copy className="h-2.5 w-2.5 text-muted-foreground" />
                                 </button>
                                 <a href={`tel:${b.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient">
@@ -2510,7 +2515,7 @@ export default function DoctorDashboard() {
                                   onClick={() => {
                                     const url = (b as any).consentUrl || `${window.location.origin}/consent/${b.consentToken}`;
                                     navigator.clipboard.writeText(url);
-                                    notify("Consent link copied!");
+                                    notify.success("Consent link copied!");
                                   }}
                                   className="h-[22px] w-[22px] inline-flex items-center justify-center rounded-md text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 active:scale-95 transition-all"
                                   title="Copy consent link"
