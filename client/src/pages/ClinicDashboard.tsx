@@ -31,6 +31,7 @@ import {
   Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, AlertCircle, CreditCard,
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
   ChevronLeft, ChevronRight, Save, Hash, Pill, Printer, ArrowLeft, ArrowRight,
+  Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb,
 } from "lucide-react";
 import {
   ToothIcon, SlotTiming, SectionConfig, DayConfig, BookingWithSlot,
