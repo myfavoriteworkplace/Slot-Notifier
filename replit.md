@@ -1,5 +1,31 @@
 # BookMySlot
 
+## ⚠️ Mandatory Agent Rules — Read First, Every Session
+
+These rules apply to **every agent** working on this repo, including forks and checkouts.
+
+### 1. Run Build Check after every frontend feature
+
+After completing any frontend change (new component, import added, type changed), run the **"Build Check"** workflow before handing back to the user:
+
+```
+restart_workflow("Build Check")   # waits for npm run build to exit 0
+```
+
+Do not mark a feature done until the build passes. `npm run dev` does **not** catch production chunk errors — only the full build does. A live production crash was caused by skipping this step (see TDZ Rule section below).
+
+### 2. Never redefine shared types locally
+
+All shared frontend types (`BookingWithSlot`, `SlotTiming`, `SectionConfig`, `DayConfig`, etc.) are canonical in `client/src/lib/clinic-constants.tsx`. Before defining any new exported type in a component file, run:
+
+```
+grep -rn "export.*YourTypeName" client/src/
+```
+
+If it exists anywhere, import it — never redefine it. Duplicate exports in the same Rollup chunk cause silent TDZ crashes in production.
+
+---
+
 ## Overview
 
 BookMySlot is a full-stack appointment booking application that enables service owners to manage availability slots and customers to book appointments. The application features role-based access control (owner vs customer), real-time notifications, and a modern responsive UI.
