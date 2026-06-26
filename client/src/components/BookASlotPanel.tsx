@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DEFAULT_SLOT_TIMINGS, DEFAULT_SECTION_CAPACITY, PROCEDURE_SLOT_COST,
   DENTAL_CATEGORIES,
@@ -42,6 +43,11 @@ type AdminSlotAvailRow = {
   count: number; max: number; isCancelled: boolean; spotsLeft: number;
 };
 
+type AvailDateInfo = {
+  date: string; isFull: boolean; availableSlotCount: number;
+  totalSpotsLeft: number; nextSlotLabel: string | null;
+};
+
 export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPanelProps) {
   const slotTimings = DEFAULT_SLOT_TIMINGS;
 
@@ -61,7 +67,7 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
   const [phoneError, setPhoneError] = useState("");
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingShowReview, setBookingShowReview] = useState(false);
-  const [bookingSlotPanelOpen, setBookingSlotPanelOpen] = useState(false);
+  const [bookingSlotPanelOpen, setBookingSlotPanelOpen] = useState(true);
   const [bookingOpenCategory, setBookingOpenCategory] = useState<string | null>(null);
   const [complaintsExpanded, setComplaintsExpanded] = useState(false);
   const [bookingAppointmentCategory, setBookingAppointmentCategory] = useState("");
@@ -69,7 +75,17 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
 
   const isPhoneValid = bookingPhone && validateIndianPhone(bookingPhone);
 
-  const dates = Array.from({ length: 14 }, (_, i) => addDays(startOfToday(), i));
+  const dates = Array.from({ length: 30 }, (_, i) => addDays(startOfToday(), i));
+
+  const selectedDateStr = format(bookingDate, 'yyyy-MM-dd');
+  const selectedDateInfo = availDates?.find(d => d.date === selectedDateStr);
+  const nextAvailDate = selectedDateInfo?.isFull
+    ? (availDates?.find(d => !d.isFull && d.date > selectedDateStr) ?? null)
+    : null;
+  const fmtAvailDate = (dateStr: string) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return format(new Date(y, m - 1, d), "d MMMM, EEEE");
+  };
 
   const handleBookingPhoneChange = (value: string) => {
     setBookingPhone(value);
@@ -131,7 +147,7 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
     setPhoneError("");
     setBookingSuccess(false);
     setBookingShowReview(false);
-    setBookingSlotPanelOpen(false);
+    setBookingSlotPanelOpen(true);
     setBookingOpenCategory(null);
     setBookingAppointmentCategory("");
     setBookingVisitType("");
@@ -153,8 +169,19 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
       if (!res.ok) throw new Error('Failed to fetch slot availability');
       return res.json();
     },
-    enabled: !!clinic && bookingSlotPanelOpen,
+    enabled: !!clinic,
     staleTime: 30_000,
+  });
+
+  const { data: availDates } = useQuery<AvailDateInfo[]>({
+    queryKey: ['clinic-available-dates', clinic?.id],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/auth/clinic/available-dates?days=30');
+      if (!res.ok) throw new Error('Failed to fetch available dates');
+      return res.json();
+    },
+    enabled: !!clinic && isAuthenticated,
+    staleTime: 5 * 60_000,
   });
 
   const createBookingMutation = useMutation({
@@ -512,7 +539,7 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
                                     type="button"
                                     onClick={() => handleComplaintClick(complaint)}
                                     data-testid={`complaint-${complaint.replace(/[^\w]+/g, '-').toLowerCase()}`}
-                                    className={`text-xs px-2.5 py-1.5 rounded-full border transition-all min-h-[32px] font-medium ${
+                                    className={`inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-full border transition-all min-h-[32px] font-medium ${
                                       isSelected
                                         ? 'bg-primary text-primary-foreground border-primary shadow-sm active:scale-95'
                                         : 'bg-background text-foreground border-border/60 hover:border-primary/40 hover:bg-primary/5 active:scale-95'
@@ -582,19 +609,35 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
                   <div className="flex space-x-2 px-0.5">
                     {dates.map((date) => {
                       const isSelected = isSameDay(date, bookingDate);
+                      const dStr = format(date, 'yyyy-MM-dd');
+                      const dInfo = availDates?.find(d => d.date === dStr);
+                      const isFull = dInfo?.isFull ?? false;
                       return (
                         <button
                           key={date.toISOString()}
-                          onClick={() => { setBookingDate(date); setSelectedSlot(null); setBookingSlotPanelOpen(true); }}
-                          data-testid={`booking-date-${format(date, 'yyyy-MM-dd')}`}
+                          onClick={() => { setBookingDate(date); setSelectedSlot(null); }}
+                          data-testid={`booking-date-${dStr}`}
                           className={`flex flex-col items-center justify-center min-w-[3.25rem] h-14 rounded-xl border transition-all duration-200 ${
                             isSelected
                               ? 'bg-primary text-primary-foreground border-primary shadow-md scale-105'
+                              : isFull
+                              ? 'bg-card border-border/50 opacity-50 cursor-pointer'
                               : 'bg-card border-border/50 hover:border-primary/50 hover:bg-primary/5'
                           }`}
                         >
                           <span className={`text-xs font-semibold uppercase tracking-wide ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{format(date, "EEE")}</span>
                           <span className="text-sm font-bold leading-none mt-0.5">{format(date, "d")}</span>
+                          {/* Availability indicator */}
+                          {dInfo && !isSelected && (() => {
+                            if (isFull) return <span className="text-[8px] text-muted-foreground/50 font-semibold leading-none mt-0.5 uppercase tracking-wide">Full</span>;
+                            if (dInfo.totalSpotsLeft >= 5) return (
+                              <span className="flex gap-[2px] mt-0.5">
+                                <span className="h-1 w-1 rounded-full bg-emerald-400" />
+                                <span className="h-1 w-1 rounded-full bg-emerald-400" />
+                              </span>
+                            );
+                            return <span className="h-1 w-1 rounded-full bg-amber-400 mt-0.5 block" />;
+                          })()}
                         </button>
                       );
                     })}
@@ -603,15 +646,32 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
                 </ScrollArea>
               </div>
 
-              {/* Slot reveal */}
-              {!bookingSlotPanelOpen ? (
-                <div className="flex flex-col items-center justify-center py-8 rounded-xl border border-dashed border-border/50 gap-2 text-center">
-                  <CalendarDays className="h-6 w-6 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">Tap a date above to see available slots</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
+              {/* Next available banner — only when selected date is fully booked */}
+              {nextAvailDate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const [y, mo, d] = nextAvailDate.date.split('-').map(Number);
+                    setBookingDate(new Date(y, mo - 1, d));
+                    setSelectedSlot(null);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-amber-400/40 bg-amber-500/[0.08] text-left hover:bg-amber-500/[0.12] active:bg-amber-500/[0.16] transition-all"
+                  data-testid="banner-next-available"
+                >
+                  <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0 animate-pulse" />
+                  <span className="text-xs flex-1 min-w-0">
+                    <span className="font-semibold text-amber-700 dark:text-amber-400">{format(bookingDate, "d MMM")} is fully booked</span>
+                    <span className="text-muted-foreground"> — Next available: </span>
+                    <span className="font-semibold text-foreground">{fmtAvailDate(nextAvailDate.date)}</span>
+                    <span className="text-muted-foreground"> · {nextAvailDate.nextSlotLabel}</span>
+                  </span>
+                  <ArrowRight className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                </button>
+              )}
+
+              {/* Slot list — always visible */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Available Time Slots</span>
                     <span className="text-xs text-muted-foreground/60 font-normal">· 1 slot ≈ 25 min</span>
                   </div>
@@ -679,8 +739,7 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
                       })}
                     </div>
                   )}
-                </div>
-              )}
+              </div>
 
               {/* Selected slot summary strip */}
               {selectedSlot && (() => {
@@ -705,79 +764,84 @@ export default function BookASlotPanel({ clinic, isAuthenticated }: BookASlotPan
               })()}
 
               {/* Review / Confirm */}
-              {bookingShowReview ? (
-                <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="rounded-xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
-                    <div className="px-3 py-2.5 bg-muted/20">
-                      <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Patient</p>
-                      <p className="text-sm font-bold mt-0.5">{bookingName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {bookingPhone}
-                        {bookingAge ? ` · Age ${bookingAge}` : ""}
-                        {bookingGender ? ` · ${bookingGender}` : ""}
-                        {bookingEmail ? ` · ${bookingEmail}` : ""}
-                      </p>
-                    </div>
-                    {(() => {
-                      const reviewSlot = slotTimings.find(s => s.id === selectedSlot);
-                      return reviewSlot ? (
+              <Button
+                onClick={() => setBookingShowReview(true)}
+                disabled={!bookingName || !isPhoneValid || !selectedSlot}
+                className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
+                data-testid="button-review-booking"
+              >
+                Review Booking →
+              </Button>
+
+              <Dialog open={bookingShowReview} onOpenChange={setBookingShowReview}>
+                <DialogContent className="sm:max-w-md rounded-2xl gap-0 p-0 overflow-hidden">
+                  <DialogHeader className="px-5 pt-5 pb-4 border-b border-border/40 bg-muted/20">
+                    <DialogTitle className="text-base font-semibold">Review Booking</DialogTitle>
+                  </DialogHeader>
+                  <div className="p-5 space-y-3">
+                    <div className="rounded-xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
+                      <div className="px-3 py-2.5 bg-muted/20">
+                        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Patient</p>
+                        <p className="text-sm font-bold mt-0.5">{bookingName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {bookingPhone}
+                          {bookingAge ? ` · Age ${bookingAge}` : ""}
+                          {bookingGender ? ` · ${bookingGender}` : ""}
+                          {bookingEmail ? ` · ${bookingEmail}` : ""}
+                        </p>
+                      </div>
+                      {(() => {
+                        const reviewSlot = slotTimings.find(s => s.id === selectedSlot);
+                        return reviewSlot ? (
+                          <div className="px-3 py-2.5">
+                            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Appointment</p>
+                            <p className="text-sm font-bold mt-0.5">{format(bookingDate, "EEE, d MMM yyyy")}</p>
+                            <p className="text-xs text-muted-foreground">{reviewSlot.label} · {formatTime(reviewSlot.startHour, reviewSlot.startMinute)}–{formatTime(reviewSlot.endHour, reviewSlot.endMinute)}</p>
+                          </div>
+                        ) : null;
+                      })()}
+                      {(bookingAppointmentCategory || bookingVisitType) && (
                         <div className="px-3 py-2.5">
-                          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Appointment</p>
-                          <p className="text-sm font-bold mt-0.5">{format(bookingDate, "EEE, d MMM yyyy")}</p>
-                          <p className="text-xs text-muted-foreground">{reviewSlot.label} · {formatTime(reviewSlot.startHour, reviewSlot.startMinute)}–{formatTime(reviewSlot.endHour, reviewSlot.endMinute)}</p>
+                          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Classification</p>
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {bookingAppointmentCategory && (
+                              <>
+                                <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full font-medium">{bookingAppointmentCategory}</span>
+                                {(PROCEDURE_SLOT_COST[bookingAppointmentCategory] ?? 1) > 1 && (
+                                  <span className="text-xs font-semibold text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 px-2 py-0.5 rounded-full">
+                                    {PROCEDURE_SLOT_COST[bookingAppointmentCategory]} slots · {(PROCEDURE_SLOT_COST[bookingAppointmentCategory] ?? 1) * 25} min
+                                  </span>
+                                )}
+                              </>
+                            )}
+                            {bookingVisitType && (
+                              <span className="text-xs bg-blue-500/10 text-blue-600 border border-blue-500/20 px-2 py-0.5 rounded-full font-medium">{bookingVisitType}</span>
+                            )}
+                          </div>
                         </div>
-                      ) : null;
-                    })()}
-                    {(bookingAppointmentCategory || bookingVisitType) && (
-                      <div className="px-3 py-2.5">
-                        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Classification</p>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
-                          {bookingAppointmentCategory && (
-                            <>
-                              <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full font-medium">{bookingAppointmentCategory}</span>
-                              {(PROCEDURE_SLOT_COST[bookingAppointmentCategory] ?? 1) > 1 && (
-                                <span className="text-xs font-semibold text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-400/20 px-2 py-0.5 rounded-full">
-                                  {PROCEDURE_SLOT_COST[bookingAppointmentCategory]} slots · {(PROCEDURE_SLOT_COST[bookingAppointmentCategory] ?? 1) * 25} min
-                                </span>
-                              )}
-                            </>
-                          )}
-                          {bookingVisitType && (
-                            <span className="text-xs bg-blue-500/10 text-blue-600 border border-blue-500/20 px-2 py-0.5 rounded-full font-medium">{bookingVisitType}</span>
-                          )}
+                      )}
+                      {bookingDescription && (
+                        <div className="px-3 py-2.5">
+                          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Complaints</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {bookingDescription.split(", ").filter(Boolean).map(issue => (
+                              <span key={issue} className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">{issue}</span>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {bookingDescription && (
-                      <div className="px-3 py-2.5">
-                        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">Complaints</p>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {bookingDescription.split(", ").filter(Boolean).map(issue => (
-                            <span key={issue} className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">{issue}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setBookingShowReview(false)} className="flex-1 h-10 rounded-xl border border-border/60 bg-muted/20 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/40 active:bg-muted/60 active:text-foreground transition-all flex items-center justify-center gap-1.5" data-testid="button-admin-review-back"><ArrowLeft className="h-3.5 w-3.5" /> Back</button>
+                      <button type="button" onClick={handleCreateBooking} disabled={createBookingMutation.isPending} className="flex-1 h-10 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-bold shadow-md shadow-primary/20 hover:from-primary/90 hover:to-accent/90 active:from-primary/80 active:to-accent/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed" data-testid="button-create-booking">
+                        {createBookingMutation.isPending
+                          ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Creating…</span>
+                          : <span className="flex items-center justify-center gap-1.5">Confirm & Book <ArrowRight className="h-3.5 w-3.5" /></span>}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setBookingShowReview(false)} className="flex-1 h-10 rounded-xl border border-border/60 bg-muted/20 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/40 active:bg-muted/60 active:text-foreground transition-all flex items-center justify-center gap-1.5" data-testid="button-admin-review-back"><ArrowLeft className="h-3.5 w-3.5" /> Back</button>
-                    <button type="button" onClick={handleCreateBooking} disabled={createBookingMutation.isPending} className="flex-1 h-10 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-bold shadow-md shadow-primary/20 hover:from-primary/90 hover:to-accent/90 active:from-primary/80 active:to-accent/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed" data-testid="button-create-booking">
-                      {createBookingMutation.isPending
-                        ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Creating…</span>
-                        : <span className="flex items-center justify-center gap-1.5">Confirm & Book <ArrowRight className="h-3.5 w-3.5" /></span>}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <Button
-                  onClick={() => setBookingShowReview(true)}
-                  disabled={!bookingName || !isPhoneValid || !selectedSlot}
-                  className="w-full h-11 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 border-0 shadow-md shadow-primary/20 rounded-xl"
-                  data-testid="button-review-booking"
-                >
-                  Review Booking →
-                </Button>
-              )}
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         )}

@@ -2052,6 +2052,81 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── CLINIC ADMIN: 30-day availability summary (single bulk query, not 150) ─
+  app.get("/api/auth/clinic/available-dates", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    const days = Math.min(parseInt((req.query.days as string) || "30"), 60);
+    try {
+      const clinic = await storage.getClinic(sess.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+      const defaultCfg = (clinic as any).defaultSlotConfig;
+      const SLOT_TIMINGS = [
+        { id: "1", label: "Early Morning", startHour: 8,  startMinute: 0  },
+        { id: "2", label: "Late Morning",  startHour: 10, startMinute: 0  },
+        { id: "3", label: "Midday",        startHour: 12, startMinute: 30 },
+        { id: "4", label: "Afternoon",     startHour: 14, startMinute: 0  },
+        { id: "5", label: "Evening",       startHour: 17, startMinute: 0  },
+      ];
+      const DEFAULT_CAPACITY: Record<string, number> = { "1": 4, "2": 6, "3": 3, "4": 7, "5": 6 };
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const rangeEnd = new Date(todayStart); rangeEnd.setDate(rangeEnd.getDate() + days); rangeEnd.setHours(23, 59, 59, 999);
+      const getSlotId = (d: Date): string | null => {
+        const h = d.getHours(); const m = d.getMinutes();
+        return SLOT_TIMINGS.find(s => s.startHour === h && s.startMinute === m)?.id ?? null;
+      };
+      // Query 1: all active bookings for this clinic in range
+      const bookingRows = await db
+        .select({ slotStartTime: slots.startTime, slotCost: bookings.slotCost, status: bookings.verificationStatus })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(eq(slots.clinicId, sess.clinicId), gte(slots.startTime, todayStart), lte(slots.startTime, rangeEnd)));
+      // Query 2: admin-configured slot rows (isCancelled / maxBookings overrides)
+      const configRows = await db
+        .select({ startTime: slots.startTime, isCancelled: slots.isCancelled, maxBookings: slots.maxBookings })
+        .from(slots)
+        .where(and(eq(slots.clinicId, sess.clinicId), eq(slots.isBooked, false), gte(slots.startTime, todayStart), lte(slots.startTime, rangeEnd)));
+      // Config map: "dateStr:slotId" -> { isCancelled, max }
+      const configMap = new Map<string, { isCancelled: boolean; max: number }>();
+      for (const row of configRows) {
+        const d = new Date(row.startTime); const dateStr = d.toISOString().slice(0, 10); const slotId = getSlotId(d);
+        if (!slotId) continue;
+        const ds = defaultCfg?.sections?.[slotId];
+        configMap.set(`${dateStr}:${slotId}`, { isCancelled: row.isCancelled ?? false, max: row.maxBookings ?? ds?.maxBookings ?? DEFAULT_CAPACITY[slotId] ?? 4 });
+      }
+      // Usage map: "dateStr:slotId" -> summed slotCost for confirmed bookings
+      const usageMap = new Map<string, number>();
+      for (const row of bookingRows) {
+        if (['cancelled', 'pending'].includes(row.status ?? '')) continue;
+        const d = new Date(row.slotStartTime); const dateStr = d.toISOString().slice(0, 10); const slotId = getSlotId(d);
+        if (!slotId) continue;
+        const key = `${dateStr}:${slotId}`; usageMap.set(key, (usageMap.get(key) ?? 0) + (row.slotCost ?? 1));
+      }
+      // Build per-day result
+      const result = [];
+      for (let i = 0; i < days; i++) {
+        const d = new Date(todayStart); d.setDate(d.getDate() + i);
+        const dateStr = d.toISOString().slice(0, 10);
+        let totalSpotsLeft = 0; let availableSlotCount = 0; let nextSlotLabel: string | null = null;
+        for (const slotDef of SLOT_TIMINGS) {
+          const key = `${dateStr}:${slotDef.id}`;
+          const cfg = configMap.get(key); const ds = defaultCfg?.sections?.[slotDef.id];
+          const isCancelled = cfg?.isCancelled ?? (defaultCfg?.isClosed ?? ds?.isCancelled ?? false);
+          if (isCancelled) continue;
+          const max = cfg?.max ?? ds?.maxBookings ?? DEFAULT_CAPACITY[slotDef.id] ?? 4;
+          const used = usageMap.get(key) ?? 0; const spotsLeft = Math.max(0, max - used);
+          totalSpotsLeft += spotsLeft;
+          if (spotsLeft > 0) { availableSlotCount++; if (!nextSlotLabel) nextSlotLabel = slotDef.label; }
+        }
+        result.push({ date: dateStr, isFull: availableSlotCount === 0, availableSlotCount, totalSpotsLeft, nextSlotLabel });
+      }
+      res.json(result);
+    } catch (err: any) {
+      console.error("[AVAILABLE DATES ERROR]", err.message);
+      res.status(500).json({ message: "Failed to get available dates" });
+    }
+  });
+
   // ── PUBLIC: Doctor leave check for a clinic on a date ────────────────────
   app.get("/api/public/clinic-availability", async (req, res) => {
     try {
