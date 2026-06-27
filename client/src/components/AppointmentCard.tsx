@@ -1016,7 +1016,7 @@ export function AppointmentCard({
             {complaints.length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {complaints.slice(0, maxChips).map((c, i) => (
-                  <span key={i} className="inline-flex items-center font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                  <span key={i} className="inline-flex items-center text-xs font-medium text-muted-foreground bg-muted/10 border border-border/50 px-2 py-1 rounded-full">
                     {c}
                   </span>
                 ))}
