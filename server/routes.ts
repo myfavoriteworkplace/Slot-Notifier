@@ -9,6 +9,7 @@ import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, noti
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
+import { format } from 'date-fns';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
 import ExcelJS from "exceljs";
@@ -2832,7 +2833,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .innerJoin(slots, eq(bookings.slotId, slots.id))
         .leftJoin(clinics, eq(slots.clinicId, clinics.id))
         .where(eq(bookings.assignedDoctorEmail, email));
-      return res.json(results.map(r => ({ ...r.booking, clinicId: r.booking.clinicId ?? r.slot.clinicId, slot: r.slot, clinic: r.clinic })));
+      return res.json(results.map(r => ({ ...r.booking, clinicId: r.slot.clinicId, slot: r.slot, clinic: r.clinic })));
     }
     if (sess.clinicId) {
       const b = await storage.getClinicBookings(sess.clinicId);
@@ -5375,7 +5376,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Triggers from treatment_completed OR in_consultation (billing done before doctor marks done)
       if (req.body.paymentStatus === 'paid' && bill.bookingId) {
         try {
-          const bookingBills = await storage.getPatientBillsByBookingId(bill.bookingId);
+          const bookingBills = await storage.getPatientBillsByBookingId(bill.bookingId, clinicId);
           const allPaid = bookingBills.length > 0 && bookingBills.every(b => b.paymentStatus === 'paid');
           if (allPaid) {
             const booking = await storage.getBookingById(bill.bookingId);
@@ -5393,7 +5394,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         // G13 — Auto-send payment confirmation email to patient when bill is marked paid
         if (bill.patientEmail || bill.patientPhone) {
           try {
-            const billClinic = await storage.getClinicById(clinicId);
+            const billClinic = await storage.getClinic(clinicId);
             const clinicNameForBill = billClinic?.name || 'Your clinic';
             const billServices = (bill.services ?? []) as { description: string; amount: number }[];
             const billLineItems = billServices.map(s => `<tr><td style="padding:4px 8px">${s.description}</td><td style="padding:4px 8px;text-align:right">₹${Number(s.amount).toFixed(0)}</td></tr>`).join('');
@@ -5442,7 +5443,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.json({ success: true, message: "No contact info — notification skipped" });
       }
 
-      const clinic = await storage.getClinicById(clinicId);
+      const clinic = await storage.getClinic(clinicId);
       const clinicName = clinic?.name || "Your clinic";
 
       const services = (bill.services ?? []) as { description: string; amount: number; paid?: boolean }[];

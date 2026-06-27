@@ -50,6 +50,10 @@ async function sendWhatsApp(toPhone: string, message: string, label: string): Pr
   }
 }
 
+export async function sendWhatsAppMessage(toPhone: string, message: string, label = 'generic'): Promise<void> {
+  await sendWhatsApp(toPhone, message, label);
+}
+
 function formatDate(d: Date) {
   return d.toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 }

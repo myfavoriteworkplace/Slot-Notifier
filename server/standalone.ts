@@ -144,10 +144,10 @@ app.get(api.clinics.list.path, async (req, res) => {
 
 app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
   try {
-    const { name, address, username, password } = req.body;
+    const { name, address, username, password, email, phone } = req.body;
     
-    if (!name || !username || !password) {
-      return res.status(400).json({ message: "Name, username, and password are required" });
+    if (!name || !username || !password || !email || !phone) {
+      return res.status(400).json({ message: "Name, username, password, email, and phone are required" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -156,6 +156,8 @@ app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
       address: address || null,
       username,
       passwordHash: hashedPassword,
+      email,
+      phone,
     });
     const { passwordHash, ...clinicWithoutPassword } = clinic;
     res.status(201).json(clinicWithoutPassword);
