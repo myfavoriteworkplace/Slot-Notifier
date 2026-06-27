@@ -459,76 +459,73 @@ export default function ManageDoctorsPanel({ clinic, isAuthenticated, allDoctorL
 
                           {/* Mobile: MoreHorizontal dropdown */}
                           <div className="sm:hidden">
-                            <AlertDialog>
-                              {({ open: alertOpen, onOpenChange: setAlertOpen } = {} as any) => null}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-10 w-10 text-muted-foreground hover:bg-muted/60 active:scale-[0.98] transition-all"
-                                    data-testid={`button-more-doctor-${index}`}
-                                  >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-44">
-                                  {(() => {
-                                    const linked = linkedDoctors.find(d => d.email === doctor.email);
-                                    if (!linked) return null;
-                                    return (
-                                      <>
-                                        <DropdownMenuItem
-                                          className="gap-2 text-amber-600 focus:text-amber-700 focus:bg-amber-50 dark:focus:bg-amber-500/10"
-                                          onSelect={() => {
-                                            setResetPwdDoctorId(linked.id);
-                                            setResetPwdDoctorName(linked.name);
-                                            setResetPwdDoctorEmail(linked.email);
-                                            setResetPwdNew("");
-                                            setResetPwdConfirm("");
-                                            setResetPwdOpen(true);
-                                          }}
-                                          data-testid={`menu-reset-password-${index}`}
-                                        >
-                                          <KeyRound className="h-4 w-4" />
-                                          Reset Password
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                      </>
-                                    );
-                                  })()}
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-10 w-10 text-muted-foreground hover:bg-muted/60 active:scale-[0.98] transition-all"
+                                  data-testid={`button-more-doctor-${index}`}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                {(() => {
+                                  const linked = linkedDoctors.find(d => d.email === doctor.email);
+                                  if (!linked) return null;
+                                  return (
+                                    <>
                                       <DropdownMenuItem
-                                        className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
-                                        onSelect={(e) => e.preventDefault()}
-                                        data-testid={`menu-remove-doctor-${index}`}
+                                        className="gap-2 text-amber-600 focus:text-amber-700 focus:bg-amber-50 dark:focus:bg-amber-500/10"
+                                        onSelect={() => {
+                                          setResetPwdDoctorId(linked.id);
+                                          setResetPwdDoctorName(linked.name);
+                                          setResetPwdDoctorEmail(linked.email);
+                                          setResetPwdNew("");
+                                          setResetPwdConfirm("");
+                                          setResetPwdOpen(true);
+                                        }}
+                                        data-testid={`menu-reset-password-${index}`}
                                       >
-                                        <Trash2 className="h-4 w-4" />
-                                        Remove Doctor
+                                        <KeyRound className="h-4 w-4" />
+                                        Reset Password
                                       </DropdownMenuItem>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Remove Doctor?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          Are you sure you want to remove {doctor.name} from your clinic? This action cannot be undone.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction
-                                          onClick={() => removeDoctorMutation.mutate(index)}
-                                          className="bg-destructive text-destructive-foreground"
-                                        >
-                                          Remove
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </AlertDialog>
+                                      <DropdownMenuSeparator />
+                                    </>
+                                  );
+                                })()}
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem
+                                      className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
+                                      onSelect={(e) => e.preventDefault()}
+                                      data-testid={`menu-remove-doctor-${index}`}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      Remove Doctor
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Remove Doctor?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to remove {doctor.name} from your clinic? This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => removeDoctorMutation.mutate(index)}
+                                        className="bg-destructive text-destructive-foreground"
+                                      >
+                                        Remove
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                     </div>

@@ -337,6 +337,19 @@ export default function Book(props: { params: { clinicId?: string } }) {
     doctorName: "Dr. Demo", doctorSpecialization: "General Dentistry", doctorDegree: "DDS",
     doctors: [], logoUrl: null, status: "approved", registeredBy: null,
     isArchived: false, createdAt: new Date(),
+    latitude: null,
+    longitude: null,
+    googleBusinessUrl: null,
+    gstNumber: null,
+    medicalLicenseUrl: null,
+    clinicRegCertUrl: null,
+    trustScore: 0,
+    plan: "starter",
+    subscriptionStatus: "unpaid",
+    billingCycle: "monthly",
+    razorpaySubscriptionId: null,
+    websiteConfig: { theme: "classic" },
+    defaultSlotConfig: { isClosed: false, sections: {} },
   };
 
   const clinics = clinicsData
