@@ -179,8 +179,6 @@ export default function ClinicDashboard() {
   const { clinic, isLoading: authLoading, isAuthenticated, logout, isLoggingOut, refetch: refetchClinic } = useClinicAuth();
   const [_, setLocation] = useLocation();
 
-  if (authLoading || !clinic) return <ClinicDashboardSkeleton />;
-
   const updateLogoMutation = useMutation({
     mutationFn: async (logoUrl: string) => {
       const response = await apiRequest('PATCH', '/api/auth/clinic/me', { logoUrl });
@@ -781,7 +779,7 @@ export default function ClinicDashboard() {
     },
   });
 
-  if (authLoading) {
+  if (authLoading || !clinic) {
     return <ClinicDashboardSkeleton />;
   }
 
