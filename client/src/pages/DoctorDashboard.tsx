@@ -122,6 +122,7 @@ export default function DoctorDashboard() {
   const [patientModalId, setPatientModalId] = useState<number | null>(null);
   const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription'>('overview');
   const [statusDraft, setStatusDraft] = useState("");
+  const [pendingNotifNav, setPendingNotifNav] = useState<{ bookingId?: number } | null>(null);
 
   const [certSheetOpen, setCertSheetOpen] = useState(false);
   const [editingCert, setEditingCert] = useState<DoctorCertification | null>(null);
@@ -177,9 +178,21 @@ export default function DoctorDashboard() {
     if (!pending) return;
     sessionStorage.removeItem("pendingNotifNav");
     try {
-      applyDoctorNotifNav(JSON.parse(pending));
-    } catch {}
+      const detail = JSON.parse(pending);
+      if (detail?.bookingId != null) {
+        detail.bookingId = Number(detail.bookingId);
+      }
+      setPendingNotifNav(detail);
+    } catch {
+      setPendingNotifNav(null);
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!isAuthenticated || !pendingNotifNav) return;
+    applyDoctorNotifNav(pendingNotifNav);
+    setPendingNotifNav(null);
+  }, [isAuthenticated, pendingNotifNav]);
   // ──────────────────────────────────────────────────────────────────────────
 
   function slugify(name: string) {
@@ -203,12 +216,32 @@ export default function DoctorDashboard() {
 
   const { data: doctorClinics = [] } = useQuery<Clinic[]>({
     queryKey: ["/api/doctor/clinics"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/doctor/clinics");
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) return [];
+        throw new Error("Failed to load doctor clinics");
+      }
+      return res.json();
+    },
     enabled: isAuthenticated,
+    refetchOnMount: "always",
+    staleTime: 30_000,
   });
 
   const { data: bookings = [], isLoading: isBookingsLoading } = useQuery({
     queryKey: ["/api/auth/clinic/bookings"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/auth/clinic/bookings");
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) return [];
+        throw new Error("Failed to fetch bookings");
+      }
+      return res.json();
+    },
     enabled: isAuthenticated,
+    refetchOnMount: "always",
+    staleTime: 30_000,
   });
 
   const { data: certifications = [], isLoading: isCertsLoading, isError: isCertsError, refetch: refetchCerts } = useQuery<DoctorCertification[]>({
