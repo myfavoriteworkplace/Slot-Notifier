@@ -19,7 +19,7 @@ async function fetchDoctorSession(): Promise<DoctorSession | null> {
     credentials: "include",
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 || response.status === 403) {
     return null;
   }
 
@@ -76,7 +76,9 @@ export function useDoctorAuth() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["/api/auth/doctor/me"], data);
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/doctor/clinics'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/doctor/leaves'] });
     },
   });
 
@@ -86,6 +88,9 @@ export function useDoctorAuth() {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/auth/doctor/me"], null);
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/doctor/clinics'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/doctor/leaves'] });
     },
   });
 

@@ -42,8 +42,19 @@ const FRONTEND_ORIGINS = [
 ];
 
 // ------------------ SESSION ------------------
-const sessionSecret = process.env.SESSION_SECRET || "book-my-slot-secret";
+const sessionSecret = (() => {
+  if (process.env.NODE_ENV === "production") {
+    if (!process.env.SESSION_SECRET) {
+      throw new Error("SESSION_SECRET must be set in production");
+    }
+    return process.env.SESSION_SECRET;
+  }
+  return process.env.SESSION_SECRET || "book-my-slot-secret";
+})();
 console.log("[Environment]", process.env.NODE_ENV);
+
+const ALLOWED_FRONTEND_ORIGINS = new Set(FRONTEND_ORIGINS);
+const REPLIT_ORIGIN_REGEX = /^https:\/\/[a-z0-9-]+\.replit\.dev$/;
 
 app.use(
   session({
@@ -71,7 +82,11 @@ app.use(
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || FRONTEND_ORIGINS.includes(origin) || origin.includes("replit.dev")) {
+      const isAllowedOrigin =
+        !origin ||
+        ALLOWED_FRONTEND_ORIGINS.has(origin) ||
+        REPLIT_ORIGIN_REGEX.test(origin);
+      if (isAllowedOrigin) {
         callback(null, true);
       } else {
         callback(new Error(`CORS blocked for origin: ${origin}`));

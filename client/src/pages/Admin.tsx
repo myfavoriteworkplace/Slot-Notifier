@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { notify } from "@/lib/notify";
+import { compressImage } from "@/lib/imageCompression";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Clinic, SmileDeal } from "@shared/schema";
 import { Switch } from "@/components/ui/switch";
@@ -57,7 +58,7 @@ function trustBandColor(score: number): string {
 }
 
 export default function Admin() {
-  const { user, loading: authLoading, logout, login, isLoggingIn, loginError, verifyOtp, isVerifyingOtp, verifyOtpError } = useAuth();
+  const { user, isLoading: authLoading, logout, login, isLoggingIn, loginError, verifyOtp, isVerifyingOtp, verifyOtpError } = useAuth();
   const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
@@ -196,7 +197,7 @@ export default function Admin() {
   });
 
   const updateDealMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: number; updates: Partial<SmileDeal> }) => {
+    mutationFn: async ({ id, updates }: { id: number; updates: any }) => {
       const res = await apiRequest('PATCH', `/api/admin/smile-deals/${id}`, updates);
       return res.json();
     },

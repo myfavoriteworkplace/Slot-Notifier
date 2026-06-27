@@ -122,6 +122,23 @@ export default function DoctorDashboard() {
   const [patientModalId, setPatientModalId] = useState<number | null>(null);
   const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription'>('overview');
   const [statusDraft, setStatusDraft] = useState("");
+  const [pendingNotifNav, setPendingNotifNav] = useState<{ bookingId?: number } | null>(() => {
+    if (typeof window === "undefined") return null;
+    const pending = sessionStorage.getItem("pendingNotifNav");
+    if (!pending) return null;
+    try {
+      const detail = JSON.parse(pending);
+      if (detail?.bookingId != null) {
+        detail.bookingId = Number(detail.bookingId);
+      }
+      sessionStorage.removeItem("pendingNotifNav");
+      return detail;
+    } catch {
+      sessionStorage.removeItem("pendingNotifNav");
+      return null;
+    }
+  });
+  const [visibleBookingCount, setVisibleBookingCount] = useState(50);
 
   const [certSheetOpen, setCertSheetOpen] = useState(false);
   const [editingCert, setEditingCert] = useState<DoctorCertification | null>(null);
@@ -173,13 +190,10 @@ export default function DoctorDashboard() {
 
   // Case B: user navigated from a different page — pick up from sessionStorage on mount
   useEffect(() => {
-    const pending = sessionStorage.getItem("pendingNotifNav");
-    if (!pending) return;
-    sessionStorage.removeItem("pendingNotifNav");
-    try {
-      applyDoctorNotifNav(JSON.parse(pending));
-    } catch {}
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!isAuthenticated || !pendingNotifNav) return;
+    applyDoctorNotifNav(pendingNotifNav);
+    setPendingNotifNav(null);
+  }, [isAuthenticated, pendingNotifNav]);
   // ──────────────────────────────────────────────────────────────────────────
 
   function slugify(name: string) {
@@ -203,12 +217,32 @@ export default function DoctorDashboard() {
 
   const { data: doctorClinics = [] } = useQuery<Clinic[]>({
     queryKey: ["/api/doctor/clinics"],
-    enabled: isAuthenticated,
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/doctor/clinics");
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) return [];
+        throw new Error("Failed to load doctor clinics");
+      }
+      return res.json();
+    },
+    enabled: isAuthenticated && activeTab === "appointments",
+    refetchOnMount: "always",
+    staleTime: 30_000,
   });
 
   const { data: bookings = [], isLoading: isBookingsLoading } = useQuery({
     queryKey: ["/api/auth/clinic/bookings"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/auth/clinic/bookings");
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) return [];
+        throw new Error("Failed to fetch bookings");
+      }
+      return res.json();
+    },
     enabled: isAuthenticated,
+    refetchOnMount: "always",
+    staleTime: 30_000,
   });
 
   const { data: certifications = [], isLoading: isCertsLoading, isError: isCertsError, refetch: refetchCerts } = useQuery<DoctorCertification[]>({
@@ -578,45 +612,75 @@ export default function DoctorDashboard() {
   }
   if (!doctor) return null;
 
-  const allBookings = Array.isArray(bookings) ? bookings : [];
-  const myBookings = allBookings.filter((b: any) => b.assignedDoctorEmail === (doctor as any).email);
-  const awaitingBookings = myBookings.filter((b: any) => b.doctorApprovalStatus === 'pending');
-  const confirmedBookings = myBookings.filter((b: any) => b.doctorApprovalStatus !== 'pending' && b.doctorApprovalStatus !== 'declined');
-  const todayStr = new Date().toISOString().split("T")[0];
-  const todayStart = startOfDay(new Date());
-  const statNext7DaysEnd = addDays(todayStart, 7);
-  const todayBookings = confirmedBookings.filter((b: any) => {
-    const d = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
-    return d === todayStr;
-  });
-  const upcomingBookings = confirmedBookings.filter((b: any) => {
-    const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-    return d && d >= new Date() && b.visitStatus !== 'completed';
-  });
+  const allBookings = useMemo(() => (Array.isArray(bookings) ? bookings : []), [bookings]);
+  const myBookings = useMemo(
+    () => allBookings.filter((b: any) => b.assignedDoctorEmail === (doctor as any).email),
+    [allBookings, doctor]
+  );
+  const awaitingBookings = useMemo(
+    () => myBookings.filter((b: any) => b.doctorApprovalStatus === 'pending'),
+    [myBookings]
+  );
+  const confirmedBookings = useMemo(
+    () => myBookings.filter((b: any) => b.doctorApprovalStatus !== 'pending' && b.doctorApprovalStatus !== 'declined'),
+    [myBookings]
+  );
 
-  const now = new Date();
-  const next7 = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const pendingNext7Count = awaitingBookings.filter((b: any) => {
-    const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-    return d && d >= now && d <= next7;
-  }).length;
-  const confirmedNext7Count = confirmedBookings.filter((b: any) => {
-    const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-    return d && d >= now && d <= next7;
-  }).length;
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStart = useMemo(() => startOfDay(new Date()), []);
+  const statNext7DaysEnd = useMemo(() => addDays(todayStart, 7), [todayStart]);
 
-  const thisWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const thisWeekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
-  const nextWeekStart = startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
-  const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
-  const thisWeekCount = confirmedBookings.filter((b: any) => {
-    const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-    return d && d >= thisWeekStart && d <= thisWeekEnd;
-  }).length;
-  const nextWeekCount = confirmedBookings.filter((b: any) => {
-    const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-    return d && d >= nextWeekStart && d <= nextWeekEnd;
-  }).length;
+  const todayBookings = useMemo(
+    () => confirmedBookings.filter((b: any) => {
+      const d = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
+      return d === todayStr;
+    }),
+    [confirmedBookings, todayStr]
+  );
+
+  const upcomingBookings = useMemo(
+    () => confirmedBookings.filter((b: any) => {
+      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+      return d && d >= new Date() && b.visitStatus !== 'completed';
+    }),
+    [confirmedBookings]
+  );
+
+  const now = useMemo(() => new Date(), []);
+  const next7 = useMemo(() => new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), [now]);
+  const pendingNext7Count = useMemo(
+    () => awaitingBookings.filter((b: any) => {
+      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+      return d && d >= now && d <= next7;
+    }).length,
+    [awaitingBookings, now, next7]
+  );
+  const confirmedNext7Count = useMemo(
+    () => confirmedBookings.filter((b: any) => {
+      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+      return d && d >= now && d <= next7;
+    }).length,
+    [confirmedBookings, now, next7]
+  );
+
+  const thisWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
+  const thisWeekEnd = useMemo(() => endOfWeek(new Date(), { weekStartsOn: 1 }), []);
+  const nextWeekStart = useMemo(() => startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), []);
+  const nextWeekEnd = useMemo(() => endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), []);
+  const thisWeekCount = useMemo(
+    () => confirmedBookings.filter((b: any) => {
+      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+      return d && d >= thisWeekStart && d <= thisWeekEnd;
+    }).length,
+    [confirmedBookings, thisWeekStart, thisWeekEnd]
+  );
+  const nextWeekCount = useMemo(
+    () => confirmedBookings.filter((b: any) => {
+      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+      return d && d >= nextWeekStart && d <= nextWeekEnd;
+    }).length,
+    [confirmedBookings, nextWeekStart, nextWeekEnd]
+  );
   const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setFilterDate(undefined); setFilterEndDate(undefined); };
 
   const filteredBookings = useMemo(() => {
@@ -637,6 +701,15 @@ export default function DoctorDashboard() {
       statNext7DaysEnd,
     }).filter((b: any) => appointmentClinicFilter === "all" || b.clinicId === parseInt(appointmentClinicFilter));
   }, [awaitingBookings, confirmedBookings, quickFilter, appointmentClinicFilter, filterDate, filterEndDate, todayStart, todayStr, thisWeekStart, thisWeekEnd, nextWeekStart, nextWeekEnd, statNext7DaysEnd]);
+
+  const visibleBookings = useMemo(
+    () => filteredBookings.slice(0, visibleBookingCount),
+    [filteredBookings, visibleBookingCount]
+  );
+
+  useEffect(() => {
+    setVisibleBookingCount(50);
+  }, [quickFilter, appointmentClinicFilter, filterDate, filterEndDate]);
 
   const greet = new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening";
 
@@ -1234,8 +1307,9 @@ export default function DoctorDashboard() {
                   ))}
                 </div>
               ) : filteredBookings.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {filteredBookings.slice(0, 50).map((booking: any) => {
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {visibleBookings.map((booking: any) => {
                     const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
                     const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;
                     const durationMin = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
@@ -1305,6 +1379,18 @@ export default function DoctorDashboard() {
                     );
                   })}
                 </div>
+                {filteredBookings.length > visibleBookingCount && (
+                  <div className="mt-6 flex items-center justify-center">
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center rounded-full border border-border/70 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/15"
+                      onClick={() => setVisibleBookingCount(prev => prev + 50)}
+                    >
+                      Show more appointments ({Math.min(filteredBookings.length - visibleBookingCount, 50)} more)
+                    </button>
+                  </div>
+                )}
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
                   <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${quickFilter === "awaiting" ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>

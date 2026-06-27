@@ -1,14 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { Clinic } from "@shared/schema";
 import { apiRequest, API_BASE_URL } from "@/lib/queryClient";
 
-interface ClinicSession {
-  id: number;
-  name: string;
-  logoUrl?: string | null;
-  doctorName?: string | null;
-  doctorSpecialization?: string | null;
-  doctors?: { name: string; specialization: string; degree: string }[];
-}
+type ClinicSession = Clinic;
 
 async function fetchClinicSession(): Promise<ClinicSession | null> {
   const url = "/api/auth/clinic/me";
