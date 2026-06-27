@@ -4,7 +4,7 @@ const apiKey = process.env.ZAVUDEV_API_KEY?.trim();
 
 export const isZavuConfigured = !!apiKey;
 
-const zavu = isZavuConfigured ? new Zavudev(apiKey!) : null;
+const zavu = isZavuConfigured ? new Zavudev({ apiKey: apiKey! }) : null;
 
 if (isZavuConfigured) {
   console.log("[WHATSAPP-ZAVU] Zavu client initialized successfully.");

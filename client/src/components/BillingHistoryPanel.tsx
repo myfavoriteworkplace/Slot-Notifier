@@ -1130,7 +1130,9 @@ export function BillingHistoryPanel({
                                 </td>
                                 <td className="py-1.5 pr-2">
                                   {isItemPaid ? (
-                                    <Lock className="h-3 w-3 text-muted-foreground/30 mx-auto" title="Paid — cannot remove" />
+                                    <span title="Paid — cannot remove" className="h-3 w-3 mx-auto">
+                                      <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
+                                    </span>
                                   ) : (
                                     <button
                                       onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
@@ -1217,7 +1219,9 @@ export function BillingHistoryPanel({
                                 </td>
                                 <td className="py-1.5 pr-2">
                                   {isItemPaid ? (
-                                    <Lock className="h-3 w-3 text-muted-foreground/30 mx-auto" title="Paid — cannot remove" />
+                                    <span title="Paid — cannot remove" className="h-3 w-3 mx-auto">
+                                      <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
+                                    </span>
                                   ) : (
                                     <button
                                       onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
@@ -1776,29 +1780,35 @@ export function BillingHistoryPanel({
             {auditLogs.length === 0 ? (
               <p className="text-xs text-muted-foreground/60 py-2 text-center">No audit entries yet</p>
             ) : (
-              auditLogs.map(log => (
-                <div key={log.id} className="flex items-start gap-2 px-2 py-1.5 rounded-lg bg-muted/10 border border-border/20">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <AuditActionLabel action={log.action} />
-                      {(log.details as Record<string, unknown>)?.description && (
-                        <span className="text-xs text-muted-foreground truncate">
-                          — {String((log.details as Record<string, unknown>).description)}
-                        </span>
-                      )}
+              auditLogs.map((log) => {
+                const details = log.details as Record<string, unknown> | undefined;
+                const description = details?.description;
+                const cashierName = details?.cashierName;
+                const amount = details?.amount;
+                return (
+                  <div key={log.id} className="flex items-start gap-2 px-2 py-1.5 rounded-lg bg-muted/10 border border-border/20">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <AuditActionLabel action={log.action} />
+                        {description != null && (
+                          <span className="text-xs text-muted-foreground truncate">
+                            — {String(description)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground/50 mt-0.5">
+                        {log.createdAt ? format(new Date(log.createdAt), "dd MMM yyyy · HH:mm") : "—"}
+                        {cashierName != null ? ` · ${String(cashierName)}` : ""}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground/50 mt-0.5">
-                      {log.createdAt ? format(new Date(log.createdAt), "dd MMM yyyy · HH:mm") : "—"}
-                      {(log.details as Record<string, unknown>)?.cashierName ? ` · ${String((log.details as Record<string, unknown>).cashierName)}` : ""}
-                    </div>
+                    {amount != null && (
+                      <span className="text-xs font-semibold text-foreground shrink-0 tabular-nums">
+                        ₹{Number(amount).toFixed(0)}
+                      </span>
+                    )}
                   </div>
-                  {(log.details as Record<string, unknown>)?.amount !== undefined && (
-                    <span className="text-xs font-semibold text-foreground shrink-0 tabular-nums">
-                      ₹{Number((log.details as Record<string, unknown>).amount).toFixed(0)}
-                    </span>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}

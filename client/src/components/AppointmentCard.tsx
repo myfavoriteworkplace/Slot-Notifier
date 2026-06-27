@@ -274,7 +274,7 @@ export function AppointmentCard({
 
 
   // ── Derived display values ──
-  const displayClinicName = clinicName || booking.clinicName || booking.clinic?.name;
+  const displayClinicName = clinicName || (booking as any).clinicName || (booking as any).clinic?.name;
   const slotCost = booking.slotCost ?? 0;
   const maxChips = role === "clinic" ? 3 : 3;
 

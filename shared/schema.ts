@@ -329,13 +329,13 @@ export const publicBookingSchema = createInsertSchema(bookings).omit({
   clinicId: z.number(),
   startTime: z.string(),
   endTime: z.string(),
-  customerEmail: z.string().email()
+  customerEmail: z.string().email(),
+  verificationStatus: z.union([z.literal('pending'), z.literal('verified'), z.literal('confirmed'), z.literal('admin_booked')]).optional(),
 });
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ 
   id: true, 
   createdAt: true,
-  read: true
 });
 
 export const insertClinicSchema = createInsertSchema(clinics).omit({ 

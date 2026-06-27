@@ -384,7 +384,7 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
 
       // ── FORMAT: PDF ──
       } else if (fmt === "pdf") {
-        // const DARK    = [8,  80,  65]  as [number, number, number];
+        const DARK    = [8,  80,  65]  as [number, number, number];
         const PRIMARY = [15, 155, 110] as [number, number, number];
         const TINT    = [225, 245, 238] as [number, number, number];
         const WHITE   = [255, 255, 255] as [number, number, number];

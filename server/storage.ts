@@ -59,7 +59,7 @@ export interface IStorage {
     description?: string | null;
     verificationCode?: string | null;
     verificationExpiresAt?: Date | null;
-    verificationStatus?: 'pending' | 'verified';
+    verificationStatus?: 'pending' | 'verified' | 'admin_booked';
   }): Promise<Booking>;
   verifyBooking(id: number): Promise<Booking>;
   deletePendingBooking(id: number): Promise<void>;
@@ -510,7 +510,7 @@ export class DatabaseStorage implements IStorage {
     description?: string | null;
     verificationCode?: string | null;
     verificationExpiresAt?: Date | null;
-    verificationStatus?: 'pending' | 'verified' | 'confirmed';
+    verificationStatus?: 'pending' | 'verified' | 'confirmed' | 'admin_booked';
     paymentStatus?: string | null;
     razorpayOrderId?: string | null;
     razorpayPaymentId?: string | null;
@@ -688,10 +688,10 @@ export class DatabaseStorage implements IStorage {
   // Clinics
   async createClinic(insertClinic: InsertClinic): Promise<Clinic> {
     const doctors = insertClinic.doctors as any[];
-    const [clinic] = await db.insert(clinics).values([{
+    const [clinic] = await db.insert(clinics).values({
       ...insertClinic,
       doctors: doctors || []
-    }]).returning();
+    } as any).returning();
     return clinic;
   }
 
@@ -842,7 +842,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCase(c: InsertDoctorCase): Promise<DoctorCase> {
-    const [created] = await db.insert(doctorCases).values(c).returning();
+    const [created] = await db.insert(doctorCases).values(c as any).returning();
     return created;
   }
 
@@ -876,10 +876,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSmileDeal(insertDeal: InsertSmileDeal): Promise<SmileDeal> {
-    const [deal] = await db.insert(smileDeals).values(insertDeal).returning();
+    const [deal] = await db.insert(smileDeals).values(insertDeal as any).returning();
     return deal;
   }
-
   async updateSmileDeal(id: number, updates: Partial<SmileDeal>): Promise<SmileDeal> {
     const [updated] = await db.update(smileDeals)
       .set(updates)
@@ -991,10 +990,7 @@ export class DatabaseStorage implements IStorage {
 
   // Clinical Records
   async createClinicalRecord(data: InsertClinicalRecord): Promise<ClinicalRecord> {
-    const [record] = await db.insert(clinicalRecords).values({
-      ...data,
-      updatedAt: new Date(),
-    }).returning();
+    const [record] = await db.insert(clinicalRecords).values(data as any).returning();
     return record;
   }
 
@@ -1110,7 +1106,7 @@ export class DatabaseStorage implements IStorage {
 
   // Patient Bills
   async createPatientBill(data: InsertPatientBill): Promise<PatientBill> {
-    const [bill] = await db.insert(patientBills).values(data).returning();
+    const [bill] = await db.insert(patientBills).values(data as any).returning();
     return bill;
   }
 
