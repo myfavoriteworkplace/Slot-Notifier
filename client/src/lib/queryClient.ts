@@ -4,7 +4,7 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
-  console.warn("VITE_API_URL is not defined in production. Session issues may occur.");
+  throw new Error("VITE_API_URL is required in production for cross-origin API requests.");
 }
 
 console.log(`[QUERY-CLIENT] Using API_BASE_URL: ${API_BASE_URL}`);

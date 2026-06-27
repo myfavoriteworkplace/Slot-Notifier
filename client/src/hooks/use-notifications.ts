@@ -197,7 +197,7 @@ export function useNotificationSocket(clinicId?: number, doctorId?: number) {
       if (cancelled) return;
 
       const wsUrl = API_BASE_URL
-        ? API_BASE_URL.replace(/^https/, "wss").replace(/^http/, "ws") + "/ws/notifications"
+        ? new URL("/ws/notifications", API_BASE_URL).toString().replace(/^https:/, "wss:").replace(/^http:/, "ws:")
         : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws/notifications`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
