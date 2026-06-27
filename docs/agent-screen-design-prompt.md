@@ -1185,6 +1185,26 @@ Backend
 
 ---
 
+## PRODUCTION RELEASE CHECKLIST
+
+Before shipping to production, verify the following for every change:
+
+- [ ] `npm run build` completes successfully with the current code
+- [ ] `npx tsc -p tsconfig.json --noEmit` passes with no type errors
+- [ ] Changed frontend views are tested at desktop, tablet, and mobile breakpoints
+- [ ] Changed backend or shared code is linted with `npx eslint server/` and `npx eslint client/` as appropriate
+- [ ] New dashboard panels pass `python3 script/audit-panel-imports.py`
+- [ ] No bare `/api/...` fetch URLs remain in frontend code; use `apiRequest()` or handled `VITE_API_URL` logic
+- [ ] Any new public API route has a rate limiter and returns a structured `{ message: string }` error payload
+- [ ] Any schema change includes the exact Render production SQL in the PR/task summary
+- [ ] Auth flows work in all three environments: Replit, local, and Render
+- [ ] Dark mode and mobile layout are manually verified for visual correctness
+- [ ] New shared types/constants are imported from canonical source locations and not redefined locally
+
+> For production environment variables and Render deployment guidance, also see `docs/render-environment-setup.md`.
+
+---
+
 ## PLACEHOLDER CONVENTIONS
 
 ### Visual Style (enforced globally)
