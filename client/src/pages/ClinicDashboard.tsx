@@ -12,6 +12,7 @@ import PharmacyStockPanel from "@/components/PharmacyStockPanel";
 import WebsiteConfigPanel from "@/components/WebsiteConfigPanel";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import ClinicAnalyticsPanel from "@/components/ClinicAnalyticsPanel";
+import ConsentFormPanel from "@/components/ConsentFormPanel";
 import ConfigureSlotsPanel from "@/components/ConfigureSlotsPanel";
 import BookASlotPanel from "@/components/BookASlotPanel";
 import BookingsPanel from "@/components/BookingsPanel";
@@ -26,7 +27,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import {
   Loader2, Calendar as CalendarIcon, Phone, Clock, Building2, LogOut, X, UserCheck,
-  Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText,
+  Download, Plus, ChevronDown, ChevronUp, CheckCircle2, IndianRupee, FileText, ScrollText,
   User, Mail, CalendarDays, FlaskConical, Settings, TrendingUp, History, Filter, Copy, Check,
   Globe, Lock, ExternalLink, MapPin, Info, ClipboardCheck, PenLine, Link2, ClipboardList, Package, AlertTriangle, AlertCircle, CreditCard,
   Users, Search, ArrowUpDown, BadgeCheck, MoreHorizontal, Sun, Moon,
@@ -1277,6 +1278,22 @@ export default function ClinicDashboard() {
                 {activePanel === 'export-data' && <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />}
               </button>
 
+              {/* 13 — Consent Form */}
+              <button
+                onClick={() => setActivePanel('consent-form')}
+                data-testid="nav-consent-form"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${activePanel === 'consent-form' ? 'bg-indigo-500/10 border border-indigo-500/20' : 'border border-transparent hover:bg-muted/50'}`}
+              >
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${activePanel === 'consent-form' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-muted/50 border-border/50'}`}>
+                  <ScrollText className={`h-4 w-4 ${activePanel === 'consent-form' ? 'text-indigo-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold leading-tight ${activePanel === 'consent-form' ? 'text-indigo-700 dark:text-indigo-400' : 'text-foreground'}`}>Consent Form</p>
+                  <p className="text-xs text-muted-foreground">Edit patient wording</p>
+                </div>
+                {activePanel === 'consent-form' && <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />}
+              </button>
+
             </div>
           </div>
 
@@ -1418,6 +1435,11 @@ export default function ClinicDashboard() {
           {/* ANALYTICS PANEL */}
           {activePanel === 'analytics' && (
             <ClinicAnalyticsPanel />
+          )}
+
+          {/* CONSENT FORM PANEL */}
+          {activePanel === 'consent-form' && (
+            <ConsentFormPanel />
           )}
 
           {/* WEBSITE PANEL */}
@@ -1802,12 +1824,12 @@ export default function ClinicDashboard() {
           <button
             onClick={() => setClinicMoreDrawerOpen(true)}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
-              ['configure-slots','manage-doctors','inventory','pharmacy-stock','clinic-profile','website','analytics','export-data'].includes(activePanel)
+              ['configure-slots','manage-doctors','inventory','pharmacy-stock','clinic-profile','website','analytics','export-data','consent-form'].includes(activePanel)
                 ? 'text-primary' : 'text-muted-foreground'
             }`}
             data-testid="bottom-nav-clinic-more"
           >
-            {['configure-slots','manage-doctors','inventory','pharmacy-stock','clinic-profile','website','analytics','export-data'].includes(activePanel) && (
+            {['configure-slots','manage-doctors','inventory','pharmacy-stock','clinic-profile','website','analytics','export-data','consent-form'].includes(activePanel) && (
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />
             )}
             <MoreHorizontal className="h-5 w-5" />
@@ -1832,6 +1854,7 @@ export default function ClinicDashboard() {
               { key: 'website'         as const, label: 'Clinic Website',   desc: 'Theme & content',          Icon: Globe,       cls: 'bg-sky-500/10 border-sky-500/20 text-sky-600' },
               { key: 'analytics'       as const, label: 'Analytics',        desc: 'Clinic performance',       Icon: TrendingUp,  cls: 'bg-violet-500/10 border-violet-500/20 text-violet-600' },
               { key: 'export-data'     as const, label: 'Export Data',      desc: 'Download patient records', Icon: Download,    cls: 'bg-amber-500/10 border-amber-500/20 text-amber-600' },
+              { key: 'consent-form'   as const, label: 'Consent Form',     desc: 'Edit patient wording',     Icon: ScrollText,  cls: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600' },
             ]).map(({ key, label, desc, Icon, cls }) => (
               <button
                 key={key}

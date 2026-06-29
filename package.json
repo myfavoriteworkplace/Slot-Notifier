@@ -115,6 +115,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.44.3",
     "@replit/vite-plugin-cartographer": "^0.4.4",
     "@replit/vite-plugin-dev-banner": "^0.1.1",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
@@ -138,8 +139,7 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.22.3",
     "typescript": "5.6.3",
-    "vite": "^7.3.0",
-    "@playwright/test": "^1.44.3"
+    "vite": "^7.3.0"
   },
   "overrides": {
     "drizzle-kit": {

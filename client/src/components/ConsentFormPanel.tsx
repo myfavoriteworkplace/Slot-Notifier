@@ -9,13 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/queryClient";
-import { notify } from "@/lib/notify";
+import { useToast } from "@/hooks/use-toast";
 import type { ConsentTextVersion } from "@shared/schema";
-
-const ACCENT = "indigo";
 
 export default function ConsentFormPanel() {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const [showHistory, setShowHistory] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -49,10 +48,10 @@ export default function ConsentFormPanel() {
       qc.invalidateQueries({ queryKey: ["/api/auth/clinic/consent-versions/current"] });
       qc.invalidateQueries({ queryKey: ["/api/auth/clinic/consent-versions"] });
       setHasEdited(false);
-      notify.success("New consent version saved and is now live.");
+      toast({ title: "Consent version saved", description: "New version is now live for all consent requests." });
     },
     onError: (err: any) => {
-      notify.error(err.message || "Failed to save consent version.");
+      toast({ title: "Save failed", description: err.message || "Failed to save consent version.", variant: "destructive" });
     },
   });
 
@@ -70,7 +69,7 @@ export default function ConsentFormPanel() {
 
   function handleSave() {
     if (!editText.trim() || editText.trim().length < 20) {
-      notify.error("Consent text must be at least 20 characters.");
+      toast({ title: "Text too short", description: "Consent text must be at least 20 characters.", variant: "destructive" });
       return;
     }
     saveMutation.mutate({ title: editTitle.trim() || "Standard Dental Consent", textEn: editText.trim() });
