@@ -17,6 +17,7 @@ interface ConsentData {
   appointmentTime?: string | null;
   status: string;
   expiresAt: string;
+  consentText?: string | null;
 }
 
 export default function ConsentForm() {
@@ -173,28 +174,32 @@ export default function ConsentForm() {
 
         {/* Consent Text */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-border/40 p-5 space-y-3">
-          <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Consent Declaration</h2>
-          <div className="text-sm text-foreground/80 leading-relaxed space-y-2">
-            <p>
-              I, <strong>{data.patientName}</strong>, hereby give my informed consent to{" "}
-              <strong>{data.clinicName}</strong> to perform dental examination and any necessary
-              dental treatment deemed appropriate by the treating dentist.
-            </p>
-            <p>
-              I understand and acknowledge the following:
-            </p>
-            <ul className="list-disc list-inside space-y-1 text-foreground/70 pl-1">
-              <li>The nature of the proposed treatment and its alternatives have been explained to me.</li>
-              <li>All dental procedures carry certain risks including pain, swelling, and infection.</li>
-              <li>I am responsible for informing the clinic of any allergies or medical conditions.</li>
-              <li>My personal and health information will be kept confidential.</li>
-              <li>I have the right to withdraw consent at any time before treatment begins.</li>
-            </ul>
-            <p className="text-foreground/80">
-              By signing below, I confirm that I have read and understood the above and voluntarily
-              consent to the dental care at <strong>{data.clinicName}</strong>.
-            </p>
-          </div>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Consent Declaration</h2>
+          {data.consentText ? (
+            <div className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+              {data.consentText}
+            </div>
+          ) : (
+            <div className="text-sm text-foreground/80 leading-relaxed space-y-2">
+              <p>
+                I, <strong>{data.patientName}</strong>, hereby give my informed consent to{" "}
+                <strong>{data.clinicName}</strong> to perform dental examination and any necessary
+                dental treatment deemed appropriate by the treating dentist.
+              </p>
+              <p>I understand and acknowledge the following:</p>
+              <ul className="list-disc list-inside space-y-1 text-foreground/70 pl-1">
+                <li>The nature of the proposed treatment and its alternatives have been explained to me.</li>
+                <li>All dental procedures carry certain risks including pain, swelling, and infection.</li>
+                <li>I am responsible for informing the clinic of any allergies or medical conditions.</li>
+                <li>My personal and health information will be kept confidential.</li>
+                <li>I have the right to withdraw consent at any time before treatment begins.</li>
+              </ul>
+              <p className="text-foreground/80">
+                By signing below, I confirm that I have read and understood the above and voluntarily
+                consent to the dental care at <strong>{data.clinicName}</strong>.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Signature Pad */}

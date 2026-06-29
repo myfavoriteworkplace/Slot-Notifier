@@ -284,7 +284,7 @@ export default function ClinicDashboard() {
   const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
 
   // Booking form state
-  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'pharmacy-stock' | 'website' | 'accounts' | 'patients' | 'analytics'>('bookings');
+  const [activePanel, setActivePanel] = useState<'bookings' | 'configure-slots' | 'manage-doctors' | 'clinic-profile' | 'book-a-slot' | 'export-data' | 'inventory' | 'pharmacy-stock' | 'website' | 'accounts' | 'patients' | 'analytics' | 'consent-form'>('bookings');
   const [clinicMoreDrawerOpen, setClinicMoreDrawerOpen] = useState(false);
 
 

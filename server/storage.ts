@@ -1,6 +1,6 @@
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
-  doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, clinicalRecords,
+  doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, consentTextVersions, clinicalRecords,
   inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock,
   type User,
   type Slot, type InsertSlot,
@@ -17,6 +17,7 @@ import {
   type BookingNote, type InsertBookingNote,
   type DoctorLeave, type InsertDoctorLeave,
   type ConsentToken,
+  type ConsentTextVersion, type InsertConsentTextVersion,
   type ClinicalRecord, type InsertClinicalRecord,
   type InventoryCategory, type InsertInventoryCategory,
   type InventoryItem, type InsertInventoryItem,
@@ -161,9 +162,14 @@ export interface IStorage {
   getAllDoctorLeavesForClinic(doctorIds: number[]): Promise<(DoctorLeave & { doctorEmail?: string; doctorName?: string })[]>;
 
   // Consent Tokens
-  createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date): Promise<ConsentToken>;
+  createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date, consentTextVersionId?: number): Promise<ConsentToken>;
   getConsentByToken(token: string): Promise<(ConsentToken & { booking: Booking; clinic: Clinic }) | undefined>;
   markConsentSigned(token: string, signature: string, ip: string): Promise<void>;
+
+  // Consent Text Versions
+  getCurrentConsentVersion(clinicId: number): Promise<ConsentTextVersion | undefined>;
+  getClinicConsentVersions(clinicId: number): Promise<ConsentTextVersion[]>;
+  createConsentVersion(clinicId: number, data: { title: string; textEn: string; textHash: string; version: string; createdByEmail: string }): Promise<ConsentTextVersion>;
 
   // Clinical Records
   createClinicalRecord(data: InsertClinicalRecord): Promise<ClinicalRecord>;
@@ -961,9 +967,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Consent Tokens
-  async createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date): Promise<ConsentToken> {
-    const [ct] = await db.insert(consentTokens).values({ bookingId, clinicId, token, status: 'pending', expiresAt }).returning();
+  async createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date, consentTextVersionId?: number): Promise<ConsentToken> {
+    const [ct] = await db.insert(consentTokens).values({ bookingId, clinicId, token, status: 'pending', expiresAt, consentTextVersionId: consentTextVersionId ?? null } as any).returning();
     return ct;
+  }
+
+  // Consent Text Versions
+  async getCurrentConsentVersion(clinicId: number): Promise<ConsentTextVersion | undefined> {
+    // First try clinic-specific current version
+    const clinicRows = await db.select().from(consentTextVersions)
+      .where(and(eq(consentTextVersions.clinicId, clinicId), eq(consentTextVersions.isCurrent, true)))
+      .limit(1);
+    if (clinicRows[0]) return clinicRows[0];
+    // Fall back to global default (clinic_id IS NULL)
+    const globalRows = await db.select().from(consentTextVersions)
+      .where(and(isNull(consentTextVersions.clinicId), eq(consentTextVersions.isCurrent, true)))
+      .limit(1);
+    return globalRows[0];
+  }
+
+  async getClinicConsentVersions(clinicId: number): Promise<ConsentTextVersion[]> {
+    // Return clinic-specific + global default versions ordered newest first
+    const rows = await db.select().from(consentTextVersions)
+      .where(or(eq(consentTextVersions.clinicId, clinicId), isNull(consentTextVersions.clinicId)))
+      .orderBy(desc(consentTextVersions.createdAt));
+    return rows;
+  }
+
+  async createConsentVersion(clinicId: number, data: { title: string; textEn: string; textHash: string; version: string; createdByEmail: string }): Promise<ConsentTextVersion> {
+    // Mark any existing clinic-specific current as not-current
+    await db.update(consentTextVersions)
+      .set({ isCurrent: false })
+      .where(and(eq(consentTextVersions.clinicId, clinicId), eq(consentTextVersions.isCurrent, true)));
+    const [v] = await db.insert(consentTextVersions).values({
+      clinicId,
+      version: data.version,
+      title: data.title,
+      textEn: data.textEn,
+      textHash: data.textHash,
+      isCurrent: true,
+      createdByEmail: data.createdByEmail,
+      effectiveFrom: new Date(),
+    } as any).returning();
+    return v;
   }
 
   async getConsentByToken(token: string): Promise<(ConsentToken & { booking: Booking; clinic: Clinic }) | undefined> {

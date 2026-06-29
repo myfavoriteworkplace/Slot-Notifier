@@ -846,6 +846,66 @@ app.use((req, res, next) => {
       }
       // ─────────────────────────────────────────────────────────────────────────
 
+      // ── Consent text versions table + consent_tokens version column ──────────
+      try {
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS consent_text_versions (
+            id                serial       PRIMARY KEY,
+            clinic_id         integer      REFERENCES clinics(id),
+            version           varchar(20)  NOT NULL,
+            title             varchar(255) NOT NULL DEFAULT 'Standard Dental Consent',
+            text_en           text         NOT NULL,
+            text_hash         varchar(64)  NOT NULL,
+            is_current        boolean      NOT NULL DEFAULT false,
+            created_by_email  varchar(255),
+            effective_from    timestamp    DEFAULT now(),
+            created_at        timestamp    DEFAULT now()
+          );
+        `);
+        await db.execute(sql`
+          CREATE INDEX IF NOT EXISTS consent_text_versions_clinic_id_idx ON consent_text_versions (clinic_id);
+          CREATE INDEX IF NOT EXISTS consent_text_versions_is_current_idx ON consent_text_versions (clinic_id, is_current);
+        `);
+        await db.execute(sql`
+          ALTER TABLE consent_tokens
+            ADD COLUMN IF NOT EXISTS consent_text_version_id integer REFERENCES consent_text_versions(id);
+        `);
+        log("consent_text_versions table + consent_tokens column verified/created", "system");
+      } catch (e: any) {
+        log(`consent_text_versions migration warning: ${e.message}`, "system");
+      }
+
+      // ── Seed global v1.0 default consent text if none exists ─────────────────
+      try {
+        const existing = await db.execute(sql`
+          SELECT id FROM consent_text_versions WHERE clinic_id IS NULL LIMIT 1;
+        `);
+        if (existing.rows.length === 0) {
+          const defaultText = `I hereby give my informed consent to the dental clinic to perform dental examination and any necessary dental treatment deemed appropriate by the treating dentist.
+
+I understand and acknowledge the following:
+- The nature of the proposed treatment and its alternatives have been explained to me.
+- All dental procedures carry certain risks including pain, swelling, and infection.
+- I am responsible for informing the clinic of any allergies or medical conditions.
+- My personal and health information will be kept confidential.
+- I have the right to withdraw consent at any time before treatment begins.
+
+By signing below, I confirm that I have read and understood the above and voluntarily consent to the dental care provided by this clinic.`;
+          const crypto = await import("crypto");
+          const hash = crypto.createHash("sha256").update(defaultText).digest("hex");
+          await db.execute(sql`
+            INSERT INTO consent_text_versions
+              (clinic_id, version, title, text_en, text_hash, is_current, effective_from)
+            VALUES
+              (NULL, '1.0', 'Standard Dental Consent', ${defaultText}, ${hash}, true, now());
+          `);
+          log("Seeded global v1.0 consent text", "system");
+        }
+      } catch (e: any) {
+        log(`consent text seed warning: ${e.message}`, "system");
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       // ── Drop FK constraint on notifications.user_id ─────────────────────────
       // notifications.user_id originally referenced users(id) (Replit Auth),
       // but clinic/doctor/admin IDs are not in the users table — the FK caused

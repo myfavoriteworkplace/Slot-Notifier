@@ -4733,6 +4733,75 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── Consent Text Versions (clinic admin) ──────────────────────────────────
+
+  // GET /api/auth/clinic/consent-versions/current
+  app.get("/api/auth/clinic/consent-versions/current", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const version = await storage.getCurrentConsentVersion(Number(sess.clinicId));
+      res.json(version ?? null);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/auth/clinic/consent-versions
+  app.get("/api/auth/clinic/consent-versions", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const versions = await storage.getClinicConsentVersions(Number(sess.clinicId));
+      res.json(versions);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/auth/clinic/consent-versions — save new version (becomes current)
+  app.post("/api/auth/clinic/consent-versions", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { title, textEn } = req.body;
+      if (!textEn || typeof textEn !== "string" || textEn.trim().length < 20) {
+        return res.status(400).json({ message: "Consent text must be at least 20 characters" });
+      }
+
+      const clinicId = Number(sess.clinicId);
+      const textHash = crypto.createHash("sha256").update(textEn.trim()).digest("hex");
+
+      // Compute next version number
+      const existingVersions = await storage.getClinicConsentVersions(clinicId);
+      const clinicVersions = existingVersions.filter(v => v.clinicId === clinicId);
+      let nextVersion: string;
+      if (clinicVersions.length === 0) {
+        nextVersion = "1.1";
+      } else {
+        const latest = clinicVersions[0];
+        const [maj, min] = latest.version.split(".").map(Number);
+        nextVersion = `${maj}.${(min || 0) + 1}`;
+      }
+
+      const createdByEmail = sess.clinicEmail || "clinic";
+      const version = await storage.createConsentVersion(clinicId, {
+        title: title?.trim() || "Standard Dental Consent",
+        textEn: textEn.trim(),
+        textHash,
+        version: nextVersion,
+        createdByEmail,
+      });
+
+      await auditLog({ resource: "consent_version", action: "create" })(req, res as any, () => {});
+      res.json(version);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ── Digital Consent Form ──
 
   // POST /api/auth/clinic/bookings/:id/request-consent
@@ -4751,7 +4820,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const token = crypto.randomBytes(32).toString("hex");
       const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
 
-      await storage.createConsentToken(bookingId, clinic.id, token, expiresAt);
+      const currentConsentVersion = await storage.getCurrentConsentVersion(clinic.id);
+      await storage.createConsentToken(bookingId, clinic.id, token, expiresAt, currentConsentVersion?.id);
 
       const baseUrl = process.env.FRONTEND_URL ||
         `${req.protocol}://${req.get("host")}`;
@@ -4843,7 +4913,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (new Date() > record.expiresAt) return res.status(410).json({ message: "This consent link has expired" });
 
       const slot = await storage.getSlot(record.booking.slotId);
-      const { passwordHash, ...safeClinic } = record.clinic as any;
+
+      // Resolve consent text: version linked to token → clinic current → global default
+      let consentText: string | null = null;
+      const versionId = (record as any).consentTextVersionId;
+      if (versionId) {
+        const rows = await db.execute(sql`SELECT text_en FROM consent_text_versions WHERE id = ${versionId} LIMIT 1`);
+        if (rows.rows[0]) consentText = (rows.rows[0] as any).text_en;
+      }
+      if (!consentText) {
+        const currentVersion = await storage.getCurrentConsentVersion(record.clinic.id);
+        consentText = currentVersion?.textEn ?? null;
+      }
 
       res.json({
         patientName: record.booking.customerName,
@@ -4854,6 +4935,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         appointmentTime: slot?.startTime || null,
         status: record.status,
         expiresAt: record.expiresAt,
+        consentText,
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message });

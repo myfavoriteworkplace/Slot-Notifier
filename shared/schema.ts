@@ -372,6 +372,26 @@ export const insertBookingNoteSchema = createInsertSchema(bookingNotes).omit({
 export type BookingNote = typeof bookingNotes.$inferSelect;
 export type InsertBookingNote = z.infer<typeof insertBookingNoteSchema>;
 
+export const consentTextVersions = pgTable("consent_text_versions", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").references(() => clinics.id),
+  version: varchar("version", { length: 20 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull().default("Standard Dental Consent"),
+  textEn: text("text_en").notNull(),
+  textHash: varchar("text_hash", { length: 64 }).notNull(),
+  isCurrent: boolean("is_current").default(false).notNull(),
+  createdByEmail: varchar("created_by_email", { length: 255 }),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertConsentTextVersionSchema = createInsertSchema(consentTextVersions).omit({
+  id: true,
+  createdAt: true,
+});
+export type ConsentTextVersion = typeof consentTextVersions.$inferSelect;
+export type InsertConsentTextVersion = z.infer<typeof insertConsentTextVersionSchema>;
+
 export const consentTokens = pgTable("consent_tokens", {
   id: serial("id").primaryKey(),
   bookingId: integer("booking_id").notNull().references(() => bookings.id),
@@ -379,6 +399,7 @@ export const consentTokens = pgTable("consent_tokens", {
   token: varchar("token", { length: 255 }).notNull().unique(),
   status: varchar("status", { length: 20 }).default("pending").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
+  consentTextVersionId: integer("consent_text_version_id").references(() => consentTextVersions.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
