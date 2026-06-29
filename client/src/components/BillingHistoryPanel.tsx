@@ -572,9 +572,14 @@ export function BillingHistoryPanel({
     }) => {
       const services = ((bill.services ?? []) as ServiceItem[]).map(s => ({ ...s, paid: true }));
       const { subtotal, total } = computeTotals(services, bill.discountPct ?? 0, bill.taxPct ?? 0);
+      // If paying a draft directly (skipping separate "Confirm Bill"), rename DFT- → INV- in one shot
+      const billNumber = bill.billNumber.startsWith("DFT-")
+        ? bill.billNumber.replace("DFT-", "INV-")
+        : bill.billNumber;
       const res = await apiRequest("PATCH", `/api/auth/clinic/bills/${bill.id}`, {
         services,
         paymentStatus: "paid",
+        billNumber,
         subtotal, total,
         cashierId: cashierName || "Admin",
         cashierNotes: cashierNotes || null,
@@ -1361,6 +1366,8 @@ export function BillingHistoryPanel({
 
             {/* Footer actions */}
             <div className="px-3 py-2.5 bg-muted/20 border-t border-border/30 space-y-2">
+
+              {/* Primary CTA row */}
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-xs text-muted-foreground">
                   {allPaid || isBillPaid ? (
@@ -1372,7 +1379,7 @@ export function BillingHistoryPanel({
                     </span>
                   ) : isDraft ? (
                     <span className="text-blue-600 font-medium flex items-center gap-1">
-                      <FileText className="h-3 w-3" /> Draft — confirm to enable payments
+                      <FileText className="h-3 w-3" /> Draft
                     </span>
                   ) : paidAmt > 0 ? (
                     <span>
@@ -1384,93 +1391,46 @@ export function BillingHistoryPanel({
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {isDraft && (
-                    <Button size="sm" variant="outline"
-                      onClick={() => confirmDraftMutation.mutate(bill)}
-                      disabled={confirmDraftMutation.isPending}
-                      className="h-7 px-2 text-xs gap-1 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
-                      data-testid={`button-confirm-draft-${bill.id}`}>
-                      <Check className="h-3 w-3" /> Confirm Bill
-                    </Button>
-                  )}
-                  {!allPaid && !isBillPaid && !isDraft && services.length > 0 && (
-                    <Button size="sm" variant="outline"
-                      onClick={() => openCashierForm(bill)}
-                      className="h-7 px-2 text-xs gap-1 border-emerald-400/50 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                      data-testid={`button-mark-paid-${bill.id}`}>
-                      <CreditCard className="h-3 w-3" /> Mark Paid
-                    </Button>
-                  )}
-                  <Button size="sm" variant="ghost"
-                    onClick={() => onPrintBill(bill)}
-                    className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                    data-testid={`button-reprint-${bill.id}`}>
-                    <FileText className="h-3 w-3" /> Print
+                {/* Single Confirm & Pay CTA — shown for any unpaid bill with items */}
+                {!allPaid && !isBillPaid && services.length > 0 && (
+                  <Button size="sm"
+                    onClick={() => openCashierForm(bill)}
+                    className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 active:scale-[0.98]"
+                    data-testid={`button-confirm-pay-${bill.id}`}>
+                    <CreditCard className="h-3 w-3" /> Confirm &amp; Pay
                   </Button>
-                  {!isBillPaid && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                          data-testid={`button-delete-bill-${bill.id}`}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently remove {bill.billNumber} and all its entries. This cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Back</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deleteBillMutation.mutate(bill)} className="bg-destructive text-destructive-foreground">
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
-                </div>
+                )}
               </div>
 
-              {/* Cashier / Mark Paid form */}
+              {/* Record Payment form */}
               {showCashierFor && (
                 <div className="rounded-lg border border-emerald-400/30 bg-emerald-50/60 dark:bg-emerald-950/20 p-2.5 space-y-2 animate-in slide-in-from-top-1 duration-150">
-                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                    <CreditCard className="h-3 w-3" /> Record Payment
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amount (₹)</Label>
-                      <div className="relative mt-0.5">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
-                        <Input type="number" min="0"
-                          value={cashierForm!.amountReceived}
-                          onChange={e => setCashierForm(f => f ? { ...f, amountReceived: e.target.value } : f)}
-                          className="pl-5 h-7 text-xs" data-testid="input-cashier-amount" />
-                      </div>
+                  {isDraft && (
+                    <p className="text-xs text-blue-600 flex items-center gap-1">
+                      <FileText className="h-3 w-3" /> This draft will be confirmed &amp; marked paid in one step.
+                    </p>
+                  )}
+                  {/* Compact inline row */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="relative shrink-0 w-24">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
+                      <Input type="number" min="0"
+                        value={cashierForm!.amountReceived}
+                        onChange={e => setCashierForm(f => f ? { ...f, amountReceived: e.target.value } : f)}
+                        className="pl-5 h-8 text-xs" data-testid="input-cashier-amount" />
                     </div>
-                    <div>
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Method</Label>
-                      <Select value={cashierForm!.paymentMethod} onValueChange={v => setCashierForm(f => f ? { ...f, paymentMethod: v } : f)}>
-                        <SelectTrigger className="h-7 text-xs mt-0.5" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
-                        <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cashier Name</Label>
-                      <Input value={cashierForm!.cashierName}
-                        onChange={e => setCashierForm(f => f ? { ...f, cashierName: e.target.value } : f)}
-                        placeholder="e.g. Priya" className="h-7 text-xs mt-0.5" data-testid="input-cashier-name" />
-                    </div>
-                    <div>
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notes</Label>
-                      <Input value={cashierForm!.notes}
-                        onChange={e => setCashierForm(f => f ? { ...f, notes: e.target.value } : f)}
-                        placeholder="Optional…" className="h-7 text-xs mt-0.5" data-testid="input-cashier-notes" />
-                    </div>
+                    <Select value={cashierForm!.paymentMethod} onValueChange={v => setCashierForm(f => f ? { ...f, paymentMethod: v } : f)}>
+                      <SelectTrigger className="h-8 text-xs w-24 shrink-0" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
+                      <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Input value={cashierForm!.cashierName}
+                      onChange={e => setCashierForm(f => f ? { ...f, cashierName: e.target.value } : f)}
+                      placeholder="Cashier name…"
+                      className="h-8 text-xs flex-[2] min-w-[100px]" data-testid="input-cashier-name" />
+                    <Input value={cashierForm!.notes}
+                      onChange={e => setCashierForm(f => f ? { ...f, notes: e.target.value } : f)}
+                      placeholder="Notes (optional)…"
+                      className="h-8 text-xs flex-[2] min-w-[100px]" data-testid="input-cashier-notes" />
                   </div>
                   <div className="flex gap-2 justify-end">
                     <Button size="sm" variant="ghost" onClick={() => setCashierForm(null)} className="h-7 px-2 text-xs" disabled={markPaidMutation.isPending}>
@@ -1485,14 +1445,50 @@ export function BillingHistoryPanel({
                         paymentMethod: cashierForm!.paymentMethod,
                       })}
                       disabled={markPaidMutation.isPending}
-                      className="h-7 px-2 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                      className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
                       data-testid="button-confirm-payment">
                       {markPaidMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-                      Confirm &amp; Notify
+                      Confirm &amp; Pay
                     </Button>
                   </div>
                 </div>
               )}
+
+              {/* Secondary actions — Print & Delete */}
+              <div className="flex items-center gap-1 pt-0.5 border-t border-border/20">
+                <Button size="sm" variant="ghost"
+                  onClick={() => onPrintBill(bill)}
+                  className="h-6 px-2 text-xs gap-1 text-muted-foreground/70 hover:text-foreground"
+                  data-testid={`button-reprint-${bill.id}`}>
+                  <Printer className="h-3 w-3" /> Print receipt
+                </Button>
+                {!isBillPaid && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm"
+                        className="h-6 px-2 text-xs gap-1 text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10"
+                        data-testid={`button-delete-bill-${bill.id}`}>
+                        <Trash2 className="h-3 w-3" /> Delete bill
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently remove {bill.billNumber} and all its entries. This cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Back</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteBillMutation.mutate(bill)} className="bg-destructive text-destructive-foreground">
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
+
             </div>
 
           </div>
