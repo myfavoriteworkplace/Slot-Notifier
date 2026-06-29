@@ -450,6 +450,23 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 ⚠️ **Critical:** Back up this key immediately after generating it. If it is lost, all encrypted records become permanently unreadable. Store it in a password manager or secrets vault in addition to Render's environment settings.
 
+### Where the key is stored
+
+| Location | Purpose | How to access |
+|---|---|---|
+| **Render Environment Variables** (primary) | Runtime injection — the running Express server reads `process.env.ENCRYPTION_KEY` on every encrypt/decrypt call. This is the authoritative live copy. | Render dashboard → Web Service → Environment → Environment Variables |
+| **GitHub → Settings → Secrets and variables → Actions** (backup) | Operational backup so the key is not lost if Render settings are accidentally cleared. This is a manual record only — GitHub does not automatically sync it to Render. | GitHub repo → Settings → Secrets and variables → Actions → `ENCRYPTION_KEY` |
+
+**Important distinction:**  
+`ENCRYPTION_KEY` is a **runtime server secret** — it is only needed when the Express server is handling live requests. It is NOT a build-time secret and should never be passed as a `env:` variable in a GitHub Actions build step (it would have no effect there). Render's Environment Variables panel is the correct and only place that matters for the app to function. GitHub Secrets serves purely as an offline backup record.
+
+**Rotation procedure:**  
+1. Generate a new key using the command above  
+2. Run a backfill script to re-encrypt all existing rows with the new key before switching  
+3. Update the value in Render's Environment Variables  
+4. Update the backup copy in GitHub Secrets  
+5. Redeploy the Render service
+
 ### Existing data migration
 
 Records written before Phase 4 are stored as plaintext. The decryption function detects this automatically (`ENC:` prefix check) and returns them as-is. No immediate migration is required — new writes are encrypted, old reads still work. A backfill script can be run during a maintenance window to encrypt existing rows if needed.
