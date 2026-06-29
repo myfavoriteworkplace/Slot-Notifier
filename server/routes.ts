@@ -12,6 +12,7 @@ import { Resend } from 'resend';
 import { format } from 'date-fns';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
+import { auditLog } from "./auditLog.middleware";
 import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
 import Razorpay from "razorpay";
@@ -975,6 +976,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (sess && sess.adminLoggedIn && sess.role === 'superuser') return next();
     res.status(403).json({ message: "Admin access required" });
   };
+
+  // ── PII Audit Logging ─────────────────────────────────────────────────────
+  // Group-level fire-and-forget middleware. Covers every route under each
+  // prefix automatically — no need to touch individual route handlers.
+  // Logs are written after the response is sent (res.on("finish")) so they
+  // never slow down a request. Failed writes are console-logged only.
+  app.use("/api/auth/clinic/bookings",    auditLog({ resource: "booking" }));
+  app.use("/api/auth/clinic/patients",    auditLog({ resource: "patient" }));
+  app.use("/api/auth/clinic/bills",       auditLog({ resource: "bill" }));
+  app.use("/api/auth/clinic/export",      auditLog({ resource: "export",           action: "export" }));
+  app.use("/api/auth/clinic/booking-notes", auditLog({ resource: "booking_note" }));
+  app.use("/api/clinical-records",        auditLog({ resource: "clinical_record" }));
+  app.use("/api/consent",                 auditLog({ resource: "consent",          action: "sign" }));
+  app.use("/api/xray",                    auditLog({ resource: "xray" }));
+  app.use("/api/auth/doctor/bookings",    auditLog({ resource: "booking" }));
+  app.use("/api/auth/doctor/patients",    auditLog({ resource: "patient" }));
+  // ─────────────────────────────────────────────────────────────────────────
 
   app.post("/api/clinics/register", async (req, res) => {
     try {

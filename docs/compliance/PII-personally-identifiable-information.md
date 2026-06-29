@@ -349,7 +349,7 @@ This is the full plan, broken into phases in recommended priority order. Each ph
 | Phase | What we're doing | Why this first | Effort | Status |
 |---|---|---|---|---|
 | **Phase 1** | Sign vendor DPAs (Resend, Twilio, Cloudflare, Render, Razorpay). Verify Render disk-level TDE. Investigate Hugging Face X-ray data retention. Create this compliance document. | Fastest wins — mostly paperwork, no code changes, immediately reduces legal exposure | Low (2–3 days) | ⚠️ In Progress |
-| **Phase 2** | Build audit logging: create `audit_logs` table and Express middleware that records every PII access automatically | Highest visibility to auditors. Covers all routes without touching individual endpoints. | Medium (3–5 days) | ❌ Not started |
+| **Phase 2** | Build audit logging: `audit_logs` table + Express middleware that records every PII access automatically | Highest visibility to auditors. Covers all routes without touching individual endpoints. | Medium (3–5 days) | ✅ Done — June 2026 |
 | **Phase 3** | Harden consent: move signature to dedicated `consent_records` table, add text versioning, add revocation endpoint | Closes the biggest gap in the existing consent flow | Medium (3–4 days) | ❌ Not started |
 | **Phase 4** | Column-level encryption: encrypt `diagnosis`, `prescription`, `notes`, `consent_signature`, `doctor_notes` using PostgreSQL pgcrypto (AES-256) | Protects the most sensitive fields even if the database is compromised | Medium-High (1 week) | ❌ Not started |
 | **Phase 5** | Retention & erasure: add monthly anonymisation job + right-to-erasure API endpoint | Legal requirement under DPDP. Protects patients and limits our liability over time. | Medium (1 week) | ❌ Not started |

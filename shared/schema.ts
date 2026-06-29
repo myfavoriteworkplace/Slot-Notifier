@@ -672,6 +672,27 @@ export const billingAuditLogs = pgTable("billing_audit_logs", {
 
 export type BillingAuditLog = typeof billingAuditLogs.$inferSelect;
 
+// ── PII AUDIT LOGS ───────────────────────────────────────────────────────────
+// Append-only log of every access or mutation of patient PII data.
+// Written fire-and-forget from auditLog.middleware.ts — never blocks a request.
+
+export const auditLogs = pgTable("audit_logs", {
+  id:           serial("id").primaryKey(),
+  actorType:    varchar("actor_type",    { length: 30  }).notNull(), // superuser | owner | doctor | customer | public
+  actorId:      varchar("actor_id",      { length: 255 }).notNull(), // clinicId, doctorId, userId string, or "public"
+  actorLabel:   varchar("actor_label",   { length: 255 }),           // human-readable: clinic email, doctor email
+  clinicId:     integer("clinic_id"),                                // which clinic's data was touched
+  action:       varchar("action",        { length: 20  }).notNull(), // view | create | update | delete | export | sign
+  resourceType: varchar("resource_type", { length: 50  }).notNull(), // booking | patient | clinical_record | consent | bill | export | xray
+  resourceId:   integer("resource_id"),                              // specific record ID when available
+  ipAddress:    varchar("ip_address",    { length: 64  }),
+  userAgent:    text("user_agent"),
+  createdAt:    timestamp("created_at").defaultNow(),
+});
+
+export type AuditLog       = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = typeof auditLogs.$inferInsert;
+
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface ClinicSession {

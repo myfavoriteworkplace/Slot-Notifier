@@ -818,6 +818,34 @@ app.use((req, res, next) => {
         log(`Patient backfill warning: ${backfillErr.message}`, "system");
       }
 
+      // ── PII Audit log table ──────────────────────────────────────────────────
+      try {
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS audit_logs (
+            id           serial PRIMARY KEY,
+            actor_type   varchar(30)  NOT NULL,
+            actor_id     varchar(255) NOT NULL,
+            actor_label  varchar(255),
+            clinic_id    integer,
+            action       varchar(20)  NOT NULL,
+            resource_type varchar(50) NOT NULL,
+            resource_id  integer,
+            ip_address   varchar(64),
+            user_agent   text,
+            created_at   timestamp DEFAULT now()
+          );
+        `);
+        await db.execute(sql`
+          CREATE INDEX IF NOT EXISTS audit_logs_clinic_id_idx   ON audit_logs (clinic_id);
+          CREATE INDEX IF NOT EXISTS audit_logs_actor_id_idx    ON audit_logs (actor_id);
+          CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx  ON audit_logs (created_at DESC);
+        `);
+        log("audit_logs table verified/created", "system");
+      } catch (e: any) {
+        log(`audit_logs migration warning: ${e.message}`, "system");
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       // ── Drop FK constraint on notifications.user_id ─────────────────────────
       // notifications.user_id originally referenced users(id) (Replit Auth),
       // but clinic/doctor/admin IDs are not in the users table — the FK caused
