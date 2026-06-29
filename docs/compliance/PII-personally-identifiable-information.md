@@ -45,32 +45,32 @@ Stores a master record for each unique patient at a clinic.
 #### `bookings` table
 Created every time a patient books an appointment. This table carries the most PII in the system.
 
-| Field | What it is | Sensitivity |
-|---|---|---|
-| `customer_name` | Patient's name at time of booking | 🟡 Medium — general identifier |
-| `customer_phone` | Patient's phone at time of booking | 🟡 Medium — general identifier |
-| `customer_email` | Patient's email at time of booking | 🟡 Medium — general identifier |
-| `customer_age` | Patient's age at time of booking | 🟡 Medium — general identifier |
-| `customer_gender` | Patient's gender at time of booking | 🟡 Medium — general identifier |
-| `description` | Reason for visit, typed by patient | 🔴 High — health information |
-| `doctor_notes` | Notes added by assigned doctor | 🔴 High — clinical health data |
-| `clinical_status` | e.g. "Under treatment", "Completed" | 🔴 High — health information |
-| `consent_signature` | Base64 image of patient's handwritten signature | 🔴 High — biometric-adjacent |
-| `consent_ip` | IP address of device used to sign consent | 🔴 High — location-linked PII |
-| `cancellation_reason` | Why an appointment was cancelled | 🟡 Medium |
-| `visit_completion_note` | Clinic's summary note after visit | 🔴 High — clinical health data |
-| `treatment_category` | Type of treatment received | 🔴 High — health information |
+| Field | What it is | Sensitivity | Encryption |
+|---|---|---|---|
+| `customer_name` | Patient's name at time of booking | 🟡 Medium — general identifier | Plaintext |
+| `customer_phone` | Patient's phone at time of booking | 🟡 Medium — general identifier | Plaintext |
+| `customer_email` | Patient's email at time of booking | 🟡 Medium — general identifier | Plaintext |
+| `customer_age` | Patient's age at time of booking | 🟡 Medium — general identifier | Plaintext |
+| `customer_gender` | Patient's gender at time of booking | 🟡 Medium — general identifier | Plaintext |
+| `description` | Reason for visit, typed by patient | 🔴 High — health information | Plaintext |
+| `doctor_notes` | Notes added by assigned doctor | 🔴 High — clinical health data | ✅ **AES-256-GCM encrypted** |
+| `clinical_status` | e.g. "Under treatment", "Completed" | 🔴 High — health information | Plaintext |
+| `consent_signature` | Base64 image of patient's handwritten signature | 🔴 High — biometric-adjacent | ✅ **AES-256-GCM encrypted** |
+| `consent_ip` | IP address of device used to sign consent | 🔴 High — location-linked PII | Plaintext |
+| `cancellation_reason` | Why an appointment was cancelled | 🟡 Medium | Plaintext |
+| `visit_completion_note` | Clinic's summary note after visit | 🔴 High — clinical health data | Plaintext |
+| `treatment_category` | Type of treatment received | 🔴 High — health information | Plaintext |
 
 #### `clinical_records` table
 Stores the formal medical record created by a doctor after a visit.
 
-| Field | What it is | Sensitivity |
-|---|---|---|
-| `patient_name` | Patient's name (duplicated from booking) | 🟡 Medium |
-| `patient_phone` | Patient's phone (duplicated from booking) | 🟡 Medium |
-| `diagnosis` | Diagnosed dental condition(s) | 🔴 High — sensitive health data |
-| `prescription` | Medications prescribed | 🔴 High — sensitive health data |
-| `notes` | Doctor's free-text notes | 🔴 High — sensitive health data |
+| Field | What it is | Sensitivity | Encryption |
+|---|---|---|---|
+| `patient_name` | Patient's name (duplicated from booking) | 🟡 Medium | Plaintext |
+| `patient_phone` | Patient's phone (duplicated from booking) | 🟡 Medium | Plaintext |
+| `diagnosis` | Diagnosed dental condition(s) | 🔴 High — sensitive health data | ⚠️ Deferred — JSONB column type requires schema migration first |
+| `prescription` | Medications prescribed | 🔴 High — sensitive health data | ✅ **AES-256-GCM encrypted** |
+| `notes` | Doctor's free-text notes | 🔴 High — sensitive health data | ✅ **AES-256-GCM encrypted** |
 
 #### `booking_notes` table
 Free-text notes added by clinic staff or doctors during or after a visit.
@@ -209,7 +209,7 @@ Only collect information you actually need. If you ask for a patient's age but n
 **What's pending:**  
 - `bookings` table stores `customer_age` and `customer_gender` as duplicates of what's already in the `patients` table — one of these copies should be removed
 - `clinical_records` stores `patient_name` and `patient_phone` as copies of what's in `patients` — should reference the `patients` table instead of duplicating
-- `consent_signature` (a large base64 image) lives inline in the `bookings` row — this should move to a dedicated table with stricter access control
+- `consent_signature` (a large base64 image) lives inline in the `bookings` row — this should move to a dedicated table with stricter access control (Phase 3)
 
 | Status | Owner | Target Date |
 |---|---|---|
@@ -226,15 +226,34 @@ Data should be scrambled (encrypted) so that even if someone gains unauthorised 
 **What's already done:**  
 - **Encryption in transit:** Render provides TLS (HTTPS) for all connections — patient data is always encrypted while moving between the browser and the server ✅
 - **Password hashing:** All clinic and doctor passwords are stored as bcrypt hashes — even we cannot read them ✅
+- **Column-level encryption (Phase 4 — Done June 2026):** Four high-risk fields are now encrypted at the application layer using **AES-256-GCM** before being written to the database:
+  - `bookings.doctor_notes` ✅
+  - `bookings.consent_signature` ✅
+  - `clinical_records.prescription` ✅
+  - `clinical_records.notes` ✅
 
-**What's pending:**  
-- **Encryption at rest for sensitive fields:** The highest-risk fields — `clinical_records.diagnosis`, `clinical_records.prescription`, `clinical_records.notes`, `bookings.consent_signature`, `bookings.doctor_notes` — are currently stored as plain readable text in the database. These should be encrypted using PostgreSQL's built-in `pgcrypto` extension (AES-256). Only the application server, using a secret key stored in Render's environment variables, would be able to decrypt them.
-- **Verify Render's disk-level encryption:** Render may already encrypt the entire database disk at the infrastructure level. This should be confirmed in the Render dashboard — if confirmed, it covers the basic "encrypt at rest" requirement for DPDP compliance.
-- **Key management:** The encryption key should be stored in Render's secure environment variable store (not in the codebase or database). For a higher level of protection, this key could later be moved to a cloud key management service (AWS KMS or similar).
+**How the encryption works:**  
+A 32-byte secret key is stored only in Render's environment variables (`ENCRYPTION_KEY`). Before any sensitive value is written to the database, the application encrypts it using AES-256-GCM. When it is read back, the application decrypts it. The database stores only the ciphertext — even a full DB dump reveals nothing readable. Existing plaintext values (from before Phase 4) are detected automatically and returned as-is until re-encrypted. The encrypted format is: `ENC:<base64(iv + ciphertext + auth_tag)>`.
+
+**What's still pending:**  
+- **`clinical_records.diagnosis`** — currently stored as a JSONB array of strings. Encrypting it requires changing the column type from `jsonb` to `text` first (a separate schema migration). Deferred to Phase 4b.
+- **`bookings.description`** (patient's free-text reason for visit) — contains health information but is patient-authored; lower risk than clinical notes. Candidate for a future pass.
+- **`bookings.visit_completion_note`** — clinic's summary after visit; should be encrypted in Phase 4b.
+- **Verify Render disk-level encryption:** Render may already encrypt the entire database disk at the infrastructure level. Check in the Render dashboard — if confirmed, it covers the basic at-rest requirement for DPDP compliance even before column-level encryption.
+
+**Required action before deploying to Render:**  
+Add the following environment variable to the Render **Web Service**:
+
+```
+ENCRYPTION_KEY=<64-char hex string representing 32 random bytes>
+```
+
+Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`  
+The value must be exactly 32 bytes when base64-decoded. Store a backup copy securely (losing this key = permanent data loss for all encrypted records).
 
 | Status | Owner | Target Date |
 |---|---|---|
-| ⚠️ Partial (transit done, at-rest pending) | Engineering | Phase 4 |
+| ✅ Partial done — June 2026 (4 fields encrypted, 1 deferred) | Engineering | Phase 4b for remaining fields |
 
 ---
 
@@ -265,13 +284,12 @@ Different people should see different things. A receptionist who books appointme
 Every time someone looks at, changes, or deletes patient data, that action should be recorded — who did it, when, from which device, and what they changed. This is like a CCTV log for your database. If something goes wrong (a data breach, an unauthorised access), you need to be able to go back and see exactly what happened. Most healthcare regulations require this log to be kept for several years.
 
 **What's already done:**  
-- Nothing. There is currently no audit trail in the application.
+- `audit_logs` table exists and records: role, actor ID, action (viewed / created / updated / deleted), record type, record ID, IP address, device/browser, timestamp ✅
+- Express middleware automatically writes to this log whenever an API route touches PII data ✅
 
 **What's pending:**  
-- Create an `audit_logs` table: records the role (clinic, doctor, superuser), their ID, the action (viewed / created / updated / deleted), the type of record (booking, patient, clinical record), the record's ID, the IP address, the device/browser, and a timestamp.
-- Add middleware to the Express server that automatically writes to this log whenever an API route touches PII data — no manual logging needed in individual route handlers.
-- Audit logs should ideally be stored in a separate, write-only location (separate database or cloud storage bucket) so they cannot be tampered with.
-- Set up basic alerting: if the same user downloads an unusually high number of patient records in a short time, flag it for review.
+- Basic alerting: if the same user downloads an unusually high number of patient records in a short window, flag it for review (email alert to superadmin)
+- Audit logs should ideally be mirrored to a write-only location (separate cloud storage bucket) so they cannot be tampered with even by a compromised admin account
 
 | Status | Owner | Target Date |
 |---|---|---|
@@ -286,16 +304,17 @@ Before collecting and using a patient's personal data — especially health data
 **What's already done:**  
 - A digital consent form flow exists: the clinic sends a WhatsApp link to the patient → the patient draws their signature on a mobile-friendly page → the signature is saved ✅
 - The consent signature and timestamp are stored with the booking ✅
+- **Consent text versioning (Done June 2026):** Every consent token is now linked to the specific version of the consent text the patient saw when they signed. If the wording changes, future signatures are linked to the new version. Old signatures remain linked to the version they agreed to — creating a provable audit trail ✅
+- Clinic admins can view, edit, and version-control their own consent text from the dashboard ✅
 
 **What's pending:**  
-- **Consent text versioning:** We store the signature but not which version of the consent text the patient agreed to. If the consent wording changes, we cannot prove what the patient actually agreed to. Each signature must be linked to a specific version of the consent text.
 - **Consent revocation:** Patients currently have no way to withdraw their consent. An endpoint needs to be created where a patient can request revocation. When processed, their non-treatment-critical PII should be anonymised and a record of the revocation kept.
 - **Consent before data collection:** The consent flow currently happens after booking (the clinic sends the link manually). Ideally, basic consent should be captured at the point of booking — before clinical data is stored.
-- **Move signature to dedicated table:** The consent signature currently lives as a large text blob in the `bookings` table. It should move to a dedicated `consent_records` table with its own access controls.
+- **Move signature to dedicated table:** The consent signature currently lives as a large text blob in the `bookings` table. It should move to a dedicated `consent_records` table with its own access controls. (Phase 3)
 
 | Status | Owner | Target Date |
 |---|---|---|
-| ⚠️ Partial | Engineering | Phase 3 |
+| ⚠️ Partial — versioning done, revocation pending | Engineering | Phase 3 |
 
 ---
 
@@ -377,10 +396,63 @@ This is the full plan, broken into phases in recommended priority order. Each ph
 |---|---|---|---|---|
 | **Phase 1** | Sign vendor DPAs (Resend, Twilio, Cloudflare, Render, Razorpay). Verify Render disk-level TDE. Investigate Hugging Face X-ray data retention. Create this compliance document. | Fastest wins — mostly paperwork, no code changes, immediately reduces legal exposure | Low (2–3 days) | ⚠️ In Progress |
 | **Phase 2** | Build audit logging: `audit_logs` table + Express middleware that records every PII access automatically | Highest visibility to auditors. Covers all routes without touching individual endpoints. | Medium (3–5 days) | ✅ Done — June 2026 |
-| **Phase 3** | Harden consent: move signature to dedicated `consent_records` table, add text versioning, add revocation endpoint | Closes the biggest gap in the existing consent flow | Medium (3–4 days) | ❌ Not started |
-| **Phase 4** | Column-level encryption: encrypt `diagnosis`, `prescription`, `notes`, `consent_signature`, `doctor_notes` using PostgreSQL pgcrypto (AES-256) | Protects the most sensitive fields even if the database is compromised | Medium-High (1 week) | ❌ Not started |
+| **Phase 3** | Harden consent: move signature to dedicated `consent_records` table, add text versioning, add revocation endpoint | Closes the biggest gap in the existing consent flow | Medium (3–4 days) | ⚠️ Partial — text versioning done June 2026; signature move + revocation pending |
+| **Phase 4** | Column-level encryption: encrypt sensitive fields using AES-256-GCM at the application layer before database writes | Protects the most sensitive fields even if the database is compromised | Medium-High (1 week) | ✅ Partial done — June 2026 (4 of 5 fields; `diagnosis` deferred to Phase 4b) |
+| **Phase 4b** | Encrypt `clinical_records.diagnosis` (requires ALTER TABLE diagnosis → text) + `bookings.visit_completion_note` + `bookings.description` | Completes full field-level encryption coverage | Low (1–2 days) | ❌ Not started |
 | **Phase 5** | Retention & erasure: add monthly anonymisation job + right-to-erasure API endpoint | Legal requirement under DPDP. Protects patients and limits our liability over time. | Medium (1 week) | ❌ Not started |
 | **Phase 6** | Access tightening: PostgreSQL Row-Level Security on PII tables, doctor-scoped queries, optional MFA for clinic/doctor login | Strongest protection layer — makes data leaks through bugs structurally impossible | High (2 weeks) | ❌ Not started |
+
+---
+
+## 6b. Phase 4 — Encryption Technical Detail
+
+### What was built (June 2026)
+
+A new module `server/encryption.ts` implements AES-256-GCM encryption using Node.js's built-in `crypto` module. No new npm packages required.
+
+**Algorithm:** AES-256-GCM (authenticated encryption — detects tampering, not just encrypts)  
+**Key size:** 256 bits (32 bytes)  
+**IV:** 12 random bytes generated fresh per encryption call (stored with ciphertext)  
+**Auth tag:** 16 bytes (GCM authentication tag — prevents silent tampering)  
+**Storage format:** `ENC:<base64(12-byte IV + ciphertext + 16-byte auth tag)>`  
+**Backward compatibility:** Values not starting with `ENC:` are returned as plaintext (existing DB rows safe)  
+**Key not set:** If `ENCRYPTION_KEY` is absent, encryption is skipped and a warning is logged — the app continues to function (useful in dev without the key)
+
+### Fields encrypted as of June 2026
+
+| Field | Table | Encrypt on write | Decrypt on read |
+|---|---|---|---|
+| `doctor_notes` | `bookings` | `updateBookingDoctorNotes()` | `getBookingById()`, `getBookingsByClinicId()`, `getBookings()`, `getClinicBookings()` |
+| `consent_signature` | `bookings` | `markConsentSigned()` | Same read methods above |
+| `prescription` | `clinical_records` | `createClinicalRecord()`, `updateClinicalRecord()` | `getClinicalRecordsByBookingId()`, `getClinicalRecordsByClinicId()` |
+| `notes` | `clinical_records` | `createClinicalRecord()`, `updateClinicalRecord()` | `getClinicalRecordsByBookingId()`, `getClinicalRecordsByClinicId()` |
+
+### Fields deferred
+
+| Field | Table | Why deferred |
+|---|---|---|
+| `diagnosis` | `clinical_records` | Column type is `jsonb` (array of strings). Encrypting requires `ALTER TABLE clinical_records ALTER COLUMN diagnosis TYPE text` — a schema migration needed before encryption can be applied. Planned for Phase 4b. |
+| `visit_completion_note` | `bookings` | Lower urgency than clinical records. Added to Phase 4b scope. |
+| `description` | `bookings` | Patient-authored free text. Medium risk. Added to Phase 4b scope. |
+
+### Render deployment requirement
+
+Before deploying to Render, add this environment variable to the **Web Service**:
+
+```
+ENCRYPTION_KEY=<base64-encoded 32-byte key>
+```
+
+Generate the key:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+⚠️ **Critical:** Back up this key immediately after generating it. If it is lost, all encrypted records become permanently unreadable. Store it in a password manager or secrets vault in addition to Render's environment settings.
+
+### Existing data migration
+
+Records written before Phase 4 are stored as plaintext. The decryption function detects this automatically (`ENC:` prefix check) and returns them as-is. No immediate migration is required — new writes are encrypted, old reads still work. A backfill script can be run during a maintenance window to encrypt existing rows if needed.
 
 ---
 
@@ -394,9 +466,9 @@ This is the full plan, broken into phases in recommended priority order. Each ph
 | **DPA (Data Processing Agreement)** | A legal contract with a third-party vendor stating how they will protect data we share with them |
 | **Encryption at rest** | Data in the database is scrambled — even if someone steals the database file, they cannot read it |
 | **Encryption in transit** | Data travelling over the internet is scrambled — cannot be intercepted and read (HTTPS/TLS) |
-| **AES-256** | The encryption standard we will use — considered unbreakable with current technology |
+| **AES-256-GCM** | The encryption standard we use — AES-256 is considered unbreakable; GCM mode also detects tampering |
 | **bcrypt** | The password hashing method we currently use — passwords are stored as irreversible hashes |
-| **pgcrypto** | A PostgreSQL extension that lets us encrypt specific columns inside the database |
+| **pgcrypto** | A PostgreSQL extension for column-level encryption (not used — we use application-layer AES-256-GCM instead, which avoids Drizzle ORM raw SQL complexity) |
 | **Row-Level Security (RLS)** | A PostgreSQL feature that enforces access rules inside the database itself — a backstop if application code has bugs |
 | **MFA** | Multi-Factor Authentication — requiring a second proof of identity (e.g. a code from an app) in addition to a password |
 | **Right to Erasure** | A patient's legal right to ask us to delete their personal data |
@@ -404,3 +476,5 @@ This is the full plan, broken into phases in recommended priority order. Each ph
 | **Least Privilege** | Security principle: each person or system gets access to only the minimum data they need to do their job |
 | **Data Retention** | How long we keep data before deleting or anonymising it |
 | **Anonymisation** | Replacing personal data with generic placeholders so the record can be kept without identifying anyone |
+| **IV (Initialisation Vector)** | A random value used in encryption to ensure the same plaintext produces a different ciphertext each time |
+| **Auth Tag** | A value produced by GCM encryption that proves the ciphertext has not been tampered with |

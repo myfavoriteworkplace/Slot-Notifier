@@ -1,3 +1,4 @@
+import { encryptField, decryptField } from "./encryption.js";
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
   doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, consentTextVersions, clinicalRecords,
@@ -302,10 +303,24 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  private decryptBooking<T extends Partial<Booking>>(b: T): T {
+    return {
+      ...b,
+      doctorNotes: decryptField(b.doctorNotes as string | null) as any,
+      consentSignature: decryptField(b.consentSignature as string | null) as any,
+    };
+  }
+
+  private decryptClinicalRecord<T extends Partial<ClinicalRecord>>(r: T): T {
+    return {
+      ...r,
+      prescription: decryptField(r.prescription as string | null) as any,
+      notes: decryptField(r.notes as string | null) as any,
+    };
+  }
+
   async getBookings(userId: string, role: string): Promise<(Booking & { slot: Slot })[]> {
     if (role === 'owner') {
-      // Get bookings for slots owned by this user
-      // Join bookings with slots where slots.ownerId = userId
       const results = await db.select({
         booking: bookings,
         slot: slots
@@ -314,9 +329,8 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(slots, eq(bookings.slotId, slots.id))
       .where(eq(slots.ownerId, userId));
       
-      return results.map(r => ({ ...r.booking, slot: r.slot }));
+      return results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot }));
     } else {
-      // Get bookings made by this customer
       const results = await db.select({
         booking: bookings,
         slot: slots
@@ -325,12 +339,11 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(slots, eq(bookings.slotId, slots.id))
       .where(eq(bookings.customerId, userId));
       
-      return results.map(r => ({ ...r.booking, slot: r.slot }));
+      return results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot }));
     }
   }
 
   async getBookingsByClinicId(clinicId: number): Promise<(Booking & { slot: Slot })[]> {
-    // First get the clinic to also match by name for legacy data
     const clinic = await this.getClinic(clinicId);
     
     const results = await db.select({
@@ -340,18 +353,17 @@ export class DatabaseStorage implements IStorage {
     .from(bookings)
     .innerJoin(slots, eq(bookings.slotId, slots.id));
     
-    // Filter results to include slots with matching clinicId OR clinicName (for legacy data)
     const filtered = results.filter(r => 
       r.slot.clinicId === clinicId || 
       (r.slot.clinicId === null && clinic && r.slot.clinicName === clinic.name)
     );
     
-    return filtered.map(r => ({ ...r.booking, slot: r.slot }));
+    return filtered.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot }));
   }
 
   async getBookingById(id: number): Promise<Booking | undefined> {
     const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
-    return booking;
+    return booking ? this.decryptBooking(booking) : undefined;
   }
 
   // Implementation for missing methods identified by LSP errors
@@ -419,7 +431,7 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(patients, eq(bookings.patientId, patients.id))
     .where(eq(slots.clinicId, Number(clinicId)));
     
-    return results.map(r => ({ ...r.booking, slot: r.slot, patientCode: r.patientCode }));
+    return results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot, patientCode: r.patientCode }));
   }
 
   async getBooking(id: number): Promise<Booking | undefined> {
@@ -477,15 +489,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBookingDoctorNotes(id: number, doctorEmail: string, notes: string | null, clinicalStatus: string | null): Promise<Booking> {
-    // Verify the booking is assigned to this doctor before allowing update
     const booking = await this.getBookingById(id);
     if (!booking) throw new Error("Booking not found");
     if (booking.assignedDoctorEmail !== doctorEmail) throw new Error("Forbidden: booking not assigned to this doctor");
     const [updated] = await db.update(bookings)
-      .set({ doctorNotes: notes, clinicalStatus })
+      .set({ doctorNotes: encryptField(notes), clinicalStatus })
       .where(eq(bookings.id, id))
       .returning();
-    return updated;
+    return this.decryptBooking(updated);
   }
 
   async updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null, visitCompletionNote?: string | null): Promise<Booking> {
@@ -1028,7 +1039,7 @@ export class DatabaseStorage implements IStorage {
     if (!ct) throw new Error("Consent token not found");
     await db.update(consentTokens).set({ status: 'signed' }).where(eq(consentTokens.token, token));
     await db.update(bookings).set({
-      consentSignature: signature,
+      consentSignature: encryptField(signature),
       consentSignedAt: new Date(),
       consentIp: ip,
     }).where(eq(bookings.id, ct.bookingId));
@@ -1036,29 +1047,41 @@ export class DatabaseStorage implements IStorage {
 
   // Clinical Records
   async createClinicalRecord(data: InsertClinicalRecord): Promise<ClinicalRecord> {
-    const [record] = await db.insert(clinicalRecords).values(data as any).returning();
-    return record;
+    const encryptedData = {
+      ...data,
+      prescription: encryptField(data.prescription ?? null),
+      notes: encryptField(data.notes ?? null),
+    };
+    const [record] = await db.insert(clinicalRecords).values(encryptedData as any).returning();
+    return this.decryptClinicalRecord(record);
   }
 
   async getClinicalRecordsByBookingId(bookingId: number): Promise<ClinicalRecord[]> {
-    return db.select().from(clinicalRecords)
+    const rows = await db.select().from(clinicalRecords)
       .where(and(eq(clinicalRecords.bookingId, bookingId), eq(clinicalRecords.isDeleted, false)))
       .orderBy(desc(clinicalRecords.createdAt));
+    return rows.map(r => this.decryptClinicalRecord(r));
   }
 
   async getClinicalRecordsByClinicId(clinicId: number): Promise<ClinicalRecord[]> {
-    return db.select().from(clinicalRecords)
+    const rows = await db.select().from(clinicalRecords)
       .where(and(eq(clinicalRecords.clinicId, clinicId), eq(clinicalRecords.isDeleted, false)))
       .orderBy(desc(clinicalRecords.createdAt));
+    return rows.map(r => this.decryptClinicalRecord(r));
   }
 
   async updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord> {
+    const encryptedUpdates = {
+      ...updates,
+      ...(updates.prescription !== undefined ? { prescription: encryptField(updates.prescription) } : {}),
+      ...(updates.notes !== undefined ? { notes: encryptField(updates.notes) } : {}),
+    };
     const [record] = await db.update(clinicalRecords)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({ ...encryptedUpdates, updatedAt: new Date() })
       .where(eq(clinicalRecords.id, id))
       .returning();
     if (!record) throw new Error("Clinical record not found");
-    return record;
+    return this.decryptClinicalRecord(record);
   }
 
   async softDeleteClinicalRecord(id: number): Promise<void> {
