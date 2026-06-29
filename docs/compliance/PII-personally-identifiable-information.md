@@ -275,7 +275,7 @@ Every time someone looks at, changes, or deletes patient data, that action shoul
 
 | Status | Owner | Target Date |
 |---|---|---|
-| ❌ Not started | Engineering | Phase 2 (priority) |
+| ✅ Done — June 2026 | Engineering | — |
 
 ---
 
@@ -339,6 +339,33 @@ When we share patient data with other companies (email providers, SMS services, 
 | Status | Owner | Target Date |
 |---|---|---|
 | ❌ Not started | Operations / Engineering | Phase 1 (quick win — mostly paperwork) |
+
+---
+
+## 5b. Data Retention — How Long to Keep Each Type of Record
+
+This section explains exactly how long each type of data should be kept before it is deleted or anonymised. These periods are based on India's DPDP Act 2023, Medical Council of India guidelines, and standard dental practice in India.
+
+### The Rule of Thumb for a Dental SaaS in India
+
+| Data type | How long to keep | Why |
+|---|---|---|
+| **Audit logs** (who accessed patient data, when, from where) | **7 years** | Must match the clinical record window. If a patient disputes access to their record 5 years from now, you need the audit trail to prove who saw it and when. |
+| **Clinical records** (diagnosis, prescription, notes) | **7 years from last visit** | Medical Council of India guidance for outpatient dental records. DPDP's "as long as necessary" principle for medical treatment aligns here. |
+| **Bookings and appointments** | **7 years** | Linked to clinical records — cannot be anonymised independently. |
+| **Consent signatures** | **For the life of the clinical record + 2 years** | You must be able to prove consent existed as long as the medical record can be legally challenged. |
+| **Billing records** | **7 years** | GST compliance in India requires financial records for 7 years. |
+| **Login events** (`login_events` table) | **3 years** | Security incident investigation rarely looks back further. |
+| **OTP records** (`email_otps` table) | **30–60 days** | No compliance value after the booking is confirmed. |
+| **Export history** | **3 years** | Useful for auditing bulk data exports — no longer needed after that. |
+
+### What "Retain for 7 years" means in practice
+
+We do **not** hard-delete rows. The booking record (ID, date, slot, treatment category) is kept forever for statistical and audit purposes. What gets removed is the **personal data fields** — name, phone, email, age, diagnosis, prescription, notes — which are replaced with `[DATA REMOVED]`. This is called **anonymisation**, not deletion. The record still exists; the person is no longer identifiable from it.
+
+### Implementation note
+
+The monthly anonymisation job (Phase 5) will handle this automatically. Until Phase 5 is built, records are kept indefinitely — which is acceptable for now since we are still within the retention window for all existing data.
 
 ---
 
