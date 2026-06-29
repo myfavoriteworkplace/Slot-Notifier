@@ -977,16 +977,6 @@ export function BillingHistoryPanel({
                   data-testid="button-toggle-add-entry">
                   <Plus className="h-3.5 w-3.5" /> Add Entry
                 </Button>
-                <div className="ml-auto">
-                  <Button size="sm" variant="outline"
-                    onClick={() => createNewBillMutation.mutate()}
-                    disabled={createNewBillMutation.isPending}
-                    className="h-8 text-xs gap-1.5 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 active:scale-[0.98]"
-                    data-testid="button-new-bill">
-                    {createNewBillMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-                    New Bill
-                  </Button>
-                </div>
               </div>
             )}
 
@@ -1671,6 +1661,14 @@ export function BillingHistoryPanel({
             )}
           </div>
           <div className="h-px flex-1 bg-border/40" />
+          <Button size="sm" variant="outline"
+            onClick={() => createNewBillMutation.mutate()}
+            disabled={createNewBillMutation.isPending}
+            className="h-7 text-xs gap-1 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 active:scale-[0.98] shrink-0"
+            data-testid="button-new-bill">
+            {createNewBillMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+            New Bill
+          </Button>
         </div>
       )}
 
