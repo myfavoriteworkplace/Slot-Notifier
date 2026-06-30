@@ -375,4 +375,4 @@ Write every route, storage method, and migration as if a senior backend develope
 
 *This document lives at `docs/design-document/development-document/backend-and-db-checklist.md`.*
 *Frontend checklist: `replit.md` → Per-Feature Development Checklist.*
-*UI component checklist: `docs/agent-screen-design-prompt.md` → Feature Completion Gate.*
+*UI component checklist: `docs/design-document/development-document/frontend-design-document.md` → Feature Completion Gate.*

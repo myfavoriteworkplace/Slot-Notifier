@@ -147,7 +147,7 @@ Write code that a senior developer could read, maintain, and trust in production
 - (schema) Is the new column in both `shared/schema.ts` AND `server/index.ts`?
 
 > Full backend & DB checklist: `docs/design-document/development-document/backend-and-db-checklist.md`
-> Full UI component checklist: `docs/agent-screen-design-prompt.md` → Feature Completion Gate
+> Full UI component checklist: `docs/design-document/development-document/frontend-design-document.md` → Feature Completion Gate
 
 ---
 
