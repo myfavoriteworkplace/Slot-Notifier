@@ -490,6 +490,12 @@ export function BillingHistoryPanel({
     }
   }, [bills]);
 
+  // Collapse all bill cards when all bills become fully paid
+  useEffect(() => {
+    const allPaid = bills.length > 0 && bills.every(b => b.paymentStatus === "paid");
+    if (allPaid) setExpandedIds(new Set());
+  }, [bills]);
+
   // ── Mutations ─────────────────────────────────────────────────────────────
 
   const addChargeMutation = useMutation({
@@ -616,27 +622,6 @@ export function BillingHistoryPanel({
       await logAudit("bill_deleted", { billNumber: bill.billNumber }, bill.id);
     },
     onError: () => notify.error("Could not delete bill"),
-  });
-
-  const confirmDraftMutation = useMutation({
-    mutationFn: async (bill: PatientBill) => {
-      const services = (bill.services ?? []) as ServiceItem[];
-      const newBillNumber = bill.billNumber.startsWith("DFT-")
-        ? bill.billNumber.replace("DFT-", "INV-")
-        : bill.billNumber;
-      const res = await apiRequest("PATCH", `/api/auth/clinic/bills/${bill.id}`, {
-        paymentStatus: services.length > 0 ? computeStatus(services) : "pending",
-        billNumber: newBillNumber,
-      });
-      if (!res.ok) throw new Error("Failed to confirm");
-      return res.json();
-    },
-    onSuccess: async (_, bill) => {
-      invalidate();
-      notify.success("Bill confirmed");
-      await logAudit("bill_confirmed", { billNumber: bill.billNumber }, bill.id);
-    },
-    onError: () => notify.error("Could not confirm bill"),
   });
 
   const updateDiscountTaxMutation = useMutation({
@@ -1391,8 +1376,8 @@ export function BillingHistoryPanel({
                   )}
                 </div>
 
-                {/* Single Confirm & Pay CTA — shown for any unpaid bill with items */}
-                {!allPaid && !isBillPaid && services.length > 0 && (
+                {/* Single Confirm & Pay CTA — hidden once the payment form is open */}
+                {!allPaid && !isBillPaid && services.length > 0 && !showCashierFor && (
                   <Button size="sm"
                     onClick={() => openCashierForm(bill)}
                     className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 active:scale-[0.98]"
@@ -1657,14 +1642,17 @@ export function BillingHistoryPanel({
             )}
           </div>
           <div className="h-px flex-1 bg-border/40" />
-          <Button size="sm" variant="outline"
-            onClick={() => createNewBillMutation.mutate()}
-            disabled={createNewBillMutation.isPending}
-            className="h-7 text-xs gap-1 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 active:scale-[0.98] shrink-0"
-            data-testid="button-new-bill">
-            {createNewBillMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
-            New Bill
-          </Button>
+          {/* Only show here when NOT fully settled — settled banner has its own New Bill */}
+          {!allCurrentFullyPaid && (
+            <Button size="sm" variant="outline"
+              onClick={() => createNewBillMutation.mutate()}
+              disabled={createNewBillMutation.isPending}
+              className="h-7 text-xs gap-1 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 active:scale-[0.98] shrink-0"
+              data-testid="button-new-bill">
+              {createNewBillMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+              New Bill
+            </Button>
+          )}
         </div>
       )}
 
