@@ -254,6 +254,28 @@ grep "package-firewall.replit.local" package-lock.json
 
 Only needed when `npm install` was run during this session. Always safe to run even if not needed.
 
+### Step F — Backend & schema changes (if any server or schema files were touched)
+
+Full rules are in `docs/design-document/development-document/backend-and-db-checklist.md`. The non-negotiable minimum:
+
+**Auth guard** — every new route has the correct middleware (`isAuthenticated`, clinic session check, or doctor session check). Public routes are intentionally documented as public.
+
+**Zod validation** — every `POST` / `PATCH` / `PUT` uses `.safeParse()` on `req.body` before passing to storage. Raw `req.body` is never passed directly to a storage call.
+
+**Dual registration** — every new column or table in `shared/schema.ts` has a matching `ALTER TABLE … ADD COLUMN IF NOT EXISTS` block in the startup sync section of `server/index.ts`.
+
+**Migration safety** — new columns on existing tables are nullable OR have a `.default()`. A `NOT NULL` column with no default will crash `ALTER TABLE` on any table that already has rows.
+
+**IStorage** — new storage method declared in the `IStorage` interface AND implemented in `DatabaseStorage`. Both must exist before the route calls it.
+
+**Render SQL** — document the exact SQL for every new column or table so the developer can run it on Render Postgres before deploying.
+
+```bash
+# Verify dual registration for a new column called "new_field"
+grep -rn "new_field" shared/schema.ts server/index.ts
+# Must return results in BOTH files
+```
+
 ### Quick gate summary
 
 ```
@@ -263,6 +285,11 @@ Only needed when `npm install` was run during this session. Always safe to run e
 [ ] No deleted import symbol still used in JSX
 [ ] fix-lockfile run if any package was installed this session
 [ ] No console.log or debug statements left in committed code
+[ ] (backend) Every new route has correct auth guard
+[ ] (backend) Every POST/PATCH/PUT validates req.body with Zod .safeParse()
+[ ] (schema) New column/table in schema.ts AND in server/index.ts migration block
+[ ] (schema) New column is nullable or has DEFAULT
+[ ] (schema) Render Postgres SQL documented for developer to run manually
 ```
 
 ---
@@ -289,14 +316,27 @@ Every agent working in this repo must write code to this standard. The goal is c
 8. **Every interactive element is accessible.** Icon-only buttons must have `aria-label`. Form inputs must have a label or `aria-label`. Focus rings must be visible.
 9. **Every interactive element has a `data-testid`.** Use `{action}-{target}` for buttons/inputs, `{type}-{content}` for display elements.
 
+### Backend-specific code rules
+
+1. **No `db` imports in route files.** All Drizzle queries live in `server/storage.ts`. Routes import `storage`, never `db` directly.
+2. **No raw `req.body` to storage.** Always parse through Zod `.safeParse()` first. If validation fails, return `400` with the error message — never let bad input reach the database.
+3. **No `any` types in storage methods.** Derive all types from `shared/schema.ts` select/insert types.
+4. **Migrations are append-only.** Never edit an existing migration block in `server/index.ts`. Add new blocks below the last one. Editing an existing block can cause it to fail on environments where it already ran successfully.
+5. **Backend console.log must use a `[LABEL]` prefix.** e.g. `console.log('[BILLING] invoice confirmed')`. A bare `console.log(result)` or `console.log("here")` is a debug log and must not be committed.
+6. **Idempotent migrations.** Every `CREATE TABLE` uses `IF NOT EXISTS`. Every `ALTER TABLE ADD COLUMN` uses `IF NOT EXISTS`. Migrations must be safe to re-run.
+
 ### Before marking any feature done, ask
 
 - Would a developer new to this codebase understand what this code does without reading a comment?
 - Does every failure path show the user something useful?
 - Is every new value named, typed, and coming from a canonical source?
 - Does the Build Check pass?
+- (backend) Does every new route have an auth guard? Does every mutating route validate with Zod?
+- (schema) Is the new column registered in both `shared/schema.ts` AND `server/index.ts`?
 
 If any answer is no, fix it first.
+
+> Full backend & DB checklist: `docs/design-document/development-document/backend-and-db-checklist.md`
 
 ---
 
