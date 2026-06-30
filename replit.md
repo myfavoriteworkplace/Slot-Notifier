@@ -202,6 +202,104 @@ If it exists anywhere, import it — never redefine it. Duplicate exports in the
 
 ---
 
+## 🔧 Per-Feature Development Checklist — Run After EVERY Change
+
+This is separate from the pre-deploy checklist above. Every time a feature or fix is completed — even a small one — run through this list before telling the user it is done. No exceptions.
+
+### Step A — Build Check (mandatory gate)
+
+```
+restart_workflow("Build Check")   # must reach FINISHED status with exit 0
+```
+
+`npm run dev` passing is not enough. The production Rollup build is the only environment that catches TDZ crashes, chunk errors, and bad import paths. Do not hand back to the user until this passes.
+
+### Step B — Duplicate export scan (for any new type or const you added)
+
+```bash
+grep -rn "export.*YourNewTypeName" client/src/
+# Must return exactly one result — the canonical definition
+```
+
+If you added or moved any exported type, interface, or const, verify it exists in exactly one file. Two results = TDZ crash in production.
+
+### Step C — Bare fetch / hardcoded URL scan
+
+```bash
+grep -rn "fetch('/api" client/src/
+grep -rn 'fetch("/api' client/src/
+grep -rn "localhost" client/src/
+```
+
+All three must return zero results. Every API call must use `apiRequest()` from `@/lib/queryClient`.
+
+### Step D — Deleted import verification
+
+If you removed or reorganised any `import { ... }` statement, grep every symbol you dropped before finishing:
+
+```bash
+grep -n "SymbolName" path/to/the/file.tsx
+# Symbol must not appear outside the import line
+```
+
+Never assume "it looked like a duplicate" — two import blocks from the same package in one file are valid if they cover different names.
+
+### Step E — Lockfile hygiene (if any package was installed)
+
+```bash
+npm run fix-lockfile
+grep "package-firewall.replit.local" package-lock.json
+# Second command must return nothing
+```
+
+Only needed when `npm install` was run during this session. Always safe to run even if not needed.
+
+### Quick gate summary
+
+```
+[ ] Build Check workflow finished with exit 0
+[ ] No duplicate exports for any new type/const
+[ ] No bare fetch('/api/...') or localhost in client/src/
+[ ] No deleted import symbol still used in JSX
+[ ] fix-lockfile run if any package was installed this session
+[ ] No console.log or debug statements left in committed code
+```
+
+---
+
+## 💡 Senior Developer Standard — Code Quality Bar
+
+Every agent working in this repo must write code to this standard. The goal is code that a senior developer could read, maintain, and trust in production — not code that merely passes a task description.
+
+### Mindset
+
+- **Write for the next person, not the task.** Code will be read far more than it is written. Clarity is not optional.
+- **Treat Replit dev as a scratch pad.** The real target is always Render production. If it only works in `npm run dev`, it does not work.
+- **Prefer boring over clever.** Use the existing stack. Do not reach for a new library when a native API or an already-installed package can do it.
+
+### Code rules
+
+1. **Errors must be explicit.** Never use an empty `catch {}`, never swallow an error silently, never use `|| undefined` as a fallback to hide a missing value. If something failed, the user must know.
+2. **No `console.log` in committed code.** Debug logs are for a local branch. If a log is needed permanently, use a named logger with a severity level.
+3. **One function does one thing.** If a function is doing two things (e.g. fetching data AND formatting it AND mutating state), split it.
+4. **Types come from the canonical files.** `shared/schema.ts` for DB models, `client/src/lib/clinic-constants.tsx` for shared frontend types. Never redefine inline in a component.
+5. **No magic numbers or hardcoded strings.** Timeouts, limits, status values — name them as constants with a comment explaining the unit.
+6. **API routes stay thin.** Routes validate input (Zod), call storage, and return a response. Business logic belongs in storage or a dedicated service function — not inside the route handler.
+7. **Every UI loading state is intentional.** Show a real skeleton or spinner while data is fetching — not a blank screen. Every error state shows a message — not just nothing. Every empty list has an empty-state UI.
+8. **Every interactive element is accessible.** Icon-only buttons must have `aria-label`. Form inputs must have a label or `aria-label`. Focus rings must be visible.
+9. **Every interactive element has a `data-testid`.** Use `{action}-{target}` for buttons/inputs, `{type}-{content}` for display elements.
+
+### Before marking any feature done, ask
+
+- Would a developer new to this codebase understand what this code does without reading a comment?
+- Does every failure path show the user something useful?
+- Is every new value named, typed, and coming from a canonical source?
+- Does the Build Check pass?
+
+If any answer is no, fix it first.
+
+---
+
 ## Overview
 
 BookMySlot is a full-stack appointment booking application that enables service owners to manage availability slots and customers to book appointments. The application features role-based access control (owner vs customer), real-time notifications, and a modern responsive UI.

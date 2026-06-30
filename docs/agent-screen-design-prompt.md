@@ -34,6 +34,101 @@ If the name already exists anywhere in `client/src/`, **import it** — never re
 
 ---
 
+## ✅ Feature Completion Gate — Run After Every UI Change
+
+Before marking any component or screen done, work through every item below. This is not optional and applies to every change — including small edits to existing components.
+
+### 1 — Build Check (hard gate)
+
+```
+restart_workflow("Build Check")   # must reach FINISHED with exit 0
+```
+
+Do not hand back to the user until this passes. `npm run dev` does not catch production Rollup/chunk errors.
+
+### 2 — Duplicate export scan
+
+For every new type, interface, or const you exported:
+
+```bash
+grep -rn "export.*YourNewName" client/src/
+# Must return exactly one result
+```
+
+Two results = TDZ crash in production. All shared types live in `client/src/lib/clinic-constants.tsx`.
+
+### 3 — Bare fetch / URL scan
+
+```bash
+grep -rn "fetch('/api" client/src/
+grep -rn 'fetch("/api' client/src/
+grep -rn "localhost" client/src/
+# All three must return zero results
+```
+
+### 4 — Responsiveness check (all three breakpoints)
+
+Before finishing any UI work, mentally verify — or screenshot — the layout at:
+- Mobile: 375 px (single column, touch targets ≥ 44 px, no horizontal scroll)
+- Tablet: 768 px (columns may collapse one step, no horizontal scroll)
+- Desktop: 1280 px (primary design surface)
+
+Use the Mobile Proportionality Checklist in the section below.
+
+### 5 — No debug code in committed JSX
+
+```bash
+grep -rn "console\.log\|console\.warn\|console\.error\|debugger" client/src/
+# Must return zero results in any file you touched
+```
+
+### Quick gate summary
+
+```
+[ ] Build Check workflow finished with exit 0
+[ ] No duplicate exports for any new type/const
+[ ] No bare fetch('/api/...') or localhost in client/src/
+[ ] No console.log / debugger in files you touched
+[ ] Layout verified at mobile (375px), tablet (768px), desktop (1280px)
+[ ] Every new interactive element has data-testid and aria-label (if icon-only)
+```
+
+---
+
+## 💡 Senior Developer Standard — UI Code Quality Bar
+
+Write every component as if a senior frontend developer will review it tomorrow. Not as if a task description needs to be satisfied.
+
+### Mindset
+
+- **Clarity first.** A new developer must be able to understand the component's purpose, state, and side effects by reading it — without comments explaining what the code does.
+- **Production is the only environment that matters.** Replit dev preview is a convenience. Render is the target.
+- **Prefer the existing stack.** shadcn/ui, Tailwind, TanStack Query, Lucide icons — they already cover 95% of UI needs. Do not install a new package to solve something the existing stack handles.
+
+### Component rules
+
+1. **Every loading state is intentional.** While a query is loading, show a real skeleton or spinner. A blank screen that flickers into content is not acceptable.
+2. **Every error state shows the user something useful.** Not just `null`. Not just nothing. A message, a retry button, or at minimum a toast.
+3. **Every empty list has an empty-state UI.** A blank area where content will appear is confusing. Show a small illustration, heading, and prompt.
+4. **No hardcoded colours.** Use Tailwind design-token classes (`text-primary`, `bg-muted`, `border-border`) or CSS variables. Never `text-[#0F9B6E]` inline in JSX.
+5. **No hardcoded strings that belong in constants.** Status values, category names, threshold numbers — define them once as named constants in `clinic-constants.tsx`.
+6. **Types come from canonical files.** `shared/schema.ts` for DB models, `client/src/lib/clinic-constants.tsx` for shared frontend types. Never redefine a type inline in a component file.
+7. **Mutations invalidate the correct cache keys.** After every `useMutation`, call `queryClient.invalidateQueries` with the exact key that the affected query uses. Stale UI is a bug.
+8. **Every icon-only button has `aria-label`.** `<button><Trash2 /></button>` is inaccessible. `<button aria-label="Delete bill"><Trash2 /></button>` is correct.
+9. **Every interactive element has `data-testid`.** Pattern: `{action}-{target}` for buttons/inputs (`button-confirm-pay`, `input-amount`), `{type}-{content}-{id}` for dynamic list items (`card-bill-${bill.id}`).
+10. **No `any` types.** If you don't know the shape, derive it from the Drizzle schema or write the interface in `clinic-constants.tsx`. `as any` is a deferred bug.
+
+### Before marking a component done, ask
+
+- Does every state (loading / error / empty / populated) render intentionally?
+- Does every failure path tell the user what went wrong?
+- Is every colour, string, and number coming from a named constant or design token?
+- Does the Build Check pass?
+
+If any answer is no — fix it before handing back.
+
+---
+
 ## STACK
 
 React 18 + TypeScript · Vite · Wouter (no nested routes, no `<Outlet>`, no loader functions) · TanStack Query v5 · shadcn/ui + Radix UI · Tailwind CSS · Lucide icons · react-icons · Node / Express / Drizzle ORM / PostgreSQL.
