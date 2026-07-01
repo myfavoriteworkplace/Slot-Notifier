@@ -9,12 +9,16 @@ import { insertClinicSchema, insertBookingSchema, clinics, slots, bookings, noti
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Resend } from 'resend';
+import { format } from 'date-fns';
 import crypto from "crypto";
 import { generateSignedUploadUrl } from "./signedUrl.service";
+import { auditLog } from "./auditLog.middleware";
 import ExcelJS from "exceljs";
 import { sendWhatsAppBookingNotification, sendWhatsAppConfirmationNotification, sendWhatsAppConsentLink } from "./whatsapp.service";
 import Razorpay from "razorpay";
 import rateLimit from "express-rate-limit";
+import multer from "multer";
+import { wakeAndAnalyse } from "./aiService";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
@@ -434,6 +438,42 @@ const loginRateLimiter = rateLimit({
   message: { message: "Too many login attempts, please try again after 15 minutes" },
 });
 
+// OTP send: max 5 requests per IP per 10 minutes (public endpoint, email cost + abuse risk)
+const otpSendRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many OTP requests. Please wait 10 minutes before trying again." },
+});
+
+// OTP verify: max 10 attempts per IP per 10 minutes (prevents brute-force)
+const otpVerifyRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many verification attempts. Please wait before trying again." },
+});
+
+// Public booking creation: max 20 per IP per hour (prevents spam bookings)
+const bookingCreateRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many booking requests. Please try again later." },
+});
+
+// Consent form sign: max 10 per IP per hour (public endpoint, prevents replay attacks)
+const consentSignRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many consent submissions. Please try again later." },
+});
+
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   const sess = req.session as any;
   if (req.session && (sess.adminLoggedIn || sess.doctorLoggedIn)) {
@@ -465,7 +505,7 @@ async function sendDoctorAssignmentEmail(
   const finalEmail  = RESEND_MODE === 'PRODUCTION' ? doctorEmail : TEST_EMAIL;
   const apptDate    = startTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const apptTime    = startTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-  const dashLink    = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
+  const dashLink    = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login?tab=doctor`;
   const html = emailShell(
     'linear-gradient(90deg,#7c3aed,#a78bfa)',
     `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
@@ -513,7 +553,7 @@ async function sendDoctorAdminConfirmEmail(
   const apptDate    = startTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const apptTime    = startTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   const calLink     = makeGoogleCalLink(`Patient: ${patientName} at ${clinicName}`, startTime);
-  const dashLink    = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
+  const dashLink    = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login?tab=doctor`;
   const html = emailShell(
     'linear-gradient(90deg,#d97706,#f59e0b)',
     `<tr><td align="center" style="padding:28px 40px 0;">${logoBlock()}</td></tr>
@@ -623,7 +663,7 @@ async function sendDoctorInviteEmail(email: string, clinicName: string, inviteLi
 }
 
 async function sendDoctorWelcomeEmail(email: string, doctorName: string, clinicName: string, tempPassword: string) {
-  const loginUrl = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login`;
+  const loginUrl = `${process.env.FRONTEND_URL || 'https://bookmyslot.dental.mossaic.in'}/clinic-login?tab=doctor`;
   if (!resend) {
     console.log(`[EMAIL MOCK] Doctor welcome: ${email} — Login: ${email}, Password: ${tempPassword}`);
     return;
@@ -936,6 +976,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (sess && sess.adminLoggedIn && sess.role === 'superuser') return next();
     res.status(403).json({ message: "Admin access required" });
   };
+
+  // ── PII Audit Logging ─────────────────────────────────────────────────────
+  // Group-level fire-and-forget middleware. Covers every route under each
+  // prefix automatically — no need to touch individual route handlers.
+  // Logs are written after the response is sent (res.on("finish")) so they
+  // never slow down a request. Failed writes are console-logged only.
+  app.use("/api/auth/clinic/bookings",    auditLog({ resource: "booking" }));
+  app.use("/api/auth/clinic/patients",    auditLog({ resource: "patient" }));
+  app.use("/api/auth/clinic/bills",       auditLog({ resource: "bill" }));
+  app.use("/api/auth/clinic/export",      auditLog({ resource: "export",           action: "export" }));
+  app.use("/api/auth/clinic/booking-notes", auditLog({ resource: "booking_note" }));
+  app.use("/api/clinical-records",        auditLog({ resource: "clinical_record" }));
+  app.use("/api/consent",                 auditLog({ resource: "consent",          action: "sign" }));
+  app.use("/api/xray",                    auditLog({ resource: "xray" }));
+  app.use("/api/auth/doctor/bookings",    auditLog({ resource: "booking" }));
+  app.use("/api/auth/doctor/patients",    auditLog({ resource: "patient" }));
+  // ─────────────────────────────────────────────────────────────────────────
 
   app.post("/api/clinics/register", async (req, res) => {
     try {
@@ -1272,7 +1329,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── OTP: send verification code ────────────────────────────────────────────
-  app.post("/api/public/otp/send", async (req, res) => {
+  app.post("/api/public/otp/send", otpSendRateLimiter, async (req, res) => {
     const OTP_SEND_MAX = 3;
     const OTP_SEND_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
     try {
@@ -1366,7 +1423,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── OTP: verify code and return session token ──────────────────────────────
-  app.post("/api/public/otp/verify", async (req, res) => {
+  app.post("/api/public/otp/verify", otpVerifyRateLimiter, async (req, res) => {
     const OTP_MAX_ATTEMPTS = 5;
     const OTP_LOCK_DURATION_MS = 30 * 60 * 1000; // 30 minutes
     try {
@@ -1644,28 +1701,68 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const requestedStart = new Date(startTime);
 
-      const slot = await storage.createSlot({
-        ownerId: null,
-        startTime: requestedStart,
-        endTime: new Date(endTime),
-        clinicName: clinicName || clinic.name,
-        clinicId: clinic.id,
-        isBooked: true,
-      } as any);
+      // ── Atomic: consume OTP + capacity re-check + insert (double-booking protection) ──
+      // Razorpay create-order already did a soft capacity check before payment, but that
+      // check is not binding — a concurrent booking could have filled the slot between
+      // order creation and payment verification. This transaction closes that window.
+      let slot: any;
+      let booking: any;
+      try {
+        await db.transaction(async (tx) => {
+          // 1. Consume OTP first — concurrent duplicate submission gets 0 rows (Race B)
+          const [consumed] = await tx.delete(emailOtps)
+            .where(eq(emailOtps.id, otpRow.id))
+            .returning({ id: emailOtps.id });
+          if (!consumed) {
+            const e = new Error("TOKEN_USED"); (e as any).code = "TOKEN_USED"; throw e;
+          }
 
-      const booking = await storage.createPublicBooking({
-        slotId: slot.id,
-        customerName,
-        customerPhone,
-        customerEmail,
-        description: description || null,
-        verificationCode: null,
-        verificationExpiresAt: null,
-        verificationStatus: 'email_verified',
-        paymentStatus: 'paid',
-        razorpayOrderId: razorpay_order_id,
-        razorpayPaymentId: razorpay_payment_id,
-      });
+          // 2. Re-check capacity inside transaction (Race A — slot filled after order created)
+          const txW0 = new Date(requestedStart.getTime() - 60_000);
+          const txW1 = new Date(requestedStart.getTime() + 60_000);
+          const txRows = await tx.select({ b: bookings, s: slots })
+            .from(bookings)
+            .innerJoin(slots, eq(bookings.slotId, slots.id))
+            .where(and(gte(slots.startTime, txW0), lte(slots.startTime, txW1), eq(slots.isCancelled, false)));
+          const txUsed = txRows
+            .filter(r => (r.s.clinicId === clinic.id || r.s.clinicName === (clinicName || clinic.name)) && !['cancelled', 'pending'].includes(r.b.verificationStatus ?? ''))
+            .reduce((sum: number, r: any) => sum + ((r.b as any).slotCost ?? 1), 0);
+          if (txUsed >= 3) {
+            const e = new Error("SLOT_FULL"); (e as any).code = "SLOT_FULL"; throw e;
+          }
+
+          // 3. Insert slot + booking atomically
+          const [newSlot] = await tx.insert(slots).values({
+            ownerId: null,
+            startTime: requestedStart,
+            endTime: new Date(endTime),
+            clinicName: clinicName || clinic.name,
+            clinicId: clinic.id,
+            isBooked: true,
+            isCancelled: false,
+          } as any).returning();
+          slot = newSlot;
+
+          const [newBooking] = await tx.insert(bookings).values({
+            slotId: slot.id,
+            customerName,
+            customerPhone,
+            customerEmail,
+            description: description || null,
+            verificationCode: null,
+            verificationExpiresAt: null,
+            verificationStatus: 'email_verified',
+            paymentStatus: 'paid',
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+          } as any).returning();
+          booking = newBooking;
+        });
+      } catch (txErr: any) {
+        if (txErr.code === "SLOT_FULL") return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
+        if (txErr.code === "TOKEN_USED") return res.status(409).json({ message: "Your booking session is already in progress. Please wait a moment and try again." });
+        throw txErr;
+      }
 
       // Link booking to the correct patient profile
       try {
@@ -1688,9 +1785,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         console.error('[PATIENT PROFILE] Failed to link:', e.message);
       }
 
-      // Consume the OTP token — one token, one booking
-      await db.delete(emailOtps).where(eq(emailOtps.id, otpRow.id));
-
+      // OTP was consumed inside the transaction above — send confirmation emails now
       await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id);
 
       if (customerPhone) {
@@ -1705,8 +1800,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           userId: String(clinic.id),
           message: `Paid booking confirmed — ${customerName} on ${dateStr} at ${timeStr}`,
           read: false,
+          type: "paid_booking_confirmed",
+          bookingId: booking.id,
         });
-        broadcastToClinic(String(clinic.id), { type: "paid_booking", notification: paidNotif });
+        broadcastToClinic(String(clinic.id), { type: "paid_booking_confirmed", bookingId: booking.id, notification: paidNotif });
       } catch (e: any) {
         console.error('[NOTIFICATION] Paid booking notification failed:', e.message);
       }
@@ -1764,7 +1861,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── PUBLIC BOOKING: clinic-approval path (pending) ─────────────────────────
-  app.post("/api/public/bookings", async (req, res) => {
+  app.post("/api/public/bookings", bookingCreateRateLimiter, async (req, res) => {
     try {
       const { customerName, customerPhone, customerEmail, customerAge, customerGender, clinicId, clinicName, startTime, endTime, description, verifiedToken } = req.body;
 
@@ -1815,33 +1912,68 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const pubKey = pubBracketMap[pubHour] ?? (pubMin === 30 && pubHour === 12 ? "3" : undefined);
       const pubDefaultSection = pubKey ? pubDefaultCfg?.sections?.[pubKey] : undefined;
       const pubMax = pubConfigSlot?.maxBookings ?? pubDefaultSection?.maxBookings ?? 4;
-      const existingBookings = await storage.countVerifiedBookingsForClinicTime(clinic.id, clinic.name, requestedStart);
-      // Public patient booking always costs 1 slot unit
-      if (existingBookings + 1 > pubMax) {
-        return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
+      // ── Atomic: consume OTP + capacity re-check + insert (double-booking protection) ──
+      // Race A (two patients, same slot): capacity is re-checked inside the same DB transaction
+      //   so both concurrent requests cannot both pass the check before either inserts.
+      // Race B (same patient, duplicate submission): OTP token is deleted first inside the
+      //   transaction — the second concurrent request gets 0 rows back and is rejected with 409.
+      let slot: any;
+      let booking: any;
+      try {
+        await db.transaction(async (tx) => {
+          // 1. Consume OTP — concurrent duplicate gets 0 rows → TOKEN_USED (Race B)
+          const [consumed] = await tx.delete(emailOtps)
+            .where(eq(emailOtps.id, otpRow.id))
+            .returning({ id: emailOtps.id });
+          if (!consumed) {
+            const e = new Error("TOKEN_USED"); (e as any).code = "TOKEN_USED"; throw e;
+          }
+
+          // 2. Re-check capacity inside the transaction (Race A)
+          const txW0 = new Date(requestedStart.getTime() - 60_000);
+          const txW1 = new Date(requestedStart.getTime() + 60_000);
+          const txRows = await tx.select({ b: bookings, s: slots })
+            .from(bookings)
+            .innerJoin(slots, eq(bookings.slotId, slots.id))
+            .where(and(gte(slots.startTime, txW0), lte(slots.startTime, txW1), eq(slots.isCancelled, false)));
+          const txUsed = txRows
+            .filter(r => (r.s.clinicId === clinic.id || r.s.clinicName === (clinicName || clinic.name)) && !['cancelled', 'pending'].includes(r.b.verificationStatus ?? ''))
+            .reduce((sum: number, r: any) => sum + ((r.b as any).slotCost ?? 1), 0);
+          if (txUsed + 1 > pubMax) {
+            const e = new Error("SLOT_FULL"); (e as any).code = "SLOT_FULL"; throw e;
+          }
+
+          // 3. Insert slot + booking atomically
+          const [newSlot] = await tx.insert(slots).values({
+            ownerId: null,
+            startTime: requestedStart,
+            endTime: new Date(endTime),
+            clinicName: clinicName || clinic.name,
+            clinicId: clinic.id,
+            isBooked: true,
+            isCancelled: false,
+          } as any).returning();
+          slot = newSlot;
+
+          const [newBooking] = await tx.insert(bookings).values({
+            slotId: slot.id,
+            customerName,
+            customerPhone,
+            customerEmail,
+            customerAge: customerAge ? parseInt(customerAge) : null,
+            customerGender: customerGender || null,
+            description: description || null,
+            verificationCode: null,
+            verificationExpiresAt: null,
+            verificationStatus: 'email_verified',
+          } as any).returning();
+          booking = newBooking;
+        });
+      } catch (txErr: any) {
+        if (txErr.code === "SLOT_FULL") return res.status(400).json({ message: "This time slot is fully booked. Please choose another time." });
+        if (txErr.code === "TOKEN_USED") return res.status(409).json({ message: "Your booking session is already in progress. Please wait a moment and try again." });
+        throw txErr;
       }
-
-      const slot = await storage.createSlot({
-        ownerId: null,
-        startTime: requestedStart,
-        endTime: new Date(endTime),
-        clinicName: clinicName || clinic.name,
-        clinicId: clinic.id,
-        isBooked: true,
-      } as any);
-
-      const booking = await storage.createPublicBooking({
-        slotId: slot.id,
-        customerName,
-        customerPhone,
-        customerEmail,
-        customerAge: customerAge ? parseInt(customerAge) : null,
-        customerGender: customerGender || null,
-        description: description || null,
-        verificationCode: null,
-        verificationExpiresAt: null,
-        verificationStatus: 'email_verified',
-      });
 
       // Link booking to the correct patient profile
       try {
@@ -1864,9 +1996,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         console.error('[PATIENT PROFILE] Failed to link:', e.message);
       }
 
-      // Consume the OTP token — one token, one booking
-      await db.delete(emailOtps).where(eq(emailOtps.id, otpRow.id));
-
+      // OTP was consumed inside the transaction above — send confirmation emails now
       await sendBookingEmails(customerEmail, customerName, clinic.email, clinic.name, requestedStart, customerPhone, (clinic as any).phone ?? null, booking.id);
 
       if (customerPhone) {
@@ -1880,8 +2010,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           userId: String(clinic.id),
           message: notifMessage,
           read: false,
+          type: "new_booking",
+          bookingId: booking.id,
         });
-        broadcastToClinic(String(clinic.id), { type: "new_booking", notification });
+        broadcastToClinic(String(clinic.id), { type: "new_booking", bookingId: booking.id, notification });
       } catch (e: any) {
         console.error('[NOTIFICATION] Failed to create or broadcast:', e.message);
       }
@@ -1936,6 +2068,81 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       console.error("[SLOT AVAILABILITY ERROR]", err.message);
       res.status(500).json({ message: "Failed to get slot availability" });
+    }
+  });
+
+  // ── CLINIC ADMIN: 30-day availability summary (single bulk query, not 150) ─
+  app.get("/api/auth/clinic/available-dates", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Not a clinic admin session" });
+    const days = Math.min(parseInt((req.query.days as string) || "30"), 60);
+    try {
+      const clinic = await storage.getClinic(sess.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+      const defaultCfg = (clinic as any).defaultSlotConfig;
+      const SLOT_TIMINGS = [
+        { id: "1", label: "Early Morning", startHour: 8,  startMinute: 0  },
+        { id: "2", label: "Late Morning",  startHour: 10, startMinute: 0  },
+        { id: "3", label: "Midday",        startHour: 12, startMinute: 30 },
+        { id: "4", label: "Afternoon",     startHour: 14, startMinute: 0  },
+        { id: "5", label: "Evening",       startHour: 17, startMinute: 0  },
+      ];
+      const DEFAULT_CAPACITY: Record<string, number> = { "1": 4, "2": 6, "3": 3, "4": 7, "5": 6 };
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const rangeEnd = new Date(todayStart); rangeEnd.setDate(rangeEnd.getDate() + days); rangeEnd.setHours(23, 59, 59, 999);
+      const getSlotId = (d: Date): string | null => {
+        const h = d.getHours(); const m = d.getMinutes();
+        return SLOT_TIMINGS.find(s => s.startHour === h && s.startMinute === m)?.id ?? null;
+      };
+      // Query 1: all active bookings for this clinic in range
+      const bookingRows = await db
+        .select({ slotStartTime: slots.startTime, slotCost: bookings.slotCost, status: bookings.verificationStatus })
+        .from(bookings)
+        .innerJoin(slots, eq(bookings.slotId, slots.id))
+        .where(and(eq(slots.clinicId, sess.clinicId), gte(slots.startTime, todayStart), lte(slots.startTime, rangeEnd)));
+      // Query 2: admin-configured slot rows (isCancelled / maxBookings overrides)
+      const configRows = await db
+        .select({ startTime: slots.startTime, isCancelled: slots.isCancelled, maxBookings: slots.maxBookings })
+        .from(slots)
+        .where(and(eq(slots.clinicId, sess.clinicId), eq(slots.isBooked, false), gte(slots.startTime, todayStart), lte(slots.startTime, rangeEnd)));
+      // Config map: "dateStr:slotId" -> { isCancelled, max }
+      const configMap = new Map<string, { isCancelled: boolean; max: number }>();
+      for (const row of configRows) {
+        const d = new Date(row.startTime); const dateStr = d.toISOString().slice(0, 10); const slotId = getSlotId(d);
+        if (!slotId) continue;
+        const ds = defaultCfg?.sections?.[slotId];
+        configMap.set(`${dateStr}:${slotId}`, { isCancelled: row.isCancelled ?? false, max: row.maxBookings ?? ds?.maxBookings ?? DEFAULT_CAPACITY[slotId] ?? 4 });
+      }
+      // Usage map: "dateStr:slotId" -> summed slotCost for confirmed bookings
+      const usageMap = new Map<string, number>();
+      for (const row of bookingRows) {
+        if (['cancelled', 'pending'].includes(row.status ?? '')) continue;
+        const d = new Date(row.slotStartTime); const dateStr = d.toISOString().slice(0, 10); const slotId = getSlotId(d);
+        if (!slotId) continue;
+        const key = `${dateStr}:${slotId}`; usageMap.set(key, (usageMap.get(key) ?? 0) + (row.slotCost ?? 1));
+      }
+      // Build per-day result
+      const result = [];
+      for (let i = 0; i < days; i++) {
+        const d = new Date(todayStart); d.setDate(d.getDate() + i);
+        const dateStr = d.toISOString().slice(0, 10);
+        let totalSpotsLeft = 0; let availableSlotCount = 0; let nextSlotLabel: string | null = null;
+        for (const slotDef of SLOT_TIMINGS) {
+          const key = `${dateStr}:${slotDef.id}`;
+          const cfg = configMap.get(key); const ds = defaultCfg?.sections?.[slotDef.id];
+          const isCancelled = cfg?.isCancelled ?? (defaultCfg?.isClosed ?? ds?.isCancelled ?? false);
+          if (isCancelled) continue;
+          const max = cfg?.max ?? ds?.maxBookings ?? DEFAULT_CAPACITY[slotDef.id] ?? 4;
+          const used = usageMap.get(key) ?? 0; const spotsLeft = Math.max(0, max - used);
+          totalSpotsLeft += spotsLeft;
+          if (spotsLeft > 0) { availableSlotCount++; if (!nextSlotLabel) nextSlotLabel = slotDef.label; }
+        }
+        result.push({ date: dateStr, isFull: availableSlotCount === 0, availableSlotCount, totalSpotsLeft, nextSlotLabel });
+      }
+      res.json(result);
+    } catch (err: any) {
+      console.error("[AVAILABLE DATES ERROR]", err.message);
+      res.status(500).json({ message: "Failed to get available dates" });
     }
   });
 
@@ -2644,7 +2851,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .innerJoin(slots, eq(bookings.slotId, slots.id))
         .leftJoin(clinics, eq(slots.clinicId, clinics.id))
         .where(eq(bookings.assignedDoctorEmail, email));
-      return res.json(results.map(r => ({ ...r.booking, clinicId: r.booking.clinicId ?? r.slot.clinicId, slot: r.slot, clinic: r.clinic })));
+      return res.json(results.map(r => ({ ...r.booking, clinicId: r.slot.clinicId, slot: r.slot, clinic: r.clinic })));
     }
     if (sess.clinicId) {
       const b = await storage.getClinicBookings(sess.clinicId);
@@ -3284,12 +3491,47 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             userId: String(clinic.id),
             message: `Booking #${bookingId} for ${booking.customerName} rescheduled to ${newDateStr}`,
             read: false,
+            type: "booking_rescheduled",
+            bookingId,
           });
-          broadcastToClinic(String(clinic.id), { type: "booking_rescheduled", notification: reschedNotif });
+          broadcastToClinic(String(clinic.id), { type: "booking_rescheduled", bookingId, notification: reschedNotif });
         } catch (e: any) {
           console.error('[NOTIFICATION] Reschedule notification failed:', e.message);
         }
       }
+
+      // G6 — Notify assigned doctor that the appointment was rescheduled
+      if (booking.assignedDoctorEmail && newSlot) {
+        try {
+          const [reschedDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
+          if (reschedDoc) {
+            const newTimeStr = format(new Date(newSlot.startTime), 'EEE d MMM, h:mm a');
+            const reschedDocNotif = await storage.createNotification({
+              userId: String(reschedDoc.id),
+              message: `Appointment for ${booking.customerName} has been rescheduled to ${newTimeStr}`,
+              read: false,
+              type: "booking_rescheduled",
+              bookingId,
+            });
+            broadcastToDoctor(String(reschedDoc.id), { type: "booking_rescheduled", bookingId, notification: reschedDocNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Reschedule doctor notification failed:', e.message);
+        }
+      }
+
+      // G7 — WhatsApp notification to patient on reschedule
+      if (booking.customerPhone && newSlot) {
+        try {
+          const { sendWhatsAppMessage } = await import('./whatsapp.service');
+          const newFmtStr = format(new Date(newSlot.startTime), 'EEE d MMM, h:mm a');
+          sendWhatsAppMessage(
+            booking.customerPhone,
+            `Hi ${booking.customerName}, your appointment at ${clinic?.name || 'the clinic'} has been rescheduled to *${newFmtStr}*. Please reply if you have any questions.`
+          ).catch(() => {});
+        } catch { /* WhatsApp unavailable */ }
+      }
+
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -3308,14 +3550,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .set({ clinicalStatus: clinicalStatus ?? null })
         .where(eq(bookings.id, bookingId))
         .returning();
-      if (clinicalStatus === 'case_closed' && booking.assignedDoctorEmail) {
+      // G10 — Notify assigned doctor on ALL clinical status changes (not just case_closed)
+      if (clinicalStatus && booking.assignedDoctorEmail) {
         try {
           const [doc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
           if (doc) {
-            const notif = await storage.createNotification({ userId: String(doc.id), message: `Clinic admin marked ${booking.customerName}'s case as closed`, read: false });
-            broadcastToDoctor(String(doc.id), { type: "case_closed_by_clinic", notification: notif });
+            const statusLabels: Record<string, string> = {
+              first_visit: 'First Visit', revisit: 'Revisit',
+              follow_up_required: 'Follow-up Required', case_closed: 'Case Closed',
+            };
+            const label = statusLabels[clinicalStatus] ?? clinicalStatus;
+            const notifType = clinicalStatus === 'case_closed' ? 'case_closed_by_clinic' : 'clinical_status_updated';
+            const notif = await storage.createNotification({
+              userId: String(doc.id),
+              message: `Clinic admin updated ${booking.customerName}'s clinical status to "${label}"`,
+              read: false,
+              type: notifType,
+              bookingId,
+            });
+            broadcastToDoctor(String(doc.id), { type: notifType, bookingId, notification: notif });
           }
-        } catch (e: any) { console.error('[NOTIFICATION] Case closed (clinic) notification failed:', e.message); }
+        } catch (e: any) { console.error('[NOTIFICATION] Clinical status (clinic) notification failed:', e.message); }
       }
       res.json(updated);
     } catch (err: any) {
@@ -3340,8 +3595,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (doc) {
             const slot = await storage.getSlot(booking.slotId);
             const timeStr = slot ? new Date(slot.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
-            const notif = await storage.createNotification({ userId: String(doc.id), message: `${booking.customerName} is in the waiting room${timeStr ? ` — ${timeStr} slot` : ''}`, read: false });
-            broadcastToDoctor(String(doc.id), { type: "patient_checked_in", notification: notif });
+            const notif = await storage.createNotification({ userId: String(doc.id), message: `${booking.customerName} is in the waiting room${timeStr ? ` — ${timeStr} slot` : ''}`, read: false, type: "patient_checked_in", bookingId });
+            broadcastToDoctor(String(doc.id), { type: "patient_checked_in", bookingId, notification: notif });
           }
         } catch (e: any) { console.error('[NOTIFICATION] Check-in notification failed:', e.message); }
       }
@@ -3358,7 +3613,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const booking = await storage.getBookingById(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
-      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date());
+      const { note } = req.body ?? {};
+      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date(), note?.trim() || null);
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -3447,8 +3703,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(overriddenDoc.id),
               message: `Admin confirmed ${booking.customerName}'s appointment on your behalf${dateStr ? ` on ${dateStr}` : ''} — no action needed`,
               read: false,
+              type: "admin_confirmed",
+              bookingId,
             });
-            broadcastToDoctor(String(overriddenDoc.id), { type: "admin_confirmed", notification: overrideNotif });
+            broadcastToDoctor(String(overriddenDoc.id), { type: "admin_confirmed", bookingId, notification: overrideNotif });
           }
         } catch (e: any) {
           console.error('[NOTIFICATION] Admin override notification failed:', e.message);
@@ -3503,10 +3761,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           userId: String(clinicId),
           message: `Booking for ${booking.customerName} has been cancelled`,
           read: false,
+          type: "booking_cancelled",
+          bookingId,
         });
-        broadcastToClinic(String(clinicId), { type: "booking_cancelled", notification: notif });
+        broadcastToClinic(String(clinicId), { type: "booking_cancelled", bookingId, notification: notif });
       } catch (e: any) {
         console.error('[NOTIFICATION] Cancel notification failed:', e.message);
+      }
+
+      // G3 — Notify assigned doctor the appointment was cancelled
+      if (booking.assignedDoctorEmail) {
+        try {
+          const [cancelDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
+          if (cancelDoc) {
+            const dateStr = slot ? new Date(slot.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '';
+            const cancelDocNotif = await storage.createNotification({
+              userId: String(cancelDoc.id),
+              message: `Appointment for ${booking.customerName}${dateStr ? ` on ${dateStr}` : ''} has been cancelled by the clinic`,
+              read: false,
+              type: "booking_cancelled",
+              bookingId,
+            });
+            broadcastToDoctor(String(cancelDoc.id), { type: "booking_cancelled", bookingId, notification: cancelDocNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Cancel doctor notification failed:', e.message);
+        }
       }
 
       res.json({ message: "Booking cancelled successfully" });
@@ -3566,8 +3846,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(assignedDoc.id),
               message: `New appointment assigned: ${booking.customerName} on ${dateStr}${timeStr ? ` at ${timeStr}` : ''} — awaiting your approval`,
               read: false,
+              type: "doctor_assigned",
+              bookingId,
             });
-            broadcastToDoctor(String(assignedDoc.id), { type: "doctor_assigned", notification: assignNotif });
+            broadcastToDoctor(String(assignedDoc.id), { type: "doctor_assigned", bookingId, notification: assignNotif });
           }
         } catch (e: any) {
           console.error('[NOTIFICATION] Doctor assignment notification failed:', e.message);
@@ -3641,8 +3923,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             userId: String(doctorClinic.id),
             message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} confirmed ${booking.customerName}'s appointment${dateStr ? ` on ${dateStr}` : ''}`,
             read: false,
+            type: "doctor_approved",
+            bookingId: booking.id,
           });
-          broadcastToClinic(String(doctorClinic.id), { type: "doctor_approved", notification: approveNotif });
+          broadcastToClinic(String(doctorClinic.id), { type: "doctor_approved", bookingId: booking.id, notification: approveNotif });
         } catch (e: any) {
           console.error('[NOTIFICATION] Doctor approve notification failed:', e.message);
         }
@@ -3688,8 +3972,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               userId: String(clinicForDecline.id),
               message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} declined ${booking.customerName}'s appointment on ${dateStr} — reassignment needed`,
               read: false,
+              type: "doctor_declined",
+              bookingId: booking.id,
             });
-            broadcastToClinic(String(clinicForDecline.id), { type: "doctor_declined", notification: declineNotif });
+            broadcastToClinic(String(clinicForDecline.id), { type: "doctor_declined", bookingId: booking.id, notification: declineNotif });
           } catch (e: any) {
             console.error('[NOTIFICATION] Doctor decline notification failed:', e.message);
           }
@@ -3752,6 +4038,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Forbidden" });
     try {
       const clinic = await storage.archiveClinic(Number(req.params.id));
+      // G16 — Email clinic owner that their account was suspended
+      if (resend && clinic?.email) {
+        const archiveEmail = RESEND_MODE === 'PRODUCTION' ? clinic.email : TEST_EMAIL;
+        resend.emails.send({
+          from: EMAIL_FROM,
+          to: archiveEmail,
+          subject: `Your BookMySlot clinic account has been suspended`,
+          html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;background:#f9fafb;border-radius:12px"><h2 style="color:#dc2626;margin-top:0">Account Suspended</h2><p style="color:#374151">Dear <strong>${clinic.name}</strong>,</p><p style="color:#374151">Your clinic account on BookMySlot has been <strong>suspended</strong> by the platform administrator. During this period you will not be able to accept new bookings.</p><p style="color:#374151">Please contact <a href="mailto:support@bookmyslot.dental" style="color:#0F9B6E">support@bookmyslot.dental</a> if you believe this is an error or to discuss reinstatement.</p><p style="color:#d1d5db;font-size:11px;margin-top:24px">Powered by BookMySlot</p></div>`,
+        }).catch(() => {});
+      }
       res.json(clinic);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -3762,6 +4058,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if ((req as any).user.role !== 'superuser') return res.status(403).json({ message: "Forbidden" });
     try {
       const clinic = await storage.unarchiveClinic(Number(req.params.id));
+      // G16 — Email clinic owner that their account was reinstated
+      if (resend && clinic?.email) {
+        const unarchiveEmail = RESEND_MODE === 'PRODUCTION' ? clinic.email : TEST_EMAIL;
+        resend.emails.send({
+          from: EMAIL_FROM,
+          to: unarchiveEmail,
+          subject: `Your BookMySlot clinic account has been reinstated`,
+          html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;background:#f9fafb;border-radius:12px"><h2 style="color:#059669;margin-top:0">Account Reinstated</h2><p style="color:#374151">Dear <strong>${clinic.name}</strong>,</p><p style="color:#374151">Great news — your clinic account on BookMySlot has been <strong>reinstated</strong>. You can now log in and resume accepting appointments.</p><p style="color:#374151">If you have any questions, contact <a href="mailto:support@bookmyslot.dental" style="color:#0F9B6E">support@bookmyslot.dental</a>.</p><p style="color:#d1d5db;font-size:11px;margin-top:24px">Powered by BookMySlot</p></div>`,
+        }).catch(() => {});
+      }
       res.json(clinic);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -3774,6 +4080,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { username, password } = req.body;
       const hash = await bcrypt.hash(password, 10);
       await storage.updateClinicCredentials(Number(req.params.id), username, hash);
+      // G17 — Email clinic owner their new credentials
+      const credClinic = await storage.getClinic(Number(req.params.id));
+      if (resend && credClinic?.email) {
+        const credEmail = RESEND_MODE === 'PRODUCTION' ? credClinic.email : TEST_EMAIL;
+        resend.emails.send({
+          from: EMAIL_FROM,
+          to: credEmail,
+          subject: `Your BookMySlot login credentials have been updated`,
+          html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;background:#f9fafb;border-radius:12px"><h2 style="color:#085041;margin-top:0">Credentials Updated</h2><p style="color:#374151">Dear <strong>${credClinic.name}</strong>,</p><p style="color:#374151">Your BookMySlot clinic login credentials have been updated by the platform administrator.</p><table style="width:100%;border-collapse:collapse;margin:16px 0;background:#fff;border-radius:8px;overflow:hidden"><tr style="background:#f3f4f6"><td style="padding:10px 12px;font-size:13px;color:#6b7280;font-weight:600">Username</td><td style="padding:10px 12px;font-size:14px;color:#0d1f1a;font-weight:700">${username}</td></tr><tr><td style="padding:10px 12px;font-size:13px;color:#6b7280;font-weight:600">Password</td><td style="padding:10px 12px;font-size:14px;color:#0d1f1a;font-weight:700">${password}</td></tr></table><p style="color:#dc2626;font-size:13px">Please change your password after logging in and keep these credentials safe.</p><p style="color:#d1d5db;font-size:11px;margin-top:24px">Powered by BookMySlot</p></div>`,
+        }).catch(() => {});
+      }
       res.json({ message: "Credentials updated" });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -3931,6 +4248,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { leaveDate, reason } = req.body;
       if (!leaveDate) return res.status(400).json({ message: "leaveDate is required" });
       const leave = await storage.addDoctorLeave({ doctorId: d.id, leaveDate, reason: reason || null });
+
+      // G5 — Notify all linked clinic admins that this doctor is on leave
+      try {
+        const linkedClinics = await db.select({ clinic: clinics })
+          .from(clinics)
+          .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
+          .where(eq(clinicDoctors.doctorId, d.id));
+        const leaveDateFmt = new Date(leaveDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+        for (const { clinic } of linkedClinics) {
+          const leaveNotif = await storage.createNotification({
+            userId: String(clinic.id),
+            message: `Dr. ${d.name} has marked ${leaveDateFmt} as leave${reason ? ` — ${reason}` : ''}`,
+            read: false,
+            type: "doctor_on_leave",
+          });
+          broadcastToClinic(String(clinic.id), { type: "doctor_on_leave", notification: leaveNotif });
+        }
+      } catch (e: any) {
+        console.error('[NOTIFICATION] Doctor leave notification failed:', e.message);
+      }
+
       res.status(201).json(leave);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
@@ -3942,6 +4280,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const d = await storage.getDoctorByEmail(sess.doctorEmail);
       if (!d) return res.status(404).json({ message: "Doctor not found" });
       await storage.removeDoctorLeave(Number(req.params.id), d.id);
+
+      // G20 — Notify all linked clinic admins that the doctor cancelled their leave
+      try {
+        const linkedClinics = await db.select({ clinic: clinics })
+          .from(clinics)
+          .innerJoin(clinicDoctors, eq(clinics.id, clinicDoctors.clinicId))
+          .where(eq(clinicDoctors.doctorId, d.id));
+        for (const { clinic } of linkedClinics) {
+          const cancelLeaveNotif = await storage.createNotification({
+            userId: String(clinic.id),
+            message: `Dr. ${d.name} cancelled a leave and is now available`,
+            read: false,
+            type: "doctor_leave_cancelled",
+          });
+          broadcastToClinic(String(clinic.id), { type: "doctor_leave_cancelled", notification: cancelLeaveNotif });
+        }
+      } catch (e: any) {
+        console.error('[NOTIFICATION] Doctor leave cancel notification failed:', e.message);
+      }
+
       res.sendStatus(204);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
@@ -4008,8 +4366,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             if (slot) {
               const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
               if (clinic) {
-                const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false });
-                broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", notification: notif });
+                const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false, type: "case_closed_by_doctor", bookingId: Number(req.params.id) });
+                broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", bookingId: Number(req.params.id), notification: notif });
               }
             }
           }
@@ -4063,6 +4421,42 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         authorName,
         content: content.trim(),
       });
+
+      // G8 — Notify the other party: clinic → doctor, doctor → clinic
+      try {
+        const noteBooking = await storage.getBookingById(bookingId);
+        if (noteBooking) {
+          const previewText = content.trim().length > 60 ? content.trim().slice(0, 60) + '…' : content.trim();
+          if (authorType === 'doctor') {
+            const noteSlot = await storage.getSlot(noteBooking.slotId);
+            if (noteSlot?.clinicId) {
+              const clinicNoteNotif = await storage.createNotification({
+                userId: String(noteSlot.clinicId),
+                message: `${authorName} added a note on ${noteBooking.customerName}'s booking: "${previewText}"`,
+                read: false,
+                type: "booking_note_added",
+                bookingId,
+              });
+              broadcastToClinic(String(noteSlot.clinicId), { type: "booking_note_added", bookingId, notification: clinicNoteNotif });
+            }
+          } else if (authorType === 'clinic_admin' && noteBooking.assignedDoctorEmail) {
+            const [noteDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, noteBooking.assignedDoctorEmail)).limit(1);
+            if (noteDoc) {
+              const docNoteNotif = await storage.createNotification({
+                userId: String(noteDoc.id),
+                message: `${authorName} added a note on ${noteBooking.customerName}'s booking: "${previewText}"`,
+                read: false,
+                type: "booking_note_added",
+                bookingId,
+              });
+              broadcastToDoctor(String(noteDoc.id), { type: "booking_note_added", bookingId, notification: docNoteNotif });
+            }
+          }
+        }
+      } catch (e: any) {
+        console.error('[NOTIFICATION] Booking note notification failed:', e.message);
+      }
+
       res.json(note);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4090,8 +4484,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           if (slot) {
             const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
             if (clinic) {
-              const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false });
-              broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", notification: notif });
+              const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} marked ${booking.customerName}'s case as closed`, read: false, type: "case_closed_by_doctor", bookingId: Number(req.params.id) });
+              broadcastToClinic(String(clinic.id), { type: "case_closed_by_doctor", bookingId: Number(req.params.id), notification: notif });
             }
           }
         } catch (e: any) { console.error('[NOTIFICATION] Case closed (doctor) notification failed:', e.message); }
@@ -4117,8 +4511,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (slot) {
           const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
           if (clinic) {
-            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has started consultation with ${booking.customerName}`, read: false });
-            broadcastToClinic(String(clinic.id), { type: "consultation_started", notification: notif });
+            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has started consultation with ${booking.customerName}`, read: false, type: "consultation_started", bookingId });
+            broadcastToClinic(String(clinic.id), { type: "consultation_started", bookingId, notification: notif });
           }
         }
       } catch (e: any) { console.error('[NOTIFICATION] Start consultation notification failed:', e.message); }
@@ -4136,17 +4530,178 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const booking = await storage.getBookingById(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Forbidden" });
-      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date());
+      // Stage 5 — Treatment Completed (doctor side). Clinic still needs to close with Stage 6.
+      const updated = await storage.updateVisitStatus(bookingId, 'treatment_completed', undefined, new Date());
       try {
         const slot = await storage.getSlot(booking.slotId);
         if (slot) {
           const [clinic] = await db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, (slot as any).clinicId)).limit(1);
           if (clinic) {
-            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} completed the visit with ${booking.customerName}`, read: false });
-            broadcastToClinic(String(clinic.id), { type: "visit_completed", notification: notif });
+            const notif = await storage.createNotification({ userId: String(clinic.id), message: `Dr. ${booking.assignedDoctor || sess.doctorEmail} has completed treatment for ${booking.customerName} — please mark the visit as complete`, read: false, type: "visit_completed", bookingId });
+            broadcastToClinic(String(clinic.id), { type: "visit_completed", bookingId, notification: notif });
           }
         }
-      } catch (e: any) { console.error('[NOTIFICATION] Complete visit notification failed:', e.message); }
+      } catch (e: any) { console.error('[NOTIFICATION] Treatment complete notification failed:', e.message); }
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/auth/clinic/bookings/:id/no-show", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const { reason } = req.body;
+      const [updated] = await db.update(bookings)
+        .set({ verificationStatus: 'no_show', ...(reason ? { cancellationReason: reason } : {}) })
+        .where(eq(bookings.id, bookingId))
+        .returning();
+      // Audit log
+      await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
+        VALUES (${bookingId}, ${booking.verificationStatus}, 'no_show', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason || null})`);
+
+      // G11 — Notify assigned doctor that patient is a no-show
+      if (booking.assignedDoctorEmail) {
+        try {
+          const [nsDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
+          if (nsDoc) {
+            const nsNotif = await storage.createNotification({
+              userId: String(nsDoc.id),
+              message: `${booking.customerName} did not show up for their appointment — marked as No-Show`,
+              read: false,
+              type: "patient_no_show",
+              bookingId,
+            });
+            broadcastToDoctor(String(nsDoc.id), { type: "patient_no_show", bookingId, notification: nsNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] No-show doctor notification failed:', e.message);
+        }
+      }
+
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // PATCH /api/auth/clinic/bookings/:id/send-reminder — WhatsApp/email nudge
+  app.patch("/api/auth/clinic/bookings/:id/send-reminder", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const slot = await storage.getSlot(booking.slotId);
+      const [clinic] = await db.select().from(clinics).where(eq(clinics.id, sess.clinicId || 0));
+      const dateStr = slot ? format(new Date(slot.startTime), 'EEE d MMM, h:mm a') : 'your appointment';
+      // Send WhatsApp reminder (fire-and-forget)
+      if (booking.customerPhone) {
+        const { sendWhatsAppMessage } = await import('./whatsapp.service');
+        sendWhatsAppMessage(booking.customerPhone,
+          `Reminder: You have an appointment at ${clinic?.name || 'the clinic'} on ${dateStr}. Please arrive on time.`
+        ).catch((e: any) => console.error('[REMINDER] WhatsApp failed:', e.message));
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // PATCH /api/auth/clinic/bookings/:id/override-complete — admin force-completes any non-terminal state
+  app.patch("/api/auth/clinic/bookings/:id/override-complete", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (['cancelled', 'no_show'].includes(booking.verificationStatus)) {
+        return res.status(400).json({ message: "Cannot override a terminal state" });
+      }
+      const { reason } = req.body;
+      const prevVisit = (booking as any).visitStatus || 'booked';
+      const overrideNote = reason?.trim() ? `Override: ${reason.trim()}` : 'Admin override';
+      const updated = await storage.updateVisitStatus(bookingId, 'completed', undefined, new Date(), overrideNote);
+      // Audit log
+      await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
+        VALUES (${bookingId}, ${prevVisit}, 'completed_override', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason || 'Admin override'})`);
+
+      // G12 — Notify assigned doctor the visit was force-completed by admin
+      if (booking.assignedDoctorEmail) {
+        try {
+          const [ocDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
+          if (ocDoc) {
+            const ocNotif = await storage.createNotification({
+              userId: String(ocDoc.id),
+              message: `${booking.customerName}'s visit was marked complete by clinic admin${reason ? ` — "${reason}"` : ''}`,
+              read: false,
+              type: "visit_override_completed",
+              bookingId,
+            });
+            broadcastToDoctor(String(ocDoc.id), { type: "visit_override_completed", bookingId, notification: ocNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Override complete doctor notification failed:', e.message);
+        }
+      }
+
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // PATCH /api/auth/clinic/bookings/:id/patient-left-early
+  // Admin records that the patient walked out during or before consultation
+  app.patch("/api/auth/clinic/bookings/:id/patient-left-early", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId && sess.role !== 'superuser') return res.status(403).json({ message: "Not a clinic admin session" });
+    const bookingId = parseInt(req.params.id);
+    try {
+      const booking = await storage.getBookingById(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      const terminalStates = ['cancelled', 'no_show'];
+      if (terminalStates.includes(booking.verificationStatus)) {
+        return res.status(400).json({ message: "Cannot act on a terminal booking" });
+      }
+      if (booking.visitStatus === 'completed' || booking.visitStatus === 'treatment_completed') {
+        return res.status(400).json({ message: "Visit is already completed — use override if needed" });
+      }
+      const { reason } = req.body;
+      if (!reason?.trim()) return res.status(400).json({ message: "Reason is required" });
+      const prevVisit = booking.visitStatus || 'checked_in';
+      const [updated] = await db.update(bookings)
+        .set({ visitStatus: 'patient_left_early' })
+        .where(eq(bookings.id, bookingId))
+        .returning();
+      await db.execute(sql`INSERT INTO booking_state_log (booking_id, from_state, to_state, actor_role, actor_name, reason)
+        VALUES (${bookingId}, ${prevVisit}, 'patient_left_early', 'admin', ${(sess as any).clinicUsername || 'Admin'}, ${reason})`);
+
+      // G12b — Notify assigned doctor that patient left early
+      if (booking.assignedDoctorEmail) {
+        try {
+          const [pleDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, booking.assignedDoctorEmail)).limit(1);
+          if (pleDoc) {
+            const pleNotif = await storage.createNotification({
+              userId: String(pleDoc.id),
+              message: `${booking.customerName} left early${reason ? ` — "${reason}"` : ''}`,
+              read: false,
+              type: "patient_left_early",
+              bookingId,
+            });
+            broadcastToDoctor(String(pleDoc.id), { type: "patient_left_early", bookingId, notification: pleNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Patient left early doctor notification failed:', e.message);
+        }
+      }
+
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4178,6 +4733,75 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── Consent Text Versions (clinic admin) ──────────────────────────────────
+
+  // GET /api/auth/clinic/consent-versions/current
+  app.get("/api/auth/clinic/consent-versions/current", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const version = await storage.getCurrentConsentVersion(Number(sess.clinicId));
+      res.json(version ?? null);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/auth/clinic/consent-versions
+  app.get("/api/auth/clinic/consent-versions", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const versions = await storage.getClinicConsentVersions(Number(sess.clinicId));
+      res.json(versions);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/auth/clinic/consent-versions — save new version (becomes current)
+  app.post("/api/auth/clinic/consent-versions", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Forbidden" });
+    try {
+      const { title, textEn } = req.body;
+      if (!textEn || typeof textEn !== "string" || textEn.trim().length < 20) {
+        return res.status(400).json({ message: "Consent text must be at least 20 characters" });
+      }
+
+      const clinicId = Number(sess.clinicId);
+      const textHash = crypto.createHash("sha256").update(textEn.trim()).digest("hex");
+
+      // Compute next version number
+      const existingVersions = await storage.getClinicConsentVersions(clinicId);
+      const clinicVersions = existingVersions.filter(v => v.clinicId === clinicId);
+      let nextVersion: string;
+      if (clinicVersions.length === 0) {
+        nextVersion = "1.1";
+      } else {
+        const latest = clinicVersions[0];
+        const [maj, min] = latest.version.split(".").map(Number);
+        nextVersion = `${maj}.${(min || 0) + 1}`;
+      }
+
+      const createdByEmail = sess.clinicEmail || "clinic";
+      const version = await storage.createConsentVersion(clinicId, {
+        title: title?.trim() || "Standard Dental Consent",
+        textEn: textEn.trim(),
+        textHash,
+        version: nextVersion,
+        createdByEmail,
+      });
+
+      await auditLog({ resource: "consent_version", action: "create" })(req, res as any, () => {});
+      res.json(version);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ── Digital Consent Form ──
 
   // POST /api/auth/clinic/bookings/:id/request-consent
@@ -4196,7 +4820,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const token = crypto.randomBytes(32).toString("hex");
       const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
 
-      await storage.createConsentToken(bookingId, clinic.id, token, expiresAt);
+      const currentConsentVersion = await storage.getCurrentConsentVersion(clinic.id);
+      await storage.createConsentToken(bookingId, clinic.id, token, expiresAt, currentConsentVersion?.id);
 
       const baseUrl = process.env.FRONTEND_URL ||
         `${req.protocol}://${req.get("host")}`;
@@ -4208,6 +4833,70 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         clinic.name,
         consentUrl,
       );
+
+      // G15 — Notify assigned doctor that the clinic sent a consent form request
+      if ((booking as any).assignedDoctorEmail) {
+        try {
+          const [clinicConsentDoc] = await db.select({ id: doctors.id }).from(doctors).where(eq(doctors.email, (booking as any).assignedDoctorEmail)).limit(1);
+          if (clinicConsentDoc) {
+            const clinicConsentNotif = await storage.createNotification({
+              userId: String(clinicConsentDoc.id),
+              message: `Clinic sent a consent form request to ${booking.customerName}`,
+              read: false,
+              type: "consent_requested",
+              bookingId,
+            });
+            broadcastToDoctor(String(clinicConsentDoc.id), { type: "consent_requested", bookingId, notification: clinicConsentNotif });
+          }
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Clinic consent request doctor notification failed:', e.message);
+        }
+      }
+
+      res.json({ success: true, consentUrl });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // POST /api/doctor/bookings/:id/request-consent
+  // Doctor-authenticated endpoint — generates / refreshes consent token and sends WhatsApp link
+  app.post("/api/doctor/bookings/:id/request-consent", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== 'doctor') return res.status(403).json({ message: "Forbidden" });
+    try {
+      const bookingId = Number(req.params.id);
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found" });
+      const clinic = await storage.getClinic(slot.clinicId);
+      if (!clinic) return res.status(404).json({ message: "Clinic not found" });
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+      await storage.createConsentToken(bookingId, clinic.id, token, expiresAt);
+
+      const baseUrl = process.env.FRONTEND_URL || `${req.protocol}://${req.get("host")}`;
+      const consentUrl = `${baseUrl}/consent/${token}`;
+
+      await sendWhatsAppConsentLink(booking.customerPhone, booking.customerName, clinic.name, consentUrl);
+
+      // G14 — Notify clinic admin that the doctor requested a consent form
+      try {
+        const drConsentNotif = await storage.createNotification({
+          userId: String(clinic.id),
+          message: `Consent form requested for ${booking.customerName} by Dr. ${sess.doctorEmail}`,
+          read: false,
+          type: "consent_requested",
+          bookingId,
+        });
+        broadcastToClinic(String(clinic.id), { type: "consent_requested", bookingId, notification: drConsentNotif });
+      } catch (e: any) {
+        console.error('[NOTIFICATION] Doctor consent request notification failed:', e.message);
+      }
 
       res.json({ success: true, consentUrl });
     } catch (err: any) {
@@ -4224,7 +4913,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (new Date() > record.expiresAt) return res.status(410).json({ message: "This consent link has expired" });
 
       const slot = await storage.getSlot(record.booking.slotId);
-      const { passwordHash, ...safeClinic } = record.clinic as any;
+
+      // Resolve consent text: version linked to token → clinic current → global default
+      let consentText: string | null = null;
+      const versionId = (record as any).consentTextVersionId;
+      if (versionId) {
+        const rows = await db.execute(sql`SELECT text_en FROM consent_text_versions WHERE id = ${versionId} LIMIT 1`);
+        if (rows.rows[0]) consentText = (rows.rows[0] as any).text_en;
+      }
+      if (!consentText) {
+        const currentVersion = await storage.getCurrentConsentVersion(record.clinic.id);
+        consentText = currentVersion?.textEn ?? null;
+      }
 
       res.json({
         patientName: record.booking.customerName,
@@ -4235,6 +4935,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         appointmentTime: slot?.startTime || null,
         status: record.status,
         expiresAt: record.expiresAt,
+        consentText,
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4242,7 +4943,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // POST /api/consent/:token/sign — public, patient submits their signature
-  app.post("/api/consent/:token/sign", async (req, res) => {
+  app.post("/api/consent/:token/sign", consentSignRateLimiter, async (req, res) => {
     try {
       const record = await storage.getConsentByToken(req.params.token);
       if (!record) return res.status(404).json({ message: "Invalid or expired consent link" });
@@ -4271,8 +4972,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             userId: String(consentClinicId),
             message: `Consent signed by ${record.booking.customerName}${dateStr ? ` for appointment on ${dateStr}` : ''}`,
             read: false,
+            type: "consent_signed",
+            bookingId: record.booking.id,
           });
-          broadcastToClinic(String(consentClinicId), { type: "consent_signed", notification: consentNotif });
+          broadcastToClinic(String(consentClinicId), { type: "consent_signed", bookingId: record.booking.id, notification: consentNotif });
         }
       } catch (e: any) {
         console.error('[NOTIFICATION] Consent sign notification failed:', e.message);
@@ -4338,6 +5041,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         prescription: prescription || null,
         notes: notes || null,
       });
+
+      // G9 — Notify clinic admin that a clinical record was created
+      if (clinicId) {
+        try {
+          const crNotif = await storage.createNotification({
+            userId: String(clinicId),
+            message: `${doctorName || 'Doctor'} created a clinical record for ${patientName}${prescription ? ' (includes prescription)' : ''}`,
+            read: false,
+            type: "clinical_record_created",
+            bookingId: Number(bookingId),
+          });
+          broadcastToClinic(String(clinicId), { type: "clinical_record_created", bookingId: Number(bookingId), notification: crNotif });
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Clinical record created notification failed:', e.message);
+        }
+      }
+
       res.status(201).json(record);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4360,6 +5080,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         ...(notes !== undefined ? { notes } : {}),
         ...(doctorName !== undefined ? { doctorName } : {}),
       });
+
+      // G9b — Notify clinic admin that a clinical record was updated
+      if (record.clinicId) {
+        try {
+          const crUpdateNotif = await storage.createNotification({
+            userId: String(record.clinicId),
+            message: `${record.doctorName || 'Doctor'} updated clinical record for ${record.patientName}${prescription !== undefined ? ' (prescription updated)' : ''}`,
+            read: false,
+            type: "clinical_record_updated",
+            bookingId: record.bookingId,
+          });
+          broadcastToClinic(String(record.clinicId), { type: "clinical_record_updated", bookingId: record.bookingId, notification: crUpdateNotif });
+        } catch (e: any) {
+          console.error('[NOTIFICATION] Clinical record updated notification failed:', e.message);
+        }
+      }
+
       res.json(record);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -4670,6 +5407,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // GET /api/auth/clinic/bills/patient-by-id/:patientId — all bills for a patient by patientId
+  app.get("/api/auth/clinic/bills/patient-by-id/:patientId", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const patientId = parseInt(req.params.patientId);
+      if (isNaN(patientId)) return res.status(400).json({ message: "Invalid patient ID" });
+      const bills = await storage.getPatientBillsByPatientId(clinicId, patientId);
+      res.json(bills);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // GET /api/auth/clinic/bills/booking/:bookingId — bills for a specific booking
   app.get("/api/auth/clinic/bills/booking/:bookingId", isAuthenticated, async (req, res) => {
     try {
@@ -4677,7 +5426,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
       const bookingId = parseInt(req.params.bookingId);
       if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
-      const bills = await storage.getPatientBillsByBookingId(bookingId);
+      const bills = await storage.getPatientBillsByBookingId(bookingId, clinicId);
       res.json(bills);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
@@ -4687,7 +5436,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
-      const { bookingId, billNumber, patientName, patientPhone, patientEmail,
+      const { bookingId, billNumber, patientName, patientPhone, patientEmail, patientId,
               services, subtotal, discountPct, taxPct, total,
               paymentMethod, paymentStatus, notes } = req.body;
       if (!patientName || !billNumber) {
@@ -4696,6 +5445,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const bill = await storage.createPatientBill({
         clinicId,
         bookingId: bookingId || null,
+        patientId: patientId || null,
         billNumber,
         patientName,
         patientPhone: patientPhone || null,
@@ -4721,6 +5471,48 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
       const bill = await storage.updatePatientBill(id, clinicId, req.body);
+
+      // Auto-close booking when all its bills are now paid
+      // Triggers from treatment_completed OR in_consultation (billing done before doctor marks done)
+      if (req.body.paymentStatus === 'paid' && bill.bookingId) {
+        try {
+          const bookingBills = await storage.getPatientBillsByBookingId(bill.bookingId, clinicId);
+          const allPaid = bookingBills.length > 0 && bookingBills.every(b => b.paymentStatus === 'paid');
+          if (allPaid) {
+            const booking = await storage.getBookingById(bill.bookingId);
+            const billableStates = ['treatment_completed', 'in_consultation'];
+            if (booking && billableStates.includes(booking.visitStatus || '')) {
+              await storage.updateVisitStatus(bill.bookingId, 'completed', undefined, new Date());
+              broadcastToClinic(String(clinicId), { type: 'visit_auto_completed', bookingId: bill.bookingId });
+              console.log(`[AUTO-COMPLETE] Booking ${bill.bookingId} auto-completed from '${booking.visitStatus}' — all bills settled`);
+            }
+          }
+        } catch (e: any) {
+          console.error('[AUTO-COMPLETE] Failed:', e.message);
+        }
+
+        // G13 — Auto-send payment confirmation email to patient when bill is marked paid
+        if (bill.patientEmail || bill.patientPhone) {
+          try {
+            const billClinic = await storage.getClinic(clinicId);
+            const clinicNameForBill = billClinic?.name || 'Your clinic';
+            const billServices = (bill.services ?? []) as { description: string; amount: number }[];
+            const billLineItems = billServices.map(s => `<tr><td style="padding:4px 8px">${s.description}</td><td style="padding:4px 8px;text-align:right">₹${Number(s.amount).toFixed(0)}</td></tr>`).join('');
+            if (resend && bill.patientEmail) {
+              const paidToEmail = RESEND_MODE === 'PRODUCTION' ? bill.patientEmail : TEST_EMAIL;
+              resend.emails.send({
+                from: EMAIL_FROM,
+                to: paidToEmail,
+                subject: `Payment Confirmed — ${clinicNameForBill}`,
+                html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;background:#f9fafb;border-radius:12px"><div style="background:#085041;border-radius:8px;padding:20px;text-align:center;margin-bottom:20px"><h2 style="color:#fff;margin:0;font-size:20px">${clinicNameForBill}</h2><p style="color:#a7f3d0;margin:6px 0 0;font-size:13px">Payment Confirmation</p></div><p style="color:#374151">Dear <strong>${bill.patientName}</strong>,</p><p style="color:#374151">Your bill <strong>${bill.billNumber}</strong> has been marked as <strong style="color:#059669">Paid</strong>.</p><table style="width:100%;border-collapse:collapse;margin:16px 0;background:#fff;border-radius:8px;overflow:hidden"><thead><tr style="background:#f3f4f6"><th style="padding:8px;text-align:left;color:#6b7280;font-size:13px">Item</th><th style="padding:8px;text-align:right;color:#6b7280;font-size:13px">Amount</th></tr></thead><tbody style="font-size:13px;color:#374151">${billLineItems}</tbody><tfoot><tr style="border-top:2px solid #e5e7eb"><td style="padding:8px;font-weight:700">Total Paid</td><td style="padding:8px;text-align:right;font-weight:700;color:#059669">₹${Number(bill.total ?? 0).toFixed(0)}</td></tr></tfoot></table><p style="color:#6b7280;font-size:12px;text-align:center">Thank you for choosing ${clinicNameForBill}. We wish you a speedy recovery.</p><p style="color:#d1d5db;font-size:11px;text-align:center;margin-top:16px">Powered by BookMySlot</p></div>`,
+              }).catch(() => {});
+            }
+          } catch (e: any) {
+            console.error('[AUTO-NOTIFY-PAID] Failed:', e.message);
+          }
+        }
+      }
+
       res.json(bill);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
@@ -4745,14 +5537,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
 
-      const bills = await storage.getPatientBillsByClinicId(clinicId);
-      const bill = bills.find(b => b.id === id);
+      const bill = await storage.getPatientBillById(id, clinicId);
       if (!bill) return res.status(404).json({ message: "Bill not found" });
       if (!bill.patientEmail && !bill.patientPhone) {
         return res.json({ success: true, message: "No contact info — notification skipped" });
       }
 
-      const clinic = await storage.getClinicById(clinicId);
+      const clinic = await storage.getClinic(clinicId);
       const clinicName = clinic?.name || "Your clinic";
 
       const services = (bill.services ?? []) as { description: string; amount: number; paid?: boolean }[];
@@ -4857,6 +5648,62 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const analytics = await storage.getClinicAnalytics(clinicId, range);
       res.json(analytics);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── X-RAY ANALYSIS ────────────────────────────────────────────────────────
+  // POST /api/xray/analyse
+  // Accepts a dental X-ray image, proxies it to the Hugging Face AI service,
+  // and returns detected findings. Doctor session required.
+  const xrayUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+    fileFilter: (_req, file, cb) => {
+      const allowed = ["image/jpeg", "image/png", "image/webp", "image/bmp"];
+      if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error("Only JPEG, PNG, WebP and BMP images are accepted."));
+      }
+    },
+  });
+
+  app.post("/api/xray/analyse", xrayUpload.single("file"), async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== "doctor" || !sess.doctorEmail) {
+      return res.status(401).json({ success: false, message: "Not authenticated. Please log in as a doctor." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No image file provided." });
+    }
+    try {
+      const result = await wakeAndAnalyse(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype
+      );
+      if (!result.success) {
+        return res.status(502).json({
+          success: false,
+          message: result.message || "AI analysis failed. Please try again.",
+        });
+      }
+      return res.json({
+        success: true,
+        findings: result.analysis?.findings ?? [],
+      });
+    } catch (err: any) {
+      if (err.name === "AbortError" || err.message?.includes("abort")) {
+        return res.status(504).json({
+          success: false,
+          message: "AI service timed out. The service may be waking up — please try again in 30 seconds.",
+        });
+      }
+      console.error("[X-Ray] AI service error:", err.message);
+      return res.status(503).json({
+        success: false,
+        message: "AI service is currently unavailable. Please try again shortly.",
+      });
+    }
   });
 
   return createServer(app);

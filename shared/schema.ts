@@ -111,7 +111,10 @@ export const bookings = pgTable("bookings", {
   consentToken: varchar("consent_token", { length: 255 }),
   paymentAmount: integer("payment_amount"),
   cancellationReason: text("cancellation_reason"),
+  visitCompletionNote: text("visit_completion_note"),
   slotCost: integer("slot_cost").default(1),
+  visitType: varchar("visit_type", { length: 50 }),
+  treatmentCategory: varchar("treatment_category", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -120,6 +123,8 @@ export const notifications = pgTable("notifications", {
   userId: varchar("user_id").notNull(),
   message: text("message").notNull(),
   read: boolean("read").default(false).notNull(),
+  type: varchar("type", { length: 80 }),
+  bookingId: integer("booking_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -324,13 +329,13 @@ export const publicBookingSchema = createInsertSchema(bookings).omit({
   clinicId: z.number(),
   startTime: z.string(),
   endTime: z.string(),
-  customerEmail: z.string().email()
+  customerEmail: z.string().email(),
+  verificationStatus: z.union([z.literal('pending'), z.literal('verified'), z.literal('confirmed'), z.literal('admin_booked')]).optional(),
 });
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ 
   id: true, 
   createdAt: true,
-  read: true
 });
 
 export const insertClinicSchema = createInsertSchema(clinics).omit({ 
@@ -367,6 +372,26 @@ export const insertBookingNoteSchema = createInsertSchema(bookingNotes).omit({
 export type BookingNote = typeof bookingNotes.$inferSelect;
 export type InsertBookingNote = z.infer<typeof insertBookingNoteSchema>;
 
+export const consentTextVersions = pgTable("consent_text_versions", {
+  id: serial("id").primaryKey(),
+  clinicId: integer("clinic_id").references(() => clinics.id),
+  version: varchar("version", { length: 20 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull().default("Standard Dental Consent"),
+  textEn: text("text_en").notNull(),
+  textHash: varchar("text_hash", { length: 64 }).notNull(),
+  isCurrent: boolean("is_current").default(false).notNull(),
+  createdByEmail: varchar("created_by_email", { length: 255 }),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertConsentTextVersionSchema = createInsertSchema(consentTextVersions).omit({
+  id: true,
+  createdAt: true,
+});
+export type ConsentTextVersion = typeof consentTextVersions.$inferSelect;
+export type InsertConsentTextVersion = z.infer<typeof insertConsentTextVersionSchema>;
+
 export const consentTokens = pgTable("consent_tokens", {
   id: serial("id").primaryKey(),
   bookingId: integer("booking_id").notNull().references(() => bookings.id),
@@ -374,6 +399,7 @@ export const consentTokens = pgTable("consent_tokens", {
   token: varchar("token", { length: 255 }).notNull().unique(),
   status: varchar("status", { length: 20 }).default("pending").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
+  consentTextVersionId: integer("consent_text_version_id").references(() => consentTextVersions.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -666,6 +692,27 @@ export const billingAuditLogs = pgTable("billing_audit_logs", {
 });
 
 export type BillingAuditLog = typeof billingAuditLogs.$inferSelect;
+
+// ── PII AUDIT LOGS ───────────────────────────────────────────────────────────
+// Append-only log of every access or mutation of patient PII data.
+// Written fire-and-forget from auditLog.middleware.ts — never blocks a request.
+
+export const auditLogs = pgTable("audit_logs", {
+  id:           serial("id").primaryKey(),
+  actorType:    varchar("actor_type",    { length: 30  }).notNull(), // superuser | owner | doctor | customer | public
+  actorId:      varchar("actor_id",      { length: 255 }).notNull(), // clinicId, doctorId, userId string, or "public"
+  actorLabel:   varchar("actor_label",   { length: 255 }),           // human-readable: clinic email, doctor email
+  clinicId:     integer("clinic_id"),                                // which clinic's data was touched
+  action:       varchar("action",        { length: 20  }).notNull(), // view | create | update | delete | export | sign
+  resourceType: varchar("resource_type", { length: 50  }).notNull(), // booking | patient | clinical_record | consent | bill | export | xray
+  resourceId:   integer("resource_id"),                              // specific record ID when available
+  ipAddress:    varchar("ip_address",    { length: 64  }),
+  userAgent:    text("user_agent"),
+  createdAt:    timestamp("created_at").defaultNow(),
+});
+
+export type AuditLog       = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = typeof auditLogs.$inferInsert;
 
 // ────────────────────────────────────────────────────────────────────────────
 

@@ -169,6 +169,94 @@ A full stock management system for dental supplies and equipment:
 - Clinic can still access the dashboard — they are not locked out while pending payment
 - Banner disappears once the subscription is activated
 
+### Patient Identity & CRM
+
+The platform automatically creates and maintains a persistent patient record the first time an email address books an appointment at a clinic. This gives the clinic a lightweight CRM even though patients have no login.
+
+- Each patient is assigned a unique **PAT code** (e.g. `PAT-0001`) scoped to the clinic — a human-readable identifier used in bills and exports
+- Each booking stores a **`patientId`** (foreign key to the `patients` table) in addition to the raw name/phone/email fields. This links every visit to the same patient record even if contact details change slightly between bookings
+- The `patients` table tracks cumulative **`totalBilled`** and **`totalCollected`** across all visits
+- Clinic admin can view the full patient list via the Patients panel in the dashboard
+
+**Why `patientId` matters:** Before this was added, billing history was looked up by email or phone — producing false misses when patients typed their details differently. Now all billing queries use `patientId` as the primary key; email/phone is kept as a fallback for legacy records that pre-date the field.
+
+### Patient Billing
+
+A full financial management system for generating and tracking patient invoices, accessed from the Billing tab inside each booking card.
+
+**Bill creation:**
+- Add line items one by one; each item has a **category** (Consultation, Procedure, Treatment, Pharmacy, Consumable, Other), description, quantity, and unit price
+- Pharmacy items can be loaded directly from the clinic's pharmacy stock catalogue — price is auto-filled
+- A booking starts with no bill (`draft` created on first charge added) and can accumulate multiple line items before being finalised
+
+**Bill states:** `draft` → `pending` → `partial` → `paid`
+
+**Cashiering:**
+- Record **amount received**, **cashier name**, and **payment method** (Cash, UPI, Card, Insurance, Other)
+- Supports partial payments — outstanding balance tracked automatically
+
+**Patient history:**
+- The billing panel shows all past bills for the same patient (across all visits) by looking up via `patientId` first, falling back to email/phone for legacy records
+- Consolidated receipt: merge multiple bills into a single printable summary
+
+**Receipts and printing:**
+- Generate a formatted PDF receipt per bill or a consolidated receipt across all bills
+- Print directly from the browser
+
+**Audit log:**
+- Every financial action (item added, amount changed, payment recorded, bill status changed) is written to the `billing_audit` table with timestamp and actor
+
+**Bill number format:** `DFT-{bookingId}-{8-char UUID}` — collision-free even under rapid double-submits
+
+### Pharmacy Stock
+
+A dedicated medicine catalogue separate from the general clinic inventory system. Used as the price and dosage source when adding pharmacy line items to patient bills.
+
+- Each entry has: medicine name, dosage, unit price (₹), expiry date, current stock quantity
+- Stock is linked to the clinic; doctors and clinic staff can look up items when billing
+- Integrated with BillingHistoryPanel — selecting a pharmacy item auto-fills description and unit price in the bill form
+
+### Website Builder
+
+Clinics can customise their public profile page (`/clinic/:id`) without writing any code, via the Website Config panel in the dashboard.
+
+**Themes:** Three built-in visual themes — Classic, Warm, Modern
+
+**Configurable sections:**
+| Section | What it controls |
+|---|---|
+| Hero | Headline text, subheadline, call-to-action button label, hero image |
+| About | "About the clinic" body text |
+| Features | "Why Choose Us" bullet points (up to 6 cards with icons) |
+| Stats Bar | 3 numeric stats (e.g. "2000+ Patients", "15 Years Experience") |
+| Service Carousel | List of services offered (name + short description) |
+| Photo Gallery | Upload up to 8 clinic photos |
+| Patient Reviews | 3 curated testimonials (patient name, quote, rating) |
+
+**Social links:** Instagram, Facebook, YouTube
+
+**Image uploads:** Hero image and gallery photos go through the same Cloudflare R2 signed-URL flow used by doctor photos and clinic logos.
+
+### Analytics Dashboard
+
+A built-in reporting panel giving clinic admins financial and operational insights without needing any external tool.
+
+**Financial metrics:**
+- Weekly revenue trend (bar chart)
+- Payment method breakdown — Cash / UPI / Card / Insurance (donut chart)
+- Average revenue per patient visit
+
+**Operational metrics:**
+- Slot utilisation percentage (booked slots / total slots)
+- Cancellation rate
+- Doctor workload and individual productivity breakdown
+
+**Patient growth:**
+- New vs. repeat patients over time
+- Monthly patient growth trend
+
+Charts are rendered with **Recharts**. All data comes from the clinic's own bookings and bills — no external analytics service is used.
+
 ### Profile Management
 - Update clinic name, address, city, pincode, phone, website
 - Upload clinic logo (via Cloudflare R2 signed URL)
@@ -234,6 +322,10 @@ Doctors can add patient case studies (anonymised) to showcase their work:
 - Patients cannot be assigned to a doctor who is on leave for that date
 - The clinic admin can view all leave dates across all their doctors
 
+### QR Code Share
+
+Each doctor's dashboard displays a personal QR code that encodes the URL of their public profile (`/doctor/:id`). Doctors can download or screenshot it to share with patients at reception, on business cards, or in waiting rooms.
+
 ### Public Profile
 - Each doctor has a public profile page at `/doctor/:id`
 - Visible to anyone — no login required
@@ -267,6 +359,12 @@ Patients do not have accounts. Every booking session starts fresh with an email 
   - Reads the consent declaration text
   - Signs using finger (touchscreen) or mouse on a signature canvas
   - Submits — signature, timestamp, and IP address are stored; clinic sees "Signed ✓"
+
+### Patient Identity — How `patientId` Is Assigned
+
+When a patient submits their first booking at a clinic, the backend looks up the `patients` table by email and phone. If no match is found, a new patient record is created automatically (with a unique PAT code for that clinic) and the booking's `patientId` column is set to that record's ID. On subsequent bookings at the same clinic the existing record is found and reused.
+
+This is transparent to the patient — they just enter their name and phone as usual. The PAT code and `patientId` are internal identifiers used by clinic staff for billing, clinical records, and patient history lookups.
 
 ### Email OTP Details
 - OTP is valid for a limited time window
@@ -340,6 +438,9 @@ Patient signs consent form → consentSignature saved
 Patient attends appointment → clinicalStatus: COMPLETED
         ↓
 [Optional] Clinic creates clinical record → diagnosis, prescription, notes stored
+        ↓
+[Optional] Clinic opens Billing tab → adds charges from service/pharmacy catalogue
+Patient bill created → paymentMethod and amount received recorded → status: PAID
 ```
 
 **Booking status values:** `pending`, `confirmed`, `cancelled`
@@ -468,7 +569,11 @@ A quick reference for AI analysis of the data model:
 | `stock_transactions` | Every stock movement log |
 | `stock_alerts` | Low-stock and expiry alerts |
 | `export_history` | Log of XLSX exports by clinic |
-| `patients` | Patient records linked to doctors/clinics |
+| `patients` | Persistent patient CRM records — PAT code, cumulative billing totals, linked to clinic |
+| `patient_bills` | Individual patient invoices — line items (JSONB), payment status, cashier info, `patientId` FK |
+| `billing_audit` | Immutable audit log — every financial action on a bill with timestamp and actor |
+| `pharmacy_stock` | Clinic medicine catalogue — dosage, unit price, expiry, used as billing price source |
+| `login_events` | Security audit log — every admin/clinic/doctor login attempt with IP, user-agent, status |
 | `site_settings` | Key-value settings for the platform |
 | `session` | Server-side session store (managed by express-session) |
 
@@ -481,7 +586,6 @@ These are features that are **planned or partially stubbed** but not yet functio
 | Feature | Status |
 |---|---|
 | Subscription expiry enforcement | Schema has `expired` status but it is never set automatically |
-| Advanced analytics dashboard | Basic plan includes "Basic analytics" but no analytics UI is built |
 | Patient login / patient portal | Patients have no account — no history, no login |
 | SMS notifications | Only WhatsApp via Twilio; no plain SMS |
 | Multi-language interface | App is English-only; doctor profiles support multiple spoken languages |
@@ -754,6 +858,18 @@ All endpoints are in `server/routes.ts`. Auth column shows which session field m
 | `GET` | `/api/clinic/inventory/alerts` | `clinicId` | List stock and expiry alerts |
 | `PATCH` | `/api/clinic/inventory/alerts/:id/dismiss` | `clinicId` | Dismiss an alert |
 | `GET` | `/api/auth/clinic/patients` | `clinicId` | List patients linked to the clinic |
+| `GET` | `/api/auth/clinic/bills/booking/:bookingId` | `clinicId` | All bills for a specific booking (clinic-isolated) |
+| `GET` | `/api/auth/clinic/bills/patient-by-id/:patientId` | `clinicId` | All bills for a patient by `patientId` (primary history lookup) |
+| `GET` | `/api/auth/clinic/bills/patient-by-email/:email` | `clinicId` | All bills for a patient by email (legacy fallback) |
+| `GET` | `/api/auth/clinic/bills/patient/:phone` | `clinicId` | All bills for a patient by phone (legacy fallback) |
+| `POST` | `/api/auth/clinic/bills` | `clinicId` | Create a new patient bill (writes `patientId` if provided) |
+| `PATCH` | `/api/auth/clinic/bills/:id` | `clinicId` | Update a bill (add items, record payment, change status) |
+| `DELETE` | `/api/auth/clinic/bills/:id` | `clinicId` | Delete a bill |
+| `GET` | `/api/auth/clinic/pharmacy` | `clinicId` | List pharmacy stock items |
+| `POST` | `/api/auth/clinic/pharmacy` | `clinicId` | Add a pharmacy stock item |
+| `PATCH` | `/api/auth/clinic/pharmacy/:id` | `clinicId` | Update a pharmacy item (price, stock, expiry) |
+| `DELETE` | `/api/auth/clinic/pharmacy/:id` | `clinicId` | Remove a pharmacy item |
+| `GET` | `/api/auth/clinic/analytics` | `clinicId` | Revenue, slot utilisation, doctor workload, patient growth data |
 
 ### Doctor
 
@@ -817,5 +933,5 @@ All endpoints are in `server/routes.ts`. Auth column shows which session field m
 
 ---
 
-*Last updated: May 2026*
+*Last updated: June 2026*
 *This document reflects the current state of the application. For setup instructions, see `docs/local-development-setup.md`. For deployment, see `docs/render-environment-setup.md`. For the real-time notification system, see `docs/notification-service.md`.*

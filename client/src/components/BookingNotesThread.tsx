@@ -59,7 +59,7 @@ export function BookingNotesThread({ bookingId, authorType }: BookingNotesThread
     <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden flex flex-col">
       <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5 shrink-0">
         <MessageSquare className="h-3 w-3 text-primary" />
-        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Notes & Messages
         </span>
       </div>
@@ -87,7 +87,7 @@ export function BookingNotesThread({ bookingId, authorType }: BookingNotesThread
                   }`}
                 >
                   <p
-                    className={`text-[10px] font-semibold mb-0.5 ${
+                    className={`text-xs font-semibold mb-0.5 ${
                       note.authorType === "doctor"
                         ? "text-primary"
                         : "text-accent"
@@ -97,7 +97,7 @@ export function BookingNotesThread({ bookingId, authorType }: BookingNotesThread
                   </p>
                   <p className="whitespace-pre-wrap break-words">{note.content}</p>
                 </div>
-                <span className="text-[10px] text-muted-foreground/50 px-1">
+                <span className="text-xs text-muted-foreground/50 px-1">
                   {format(new Date(note.createdAt), "MMM d, h:mm a")}
                 </span>
               </div>

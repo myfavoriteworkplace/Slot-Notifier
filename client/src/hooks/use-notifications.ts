@@ -85,20 +85,102 @@ function playNotificationSound() {
 }
 
 const TOAST_TITLES: Record<string, string> = {
-  new_booking:          "New Booking Request",
-  paid_booking:         "Paid Booking Confirmed",
-  booking_rescheduled:  "Booking Rescheduled",
-  doctor_approved:      "Doctor Confirmed",
-  doctor_declined:      "Doctor Declined",
-  consent_signed:       "Consent Signed",
-  doctor_assigned:      "New Appointment Assigned",
-  admin_confirmed:      "Appointment Confirmed",
-  patient_checked_in:   "Patient Arrived",
-  consultation_started: "Consultation Started",
-  visit_completed:      "Visit Completed",
-  case_closed_by_doctor:"Case Closed",
-  case_closed_by_clinic:"Case Closed",
+  new_booking:              "New Booking Request",
+  paid_booking_confirmed:   "Paid Booking Confirmed",
+  booking_rescheduled:      "Booking Rescheduled",
+  booking_cancelled:        "Booking Cancelled",
+  doctor_approved:          "Doctor Confirmed",
+  doctor_declined:          "Doctor Declined",
+  doctor_assigned:          "New Appointment Assigned",
+  admin_confirmed:          "Appointment Confirmed",
+  patient_checked_in:       "Patient Arrived",
+  consultation_started:     "Consultation Started",
+  visit_completed:          "Visit Completed",
+  visit_auto_completed:     "Visit Auto-Completed",
+  visit_override_completed: "Visit Completed by Admin",
+  patient_no_show:          "Patient No-Show",
+  patient_left_early:       "Patient Left Early",
+  case_closed_by_doctor:    "Case Closed",
+  case_closed_by_clinic:    "Case Closed",
+  clinical_status_updated:  "Clinical Status Updated",
+  clinical_record_created:  "Clinical Record Added",
+  clinical_record_updated:  "Clinical Record Updated",
+  booking_note_added:       "New Booking Note",
+  consent_requested:        "Consent Form Sent",
+  consent_signed:           "Consent Signed",
+  doctor_on_leave:          "Doctor On Leave",
+  doctor_leave_cancelled:   "Doctor Available",
 };
+
+/**
+ * Events that require the bookings list to be refetched.
+ * Covers both clinic and doctor views — same queryKey is used by both dashboards.
+ */
+const BOOKING_LIST_EVENTS = new Set([
+  "new_booking",
+  "paid_booking_confirmed",
+  "booking_rescheduled",
+  "booking_cancelled",
+  "doctor_approved",
+  "doctor_declined",
+  "doctor_assigned",
+  "admin_confirmed",
+  "patient_checked_in",
+  "consultation_started",
+  "visit_completed",
+  "visit_auto_completed",
+  "visit_override_completed",
+  "patient_no_show",
+  "patient_left_early",
+  "clinical_status_updated",
+  "case_closed_by_doctor",
+  "case_closed_by_clinic",
+  "consent_signed",
+  "consent_requested",
+  "booking_note_added",
+]);
+
+/**
+ * Apply query invalidations for a WebSocket message.
+ * Called for EVERY message regardless of whether it has a notification payload.
+ */
+function applyQueryInvalidations(
+  queryClient: ReturnType<typeof useQueryClient>,
+  msg: { type: string; bookingId?: number; [key: string]: unknown },
+) {
+  const { type, bookingId } = msg;
+
+  // ── Bookings list (clinic dashboard + doctor dashboard) ─────────────────────
+  if (BOOKING_LIST_EVENTS.has(type)) {
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
+  }
+
+  // ── Doctor leaves ────────────────────────────────────────────────────────────
+  if (type === "doctor_on_leave" || type === "doctor_leave_cancelled") {
+    queryClient.invalidateQueries({ queryKey: ["/api/clinic/doctor-leaves/all"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/doctor/leaves"] });
+  }
+
+  // ── Bills — refetch when visit auto-completes (all bills settled) ────────────
+  if (type === "visit_auto_completed") {
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills"] });
+    if (bookingId) {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bills/booking", bookingId] });
+    }
+  }
+
+  // ── Clinical records — targeted by bookingId when available ─────────────────
+  if (type === "clinical_record_created" || type === "clinical_record_updated") {
+    if (bookingId) {
+      queryClient.invalidateQueries({ queryKey: ["/api/clinical-records/booking", bookingId] });
+    }
+  }
+
+  // ── Booking notes — targeted by bookingId so the thread updates live ─────────
+  if (type === "booking_note_added" && bookingId) {
+    queryClient.invalidateQueries({ queryKey: ["/api/booking", bookingId, "notes"] });
+  }
+}
 
 export function useNotificationSocket(clinicId?: number, doctorId?: number) {
   const queryClient = useQueryClient();
@@ -115,7 +197,7 @@ export function useNotificationSocket(clinicId?: number, doctorId?: number) {
       if (cancelled) return;
 
       const wsUrl = API_BASE_URL
-        ? API_BASE_URL.replace(/^https/, "wss").replace(/^http/, "ws") + "/ws/notifications"
+        ? new URL("/ws/notifications", API_BASE_URL).toString().replace(/^https:/, "wss:").replace(/^http:/, "ws:")
         : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws/notifications`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -130,8 +212,20 @@ export function useNotificationSocket(clinicId?: number, doctorId?: number) {
 
       ws.onmessage = (event) => {
         try {
-          const msg = JSON.parse(event.data);
-          if (msg.type && msg.notification) {
+          const msg = JSON.parse(event.data) as {
+            type: string;
+            notification?: { message: string };
+            bookingId?: number;
+            [key: string]: unknown;
+          };
+
+          if (!msg.type) return;
+
+          // 1. Always apply data-layer cache invalidations so the UI refreshes
+          applyQueryInvalidations(queryClient, msg);
+
+          // 2. Show toast + play sound only when there is a human-readable notification
+          if (msg.notification) {
             queryClient.invalidateQueries({ queryKey: [api.notifications.list.path] });
             playNotificationSound();
             const title = TOAST_TITLES[msg.type] ?? "New Notification";

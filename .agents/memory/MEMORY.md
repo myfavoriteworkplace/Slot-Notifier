@@ -1,1 +1,7 @@
+- [Build Check rule](build-check-rule.md) — after any frontend feature, run "Build Check" workflow before handing back; catches TDZ/chunk errors invisible in dev
 - [BillingHistoryPanel design rules](billing-panel-design.md) — min font text-xs, category grouping, pharmacy desc parsing, active bill styling conventions
+- [Visit completion note flow](visit-completion-note.md) — visitCompletionNote stored on booking; saved via complete-visit (note param) and override-complete (reason prefixed "Override:"); displayed as green banner + progress strip tooltip.
+- [Booking status field names](booking-status-fields.md) — verificationStatus (pending/confirmed/cancelled/no_show) and visitStatus (null/checked_in/in_consultation/treatment_completed/completed/patient_left_early). No bare "status" field on bookings. stageBeforeCancel index 4 maps to visitStatus 'completed' (not 'visit_completed').
+- [completeVisitMutation signature](visit-completion-note.md) — ClinicDashboard mutation takes { bookingId, note? }, not bare bookingId; all call sites must use object form.
+- [noBill vs hasUnpaidBill in progress strip](booking-progress-strip.md) — noBill (zero bills) shows green dashed border; hasUnpaidBill (bills exist but unpaid) shows amber. Both derive from totalBillsCount/openBillsCount props; openBillsCount uses paymentStatus !== 'paid' filter.
+- [Notification deep-link pattern](notif-deeplink.md) — 28 triggers need type+bookingId in notifications table; leaves navigate to manage-doctors panel; bookings open card+tab via URL params on dashboard mount.

@@ -2,6 +2,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { registerRoutes } from "./routes";
@@ -16,6 +17,10 @@ const httpServer = createServer(app);
 
 // Trust proxy for deployments behind load balancers (Render, etc.)
 app.set("trust proxy", 1);
+
+// ------------------ COMPRESSION ------------------
+// Gzip all responses > 1 KB — reduces JS/JSON transfer by 60-80%
+app.use(compression());
 
 // Determine frontend URL(s)
 // FRONTEND_URL can be a comma-separated list of allowed origins
@@ -37,8 +42,19 @@ const FRONTEND_ORIGINS = [
 ];
 
 // ------------------ SESSION ------------------
-const sessionSecret = process.env.SESSION_SECRET || "book-my-slot-secret";
+const sessionSecret = (() => {
+  if (process.env.NODE_ENV === "production") {
+    if (!process.env.SESSION_SECRET) {
+      throw new Error("SESSION_SECRET must be set in production");
+    }
+    return process.env.SESSION_SECRET;
+  }
+  return process.env.SESSION_SECRET || "book-my-slot-secret";
+})();
 console.log("[Environment]", process.env.NODE_ENV);
+
+const ALLOWED_FRONTEND_ORIGINS = new Set(FRONTEND_ORIGINS);
+const REPLIT_ORIGIN_REGEX = /^https:\/\/[a-z0-9-]+\.replit\.dev$/;
 
 app.use(
   session({
@@ -66,7 +82,11 @@ app.use(
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || FRONTEND_ORIGINS.includes(origin) || origin.includes("replit.dev")) {
+      const isAllowedOrigin =
+        !origin ||
+        ALLOWED_FRONTEND_ORIGINS.has(origin) ||
+        REPLIT_ORIGIN_REGEX.test(origin);
+      if (isAllowedOrigin) {
         callback(null, true);
       } else {
         callback(new Error(`CORS blocked for origin: ${origin}`));
@@ -308,6 +328,9 @@ app.use((req, res, next) => {
           END IF;
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='slot_cost') THEN
             ALTER TABLE bookings ADD COLUMN slot_cost integer DEFAULT 1;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bookings' AND column_name='visit_completion_note') THEN
+            ALTER TABLE bookings ADD COLUMN visit_completion_note text;
           END IF;
         END $$;
       `);
@@ -686,6 +709,37 @@ app.use((req, res, next) => {
       `);
       log("patient identity columns ready", "system");
 
+      // ── Backfill patientCode for legacy patients that are missing one ──────
+      try {
+        await db.execute(sql`
+          UPDATE patients p
+          SET patient_code = 'PAT-' || LPAD(CAST(sub.rn AS TEXT), 4, '0')
+          FROM (
+            SELECT id,
+                   ROW_NUMBER() OVER (PARTITION BY clinic_id ORDER BY created_at ASC NULLS LAST, id ASC) AS rn
+            FROM patients
+            WHERE patient_code IS NULL
+          ) sub
+          WHERE p.id = sub.id
+        `);
+        log("patientCode backfill complete", "DATABASE");
+      } catch (e: any) {
+        console.error("[DATABASE] patientCode backfill failed (non-fatal):", e.message);
+      }
+
+      // ── Unique constraint on (clinic_id, patient_code) ────────────────────
+      try {
+        await db.execute(sql`
+          ALTER TABLE patients
+            ADD CONSTRAINT patients_clinic_patient_code_unique UNIQUE (clinic_id, patient_code)
+        `);
+        log("patients (clinic_id, patient_code) unique constraint added", "DATABASE");
+      } catch (e: any) {
+        if (!e.message?.includes("already exists")) {
+          console.error("[DATABASE] patients unique constraint failed (non-fatal):", e.message);
+        }
+      }
+
       // ── Backfill: create patient records from historical bookings ───────────
       // Safe to run every startup — only touches bookings where patient_id IS NULL.
       // Becomes a no-op once all bookings are linked.
@@ -764,6 +818,94 @@ app.use((req, res, next) => {
         log(`Patient backfill warning: ${backfillErr.message}`, "system");
       }
 
+      // ── PII Audit log table ──────────────────────────────────────────────────
+      try {
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS audit_logs (
+            id           serial PRIMARY KEY,
+            actor_type   varchar(30)  NOT NULL,
+            actor_id     varchar(255) NOT NULL,
+            actor_label  varchar(255),
+            clinic_id    integer,
+            action       varchar(20)  NOT NULL,
+            resource_type varchar(50) NOT NULL,
+            resource_id  integer,
+            ip_address   varchar(64),
+            user_agent   text,
+            created_at   timestamp DEFAULT now()
+          );
+        `);
+        await db.execute(sql`
+          CREATE INDEX IF NOT EXISTS audit_logs_clinic_id_idx   ON audit_logs (clinic_id);
+          CREATE INDEX IF NOT EXISTS audit_logs_actor_id_idx    ON audit_logs (actor_id);
+          CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx  ON audit_logs (created_at DESC);
+        `);
+        log("audit_logs table verified/created", "system");
+      } catch (e: any) {
+        log(`audit_logs migration warning: ${e.message}`, "system");
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
+      // ── Consent text versions table + consent_tokens version column ──────────
+      try {
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS consent_text_versions (
+            id                serial       PRIMARY KEY,
+            clinic_id         integer      REFERENCES clinics(id),
+            version           varchar(20)  NOT NULL,
+            title             varchar(255) NOT NULL DEFAULT 'Standard Dental Consent',
+            text_en           text         NOT NULL,
+            text_hash         varchar(64)  NOT NULL,
+            is_current        boolean      NOT NULL DEFAULT false,
+            created_by_email  varchar(255),
+            effective_from    timestamp    DEFAULT now(),
+            created_at        timestamp    DEFAULT now()
+          );
+        `);
+        await db.execute(sql`
+          CREATE INDEX IF NOT EXISTS consent_text_versions_clinic_id_idx ON consent_text_versions (clinic_id);
+          CREATE INDEX IF NOT EXISTS consent_text_versions_is_current_idx ON consent_text_versions (clinic_id, is_current);
+        `);
+        await db.execute(sql`
+          ALTER TABLE consent_tokens
+            ADD COLUMN IF NOT EXISTS consent_text_version_id integer REFERENCES consent_text_versions(id);
+        `);
+        log("consent_text_versions table + consent_tokens column verified/created", "system");
+      } catch (e: any) {
+        log(`consent_text_versions migration warning: ${e.message}`, "system");
+      }
+
+      // ── Seed global v1.0 default consent text if none exists ─────────────────
+      try {
+        const existing = await db.execute(sql`
+          SELECT id FROM consent_text_versions WHERE clinic_id IS NULL LIMIT 1;
+        `);
+        if (existing.rows.length === 0) {
+          const defaultText = `I hereby give my informed consent to the dental clinic to perform dental examination and any necessary dental treatment deemed appropriate by the treating dentist.
+
+I understand and acknowledge the following:
+- The nature of the proposed treatment and its alternatives have been explained to me.
+- All dental procedures carry certain risks including pain, swelling, and infection.
+- I am responsible for informing the clinic of any allergies or medical conditions.
+- My personal and health information will be kept confidential.
+- I have the right to withdraw consent at any time before treatment begins.
+
+By signing below, I confirm that I have read and understood the above and voluntarily consent to the dental care provided by this clinic.`;
+          const crypto = await import("crypto");
+          const hash = crypto.createHash("sha256").update(defaultText).digest("hex");
+          await db.execute(sql`
+            INSERT INTO consent_text_versions
+              (clinic_id, version, title, text_en, text_hash, is_current, effective_from)
+            VALUES
+              (NULL, '1.0', 'Standard Dental Consent', ${defaultText}, ${hash}, true, now());
+          `);
+          log("Seeded global v1.0 consent text", "system");
+        }
+      } catch (e: any) {
+        log(`consent text seed warning: ${e.message}`, "system");
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       // ── Drop FK constraint on notifications.user_id ─────────────────────────
       // notifications.user_id originally referenced users(id) (Replit Auth),
       // but clinic/doctor/admin IDs are not in the users table — the FK caused
@@ -777,6 +919,15 @@ app.use((req, res, next) => {
         log("notifications user_id FK constraint removed", "system");
       } catch (e: any) {
         log(`notifications FK drop warning: ${e.message}`, "system");
+      }
+
+      // ── Add type + booking_id columns to notifications (deep-link support) ──
+      try {
+        await db.execute(sql`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type varchar(80);`);
+        await db.execute(sql`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS booking_id integer;`);
+        log("notifications type + booking_id columns ensured", "system");
+      } catch (e: any) {
+        log(`notifications column migration warning: ${e.message}`, "system");
       }
       // ─────────────────────────────────────────────────────────────────────────
 

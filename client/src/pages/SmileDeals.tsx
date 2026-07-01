@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { SmileDeal, Clinic } from "@shared/schema";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Loader2, Play, Eye, Star, ChevronRight, Maximize2, ExternalLink, Phone, Mail, Globe, MapPin, Building2, CheckCircle2, Search, X } from "lucide-react";
+import { Loader2, Play, Eye, Star, ChevronRight, Maximize2, ExternalLink, Phone, Mail, Globe, MapPin, Building2, CheckCircle2, Search, X, Zap, Clock, Check, Smile } from "lucide-react";
 import { Link } from "wouter";
-import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { useTheme } from "next-themes";
 
@@ -96,28 +96,9 @@ function useCountdown(expiresAt: string | null | undefined) {
   return timeLeft;
 }
 
-// ── TiltCard (patient tab only) ────────────────────────────────────────────
+// ── TiltCard (static fallback — tilt effect removed per design doc) ─────────
 function TiltCard({ children, className }: { children: React.ReactNode; className?: string }) {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const rotateX = useTransform(y, [-0.5, 0.5], [6, -6]);
-  const rotateY = useTransform(x, [-0.5, 0.5], [-6, 6]);
-  function handleMouse(e: React.MouseEvent<HTMLDivElement>) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    x.set((e.clientX - rect.left) / rect.width - 0.5);
-    y.set((e.clientY - rect.top) / rect.height - 0.5);
-  }
-  function handleLeave() { x.set(0); y.set(0); }
-  return (
-    <motion.div
-      style={{ rotateX, rotateY, transformStyle: "preserve-3d", perspective: 1000 }}
-      onMouseMove={handleMouse}
-      onMouseLeave={handleLeave}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
+  return <div className={className}>{children}</div>;
 }
 
 // ── VideoModal ─────────────────────────────────────────────────────────────
@@ -153,7 +134,7 @@ function SupplierStrip({ deal, c }: { deal: SmileDeal; c: Palette }) {
       <span style={{ fontSize: 12, fontWeight: 600, color: c.txt, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
       <div style={{ display: "flex", alignItems: "center", gap: 3, background: c.tL, border: `1px solid ${c.bdr2}`, borderRadius: 20, padding: "2px 8px", flexShrink: 0 }}>
         <CheckCircle2 style={{ width: 9, height: 9, color: c.T }} />
-        <span style={{ fontSize: 9, fontWeight: 700, color: c.T, letterSpacing: ".04em" }}>Verified</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: c.T, letterSpacing: ".04em" }}>Verified</span>
       </div>
     </div>
   );
@@ -172,10 +153,8 @@ function FeaturedCard({ deal, onBookClick, c, isClinic, onHoverChange }: { deal:
     : null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+    <div
+      className="animate-in fade-in slide-in-from-bottom-2 duration-500"
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
       style={{
@@ -266,7 +245,7 @@ function FeaturedCard({ deal, onBookClick, c, isClinic, onHoverChange }: { deal:
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -310,8 +289,8 @@ function FlashCard({ deal, gridMode, c, isClinic }: { deal: SmileDeal; gridMode?
           </div>
         </div>
       </div>
-      <span style={{ position: "absolute", top: 12, right: 12, fontSize: 11, fontWeight: 700, color: GOLD, background: `rgba(240,192,96,.12)`, border: `1px solid rgba(240,192,96,.25)`, padding: "2px 7px", borderRadius: 6 }}>
-        {isClinic ? "⏱ Limited" : "⚡ Flash"}
+      <span style={{ position: "absolute", top: 12, right: 12, fontSize: 12, fontWeight: 700, color: GOLD, background: `rgba(240,192,96,.12)`, border: `1px solid rgba(240,192,96,.25)`, padding: "2px 7px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 3 }}>
+        {isClinic ? <><Clock style={{ width: 10, height: 10 }} />Limited</> : <><Zap style={{ width: 10, height: 10 }} />Flash</>}
       </span>
     </div>
   );
@@ -329,21 +308,21 @@ function FlashCard({ deal, gridMode, c, isClinic }: { deal: SmileDeal; gridMode?
 // ── PlaceholderCard ────────────────────────────────────────────────────────
 function PlaceholderCard({ c }: { c: Palette }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }} style={{ height: "100%" }}>
+    <div className="animate-in fade-in duration-300" style={{ height: "100%" }}>
       <div style={{ background: c.card, border: `1px dashed ${c.bdr}`, borderRadius: 20, overflow: "hidden", display: "flex", flexDirection: "column", height: "100%", minHeight: 300, opacity: 0.5 }}>
         <div style={{ height: 196, background: c.surface, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ fontSize: 40, opacity: 0.25 }}>🦷</span>
+          <Smile style={{ width: 40, height: 40, color: c.T, opacity: 0.25 }} />
         </div>
         <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", flex: 1, gap: 10 }}>
           <div style={{ height: 14, background: c.shimmer, borderRadius: 6, width: "65%" }} />
           <div style={{ height: 11, background: c.shimmer, borderRadius: 6, width: "85%" }} />
           <div style={{ height: 11, background: c.shimmer, borderRadius: 6, width: "55%" }} />
           <div style={{ marginTop: "auto", paddingTop: 12, borderTop: `1px solid ${c.bdr}`, display: "flex", justifyContent: "center" }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: c.muted, letterSpacing: ".1em", textTransform: "uppercase", opacity: 0.5 }}>More deals coming soon</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: c.muted, letterSpacing: ".1em", textTransform: "uppercase", opacity: 0.5 }}>More deals coming soon</span>
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -362,8 +341,8 @@ function CountdownCard({ deal, c }: { deal: SmileDeal; c: Palette }) {
     { label: "Secs",  value: timeLeft.seconds },
   ];
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+    <div
+      className="animate-in fade-in slide-in-from-bottom-2 duration-300"
       style={{ background: c.countdownBg, border: `1px solid ${c.bdr2}`, borderRadius: 20, padding: "36px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 24, position: "relative", overflow: "hidden", marginBottom: 48 }}
     >
       <div style={{ position: "absolute", top: -80, right: -80, width: 300, height: 300, borderRadius: "50%", background: `radial-gradient(circle,${c.ambientOrb1},transparent 70%)`, pointerEvents: "none" }} />
@@ -393,7 +372,7 @@ function CountdownCard({ deal, c }: { deal: SmileDeal; c: Palette }) {
           Grab Deal <ChevronRight style={{ width: 16, height: 16 }} />
         </button>
       </Link>
-    </motion.div>
+    </div>
   );
 }
 
@@ -507,18 +486,18 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
         )}
         {/* Subcategory badge — bottom-left */}
         {(deal as any).subcategory && (
-          <span style={{ position: "absolute", bottom: 7, left: 7, zIndex: 3, background: "rgba(255,255,255,.92)", color: "#1a2e24", fontSize: 9, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", padding: "3px 8px", borderRadius: 5 }}>
+          <span style={{ position: "absolute", bottom: 7, left: 7, zIndex: 3, background: "rgba(255,255,255,.92)", color: "#1a2e24", fontSize: 12, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "3px 8px", borderRadius: 5 }}>
             {(deal as any).subcategory}
           </span>
         )}
         {deal.isFeatured && (
-          <span style={{ position: "absolute", top: 8, left: 8, zIndex: 3, display: "inline-flex", alignItems: "center", gap: 3, background: GOLD, color: "#5a3800", fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 9999 }}>
-            <Star style={{ width: 8, height: 8, fill: "#5a3800" }} /> Featured
+          <span style={{ position: "absolute", top: 8, left: 8, zIndex: 3, display: "inline-flex", alignItems: "center", gap: 3, background: GOLD, color: "#5a3800", fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: 9999 }}>
+            <Star style={{ width: 10, height: 10, fill: "#5a3800" }} /> Featured
           </span>
         )}
         {(deal as any).isFlash && (
-          <span style={{ position: "absolute", top: 8, right: 8, zIndex: 3, display: "inline-flex", alignItems: "center", gap: 3, background: RED, color: "#fff", fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 9999 }}>
-            ⚡ Flash
+          <span style={{ position: "absolute", top: 8, right: 8, zIndex: 3, display: "inline-flex", alignItems: "center", gap: 3, background: RED, color: "#fff", fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: 9999 }}>
+            <Zap style={{ width: 10, height: 10 }} /> Flash
           </span>
         )}
         {isExpired && (
@@ -538,16 +517,16 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
         {isClinic && (
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <div style={{ width: 24, height: 24, borderRadius: 6, background: avatarColor, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", letterSpacing: ".02em" }}>{initials}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", letterSpacing: ".02em" }}>{initials}</span>
             </div>
             {supplierName ? (
-              <span style={{ fontSize: 11, fontWeight: 500, color: c.muted, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{supplierName}</span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: c.muted, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{supplierName}</span>
             ) : (
               <span style={{ flex: 1 }} />
             )}
             <div style={{ display: "flex", alignItems: "center", gap: 3, background: c.tL, border: `1px solid ${c.bdr2}`, borderRadius: 20, padding: "2px 7px", flexShrink: 0 }}>
-              <CheckCircle2 style={{ width: 8, height: 8, color: c.T }} />
-              <span style={{ fontSize: 9, fontWeight: 700, color: c.T, letterSpacing: ".04em" }}>Verified</span>
+              <CheckCircle2 style={{ width: 9, height: 9, color: c.T }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: c.T, letterSpacing: ".04em" }}>Verified</span>
             </div>
           </div>
         )}
@@ -625,14 +604,9 @@ function DealCard({ deal, index, onVideoOpen, c, isClinic }: { deal: SmileDeal; 
   );
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: index * 0.07 }}
-      style={{ height: "100%" }}
-    >
-      {isClinic ? cardInner : <TiltCard className="h-full">{cardInner}</TiltCard>}
-    </motion.div>
+    <div className="animate-in fade-in duration-300" style={{ height: "100%" }}>
+      {cardInner}
+    </div>
   );
 }
 
@@ -722,9 +696,9 @@ function GetListedForm({ c }: { c: Palette }) {
     { e.currentTarget.style.borderColor = c.bdr; };
 
   return (
-    <motion.div
+    <div
       id="get-listed-form"
-      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+      className="animate-in fade-in duration-300"
       style={{ background: c.card, border: `1px solid ${c.bdr}`, borderRadius: 18, overflow: "hidden", boxShadow: `0 2px 12px rgba(0,0,0,.05)`, gridColumn: "1 / -1" }}
     >
       {/* ── Clickable header — compact when closed, full when open ── */}
@@ -750,43 +724,34 @@ function GetListedForm({ c }: { c: Palette }) {
           {(open || step === "submitted") && step !== "submitted" && (
             <button
               onClick={(e) => { e.stopPropagation(); setOpen(false); }}
-              style={{ flexShrink: 0, width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.2)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 16, lineHeight: 1 }}
-            >✕</button>
+              style={{ flexShrink: 0, width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.2)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}
+            ><X style={{ width: 14, height: 14 }} /></button>
           )}
         </div>
 
         {/* Expanded extra: description + trust pills */}
-        <AnimatePresence>
           {(open || step === "submitted") && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: .3, ease: [.16, 1, .3, 1] }} style={{ overflow: "hidden" }}
-            >
+            <div className="animate-in fade-in duration-200" style={{ overflow: "hidden" }}>
               <div style={{ fontSize: 13, color: "rgba(255,255,255,.65)", lineHeight: 1.6, marginTop: 10, marginBottom: 16 }}>
                 Get your supplies, equipment, or services in front of 50+ verified clinic owners on bookMySlot.
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                 {["Reviewed within 2 days", "Reach 50+ verified clinics", "Verified badge on your listing"].map((t) => (
                   <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#7FDDBB", background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 20, padding: "4px 12px" }}>
-                    <span style={{ fontWeight: 700 }}>✓</span> {t}
+                    <Check style={{ width: 10, height: 10 }} /> {t}
                   </span>
                 ))}
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
       </div>
 
       {/* ── Form body — slides open/closed ── */}
-      <AnimatePresence>
         {(open || step === "submitted") && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: .35, ease: [.16, 1, .3, 1] }} style={{ overflow: "hidden" }}
-          >
+          <div className="animate-in fade-in duration-200" style={{ overflow: "hidden" }}>
             <div style={{ padding: "24px 28px 28px" }}>
               {step === "submitted" ? (
-                <motion.div initial={{ opacity: 0, scale: .95 }} animate={{ opacity: 1, scale: 1 }} style={{ textAlign: "center", padding: "20px 0" }}>
+                <div className="animate-in fade-in zoom-in-95 duration-200" style={{ textAlign: "center", padding: "20px 0" }}>
                   <div style={{ width: 52, height: 52, borderRadius: "50%", background: c.tL, border: `2px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
                     <CheckCircle2 style={{ width: 26, height: 26, color: c.T }} />
                   </div>
@@ -794,7 +759,7 @@ function GetListedForm({ c }: { c: Palette }) {
                   <div style={{ fontSize: 13, color: c.muted, lineHeight: 1.6, maxWidth: 300, margin: "0 auto" }}>
                     We'll review your listing and get back to you at <strong>{email}</strong> within 2 working days.
                   </div>
-                </motion.div>
+                </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
@@ -838,7 +803,7 @@ function GetListedForm({ c }: { c: Palette }) {
                       disabled={locked} style={locked ? lockedStyle : inputStyle}
                     />
                     {step === "otp-sent" && (
-                      <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} style={{ marginTop: 10 }}>
+                      <div className="animate-in fade-in slide-in-from-top-1 duration-200" style={{ marginTop: 10 }}>
                         <input
                           type="text" inputMode="numeric" maxLength={6}
                           placeholder="6-digit verification code" value={otpCode}
@@ -853,7 +818,7 @@ function GetListedForm({ c }: { c: Palette }) {
                             {countdown > 0 ? `Resend in ${countdown}s` : "Resend code"}
                           </button>
                         </div>
-                      </motion.div>
+                      </div>
                     )}
                   </div>
 
@@ -877,10 +842,9 @@ function GetListedForm({ c }: { c: Palette }) {
                 </div>
               )}
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }
 
@@ -992,8 +956,27 @@ export default function SmileDeals() {
 
   if (isLoading) {
     return (
-      <div style={{ background: c.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Loader2 style={{ width: 40, height: 40, color: c.T, animation: "spin 1s linear infinite" }} />
+      <div style={{ background: c.bg, minHeight: "100vh", padding: "48px 20px 80px" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          {/* Hero shimmer */}
+          <div style={{ height: 30, width: 340, borderRadius: 8, background: "rgba(128,128,128,.15)", marginBottom: 14 }} className="animate-pulse" />
+          <div style={{ height: 20, width: 220, borderRadius: 8, background: "rgba(128,128,128,.10)", marginBottom: 36 }} className="animate-pulse" />
+          {/* Featured card skeleton */}
+          <div style={{ width: "100%", height: 260, borderRadius: 24, background: "rgba(128,128,128,.12)", marginBottom: 48 }} className="animate-pulse" />
+          {/* Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} style={{ borderRadius: 16, overflow: "hidden", background: "rgba(128,128,128,.08)", border: "1px solid rgba(128,128,128,.10)" }}>
+                <div style={{ height: 130, background: "rgba(128,128,128,.14)" }} className="animate-pulse" />
+                <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ height: 14, width: "72%", borderRadius: 6, background: "rgba(128,128,128,.14)" }} className="animate-pulse" />
+                  <div style={{ height: 11, width: "90%", borderRadius: 6, background: "rgba(128,128,128,.10)" }} className="animate-pulse" />
+                  <div style={{ height: 11, width: "55%", borderRadius: 6, background: "rgba(128,128,128,.10)" }} className="animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -1025,7 +1008,7 @@ export default function SmileDeals() {
         {/* ── Compact hero ─────────────────────────────────────────────── */}
         <section style={{ padding: "32px 20px 0" }}>
           <style>{`@media (min-width: 640px) { .deals-hero-inner { padding: 0 28px; } }`}</style>
-          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
 
             {/* Headline + inline stats */}
             <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: "8px 20px", marginBottom: 18 }}>
@@ -1093,8 +1076,8 @@ export default function SmileDeals() {
               {/* Tab switcher */}
               <div style={{ display: "inline-flex", borderRadius: 12, border: `1px solid ${c.bdr}`, background: c.surface, padding: 3, gap: 3, flexShrink: 0 }}>
                 {([
-                  { key: "clinic",  label: "🏥 For Clinics" },
-                  { key: "patient", label: "🧑 For Patients" },
+                  { key: "clinic",  label: "For Clinics" },
+                  { key: "patient", label: "For Patients" },
                 ] as const).map((tab) => (
                   <button
                     key={tab.key}
@@ -1116,7 +1099,7 @@ export default function SmileDeals() {
 
             </div>
 
-          </motion.div>
+          </div>
         </section>
 
         {/* ── Content ─────────────────────────────────────────────────── */}
@@ -1124,7 +1107,7 @@ export default function SmileDeals() {
 
           {/* Filter pills — subcategory */}
           {subcategories.length > 1 && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+            <div className="animate-in fade-in duration-300"
               style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: availableCities.length > 0 ? 16 : 40, alignItems: "center" }}
             >
               <span style={{ fontSize: 12, color: c.muted, fontWeight: 500, marginRight: 4 }}>{activeTab === "clinic" ? "Type:" : "Procedure:"}</span>
@@ -1143,12 +1126,12 @@ export default function SmileDeals() {
                   {cat}
                 </button>
               ))}
-            </motion.div>
+            </div>
           )}
 
           {/* City filter pills */}
           {availableCities.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+            <div className="animate-in fade-in duration-300"
               style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 40, alignItems: "center" }}
             >
               <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: c.muted, fontWeight: 500, marginRight: 4 }}>
@@ -1171,36 +1154,28 @@ export default function SmileDeals() {
                   {city}
                 </button>
               ))}
-            </motion.div>
+            </div>
           )}
 
           {/* Featured cards carousel */}
           {featuredDeals.length > 0 && (
             <div style={{ marginBottom: 48 }}>
               <div style={{ position: "relative" }}>
-                <AnimatePresence mode="wait">
-                  {(() => {
-                    const safeIdx = featuredIndex % featuredDeals.length;
-                    const deal = featuredDeals[safeIdx];
-                    return (
-                      <motion.div
-                        key={deal.id}
-                        initial={{ opacity: 0, x: 40 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -40 }}
-                        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                      >
-                        <FeaturedCard
-                          deal={deal}
-                          onBookClick={() => trackClick(deal.id)}
-                          c={c}
-                          isClinic={activeTab === "clinic"}
-                          onHoverChange={(h) => { featuredPaused.current = h; }}
-                        />
-                      </motion.div>
-                    );
-                  })()}
-                </AnimatePresence>
+                {(() => {
+                  const safeIdx = featuredIndex % featuredDeals.length;
+                  const deal = featuredDeals[safeIdx];
+                  return (
+                    <div key={deal.id} className="animate-in fade-in duration-300">
+                      <FeaturedCard
+                        deal={deal}
+                        onBookClick={() => trackClick(deal.id)}
+                        c={c}
+                        isClinic={activeTab === "clinic"}
+                        onHoverChange={(h) => { featuredPaused.current = h; }}
+                      />
+                    </div>
+                  );
+                })()}
 
                 {/* Dot indicators — only when more than one featured deal */}
                 {featuredDeals.length > 1 && (
@@ -1234,8 +1209,8 @@ export default function SmileDeals() {
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
                 <div style={{ fontSize: 22, fontWeight: 700, color: c.txt, letterSpacing: "-.02em" }}>
                   {activeTab === "clinic"
-                    ? <><span style={{ color: GOLD }}>⏱</span> Limited-Time Offers</>
-                    : <><span style={{ color: GOLD }}>⚡</span> Flash Deals</>}
+                    ? <><Clock style={{ width: 18, height: 18, color: GOLD, display: "inline", verticalAlign: "middle", marginRight: 6 }} />Limited-Time Offers</>
+                    : <><Zap style={{ width: 18, height: 18, color: GOLD, display: "inline", verticalAlign: "middle", marginRight: 6 }} />Flash Deals</>}
                 </div>
               </div>
               {flashDeals.length >= 3 ? (
@@ -1257,7 +1232,7 @@ export default function SmileDeals() {
           {tabDeals.length === 0 ? (
             activeTab === "clinic" ? (
               /* Clinic empty state — supplier CTA */
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: "center", padding: "64px 0 80px" }}>
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ textAlign: "center", padding: "64px 0 80px" }}>
                 <div style={{ width: 72, height: 72, borderRadius: 20, background: c.tL, border: `1px solid ${c.bdr2}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
                   <Building2 style={{ width: 32, height: 32, color: c.T }} />
                 </div>
@@ -1280,11 +1255,13 @@ export default function SmileDeals() {
                     Get Listed →
                   </button>
                 </div>
-              </motion.div>
+              </div>
             ) : (
               /* Patient empty state */
               <div style={{ textAlign: "center", padding: "80px 0", color: c.muted }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>🦷</div>
+                <div style={{ marginBottom: 16, display: "flex", justifyContent: "center" }}>
+                  <Smile style={{ width: 48, height: 48, color: c.muted, opacity: 0.5 }} />
+                </div>
                 <p style={{ fontSize: 18, fontWeight: 600, color: c.txt, marginBottom: 8 }}>No patient deals yet</p>
                 <p style={{ fontSize: 14 }}>Check back soon for exclusive offers.</p>
               </div>
@@ -1342,35 +1319,34 @@ export default function SmileDeals() {
             ) : (
               <>
                 {/* Refer a Clinic */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                <div
+                  className="animate-in fade-in duration-300 hover:-translate-y-1.5 transition-transform"
                   style={{ background: c.promoClinicBg, border: `1px solid ${c.bdr2}`, borderRadius: 18, padding: 32, position: "relative", overflow: "hidden", cursor: "pointer" }}
-                  whileHover={{ y: -6 }}
                 >
                   <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle,${c.ambientOrb1},transparent 70%)`, pointerEvents: "none" }} />
-                  <div style={{ fontSize: 38, marginBottom: 14 }}>🏥</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: c.T, marginBottom: 10 }}>Partner Clinics</div>
+                  <div style={{ marginBottom: 14 }}><Building2 style={{ width: 38, height: 38, color: c.T }} /></div>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: c.T, marginBottom: 10 }}>Partner Clinics</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: c.txt, marginBottom: 8, letterSpacing: "-.01em" }}>Refer a Clinic,<br />Unlock Exclusive Deals</div>
                   <div style={{ fontSize: 14, color: c.muted, lineHeight: 1.6, marginBottom: 20 }}>Know a great dental clinic? Refer them to bookMySlot and unlock exclusive deal access for both of you.</div>
                   <button style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 9, fontSize: 13, fontWeight: 700, background: c.T, color: "#fff", border: "none", cursor: "pointer" }}>
                     Refer Now →
                   </button>
-                </motion.div>
+                </div>
 
                 {/* Loyalty Rewards */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+                <div
+                  className="animate-in fade-in duration-300"
                   style={{ background: c.promoLoyaltyBg, border: `1px solid rgba(240,192,96,.25)`, borderRadius: 18, padding: 32, position: "relative", overflow: "hidden" }}
                 >
                   <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle,${c.ambientOrb3},transparent 70%)`, pointerEvents: "none" }} />
-                  <div style={{ fontSize: 38, marginBottom: 14 }}>🎁</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: GOLD, marginBottom: 10 }}>Loyalty Rewards</div>
+                  <div style={{ marginBottom: 14 }}><Star style={{ width: 38, height: 38, color: GOLD }} /></div>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: GOLD, marginBottom: 10 }}>Loyalty Rewards</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: c.txt, marginBottom: 8, letterSpacing: "-.01em" }}>Book 3, Get 1<br />Completely Free</div>
                   <div style={{ fontSize: 14, color: c.muted, lineHeight: 1.6, marginBottom: 20 }}>Book any 3 deals this month and your 4th appointment is on us. No catches, no fine print.</div>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 9, fontSize: 12, fontWeight: 700, background: "rgba(240,192,96,.12)", color: GOLD, border: "1px solid rgba(240,192,96,.25)" }}>
-                    ✦ Coming Soon
+                    Coming Soon
                   </span>
-                </motion.div>
+                </div>
               </>
             )}
           </div>

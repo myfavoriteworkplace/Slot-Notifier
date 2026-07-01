@@ -12,14 +12,33 @@ const app = express();
 const httpServer = createServer(app);
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
-const SESSION_SECRET = process.env.SESSION_SECRET || "dev-secret-change-in-production";
+const FRONTEND_ORIGINS = new Set(
+  FRONTEND_URL.split(",").map((url) => url.trim()).filter(Boolean)
+);
+const SESSION_SECRET = (() => {
+  if (process.env.NODE_ENV === "production") {
+    if (!process.env.SESSION_SECRET) {
+      throw new Error("SESSION_SECRET must be set in production");
+    }
+    return process.env.SESSION_SECRET;
+  }
+  return process.env.SESSION_SECRET || "dev-secret-change-in-production";
+})();
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "itsmyfavoriteworkplace@gmail.com";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
-app.use(cors({
-  origin: FRONTEND_URL.split(",").map(url => url.trim()),
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || FRONTEND_ORIGINS.has(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      }
+    },
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -144,10 +163,10 @@ app.get(api.clinics.list.path, async (req, res) => {
 
 app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
   try {
-    const { name, address, username, password } = req.body;
+    const { name, address, username, password, email, phone } = req.body;
     
-    if (!name || !username || !password) {
-      return res.status(400).json({ message: "Name, username, and password are required" });
+    if (!name || !username || !password || !email || !phone) {
+      return res.status(400).json({ message: "Name, username, password, email, and phone are required" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -156,6 +175,8 @@ app.post(api.clinics.create.path, isAuthenticated, async (req, res) => {
       address: address || null,
       username,
       passwordHash: hashedPassword,
+      email,
+      phone,
     });
     const { passwordHash, ...clinicWithoutPassword } = clinic;
     res.status(201).json(clinicWithoutPassword);

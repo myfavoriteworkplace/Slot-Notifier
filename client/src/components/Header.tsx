@@ -10,7 +10,6 @@ import {
 } from "@/hooks/use-notifications";
 import { useState } from "react";
 import { useEffect } from "react";
-import logoPath from "@assets/Screenshot_2026-03-28_at_12.46.08_AM_1774639227884.png";
 import {
   Bell,
   LogOut,
@@ -75,6 +74,7 @@ interface NotificationBellProps {
   unreadCount: number;
   onMarkRead: (id: number) => void;
   onMarkAllRead: () => void;
+  onNavigate?: (n: Notification) => void;
 }
 
 function NotificationBellPanel({
@@ -82,7 +82,10 @@ function NotificationBellPanel({
   unreadCount,
   onMarkRead,
   onMarkAllRead,
+  onNavigate,
 }: NotificationBellProps) {
+  const [open, setOpen] = useState(false);
+
   const todayItems     = notifications.filter(n => isToday(new Date(n.createdAt!)));
   const yesterdayItems = notifications.filter(n => isYesterday(new Date(n.createdAt!)));
   const earlierItems   = notifications.filter(
@@ -96,7 +99,7 @@ function NotificationBellPanel({
   ].filter(g => g.items.length > 0);
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           className="relative h-9 w-9 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted/80 transition-colors"
@@ -168,7 +171,11 @@ function NotificationBellPanel({
                         className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 active:bg-muted/70 ${
                           !n.read ? "bg-primary/5" : ""
                         }`}
-                        onClick={() => !n.read && onMarkRead(n.id)}
+                        onClick={() => {
+                          if (!n.read) onMarkRead(n.id);
+                          setOpen(false);
+                          onNavigate?.(n);
+                        }}
                       >
                         {/* Unread dot */}
                         <div className="shrink-0 w-2 flex justify-center pt-2.5">
@@ -236,7 +243,7 @@ export function Header() {
   const { user, logout, isAuthenticated } = useAuth();
   const { clinic, isAuthenticated: isClinicAuthenticated, logout: clinicLogout } = useClinicAuth();
   const { doctor, isAuthenticated: isDoctorAuthenticated, logout: doctorLogout } = useDoctorAuth();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { data: notifications = [] } = useNotifications();
   const { mutate: markRead } = useMarkNotificationRead();
   const { mutate: markAllRead } = useMarkAllNotificationsRead();
@@ -341,12 +348,48 @@ export function Header() {
       : []),
   ];
 
+  /* ── Notification deep-link navigation ── */
+  const handleNotifNavigate = (n: Notification) => {
+    const type = n.type ?? undefined;
+    const bookingId = n.bookingId ?? undefined;
+
+    let targetPath: string | null = null;
+    const detail: { bookingId?: number; notifType?: string; panel?: string } = {};
+
+    if (type === "doctor_on_leave" || type === "doctor_leave_cancelled") {
+      targetPath = "/clinic-dashboard";
+      detail.panel = "manage-doctors";
+    } else if (bookingId) {
+      if (isClinicAuthenticated || isAuthenticated) {
+        targetPath = "/clinic-dashboard";
+        detail.bookingId = bookingId;
+        detail.notifType = type;
+      } else if (isDoctorAuthenticated) {
+        targetPath = "/doctor-dashboard";
+        detail.bookingId = bookingId;
+        detail.notifType = type;
+      }
+    }
+
+    if (!targetPath) return;
+
+    if (window.location.pathname === targetPath) {
+      // Already on the right page — fire event directly, no URL change
+      window.dispatchEvent(new CustomEvent("notif-navigate", { detail }));
+    } else {
+      // Navigating from a different page — store detail for the dashboard to pick up on mount
+      sessionStorage.setItem("pendingNotifNav", JSON.stringify(detail));
+      setLocation(targetPath);
+    }
+  };
+
   /* ── Bell props (shared for all roles) ── */
   const bellProps: NotificationBellProps = {
     notifications,
     unreadCount,
     onMarkRead:    (id: number) => markRead(id),
     onMarkAllRead: ()           => markAllRead(),
+    onNavigate:    handleNotifNavigate,
   };
 
   /* ── Auth block ── */
@@ -554,7 +597,7 @@ export function Header() {
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0"
             data-testid="link-home"
           >
-            <img src={logoPath} alt="bookMySlot logo" className="h-8 w-8 rounded-xl object-cover" />
+            <img src="/icons/logo.svg" alt="bookMySlot logo" className="h-8 w-8 object-contain" />
             <div className="hidden sm:flex flex-col leading-none">
               <span
                 className="text-[15px] font-bold tracking-tight"

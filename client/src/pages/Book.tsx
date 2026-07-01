@@ -8,9 +8,16 @@ import {
   Loader2, CalendarDays, CheckCircle2, Building2, User, Phone, Mail,
   MapPin, Sun, Moon, Clock, Shield, Sparkles, Search, Stethoscope, X, ChevronDown,
   CreditCard, ClipboardCheck, Info, Lock, AlertTriangle, ChevronRight, Plus, Users,
+  Bone, Baby, Bandage, SmilePlus, ArrowLeftRight, Wrench, MinusCircle, ShieldCheck,
 } from "lucide-react";
-import { LiaToothSolid, LiaSmileSolid, LiaBandAidSolid, LiaChildSolid, LiaBoneSolid } from "react-icons/lia";
-import { MdWarning, MdBuild, MdSwapHoriz, MdRemoveCircle, MdMedicalServices, MdHealthAndSafety } from "react-icons/md";
+
+function ToothIcon({ style, className }: { style?: React.CSSProperties; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" style={style} className={className} aria-hidden="true">
+      <path d="M12 2C9.3 2 8 4.2 8 6c0 .9.2 1.8.5 2.7C9 10 9.5 11.5 9.5 13.5c0 2 .5 4 1 5.5.2.6.5 1 1 1s.8-.4 1-1c.5-1.5 1-3.5 1-5.5 0-2 .5-3.5 1-5.3C15.8 7.8 16 6.9 16 6c0-1.8-1.3-4-4-4z"/>
+    </svg>
+  );
+}
 import ClinicInfoSheet from "@/components/ClinicInfoSheet";
 import type { Clinic } from "@shared/schema";
 import { format, addDays, startOfToday, isSameDay, isAfter } from "date-fns";
@@ -50,18 +57,18 @@ const DEFAULT_SLOT_TIMINGS: SlotTiming[] = [
 ];
 
 const DENTAL_CATEGORIES = [
-  { category: "Tooth Pain or Sensitivity",        Icon: LiaToothSolid,     subIssues: ["Sensitivity to hot/cold/sweet", "Sharp or throbbing pain", "Pain while chewing", "Pain at night"],                          specialists: ["Endodontist", "General Dentist"] },
-  { category: "Gum Problems",                     Icon: LiaBandAidSolid,   subIssues: ["Bleeding gums", "Swollen or red gums", "Receding gums", "Bad breath or bad taste"],                                        specialists: ["Periodontist", "General Dentist"] },
-  { category: "Tooth Decay / Cavities",           Icon: MdWarning,         subIssues: ["Visible hole or black spot", "Pain when eating or drinking", "Food getting stuck"],                                         specialists: ["General Dentist", "Endodontist"] },
-  { category: "Broken, Chipped or Cracked Tooth", Icon: MdBuild,           subIssues: ["Chipped or broken tooth", "Cracked tooth", "Worn down teeth"],                                                              specialists: ["Prosthodontist", "General Dentist"] },
-  { category: "Alignment or Bite Issues",         Icon: MdSwapHoriz,       subIssues: ["Crooked or crowded teeth", "Gaps between teeth", "Bite feels off or jaw discomfort"],                                       specialists: ["Orthodontist"] },
-  { category: "Missing Teeth",                    Icon: MdRemoveCircle,    subIssues: ["One tooth missing", "Multiple teeth missing", "Want replacement options"],                                                  specialists: ["Prosthodontist", "Oral Surgeon"] },
-  { category: "Cosmetic / Smile Concerns",        Icon: LiaSmileSolid,     subIssues: ["Yellow or stained teeth", "Want a whiter smile", "Uneven teeth shape", "Gaps I want closed"],                              specialists: ["Cosmetic Dentist", "Prosthodontist"] },
-  { category: "Swelling or Infection",            Icon: MdMedicalServices, subIssues: ["Swollen face or gum", "Pus or abscess", "Severe pain with swelling"],                                                      specialists: ["Endodontist", "Oral Surgeon", "General Dentist"] },
-  { category: "Child's Dental Issues",            Icon: LiaChildSolid,     subIssues: ["Tooth decay in baby teeth", "Child complains of pain", "Thumb sucking habits", "Delayed tooth eruption"],                  specialists: ["Pedodontist"] },
-  { category: "Jaw Pain or Other",                Icon: LiaBoneSolid,      subIssues: ["Jaw pain or clicking (TMJ)", "Dry mouth", "Mouth ulcers", "Suspicious growth or lump"],                                    specialists: ["Oral Medicine Specialist", "Oral Surgeon", "General Dentist"] },
-  { category: "Wisdom Tooth Problems",            Icon: LiaToothSolid,     subIssues: ["Pain from wisdom tooth", "Swelling near wisdom tooth", "Difficulty opening mouth"],                                         specialists: ["Oral Surgeon", "General Dentist"] },
-  { category: "Preventive / Routine Care",        Icon: MdHealthAndSafety, subIssues: ["Regular checkup", "Cleaning or scaling", "Fluoride treatment"],                                                             specialists: ["General Dentist", "Dental Hygienist"] },
+  { category: "Tooth Pain or Sensitivity",        Icon: ToothIcon,         subIssues: ["Sensitivity to hot/cold/sweet", "Sharp or throbbing pain", "Pain while chewing", "Pain at night"],                          specialists: ["Endodontist", "General Dentist"] },
+  { category: "Gum Problems",                     Icon: Bandage,           subIssues: ["Bleeding gums", "Swollen or red gums", "Receding gums", "Bad breath or bad taste"],                                        specialists: ["Periodontist", "General Dentist"] },
+  { category: "Tooth Decay / Cavities",           Icon: AlertTriangle,     subIssues: ["Visible hole or black spot", "Pain when eating or drinking", "Food getting stuck"],                                         specialists: ["General Dentist", "Endodontist"] },
+  { category: "Broken, Chipped or Cracked Tooth", Icon: Wrench,            subIssues: ["Chipped or broken tooth", "Cracked tooth", "Worn down teeth"],                                                              specialists: ["Prosthodontist", "General Dentist"] },
+  { category: "Alignment or Bite Issues",         Icon: ArrowLeftRight,    subIssues: ["Crooked or crowded teeth", "Gaps between teeth", "Bite feels off or jaw discomfort"],                                       specialists: ["Orthodontist"] },
+  { category: "Missing Teeth",                    Icon: MinusCircle,       subIssues: ["One tooth missing", "Multiple teeth missing", "Want replacement options"],                                                  specialists: ["Prosthodontist", "Oral Surgeon"] },
+  { category: "Cosmetic / Smile Concerns",        Icon: SmilePlus,         subIssues: ["Yellow or stained teeth", "Want a whiter smile", "Uneven teeth shape", "Gaps I want closed"],                              specialists: ["Cosmetic Dentist", "Prosthodontist"] },
+  { category: "Swelling or Infection",            Icon: Stethoscope,       subIssues: ["Swollen face or gum", "Pus or abscess", "Severe pain with swelling"],                                                      specialists: ["Endodontist", "Oral Surgeon", "General Dentist"] },
+  { category: "Child's Dental Issues",            Icon: Baby,              subIssues: ["Tooth decay in baby teeth", "Child complains of pain", "Thumb sucking habits", "Delayed tooth eruption"],                  specialists: ["Pedodontist"] },
+  { category: "Jaw Pain or Other",                Icon: Bone,              subIssues: ["Jaw pain or clicking (TMJ)", "Dry mouth", "Mouth ulcers", "Suspicious growth or lump"],                                    specialists: ["Oral Medicine Specialist", "Oral Surgeon", "General Dentist"] },
+  { category: "Wisdom Tooth Problems",            Icon: ToothIcon,         subIssues: ["Pain from wisdom tooth", "Swelling near wisdom tooth", "Difficulty opening mouth"],                                         specialists: ["Oral Surgeon", "General Dentist"] },
+  { category: "Preventive / Routine Care",        Icon: ShieldCheck,       subIssues: ["Regular checkup", "Cleaning or scaling", "Fluoride treatment"],                                                             specialists: ["General Dentist", "Dental Hygienist"] },
 ];
 
 const getSlotMeta = (startHour: number) => {
@@ -330,6 +337,19 @@ export default function Book(props: { params: { clinicId?: string } }) {
     doctorName: "Dr. Demo", doctorSpecialization: "General Dentistry", doctorDegree: "DDS",
     doctors: [], logoUrl: null, status: "approved", registeredBy: null,
     isArchived: false, createdAt: new Date(),
+    latitude: null,
+    longitude: null,
+    googleBusinessUrl: null,
+    gstNumber: null,
+    medicalLicenseUrl: null,
+    clinicRegCertUrl: null,
+    trustScore: 0,
+    plan: "starter",
+    subscriptionStatus: "unpaid",
+    billingCycle: "monthly",
+    razorpaySubscriptionId: null,
+    websiteConfig: { theme: "classic" },
+    defaultSlotConfig: { isClosed: false, sections: {} },
   };
 
   const clinics = clinicsData

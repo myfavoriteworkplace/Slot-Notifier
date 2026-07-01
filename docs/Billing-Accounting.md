@@ -31,7 +31,7 @@ The billing module lets clinic staff create itemised bills against a patient boo
 | **Bookings** | Every bill has a `bookingId` foreign key. A booking can have multiple bills (e.g. one per visit). |
 | **Pharmacy / Stock** | Prescription items are auto-priced by matching drug names against the `pharmacy_stock` catalog. |
 | **Clinical Records** | The doctor's prescription (stored as JSON in `clinical_records.prescription`) is the source of truth for pharmacy line items. |
-| **Patients** | Bills carry `patientName`, `patientPhone`, and `patientEmail` for receipt generation and patient lookup across visits. |
+| **Patients** | Bills carry `patientId` FK (links to the `patients` table), plus snapshot fields `patientName`, `patientPhone`, `patientEmail` for receipts. The `patientId` FK is the canonical identifier for grouping, history, and the Accounts ledger. |
 | **Notifications** | On payment, a "bill paid" notification is dispatched to the patient via the notification service. |
 
 ---
@@ -45,6 +45,7 @@ The billing module lets clinic staff create itemised bills against a patient boo
 | `id` | serial PK | Auto-incremented bill ID |
 | `bookingId` | integer FK | Links to `bookings.id` |
 | `clinicId` | integer FK | Links to `clinics.id` |
+| `patientId` | integer FK (nullable) | Links to `patients.id` — **primary patient identifier**; used for grouping in Accounts ledger and patient history lookup. Null only for very old bills migrated before this field was added. |
 | `billNumber` | text | Human-readable bill reference (e.g. `DFT-42-1712345678901`) |
 | `patientName` | text | Snapshot of patient name at time of billing |
 | `patientPhone` | text | Patient phone for lookup and receipts |
@@ -149,9 +150,10 @@ interface BillingHistoryPanelProps {
   bookingId: number;
   clinicId: number;
   patientName: string;
+  patientId?: number;        // FK to patients.id — used for history lookup and bill creation
   patientPhone?: string;
   patientEmail?: string;
-  patientCode?: string;
+  patientCode?: string;      // e.g. "PAT-0042" — shown as a badge at the top of the panel
   onGenerateReceipt: (existingBill?: PatientBill) => void;
   onPrintBill: (bill: PatientBill) => void;
   onConsolidatedReceipt?: (bills: PatientBill[]) => void;
@@ -188,12 +190,34 @@ Pharmacy items stored as `"MedicineName × qty — schedule"` are parsed into:
 - **medicine** — text before `×`
 - **schedule** — text after the quantity number (frequency + duration, e.g. `1×/day · 5 days`)
 
+### Patient identity strip
+
+When `patientCode` is provided, a compact rose-tinted badge row is rendered at the top of the billing panel showing the patient name + PAT code (e.g. `PAT-0042`). This confirms which patient profile is linked to the current bill — useful for reception staff who handle multiple walk-ins.
+
+### Patient history query — identifier priority
+
+The "Previous visits" section uses this waterfall to find the right bills:
+
+1. `patientId` → `GET /api/auth/clinic/bills/patient-by-id/:patientId` (most reliable — FK join)
+2. `patientEmail` → `GET /api/auth/clinic/bills/patient-by-email/:email`
+3. `patientPhone` → `GET /api/auth/clinic/bills/patient/:phone`
+
+This order is intentional: `patientId` is the canonical FK; text-based fallbacks handle legacy bills that predate the `patientId` column.
+
+### New bill creation — `patientId` is always included
+
+Every code path that creates a new `patient_bills` row sends `patientId`:
+- **Inline "Add Entry"** (`addChargeMutation`) — includes `patientId` from props
+- **"New Bill" button** (`createNewBillMutation`) — includes `patientId` from props
+- **"Load Prescription"** when no active bill exists — includes `patientId` from props
+- **Legacy PDF receipt modal** (`handleOpenBilling` in `ClinicDashboard.tsx`) — includes `(billingBooking as any).patientId` which is populated from `getClinicBookings`'s LEFT JOIN with the `patients` table
+
 ### Data queries (TanStack Query v5)
 
 | Query key | Endpoint | Purpose |
 |---|---|---|
 | `["/api/auth/clinic/bills/booking", bookingId]` | GET | All bills for current booking |
-| `["/api/auth/clinic/bills/patient-by-email", email]` | GET | Patient history across visits |
+| `["/api/auth/clinic/bills/patient-history", patientId\|email\|phone]` | GET | Patient history across visits (uses patientId first) |
 | `["/api/auth/clinic/pharmacy"]` | GET | Catalog for auto-pricing |
 | `["/api/auth/clinic/clinical-records/patient", phone]` | GET | Past prescriptions |
 | `["/api/auth/clinic/billing-audit/booking", bookingId]` | GET | Audit trail (lazy) |
@@ -209,12 +233,13 @@ All billing routes are under `/api/auth/clinic/` and require clinic authenticati
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/auth/clinic/bills/booking/:bookingId` | All bills for a booking |
-| `GET` | `/api/auth/clinic/bills/patient-by-email/:email` | All bills for a patient email |
-| `GET` | `/api/auth/clinic/bills/patient/:phone` | All bills for a patient phone |
-| `POST` | `/api/auth/clinic/bills` | Create a new bill |
+| `GET` | `/api/auth/clinic/bills/patient-by-id/:patientId` | All bills for a patient by FK (preferred) |
+| `GET` | `/api/auth/clinic/bills/patient-by-email/:email` | All bills for a patient email (fallback) |
+| `GET` | `/api/auth/clinic/bills/patient/:phone` | All bills for a patient phone (fallback) |
+| `POST` | `/api/auth/clinic/bills` | Create a new bill — body must include `patientId` when available |
 | `PATCH` | `/api/auth/clinic/bills/:id` | Update bill (items, status, totals) |
 | `DELETE` | `/api/auth/clinic/bills/:id` | Delete a bill (unpaid only) |
-| `POST` | `/api/auth/clinic/bills/:id/notify-paid` | Send "paid" notification to patient |
+| `POST` | `/api/auth/clinic/bills/:id/notify-paid` | Send "paid" notification to patient — fetches single bill by ID directly (not all bills) |
 
 ### Audit logs
 
@@ -397,6 +422,12 @@ These are enforced in code and must be maintained:
 5. **Unique bill numbers.** Generated as `DFT-{bookingId}-{Date.now()}`. The `Date.now()` suffix ensures no two bills for the same booking ever share a number.
 
 6. **Draft bills are not receivables.** The "Confirm Bill" button transitions a bill from `draft` → `pending`/`partial`. Only confirmed bills should appear in any accounts receivable report.
+
+7. **`patientId` must always be sent on bill creation.** All four bill-creation paths (inline Add Entry, New Bill button, Load Prescription, legacy PDF modal) forward the booking's `patientId` to the POST body. Without it, the bill cannot be grouped correctly in the Accounts ledger or linked to the Patients panel. If `patientId` is unavailable (legacy walk-in with no registered patient), pass `null` — text-based fallbacks (email → phone) will still work for history lookup.
+
+8. **Accounts ledger grouping uses `patientId` as primary key.** The Accounts panel groups bills by `patientId` first; falls back to `email`, then `phone`, then name for legacy bills. Never group solely by text fields — phone formatting differences and name variations create duplicate patient groups.
+
+9. **`notify-paid` uses `getPatientBillById` — not `getPatientBillsByClinicId`.** The route fetches one bill by `(id, clinicId)` directly. Do not revert this to loading all clinic bills and filtering in memory.
 
 ---
 

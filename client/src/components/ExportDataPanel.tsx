@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { format, formatDistanceToNow, startOfMonth, endOfMonth, subMonths } from "date-fns";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import { jsPDF } from "@/lib/jspdf-stub";
+import autoTable from "@/lib/jspdf-stub";
 import {
   Download, FileSpreadsheet, FileText, FileBadge, Lock, Bell, X,
   Users, CalendarDays, History, RefreshCw, CheckCircle2, Clock,
@@ -13,17 +13,8 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { Clinic, Booking, Slot, ExportHistory, PatientBill } from "@shared/schema";
-
-type BookingWithSlot = Booking & {
-  slot: Slot;
-  assignedDoctor?: string | null;
-  patientCode?: string | null;
-  visitStatus?: string | null;
-  clinicalStatus?: string | null;
-  paymentStatus?: string | null;
-  paymentAmount?: number | null;
-};
+import type { Clinic, ExportHistory, PatientBill } from "@shared/schema";
+import type { BookingWithSlot } from "@/lib/clinic-constants";
 
 type ExportFormat = "xlsx" | "csv" | "pdf";
 type DatePreset   = "all" | "this-month" | "last-month" | "custom";
@@ -391,7 +382,7 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
         const buffer = await xlsxRes.arrayBuffer();
         downloadBlob(buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
 
-      // ── FORMAT: PDF (brand-aligned) ──
+      // ── FORMAT: PDF ──
       } else if (fmt === "pdf") {
         const DARK    = [8,  80,  65]  as [number, number, number];
         const PRIMARY = [15, 155, 110] as [number, number, number];

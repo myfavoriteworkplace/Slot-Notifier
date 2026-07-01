@@ -1,6 +1,7 @@
+import { encryptField, decryptField } from "./encryption.js";
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
-  doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, clinicalRecords,
+  doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, consentTextVersions, clinicalRecords,
   inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock,
   type User,
   type Slot, type InsertSlot,
@@ -17,6 +18,7 @@ import {
   type BookingNote, type InsertBookingNote,
   type DoctorLeave, type InsertDoctorLeave,
   type ConsentToken,
+  type ConsentTextVersion, type InsertConsentTextVersion,
   type ClinicalRecord, type InsertClinicalRecord,
   type InventoryCategory, type InsertInventoryCategory,
   type InventoryItem, type InsertInventoryItem,
@@ -59,7 +61,7 @@ export interface IStorage {
     description?: string | null;
     verificationCode?: string | null;
     verificationExpiresAt?: Date | null;
-    verificationStatus?: 'pending' | 'verified';
+    verificationStatus?: 'pending' | 'verified' | 'admin_booked';
   }): Promise<Booking>;
   verifyBooking(id: number): Promise<Booking>;
   deletePendingBooking(id: number): Promise<void>;
@@ -161,9 +163,14 @@ export interface IStorage {
   getAllDoctorLeavesForClinic(doctorIds: number[]): Promise<(DoctorLeave & { doctorEmail?: string; doctorName?: string })[]>;
 
   // Consent Tokens
-  createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date): Promise<ConsentToken>;
+  createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date, consentTextVersionId?: number): Promise<ConsentToken>;
   getConsentByToken(token: string): Promise<(ConsentToken & { booking: Booking; clinic: Clinic }) | undefined>;
   markConsentSigned(token: string, signature: string, ip: string): Promise<void>;
+
+  // Consent Text Versions
+  getCurrentConsentVersion(clinicId: number): Promise<ConsentTextVersion | undefined>;
+  getClinicConsentVersions(clinicId: number): Promise<ConsentTextVersion[]>;
+  createConsentVersion(clinicId: number, data: { title: string; textEn: string; textHash: string; version: string; createdByEmail: string }): Promise<ConsentTextVersion>;
 
   // Clinical Records
   createClinicalRecord(data: InsertClinicalRecord): Promise<ClinicalRecord>;
@@ -187,8 +194,10 @@ export interface IStorage {
 
   // Patient Bills
   createPatientBill(data: InsertPatientBill): Promise<PatientBill>;
-  getPatientBillsByClinicId(clinicId: number): Promise<PatientBill[]>;
-  getPatientBillsByBookingId(bookingId: number): Promise<PatientBill[]>;
+  getPatientBillById(id: number, clinicId: number): Promise<PatientBill | null>;
+  getPatientBillsByClinicId(clinicId: number): Promise<(PatientBill & { patientCode?: string | null })[]>;
+  getPatientBillsByBookingId(bookingId: number, clinicId: number): Promise<PatientBill[]>;
+  getPatientBillsByPatientId(clinicId: number, patientId: number): Promise<PatientBill[]>;
   getPatientBillsByPhone(clinicId: number, phone: string): Promise<PatientBill[]>;
   getPatientBillsByEmail(clinicId: number, email: string): Promise<PatientBill[]>;
   updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill>;
@@ -294,10 +303,24 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  private decryptBooking<T extends Partial<Booking>>(b: T): T {
+    return {
+      ...b,
+      doctorNotes: decryptField(b.doctorNotes as string | null) as any,
+      consentSignature: decryptField(b.consentSignature as string | null) as any,
+    };
+  }
+
+  private decryptClinicalRecord<T extends Partial<ClinicalRecord>>(r: T): T {
+    return {
+      ...r,
+      prescription: decryptField(r.prescription as string | null) as any,
+      notes: decryptField(r.notes as string | null) as any,
+    };
+  }
+
   async getBookings(userId: string, role: string): Promise<(Booking & { slot: Slot })[]> {
     if (role === 'owner') {
-      // Get bookings for slots owned by this user
-      // Join bookings with slots where slots.ownerId = userId
       const results = await db.select({
         booking: bookings,
         slot: slots
@@ -306,9 +329,8 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(slots, eq(bookings.slotId, slots.id))
       .where(eq(slots.ownerId, userId));
       
-      return results.map(r => ({ ...r.booking, slot: r.slot }));
+      return results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot }));
     } else {
-      // Get bookings made by this customer
       const results = await db.select({
         booking: bookings,
         slot: slots
@@ -317,12 +339,11 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(slots, eq(bookings.slotId, slots.id))
       .where(eq(bookings.customerId, userId));
       
-      return results.map(r => ({ ...r.booking, slot: r.slot }));
+      return results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot }));
     }
   }
 
   async getBookingsByClinicId(clinicId: number): Promise<(Booking & { slot: Slot })[]> {
-    // First get the clinic to also match by name for legacy data
     const clinic = await this.getClinic(clinicId);
     
     const results = await db.select({
@@ -332,18 +353,17 @@ export class DatabaseStorage implements IStorage {
     .from(bookings)
     .innerJoin(slots, eq(bookings.slotId, slots.id));
     
-    // Filter results to include slots with matching clinicId OR clinicName (for legacy data)
     const filtered = results.filter(r => 
       r.slot.clinicId === clinicId || 
       (r.slot.clinicId === null && clinic && r.slot.clinicName === clinic.name)
     );
     
-    return filtered.map(r => ({ ...r.booking, slot: r.slot }));
+    return filtered.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot }));
   }
 
   async getBookingById(id: number): Promise<Booking | undefined> {
     const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
-    return booking;
+    return booking ? this.decryptBooking(booking) : undefined;
   }
 
   // Implementation for missing methods identified by LSP errors
@@ -411,7 +431,7 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(patients, eq(bookings.patientId, patients.id))
     .where(eq(slots.clinicId, Number(clinicId)));
     
-    return results.map(r => ({ ...r.booking, slot: r.slot, patientCode: r.patientCode }));
+    return results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot, patientCode: r.patientCode }));
   }
 
   async getBooking(id: number): Promise<Booking | undefined> {
@@ -469,21 +489,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBookingDoctorNotes(id: number, doctorEmail: string, notes: string | null, clinicalStatus: string | null): Promise<Booking> {
-    // Verify the booking is assigned to this doctor before allowing update
     const booking = await this.getBookingById(id);
     if (!booking) throw new Error("Booking not found");
     if (booking.assignedDoctorEmail !== doctorEmail) throw new Error("Forbidden: booking not assigned to this doctor");
     const [updated] = await db.update(bookings)
-      .set({ doctorNotes: notes, clinicalStatus })
+      .set({ doctorNotes: encryptField(notes), clinicalStatus })
       .where(eq(bookings.id, id))
       .returning();
-    return updated;
+    return this.decryptBooking(updated);
   }
 
-  async updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null): Promise<Booking> {
+  async updateVisitStatus(id: number, visitStatus: string | null, checkedInAt?: Date | null, completedAt?: Date | null, visitCompletionNote?: string | null): Promise<Booking> {
     const setFields: Record<string, any> = { visitStatus };
     if (checkedInAt !== undefined) setFields.checkedInAt = checkedInAt;
     if (completedAt !== undefined) setFields.completedAt = completedAt;
+    if (visitCompletionNote !== undefined) setFields.visitCompletionNote = visitCompletionNote;
     const [updated] = await db.update(bookings)
       .set(setFields)
       .where(eq(bookings.id, id))
@@ -507,7 +527,7 @@ export class DatabaseStorage implements IStorage {
     description?: string | null;
     verificationCode?: string | null;
     verificationExpiresAt?: Date | null;
-    verificationStatus?: 'pending' | 'verified' | 'confirmed';
+    verificationStatus?: 'pending' | 'verified' | 'confirmed' | 'admin_booked';
     paymentStatus?: string | null;
     razorpayOrderId?: string | null;
     razorpayPaymentId?: string | null;
@@ -685,10 +705,10 @@ export class DatabaseStorage implements IStorage {
   // Clinics
   async createClinic(insertClinic: InsertClinic): Promise<Clinic> {
     const doctors = insertClinic.doctors as any[];
-    const [clinic] = await db.insert(clinics).values([{
+    const [clinic] = await db.insert(clinics).values({
       ...insertClinic,
       doctors: doctors || []
-    }]).returning();
+    } as any).returning();
     return clinic;
   }
 
@@ -839,7 +859,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCase(c: InsertDoctorCase): Promise<DoctorCase> {
-    const [created] = await db.insert(doctorCases).values(c).returning();
+    const [created] = await db.insert(doctorCases).values(c as any).returning();
     return created;
   }
 
@@ -873,10 +893,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSmileDeal(insertDeal: InsertSmileDeal): Promise<SmileDeal> {
-    const [deal] = await db.insert(smileDeals).values(insertDeal).returning();
+    const [deal] = await db.insert(smileDeals).values(insertDeal as any).returning();
     return deal;
   }
-
   async updateSmileDeal(id: number, updates: Partial<SmileDeal>): Promise<SmileDeal> {
     const [updated] = await db.update(smileDeals)
       .set(updates)
@@ -959,9 +978,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Consent Tokens
-  async createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date): Promise<ConsentToken> {
-    const [ct] = await db.insert(consentTokens).values({ bookingId, clinicId, token, status: 'pending', expiresAt }).returning();
+  async createConsentToken(bookingId: number, clinicId: number, token: string, expiresAt: Date, consentTextVersionId?: number): Promise<ConsentToken> {
+    const [ct] = await db.insert(consentTokens).values({ bookingId, clinicId, token, status: 'pending', expiresAt, consentTextVersionId: consentTextVersionId ?? null } as any).returning();
     return ct;
+  }
+
+  // Consent Text Versions
+  async getCurrentConsentVersion(clinicId: number): Promise<ConsentTextVersion | undefined> {
+    // First try clinic-specific current version
+    const clinicRows = await db.select().from(consentTextVersions)
+      .where(and(eq(consentTextVersions.clinicId, clinicId), eq(consentTextVersions.isCurrent, true)))
+      .limit(1);
+    if (clinicRows[0]) return clinicRows[0];
+    // Fall back to global default (clinic_id IS NULL)
+    const globalRows = await db.select().from(consentTextVersions)
+      .where(and(isNull(consentTextVersions.clinicId), eq(consentTextVersions.isCurrent, true)))
+      .limit(1);
+    return globalRows[0];
+  }
+
+  async getClinicConsentVersions(clinicId: number): Promise<ConsentTextVersion[]> {
+    // Return clinic-specific + global default versions ordered newest first
+    const rows = await db.select().from(consentTextVersions)
+      .where(or(eq(consentTextVersions.clinicId, clinicId), isNull(consentTextVersions.clinicId)))
+      .orderBy(desc(consentTextVersions.createdAt));
+    return rows;
+  }
+
+  async createConsentVersion(clinicId: number, data: { title: string; textEn: string; textHash: string; version: string; createdByEmail: string }): Promise<ConsentTextVersion> {
+    // Mark any existing clinic-specific current as not-current
+    await db.update(consentTextVersions)
+      .set({ isCurrent: false })
+      .where(and(eq(consentTextVersions.clinicId, clinicId), eq(consentTextVersions.isCurrent, true)));
+    const [v] = await db.insert(consentTextVersions).values({
+      clinicId,
+      version: data.version,
+      title: data.title,
+      textEn: data.textEn,
+      textHash: data.textHash,
+      isCurrent: true,
+      createdByEmail: data.createdByEmail,
+      effectiveFrom: new Date(),
+    } as any).returning();
+    return v;
   }
 
   async getConsentByToken(token: string): Promise<(ConsentToken & { booking: Booking; clinic: Clinic }) | undefined> {
@@ -980,7 +1039,7 @@ export class DatabaseStorage implements IStorage {
     if (!ct) throw new Error("Consent token not found");
     await db.update(consentTokens).set({ status: 'signed' }).where(eq(consentTokens.token, token));
     await db.update(bookings).set({
-      consentSignature: signature,
+      consentSignature: encryptField(signature),
       consentSignedAt: new Date(),
       consentIp: ip,
     }).where(eq(bookings.id, ct.bookingId));
@@ -988,32 +1047,41 @@ export class DatabaseStorage implements IStorage {
 
   // Clinical Records
   async createClinicalRecord(data: InsertClinicalRecord): Promise<ClinicalRecord> {
-    const [record] = await db.insert(clinicalRecords).values({
+    const encryptedData = {
       ...data,
-      updatedAt: new Date(),
-    }).returning();
-    return record;
+      prescription: encryptField(data.prescription ?? null),
+      notes: encryptField(data.notes ?? null),
+    };
+    const [record] = await db.insert(clinicalRecords).values(encryptedData as any).returning();
+    return this.decryptClinicalRecord(record);
   }
 
   async getClinicalRecordsByBookingId(bookingId: number): Promise<ClinicalRecord[]> {
-    return db.select().from(clinicalRecords)
+    const rows = await db.select().from(clinicalRecords)
       .where(and(eq(clinicalRecords.bookingId, bookingId), eq(clinicalRecords.isDeleted, false)))
       .orderBy(desc(clinicalRecords.createdAt));
+    return rows.map(r => this.decryptClinicalRecord(r));
   }
 
   async getClinicalRecordsByClinicId(clinicId: number): Promise<ClinicalRecord[]> {
-    return db.select().from(clinicalRecords)
+    const rows = await db.select().from(clinicalRecords)
       .where(and(eq(clinicalRecords.clinicId, clinicId), eq(clinicalRecords.isDeleted, false)))
       .orderBy(desc(clinicalRecords.createdAt));
+    return rows.map(r => this.decryptClinicalRecord(r));
   }
 
   async updateClinicalRecord(id: number, updates: Partial<Pick<ClinicalRecord, 'diagnosis' | 'prescription' | 'notes' | 'doctorName'>>): Promise<ClinicalRecord> {
+    const encryptedUpdates = {
+      ...updates,
+      ...(updates.prescription !== undefined ? { prescription: encryptField(updates.prescription) } : {}),
+      ...(updates.notes !== undefined ? { notes: encryptField(updates.notes) } : {}),
+    };
     const [record] = await db.update(clinicalRecords)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({ ...encryptedUpdates, updatedAt: new Date() })
       .where(eq(clinicalRecords.id, id))
       .returning();
     if (!record) throw new Error("Clinical record not found");
-    return record;
+    return this.decryptClinicalRecord(record);
   }
 
   async softDeleteClinicalRecord(id: number): Promise<void> {
@@ -1107,19 +1175,38 @@ export class DatabaseStorage implements IStorage {
 
   // Patient Bills
   async createPatientBill(data: InsertPatientBill): Promise<PatientBill> {
-    const [bill] = await db.insert(patientBills).values(data).returning();
+    const [bill] = await db.insert(patientBills).values(data as any).returning();
     return bill;
   }
 
-  async getPatientBillsByClinicId(clinicId: number): Promise<PatientBill[]> {
+  async getPatientBillById(id: number, clinicId: number): Promise<PatientBill | null> {
+    const [bill] = await db.select().from(patientBills)
+      .where(and(eq(patientBills.id, id), eq(patientBills.clinicId, clinicId)))
+      .limit(1);
+    return bill ?? null;
+  }
+
+  async getPatientBillsByClinicId(clinicId: number): Promise<(PatientBill & { patientCode?: string | null })[]> {
+    const rows = await db.select({
+      bill: patientBills,
+      patientCode: patients.patientCode,
+    })
+    .from(patientBills)
+    .leftJoin(patients, eq(patientBills.patientId, patients.id))
+    .where(eq(patientBills.clinicId, clinicId))
+    .orderBy(desc(patientBills.createdAt));
+    return rows.map(r => ({ ...r.bill, patientCode: r.patientCode ?? null }));
+  }
+
+  async getPatientBillsByBookingId(bookingId: number, clinicId: number): Promise<PatientBill[]> {
     return db.select().from(patientBills)
-      .where(eq(patientBills.clinicId, clinicId))
+      .where(and(eq(patientBills.bookingId, bookingId), eq(patientBills.clinicId, clinicId)))
       .orderBy(desc(patientBills.createdAt));
   }
 
-  async getPatientBillsByBookingId(bookingId: number): Promise<PatientBill[]> {
+  async getPatientBillsByPatientId(clinicId: number, patientId: number): Promise<PatientBill[]> {
     return db.select().from(patientBills)
-      .where(eq(patientBills.bookingId, bookingId))
+      .where(and(eq(patientBills.clinicId, clinicId), eq(patientBills.patientId, patientId)))
       .orderBy(desc(patientBills.createdAt));
   }
 
@@ -1246,15 +1333,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchPatients(clinicId: number, query: string): Promise<Patient[]> {
-    const q = `%${query.toLowerCase()}%`;
+    const q = query.toLowerCase().trim();
+    const qLike  = `%${q}%`;
+    const qStart = `${q}%`;
     return db.select().from(patients)
       .where(and(
         eq(patients.clinicId, clinicId),
-        sql`(LOWER(${patients.name}) LIKE ${q} OR LOWER(COALESCE(${patients.email}, '')) LIKE ${q} OR COALESCE(${patients.phone}, '') LIKE ${q})`,
-        sql`${patients.patientCode} IS NOT NULL`
+        sql`${patients.patientCode} IS NOT NULL`,
+        sql`(
+          LOWER(${patients.name}) LIKE ${qLike}
+          OR LOWER(COALESCE(${patients.email}, '')) LIKE ${qLike}
+          OR COALESCE(${patients.phone}, '') LIKE ${qLike}
+          OR LOWER(COALESCE(${patients.patientCode}, '')) LIKE ${qLike}
+        )`
       ))
-      .orderBy(desc(patients.lastVisitAt))
-      .limit(10);
+      .orderBy(
+        sql`CASE
+          WHEN LOWER(COALESCE(${patients.patientCode}, '')) = ${q}     THEN 0
+          WHEN LOWER(COALESCE(${patients.patientCode}, '')) LIKE ${qStart} THEN 1
+          WHEN LOWER(${patients.name}) LIKE ${qStart}                  THEN 2
+          WHEN COALESCE(${patients.phone}, '') LIKE ${qStart}          THEN 3
+          ELSE 4
+        END`,
+        desc(patients.lastVisitAt)
+      )
+      .limit(8);
   }
 
   async getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]> {

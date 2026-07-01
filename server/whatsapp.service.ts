@@ -9,6 +9,7 @@ import {
   sendWhatsAppBookingNotification as twilioBooking,
   sendWhatsAppConfirmationNotification as twilioConfirmation,
   sendWhatsAppConsentLink as twilioConsent,
+  sendWhatsAppMessage as twilioSendMessage,
 } from "./twilio.service";
 
 import {
@@ -115,4 +116,26 @@ export async function sendWhatsAppConsentLink(
     );
   }
   return twilioConsent(toPhone, patientName, clinicName, consentUrl);
+}
+
+export async function sendWhatsAppMessage(toPhone: string, message: string): Promise<void> {
+  if (PROVIDER === "zavu" && isZavuConfigured) {
+    return withFallback(
+      "generic-message",
+      async () => {
+        throw new Error("Generic WhatsApp messages are not supported for the Zavu provider");
+      },
+      async () => twilioSendMessage(toPhone, message, "generic")
+    );
+  }
+  if (PROVIDER === "meta" && isMetaConfigured) {
+    return withFallback(
+      "generic-message",
+      async () => {
+        throw new Error("Generic WhatsApp messages are not supported for the Meta provider");
+      },
+      async () => twilioSendMessage(toPhone, message, "generic")
+    );
+  }
+  return twilioSendMessage(toPhone, message, "generic");
 }

@@ -7,21 +7,21 @@ import { ThemeProvider } from "next-themes";
 import { Header } from "@/components/Header";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Server, Database, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useClinicAuth } from "@/hooks/use-clinic-auth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
-import Book from "@/pages/Book";
-import Admin from "@/pages/Admin";
+const Book             = lazy(() => import("@/pages/Book"));
+const Admin            = lazy(() => import("@/pages/Admin"));
+const ClinicDashboard  = lazy(() => import("@/pages/ClinicDashboard"));
+const SmileDeals       = lazy(() => import("@/pages/SmileDeals"));
+const DoctorDashboard  = lazy(() => import("@/pages/DoctorDashboard"));
 import ClinicLogin from "@/pages/ClinicLogin";
-import ClinicDashboard from "@/pages/ClinicDashboard";
 import ClinicAbout from "@/pages/ClinicAbout";
 import SetupPassword from "@/pages/SetupPassword";
-import SmileDeals from "@/pages/SmileDeals";
-import DoctorDashboard from "@/pages/DoctorDashboard";
 import DoctorPublicProfile from "@/pages/DoctorPublicProfile";
 import GettingStarted from "@/pages/GettingStarted";
 import RegisterClinic from "@/pages/RegisterClinic";
@@ -178,7 +178,13 @@ function AppLayout() {
       )}
       <NetworkStatusBanner />
       <main className="relative z-10">
-        <Router />
+        <Suspense fallback={
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          </div>
+        }>
+          <Router />
+        </Suspense>
       </main>
       <HealthIndicator />
       <Toaster />

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import QRCode from "react-qr-code";
 import { BookingNotesThread } from "@/components/BookingNotesThread";
 import ClinicalRecordsTab from "@/components/ClinicalRecordsTab";
@@ -16,28 +16,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Loader2, LogOut, Stethoscope, Building2, Calendar, ShieldAlert, Clock,
+  Loader2, LogOut, Stethoscope, Building2, Calendar, ShieldAlert, Clock, UserX, ShieldCheck, Activity,
   ClipboardList, CheckCircle2, AlertCircle, Hash, CalendarDays, TrendingUp, ArrowRight,
   Info, X, Filter, BadgeCheck, RotateCcw, User, Award, BookOpen, Plus, Pencil, Trash2,
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
   Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound,
-  MoreHorizontal, CalendarOff, Phone, Pill
+  MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck, Microscope, RefreshCw,
+  SlidersHorizontal, Maximize2, Minimize2
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/schema";
-import { format, differenceInCalendarDays } from "date-fns";
+import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, endOfWeek, addWeeks, addDays } from "date-fns";
 import { compressImage } from "@/lib/imageCompression";
+import { filterAndSortBookings } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
+import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 
-type QuickFilter = "all" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days";
-type Tab = "appointments" | "profile" | "certifications" | "cases" | "leaves";
+type QuickFilter = "all" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days" | "this-week" | "next-week";
+type Tab = "appointments" | "profile" | "certifications" | "cases" | "leaves" | "xray";
 
 function isVideo(url: string) {
   return /\.(mp4|webm|ogg|mov)$/i.test(url) || url.includes("youtube.com") || url.includes("youtu.be") || url.includes("vimeo.com");
@@ -48,7 +52,7 @@ function MediaThumb({ url }: { url: string }) {
     return (
       <div className="relative aspect-video rounded-xl overflow-hidden bg-muted/40 flex items-center justify-center border border-border/40 group">
         <Play className="h-8 w-8 text-primary/60 group-hover:text-primary transition-colors" />
-        <span className="absolute bottom-2 left-2 text-[10px] text-muted-foreground bg-background/70 rounded px-1">Video</span>
+        <span className="absolute bottom-2 left-2 text-xs text-muted-foreground bg-background/70 rounded px-1">Video</span>
       </div>
     );
   }
@@ -59,15 +63,44 @@ function MediaThumb({ url }: { url: string }) {
   );
 }
 
+const DR_VISIT_TYPE_LABELS: Record<string, string> = {
+  first_visit: "First Visit",
+  follow_up: "Follow Up",
+  emergency: "Emergency",
+  routine_checkup: "Routine Checkup",
+  consultation: "Consultation",
+  review: "Review",
+  booked_by_patient: "Booked by Patient",
+};
+
+const DR_CLINICAL_STATUS: Record<string, { label: string; cls: string }> = {
+  first_visit:        { label: "First Visit",        cls: "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800" },
+  revisit:            { label: "Revisit",            cls: "bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-800" },
+  follow_up_required: { label: "Follow-up Required", cls: "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800" },
+  case_closed:        { label: "Case Closed",        cls: "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" },
+};
+
+const DR_CHIEF_COMPLAINTS = [
+  "Toothache", "Tooth sensitivity", "Sensitivity to hot/cold/sweet",
+  "Sharp or throbbing pain", "Jaw pain", "Bleeding gums", "Swollen or red gums",
+  "Receding gums", "Bad breath", "Broken or chipped tooth", "Loose tooth",
+  "Dry mouth", "Mouth sores", "Difficulty chewing", "Difficulty swallowing",
+  "Teeth grinding", "Clicking jaw", "Facial swelling", "Gum recession",
+];
+
 export default function DoctorDashboard() {
   const { doctor, isLoading, isAuthenticated, logout, isLoggingOut } = useDoctorAuth();
   const [_, setLocation] = useLocation();
 
   const [activeTab, setActiveTab] = useState<Tab>("appointments");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
-  const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
+  const [filterRowOpen, setFilterRowOpen] = useState(true);
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
+  const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
+  const [heroStatsCollapsed, setHeroStatsCollapsed] = useState(false);
   const appointmentsSectionRef = useRef<HTMLDivElement>(null);
 
   const [profName, setProfName] = useState("");
@@ -87,8 +120,26 @@ export default function DoctorDashboard() {
 
   const [linkCopied, setLinkCopied] = useState(false);
   const [patientModalId, setPatientModalId] = useState<number | null>(null);
-  const [patientModalTab, setPatientModalTab] = useState<'notes' | 'diagnosis' | 'prescription'>('notes');
+  const [dialogExpanded, setDialogExpanded] = useState(false);
+  const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription'>('overview');
   const [statusDraft, setStatusDraft] = useState("");
+  const [pendingNotifNav, setPendingNotifNav] = useState<{ bookingId?: number } | null>(() => {
+    if (typeof window === "undefined") return null;
+    const pending = sessionStorage.getItem("pendingNotifNav");
+    if (!pending) return null;
+    try {
+      const detail = JSON.parse(pending);
+      if (detail?.bookingId != null) {
+        detail.bookingId = Number(detail.bookingId);
+      }
+      sessionStorage.removeItem("pendingNotifNav");
+      return detail;
+    } catch {
+      sessionStorage.removeItem("pendingNotifNav");
+      return null;
+    }
+  });
+  const [visibleBookingCount, setVisibleBookingCount] = useState(50);
 
   const [certSheetOpen, setCertSheetOpen] = useState(false);
   const [editingCert, setEditingCert] = useState<DoctorCertification | null>(null);
@@ -118,8 +169,33 @@ export default function DoctorDashboard() {
   const [changePwdConfirm, setChangePwdConfirm] = useState("");
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) setLocation("/clinic-login");
+    if (!isLoading && !isAuthenticated) setLocation("/clinic-login?tab=doctor");
   }, [isLoading, isAuthenticated, setLocation]);
+
+  // ── Notification deep-link helpers ────────────────────────────────────────
+  const applyDoctorNotifNav = (detail: { bookingId?: number }) => {
+    if (detail.bookingId) {
+      setActiveTab("appointments");
+      setPatientModalId(detail.bookingId);
+    }
+  };
+
+  // Case A: user already on /doctor-dashboard — custom event fires directly
+  useEffect(() => {
+    const handler = (e: Event) => {
+      applyDoctorNotifNav((e as CustomEvent).detail);
+    };
+    window.addEventListener("notif-navigate", handler);
+    return () => window.removeEventListener("notif-navigate", handler);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Case B: user navigated from a different page — pick up from sessionStorage on mount
+  useEffect(() => {
+    if (!isAuthenticated || !pendingNotifNav) return;
+    applyDoctorNotifNav(pendingNotifNav);
+    setPendingNotifNav(null);
+  }, [isAuthenticated, pendingNotifNav]);
+  // ──────────────────────────────────────────────────────────────────────────
 
   function slugify(name: string) {
     return "dr-" + name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -142,12 +218,32 @@ export default function DoctorDashboard() {
 
   const { data: doctorClinics = [] } = useQuery<Clinic[]>({
     queryKey: ["/api/doctor/clinics"],
-    enabled: isAuthenticated,
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/doctor/clinics");
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) return [];
+        throw new Error("Failed to load doctor clinics");
+      }
+      return res.json();
+    },
+    enabled: isAuthenticated && activeTab === "appointments",
+    refetchOnMount: "always",
+    staleTime: 30_000,
   });
 
   const { data: bookings = [], isLoading: isBookingsLoading } = useQuery({
     queryKey: ["/api/auth/clinic/bookings"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/auth/clinic/bookings");
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) return [];
+        throw new Error("Failed to fetch bookings");
+      }
+      return res.json();
+    },
     enabled: isAuthenticated,
+    refetchOnMount: "always",
+    staleTime: 30_000,
   });
 
   const { data: certifications = [], isLoading: isCertsLoading, isError: isCertsError, refetch: refetchCerts } = useQuery<DoctorCertification[]>({
@@ -292,10 +388,11 @@ export default function DoctorDashboard() {
   const completeVisitMutation = useMutation({
     mutationFn: (id: number) => apiRequest("PATCH", `/api/doctor/bookings/${id}/complete-visit`),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/doctor/bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
-      notify.success("Visit completed", { description: "Clinic admin has been notified." });
+      notify.success("Treatment completed", { description: "Clinic admin has been notified to close the visit." });
     },
-    onError: () => notify.error("Failed to complete visit"),
+    onError: () => notify.error("Failed to mark treatment as complete"),
   });
 
   const approveMutation = useMutation({
@@ -314,6 +411,15 @@ export default function DoctorDashboard() {
       notify.success("Appointment declined", { description: "The clinic admin has been notified." });
     },
     onError: () => notify.error("Failed to decline appointment"),
+  });
+
+  const requestConsentMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("POST", `/api/doctor/bookings/${id}/request-consent`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/clinic/bookings"] });
+      notify.success("Consent link sent", { description: "The patient will receive a WhatsApp message with the consent form link." });
+    },
+    onError: () => notify.error("Failed to send consent link"),
   });
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -507,54 +613,114 @@ export default function DoctorDashboard() {
   }
   if (!doctor) return null;
 
-  const allBookings = Array.isArray(bookings) ? bookings : [];
-  const myBookings = allBookings.filter((b: any) => b.assignedDoctorEmail === (doctor as any).email);
-  const awaitingBookings = myBookings.filter((b: any) => b.doctorApprovalStatus === 'pending');
-  const confirmedBookings = myBookings.filter((b: any) => b.doctorApprovalStatus !== 'pending' && b.doctorApprovalStatus !== 'declined');
-  const todayStr = new Date().toISOString().split("T")[0];
-  const todayBookings = confirmedBookings.filter((b: any) => {
-    const d = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
-    return d === todayStr;
-  });
-  const upcomingBookings = confirmedBookings.filter((b: any) => {
-    const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-    return d && d >= new Date();
-  });
+  const allBookings = useMemo(() => (Array.isArray(bookings) ? bookings : []), [bookings]);
+  const myBookings = useMemo(
+    () => allBookings.filter((b: any) => b.assignedDoctorEmail === (doctor as any).email),
+    [allBookings, doctor]
+  );
+  const awaitingBookings = useMemo(
+    () => myBookings.filter((b: any) => b.doctorApprovalStatus === 'pending'),
+    [myBookings]
+  );
+  const confirmedBookings = useMemo(
+    () => myBookings.filter((b: any) => b.doctorApprovalStatus !== 'pending' && b.doctorApprovalStatus !== 'declined'),
+    [myBookings]
+  );
 
-  const now = new Date();
-  const next7 = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const pendingNext7Count = awaitingBookings.filter((b: any) => {
-    const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-    return d && d >= now && d <= next7;
-  }).length;
-  const confirmedNext7Count = confirmedBookings.filter((b: any) => {
-    const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-    return d && d >= now && d <= next7;
-  }).length;
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStart = useMemo(() => startOfDay(new Date()), []);
+  const statNext7DaysEnd = useMemo(() => addDays(todayStart, 7), [todayStart]);
 
-  const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setAppointmentDateFilter(""); };
+  const todayBookings = useMemo(
+    () => confirmedBookings.filter((b: any) => {
+      const d = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
+      return d === todayStr;
+    }),
+    [confirmedBookings, todayStr]
+  );
 
-  const filteredBookings = (quickFilter === "awaiting" || quickFilter === "pending-7days" ? awaitingBookings : confirmedBookings).filter((b: any) => {
-    const matchesClinic = appointmentClinicFilter === "all" || b.clinicId === parseInt(appointmentClinicFilter);
-    const bd = b.slot?.startTime ? new Date(b.slot.startTime).toISOString().split("T")[0] : "";
-    const bdt = b.slot?.startTime ? new Date(b.slot.startTime) : null;
-    let matchesDate = true;
-    if (quickFilter === "today") matchesDate = bd === todayStr;
-    else if (quickFilter === "upcoming") matchesDate = bdt ? bdt >= new Date() : false;
-    else if (quickFilter === "pending-7days") matchesDate = bdt ? bdt >= now && bdt <= next7 : false;
-    else if (quickFilter === "confirmed-7days") matchesDate = bdt ? bdt >= now && bdt <= next7 : false;
-    else matchesDate = !appointmentDateFilter || bd === appointmentDateFilter;
-    return matchesClinic && matchesDate;
-  });
+  const upcomingBookings = useMemo(
+    () => confirmedBookings.filter((b: any) => {
+      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+      return d && d >= new Date() && b.visitStatus !== 'completed';
+    }),
+    [confirmedBookings]
+  );
+
+  const now = useMemo(() => new Date(), []);
+  const next7 = useMemo(() => new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), [now]);
+  const pendingNext7Count = useMemo(
+    () => awaitingBookings.filter((b: any) => {
+      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+      return d && d >= now && d <= next7;
+    }).length,
+    [awaitingBookings, now, next7]
+  );
+  const confirmedNext7Count = useMemo(
+    () => confirmedBookings.filter((b: any) => {
+      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+      return d && d >= now && d <= next7;
+    }).length,
+    [confirmedBookings, now, next7]
+  );
+
+  const thisWeekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
+  const thisWeekEnd = useMemo(() => endOfWeek(new Date(), { weekStartsOn: 1 }), []);
+  const nextWeekStart = useMemo(() => startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), []);
+  const nextWeekEnd = useMemo(() => endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), []);
+  const thisWeekCount = useMemo(
+    () => confirmedBookings.filter((b: any) => {
+      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+      return d && d >= thisWeekStart && d <= thisWeekEnd;
+    }).length,
+    [confirmedBookings, thisWeekStart, thisWeekEnd]
+  );
+  const nextWeekCount = useMemo(
+    () => confirmedBookings.filter((b: any) => {
+      const d = b.slot?.startTime ? new Date(b.slot.startTime) : null;
+      return d && d >= nextWeekStart && d <= nextWeekEnd;
+    }).length,
+    [confirmedBookings, nextWeekStart, nextWeekEnd]
+  );
+  const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setFilterDate(undefined); setFilterEndDate(undefined); };
+
+  const filteredBookings = useMemo(() => {
+    const sourceBookings = quickFilter === "awaiting" || quickFilter === "pending-7days" ? awaitingBookings : confirmedBookings;
+    const normalizedFilter = quickFilter === "awaiting" ? "all-pending" as QuickFilter : quickFilter;
+    return filterAndSortBookings({
+      bookings: sourceBookings,
+      quickFilter: normalizedFilter,
+      activePatientFilter: undefined,
+      filterDate,
+      filterEndDate,
+      todayStart,
+      todayStr,
+      thisWeekStart,
+      thisWeekEnd,
+      nextWeekStart,
+      nextWeekEnd,
+      statNext7DaysEnd,
+    }).filter((b: any) => appointmentClinicFilter === "all" || b.clinicId === parseInt(appointmentClinicFilter));
+  }, [awaitingBookings, confirmedBookings, quickFilter, appointmentClinicFilter, filterDate, filterEndDate, todayStart, todayStr, thisWeekStart, thisWeekEnd, nextWeekStart, nextWeekEnd, statNext7DaysEnd]);
+
+  const visibleBookings = useMemo(
+    () => filteredBookings.slice(0, visibleBookingCount),
+    [filteredBookings, visibleBookingCount]
+  );
+
+  useEffect(() => {
+    setVisibleBookingCount(50);
+  }, [quickFilter, appointmentClinicFilter, filterDate, filterEndDate]);
 
   const greet = new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening";
 
   const NAV_ITEMS = [
-    { key: "appointments"  as Tab, label: "Appointments",     subtitle: "Today's schedule",      icon: Calendar,    activeClass: "bg-primary/10 border-primary/20 text-primary",                                    iconClass: "bg-primary/10 border-primary/20 text-primary",              dotClass: "bg-primary" },
-    { key: "profile"       as Tab, label: "My Profile",       subtitle: "Edit your details",     icon: User,        activeClass: "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400",     iconClass: "bg-violet-500/10 border-violet-500/20 text-violet-600",     dotClass: "bg-violet-500" },
-    { key: "certifications"as Tab, label: "Certifications",   subtitle: "Degrees & awards",      icon: Award,       activeClass: "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400",             iconClass: "bg-blue-500/10 border-blue-500/20 text-blue-600",           dotClass: "bg-blue-500" },
-    { key: "cases"         as Tab, label: "Case Studies",     subtitle: "Patient cases",         icon: BookOpen,    activeClass: "bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400",             iconClass: "bg-teal-500/10 border-teal-500/20 text-teal-600",           dotClass: "bg-teal-500" },
-    { key: "leaves"        as Tab, label: "Leave Management", subtitle: "Time off & availability",icon: CalendarOff, activeClass: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400",         iconClass: "bg-amber-500/10 border-amber-500/20 text-amber-600",        dotClass: "bg-amber-500" },
+    { key: "appointments"  as Tab, label: "Appointments",     subtitle: "Today's schedule",       icon: Calendar,    activeClass: "bg-primary/10 border-primary/20 text-primary",                                    iconClass: "bg-primary/10 border-primary/20 text-primary",              dotClass: "bg-primary" },
+    { key: "leaves"        as Tab, label: "Leave Management", subtitle: "Time off & availability", icon: CalendarOff, activeClass: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400",         iconClass: "bg-amber-500/10 border-amber-500/20 text-amber-600",        dotClass: "bg-amber-500" },
+    { key: "profile"       as Tab, label: "My Profile",       subtitle: "Edit your details",      icon: User,        activeClass: "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400",     iconClass: "bg-violet-500/10 border-violet-500/20 text-violet-600",     dotClass: "bg-violet-500" },
+    { key: "cases"         as Tab, label: "Case Studies",     subtitle: "Patient cases",          icon: BookOpen,    activeClass: "bg-teal-500/10 border-teal-500/20 text-teal-700 dark:text-teal-400",             iconClass: "bg-teal-500/10 border-teal-500/20 text-teal-600",          dotClass: "bg-teal-500" },
+    { key: "certifications"as Tab, label: "Certifications",   subtitle: "Degrees & awards",       icon: Award,       activeClass: "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400",             iconClass: "bg-blue-500/10 border-blue-500/20 text-blue-600",           dotClass: "bg-blue-500" },
+    { key: "xray"          as Tab, label: "Analyse X-Ray",    subtitle: "AI dental findings",     icon: Microscope,  activeClass: "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400",     iconClass: "bg-violet-500/10 border-violet-500/20 text-violet-600",     dotClass: "bg-violet-500" },
   ];
 
   return (
@@ -577,7 +743,7 @@ export default function DoctorDashboard() {
       )}
 
       {/* ═══ PAGE CONTAINER — single wrapper for hero + content (matches ClinicDashboard) ═══ */}
-      <div className="container mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-8">
+      <div className="max-w-7xl mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-6 lg:pb-8">
 
       {/* ═══ DOCTOR HERO BAR ═══ */}
       <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
@@ -638,20 +804,22 @@ export default function DoctorDashboard() {
               </div>
             </div>
 
-            {/* Sign Out */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={logout}
-              className="shrink-0 min-h-[44px] px-3 text-white/70 hover:text-white hover:bg-white/15 active:bg-white/25 active:scale-[0.97] border border-white/20 gap-2 text-xs transition-all"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline font-semibold">Sign Out</span>
-            </Button>
           </div>
 
           {/* ── Row 2: Live stats ── */}
-          <div className="relative mt-5 pt-4 border-t border-white/[0.10] grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="relative mt-5">
+            <div className="flex items-center gap-2 pt-4">
+              <div className="flex-1 h-px bg-white/10" />
+              <button
+                onClick={() => setHeroStatsCollapsed(s => !s)}
+                className="h-7 w-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white/80 hover:bg-white/10 active:bg-white/15 transition-all active:scale-[0.97] shrink-0 motion-reduce:transition-none"
+                title={heroStatsCollapsed ? "Show stats" : "Hide stats"}
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${heroStatsCollapsed ? '' : 'rotate-180'}`} />
+              </button>
+            </div>
+            {!heroStatsCollapsed && (
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
               { label: "Confirmed Bookings Today",            shortLabel: "Confirmed Today",       subTag: null,          filter: "today" as QuickFilter,           tooltip: "Appointments assigned to you today that have been confirmed.",                                          count: todayBookings.length,    Icon: Calendar,      text: "text-sky-300",     bg: "bg-sky-400/10",     border: "border-sky-400/20" },
               { label: "Confirmed Bookings (Next 7 Days)",    shortLabel: "Confirmed Bookings",    subTag: "Next 7 Days", filter: "confirmed-7days" as QuickFilter, tooltip: "Appointments assigned to you in the next 7 days that are confirmed and locked in.",                    count: confirmedNext7Count,     Icon: CheckCircle2,  text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
@@ -674,7 +842,7 @@ export default function DoctorDashboard() {
                         <Icon className="h-3.5 w-3.5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-2xl sm:text-lg font-extrabold text-white leading-none tabular-nums">{count}</p>
+                        <p className="text-lg sm:text-xl font-extrabold text-white leading-none tabular-nums">{count}</p>
                         <p className={`text-xs font-semibold mt-1 ${text} leading-snug`}>{shortLabel}</p>
                         {subTag && (
                           <span className={`inline-block text-xs font-medium ${text} opacity-60 mt-0.5 leading-none`}>{subTag}</span>
@@ -689,6 +857,8 @@ export default function DoctorDashboard() {
                 </Tooltip>
               </TooltipProvider>
             ))}
+            </div>
+            )}
           </div>
         </div>
 
@@ -719,11 +889,11 @@ export default function DoctorDashboard() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold leading-tight">{label}</p>
-                    <p className="text-[10px] text-muted-foreground">{subtitle}</p>
+                    <p className="text-xs text-muted-foreground">{subtitle}</p>
                   </div>
                   {isActive && <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass}`} />}
                   {key === "appointments" && awaitingBookings.length > 0 && !isActive && (
-                    <span className="text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none shrink-0">{awaitingBookings.length}</span>
+                    <span className="text-xs font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none shrink-0">{awaitingBookings.length}</span>
                   )}
                 </button>
               );
@@ -750,7 +920,7 @@ export default function DoctorDashboard() {
                 />
               </div>
               {/* Label */}
-              <p className="text-[9px] text-muted-foreground text-center leading-relaxed">
+              <p className="text-xs text-muted-foreground text-center leading-relaxed">
                 Patients scan to view your profile
               </p>
               {/* URL row */}
@@ -758,7 +928,7 @@ export default function DoctorDashboard() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Profile URL</p>
-                    <p className="text-[10px] text-foreground truncate font-mono mt-0.5">/doctor/{(doctor as any).username || (doctor as any).id}</p>
+                    <p className="text-xs text-foreground truncate font-mono mt-0.5">/doctor/{(doctor as any).username || (doctor as any).id}</p>
                   </div>
                   <button
                     onClick={copyProfileLink}
@@ -783,35 +953,6 @@ export default function DoctorDashboard() {
           {/* ─────────────── APPOINTMENTS ─────────────── */}
           {activeTab === "appointments" && (
             <>
-              {/* Mobile sticky filter bar — must live OUTSIDE space-y-5 to avoid phantom top margin */}
-              <div className="flex items-center gap-2 overflow-x-auto sm:hidden -mx-4 px-4 py-2.5 sticky top-0 z-10 bg-muted/60 backdrop-blur-md border-b border-border/30" style={{ scrollbarWidth: "none" }}>
-                {([
-                  { filter: "today"    as QuickFilter, label: "All Bookings Today" },
-                  { filter: "upcoming" as QuickFilter, label: "All Upcoming Bookings" },
-                  { filter: "awaiting" as QuickFilter, label: "Awaiting", badge: awaitingBookings.length },
-                  { filter: "all"      as QuickFilter, label: "All Bookings" },
-                ] as { filter: QuickFilter; label: string; badge?: number }[]).map(({ filter, label, badge }) => {
-                  const isActive = quickFilter === filter;
-                  return (
-                    <button
-                      key={filter}
-                      onClick={() => { setActiveTab("appointments"); handleQuickFilter(filter); }}
-                      className={`flex items-center gap-1.5 shrink-0 px-4 py-2 rounded-full text-sm font-semibold border transition-all active:scale-[0.97] min-h-[44px] whitespace-nowrap ${
-                        isActive
-                          ? "bg-primary text-white border-primary shadow-sm"
-                          : "bg-background border-border/50 text-muted-foreground"
-                      }`}
-                      data-testid={`filter-btn-${filter}`}
-                    >
-                      {label}
-                      {badge !== undefined && badge > 0 && (
-                        <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center ${isActive ? "bg-white/25 text-white" : "bg-amber-500 text-white"}`}>{badge}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
               <div className="space-y-5" ref={appointmentsSectionRef}>
 
               {/* Panel header */}
@@ -853,186 +994,302 @@ export default function DoctorDashboard() {
                 </div>
               )}
 
-              {/* Desktop card grid */}
-              <div className="hidden sm:grid sm:grid-cols-4 gap-2 sm:gap-3 min-w-0">
+              {/* Quick-filter chips */}
+              <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2">
                 {/* Today */}
-                <TooltipProvider delayDuration={700}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Card
-                        className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-[0.98] ${quickFilter === 'today' ? 'ring-2 ring-sky-400 border-sky-400/60' : 'border-border/50'}`}
-                        onClick={() => { setActiveTab("appointments"); handleQuickFilter("today"); }}
-                        data-testid="stat-today"
-                      >
-                        <div className="h-1 bg-gradient-to-r from-sky-400 to-cyan-400" />
-                        <CardContent className="p-3 sm:p-4 text-left flex items-start gap-2 sm:gap-3 min-h-[64px]">
-                          <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${quickFilter === 'today' ? 'bg-sky-400/20' : 'bg-sky-400/10'}`}>
-                            <Calendar className="h-3.5 w-3.5 text-sky-500" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-base sm:text-xl font-bold text-sky-600 dark:text-sky-400 leading-tight">{todayBookings.length}</p>
-                            <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings Today</p>
-                          </div>
-                          <div className="shrink-0 w-14 flex justify-end">
-                            {quickFilter === 'today' && (
-                              <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-1.5 py-0.5 rounded-full">Active</span>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    <TooltipContent>Today's appointments</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <button
+                  onClick={() => { setActiveTab("appointments"); handleQuickFilter("today"); }}
+                  className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+                    quickFilter === "today"
+                      ? "bg-sky-500/10 border-sky-400/50 text-sky-700 dark:text-sky-400"
+                      : "bg-transparent border-sky-400/30 text-muted-foreground hover:bg-sky-500/8 hover:text-sky-700 dark:hover:text-sky-400"
+                  }`}
+                  data-testid="chip-filter-today"
+                >
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <Calendar className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">Today</span>
+                  </span>
+                  <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "today" ? "bg-sky-500/15 text-sky-700 dark:text-sky-400" : "bg-muted text-muted-foreground"
+                  }`}>{todayBookings.length}</span>
+                </button>
 
                 {/* Upcoming */}
-                <TooltipProvider delayDuration={700}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Card
-                        className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-[0.98] ${quickFilter === 'upcoming' ? 'ring-2 ring-primary border-primary/60' : 'border-border/50'}`}
-                        onClick={() => { setActiveTab("appointments"); handleQuickFilter("upcoming"); }}
-                        data-testid="stat-upcoming"
-                      >
-                        <div className="h-1 bg-gradient-to-r from-primary to-accent" />
-                        <CardContent className="p-3 sm:p-4 text-left flex items-start gap-2 sm:gap-3 min-h-[64px]">
-                          <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${quickFilter === 'upcoming' ? 'bg-primary/20' : 'bg-primary/10'}`}>
-                            <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-base sm:text-xl font-bold text-primary leading-tight">{upcomingBookings.length}</p>
-                            <p className="text-xs font-medium text-muted-foreground leading-tight">All Upcoming Bookings</p>
-                          </div>
-                          <div className="shrink-0 w-14 flex justify-end">
-                            {quickFilter === 'upcoming' && (
-                              <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">Active</span>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    <TooltipContent>Future appointments beyond today</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <button
+                  onClick={() => { setActiveTab("appointments"); handleQuickFilter("upcoming"); }}
+                  className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+                    quickFilter === "upcoming"
+                      ? "bg-primary/10 border-primary/40 text-primary"
+                      : "bg-transparent border-primary/30 text-muted-foreground hover:bg-primary/8 hover:text-primary"
+                  }`}
+                  data-testid="chip-filter-upcoming"
+                >
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <TrendingUp className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">Upcoming</span>
+                  </span>
+                  <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "upcoming" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                  }`}>{upcomingBookings.length}</span>
+                </button>
 
                 {/* Awaiting */}
-                <TooltipProvider delayDuration={700}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Card
-                        className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-[0.98] ${quickFilter === 'awaiting' ? 'ring-2 ring-amber-400 border-amber-400/60' : 'border-border/50'}`}
-                        onClick={() => { setActiveTab("appointments"); handleQuickFilter("awaiting"); }}
-                        data-testid="stat-awaiting"
-                      >
-                        <div className={`h-1 bg-gradient-to-r ${awaitingBookings.length > 0 ? 'from-amber-400 to-yellow-400' : 'from-slate-300 to-slate-200'}`} />
-                        <CardContent className="p-3 sm:p-4 text-left flex items-start gap-2 sm:gap-3 min-h-[64px]">
-                          <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${quickFilter === 'awaiting' ? 'bg-amber-400/20' : awaitingBookings.length > 0 ? 'bg-amber-400/10' : 'bg-muted'}`}>
-                            <AlertCircle className={`h-3.5 w-3.5 ${awaitingBookings.length > 0 ? 'text-amber-500' : 'text-muted-foreground'}`} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className={`text-base sm:text-xl font-bold leading-tight ${awaitingBookings.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>{awaitingBookings.length}</p>
-                            <p className="text-xs font-medium text-muted-foreground leading-tight">Awaiting Approval</p>
-                          </div>
-                          <div className="shrink-0 w-14 flex justify-end">
-                            {quickFilter === 'awaiting' ? (
-                              <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full">Active</span>
-                            ) : awaitingBookings.length > 0 ? (
-                              <span className="text-[9px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none">{awaitingBookings.length}</span>
-                            ) : null}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    <TooltipContent>Appointments needing your approval</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <button
+                  onClick={() => { setActiveTab("appointments"); handleQuickFilter("awaiting"); }}
+                  className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+                    quickFilter === "awaiting"
+                      ? "bg-amber-500/10 border-amber-400/50 text-amber-700 dark:text-amber-400"
+                      : "bg-transparent border-amber-400/30 text-muted-foreground hover:bg-amber-500/8 hover:text-amber-700 dark:hover:text-amber-400"
+                  }`}
+                  data-testid="chip-filter-awaiting"
+                >
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">Awaiting</span>
+                  </span>
+                  <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "awaiting" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-muted text-muted-foreground"
+                  }`}>{awaitingBookings.length}</span>
+                </button>
 
-                {/* Total */}
-                <TooltipProvider delayDuration={700}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Card
-                        className={`shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-[0.98] ${quickFilter === 'all' ? 'ring-2 ring-slate-400 border-slate-400/60' : 'border-border/50'}`}
-                        onClick={() => { setActiveTab("appointments"); handleQuickFilter("all"); }}
-                        data-testid="stat-all"
-                      >
-                        <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-300" />
-                        <CardContent className="p-3 sm:p-4 text-left flex items-start gap-2 sm:gap-3 min-h-[64px]">
-                          <div className={`h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${quickFilter === 'all' ? 'bg-slate-400/20' : 'bg-slate-400/10'}`}>
-                            <ClipboardList className="h-3.5 w-3.5 text-slate-500" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-base sm:text-xl font-bold text-slate-600 dark:text-slate-400 leading-tight">{confirmedBookings.length}</p>
-                            <p className="text-xs font-medium text-muted-foreground leading-tight">All Bookings</p>
-                          </div>
-                          <div className="shrink-0 w-14 flex justify-end">
-                            {quickFilter === 'all' && (
-                              <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-500/10 px-1.5 py-0.5 rounded-full">Active</span>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    <TooltipContent>All confirmed appointments</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
+                {/* All Bookings */}
+                <button
+                  onClick={() => { setActiveTab("appointments"); handleQuickFilter("all"); }}
+                  className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+                    quickFilter === "all"
+                      ? "bg-primary/10 border-primary/40 text-primary"
+                      : "bg-transparent border-primary/30 text-muted-foreground hover:bg-primary/8 hover:text-primary"
+                  }`}
+                  data-testid="chip-filter-all"
+                >
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <ClipboardList className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">All Bookings</span>
+                  </span>
+                  <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "all" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                  }`}>{confirmedBookings.length}</span>
+                </button>
 
-              {/* Filters — date + clinic side-by-side */}
-              <div className="flex flex-wrap gap-2 items-center sm:justify-end">
-                {quickFilter === "all" && (
-                  <div className="relative flex-1 min-w-[130px] sm:flex-none sm:w-44">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input type="date" className="pl-9 h-9 w-full" value={appointmentDateFilter} onChange={(e) => setAppointmentDateFilter(e.target.value)} />
-                  </div>
+                {/* Filter row toggle — only visible when row is collapsed */}
+                {!filterRowOpen && (
+                  <button
+                    onClick={() => setFilterRowOpen(true)}
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97] shrink-0"
+                    data-testid="button-open-filter-row"
+                    title="Show date & week filters"
+                  >
+                    <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+                  </button>
                 )}
-                <div className={quickFilter === "all" ? "flex-1 min-w-[130px] sm:flex-none" : "w-full sm:w-auto"}>
+
+                {/* All Clinics — always visible, pinned right */}
+                <div className="ml-auto">
                   <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
-                    <SelectTrigger className="h-9 w-full sm:w-[170px]"><SelectValue placeholder="All Clinics" /></SelectTrigger>
+                    <SelectTrigger className="h-11 w-full sm:w-[170px] text-xs rounded-xl" data-testid="select-clinic-filter"><SelectValue placeholder="All Clinics" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Clinics</SelectItem>
                       {doctorClinics.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-                {(appointmentDateFilter || appointmentClinicFilter !== "all" || quickFilter !== "all") && (
-                  <Button variant="ghost" size="sm" className="h-9 text-muted-foreground hover:text-foreground shrink-0" onClick={() => { setQuickFilter("all"); setAppointmentDateFilter(""); setAppointmentClinicFilter("all"); }}>
-                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" />Clear
-                  </Button>
-                )}
               </div>
 
-              {/* Dynamic section heading — matches clinic dashboard booking header style */}
-              <div className="rounded-2xl overflow-hidden border border-border/50 shadow-sm">
-                <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-bold text-white tracking-tight">
-                      {quickFilter === "today"          ? "Today's Appointments"
-                       : quickFilter === "upcoming"     ? "Upcoming Appointments"
-                       : quickFilter === "awaiting"     ? "All Pending Bookings"
-                       : quickFilter === "confirmed-7days" ? "Confirmed Bookings (Next 7 Days)"
-                       : quickFilter === "pending-7days"   ? "Pending Confirmations (Next 7 Days)"
-                       : appointmentDateFilter          ? "Filtered Appointments"
-                       : "All Appointments"}
-                    </h2>
-                    <p className="text-white/70 text-xs mt-0.5">
-                      {quickFilter === "today"          ? "Appointments assigned to you today"
-                       : quickFilter === "upcoming"     ? "Future appointments beyond today"
-                       : quickFilter === "awaiting"     ? "All unconfirmed bookings across all dates"
-                       : quickFilter === "confirmed-7days" ? "Confirmed appointments in the next 7 days"
-                       : quickFilter === "pending-7days"   ? "Pending confirmations in the next 7 days"
-                       : appointmentDateFilter          ? "Showing custom date range"
-                       : "All your patient appointments"}
-                    </p>
+              {/* Date range + Quick week — collapsible filter row */}
+              {filterRowOpen && (
+                <div className="animate-in fade-in slide-in-from-top-1 duration-150 grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 bg-card border border-border/50 rounded-xl px-3 py-3 shadow-sm">
+
+                  {/* Desktop-only: icon + label */}
+                  <div className="hidden sm:flex sm:flex-none items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-xs font-medium text-muted-foreground shrink-0">Date range:</span>
                   </div>
-                  <span className="text-white/60 text-sm font-semibold tabular-nums">
-                    {filteredBookings.length} {filteredBookings.length === 1 ? "appointment" : "appointments"}
-                  </span>
+
+                  {/* Start picker — col 1 on mobile */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={`w-full h-11 sm:w-auto sm:h-auto min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
+                          filterDate
+                            ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
+                            : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
+                        }`}
+                      >
+                        <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
+                        {filterDate ? format(filterDate, "MMM d") : "Start"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                      <CalendarPicker mode="single" selected={filterDate} onSelect={(d) => { setQuickFilter('all'); setFilterDate(d); }} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Desktop-only: → arrow */}
+                  <span className="hidden sm:inline text-muted-foreground/40 text-xs shrink-0">→</span>
+
+                  {/* End picker — col 2 on mobile */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={!filterDate}
+                        className={`w-full h-11 sm:w-auto sm:h-auto min-h-[44px] px-2.5 text-xs font-medium rounded-lg border transition-all active:scale-[0.97] ${
+                          filterEndDate
+                            ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/15'
+                            : 'border-border/60 text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground active:bg-muted/50'
+                        }`}
+                      >
+                        <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
+                        {filterEndDate ? format(filterEndDate, "MMM d") : "End"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                      <CalendarPicker mode="single" selected={filterEndDate} onSelect={(d) => { setQuickFilter('all'); setFilterEndDate(d); }} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Clear dates — full-width row on mobile (col-span-2), inline on desktop */}
+                  {(filterDate || filterEndDate) && (
+                    <div className="col-span-2 sm:col-span-1 flex items-center gap-1.5">
+                      <div className="w-px h-4 bg-border/50 shrink-0 hidden sm:block" />
+                      <button
+                        onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); }}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1 h-11 sm:h-auto min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
+                        data-testid="button-clear-date-filter"
+                      >
+                        <X className="h-3 w-3" />
+                        Clear dates
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Desktop-only divider */}
+                  <div className="hidden sm:block w-px h-4 bg-border/40 mx-0.5 shrink-0" />
+
+                  {/* This Week — col 1 on mobile */}
+                  <TooltipProvider delayDuration={700}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'this-week' ? 'all' : 'this-week'); }}
+                          data-testid="chip-filter-this-week"
+                          className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
+                            quickFilter === 'this-week'
+                              ? 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-400/50'
+                              : 'bg-background text-muted-foreground border-violet-400/30 hover:text-violet-600 active:bg-violet-500/10'
+                          }`}
+                        >
+                          <Calendar className="h-3 w-3 shrink-0" />
+                          This Week
+                          <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'this-week' ? 'bg-violet-500/15 text-violet-700 dark:text-violet-400' : 'bg-violet-500/10 text-violet-600'}`}>
+                            {thisWeekCount}
+                          </span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                        Appointments within the current Mon–Sun week
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  {/* Next Week — col 2 on mobile */}
+                  <TooltipProvider delayDuration={700}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => { setFilterDate(undefined); setFilterEndDate(undefined); setQuickFilter(q => q === 'next-week' ? 'all' : 'next-week'); }}
+                          data-testid="chip-filter-next-week"
+                          className={`w-full h-11 sm:w-auto sm:h-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 min-h-[44px] rounded-full border transition-all active:scale-[0.97] ${
+                            quickFilter === 'next-week'
+                              ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-400/50'
+                              : 'bg-background text-muted-foreground border-indigo-400/30 hover:text-indigo-600 active:bg-indigo-500/10'
+                          }`}
+                        >
+                          <CalendarDays className="h-3 w-3 shrink-0" />
+                          Next Week
+                          <span className={`text-xs font-bold px-1 py-0.5 rounded-full ${quickFilter === 'next-week' ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400' : 'bg-indigo-500/10 text-indigo-600'}`}>
+                            {nextWeekCount}
+                          </span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">
+                        Appointments within next Mon–Sun week
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  {/* Clear week — full-width row on mobile (col-span-2), inline on desktop */}
+                  {(quickFilter === 'this-week' || quickFilter === 'next-week') && (
+                    <button
+                      onClick={() => setQuickFilter('all')}
+                      className="col-span-2 sm:col-span-1 w-full sm:w-auto h-11 sm:h-auto inline-flex items-center justify-center gap-1 min-h-[44px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive active:text-destructive rounded-lg border border-transparent hover:border-destructive/30 active:border-destructive/40 bg-background transition-all active:scale-[0.97]"
+                      data-testid="button-clear-week-filter"
+                    >
+                      <X className="h-3 w-3" />
+                      Clear week
+                    </button>
+                  )}
+
+                  {/* Close — desktop only */}
+                  <div className="hidden sm:flex sm:ml-auto">
+                    <button
+                      onClick={() => setFilterRowOpen(false)}
+                      className="h-11 w-11 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 active:bg-muted transition-all active:scale-[0.97] shrink-0"
+                      data-testid="button-close-filter-row"
+                      title="Hide date & week filters"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Dynamic section heading — matches clinic dashboard booking header style */}
+              <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+                <div className="flex">
+                  <div className="w-1.5 bg-primary/60 shrink-0" />
+                  <div className="flex-1 px-5 py-4 bg-gradient-to-r from-primary/[0.06] to-transparent flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                        <Calendar className="h-[18px] w-[18px] text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <h2 className="text-sm sm:text-base font-semibold tracking-tight truncate">
+                          {quickFilter === "today"             ? "Today's Appointments"
+                           : quickFilter === "upcoming"        ? "Upcoming Appointments"
+                           : quickFilter === "awaiting"        ? "All Pending Bookings"
+                           : quickFilter === "confirmed-7days" ? "Confirmed Bookings (Next 7 Days)"
+                           : quickFilter === "pending-7days"   ? "Pending Confirmations (Next 7 Days)"
+                           : quickFilter === "this-week"       ? "This Week's Appointments"
+                           : quickFilter === "next-week"       ? "Next Week's Appointments"
+                           : filterDate                        ? "Filtered Appointments"
+                           : "All Appointments"}
+                        </h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          <span className="tabular-nums font-semibold">{filteredBookings.length}</span>{" "}
+                          {filteredBookings.length === 1 ? "appointment" : "appointments"}{" · "}
+                          {quickFilter === "today"             ? "Appointments assigned to you today"
+                           : quickFilter === "upcoming"        ? "Future appointments beyond today"
+                           : quickFilter === "awaiting"        ? "All unconfirmed bookings across all dates"
+                           : quickFilter === "confirmed-7days" ? "Confirmed appointments in the next 7 days"
+                           : quickFilter === "pending-7days"   ? "Pending confirmations in the next 7 days"
+                           : quickFilter === "this-week"       ? "Appointments within the current Mon–Sun week"
+                           : quickFilter === "next-week"       ? "Appointments within next Mon–Sun week"
+                           : filterDate                        ? "Showing custom date range"
+                           : "All your patient appointments"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {isBookingsLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {[1,2,3,4,5,6].map(i => (
                     <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
                       <div className="flex items-center justify-between">
@@ -1051,8 +1308,9 @@ export default function DoctorDashboard() {
                   ))}
                 </div>
               ) : filteredBookings.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {filteredBookings.slice(0, 50).map((booking: any) => {
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {visibleBookings.map((booking: any) => {
                     const startTime = booking.slot?.startTime ? new Date(booking.slot.startTime) : null;
                     const endTime = booking.slot?.endTime ? new Date(booking.slot.endTime) : null;
                     const durationMin = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
@@ -1097,25 +1355,43 @@ export default function DoctorDashboard() {
                         key={booking.id}
                         role="doctor"
                         booking={booking}
-                        bookingNumber={String(booking.id).padStart(2, '0')}
-                        complaints={booking.description ? booking.description.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean) : []}
+                        bookingNumber={String(booking.id).padStart(4, '0')}
+                        complaints={(() => {
+                          const raw = booking.description ?? "";
+                          const stripped = raw.replace(/Category:\s*[^|]+(\|)?/gi, "").replace(/Visit:\s*[^|]+(\|)?/gi, "").trim();
+                          return stripped ? stripped.split(/[,;]+/).map((s: string) => s.trim()).filter(Boolean) : [];
+                        })()}
                         clinicName={clinicName}
                         clinicCity={clinicCity ?? undefined}
-                        onCardClick={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
+                        onCardClick={() => { setPatientModalId(booking.id); setPatientModalTab('overview'); setStatusDraft(booking.clinicalStatus || ""); }}
                         onApprove={() => approveMutation.mutate(booking.id)}
                         onDecline={() => declineMutation.mutate(booking.id)}
                         onOpenNotes={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
-                        onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('records'); setStatusDraft(booking.clinicalStatus || ""); }}
-                        approvePending={approveMutation.isPending}
-                        declinePending={declineMutation.isPending}
+                        onOpenRecords={() => { setPatientModalId(booking.id); setPatientModalTab('notes'); setStatusDraft(booking.clinicalStatus || ""); }}
+                        approvePending={approveMutation.isPending && (approveMutation.variables as number) === booking.id}
+                        declinePending={declineMutation.isPending && (declineMutation.variables as number) === booking.id}
                         onStartConsultation={() => startConsultationMutation.mutate(booking.id)}
                         startConsultPending={startConsultationMutation.isPending}
-                        onCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
+                        onDoctorCompleteVisit={() => completeVisitMutation.mutate(booking.id)}
                         completeVisitPending={completeVisitMutation.isPending}
+                        onRequestConsent={() => requestConsentMutation.mutate(booking.id)}
+                        consentRequestPending={requestConsentMutation.isPending}
                       />
                     );
                   })}
                 </div>
+                {filteredBookings.length > visibleBookingCount && (
+                  <div className="mt-6 flex items-center justify-center">
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center rounded-full border border-border/70 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/15"
+                      onClick={() => setVisibleBookingCount(prev => prev + 50)}
+                    >
+                      Show more appointments ({Math.min(filteredBookings.length - visibleBookingCount, 50)} more)
+                    </button>
+                  </div>
+                )}
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
                   <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${quickFilter === "awaiting" ? "bg-amber-50 dark:bg-amber-950/20" : "bg-muted/60"}`}>
@@ -1590,7 +1866,7 @@ export default function DoctorDashboard() {
                     {/* Calendar */}
                     <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-background shadow-sm pt-1 shrink-0">
                       {isLeavesLoading ? (
-                        <div className="w-[280px] h-[280px] p-3 space-y-2">
+                        <div className="w-full h-[280px] p-3 space-y-2">
                           <div className="flex justify-between px-1 pb-1">
                             <Skeleton className="h-4 w-4 rounded" />
                             <Skeleton className="h-4 w-28" />
@@ -1843,6 +2119,18 @@ export default function DoctorDashboard() {
             </div>
           )}
 
+          {/* ─────────────── X-RAY ANALYSIS ─────────────── */}
+          {activeTab === "xray" && (
+            <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
+              <div className="flex">
+                <div className="w-1.5 bg-violet-500/60 shrink-0" />
+                <div className="flex-1 px-5 py-5 bg-gradient-to-r from-violet-500/[0.06] to-transparent">
+                  <XrayAnalysisTab />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ─────────────── CERTIFICATIONS ─────────────── */}
           {activeTab === "certifications" && (
             <div className="space-y-5">
@@ -1859,8 +2147,8 @@ export default function DoctorDashboard() {
                         <p className="text-xs text-muted-foreground mt-0.5">Highlight your credentials — these appear on your public profile.</p>
                       </div>
                     </div>
-                    <Button onClick={openNewCert} className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0">
-                      <Plus className="h-4 w-4 mr-2" />Add Certification
+                    <Button onClick={openNewCert} size="sm" className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0 h-9 px-3">
+                      <Plus className="h-4 w-4 sm:mr-1.5" /><span className="hidden sm:inline">Add Certification</span>
                     </Button>
                   </div>
                 </div>
@@ -1906,7 +2194,7 @@ export default function DoctorDashboard() {
                             </div>
                             {cert.issuer && <p className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" />{cert.issuer}</p>}
                           </div>
-                          {cert.year && <span className="shrink-0 text-[11px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">{cert.year}</span>}
+                          {cert.year && <span className="shrink-0 text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">{cert.year}</span>}
                         </div>
                         {cert.description && <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{cert.description}</p>}
                         <div className="flex gap-2 mt-auto pt-3 border-t border-border/40">
@@ -1937,8 +2225,8 @@ export default function DoctorDashboard() {
                         <p className="text-xs text-muted-foreground mt-0.5">Share your clinical cases with descriptions and media. Visible on your public profile.</p>
                       </div>
                     </div>
-                    <Button onClick={openNewCase} className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0">
-                      <Plus className="h-4 w-4 mr-2" />Add Case
+                    <Button onClick={openNewCase} size="sm" className="bg-gradient-to-r from-primary to-accent text-white shadow-sm shadow-primary/20 shrink-0 h-9 px-3">
+                      <Plus className="h-4 w-4 sm:mr-1.5" /><span className="hidden sm:inline">Add Case</span>
                     </Button>
                   </div>
                 </div>
@@ -2029,8 +2317,9 @@ export default function DoctorDashboard() {
         <div className="flex items-stretch">
           {([
             { key: "appointments" as Tab, label: "Appointments", Icon: Calendar },
-            { key: "profile"       as Tab, label: "Profile",      Icon: User },
-            { key: "certifications" as Tab, label: "Certs",       Icon: Award },
+            { key: "leaves"       as Tab, label: "Leave",        Icon: CalendarOff },
+            { key: "profile"      as Tab, label: "Profile",      Icon: User },
+            { key: "cases"        as Tab, label: "Cases",        Icon: BookOpen },
           ] as { key: Tab; label: string; Icon: any }[]).map(({ key, label, Icon }) => {
             const isActive = activeTab === key;
             return (
@@ -2046,20 +2335,17 @@ export default function DoctorDashboard() {
                 <Icon className="h-5 w-5" />
                 <span className="text-[10px] font-semibold">{label}</span>
                 {key === "appointments" && awaitingBookings.length > 0 && (
-                  <span className="absolute top-2 right-[22%] h-4 w-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">{awaitingBookings.length}</span>
+                  <span className="absolute top-2 right-[22%] h-4 w-4 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center leading-none">{awaitingBookings.length}</span>
                 )}
               </button>
             );
           })}
-          {/* More button */}
+          {/* More button — utility actions only */}
           <button
             onClick={() => setMoreDrawerOpen(true)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative ${
-              activeTab === "cases" ? "text-primary" : "text-muted-foreground"
-            }`}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[60px] transition-colors relative text-muted-foreground"
             data-testid="bottom-nav-more"
           >
-            {activeTab === "cases" && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
             <MoreHorizontal className="h-5 w-5" />
             <span className="text-[10px] font-semibold">More</span>
           </button>
@@ -2073,18 +2359,36 @@ export default function DoctorDashboard() {
             <SheetTitle>More</SheetTitle>
           </SheetHeader>
           <div className="space-y-2 pb-6">
+            {/* ── Overflow tab navigation ── */}
             <button
-              onClick={() => { setActiveTab("cases"); setMoreDrawerOpen(false); }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-border/50 bg-background text-left hover:bg-muted/30 transition-colors active:scale-[0.98]"
+              onClick={() => { setActiveTab("certifications"); setMoreDrawerOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors active:scale-[0.98] text-left ${activeTab === "certifications" ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-700/40" : "border-border/50 bg-background hover:bg-muted/30"}`}
+              data-testid="drawer-nav-certifications"
             >
-              <div className="h-9 w-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
-                <BookOpen className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-blue-500/10 border border-blue-500/20">
+                <Award className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               </div>
-              <div>
-                <p className="font-semibold text-sm">Case Studies</p>
-                <p className="text-xs text-muted-foreground">Manage your clinical cases</p>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">Certifications</p>
+                <p className="text-xs text-muted-foreground">Degrees &amp; awards</p>
               </div>
+              {activeTab === "certifications" && <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />}
             </button>
+            <button
+              onClick={() => { setActiveTab("xray"); setMoreDrawerOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors active:scale-[0.98] text-left ${activeTab === "xray" ? "bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-700/40" : "border-border/50 bg-background hover:bg-muted/30"}`}
+              data-testid="drawer-nav-xray"
+            >
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-violet-500/10 border border-violet-500/20">
+                <Microscope className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">Analyse X-Ray</p>
+                <p className="text-xs text-muted-foreground">AI dental findings</p>
+              </div>
+              {activeTab === "xray" && <div className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />}
+            </button>
+            <div className="h-px bg-border/50 my-1" />
             <button
               onClick={() => { setChangePwdOpen(true); setMoreDrawerOpen(false); }}
               className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-border/50 bg-background text-left hover:bg-muted/30 transition-colors active:scale-[0.98]"
@@ -2137,8 +2441,21 @@ export default function DoctorDashboard() {
       </Sheet>
 
       {/* ── Patient Detail Dialog ── */}
-      <Dialog open={patientModalId !== null} onOpenChange={(o) => { if (!o) setPatientModalId(null); }}>
-        <DialogContent className="w-[95vw] sm:max-w-[640px] p-0 gap-0 overflow-hidden h-[90vh] flex flex-col rounded-2xl">
+      <Dialog open={patientModalId !== null} onOpenChange={(o) => { if (!o) { setPatientModalId(null); setDialogExpanded(false); } }}>
+        <DialogContent className={`w-[95vw] ${dialogExpanded ? 'sm:max-w-[88vw]' : 'sm:max-w-[640px]'} p-0 gap-0 overflow-hidden h-[90vh] flex flex-col rounded-2xl transition-[max-width] duration-200`}>
+
+          {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
+          <button
+            onClick={() => setDialogExpanded(v => !v)}
+            className="hidden sm:flex absolute right-11 top-3.5 z-10 h-6 w-6 items-center justify-center rounded-md bg-white/15 hover:bg-white/25 border border-white/20 transition-colors"
+            aria-label={dialogExpanded ? "Minimize dialog" : "Maximize dialog"}
+            data-testid="button-doctor-dialog-expand"
+          >
+            {dialogExpanded
+              ? <Minimize2 className="h-3.5 w-3.5 text-white" />
+              : <Maximize2 className="h-3.5 w-3.5 text-white" />}
+          </button>
+
           {patientModalId !== null && (() => {
             const b = myBookings.find((bk: any) => bk.id === patientModalId);
             if (!b) return null;
@@ -2154,15 +2471,37 @@ export default function DoctorDashboard() {
                       {b.customerName?.[0]?.toUpperCase() ?? "?"}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-white text-base leading-tight">{b.customerName}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-white text-base leading-tight">{b.customerName}</p>
+                        {(b.customerAge || b.customerGender) && (
+                          <span className="text-xs text-white/55 shrink-0">
+                            {b.customerAge ? `${b.customerAge}y` : ""}
+                            {b.customerAge && b.customerGender ? " · " : ""}
+                            {b.customerGender ? (b.customerGender as string).charAt(0).toUpperCase() + (b.customerGender as string).slice(1) : ""}
+                          </span>
+                        )}
+                        {b.doctorApprovalStatus === 'declined' && (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-900/30 border border-rose-300 dark:border-rose-700 px-2 py-0.5 rounded-full">
+                            <X className="h-3 w-3" /> Declined
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-0.5 text-white/60 text-xs flex-wrap">
-                        <span className="flex items-center gap-1"><Hash className="h-2.5 w-2.5" />REF-{String(b.id).padStart(4, "0")}</span>
+                        <span className="flex items-center gap-1"><Hash className="h-3 w-3" />REF-{String(b.id).padStart(4, "0")}</span>
                         <span>·</span>
-                        <span className="flex items-center gap-1 truncate"><Building2 className="h-2.5 w-2.5 shrink-0" />{modalClinicName}</span>
+                        <span className="flex items-center gap-1 truncate"><Building2 className="h-3 w-3 shrink-0" />{modalClinicName}</span>
                       </div>
                       {startTime && (
-                        <p className="text-white/50 text-xs mt-0.5">
-                          {startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        <p className="text-white/50 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span>{startTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          {(() => {
+                            const now = new Date(); now.setHours(0, 0, 0, 0);
+                            const apptDay = new Date(startTime); apptDay.setHours(0, 0, 0, 0);
+                            const diff = Math.round((apptDay.getTime() - now.getTime()) / 86400000);
+                            if (diff === 0) return <span className="text-xs font-semibold text-sky-300 bg-sky-500/20 border border-sky-400/30 px-1.5 py-px rounded-full">Today</span>;
+                            if (diff === 1) return <span className="text-xs font-semibold text-amber-300 bg-amber-500/20 border border-amber-400/30 px-1.5 py-px rounded-full">Tomorrow</span>;
+                            return null;
+                          })()}
                         </p>
                       )}
                     </div>
@@ -2170,9 +2509,10 @@ export default function DoctorDashboard() {
                   <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
                 </div>
 
-                {/* Tab strip — Notes | Diagnosis | Prescription */}
+                {/* Tab strip — Overview | Notes | Diagnosis | Prescription */}
                 <div className="shrink-0 flex border-b border-border/60 bg-card">
                   {([
+                    { key: 'overview'     as const, label: 'Overview',    icon: <User className="h-3.5 w-3.5" /> },
                     { key: 'notes'        as const, label: 'Notes',       icon: <FileText className="h-3.5 w-3.5" /> },
                     { key: 'diagnosis'    as const, label: 'Diagnosis',   icon: <ClipboardList className="h-3.5 w-3.5" /> },
                     { key: 'prescription' as const, label: 'Prescription',icon: <Pill className="h-3.5 w-3.5" /> },
@@ -2199,9 +2539,179 @@ export default function DoctorDashboard() {
                 {/* Tab panels */}
                 <div className="overflow-y-auto flex-1">
 
+                  {/* OVERVIEW TAB */}
+                  {patientModalTab === 'overview' && (() => {
+                    const drVisitType = (b as any).visitType || null;
+                    const drTreatment = (b as any).treatmentCategory || null;
+                    const drComplaints = b.description
+                      ? DR_CHIEF_COMPLAINTS.filter(c => b.description!.toLowerCase().includes(c.toLowerCase()))
+                      : [];
+                    return (
+                      <div className="px-4 pt-3 pb-4">
+                        <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
+
+                          {/* Phone */}
+                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                            <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                              <Phone className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                            <span className="text-muted-foreground shrink-0">Phone:</span>
+                            {b.customerPhone ? (
+                              <>
+                                <a href={`tel:${b.customerPhone}`} className="font-semibold text-foreground truncate hover:text-primary transition-colors min-w-0">
+                                  {b.customerPhone}
+                                </a>
+                                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(b.customerPhone!); notify.success("Phone copied!"); }} className="shrink-0 ml-auto h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center hover:bg-muted transition-colors" title="Copy phone">
+                                  <Copy className="h-2.5 w-2.5 text-muted-foreground" />
+                                </button>
+                                <a href={`tel:${b.customerPhone}`} className="shrink-0 h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors" title="Call patient">
+                                  <Phone className="h-2.5 w-2.5 text-primary" />
+                                </a>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground/50">–</span>
+                            )}
+                          </div>
+
+                          {/* Visit Type */}
+                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                            <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                              <Repeat2 className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                            <span className="text-muted-foreground shrink-0">Visit Type:</span>
+                            {drVisitType ? (
+                              <span className="inline-flex items-center font-semibold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded-md truncate">
+                                {DR_VISIT_TYPE_LABELS[drVisitType] ?? drVisitType}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/50">–</span>
+                            )}
+                          </div>
+
+                          {/* Consent */}
+                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                            <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                              <PenLine className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                            <span className="text-muted-foreground shrink-0">Consent:</span>
+                            {b.consentSignedAt ? (
+                              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
+                                <CheckCircle2 className="h-2.5 w-2.5" />Signed ✓
+                              </span>
+                            ) : (b.consentToken || (b as any).consentUrl) ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-md">
+                                  <Clock className="h-2.5 w-2.5" />Sent
+                                </span>
+                                <button
+                                  onClick={() => requestConsentMutation.mutate(b.id)}
+                                  disabled={requestConsentMutation.isPending}
+                                  className="h-[22px] w-[22px] inline-flex items-center justify-center rounded-md text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 active:scale-95 transition-all disabled:opacity-50"
+                                  title="Resend consent link"
+                                >
+                                  {requestConsentMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const url = (b as any).consentUrl || `${window.location.origin}/consent/${b.consentToken}`;
+                                    navigator.clipboard.writeText(url);
+                                    notify.success("Consent link copied!");
+                                  }}
+                                  className="h-[22px] w-[22px] inline-flex items-center justify-center rounded-md text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 active:scale-95 transition-all"
+                                  title="Copy consent link"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => requestConsentMutation.mutate(b.id)}
+                                disabled={requestConsentMutation.isPending}
+                                className="inline-flex items-center gap-1 font-semibold text-primary bg-primary/10 border border-primary/25 hover:bg-primary/15 active:scale-95 px-1.5 py-0.5 rounded-md transition-all disabled:opacity-50"
+                              >
+                                {requestConsentMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <PenLine className="h-2.5 w-2.5" />}
+                                Send Link →
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Treatment */}
+                          <div className="flex items-center gap-1.5 text-xs min-w-0">
+                            <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                              <Tag className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                            <span className="text-muted-foreground shrink-0">Treatment:</span>
+                            {drTreatment ? (
+                              <span className="inline-flex items-center font-semibold text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded-md truncate">
+                                {drTreatment}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/50">–</span>
+                            )}
+                          </div>
+
+                          {/* Complaints — full width */}
+                          <div className="col-span-2 flex items-start gap-1.5 text-xs min-w-0">
+                            <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
+                              <ClipboardList className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                            <span className="text-muted-foreground shrink-0 pt-0.5">Complaints:</span>
+                            {drComplaints.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {drComplaints.map((c, idx) => (
+                                  <span key={idx} className="inline-flex items-center font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-md">
+                                    {c}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground/50 pt-0.5">–</span>
+                            )}
+                          </div>
+
+                          {/* Clinical Status — full width, conditional */}
+                          {b.clinicalStatus && DR_CLINICAL_STATUS[b.clinicalStatus] && (
+                            <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                              <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+                                <ClipboardCheck className="h-3 w-3 text-muted-foreground" />
+                              </div>
+                              <span className="text-muted-foreground shrink-0">Clinical:</span>
+                              <span className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md border ${DR_CLINICAL_STATUS[b.clinicalStatus].cls}`}>
+                                {DR_CLINICAL_STATUS[b.clinicalStatus].label}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Confirmed by — full width, conditional */}
+                          {(() => {
+                            const cb = (b as any).confirmedBy;
+                            const das = b.doctorApprovalStatus;
+                            const confirmedByLabel =
+                              cb === 'doctor' ? `Dr. ${b.assignedDoctor?.split(' ')[0] || 'Doctor'}` :
+                              cb === 'admin' ? 'Clinic Admin' :
+                              das === 'admin_confirmed' ? 'Clinic Admin' :
+                              null;
+                            if (!confirmedByLabel) return null;
+                            return (
+                              <div className="col-span-2 flex items-center gap-1.5 text-xs min-w-0">
+                                <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                  <CheckCircle2 className="h-3 w-3 text-primary" />
+                                </div>
+                                <span className="text-muted-foreground shrink-0">Confirmed by:</span>
+                                <span className="font-semibold text-foreground">{confirmedByLabel}</span>
+                              </div>
+                            );
+                          })()}
+
+                        </div>
+
+                      </div>
+                    );
+                  })()}
+
                   {/* NOTES TAB */}
                   {patientModalTab === 'notes' && (
-                    <div className="p-4 space-y-4">
+                    <div className="p-4 space-y-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Clinical Status</Label>
                         <div className="flex gap-2">
@@ -2210,8 +2720,6 @@ export default function DoctorDashboard() {
                               <SelectValue placeholder="Select status…" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="first_visit">First Visit</SelectItem>
-                              <SelectItem value="revisit">Revisit</SelectItem>
                               <SelectItem value="follow_up_required">Follow-up Required</SelectItem>
                               <SelectItem value="case_closed">Case Closed</SelectItem>
                             </SelectContent>
@@ -2221,15 +2729,23 @@ export default function DoctorDashboard() {
                             className="h-9 px-4 text-sm shrink-0"
                             onClick={() => {
                               saveNotesMutation.mutate({ id: b.id, clinicalStatus: statusDraft });
-                              if (b.visitStatus === 'in_consultation') {
-                                completeVisitMutation.mutate(b.id);
-                              }
                             }}
-                            disabled={saveNotesMutation.isPending || completeVisitMutation.isPending}
+                            disabled={saveNotesMutation.isPending}
                             data-testid="button-save-clinical-status"
                           >
-                            {(saveNotesMutation.isPending || completeVisitMutation.isPending) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                            {saveNotesMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
                           </Button>
+                          {b.visitStatus === 'in_consultation' && (
+                            <Button
+                              size="sm"
+                              className="h-9 px-4 text-sm shrink-0 bg-teal-600 hover:bg-teal-700 text-white"
+                              onClick={() => completeVisitMutation.mutate(b.id)}
+                              disabled={completeVisitMutation.isPending}
+                              data-testid="button-mark-visit-done-notes"
+                            >
+                              {completeVisitMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Mark Visit Done"}
+                            </Button>
+                          )}
                         </div>
                       </div>
                       <BookingNotesThread bookingId={b.id} authorType="doctor" />
@@ -2269,6 +2785,219 @@ export default function DoctorDashboard() {
                       />
                     </div>
                   )}
+                </div>
+
+                {/* ── STICKY FOOTER — lifecycle action buttons ── */}
+                <div className="shrink-0 px-4 py-2.5 border-t border-border/50 bg-muted/10 space-y-2">
+                  {(() => {
+                    const bIsTerminal = b.verificationStatus === 'cancelled' || b.verificationStatus === 'no_show' || (b as any).visitStatus === 'patient_left_early';
+                    const bIsNoShow = b.verificationStatus === 'no_show';
+                    const bIsCancelled = b.verificationStatus === 'cancelled';
+                    const bIsVisitCompleted = (b as any).visitStatus === 'completed';
+                    const bIsTreatmentCompleted = (b as any).visitStatus === 'treatment_completed';
+                    const bIsInConsultation = (b as any).visitStatus === 'in_consultation';
+                    const bIsCheckedIn = (b as any).visitStatus === 'checked_in';
+                    const bIsPending = b.doctorApprovalStatus === 'pending';
+                    const bIsDeclined = b.doctorApprovalStatus === 'declined';
+
+                    return (
+                      <>
+                        {bIsDeclined && (
+                          <div className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800">
+                            <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">Appointment Declined</span>
+                          </div>
+                        )}
+
+                        {bIsPending && !bIsVisitCompleted && !bIsTreatmentCompleted && !bIsTerminal && (
+                          <div className="flex gap-2">
+                            <Button size="sm"
+                              className="flex-1 h-11 text-sm font-semibold bg-primary hover:bg-primary/90 text-white gap-1.5 active:scale-[0.98]"
+                              onClick={() => approveMutation.mutate(b.id)} disabled={approveMutation.isPending || declineMutation.isPending}
+                              data-testid={`modal-button-approve-${b.id}`}>
+                              {approveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                              Accept
+                            </Button>
+                            <Button size="sm" variant="outline"
+                              className="flex-1 h-11 text-sm font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400 dark:hover:bg-rose-950/20 gap-1.5 active:scale-[0.98]"
+                              onClick={() => declineMutation.mutate(b.id)} disabled={approveMutation.isPending || declineMutation.isPending}
+                              data-testid={`modal-button-decline-${b.id}`}>
+                              {declineMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                              Decline
+                            </Button>
+                          </div>
+                        )}
+
+                        {bIsTerminal && (
+                          <div className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-muted/40 border border-border/40">
+                            <span className="text-xs text-muted-foreground">
+                              {bIsNoShow ? "Patient did not arrive" : bIsCancelled ? "Appointment cancelled" : "Patient left before completion"}
+                            </span>
+                          </div>
+                        )}
+
+                        {!bIsPending && !bIsTerminal && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && (
+                          <TooltipProvider delayDuration={700}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="w-full cursor-not-allowed">
+                                  <Button
+                                    variant="outline"
+                                    className="w-full h-11 text-sm font-medium text-muted-foreground border-border/60 bg-muted/20 gap-2 pointer-events-none"
+                                    disabled tabIndex={-1}
+                                    data-testid={`modal-button-booked-${b.id}`}
+                                  >
+                                    <CalendarDays className="h-3.5 w-3.5" />Booked — Waiting for Arrival
+                                  </Button>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                                Waiting for patient to arrive — no action required
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+
+                        {bIsCheckedIn && (
+                          <>
+                            <Button
+                              className="w-full h-11 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-2 active:scale-[0.98] transition-all"
+                              onClick={() => startConsultationMutation.mutate(b.id)}
+                              disabled={startConsultationMutation.isPending}
+                              data-testid={`modal-button-start-consultation-${b.id}`}
+                            >
+                              {startConsultationMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
+                              Start Consultation
+                            </Button>
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm"
+                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
+                                data-testid={`modal-button-notes-arrived-${b.id}`}>
+                                <FileText className="h-3 w-3" />View Notes
+                              </Button>
+                              <Button variant="outline" size="sm"
+                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                onClick={() => setPatientModalTab('diagnosis')}
+                                data-testid={`modal-button-add-observation-${b.id}`}>
+                                <ClipboardList className="h-3 w-3" />Add Observation
+                              </Button>
+                            </div>
+                          </>
+                        )}
+
+                        {bIsInConsultation && (
+                          <>
+                            <Button
+                              className="w-full h-11 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-2 active:scale-[0.98] transition-all"
+                              onClick={() => completeVisitMutation.mutate(b.id)}
+                              disabled={completeVisitMutation.isPending}
+                              data-testid={`modal-button-done-patient-${b.id}`}
+                            >
+                              {completeVisitMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                              Done with Patient
+                            </Button>
+                            <div className="flex gap-1.5">
+                              <Button variant="outline" size="sm"
+                                className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
+                                onClick={() => setPatientModalTab('diagnosis')}
+                                data-testid={`modal-button-add-obs-${b.id}`}>
+                                <ClipboardList className="h-3 w-3" />Add Obs.
+                              </Button>
+                              <Button variant="outline" size="sm"
+                                className="flex-1 h-9 text-xs font-medium gap-1 active:scale-[0.98]"
+                                onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
+                                data-testid={`modal-button-notes-consult-${b.id}`}>
+                                <FileText className="h-3 w-3" />Notes
+                              </Button>
+                              <Button size="sm"
+                                className="flex-1 h-9 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 gap-1 active:scale-[0.98]"
+                                onClick={() => setPatientModalTab('prescription')}
+                                data-testid={`modal-button-issue-rx-${b.id}`}>
+                                <Stethoscope className="h-3 w-3" />Issue Rx
+                              </Button>
+                            </div>
+                          </>
+                        )}
+
+                        {bIsTreatmentCompleted && !bIsVisitCompleted && (
+                          <>
+                            <TooltipProvider delayDuration={700}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="w-full cursor-not-allowed">
+                                    <Button
+                                      variant="outline"
+                                      className="w-full h-11 text-sm font-medium text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/10 gap-2 pointer-events-none"
+                                      disabled tabIndex={-1}
+                                      data-testid={`modal-button-consult-complete-${b.id}`}
+                                    >
+                                      <CheckCircle2 className="h-3.5 w-3.5" />Consultation Completed
+                                    </Button>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs max-w-[220px] text-center">
+                                  Your consultation is done — waiting for the clinic to close the visit
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm"
+                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
+                                data-testid={`modal-button-notes-tmt-${b.id}`}>
+                                <FileText className="h-3 w-3" />View Notes
+                              </Button>
+                              <Button variant="outline" size="sm"
+                                className="flex-1 h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                                onClick={() => setPatientModalTab('diagnosis')}
+                                data-testid={`modal-button-view-rx-${b.id}`}>
+                                <ClipboardList className="h-3 w-3" />View Rx / Rec
+                              </Button>
+                            </div>
+                          </>
+                        )}
+
+                        {bIsVisitCompleted && (
+                          <>
+                            <TooltipProvider delayDuration={700}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="w-full cursor-not-allowed">
+                                    <Button
+                                      variant="outline"
+                                      className="w-full h-11 text-sm font-medium text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-950/10 gap-2 pointer-events-none"
+                                      disabled tabIndex={-1}
+                                      data-testid={`modal-button-visit-complete-${b.id}`}
+                                    >
+                                      <ShieldCheck className="h-3.5 w-3.5" />Visit Completed
+                                    </Button>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                                  Visit complete — managed by the clinic
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <Button variant="outline" size="sm"
+                              className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                              onClick={() => setPatientModalTab('notes')}
+                              data-testid={`modal-button-view-summary-${b.id}`}>
+                              <ClipboardList className="h-3 w-3" />View Summary
+                            </Button>
+                          </>
+                        )}
+
+                        {!bIsPending && !bIsCheckedIn && !bIsInConsultation && !bIsTreatmentCompleted && !bIsVisitCompleted && !bIsTerminal && !bIsDeclined && (
+                          <Button variant="outline" size="sm"
+                            className="w-full h-9 text-xs font-medium gap-1.5 active:scale-[0.98]"
+                            onClick={() => { setPatientModalTab('notes'); setStatusDraft(b.clinicalStatus || ""); }}
+                            data-testid={`modal-button-notes-${b.id}`}>
+                            <FileText className="h-3 w-3" />View Notes
+                          </Button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </>
             );

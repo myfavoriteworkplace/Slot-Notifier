@@ -7,7 +7,7 @@ import {
   IndianRupee, FileText, Trash2, Loader2, Plus, CheckCircle2,
   Clock, AlertCircle, Check, ChevronDown, ChevronUp, X, History,
   Pill, Stethoscope, Receipt, Bell, CreditCard, User, Lock,
-  Eye, Pencil, AlertTriangle, ShieldCheck, ClipboardList, Printer,
+  Pencil, AlertTriangle, ShieldCheck, ClipboardList, Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -93,6 +93,7 @@ export interface BillingHistoryPanelProps {
   bookingId: number;
   clinicId: number;
   patientName: string;
+  patientId?: number;
   patientPhone?: string;
   patientEmail?: string;
   patientCode?: string;
@@ -132,7 +133,8 @@ function groupByCategory(items: ServiceItemWithMeta[]) {
 }
 
 function uniqueBillNumber(bookingId: number) {
-  return `DFT-${bookingId}-${Date.now()}`;
+  const uid = crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
+  return `DFT-${bookingId}-${uid}`;
 }
 
 function computeTotals(services: ServiceItem[], discountPct: number, taxPct: number) {
@@ -351,7 +353,7 @@ function InvoicePreviewModal({
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export function BillingHistoryPanel({
-  bookingId, clinicId, patientName, patientPhone, patientEmail, patientCode,
+  bookingId, clinicId, patientName, patientId, patientPhone, patientEmail, patientCode,
   onGenerateReceipt, onPrintBill, onConsolidatedReceipt,
 }: BillingHistoryPanelProps) {
 
@@ -368,6 +370,7 @@ export function BillingHistoryPanel({
   const [loadingPrescription, setLoadingPrescription] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [showOlderBills, setShowOlderBills] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<number, Set<string>>>({});
 
   const didAutoExpand = useRef(false);
 
@@ -383,8 +386,13 @@ export function BillingHistoryPanel({
   });
 
   const { data: patientHistory = [] } = useQuery<PatientBill[]>({
-    queryKey: ["/api/auth/clinic/bills/patient-by-email", patientEmail || patientPhone],
+    queryKey: ["/api/auth/clinic/bills/patient-history", patientId ?? patientEmail ?? patientPhone],
     queryFn: async () => {
+      if (patientId) {
+        const res = await apiRequest("GET", `/api/auth/clinic/bills/patient-by-id/${patientId}`);
+        if (!res.ok) return [];
+        return res.json();
+      }
       if (patientEmail) {
         const res = await apiRequest("GET", `/api/auth/clinic/bills/patient-by-email/${encodeURIComponent(patientEmail)}`);
         if (!res.ok) return [];
@@ -397,7 +405,7 @@ export function BillingHistoryPanel({
       }
       return [];
     },
-    enabled: !!(patientEmail || patientPhone),
+    enabled: !!(patientId || patientEmail || patientPhone),
   });
 
   const { data: pharmacy = [] } = useQuery<PharmacyStockItem[]>({
@@ -483,6 +491,12 @@ export function BillingHistoryPanel({
     }
   }, [bills]);
 
+  // Collapse all bill cards when all bills become fully paid
+  useEffect(() => {
+    const allPaid = bills.length > 0 && bills.every(b => b.paymentStatus === "paid");
+    if (allPaid) setExpandedIds(new Set());
+  }, [bills]);
+
   // ── Mutations ─────────────────────────────────────────────────────────────
 
   const addChargeMutation = useMutation({
@@ -503,6 +517,7 @@ export function BillingHistoryPanel({
         const { subtotal, total } = computeTotals([newItem], 0, 0);
         const res = await apiRequest("POST", "/api/auth/clinic/bills", {
           bookingId,
+          patientId: patientId || null,
           billNumber: uniqueBillNumber(bookingId),
           patientName: patientName || "Patient",
           patientPhone: patientPhone || "",
@@ -564,9 +579,14 @@ export function BillingHistoryPanel({
     }) => {
       const services = ((bill.services ?? []) as ServiceItem[]).map(s => ({ ...s, paid: true }));
       const { subtotal, total } = computeTotals(services, bill.discountPct ?? 0, bill.taxPct ?? 0);
+      // If paying a draft directly (skipping separate "Confirm Bill"), rename DFT- → INV- in one shot
+      const billNumber = bill.billNumber.startsWith("DFT-")
+        ? bill.billNumber.replace("DFT-", "INV-")
+        : bill.billNumber;
       const res = await apiRequest("PATCH", `/api/auth/clinic/bills/${bill.id}`, {
         services,
         paymentStatus: "paid",
+        billNumber,
         subtotal, total,
         cashierId: cashierName || "Admin",
         cashierNotes: cashierNotes || null,
@@ -605,27 +625,6 @@ export function BillingHistoryPanel({
     onError: () => notify.error("Could not delete bill"),
   });
 
-  const confirmDraftMutation = useMutation({
-    mutationFn: async (bill: PatientBill) => {
-      const services = (bill.services ?? []) as ServiceItem[];
-      const newBillNumber = bill.billNumber.startsWith("DFT-")
-        ? bill.billNumber.replace("DFT-", "INV-")
-        : bill.billNumber;
-      const res = await apiRequest("PATCH", `/api/auth/clinic/bills/${bill.id}`, {
-        paymentStatus: services.length > 0 ? computeStatus(services) : "pending",
-        billNumber: newBillNumber,
-      });
-      if (!res.ok) throw new Error("Failed to confirm");
-      return res.json();
-    },
-    onSuccess: async (_, bill) => {
-      invalidate();
-      notify.success("Bill confirmed");
-      await logAudit("bill_confirmed", { billNumber: bill.billNumber }, bill.id);
-    },
-    onError: () => notify.error("Could not confirm bill"),
-  });
-
   const updateDiscountTaxMutation = useMutation({
     mutationFn: async ({ bill, discountPct, taxPct }: { bill: PatientBill; discountPct: number; taxPct: number }) => {
       const services = (bill.services ?? []) as ServiceItem[];
@@ -646,6 +645,7 @@ export function BillingHistoryPanel({
       if (existingEmptyDraft) return existingEmptyDraft;
       const res = await apiRequest("POST", "/api/auth/clinic/bills", {
         bookingId,
+        patientId: patientId || null,
         billNumber: uniqueBillNumber(bookingId),
         patientName: patientName || "Patient",
         patientPhone: patientPhone || "",
@@ -752,6 +752,7 @@ export function BillingHistoryPanel({
         const { subtotal, total } = computeTotals(newServices, 0, 0);
         const res = await apiRequest("POST", "/api/auth/clinic/bills", {
           bookingId,
+          patientId: patientId || null,
           billNumber: uniqueBillNumber(bookingId),
           patientName: patientName || "Patient",
           patientPhone: patientPhone || "",
@@ -903,6 +904,22 @@ export function BillingHistoryPanel({
 
     const unpricedPharmacy = pharmacyItems.filter(x => !isBillPaid && x.svc.amount === 0);
 
+    const consultOpen = expandedSections[bill.id] === undefined || expandedSections[bill.id].has("consultation");
+    const pharmacyOpen = expandedSections[bill.id] === undefined || expandedSections[bill.id].has("pharmacy");
+    const otherOpen = expandedSections[bill.id] === undefined || expandedSections[bill.id].has("other");
+    const toggleSection = (section: string) => {
+      setExpandedSections(prev => {
+        const cur = prev[bill.id] ?? new Set(["consultation", "pharmacy", "other"]);
+        const next = new Set(cur);
+        if (next.has(section)) next.delete(section); else next.add(section);
+        return { ...prev, [bill.id]: next };
+      });
+    };
+    const consultTotal = consultItems.reduce((s, x) => s + x.svc.amount, 0);
+    const pharmacyTotal = pharmacyItems.reduce((s, x) => s + x.svc.amount, 0);
+    const otherTotal = otherItems.reduce((s, x) => s + x.svc.amount, 0);
+
+
     return (
       <div key={bill.id}
         className={`rounded-xl border overflow-hidden ${isActiveBill && !isBillPaid ? "border-primary/40" : "border-border/50 bg-background/50"}`}
@@ -935,12 +952,41 @@ export function BillingHistoryPanel({
             onClick={() => onPrintBill(bill)}
             className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-primary shrink-0 active:scale-95 transition-transform"
             title="Print receipt"
+            aria-label="Print receipt"
             data-testid={`button-print-bill-${bill.id}`}>
             <Printer className="h-3.5 w-3.5" />
           </button>
+          {!isBillPaid && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 shrink-0 active:scale-95 transition-all"
+                  title="Delete bill"
+                  aria-label="Delete bill"
+                  data-testid={`button-delete-bill-${bill.id}`}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently remove {bill.billNumber} and all its entries. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Back</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deleteBillMutation.mutate(bill)} className="bg-destructive text-destructive-foreground">
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           <button
             onClick={() => toggleExpand(bill.id)}
             className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground shrink-0"
+            aria-label={isExpanded ? "Collapse bill" : "Expand bill"}
             data-testid={`button-expand-bill-${bill.id}`}>
             {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
@@ -967,71 +1013,65 @@ export function BillingHistoryPanel({
                   data-testid="button-toggle-add-entry">
                   <Plus className="h-3.5 w-3.5" /> Add Entry
                 </Button>
-                <div className="ml-auto">
-                  <Button size="sm" variant="outline"
-                    onClick={() => createNewBillMutation.mutate()}
-                    disabled={createNewBillMutation.isPending}
-                    className="h-8 text-xs gap-1.5 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 active:scale-[0.98]"
-                    data-testid="button-new-bill">
-                    {createNewBillMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-                    New Bill
-                  </Button>
-                </div>
               </div>
             )}
 
-            {/* Inline Add Entry form */}
+            {/* Inline Add Entry form — compact table-row style */}
             {isActiveBill && canEdit && addFormOpenInCard && (
-              <div className="px-3 py-3 border-b border-border/40 bg-muted/5 space-y-2 animate-in slide-in-from-top-1 duration-150">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">New Entry</span>
-                  <button onClick={() => setAddFormOpenInCard(false)} className="p-1 rounded hover:bg-muted/60 text-muted-foreground">
-                    <X className="h-3.5 w-3.5" />
+              <div className="px-3 py-2.5 border-b border-border/40 bg-muted/5 animate-in slide-in-from-top-1 duration-150 space-y-2">
+                {/* Header row */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex-1">Add Entry</span>
+                  <button onClick={() => setAddFormOpenInCard(false)} className="p-1 rounded hover:bg-muted/60 text-muted-foreground shrink-0">
+                    <X className="h-3 w-3" />
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="col-span-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description *</Label>
-                    <Input value={addForm.description}
-                      onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
-                      placeholder="e.g. Dental cleaning, Root canal…"
-                      className="h-8 text-xs mt-0.5" data-testid="input-entry-description" />
+                {/* Single-row input strip — wraps on very small screens */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Input
+                    value={addForm.description}
+                    onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Description…"
+                    className="h-8 text-xs flex-[3] min-w-[120px]"
+                    data-testid="input-entry-description"
+                  />
+                  <Select value={addForm.category} onValueChange={v => setAddForm(f => ({ ...f, category: v }))}>
+                    <SelectTrigger className="h-8 text-xs flex-[2] min-w-[90px]" data-testid="select-entry-category">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <Input
+                    type="number" min="1" value={addForm.qty}
+                    onChange={e => setAddForm(f => ({ ...f, qty: e.target.value }))}
+                    placeholder="Qty"
+                    className="h-8 text-xs w-14 shrink-0"
+                    data-testid="input-entry-qty"
+                  />
+                  <div className="relative shrink-0 w-24">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
+                    <Input
+                      type="number" min="0" step="0.01" value={addForm.unitPrice}
+                      onChange={e => setAddForm(f => ({ ...f, unitPrice: e.target.value }))}
+                      placeholder="Price"
+                      className="pl-5 h-8 text-xs"
+                      data-testid="input-entry-unit-price"
+                    />
                   </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</Label>
-                    <Select value={addForm.category} onValueChange={v => setAddForm(f => ({ ...f, category: v }))}>
-                      <SelectTrigger className="h-8 text-xs mt-0.5" data-testid="select-entry-category"><SelectValue /></SelectTrigger>
-                      <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Qty</Label>
-                    <Input type="number" min="1" value={addForm.qty}
-                      onChange={e => setAddForm(f => ({ ...f, qty: e.target.value }))}
-                      className="h-8 text-xs mt-0.5" data-testid="input-entry-qty" />
-                  </div>
-                  <div className="col-span-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unit Price (₹) *</Label>
-                    <div className="relative mt-0.5">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
-                      <Input type="number" min="0" step="0.01" value={addForm.unitPrice}
-                        onChange={e => setAddForm(f => ({ ...f, unitPrice: e.target.value }))}
-                        placeholder="0.00" className="pl-5 h-8 text-xs" data-testid="input-entry-unit-price" />
-                    </div>
-                    {addForm.qty && addForm.unitPrice && parseFloat(addForm.qty) > 0 && parseFloat(addForm.unitPrice) > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Total: ₹{(parseFloat(addForm.qty) * parseFloat(addForm.unitPrice)).toFixed(0)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-2 justify-end pt-1">
-                  <Button size="sm" variant="ghost" onClick={() => setAddFormOpenInCard(false)} className="h-8 text-xs">Cancel</Button>
-                  <Button size="sm" onClick={handleAddEntry} disabled={addChargeMutation.isPending}
-                    className="h-8 text-xs gap-1 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground"
-                    data-testid="button-save-entry">
+                  <span className="text-xs font-semibold text-foreground shrink-0 w-16 text-right tabular-nums">
+                    {addForm.qty && addForm.unitPrice && parseFloat(addForm.qty) > 0 && parseFloat(addForm.unitPrice) > 0
+                      ? `₹${(parseFloat(addForm.qty) * parseFloat(addForm.unitPrice)).toFixed(0)}`
+                      : <span className="text-muted-foreground/40 font-normal">Total</span>}
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={handleAddEntry}
+                    disabled={addChargeMutation.isPending}
+                    className="h-8 text-xs px-3 shrink-0 gap-1 bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground"
+                    data-testid="button-save-entry"
+                  >
                     {addChargeMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                    Add to Bill
+                    Add
                   </Button>
                 </div>
               </div>
@@ -1059,178 +1099,271 @@ export function BillingHistoryPanel({
                 {/* Consultation & Procedures */}
                 {consultItems.length > 0 && (
                   <div>
-                    <div className="px-3 py-1 bg-muted/20 flex items-center gap-1.5">
-                      <Stethoscope className="h-3 w-3 text-muted-foreground/60" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Consultation & Procedures</span>
-                    </div>
-                    <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-border/40 bg-muted/40">
-                            <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Description</th>
-                            <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
-                            <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground w-16">₹/Unit</th>
-                            <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
-                            <th className="w-7"></th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/30">
-                          {consultItems.map(({ svc, origIdx }) => {
-                            const itemKey = `${bill.id}-${origIdx}`;
-                            const isEditing = editingKey === itemKey;
-                            const isItemPaid = svc.paid || isBillPaid;
-                            return (
-                              <tr key={origIdx} className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : "bg-background hover:bg-muted/10"}`}
-                                data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                                <td className="py-1.5 pl-3 pr-2 text-foreground">
-                                  <span className="flex items-center gap-1">
-                                    {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
-                                    {svc.description}
-                                  </span>
-                                </td>
-                                <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                                <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{svc.unitPrice ? `₹${svc.unitPrice.toFixed(0)}` : "—"}</td>
-                                <td className="py-1.5 pl-2 pr-1 text-right tabular-nums font-semibold">
-                                  {isItemPaid ? (
-                                    <span className="flex items-center gap-0.5 justify-end text-emerald-600">
-                                      <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
-                                    </span>
-                                  ) : isEditing ? (
-                                    <div className="relative inline-block">
-                                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                                      <Input type="number" min="0" value={editingAmount}
-                                        onChange={e => setEditingAmount(e.target.value)}
-                                        onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
-                                        onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
-                                        className="h-6 w-20 pl-4 text-xs" autoFocus
-                                        data-testid={`input-item-amount-${itemKey}`} />
-                                    </div>
-                                  ) : (
-                                    <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
-                                      className="flex items-center gap-0.5 ml-auto hover:text-primary transition-colors"
-                                      data-testid={`amount-${itemKey}`}>
-                                      ₹{svc.amount.toFixed(0)}
-                                      <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
-                                    </button>
-                                  )}
-                                </td>
-                                <td className="py-1.5 pr-2">
-                                  {isItemPaid ? (
-                                    <Lock className="h-3 w-3 text-muted-foreground/30 mx-auto" title="Paid — cannot remove" />
-                                  ) : (
-                                    <button
-                                      onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
-                                      disabled={deleteItemMutation.isPending}
-                                      className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
-                                      data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  )}
-                                </td>
+                    <button
+                      onClick={() => toggleSection("consultation")}
+                      className="w-full px-3 py-1.5 bg-muted/20 flex items-center gap-1.5 hover:bg-muted/30 transition-colors text-left"
+                      data-testid={`button-section-consultation-${bill.id}`}
+                    >
+                      <Stethoscope className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Consultation &amp; Procedures</span>
+                      <ChevronDown className={`h-3 w-3 text-muted-foreground ml-1 shrink-0 transition-transform duration-200 ${consultOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {consultOpen && (
+                      <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs table-fixed min-w-[400px]">
+                            <colgroup>
+                              <col style={{ width: "32px" }} />
+                              <col />
+                              <col style={{ width: "76px" }} />
+                              <col style={{ width: "52px" }} />
+                              <col style={{ width: "80px" }} />
+                              <col style={{ width: "28px" }} />
+                            </colgroup>
+                            <thead>
+                              <tr className="border-b border-border/40 bg-muted/40">
+                                <th className="text-center py-1 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
+                                <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Description</th>
+                                <th className="text-right py-1 px-2 font-semibold text-muted-foreground">₹/Unit</th>
+                                <th className="text-center py-1 px-2 font-semibold text-muted-foreground">Qty</th>
+                                <th className="text-right py-1 px-2 font-semibold text-muted-foreground">Total</th>
+                                <th></th>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                            </thead>
+                            <tbody className="divide-y divide-border/30">
+                              {consultItems.map(({ svc, origIdx }, rowIdx) => {
+                                const itemKey = `${bill.id}-${origIdx}`;
+                                const isEditing = editingKey === itemKey;
+                                const isItemPaid = svc.paid || isBillPaid;
+                                return (
+                                  <tr key={origIdx} className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : "bg-background hover:bg-muted/10"}`}
+                                    data-testid={`billing-item-${bill.id}-${origIdx}`}>
+                                    <td className="py-1 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
+                                    <td className="py-1 px-2 text-foreground">
+                                      <span className="flex items-center gap-1 min-w-0">
+                                        {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                                        <span className="truncate">{svc.description}</span>
+                                      </span>
+                                    </td>
+                                    <td className="py-1 px-2 text-right tabular-nums text-muted-foreground">
+                                      {svc.unitPrice ? `₹${Number(svc.unitPrice).toFixed(0)}` : "—"}
+                                    </td>
+                                    <td className="py-1 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
+                                    <td className="py-1 px-2 text-right tabular-nums font-semibold">
+                                      {isItemPaid ? (
+                                        <span className="flex items-center gap-0.5 justify-end text-emerald-600">
+                                          <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
+                                        </span>
+                                      ) : isEditing ? (
+                                        <div className="relative inline-block">
+                                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+                                          <Input type="number" min="0" value={editingAmount}
+                                            onChange={e => setEditingAmount(e.target.value)}
+                                            onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
+                                            onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
+                                            className="h-6 w-20 pl-4 text-xs" autoFocus
+                                            data-testid={`input-item-amount-${itemKey}`} />
+                                        </div>
+                                      ) : (
+                                        <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
+                                          className="flex items-center gap-0.5 ml-auto hover:text-primary transition-colors"
+                                          data-testid={`amount-${itemKey}`}>
+                                          ₹{svc.amount.toFixed(0)}
+                                          <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
+                                        </button>
+                                      )}
+                                    </td>
+                                    <td className="py-1 pr-2">
+                                      {isItemPaid ? (
+                                        <span title="Paid — cannot remove" className="h-3 w-3 block mx-auto">
+                                          <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
+                                        </span>
+                                      ) : (
+                                        <button
+                                          onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
+                                          disabled={deleteItemMutation.isPending}
+                                          className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
+                                          data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot>
+                              <tr className="bg-primary/5 border-t border-border/40">
+                                <td colSpan={3} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
+                                  {consultItems.length} service{consultItems.length !== 1 ? "s" : ""}
+                                </td>
+                                <td className="py-1.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
+                                  {consultItems.reduce((s, x) => s + (x.svc.qty ?? 1), 0)}
+                                </td>
+                                <td className="py-1.5 px-2 text-right tabular-nums text-xs font-bold text-foreground">
+                                  ₹{consultTotal.toFixed(0)}
+                                </td>
+                                <td></td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Pharmacy — with Dosage column */}
+                {/* Pharmacy */}
                 {pharmacyItems.length > 0 && (
                   <div>
-                    <div className="px-3 py-1 bg-muted/20 flex items-center gap-1.5">
-                      <Pill className="h-3 w-3 text-muted-foreground/60" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Pharmacy</span>
-                    </div>
-                    <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-border/40 bg-muted/40">
-                            <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Medicine</th>
-                            <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-14">Dosage</th>
-                            <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Frequency</th>
-                            <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Duration</th>
-                            <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
-                            <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
-                            <th className="w-7"></th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/30">
-                          {pharmacyItems.map(({ svc, origIdx }) => {
-                            const itemKey = `${bill.id}-${origIdx}`;
-                            const isEditing = editingKey === itemKey;
-                            const isItemPaid = svc.paid || isBillPaid;
-                            const isUnpriced = svc.amount === 0 && !isBillPaid;
-                            const { medicine, dosage, frequency, duration } = getPharmacyFields(svc);
-                            return (
-                              <tr key={origIdx}
-                                className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "bg-background hover:bg-muted/10"}`}
-                                data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                                <td className="py-1.5 pl-3 pr-2 font-medium text-foreground">
-                                  <span className="flex items-center gap-1">
-                                    {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
-                                    {medicine}
-                                  </span>
+                    <button
+                      onClick={() => toggleSection("pharmacy")}
+                      className="w-full px-3 py-1.5 bg-muted/20 flex items-center gap-1.5 hover:bg-muted/30 transition-colors text-left"
+                      data-testid={`button-section-pharmacy-${bill.id}`}
+                    >
+                      <Pill className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Pharmacy</span>
+                      <ChevronDown className={`h-3 w-3 text-muted-foreground ml-1 shrink-0 transition-transform duration-200 ${pharmacyOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {pharmacyOpen && (
+                      <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <div className="max-h-[10.5rem] overflow-y-auto">
+                            <table className="w-full text-xs table-fixed min-w-[480px]">
+                              <colgroup>
+                                <col style={{ width: "32px" }} />
+                                <col />
+                                <col style={{ width: "72px" }} />
+                                <col style={{ width: "80px" }} />
+                                <col style={{ width: "72px" }} />
+                                <col style={{ width: "52px" }} />
+                                <col style={{ width: "80px" }} />
+                                <col style={{ width: "28px" }} />
+                              </colgroup>
+                              <thead className="sticky top-0 z-10">
+                                <tr className="border-b border-border/40 bg-muted/40">
+                                  <th className="text-center py-1 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
+                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Medicine</th>
+                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Dosage</th>
+                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Frequency</th>
+                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Duration</th>
+                                  <th className="text-center py-1 px-2 font-semibold text-muted-foreground">Qty</th>
+                                  <th className="text-right py-1 px-2 font-semibold text-muted-foreground">Total</th>
+                                  <th></th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/30">
+                                {pharmacyItems.map(({ svc, origIdx }, rowIdx) => {
+                                  const itemKey = `${bill.id}-${origIdx}`;
+                                  const isEditing = editingKey === itemKey;
+                                  const isItemPaid = svc.paid || isBillPaid;
+                                  const isUnpriced = svc.amount === 0 && !isBillPaid;
+                                  const { medicine, dosage, frequency, duration } = getPharmacyFields(svc);
+                                  return (
+                                    <tr key={origIdx}
+                                      className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "bg-background hover:bg-muted/10"}`}
+                                      data-testid={`billing-item-${bill.id}-${origIdx}`}>
+                                      <td className="py-1 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
+                                      <td className="py-1 px-2 font-medium text-foreground">
+                                        <span className="flex items-center gap-1 min-w-0">
+                                          {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                                          <span className="truncate">{medicine}</span>
+                                        </span>
+                                      </td>
+                                      <td className="py-1 px-2 text-muted-foreground truncate">{dosage || "—"}</td>
+                                      <td className="py-1 px-2 text-muted-foreground truncate">{frequency || "—"}</td>
+                                      <td className="py-1 px-2 text-muted-foreground truncate">{duration || "—"}</td>
+                                      <td className="py-1 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
+                                      <td className="py-1 pl-2 pr-1 text-right tabular-nums font-semibold">
+                                        {isItemPaid ? (
+                                          <span className="flex items-center gap-0.5 justify-end text-emerald-600">
+                                            <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
+                                          </span>
+                                        ) : isEditing ? (
+                                          <div className="relative inline-block">
+                                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+                                            <Input type="number" min="0" value={editingAmount}
+                                              onChange={e => setEditingAmount(e.target.value)}
+                                              onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
+                                              onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
+                                              className={`h-6 w-20 pl-4 text-xs ${isUnpriced ? "border-amber-400" : ""}`} autoFocus
+                                              data-testid={`input-item-amount-${itemKey}`} />
+                                          </div>
+                                        ) : (
+                                          <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
+                                            className={`flex items-center gap-0.5 ml-auto transition-colors ${isUnpriced ? "text-amber-600 hover:text-amber-700" : "hover:text-primary"}`}
+                                            data-testid={`amount-${itemKey}`}>
+                                            ₹{svc.amount.toFixed(0)}
+                                            <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
+                                          </button>
+                                        )}
+                                      </td>
+                                      <td className="py-1 pr-2">
+                                        {isItemPaid ? (
+                                          <span title="Paid — cannot remove" className="h-3 w-3 mx-auto">
+                                            <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
+                                          </span>
+                                        ) : (
+                                          <button
+                                            onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
+                                            disabled={deleteItemMutation.isPending}
+                                            className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
+                                            data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
+                                            <X className="h-3 w-3" />
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                          <table className="w-full text-xs table-fixed min-w-[480px]">
+                            <colgroup>
+                              <col style={{ width: "32px" }} />
+                              <col />
+                              <col style={{ width: "72px" }} />
+                              <col style={{ width: "80px" }} />
+                              <col style={{ width: "72px" }} />
+                              <col style={{ width: "52px" }} />
+                              <col style={{ width: "80px" }} />
+                              <col style={{ width: "28px" }} />
+                            </colgroup>
+                            <tfoot>
+                              <tr className="bg-primary/5 border-t border-border/40">
+                                <td colSpan={5} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
+                                  {pharmacyItems.length} medicine{pharmacyItems.length !== 1 ? "s" : ""}
                                 </td>
-                                <td className="py-1.5 px-2 text-muted-foreground">{dosage || "—"}</td>
-                                <td className="py-1.5 px-2 text-muted-foreground">{frequency || "—"}</td>
-                                <td className="py-1.5 px-2 text-muted-foreground">{duration || "—"}</td>
-                                <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                                <td className="py-1.5 pl-2 pr-1 text-right tabular-nums font-semibold">
-                                  {isItemPaid ? (
-                                    <span className="flex items-center gap-0.5 justify-end text-emerald-600">
-                                      <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
-                                    </span>
-                                  ) : isEditing ? (
-                                    <div className="relative inline-block">
-                                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                                      <Input type="number" min="0" value={editingAmount}
-                                        onChange={e => setEditingAmount(e.target.value)}
-                                        onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
-                                        onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
-                                        className={`h-6 w-20 pl-4 text-xs ${isUnpriced ? "border-amber-400" : ""}`} autoFocus
-                                        data-testid={`input-item-amount-${itemKey}`} />
-                                    </div>
-                                  ) : (
-                                    <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
-                                      className={`flex items-center gap-0.5 ml-auto transition-colors ${isUnpriced ? "text-amber-600 hover:text-amber-700" : "hover:text-primary"}`}
-                                      data-testid={`amount-${itemKey}`}>
-                                      ₹{svc.amount.toFixed(0)}
-                                      <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
-                                    </button>
-                                  )}
+                                <td className="py-1.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
+                                  {pharmacyItems.reduce((s, x) => s + (x.svc.qty ?? 1), 0)}
                                 </td>
-                                <td className="py-1.5 pr-2">
-                                  {isItemPaid ? (
-                                    <Lock className="h-3 w-3 text-muted-foreground/30 mx-auto" title="Paid — cannot remove" />
-                                  ) : (
-                                    <button
-                                      onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
-                                      disabled={deleteItemMutation.isPending}
-                                      className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
-                                      data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  )}
+                                <td className="py-1.5 px-2 text-right tabular-nums text-xs font-bold text-foreground">
+                                  ₹{pharmacyTotal.toFixed(0)}
                                 </td>
+                                <td></td>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Other items */}
                 {otherItems.length > 0 && (
                   <div>
-                    <div className="px-3 py-1 bg-muted/20 flex items-center gap-1.5">
-                      <ClipboardList className="h-3 w-3 text-muted-foreground/60" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Other</span>
-                    </div>
-                    {otherItems.map(({ svc, origIdx }) => {
+                    <button
+                      onClick={() => toggleSection("other")}
+                      className="w-full px-3 py-1.5 bg-muted/20 flex items-center gap-1.5 hover:bg-muted/30 transition-colors text-left"
+                      data-testid={`button-section-other-${bill.id}`}
+                    >
+                      <ClipboardList className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Other</span>
+                      <ChevronDown className={`h-3 w-3 text-muted-foreground ml-1 shrink-0 transition-transform duration-200 ${otherOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {otherOpen && otherItems.map(({ svc, origIdx }) => {
                       const itemKey = `${bill.id}-${origIdx}`;
                       const isEditing = editingKey === itemKey;
                       const isItemPaid = svc.paid || isBillPaid;
@@ -1345,26 +1478,30 @@ export function BillingHistoryPanel({
                   </div>
                 )}
                 <div className="flex items-center justify-between pt-0.5 border-t border-border/30">
-                  <span className="text-xs font-bold text-foreground">{isBillPaid ? "Total Paid" : "Outstanding"}</span>
-                  <span className="text-sm font-bold tabular-nums text-primary">₹{totalAmt.toFixed(0)}</span>
+                  <span className={`text-sm font-black tracking-wide ${isBillPaid ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}>
+                    {isBillPaid ? "PAID" : "Outstanding"}
+                  </span>
+                  <span className={`text-sm font-bold tabular-nums ${isBillPaid ? "text-emerald-600" : "text-primary"}`}>₹{totalAmt.toFixed(0)}</span>
                 </div>
               </div>
             )}
 
             {/* Footer actions */}
             <div className="px-3 py-2.5 bg-muted/20 border-t border-border/30 space-y-2">
+
+              {/* Primary CTA row */}
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-xs text-muted-foreground">
                   {allPaid || isBillPaid ? (
-                    <span className="text-emerald-600 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" /> Fully settled
+                    <span className="flex flex-col">
+                      <span className="text-emerald-600 font-bold flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Fully settled
+                      </span>
                       {(bill as PatientBill & { cashierId?: string }).cashierId && (
-                        <span className="font-normal opacity-75">· by {(bill as PatientBill & { cashierId?: string }).cashierId}</span>
+                        <span className="text-xs text-muted-foreground mt-0.5">
+                          Processed by {(bill as PatientBill & { cashierId?: string }).cashierId}
+                        </span>
                       )}
-                    </span>
-                  ) : isDraft ? (
-                    <span className="text-blue-600 font-medium flex items-center gap-1">
-                      <FileText className="h-3 w-3" /> Draft — confirm to enable payments
                     </span>
                   ) : paidAmt > 0 ? (
                     <span>
@@ -1372,97 +1509,50 @@ export function BillingHistoryPanel({
                       {" · "}Balance <span className="font-bold text-amber-600">₹{(totalAmt - paidAmt).toFixed(0)}</span>
                     </span>
                   ) : (
-                    <span className="text-amber-600 font-medium">₹{totalAmt.toFixed(0)} outstanding</span>
+                    <span className="text-muted-foreground">₹{totalAmt.toFixed(0)} outstanding</span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {isDraft && (
-                    <Button size="sm" variant="outline"
-                      onClick={() => confirmDraftMutation.mutate(bill)}
-                      disabled={confirmDraftMutation.isPending}
-                      className="h-7 px-2 text-xs gap-1 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
-                      data-testid={`button-confirm-draft-${bill.id}`}>
-                      <Check className="h-3 w-3" /> Confirm Bill
-                    </Button>
-                  )}
-                  {!allPaid && !isBillPaid && !isDraft && services.length > 0 && (
-                    <Button size="sm" variant="outline"
-                      onClick={() => openCashierForm(bill)}
-                      className="h-7 px-2 text-xs gap-1 border-emerald-400/50 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                      data-testid={`button-mark-paid-${bill.id}`}>
-                      <CreditCard className="h-3 w-3" /> Mark Paid
-                    </Button>
-                  )}
-                  <Button size="sm" variant="ghost"
-                    onClick={() => onPrintBill(bill)}
-                    className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                    data-testid={`button-reprint-${bill.id}`}>
-                    <FileText className="h-3 w-3" /> Print
+                {/* Single Confirm & Pay CTA — hidden once the payment form is open */}
+                {!allPaid && !isBillPaid && services.length > 0 && !showCashierFor && (
+                  <Button size="sm"
+                    onClick={() => openCashierForm(bill)}
+                    className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0 active:scale-[0.98]"
+                    data-testid={`button-confirm-pay-${bill.id}`}>
+                    <CreditCard className="h-3 w-3" /> Confirm &amp; Pay
                   </Button>
-                  {!isBillPaid && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                          data-testid={`button-delete-bill-${bill.id}`}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently remove {bill.billNumber} and all its entries. This cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Back</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deleteBillMutation.mutate(bill)} className="bg-destructive text-destructive-foreground">
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
-                </div>
+                )}
               </div>
 
-              {/* Cashier / Mark Paid form */}
+              {/* Record Payment form */}
               {showCashierFor && (
                 <div className="rounded-lg border border-emerald-400/30 bg-emerald-50/60 dark:bg-emerald-950/20 p-2.5 space-y-2 animate-in slide-in-from-top-1 duration-150">
-                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                    <CreditCard className="h-3 w-3" /> Record Payment
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amount (₹)</Label>
-                      <div className="relative mt-0.5">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
-                        <Input type="number" min="0"
-                          value={cashierForm!.amountReceived}
-                          onChange={e => setCashierForm(f => f ? { ...f, amountReceived: e.target.value } : f)}
-                          className="pl-5 h-7 text-xs" data-testid="input-cashier-amount" />
-                      </div>
+                  {isDraft && (
+                    <p className="text-xs text-blue-600 flex items-center gap-1">
+                      <FileText className="h-3 w-3" /> This draft will be confirmed &amp; marked paid in one step.
+                    </p>
+                  )}
+                  {/* Compact inline row */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="relative shrink-0 w-24">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
+                      <Input type="number" min="0"
+                        value={cashierForm!.amountReceived}
+                        onChange={e => setCashierForm(f => f ? { ...f, amountReceived: e.target.value } : f)}
+                        className="pl-5 h-8 text-xs" data-testid="input-cashier-amount" />
                     </div>
-                    <div>
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Method</Label>
-                      <Select value={cashierForm!.paymentMethod} onValueChange={v => setCashierForm(f => f ? { ...f, paymentMethod: v } : f)}>
-                        <SelectTrigger className="h-7 text-xs mt-0.5" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
-                        <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cashier Name</Label>
-                      <Input value={cashierForm!.cashierName}
-                        onChange={e => setCashierForm(f => f ? { ...f, cashierName: e.target.value } : f)}
-                        placeholder="e.g. Priya" className="h-7 text-xs mt-0.5" data-testid="input-cashier-name" />
-                    </div>
-                    <div>
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notes</Label>
-                      <Input value={cashierForm!.notes}
-                        onChange={e => setCashierForm(f => f ? { ...f, notes: e.target.value } : f)}
-                        placeholder="Optional…" className="h-7 text-xs mt-0.5" data-testid="input-cashier-notes" />
-                    </div>
+                    <Select value={cashierForm!.paymentMethod} onValueChange={v => setCashierForm(f => f ? { ...f, paymentMethod: v } : f)}>
+                      <SelectTrigger className="h-8 text-xs w-24 shrink-0" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
+                      <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Input value={cashierForm!.cashierName}
+                      onChange={e => setCashierForm(f => f ? { ...f, cashierName: e.target.value } : f)}
+                      placeholder="Cashier name…"
+                      className="h-8 text-xs flex-[2] min-w-[100px]" data-testid="input-cashier-name" />
+                    <Input value={cashierForm!.notes}
+                      onChange={e => setCashierForm(f => f ? { ...f, notes: e.target.value } : f)}
+                      placeholder="Notes (optional)…"
+                      className="h-8 text-xs flex-[2] min-w-[100px]" data-testid="input-cashier-notes" />
                   </div>
                   <div className="flex gap-2 justify-end">
                     <Button size="sm" variant="ghost" onClick={() => setCashierForm(null)} className="h-7 px-2 text-xs" disabled={markPaidMutation.isPending}>
@@ -1477,14 +1567,15 @@ export function BillingHistoryPanel({
                         paymentMethod: cashierForm!.paymentMethod,
                       })}
                       disabled={markPaidMutation.isPending}
-                      className="h-7 px-2 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                      className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
                       data-testid="button-confirm-payment">
                       {markPaidMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-                      Confirm &amp; Notify
+                      Confirm &amp; Pay
                     </Button>
                   </div>
                 </div>
               )}
+
             </div>
 
           </div>
@@ -1499,6 +1590,17 @@ export function BillingHistoryPanel({
 
   return (
     <div className="space-y-3">
+
+      {/* Patient identity strip */}
+      {patientCode && (
+        <div className="flex items-center gap-1.5 px-0.5">
+          <User className="h-3 w-3 text-muted-foreground shrink-0" />
+          <span className="text-xs font-semibold text-foreground truncate">{patientName}</span>
+          <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 px-1.5 py-0.5 rounded-md shrink-0">
+            {patientCode}
+          </span>
+        </div>
+      )}
 
       {/* Settled banner — when all bills are paid */}
       {bills.length > 0 && allCurrentFullyPaid && (
@@ -1642,6 +1744,17 @@ export function BillingHistoryPanel({
             )}
           </div>
           <div className="h-px flex-1 bg-border/40" />
+          {/* Only show here when NOT fully settled — settled banner has its own New Bill */}
+          {!allCurrentFullyPaid && (
+            <Button size="sm" variant="outline"
+              onClick={() => createNewBillMutation.mutate()}
+              disabled={createNewBillMutation.isPending}
+              className="h-7 text-xs gap-1 border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 active:scale-[0.98] shrink-0"
+              data-testid="button-new-bill">
+              {createNewBillMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+              New Bill
+            </Button>
+          )}
         </div>
       )}
 
@@ -1704,7 +1817,10 @@ export function BillingHistoryPanel({
             data-testid="button-toggle-patient-history">
             <div className="flex items-center gap-1.5">
               <History className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Previous Visits</span>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Patient History</span>
+                <span className="ml-1.5 text-[10px] text-muted-foreground/50 normal-case">from other visits</span>
+              </div>
               <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
                 {previousVisitBills.length}
               </span>
@@ -1748,29 +1864,35 @@ export function BillingHistoryPanel({
             {auditLogs.length === 0 ? (
               <p className="text-xs text-muted-foreground/60 py-2 text-center">No audit entries yet</p>
             ) : (
-              auditLogs.map(log => (
-                <div key={log.id} className="flex items-start gap-2 px-2 py-1.5 rounded-lg bg-muted/10 border border-border/20">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <AuditActionLabel action={log.action} />
-                      {(log.details as Record<string, unknown>)?.description && (
-                        <span className="text-xs text-muted-foreground truncate">
-                          — {String((log.details as Record<string, unknown>).description)}
-                        </span>
-                      )}
+              auditLogs.map((log) => {
+                const details = log.details as Record<string, unknown> | undefined;
+                const description = details?.description;
+                const cashierName = details?.cashierName;
+                const amount = details?.amount;
+                return (
+                  <div key={log.id} className="flex items-start gap-2 px-2 py-1.5 rounded-lg bg-muted/10 border border-border/20">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <AuditActionLabel action={log.action} />
+                        {description != null && (
+                          <span className="text-xs text-muted-foreground truncate">
+                            — {String(description)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground/50 mt-0.5">
+                        {log.createdAt ? format(new Date(log.createdAt), "dd MMM yyyy · HH:mm") : "—"}
+                        {cashierName != null ? ` · ${String(cashierName)}` : ""}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground/50 mt-0.5">
-                      {log.createdAt ? format(new Date(log.createdAt), "dd MMM yyyy · HH:mm") : "—"}
-                      {(log.details as Record<string, unknown>)?.cashierName ? ` · ${String((log.details as Record<string, unknown>).cashierName)}` : ""}
-                    </div>
+                    {amount != null && (
+                      <span className="text-xs font-semibold text-foreground shrink-0 tabular-nums">
+                        ₹{Number(amount).toFixed(0)}
+                      </span>
+                    )}
                   </div>
-                  {(log.details as Record<string, unknown>)?.amount !== undefined && (
-                    <span className="text-xs font-semibold text-foreground shrink-0 tabular-nums">
-                      ₹{Number((log.details as Record<string, unknown>).amount).toFixed(0)}
-                    </span>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}

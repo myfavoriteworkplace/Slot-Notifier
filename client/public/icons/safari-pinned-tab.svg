@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- BookMySlot logo — simplified monochrome mask for Safari pinned tab -->
+  <!-- Outer oval -->
+  <ellipse cx="50" cy="50" rx="37" ry="39" fill="black"/>
+  <!-- Inner cutout to suggest tooth/dental shape — white relief -->
+  <rect x="34" y="44" width="32" height="22" rx="5" fill="white"/>
+  <rect x="42" y="54" width="6" height="16" rx="2" fill="black"/>
+  <rect x="52" y="54" width="6" height="16" rx="2" fill="black"/>
+  <!-- Booking checkmark circle top-right -->
+  <circle cx="70" cy="34" r="11" fill="white"/>
+  <circle cx="70" cy="34" r="9" fill="black"/>
+  <path d="M65 34 l3.5 3.5 l6-6" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

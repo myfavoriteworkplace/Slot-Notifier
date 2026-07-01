@@ -15,6 +15,7 @@
 6. [White Filter Cards (Below Panel Header)](#6-white-filter-cards-below-panel-header)
 7. [Dynamic Section Heading (Filtered List Header)](#7-dynamic-section-heading-filtered-list-header)
 8. [Booking / Appointment Cards](#8-booking--appointment-cards)
+8b. [Booking Lifecycle & State Machine — Complete Reference](#8b-booking-lifecycle--state-machine--complete-reference)
 9. [Colour System & Accent Reference](#9-colour-system--accent-reference)
 10. [Responsive Patterns](#10-responsive-patterns)
 11. [Typography Rules](#11-typography-rules)
@@ -458,62 +459,833 @@ The green gradient heading that appears above the booking/appointment card grid.
 
 ---
 
-## 8. Booking / Appointment Cards
+## 8. Booking / Appointment Cards — `AppointmentCard` Component
 
-Both dashboards render booking records as cards in a `grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3` grid.
+All booking records in both dashboards are rendered via the shared `AppointmentCard` component at `client/src/components/AppointmentCard.tsx`. Never inline a one-off card — always use this component.
 
-### Card shell
+### Import
 
 ```tsx
-<div className="rounded-2xl border border-border/50 bg-background shadow-sm shadow-primary/5
-  overflow-hidden flex flex-col hover:shadow-md hover:shadow-primary/10
-  hover:-translate-y-0.5 transition-all duration-300">
-
-  {/* Card header — dark green gradient with patient name and status badge */}
-  <div className="relative bg-gradient-to-r from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-3 overflow-hidden">
-    ...
-  </div>
-
-  {/* Card body — appointment details */}
-  <div className="px-4 py-3 flex-1 space-y-2">
-    ...
-  </div>
-
-  {/* Card footer — action buttons */}
-  <div className="px-4 pb-3 pt-1 flex gap-2">
-    ...
-  </div>
-
-</div>
+import { AppointmentCard, type BookingWithSlot } from "@/components/AppointmentCard";
 ```
 
-### Status badge colours (use consistently, never deviate)
+### Props reference
 
-| Status | Classes |
+| Prop | Type | Required | Notes |
+|---|---|---|---|
+| `booking` | `BookingWithSlot` | ✓ | All booking fields including `visitType`, `treatmentCategory` |
+| `role` | `"clinic" \| "doctor"` | ✓ | Controls which footer is rendered |
+| `bookingNumber` | `string` | ✓ | `String(booking.id).padStart(4, "0")` |
+| `complaints` | `string[]` | | Parsed from `booking.description` |
+| `clinicName` | `string` | | Doctor role only — displayed in info row |
+| `clinicCity` | `string` | | Doctor role only |
+| `onCardClick` | `() => void` | ✓ | Opens the detail dialog |
+| `onConfirm` | `() => void` | clinic | Confirm booking |
+| `onCancel` | `(reason: string) => void` | clinic | Cancel with reason dialog |
+| `onBill` | `() => void` | clinic | Open billing modal |
+| `onAssignDoctor` | `(name, email) => void` | clinic | Inline doctor picker popover |
+| `onCheckIn` | `() => void` | clinic | Mark patient arrived |
+| `onUndoCheckIn` | `() => void` | clinic | Undo arrived |
+| `onCompleteVisit` | `() => void` | clinic | Admin closes visit (after treatment done) |
+| `onNoShow` | `(reason?: string) => void` | clinic | Marks no-show with optional reason |
+| `onSendReminder` | `() => void` | clinic | Fires WhatsApp reminder via `⋮` menu |
+| `onOverrideComplete` | `(reason: string) => void` | clinic | Admin force-completes; reason mandatory |
+| `onBookAgain` | `() => void` | clinic | Pre-fills Book a Slot form |
+| `onApprove` | `() => void` | doctor | Accept the appointment |
+| `onDecline` | `() => void` | doctor | Decline the appointment |
+| `onStartConsultation` | `() => void` | doctor | Move to `in_consultation` |
+| `onDoctorCompleteVisit` | `() => void` | doctor | Mark treatment done → `treatment_completed` |
+| `onOpenNotes` | `() => void` | doctor | Open patient notes modal |
+| `onOpenRecords` | `() => void` | doctor | Open Rx / clinical records modal |
+| `*Pending` | `boolean` | | All mutations have matching `isPending` props |
+
+### 5-Step Progress Strip — `BookingProgressStrip`
+
+Imported automatically inside `AppointmentCard`. Import directly only if needed elsewhere:
+
+```tsx
+import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
+// LifecycleStage = 0 | 1 | 2 | 3 | 4
+```
+
+| Stage | visitStatus | Label | Dot colour |
+|---|---|---|---|
+| 0 | `null` | Booked | Current = pulsing blue |
+| 1 | `checked_in` | Arrived | Current = pulsing blue |
+| 2 | `in_consultation` | In Treatment | Current = pulsing blue |
+| 3 | `treatment_completed` | Tmt. Done | Current = pulsing blue |
+| 4 | `completed` | Visit Done | Completed = solid emerald |
+
+Cancelled and no-show states render a faded red/slate variant automatically via `isCancelled` / `isNoShow` props.
+
+### Lifecycle states & status badge colours
+
+| visitStatus | verificationStatus | Status badge label | Badge colour |
+|---|---|---|---|
+| `null` | `pending` | Pending | Pulsing amber |
+| `null` | `confirmed` | Confirmed | Emerald |
+| `null` | `confirmed` + `assignedDoctor` + `doctorApprovalStatus=pending` | Awaiting DR | Pulsing amber |
+| `checked_in` | any confirmed | Arrived | Pulsing blue |
+| `in_consultation` | any confirmed | With Doctor | Solid teal |
+| `treatment_completed` | any confirmed | Tmt. Done | Pulsing amber |
+| `completed` | any confirmed | Visit Done | Emerald |
+| any | `cancelled` | Cancelled | Red |
+| any | `no_show` | No Show | Slate |
+
+### Left border accent colours (auto-applied by component)
+
+| State | Border |
 |---|---|
-| Pending / Awaiting | `bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-300` |
-| Confirmed / Upcoming | `bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200` |
-| Cancelled | `bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border-rose-200` |
-| Past / Completed | `bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400 border-slate-200` |
-| Today | `bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200` |
+| Pending / unconfirmed | `border-l-amber-400` |
+| Confirmed | `border-l-emerald-400` |
+| Visit complete | `border-l-emerald-400` |
+| Treatment done | `border-l-amber-400` |
+| Cancelled | `border-l-rose-400` |
+| No show | `border-l-slate-400` |
+
+### Three-dot ⋮ menu (clinic only, non-terminal states)
+
+Renders a `Popover` with these items in order:
+1. **Send Reminder** — fires `onSendReminder`, WhatsApp nudge to patient
+2. **Mark No Show** — opens `AlertDialog` with optional reason field, fires `onNoShow(reason)`
+3. _(divider)_
+4. **Mark Visit Complete ↗** — `AlertDialog` with *mandatory* reason, fires `onOverrideComplete(reason)`; disabled until reason filled
+
+### Two-step visit close (clinic admin flow)
+
+1. Doctor clicks **Done with Patient** → `PATCH /api/auth/doctor/bookings/:id/complete-visit` → `visitStatus = treatment_completed`
+2. Clinic admin sees **Mark Visit Complete** button in card footer → `PATCH /api/auth/clinic/bookings/:id/complete-visit` → `visitStatus = completed`
+
+The `onOverrideComplete` override skips step 1 and goes directly to `completed` via `PATCH .../override-complete`.
+
+### Backend routes reference
+
+| Method & Path | Auth | Effect |
+|---|---|---|
+| `PATCH /api/auth/clinic/bookings/:id/no-show` | clinic session | Sets `verificationStatus = no_show`; writes audit log |
+| `PATCH /api/auth/clinic/bookings/:id/send-reminder` | clinic session | Fire-and-forget WhatsApp to `customerPhone` |
+| `PATCH /api/auth/clinic/bookings/:id/override-complete` | clinic session | Sets `visitStatus = completed`; writes audit log with `to_state = completed_override` |
+
+### `booking_state_log` table (audit)
+
+```sql
+CREATE TABLE booking_state_log (
+  id         SERIAL PRIMARY KEY,
+  booking_id integer NOT NULL REFERENCES bookings(id),
+  from_state varchar(50),
+  to_state   varchar(50) NOT NULL,
+  actor_role varchar(20) NOT NULL,   -- 'admin' | 'doctor' | 'system'
+  actor_name varchar(255),
+  reason     text,
+  created_at timestamp DEFAULT NOW()
+);
+```
+
+### Visit type & treatment category fields
+
+Both are stored on `bookings.visit_type` and `bookings.treatment_category`. They are set by clinic admin when booking — never by the patient.
+
+| `visit_type` key | Display label |
+|---|---|
+| `first_visit` | First Visit |
+| `follow_up` | Follow Up |
+| `emergency` | Emergency |
+| `routine_checkup` | Routine Checkup |
+| `consultation` | Consultation |
+| `review` | Review |
 
 ### REF number format
 
 ```tsx
-REF-{String(booking.id).padStart(4, "0")}   // e.g. REF-0023
+bookingNumber={String(booking.id).padStart(4, "0")}  // renders as #0023
 ```
 
-### Cancellation reason display
+### Info / Warning Banner Strips (inline card banners)
 
-When `booking.cancellationReason` is set, render it below the Cancelled badge:
+These are compact, single-line notification rows that appear **between the info rows and the progress strip** of a booking card. Two types exist:
+
+#### 1. Past-due warning (amber — slot time has passed)
 
 ```tsx
-{booking.verificationStatus === 'cancelled' && (booking as any).cancellationReason && (
-  <span className="text-[10px] italic text-muted-foreground/70 truncate max-w-[160px]">
-    {(booking as any).cancellationReason}
-  </span>
-)}
+<TooltipProvider delayDuration={600}>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <div className="mx-3 sm:mx-4 mb-1 flex items-center gap-1.5
+        text-[10px] font-semibold overflow-hidden cursor-default rounded-lg px-2.5 py-1 border
+        text-amber-600 dark:text-amber-400
+        bg-amber-50 dark:bg-amber-950/20
+        border-amber-200 dark:border-amber-800">
+        <AlertTriangle className="h-3 w-3 shrink-0" />
+        <span className="truncate min-w-0">Slot time has passed — please action this booking</span>
+      </div>
+    </TooltipTrigger>
+    <TooltipContent side="top" align="start" className="max-w-[220px] text-xs font-medium whitespace-normal">
+      Slot time has passed — please action this booking
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
 ```
+
+#### 2. Terminal reason banner (colour-coded by outcome)
+
+Shown when `booking.cancellationReason` is set. Colour is driven by the terminal state:
+
+| State | Text | Background | Border |
+|---|---|---|---|
+| No Show | `text-slate-600 dark:text-slate-400` | `bg-slate-50 dark:bg-slate-950/20` | `border-slate-200 dark:border-slate-700` |
+| Left Early | `text-amber-600 dark:text-amber-400` | `bg-amber-50 dark:bg-amber-950/20` | `border-amber-200 dark:border-amber-800` |
+| Cancelled | `text-rose-600 dark:text-rose-400` | `bg-rose-50 dark:bg-rose-950/20` | `border-rose-200 dark:border-rose-800` |
+
+```tsx
+<TooltipProvider delayDuration={600}>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <div className={`mx-3 sm:mx-4 mb-1 flex items-center gap-1.5
+        text-[10px] font-semibold rounded-lg px-2.5 py-1 overflow-hidden cursor-default border
+        ${isNoShowState
+          ? "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-700"
+          : isLeftEarlyState
+          ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+          : "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800"
+        }`}>
+        <AlertCircle className="h-3 w-3 shrink-0" />
+        <span className="truncate min-w-0">{booking.cancellationReason}</span>
+      </div>
+    </TooltipTrigger>
+    <TooltipContent side="top" align="start" className="max-w-[220px] text-xs font-medium whitespace-normal">
+      {booking.cancellationReason}
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+```
+
+#### Rules for all info/warning banner strips
+
+1. **Always** wrap text in `<span className="truncate min-w-0">` — never let the banner grow to two lines.
+2. **Always** wrap in `<TooltipProvider delayDuration={600}>` so truncated text is readable on hover.
+3. Container must have `overflow-hidden` — this is what makes `truncate` work inside a flex row.
+4. Icon must be `shrink-0` — it must never be squeezed by long text.
+5. `TooltipContent` max-width is `max-w-[220px]` with `whitespace-normal` so the full text wraps inside the tooltip.
+6. Never use `italic` on banner strip text — italic is reserved for empty/missing-data fallback rows.
+
+---
+
+## 8a. Patient Card — Complete Row Reference
+
+> Source of truth: `client/src/components/AppointmentCard.tsx` (`role="clinic"` and `role="doctor"` branches).  
+> All rows use `text-xs`. Icon boxes are `h-4 w-4 rounded-md`. Missing-data fallback is always `italic text-muted-foreground/60`.
+
+### Clinic Admin Card (`role="clinic"`)
+
+| Zone | Row | Label | Always Visible? | Possible Values |
+|---|---|---|---|---|
+| **Header** | Patient avatar + name | — | ✅ Always | First-letter avatar · Full name |
+| **Header** | Booking number | — | ✅ Always | `#01`, `#02` … |
+| **Header** | Phone · Age · Gender | — | ✅ Always | `9876543210 · 34y · Male` — or `· Not available` italic if both missing |
+| **Header** | Approval status pill | — | ✅ Always | 🟡 Pending · 🟡 Awaiting DR (pulsing) · 🟢 Confirmed · 🔴 Cancelled · 🔴 Declined |
+| **Body** | Date + time | **Date:** | ✅ Always | `Mon, 9 Jun  10:00 am → 10:30 am` + Today / Tomorrow / in Xd badge |
+| **Body** | Patient code | **Patient Code:** | ✅ Always | `PAT-0042` primary mono — or `Not available` italic |
+| **Body** | Assigned doctor | **Doctor:** | ✅ Always (non-past, non-cancelled) | `Dr. Name` + `Awaiting Dr Approval` / `Approved by Dr` / `Confirmed by Admin` / `Declined by Dr` · `Assign doctor` popover if unassigned · `No doctor assigned` italic |
+| **Body** | Visit status | **Visit Status:** | ✅ Always (non-cancelled) | `Awaiting confirmation` italic · `Mark Arrived` button · 🟢 In Clinic `· {time}` + undo × · 🔵 With Doctor · ✅ Visit Done `· {time}` |
+| **Body** | Consent status | **Consent Status:** | ✅ Always (non-cancelled) | `Not available` italic · `Consent Sent` amber pill · `Consent Signed ✓` emerald pill |
+| **Body** | Clinical status | **Clinical Status:** | ✅ Always | `Not set` italic · 🟢 First Visit · 🔵 Revisit · 🟡 Follow-up Required · ✅ Case Closed |
+| **Body** | Treatment category | **Treatment Category:** | ✅ Always | 🩺 `Major Procedure (3 slots)` primary chip — or `Not available` italic |
+| **Body** | Visit type | **Visit Type:** | ✅ Always | 🫀 `First Visit` primary chip — or `Not available` italic |
+| **Body** | Chief complaints | **Chief Complaints:** | ✅ Always | Up to 4 chips (e.g. `Tooth Pain`) · `+N` overflow · `No complaints noted` italic |
+| **Footer** | Confirm button | — | Pending + non-past only | Appears until `verificationStatus === 'confirmed'` |
+| **Footer** | Bill button | — | ✅ Always | Opens billing modal |
+| **Footer** | Cancel / Book Again | — | ✅ Always | Cancel (non-completed) · Book Again (visit completed) |
+
+---
+
+### Doctor Admin Card (`role="doctor"`)
+
+| Zone | Row | Label | Always Visible? | Possible Values |
+|---|---|---|---|---|
+| **Header** | Patient avatar + name | — | ✅ Always | First-letter avatar · Full name |
+| **Header** | Booking number | — | ✅ Always | `#01`, `#02` … |
+| **Header** | Phone · Age · Gender | — | ✅ Always | `9876543210 · 34y · Male` — or `· Not available` italic if both missing |
+| **Header** | Approval status pill | — | ✅ Always | 🟡 Pending (pulsing) · 🟡 Awaiting DR · 🟢 Confirmed · 🔴 Cancelled · 🔴 Declined |
+| **Body** | Date + time + duration | **Date:** | ✅ Always | `Mon, 9 Jun  10:00 am → 10:30 am` + Today/Tomorrow/in Xd badge + `30m` pill |
+| **Body** | Clinic name | **Clinic:** | ✅ Always | `Smile Dental (Kochi)` — or `Not available` italic |
+| **Body** | Visit status | **Visit Status:** | ✅ When approved/admin-confirmed + non-cancelled | `Awaiting arrival` italic · 🟢 In Clinic `· {check-in time}` · 🔵 With Doctor · ✅ Visit Done `· {time}` |
+| **Body** | Clinical status | **Clinical Status:** | ✅ Always | `Not set` italic · 🟢 First Visit · 🔵 Revisit · 🟡 Follow-up Required · ✅ Case Closed |
+| **Body** | Treatment category | **Treatment Category:** | ✅ Always | 🩺 `Major Procedure` primary chip — or `Not available` italic |
+| **Body** | Visit type | **Visit Type:** | ✅ Always | 🫀 `First Visit` primary chip — or `Not available` italic |
+| **Body** | Chief complaints | **Chief Complaints:** | ✅ Always | Up to 3 chips (Category/Visit lines stripped) · `No complaints noted` italic |
+| **Footer** | Accept / Decline | — | Pending approval only | `doctorApprovalStatus === 'pending'` |
+| **Footer** | Approval notice banner | — | After accepting | 🟡 "Confirmed by clinic admin on your behalf" · 🟢 "You confirmed this appointment" |
+| **Footer** | Start Consultation | — | Patient arrived only | `visitStatus === 'checked_in'` + not pending/declined |
+| **Footer** | Done with Patient | — | In consultation only | `visitStatus === 'in_consultation'` + not pending/declined |
+| **Footer** | View Notes | — | ✅ After accepting | Always shown once `doctorApprovalStatus !== 'pending'/'declined'` |
+| **Footer** | Issue Rx / Rec | — | ✅ After accepting | Always shown once `doctorApprovalStatus !== 'pending'/'declined'` |
+
+---
+
+### Key differences between the two roles
+
+| Aspect | Clinic Admin | Doctor Admin |
+|---|---|---|
+| 3rd body row | Patient code `PAT-XXXX` | Clinic name + city |
+| Doctor assignment row | ✅ Shown (name + approval state) | ✗ Not shown |
+| Visit status | Interactive — Mark Arrived button + undo | Read-only status display |
+| Consent row | ✅ Shown | ✗ Not shown (clinic concern) |
+| Clinical status row | ✅ Shown (set by doctor, visible to clinic) | ✅ Shown |
+| Visit status in header | ✗ No secondary badge | ✗ Removed (lives in body row) |
+| Duration pill on date row | ✗ Not shown | ✅ Shown (`30m` badge) |
+| Max complaint chips | 4 | 3 |
+| Footer primary actions | Confirm · Bill · Cancel | Accept/Decline → Start Consultation → Done with Patient |
+
+---
+
+## 8b. Booking Lifecycle & State Machine — Complete Reference
+
+> **Audience**: Developers, QA engineers, and anyone who needs to understand the full end-to-end flow of a booking — from creation through final visit closure — including every status field, API endpoint, actor action, side-effect, and notification involved.
+
+---
+
+### Overview: Three Status Fields That Together Track a Booking
+
+A single booking record in the `bookings` table is tracked by **three independent status fields**. Understanding which field controls what is the most important concept in this system.
+
+| Field | DB column | Who writes it | What it tracks |
+|---|---|---|---|
+| `verificationStatus` | `verification_status` | Patient (OTP flow), clinic admin, system | Whether the booking request is valid and approved by the clinic |
+| `visitStatus` | `visit_status` | Clinic admin (check-in), doctor (consultation steps) | The physical on-the-day visit progress |
+| `clinicalStatus` | `clinical_status` | Doctor | Doctor's clinical assessment of the case outcome |
+
+These three fields are **orthogonal** — a booking can be `verificationStatus = confirmed` and `visitStatus = null` (confirmed but patient hasn't arrived yet), or `visitStatus = treatment_completed` (doctor finished) with the admin not yet having closed the visit. The UI assembles the badge label and the progress strip from a combination of all three.
+
+Additionally, a **fourth field** controls doctor assignment approval:
+
+| Field | DB column | Values | What it tracks |
+|---|---|---|---|
+| `doctorApprovalStatus` | `doctor_approval_status` | `pending`, `approved`, `declined`, `admin_confirmed` | Whether the assigned doctor has accepted the booking |
+
+---
+
+### All Possible Status Values
+
+#### `verificationStatus` values
+
+| Value | Meaning | Set by |
+|---|---|---|
+| `email_verified` | Patient completed OTP — booking received, pending clinic review | System (on `POST /api/public/bookings`) |
+| `pending` | Generic pending (used by admin-created bookings) | Admin |
+| `confirmed` | Clinic approved — patient notified | Clinic admin or doctor approval |
+| `cancelled` | Booking cancelled, patient notified | Clinic admin |
+| `no_show` | Patient was expected but did not arrive | Clinic admin |
+
+> **Important**: In the codebase, `email_verified` and `pending` are both treated as "Pending" in all UI filters and status badges. The distinction only matters for audit/analytics.
+
+#### `visitStatus` values
+
+| Value | Meaning | Set by | When |
+|---|---|---|---|
+| `null` (not set) | Patient not yet arrived | — | Default |
+| `checked_in` | Patient has arrived at clinic | Clinic admin | `PATCH /api/auth/clinic/bookings/:id/checkin` |
+| `in_consultation` | Doctor has started treating the patient | Doctor | `PATCH /api/doctor/bookings/:id/start-consultation` |
+| `treatment_completed` | Doctor finished treatment; awaiting admin closure | Doctor | `PATCH /api/doctor/bookings/:id/complete-visit` |
+| `completed` | Visit fully closed (billing done / admin confirmed) | Clinic admin or system | `PATCH /api/auth/clinic/bookings/:id/complete-visit` |
+| `patient_left_early` | Patient walked out mid-consultation before treatment was finished | Clinic admin | `PATCH /api/auth/clinic/bookings/:id/patient-left-early` |
+
+> **Auto-complete rule**: When a patient's bill is marked as **fully paid**, the system automatically sets `visitStatus = completed` and writes `visit_auto_completed` in the audit log — for bookings in **either** `treatment_completed` or `in_consultation` state (billing may be completed before the doctor formally marks treatment done).
+
+#### `doctorApprovalStatus` values
+
+| Value | Meaning |
+|---|---|
+| `pending` | Doctor assigned but hasn't responded yet |
+| `approved` | Doctor accepted the booking |
+| `declined` | Doctor rejected the booking; admin must re-assign |
+| `admin_confirmed` | Admin confirmed the booking on behalf of the doctor (overrides doctor pending) |
+
+#### `clinicalStatus` values (set by doctor in clinical notes)
+
+| Value | UI label | Colour |
+|---|---|---|
+| `first_visit` | First Visit | Green |
+| `revisit` | Revisit | Blue |
+| `follow_up_required` | Follow-up Required | Amber |
+| `case_closed` | Case Closed | Emerald |
+
+---
+
+### Flow 1: Patient Self-Books a Slot
+
+This flow is handled entirely in `client/src/pages/Book.tsx` (frontend) and `server/routes.ts` (backend, all under `/api/public/` — no auth required).
+
+#### Step 1 — Clinic discovery
+
+| What | API | Notes |
+|---|---|---|
+| Patient loads `/book` or `/book/:clinicId` | `GET /api/public/clinics` | Returns all active clinics with name, city, address, logo |
+| If no `clinicId` in URL | Dropdown/search shown | Patient picks a clinic from the list |
+
+#### Step 2 — Date & slot selection
+
+| What | API | Notes |
+|---|---|---|
+| Patient picks a date from 14-day scroll strip | `GET /api/public/clinic-availability?clinicId=&date=` | Returns whether clinic has a full-day closure (doctor leave / clinic closed day) |
+| Patient views available time brackets | `POST /api/public/slot-availability` | Body: `{ clinicId, date }`. Returns per-bracket `{ spotsLeft, isCancelled }` for all 5 time blocks. `spotsLeft = maxBookings − currentBookings`. Brackets with `spotsLeft = 0` or `isCancelled = true` are greyed out |
+
+Time brackets shown (labels, not stored times):
+
+| Bracket index | Label | Time window |
+|---|---|---|
+| 0 | Early Morning | 08:00 – 10:00 |
+| 1 | Late Morning | 10:00 – 12:30 |
+| 2 | Midday | 12:30 – 14:00 |
+| 3 | Afternoon | 14:00 – 17:00 |
+| 4 | Evening | 17:00 – 19:30 |
+
+#### Step 3 — Identity & OTP verification
+
+| Step | API | What happens |
+|---|---|---|
+| Patient fills Name, Age, Gender, Phone, Email | — | Client-side form validation only |
+| Clicks "Send Verification Code" | `POST /api/public/otp/send` — Body: `{ email, clinicId }` | Generates a 6-digit code, stores it in `email_otps` table with 10-minute expiry, sends it via **Resend** email service |
+| Patient enters the 6-digit code | `POST /api/public/otp/verify` — Body: `{ email, otp, clinicId }` | Validates code, marks `email_otps` row as used, returns a signed `verifiedToken` (short-lived JWT used to authorise the final booking POST) |
+| Returning patient check | `GET /api/public/patients-by-email?email=&clinicId=` | If the email has prior bookings at that clinic, their previous profile data (name, age, gender) is returned so they can select it. New patients skip this |
+
+> **Security note**: The `verifiedToken` returned by `/otp/verify` is checked server-side when creating the booking. Without a valid token the booking creation is rejected. This prevents spam bookings without phone/email OTP.
+
+#### Step 4 — Issue selection
+
+| What | Notes |
+|---|---|
+| Patient selects a dental category (e.g., "Tooth Pain", "Braces") | From a hardcoded list of categories in the frontend |
+| Patient selects specific sub-issues | Multi-select chips; saved as a comma-separated string in `bookings.description` |
+
+#### Step 5 — Booking confirmation
+
+| What | API | Body |
+|---|---|---|
+| Patient clicks "Confirm Booking" | `POST /api/public/bookings` | `{ clinicId, slotDate, slotIndex, name, age, gender, phone, email, description, verifiedToken, patientId? }` |
+
+**Server-side logic in `POST /api/public/bookings`:**
+
+1. Validates the `verifiedToken` signature and expiry
+2. Checks clinic exists and is active
+3. Fetches or calculates `maxBookings` for the requested slot (explicit slot row → clinic default → hardcoded fallback of 3)
+4. Counts existing bookings for that `clinicId + slotDate + slotIndex` — rejects if at capacity
+5. Upserts a `slots` row for that date+bracket if it doesn't exist
+6. Creates the `bookings` row with `verificationStatus = 'email_verified'`
+7. Upserts a patient identity record and links it via `booking.patientId`
+8. **Fires notifications** (see Notifications table below)
+
+**Immediate notifications on booking creation:**
+
+| Recipient | Channel | Content |
+|---|---|---|
+| Patient | Email (Resend) | "Booking received" — ref number, date, time, clinic name |
+| Patient | WhatsApp (Twilio/Meta) | Same summary + clinic address |
+| Clinic admin | Email (Resend) | "New booking request" — patient name, date, time, complaint |
+| Clinic admin | In-app (WebSocket `broadcastToClinic`) | Live dashboard notification bubble |
+
+**Booking is now at:** `verificationStatus = email_verified`, `visitStatus = null`
+
+---
+
+### Flow 2: Admin Books a Slot on Behalf of a Patient
+
+Done from the **Clinic Dashboard → "Book a Slot"** panel (`client/src/pages/ClinicDashboard.tsx`, panel key `book-a-slot`).
+
+| What | API | Difference from patient flow |
+|---|---|---|
+| Admin fills patient details and picks date/slot | `POST /api/auth/clinic/bookings` | No OTP required — clinic session auth replaces it |
+| Can optionally assign a doctor immediately | Inline doctor picker | `assignedDoctorId` set at creation time |
+| Booking is created | Same as public flow except `verificationStatus = 'confirmed'` | Admin bookings skip the pending state and are immediately confirmed |
+
+**Notifications on admin booking creation:**
+
+| Recipient | Channel | Content |
+|---|---|---|
+| Patient | Email | "Your appointment has been confirmed" |
+| Patient | WhatsApp | Confirmation + Google Maps link to clinic |
+| Assigned doctor (if any) | Email + in-app | "New appointment assigned to you" |
+
+---
+
+### The Full Status State Machine
+
+Every possible state transition, who triggers it, and what happens:
+
+```
+                     ┌─────────────────────────────────┐
+                     │        BOOKING CREATED           │
+                     │  verificationStatus:             │
+                     │  'email_verified' (patient)      │
+                     │  'confirmed' (admin-created)     │
+                     └────────────┬────────────────────┘
+                                  │
+               ┌──────────────────┼──────────────────────┐
+               │                  │                       │
+               ▼                  ▼                       ▼
+        [CANCELLED]          [NO SHOW]              [CONFIRMED]
+     Admin cancels         Admin marks           Admin clicks Confirm
+     at any point          no-show (only if      (or doctor approves)
+     → sends cancel        NOT in_consultation)  → sends confirmation
+       email to            → audit log             email + WhatsApp
+       patient                                     to patient
+               │                  │                       │
+               └──────────────────┴───────────────────────┘
+                                                           │
+                                                           │  Patient arrives at clinic
+                                                           │  Admin clicks "Mark Arrived"
+                                                           ▼
+                                                    [CHECKED IN]
+                                                  visitStatus: checked_in
+                                                  checkedInAt: timestamp
+                                                  → Doctor gets live alert
+                                                           │
+                                            ┌──────────────┘
+                                            │ Doctor clicks "Start Consultation"
+                                            ▼
+                                   [IN CONSULTATION]
+                                  visitStatus: in_consultation
+                                  → Clinic admin gets live alert
+                                            │
+                          ┌─────────────────┼─────────────────────┐
+                          │                 │                      │
+                          ▼                 │                      │
+               [PATIENT LEFT EARLY]         │               Bill marked PAID
+               visitStatus:                 │               (auto-complete)
+               patient_left_early           │                      │
+               Admin records reason         │                      │
+               → TERMINAL ─ ─ ─ ─ ─ ─ ─    │                      │
+                                            │                      │
+                                            │ Doctor clicks        │
+                                            │ "Done with Patient"  │
+                                            ▼                      │
+                                 [TREATMENT COMPLETED]             │
+                                  visitStatus: treatment_completed  │
+                                  → Admin sees "Mark Visit         │
+                                    Complete" button               │
+                                            │                      │
+                             ┌──────────────┤                      │
+                             │              │                      │
+                             ▼              ▼                      │
+                      Override          Admin clicks               │
+                      Complete       "Mark Visit Complete"         │
+                      (⋮ menu)                │                    │
+                             │               │                    │
+                             └───────────────┴────────────────────┘
+                                                        ▼
+                                               [VISIT COMPLETED]
+                                              visitStatus: completed
+                                              completedAt: timestamp
+```
+
+---
+
+### Admin Actions — Clinic Dashboard
+
+Each action below is available to a logged-in clinic admin via their session cookie (`PATCH /api/auth/clinic/...`).
+
+#### Confirm a Booking
+
+| Property | Value |
+|---|---|
+| **Trigger** | Admin clicks "Confirm" button on a Pending booking card |
+| **API** | `PATCH /api/auth/clinic/bookings/:id/confirm` |
+| **DB changes** | `verificationStatus = 'confirmed'`, `confirmedBy = 'clinic'`, `confirmedAt = NOW()` |
+| **If doctor assigned and pending** | Sets `doctorApprovalStatus = 'admin_confirmed'` (bypasses doctor approval requirement) |
+| **Notifications fired** | Patient: Confirmation email (Resend) with date, time, clinic address + WhatsApp with Google Maps link. Assigned doctor: Email + in-app notification |
+| **UI after** | Card badge changes from pulsing amber "Pending" → solid emerald "Confirmed". Confirm button disappears from card footer |
+
+#### Assign a Doctor
+
+| Property | Value |
+|---|---|
+| **Trigger** | Admin opens doctor picker popover on a booking card and selects a doctor |
+| **API** | `PATCH /api/auth/clinic/bookings/:id/assign-doctor` |
+| **Body** | `{ doctorId, doctorName, doctorEmail }` |
+| **DB changes** | `assignedDoctorId`, `assignedDoctorName`, `assignedDoctorEmail` set. `doctorApprovalStatus = 'pending'` |
+| **Notifications fired** | Doctor: Email "You have a new appointment assigned" + in-app WebSocket notification |
+| **UI after** | Booking card body row shows "Awaiting Dr Approval" amber badge next to doctor name |
+
+#### Mark Patient Arrived (Check-in)
+
+| Property | Value |
+|---|---|
+| **Trigger** | Admin clicks "Mark Arrived" in the Visit Status row of a confirmed booking card |
+| **API** | `PATCH /api/auth/clinic/bookings/:id/checkin` |
+| **DB changes** | `visitStatus = 'checked_in'`, `checkedInAt = NOW()` |
+| **Notifications fired** | Assigned doctor: In-app WebSocket event `patient_checked_in` — causes live dashboard alert on doctor's screen |
+| **UI after** | Visit Status row shows "🟢 In Clinic · {time}" with an undo ×. Progress strip advances to stage 1 |
+
+#### Undo Check-in
+
+| Property | Value |
+|---|---|
+| **Trigger** | Admin clicks ✕ next to "In Clinic" in the Visit Status row |
+| **API** | `PATCH /api/auth/clinic/bookings/:id/undo-checkin` |
+| **DB changes** | `visitStatus = null`, `checkedInAt = null` |
+| **Use case** | Wrong patient checked in, or patient had to leave and come back |
+
+#### Mark No-Show
+
+| Property | Value |
+|---|---|
+| **Trigger** | Admin opens ⋮ menu → "Mark No Show" → optional reason → confirm |
+| **API** | `PATCH /api/auth/clinic/bookings/:id/no-show` |
+| **Body** | `{ reason?: string }` |
+| **DB changes** | `verificationStatus = 'no_show'`; reason written to `booking_state_log` |
+| **Notifications fired** | None (no patient notification on no-show) |
+| **Allowed when** | Any state **except** `in_consultation`, `treatment_completed`, and `completed` — a patient who has already been seen cannot be marked no-show |
+
+#### Mark Patient Left Early
+
+| Property | Value |
+|---|---|
+| **Trigger** | Admin opens ⋮ menu → "Patient Left Early" → mandatory reason → confirm |
+| **API** | `PATCH /api/auth/clinic/bookings/:id/patient-left-early` |
+| **Body** | `{ reason: string }` — reason is mandatory |
+| **DB changes** | `visitStatus = 'patient_left_early'`; reason written to `booking_state_log` |
+| **Precondition** | `visitStatus = 'in_consultation'` (the ⋮ button only appears when the doctor has already started) |
+| **Visual state** | Card shows amber "Left Early" badge, amber left border, amber progress strip with trail, "Patient Left Before Completion" footer banner |
+| **Blocks** | Once recorded, the card is terminal — no further lifecycle actions are available |
+| **Use case** | Patient felt unwell and walked out; patient had a medical emergency; patient decided not to proceed with treatment |
+
+#### Cancel a Booking
+
+| Property | Value |
+|---|---|
+| **Trigger** | Admin clicks "Cancel" on a non-completed booking card → reason dialog |
+| **API** | `DELETE /api/auth/clinic/bookings/:id` with body `{ reason: string }` |
+| **DB changes** | `verificationStatus = 'cancelled'`, `cancellationReason` stored |
+| **Notifications fired** | Patient: Cancellation email with the reason text |
+| **UI after** | Card shows red "Cancelled" badge, reason shown in italic below badge |
+
+#### Send WhatsApp Reminder
+
+| Property | Value |
+|---|---|
+| **Trigger** | Admin opens ⋮ menu → "Send Reminder" |
+| **API** | `PATCH /api/auth/clinic/bookings/:id/send-reminder` |
+| **Effect** | Fire-and-forget WhatsApp message to patient's phone. No DB state change. Logs to console |
+
+#### Mark Visit Complete (Admin Closure)
+
+| Property | Value |
+|---|---|
+| **Trigger** | Admin clicks "Mark Visit Complete" after doctor has completed treatment |
+| **API** | `PATCH /api/auth/clinic/bookings/:id/complete-visit` |
+| **Precondition** | `visitStatus = 'treatment_completed'` (doctor must have finished first, unless override is used) |
+| **DB changes** | `visitStatus = 'completed'`, `completedAt = NOW()` |
+| **Audit log** | `booking_state_log` row: `to_state = 'completed'`, `actor_role = 'admin'` |
+
+#### Override Complete (Skip Doctor Step)
+
+| Property | Value |
+|---|---|
+| **Trigger** | Admin opens ⋮ menu → "Mark Visit Complete ↗" → mandatory reason → confirm |
+| **API** | `PATCH /api/auth/clinic/bookings/:id/override-complete` |
+| **Body** | `{ reason: string }` — reason is mandatory, button disabled until filled |
+| **DB changes** | `visitStatus = 'completed'` regardless of current `visitStatus` |
+| **Audit log** | `to_state = 'completed_override'`, `actor_role = 'admin'`, reason stored |
+| **Use case** | Doctor forgot to mark done; patient billed and left; admin needs to close administratively |
+
+#### Process Bill / Billing
+
+| Property | Value |
+|---|---|
+| **Trigger** | Admin clicks "Bill" button on any booking card |
+| **UI** | Opens the Billing Modal — itemised line items (treatment codes, quantities, prices) |
+| **API (create)** | `POST /api/auth/clinic/bills` — Body: `{ bookingId, items: [{ description, amount }] }` |
+| **API (mark paid)** | `PATCH /api/auth/clinic/bills/:id/paid` |
+| **Auto-complete trigger** | When bill is marked paid AND `visitStatus` is `treatment_completed` **or** `in_consultation`, the system auto-sets `visitStatus = 'completed'` and writes `visit_auto_completed` to audit log |
+
+---
+
+### Doctor Actions — Doctor Dashboard
+
+Each action below requires a doctor session cookie (`PATCH /api/doctor/...` or `/api/auth/doctor/...`).
+
+#### Approve Assignment
+
+| Property | Value |
+|---|---|
+| **Trigger** | Doctor sees a "Pending" booking card on their dashboard → clicks "Accept" |
+| **API** | `PATCH /api/doctor/bookings/:id/approve` |
+| **DB changes** | `doctorApprovalStatus = 'approved'` |
+| **Notifications fired** | Clinic admin: In-app WebSocket notification "Dr [Name] confirmed booking #XXXX" |
+| **UI after** | Card footer changes from Accept/Decline buttons → "Start Consultation" button (once patient has arrived) |
+
+#### Decline Assignment
+
+| Property | Value |
+|---|---|
+| **Trigger** | Doctor clicks "Decline" on a pending booking card |
+| **API** | `PATCH /api/doctor/bookings/:id/decline` |
+| **DB changes** | `doctorApprovalStatus = 'declined'` |
+| **Notifications fired** | Clinic admin: In-app alert "Dr [Name] declined booking #XXXX — please re-assign" |
+| **UI after** | Card shows "Declined by Dr" badge. Admin must open the doctor picker and assign someone else |
+
+#### Start Consultation
+
+| Property | Value |
+|---|---|
+| **Trigger** | Doctor clicks "Start Consultation" on an arrived patient card |
+| **Precondition** | `visitStatus = 'checked_in'` AND `doctorApprovalStatus` is `approved` or `admin_confirmed` |
+| **API** | `PATCH /api/doctor/bookings/:id/start-consultation` |
+| **DB changes** | `visitStatus = 'in_consultation'` |
+| **Notifications fired** | Clinic admin: WebSocket event — dashboard shows "With Doctor" status in real time |
+| **UI after** | Progress strip advances to stage 2 "In Treatment" (pulsing blue dot). Card footer shows "Done with Patient" button |
+
+#### Add Clinical Notes
+
+| Property | Value |
+|---|---|
+| **Trigger** | Doctor clicks "View Notes" on any booking card (available after accepting) |
+| **UI** | Opens a modal with structured note fields: Diagnosis, Treatment Done, Follow-up instructions |
+| **API (create/update)** | `POST /api/doctor/bookings/:id/clinical-records` |
+| **DB** | Written to `clinical_records` table, linked by `bookingId`. Multiple records per booking are allowed |
+| **Visible to** | Both doctor and clinic admin can see clinical records |
+
+#### Add Prescription / Issue Rx
+
+| Property | Value |
+|---|---|
+| **Trigger** | Doctor clicks "Issue Rx / Rec" on a booking card |
+| **UI** | Opens prescription modal — drug name, dosage, frequency, duration, instructions |
+| **API** | `POST /api/doctor/bookings/:id/prescriptions` |
+| **DB** | Stored in `clinical_records` with `recordType = 'prescription'` |
+| **Print** | Uses `printHtmlAsPdf()` (browser print dialog) — no external library required |
+
+#### Complete Treatment (Doctor Finishes)
+
+| Property | Value |
+|---|---|
+| **Trigger** | Doctor clicks "Done with Patient" after treatment is finished |
+| **API** | `PATCH /api/doctor/bookings/:id/complete-visit` |
+| **DB changes** | `visitStatus = 'treatment_completed'` |
+| **Notifications fired** | Clinic admin: WebSocket alert "Dr [Name] has finished with patient [Name]" |
+| **UI after** | Progress strip advances to stage 3 "Tmt. Done". Admin sees "Mark Visit Complete" button on the booking card |
+
+---
+
+### Notification Matrix — Full Reference
+
+Every notification event fired across the entire lifecycle:
+
+| Event | Patient Email | Patient WhatsApp | Clinic Admin Email | Clinic In-App (WS) | Doctor Email | Doctor In-App (WS) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| Patient books (self) | ✅ "Received" | ✅ Summary | ✅ "New Request" | ✅ bubble | — | — |
+| Admin creates booking | ✅ "Confirmed" | ✅ + Maps link | — | — | ✅ (if assigned) | ✅ (if assigned) |
+| Clinic confirms booking | ✅ "Confirmed" | ✅ + Maps link | — | — | ✅ (if assigned) | — |
+| Doctor assigned | — | — | — | — | ✅ "New appointment" | ✅ |
+| Doctor approves | — | — | — | ✅ | — | — |
+| Doctor declines | — | — | — | ✅ "Re-assign needed" | — | — |
+| Patient checked in | — | — | — | — | — | ✅ "Patient arrived" |
+| Consultation started | — | — | — | ✅ "With Doctor" | — | — |
+| Treatment completed | — | — | — | ✅ "Dr finished" | — | — |
+| Visit closed / complete | — | — | — | — | — | — |
+| Admin sends reminder | — | ✅ Reminder nudge | — | — | — | — |
+| Booking cancelled | ✅ Cancellation + reason | — | — | — | — | — |
+
+**WebSocket broadcast functions** (in `server/routes.ts`):
+- `broadcastToClinic(clinicId, event, payload)` — sends to all tabs the clinic admin has open
+- `broadcastToDoctor(doctorId, event, payload)` — sends to the specific doctor's dashboard
+
+**Email provider**: Resend (`server/routes.ts` → `sendBookingEmails`, `sendConfirmationEmail`, `sendCancellationEmail`)  
+**WhatsApp providers** (configurable, set via env vars):
+- **Twilio** — default fallback (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`)
+- **Meta WhatsApp Cloud API** — direct Facebook Graph API (`META_PHONE_NUMBER_ID`, `META_WHATSAPP_TOKEN`)
+- **Zavu (Zavudev)** — third-party SDK (`ZAVUDEV_API_KEY`)
+
+Active provider is selected at startup in `server/whatsapp.service.ts`. Only one provider is active at a time.
+
+---
+
+### Database Schema — Booking-Related Fields
+
+Key columns on the `bookings` table relevant to the lifecycle:
+
+```sql
+-- Core booking identity
+id                    SERIAL PRIMARY KEY
+clinic_id             INTEGER REFERENCES clinics(id)
+slot_id               INTEGER REFERENCES slots(id)
+patient_id            INTEGER REFERENCES patients(id)   -- upserted on creation
+
+-- Patient info snapshot (denormalised for history)
+customer_name         VARCHAR(255)
+customer_phone        VARCHAR(20)
+customer_email        VARCHAR(255)
+patient_age           INTEGER
+patient_gender        VARCHAR(10)
+description           TEXT    -- comma-separated complaint chips
+
+-- Status fields (the core state machine)
+verification_status   VARCHAR(50)   -- 'email_verified' | 'pending' | 'confirmed' | 'cancelled' | 'no_show'
+visit_status          VARCHAR(50)   -- NULL | 'checked_in' | 'in_consultation' | 'treatment_completed' | 'completed'
+clinical_status       VARCHAR(50)   -- NULL | 'first_visit' | 'revisit' | 'follow_up_required' | 'case_closed'
+
+-- Doctor assignment
+assigned_doctor_id    INTEGER REFERENCES doctors(id)
+assigned_doctor_name  VARCHAR(255)
+assigned_doctor_email VARCHAR(255)
+doctor_approval_status VARCHAR(50)  -- 'pending' | 'approved' | 'declined' | 'admin_confirmed'
+
+-- Timestamps for visit tracking
+checked_in_at         TIMESTAMP
+completed_at          TIMESTAMP
+confirmed_at          TIMESTAMP
+
+-- Clinic enrichment (set by admin, not patient)
+visit_type            VARCHAR(50)   -- 'first_visit' | 'follow_up' | 'emergency' | 'routine_checkup' | ...
+treatment_category    VARCHAR(100)
+cancellation_reason   TEXT
+
+-- Consent
+consent_token         VARCHAR(255)
+consent_signed_at     TIMESTAMP
+```
+
+---
+
+### Audit Log — `booking_state_log` Table
+
+Every status change is written to the audit log. Never modify a booking status without also inserting a state log row.
+
+```sql
+CREATE TABLE booking_state_log (
+  id          SERIAL PRIMARY KEY,
+  booking_id  INTEGER NOT NULL REFERENCES bookings(id),
+  from_state  VARCHAR(50),          -- previous status value (NULL if first transition)
+  to_state    VARCHAR(50) NOT NULL, -- new status value
+  actor_role  VARCHAR(20) NOT NULL, -- 'admin' | 'doctor' | 'system' | 'patient'
+  actor_name  VARCHAR(255),         -- display name of who made the change
+  reason      TEXT,                 -- optional free-text reason (mandatory for overrides/cancellations)
+  created_at  TIMESTAMP DEFAULT NOW()
+);
+```
+
+**`to_state` special values used for audit purposes** (not regular status values):
+
+| `to_state` | Meaning |
+|---|---|
+| `completed_override` | Admin force-closed without doctor completing first |
+| `visit_auto_completed` | System closed because bill was paid |
+| `admin_confirmed_on_behalf` | Admin confirmed instead of waiting for doctor |
+
+---
+
+### Key Source Files
+
+| File | Responsibility |
+|---|---|
+| `client/src/pages/Book.tsx` | Patient self-booking UI — all 5 steps |
+| `client/src/pages/ClinicDashboard.tsx` | Admin dashboard — all clinic-side actions |
+| `client/src/pages/DoctorDashboard.tsx` | Doctor dashboard — all doctor-side actions |
+| `client/src/components/AppointmentCard.tsx` | Shared booking card UI — both roles |
+| `client/src/components/BookingProgressStrip.tsx` | The 5-stage visual progress strip |
+| `server/routes.ts` | All booking API endpoints + notification dispatch |
+| `server/storage.ts` | DB layer — `updateBookingStatus`, `updateVisitStatus`, `updateBookingDoctorApproval`, `createStateLog` |
+| `server/whatsapp.service.ts` | WhatsApp provider switching and message dispatch |
+| `shared/schema.ts` | Drizzle ORM schema — source of truth for all field names and types |
 
 ---
 
@@ -1157,12 +1929,63 @@ The `Prescription / Records` parent tab has been removed. Diagnosis and Prescrip
 
 | Tab key | Label | Icon | Content |
 |---|---|---|---|
-| `overview` | Overview | `User` | Patient info, appointment details, chief complaints, clinical status, Clinical Records |
+| `overview` | Overview | `User` | Terminal reason banner · Patient card · Appointment card · Complaints · Care Team & Status |
+| `clinical` | Clinical | `ClipboardList` | Clinical status toggle buttons · `ClinicalRecordsTab` (admin mode) |
 | `notes` | Notes | `FileText` | `BookingNotesThread` (clinic_admin author) |
 | `actions` | Actions | `Settings` | Reschedule, consent, assign doctor |
 | `billing` | Billing | `IndianRupee` | Billing history panel |
 
-The `clinical` tab in the Clinic Dashboard keeps `<ClinicalRecordsTab>` embedded inside the `overview` tab's "Clinical Records" panel section — the internal Diagnosis/Prescription sub-tabs handle the tab bar in this context.
+---
+
+### 16.2a — Overview tab layout & field reference (Clinic Dashboard)
+
+The Overview tab uses a `space-y-3` vertical stack:
+
+```
+1. Terminal reason banner  (only if booking.cancellationReason is set)
+2. 2-column grid (sm:grid-cols-2)
+   └── LEFT:  Patient card
+   └── RIGHT: Appointment card  +  Complaints card (conditional)
+3. Care Team & Status card (full-width)
+```
+
+#### Patient card fields (left column)
+
+| Row | Field | Source | Notes |
+|---|---|---|---|
+| Header right | `REF-XXXX` | `getBookingNumber(booking).padStart(4,'0')` | Mono text, muted, right-aligned in header |
+| Name row | Full name | `booking.customerName` | + `PAT-XXXX` badge below if `patientCode` set |
+| Age / Gender | Age in years · Gender | `(booking as any).customerAge/customerGender` | 2-col grid row, amber icon for age, violet for gender |
+| Phone | Mobile | `booking.customerPhone` | Primary icon |
+| Email | Email address | `booking.customerEmail` | Blue icon; italic "No email" if absent |
+
+#### Appointment card fields (right column)
+
+| Row | Field | Source | Notes |
+|---|---|---|---|
+| Date | Full date + weekday | `booking.slot.startTime` | Two lines: date bold + weekday muted |
+| Time | Start → End | `booking.slot.startTime/endTime` | Two lines: start bold + `→ end` muted |
+| Visit Type | Labelled badge | `(booking as any).visitType` | Sky blue badge; uses `OVERVIEW_VISIT_TYPE_LABELS` map |
+| Treatment | Category badge | `(booking as any).treatmentCategory` | Violet badge |
+| Slot Cost | ₹ amount | `(booking as any).slotCost` | Emerald icon; hidden if `slotCost <= 0` |
+| Booked at | Timestamp | `booking.createdAt` | Footer row, muted |
+
+#### Care Team & Status card fields (full-width, below grid)
+
+| Row | Field | Source | Notes |
+|---|---|---|---|
+| Assigned Doctor | Name + approval chip | `booking.assignedDoctor` + `booking.doctorApprovalStatus` | Amber "Awaiting approval" · Emerald "Approved" · Rose "Declined"; italic "Not assigned" if none |
+| Consent | Status chip | `booking.consentSignedAt` / `booking.consentToken` | Emerald "Signed" · Amber "Link sent" · Muted "Not sent" |
+| Clinical Status | Read-only badge | `booking.clinicalStatus` | Uses `OVERVIEW_CLINICAL_STATUS` map (sky/violet/amber/emerald); italic "Not set" if absent |
+
+#### Terminal reason banner (top of tab)
+
+Shown when `booking.cancellationReason` is non-null. Follows the **Info/Warning Banner Strip** pattern (see §8, "Info/Warning Banner Strips"). Colour is chosen by state:
+- `verificationStatus === 'no_show'` → slate
+- `visitStatus === 'left_early'` → amber  
+- everything else (cancelled) → rose
+
+No tooltip on the modal version — text is `leading-snug` and wraps naturally inside the wider modal panel.
 
 ---
 
