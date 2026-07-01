@@ -953,12 +953,41 @@ export function BillingHistoryPanel({
             onClick={() => onPrintBill(bill)}
             className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-primary shrink-0 active:scale-95 transition-transform"
             title="Print receipt"
+            aria-label="Print receipt"
             data-testid={`button-print-bill-${bill.id}`}>
             <Printer className="h-3.5 w-3.5" />
           </button>
+          {!isBillPaid && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 shrink-0 active:scale-95 transition-all"
+                  title="Delete bill"
+                  aria-label="Delete bill"
+                  data-testid={`button-delete-bill-${bill.id}`}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently remove {bill.billNumber} and all its entries. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Back</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deleteBillMutation.mutate(bill)} className="bg-destructive text-destructive-foreground">
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           <button
             onClick={() => toggleExpand(bill.id)}
             className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground shrink-0"
+            aria-label={isExpanded ? "Collapse bill" : "Expand bill"}
             data-testid={`button-expand-bill-${bill.id}`}>
             {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
@@ -1084,33 +1113,46 @@ export function BillingHistoryPanel({
                     </button>
                     {consultOpen && (
                       <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
-                        <table className="w-full text-xs">
+                        <table className="w-full text-xs table-fixed">
+                          <colgroup>
+                            <col style={{ width: "24px" }} />
+                            <col />
+                            <col style={{ width: "56px" }} />
+                            <col style={{ width: "64px" }} />
+                            <col style={{ width: "56px" }} />
+                            <col style={{ width: "40px" }} />
+                            <col style={{ width: "64px" }} />
+                            <col style={{ width: "28px" }} />
+                          </colgroup>
                           <thead>
                             <tr className="border-b border-border/40 bg-muted/40">
-                              <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Description</th>
-                              <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
-                              <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground w-16">₹/Unit</th>
-                              <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
-                              <th className="w-7"></th>
+                              <th className="text-center py-1.5 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
+                              <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground" colSpan={4}>Description</th>
+                              <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground">Qty</th>
+                              <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Total</th>
+                              <th></th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border/30">
-                            {consultItems.map(({ svc, origIdx }) => {
+                            {consultItems.map(({ svc, origIdx }, rowIdx) => {
                               const itemKey = `${bill.id}-${origIdx}`;
                               const isEditing = editingKey === itemKey;
                               const isItemPaid = svc.paid || isBillPaid;
                               return (
                                 <tr key={origIdx} className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : "bg-background hover:bg-muted/10"}`}
                                   data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                                  <td className="py-1.5 pl-3 pr-2 text-foreground">
-                                    <span className="flex items-center gap-1">
+                                  <td className="py-1.5 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
+                                  <td className="py-1.5 px-2 text-foreground" colSpan={4}>
+                                    <span className="flex items-center gap-1 min-w-0">
                                       {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
-                                      {svc.description}
+                                      <span className="truncate">{svc.description}</span>
+                                      {svc.unitPrice && (svc.qty ?? 1) > 1 && (
+                                        <span className="text-muted-foreground/50 text-[10px] shrink-0">@ ₹{svc.unitPrice}/unit</span>
+                                      )}
                                     </span>
                                   </td>
                                   <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                                  <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{svc.unitPrice ? `₹${svc.unitPrice.toFixed(0)}` : "—"}</td>
-                                  <td className="py-1.5 pl-2 pr-1 text-right tabular-nums font-semibold">
+                                  <td className="py-1.5 px-2 text-right tabular-nums font-semibold">
                                     {isItemPaid ? (
                                       <span className="flex items-center gap-0.5 justify-end text-emerald-600">
                                         <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
@@ -1136,7 +1178,7 @@ export function BillingHistoryPanel({
                                   </td>
                                   <td className="py-1.5 pr-2">
                                     {isItemPaid ? (
-                                      <span title="Paid — cannot remove" className="h-3 w-3 mx-auto">
+                                      <span title="Paid — cannot remove" className="h-3 w-3 block mx-auto">
                                         <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
                                       </span>
                                     ) : (
@@ -1179,20 +1221,31 @@ export function BillingHistoryPanel({
                       return (
                         <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
                           {/* Desktop table — hidden on mobile */}
-                          <table className="hidden sm:table w-full text-xs">
+                          <table className="hidden sm:table w-full text-xs table-fixed">
+                            <colgroup>
+                              <col style={{ width: "24px" }} />
+                              <col />
+                              <col style={{ width: "56px" }} />
+                              <col style={{ width: "64px" }} />
+                              <col style={{ width: "56px" }} />
+                              <col style={{ width: "40px" }} />
+                              <col style={{ width: "64px" }} />
+                              <col style={{ width: "28px" }} />
+                            </colgroup>
                             <thead>
                               <tr className="border-b border-border/40 bg-muted/40">
-                                <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Medicine</th>
-                                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-14">Dosage</th>
-                                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Frequency</th>
-                                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Duration</th>
-                                <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
-                                <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
-                                <th className="w-7"></th>
+                                <th className="text-center py-1.5 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
+                                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground">Medicine</th>
+                                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground">Dosage</th>
+                                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground">Frequency</th>
+                                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground">Duration</th>
+                                <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground">Qty</th>
+                                <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground">Total</th>
+                                <th></th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-border/30">
-                              {visiblePharmacy.map(({ svc, origIdx }) => {
+                              {visiblePharmacy.map(({ svc, origIdx }, rowIdx) => {
                                 const itemKey = `${bill.id}-${origIdx}`;
                                 const isEditing = editingKey === itemKey;
                                 const isItemPaid = svc.paid || isBillPaid;
@@ -1202,15 +1255,16 @@ export function BillingHistoryPanel({
                                   <tr key={origIdx}
                                     className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "bg-background hover:bg-muted/10"}`}
                                     data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                                    <td className="py-1.5 pl-3 pr-2 font-medium text-foreground">
-                                      <span className="flex items-center gap-1">
+                                    <td className="py-1.5 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
+                                    <td className="py-1.5 px-2 font-medium text-foreground">
+                                      <span className="flex items-center gap-1 min-w-0">
                                         {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
-                                        {medicine}
+                                        <span className="truncate">{medicine}</span>
                                       </span>
                                     </td>
-                                    <td className="py-1.5 px-2 text-muted-foreground">{dosage || "—"}</td>
-                                    <td className="py-1.5 px-2 text-muted-foreground">{frequency || "—"}</td>
-                                    <td className="py-1.5 px-2 text-muted-foreground">{duration || "—"}</td>
+                                    <td className="py-1.5 px-2 text-muted-foreground truncate">{dosage || "—"}</td>
+                                    <td className="py-1.5 px-2 text-muted-foreground truncate">{frequency || "—"}</td>
+                                    <td className="py-1.5 px-2 text-muted-foreground truncate">{duration || "—"}</td>
                                     <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
                                     <td className="py-1.5 pl-2 pr-1 text-right tabular-nums font-semibold">
                                       {isItemPaid ? (
@@ -1459,14 +1513,10 @@ export function BillingHistoryPanel({
                         <CheckCircle2 className="h-3 w-3" /> Fully settled
                       </span>
                       {(bill as PatientBill & { cashierId?: string }).cashierId && (
-                        <span className="text-[10px] text-muted-foreground mt-0.5">
+                        <span className="text-xs text-muted-foreground mt-0.5">
                           Processed by {(bill as PatientBill & { cashierId?: string }).cashierId}
                         </span>
                       )}
-                    </span>
-                  ) : isDraft ? (
-                    <span className="text-blue-600 font-medium flex items-center gap-1">
-                      <FileText className="h-3 w-3" /> Draft
                     </span>
                   ) : paidAmt > 0 ? (
                     <span>
@@ -1474,7 +1524,7 @@ export function BillingHistoryPanel({
                       {" · "}Balance <span className="font-bold text-amber-600">₹{(totalAmt - paidAmt).toFixed(0)}</span>
                     </span>
                   ) : (
-                    <span className="text-amber-600 font-medium">₹{totalAmt.toFixed(0)} outstanding</span>
+                    <span className="text-muted-foreground">₹{totalAmt.toFixed(0)} outstanding</span>
                   )}
                 </div>
 
@@ -1539,35 +1589,6 @@ export function BillingHistoryPanel({
                     </Button>
                   </div>
                 </div>
-              )}
-
-              {/* Secondary actions — Delete only (print is in the card header) */}
-              {!isBillPaid && (
-              <div className="flex items-center gap-1 pt-0.5 border-t border-border/20">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="sm"
-                      className="h-6 px-2 text-xs gap-1 text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10"
-                      data-testid={`button-delete-bill-${bill.id}`}>
-                      <Trash2 className="h-3 w-3" /> Delete bill
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently remove {bill.billNumber} and all its entries. This cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Back</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deleteBillMutation.mutate(bill)} className="bg-destructive text-destructive-foreground">
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
               )}
 
             </div>
