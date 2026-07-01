@@ -1111,11 +1111,14 @@ export function BillingHistoryPanel({
                     {consultOpen && (
                       <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
                         <div className="overflow-x-auto">
-                          <table className="w-full text-xs table-fixed min-w-[380px]">
+                          {/* Shared 8-col grid — columns 1,2,6,7,8 match the pharmacy table exactly */}
+                          <table className="w-full text-xs table-fixed min-w-[500px]">
                             <colgroup>
                               <col style={{ width: "28px" }} />
                               <col />
-                              <col style={{ width: "72px" }} />
+                              <col style={{ width: "60px" }} />
+                              <col style={{ width: "76px" }} />
+                              <col style={{ width: "64px" }} />
                               <col style={{ width: "48px" }} />
                               <col style={{ width: "76px" }} />
                               <col style={{ width: "28px" }} />
@@ -1124,6 +1127,8 @@ export function BillingHistoryPanel({
                               <tr className="border-b border-border/40 bg-muted/40">
                                 <th className="text-center py-1 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
                                 <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Description</th>
+                                <th></th>
+                                <th></th>
                                 <th className="text-right py-1 px-2 font-semibold text-muted-foreground">₹/Unit</th>
                                 <th className="text-center py-1 px-2 font-semibold text-muted-foreground">Qty</th>
                                 <th className="text-right py-1 px-2 font-semibold text-muted-foreground">Total</th>
@@ -1145,6 +1150,8 @@ export function BillingHistoryPanel({
                                         <span className="truncate">{svc.description}</span>
                                       </span>
                                     </td>
+                                    <td></td>
+                                    <td></td>
                                     <td className="py-1 px-2 text-right tabular-nums text-muted-foreground">
                                       {svc.unitPrice ? `₹${Number(svc.unitPrice).toFixed(0)}` : "—"}
                                     </td>
@@ -1182,7 +1189,8 @@ export function BillingHistoryPanel({
                                         <button
                                           onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
                                           disabled={deleteItemMutation.isPending}
-                                          className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
+                                          aria-label="Remove item"
+                                          className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive block mx-auto"
                                           data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
                                           <X className="h-3 w-3" />
                                         </button>
@@ -1194,7 +1202,7 @@ export function BillingHistoryPanel({
                             </tbody>
                             <tfoot>
                               <tr className="bg-primary/5 border-t border-border/40">
-                                <td colSpan={3} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
+                                <td colSpan={5} className="py-1.5 pl-2 pr-2 text-xs font-semibold text-muted-foreground">
                                   {consultItems.length} service{consultItems.length !== 1 ? "s" : ""}
                                 </td>
                                 <td className="py-1.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
@@ -1228,14 +1236,15 @@ export function BillingHistoryPanel({
                     {pharmacyOpen && (
                       <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
                         <div className="overflow-x-auto">
+                          {/* Shared 8-col grid — mirrors the consultation table colgroup exactly */}
                           <div className="max-h-[10.5rem] overflow-y-scroll">
-                            <table className="w-full text-xs table-fixed min-w-[480px]">
+                            <table className="w-full text-xs table-fixed min-w-[500px]">
                               <colgroup>
                                 <col style={{ width: "28px" }} />
                                 <col />
-                                <col style={{ width: "72px" }} />
+                                <col style={{ width: "60px" }} />
                                 <col style={{ width: "76px" }} />
-                                <col style={{ width: "56px" }} />
+                                <col style={{ width: "64px" }} />
                                 <col style={{ width: "48px" }} />
                                 <col style={{ width: "76px" }} />
                                 <col style={{ width: "28px" }} />
@@ -1244,8 +1253,8 @@ export function BillingHistoryPanel({
                                 <tr className="border-b border-border/40 bg-muted/40">
                                   <th className="text-center py-1 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
                                   <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Medicine</th>
-                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Dosage</th>
-                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Frequency</th>
+                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Dos.</th>
+                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Freq.</th>
                                   <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Dur.</th>
                                   <th className="text-center py-1 px-2 font-semibold text-muted-foreground">Qty</th>
                                   <th className="text-right py-1 px-2 font-semibold text-muted-foreground">Total</th>
@@ -1274,7 +1283,7 @@ export function BillingHistoryPanel({
                                       <td className="py-1 px-2 text-muted-foreground truncate">{frequency || "—"}</td>
                                       <td className="py-1 px-2 text-muted-foreground truncate">{duration || "—"}</td>
                                       <td className="py-1 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                                      <td className="py-1 pl-2 pr-1 text-right tabular-nums font-semibold">
+                                      <td className="py-1 px-2 text-right tabular-nums font-semibold">
                                         {isItemPaid ? (
                                           <span className="flex items-center gap-0.5 justify-end text-emerald-600">
                                             <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
@@ -1307,7 +1316,8 @@ export function BillingHistoryPanel({
                                           <button
                                             onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
                                             disabled={deleteItemMutation.isPending}
-                                            className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
+                                            aria-label="Remove item"
+                                            className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive block mx-auto"
                                             data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
                                             <X className="h-3 w-3" />
                                           </button>
@@ -1319,15 +1329,15 @@ export function BillingHistoryPanel({
                               </tbody>
                             </table>
                           </div>
-                          <table className="w-full text-xs table-fixed min-w-[480px]">
+                          <table className="w-full text-xs table-fixed min-w-[500px]">
                             <colgroup>
-                              <col style={{ width: "32px" }} />
+                              <col style={{ width: "28px" }} />
                               <col />
-                              <col style={{ width: "72px" }} />
-                              <col style={{ width: "80px" }} />
-                              <col style={{ width: "72px" }} />
-                              <col style={{ width: "52px" }} />
-                              <col style={{ width: "80px" }} />
+                              <col style={{ width: "60px" }} />
+                              <col style={{ width: "76px" }} />
+                              <col style={{ width: "64px" }} />
+                              <col style={{ width: "48px" }} />
+                              <col style={{ width: "76px" }} />
                               <col style={{ width: "28px" }} />
                             </colgroup>
                             <tfoot>
