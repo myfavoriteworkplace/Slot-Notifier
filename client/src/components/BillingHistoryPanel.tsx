@@ -1112,7 +1112,7 @@ export function BillingHistoryPanel({
                       <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
                         <div className="overflow-x-auto">
                           {/* 8-col grid: #(4%) | Description spans cols2-4(43%+9%+9%) | ₹/Unit(9%) | Qty(9%) | Total(9%) | Actions(8%) */}
-                          <div className="max-h-[10.5rem] overflow-y-scroll">
+                          <div className="max-h-[10.5rem] overflow-y-scroll" style={{ scrollbarGutter: "stable" }}>
                             <table className="w-full text-xs table-fixed min-w-[500px]">
                               <colgroup>
                                 <col style={{ width: "4%" }} />
@@ -1251,7 +1251,7 @@ export function BillingHistoryPanel({
                       <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
                         <div className="overflow-x-auto">
                           {/* 8-col grid: #(4%) | Medicine(43%) | Dos.(9%) | Freq.(9%) | Dur.(9%) | Qty(9%) | Total(9%) | Actions(8%) */}
-                          <div className="max-h-[10.5rem] overflow-y-scroll">
+                          <div className="max-h-[10.5rem] overflow-y-scroll" style={{ scrollbarGutter: "stable" }}>
                             <table className="w-full text-xs table-fixed min-w-[500px]">
                               <colgroup>
                                 <col style={{ width: "4%" }} />
