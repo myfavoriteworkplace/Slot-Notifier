@@ -1156,7 +1156,7 @@ export function BillingHistoryPanel({
                                       {svc.unitPrice ? `₹${Number(svc.unitPrice).toFixed(0)}` : "—"}
                                     </td>
                                     <td className="py-1 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                                    <td className="py-1 px-2 text-right tabular-nums font-semibold">
+                                    <td className="py-1 px-2 text-right tabular-nums">
                                       {isItemPaid ? (
                                         <span className="flex items-center gap-0.5 justify-end text-emerald-600">
                                           <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
@@ -1173,7 +1173,7 @@ export function BillingHistoryPanel({
                                         </div>
                                       ) : (
                                         <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
-                                          className="flex items-center gap-0.5 ml-auto hover:text-primary transition-colors"
+                                          className="flex items-center gap-0.5 ml-auto text-muted-foreground hover:text-primary transition-colors"
                                           data-testid={`amount-${itemKey}`}>
                                           ₹{svc.amount.toFixed(0)}
                                           <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
@@ -1182,9 +1182,7 @@ export function BillingHistoryPanel({
                                     </td>
                                     <td className="py-1 pr-2">
                                       {isItemPaid ? (
-                                        <span title="Paid — cannot remove" className="h-3 w-3 block mx-auto">
-                                          <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
-                                        </span>
+                                        <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden title="Paid — cannot remove" />
                                       ) : (
                                         <button
                                           onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
@@ -1283,7 +1281,7 @@ export function BillingHistoryPanel({
                                       <td className="py-1 px-2 text-muted-foreground truncate">{frequency || "—"}</td>
                                       <td className="py-1 px-2 text-muted-foreground truncate">{duration || "—"}</td>
                                       <td className="py-1 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                                      <td className="py-1 px-2 text-right tabular-nums font-semibold">
+                                      <td className="py-1 px-2 text-right tabular-nums">
                                         {isItemPaid ? (
                                           <span className="flex items-center gap-0.5 justify-end text-emerald-600">
                                             <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
@@ -1300,7 +1298,7 @@ export function BillingHistoryPanel({
                                           </div>
                                         ) : (
                                           <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
-                                            className={`flex items-center gap-0.5 ml-auto transition-colors ${isUnpriced ? "text-amber-600 hover:text-amber-700" : "hover:text-primary"}`}
+                                            className={`flex items-center gap-0.5 ml-auto transition-colors ${isUnpriced ? "text-amber-600 hover:text-amber-700" : "text-muted-foreground hover:text-primary"}`}
                                             data-testid={`amount-${itemKey}`}>
                                             ₹{svc.amount.toFixed(0)}
                                             <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
@@ -1309,9 +1307,7 @@ export function BillingHistoryPanel({
                                       </td>
                                       <td className="py-1 pr-2">
                                         {isItemPaid ? (
-                                          <span title="Paid — cannot remove" className="h-3 w-3 mx-auto">
-                                            <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
-                                          </span>
+                                          <Lock className="h-3 w-3 text-muted-foreground/30 block mx-auto" aria-hidden title="Paid — cannot remove" />
                                         ) : (
                                           <button
                                             onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
@@ -1785,7 +1781,7 @@ export function BillingHistoryPanel({
             <>
               <button
                 onClick={() => setShowOlderBills(v => !v)}
-                className="w-full flex items-center gap-2 px-1 py-1.5 text-left group"
+                className="w-full flex items-center gap-2 px-1 py-1.5 text-left group mt-4 pt-2 border-t border-border/30"
                 data-testid="button-toggle-older-bills">
                 <div className="flex items-center gap-1.5">
                   <History className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-muted-foreground transition-colors" />
