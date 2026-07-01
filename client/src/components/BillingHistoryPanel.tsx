@@ -1111,13 +1111,13 @@ export function BillingHistoryPanel({
                     {consultOpen && (
                       <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
                         <div className="overflow-x-auto">
-                          <table className="w-full text-xs table-fixed min-w-[400px]">
+                          <table className="w-full text-xs table-fixed min-w-[380px]">
                             <colgroup>
-                              <col style={{ width: "32px" }} />
+                              <col style={{ width: "28px" }} />
                               <col />
+                              <col style={{ width: "72px" }} />
+                              <col style={{ width: "48px" }} />
                               <col style={{ width: "76px" }} />
-                              <col style={{ width: "52px" }} />
-                              <col style={{ width: "80px" }} />
                               <col style={{ width: "28px" }} />
                             </colgroup>
                             <thead>
@@ -1228,16 +1228,16 @@ export function BillingHistoryPanel({
                     {pharmacyOpen && (
                       <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
                         <div className="overflow-x-auto">
-                          <div className="max-h-[10.5rem] overflow-y-auto">
+                          <div className="max-h-[10.5rem] overflow-y-scroll">
                             <table className="w-full text-xs table-fixed min-w-[480px]">
                               <colgroup>
-                                <col style={{ width: "32px" }} />
+                                <col style={{ width: "28px" }} />
                                 <col />
                                 <col style={{ width: "72px" }} />
-                                <col style={{ width: "80px" }} />
-                                <col style={{ width: "72px" }} />
-                                <col style={{ width: "52px" }} />
-                                <col style={{ width: "80px" }} />
+                                <col style={{ width: "76px" }} />
+                                <col style={{ width: "56px" }} />
+                                <col style={{ width: "48px" }} />
+                                <col style={{ width: "76px" }} />
                                 <col style={{ width: "28px" }} />
                               </colgroup>
                               <thead className="sticky top-0 z-10">
@@ -1246,7 +1246,7 @@ export function BillingHistoryPanel({
                                   <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Medicine</th>
                                   <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Dosage</th>
                                   <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Frequency</th>
-                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Duration</th>
+                                  <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Dur.</th>
                                   <th className="text-center py-1 px-2 font-semibold text-muted-foreground">Qty</th>
                                   <th className="text-right py-1 px-2 font-semibold text-muted-foreground">Total</th>
                                   <th></th>
