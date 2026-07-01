@@ -591,7 +591,7 @@ export default function BookingsPanel({
     );
     const allPaid = bills.every(b => b.paymentStatus === "paid");
     const anyPartial = bills.some(b => b.paymentStatus === "partial");
-    setBillingDetails({
+    const details: BillingDetails = {
       patientName: booking.customerName,
       patientPhone: booking.customerPhone,
       patientEmail: booking.customerEmail || "",
@@ -612,8 +612,8 @@ export default function BookingsPanel({
       printOnly: true,
       visitId: String(booking.id),
       doctorName: (booking as any).assignedDoctor || "",
-    });
-    setIsBillingOpen(true);
+    };
+    generateReceiptPDF(details);
   };
 
   const addServiceRow = () => {

@@ -3,8 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { format, formatDistanceToNow, startOfMonth, endOfMonth, subMonths } from "date-fns";
-import { jsPDF } from "@/lib/jspdf-stub";
-import autoTable from "@/lib/jspdf-stub";
 import {
   Download, FileSpreadsheet, FileText, FileBadge, Lock, Bell, X,
   Users, CalendarDays, History, RefreshCw, CheckCircle2, Clock,
@@ -16,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Clinic, ExportHistory, PatientBill } from "@shared/schema";
 import type { BookingWithSlot } from "@/lib/clinic-constants";
 
-type ExportFormat = "xlsx" | "csv" | "pdf";
+type ExportFormat = "xlsx" | "csv";
 type DatePreset   = "all" | "this-month" | "last-month" | "custom";
 
 interface ScopeOption {
@@ -35,9 +33,8 @@ const SCOPE_OPTIONS: ScopeOption[] = [
 ];
 
 const FORMAT_OPTIONS = [
-  { id: "xlsx" as ExportFormat, label: "Excel",  ext: ".xlsx", desc: "Best for filtering & analysis", icon: FileSpreadsheet, recommended: true  },
-  { id: "csv"  as ExportFormat, label: "CSV",    ext: ".csv",  desc: "Import into other systems",     icon: FileBadge,       recommended: false },
-  { id: "pdf"  as ExportFormat, label: "PDF",    ext: ".pdf",  desc: "Printable summary report",      icon: FileText,        recommended: false },
+  { id: "xlsx" as ExportFormat, label: "Excel", ext: ".xlsx", desc: "Best for filtering & analysis", icon: FileSpreadsheet, recommended: true  },
+  { id: "csv"  as ExportFormat, label: "CSV",   ext: ".csv",  desc: "Import into other systems",     icon: FileBadge,       recommended: false },
 ];
 
 const DATE_PRESETS: { id: DatePreset; label: string }[] = [

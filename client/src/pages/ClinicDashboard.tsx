@@ -590,7 +590,7 @@ export default function ClinicDashboard() {
     const allPaid = bills.every(b => b.paymentStatus === "paid");
     const anyPartial = bills.some(b => b.paymentStatus === "partial");
 
-    setBillingDetails({
+    const details: BillingDetails = {
       patientName: booking.customerName,
       patientPhone: booking.customerPhone,
       patientEmail: booking.customerEmail || "",
@@ -611,8 +611,8 @@ export default function ClinicDashboard() {
       printOnly: true,
       visitId: String(booking.id),
       doctorName: (booking as any).assignedDoctor || "",
-    });
-    setIsBillingOpen(true);
+    };
+    generateReceiptPDF(details);
   };
 
   const assignDoctorMutation = useMutation({
