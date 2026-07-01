@@ -69,7 +69,7 @@ import {
   ChevronLeft, ChevronRight, Save, Hash, Printer, ArrowLeft, ArrowRight,
   Building2, ExternalLink, LogOut, Settings, SlidersHorizontal,
 } from "lucide-react";
-import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb } from "lucide-react";
+import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb, Maximize2, Minimize2 } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import { filterAndSortBookings, getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber } from "@/lib/booking-list";
@@ -216,6 +216,7 @@ export default function BookingsPanel({
   const patientSearchInputRef = useRef<HTMLInputElement>(null);
 
   const [isBillingOpen, setIsBillingOpen] = useState(false);
+  const [dialogExpanded, setDialogExpanded] = useState(false);
   const [billingBooking, setBillingBooking] = useState<BookingWithSlot | null>(null);
   const [billingDetails, setBillingDetails] = useState<BillingDetails>({
     patientName: "", patientPhone: "", patientEmail: "",
@@ -1731,7 +1732,7 @@ export default function BookingsPanel({
                 <Dialog
                   key={booking.id}
                   open={openBookingId === booking.id}
-                  onOpenChange={(open) => { if (!open) setOpenBookingId(null); }}
+                  onOpenChange={(open) => { if (!open) { setOpenBookingId(null); setDialogExpanded(false); } }}
                 >
                   <AppointmentCard
                     role="clinic"
@@ -1783,7 +1784,19 @@ export default function BookingsPanel({
                     completeVisitPending={completeVisitMutation.isPending}
                     cancelPending={cancelBookingMutation.isPending}
                   />
-                    <DialogContent className="w-[95vw] sm:max-w-[640px] rounded-2xl p-0 overflow-hidden h-[90vh] flex flex-col">
+                    <DialogContent className={`w-[95vw] ${dialogExpanded ? 'sm:max-w-[88vw]' : 'sm:max-w-[640px]'} rounded-2xl p-0 overflow-hidden h-[90vh] flex flex-col transition-[max-width] duration-200`}>
+
+                      {/* Maximize / minimize toggle — tablet+ only, sits left of the auto-rendered close X */}
+                      <button
+                        onClick={() => setDialogExpanded(v => !v)}
+                        className="hidden sm:flex absolute right-11 top-3.5 z-10 h-6 w-6 items-center justify-center rounded-md bg-white/15 hover:bg-white/25 border border-white/20 transition-colors"
+                        aria-label={dialogExpanded ? "Minimize dialog" : "Maximize dialog"}
+                        data-testid="button-dialog-expand"
+                      >
+                        {dialogExpanded
+                          ? <Minimize2 className="h-3.5 w-3.5 text-white" />
+                          : <Maximize2 className="h-3.5 w-3.5 text-white" />}
+                      </button>
 
                       {/* ── HEADER ── */}
                       <div className="shrink-0 bg-gradient-to-br from-primary/90 via-primary to-accent/80 px-4 pt-4 pb-0 relative overflow-hidden">
