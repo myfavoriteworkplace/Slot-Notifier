@@ -1111,17 +1111,17 @@ export function BillingHistoryPanel({
                     {consultOpen && (
                       <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
                         <div className="overflow-x-auto">
-                          {/* Shared 8-col grid — columns 1,2,6,7,8 match the pharmacy table exactly */}
+                          {/* Shared 8-col percentage grid: col2 (Description) = 46%, cols 3-7 = 9% each, cols 1&8 tiny */}
                           <table className="w-full text-xs table-fixed min-w-[500px]">
                             <colgroup>
-                              <col style={{ width: "28px" }} />
-                              <col />
-                              <col style={{ width: "60px" }} />
-                              <col style={{ width: "76px" }} />
-                              <col style={{ width: "64px" }} />
-                              <col style={{ width: "48px" }} />
-                              <col style={{ width: "76px" }} />
-                              <col style={{ width: "28px" }} />
+                              <col style={{ width: "4%" }} />
+                              <col style={{ width: "46%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "5%" }} />
                             </colgroup>
                             <thead>
                               <tr className="border-b border-border/40 bg-muted/40">
@@ -1236,18 +1236,18 @@ export function BillingHistoryPanel({
                     {pharmacyOpen && (
                       <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
                         <div className="overflow-x-auto">
-                          {/* Shared 8-col grid — mirrors the consultation table colgroup exactly */}
+                          {/* Shared 8-col percentage grid — identical to consultation colgroup */}
                           <div className="max-h-[10.5rem] overflow-y-scroll">
                             <table className="w-full text-xs table-fixed min-w-[500px]">
                               <colgroup>
-                                <col style={{ width: "28px" }} />
-                                <col />
-                                <col style={{ width: "60px" }} />
-                                <col style={{ width: "76px" }} />
-                                <col style={{ width: "64px" }} />
-                                <col style={{ width: "48px" }} />
-                                <col style={{ width: "76px" }} />
-                                <col style={{ width: "28px" }} />
+                                <col style={{ width: "4%" }} />
+                                <col style={{ width: "46%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "9%" }} />
+                                <col style={{ width: "5%" }} />
                               </colgroup>
                               <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-border/40 bg-muted/40">
@@ -1331,14 +1331,14 @@ export function BillingHistoryPanel({
                           </div>
                           <table className="w-full text-xs table-fixed min-w-[500px]">
                             <colgroup>
-                              <col style={{ width: "28px" }} />
-                              <col />
-                              <col style={{ width: "60px" }} />
-                              <col style={{ width: "76px" }} />
-                              <col style={{ width: "64px" }} />
-                              <col style={{ width: "48px" }} />
-                              <col style={{ width: "76px" }} />
-                              <col style={{ width: "28px" }} />
+                              <col style={{ width: "4%" }} />
+                              <col style={{ width: "46%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "9%" }} />
+                              <col style={{ width: "5%" }} />
                             </colgroup>
                             <tfoot>
                               <tr className="bg-primary/5 border-t border-border/40">
