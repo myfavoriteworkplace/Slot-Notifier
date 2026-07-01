@@ -249,7 +249,7 @@ function InvoicePreviewModal({
             <span className="text-muted-foreground">{bills.length} bill{bills.length !== 1 ? "s" : ""}</span>
             {allSettled && (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                <CheckCircle2 className="h-2.5 w-2.5" /> Fully Settled
+                <CheckCircle2 className="h-2.5 w-2.5" /> All Bills Paid
               </span>
             )}
           </div>
@@ -332,7 +332,7 @@ function InvoicePreviewModal({
               {allSettled ? (
                 <>
                   <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> Fully Settled
+                    <CheckCircle2 className="h-3 w-3" /> All Bills Paid
                   </span>
                   <span className="font-bold tabular-nums text-base text-emerald-600">₹{grandTotal.toFixed(0)}</span>
                 </>
@@ -1641,13 +1641,17 @@ export function BillingHistoryPanel({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">Settled</span>
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">All Bills Paid</span>
                 <span className="text-xs font-semibold text-foreground tabular-nums">₹{consolidatedTotal.toFixed(0)}</span>
                 <span className="text-xs text-muted-foreground">·</span>
-                <span className="text-xs text-muted-foreground">{bills[0]?.paymentMethod ?? "Cash"}</span>
-                {(bills[0] as PatientBill & { cashierId?: string })?.cashierId && (
+                <span className="text-xs text-muted-foreground">
+                  {bills.length > 1 && bills.some(b => b.paymentMethod !== sortedBills[0]?.paymentMethod)
+                    ? "Multiple methods"
+                    : (sortedBills[0]?.paymentMethod ?? "Cash")}
+                </span>
+                {bills.length === 1 && (sortedBills[0] as PatientBill & { cashierId?: string })?.cashierId && (
                   <><span className="text-xs text-muted-foreground">·</span>
-                  <span className="text-xs text-muted-foreground">by {(bills[0] as PatientBill & { cashierId?: string }).cashierId}</span></>
+                  <span className="text-xs text-muted-foreground">by {(sortedBills[0] as PatientBill & { cashierId?: string }).cashierId}</span></>
                 )}
               </div>
               <p className="text-xs text-muted-foreground/70 mt-0.5">
@@ -1800,6 +1804,12 @@ export function BillingHistoryPanel({
         </div>
       ) : (
         <div className="space-y-2">
+          {latestBill && olderBills.length > 0 && (
+            <div className="flex items-center gap-2 px-0.5 pb-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Latest Bill</span>
+              <div className="h-px flex-1 bg-primary/20" />
+            </div>
+          )}
           {latestBill && renderBillCard(latestBill)}
           {olderBills.length > 0 && (
             <>
@@ -1810,7 +1820,7 @@ export function BillingHistoryPanel({
                 <div className="flex items-center gap-1.5">
                   <History className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-muted-foreground transition-colors" />
                   <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-                    {showOlderBills ? "Hide" : "Load"} {olderBills.length} older bill{olderBills.length !== 1 ? "s" : ""}
+                    {showOlderBills ? "Hide" : "Show"} {olderBills.length} older bill{olderBills.length !== 1 ? "s" : ""}
                   </span>
                 </div>
                 {showOlderBills
@@ -1818,7 +1828,7 @@ export function BillingHistoryPanel({
                   : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
               </button>
               {showOlderBills && (
-                <>
+                <div className="rounded-xl border border-border/30 bg-muted/20 p-2 space-y-1.5">
                   {Array.from(groupByDate(olderBills)).map(([dateLabel, dateBills]) => (
                     <div key={dateLabel} className="space-y-1.5">
                       <div className="flex items-center gap-2">
@@ -1831,7 +1841,7 @@ export function BillingHistoryPanel({
                       ))}
                     </div>
                   ))}
-                </>
+                </div>
               )}
             </>
           )}
