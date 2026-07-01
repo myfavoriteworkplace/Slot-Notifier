@@ -370,6 +370,8 @@ export function BillingHistoryPanel({
   const [loadingPrescription, setLoadingPrescription] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [showOlderBills, setShowOlderBills] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<number, Set<string>>>({});
+  const [pharmacyShowAll, setPharmacyShowAll] = useState<Record<number, boolean>>({});
 
   const didAutoExpand = useRef(false);
 
@@ -903,6 +905,22 @@ export function BillingHistoryPanel({
 
     const unpricedPharmacy = pharmacyItems.filter(x => !isBillPaid && x.svc.amount === 0);
 
+    const consultOpen = expandedSections[bill.id] === undefined || expandedSections[bill.id].has("consultation");
+    const pharmacyOpen = expandedSections[bill.id] === undefined || expandedSections[bill.id].has("pharmacy");
+    const otherOpen = expandedSections[bill.id] === undefined || expandedSections[bill.id].has("other");
+    const toggleSection = (section: string) => {
+      setExpandedSections(prev => {
+        const cur = prev[bill.id] ?? new Set(["consultation", "pharmacy", "other"]);
+        const next = new Set(cur);
+        if (next.has(section)) next.delete(section); else next.add(section);
+        return { ...prev, [bill.id]: next };
+      });
+    };
+    const consultTotal = consultItems.reduce((s, x) => s + x.svc.amount, 0);
+    const pharmacyTotal = pharmacyItems.reduce((s, x) => s + x.svc.amount, 0);
+    const otherTotal = otherItems.reduce((s, x) => s + x.svc.amount, 0);
+    const showAllPharmacy = pharmacyShowAll[bill.id] ?? false;
+
     return (
       <div key={bill.id}
         className={`rounded-xl border overflow-hidden ${isActiveBill && !isBillPaid ? "border-primary/40" : "border-border/50 bg-background/50"}`}
@@ -1053,182 +1071,260 @@ export function BillingHistoryPanel({
                 {/* Consultation & Procedures */}
                 {consultItems.length > 0 && (
                   <div>
-                    <div className="px-3 py-1 bg-muted/20 flex items-center gap-1.5">
-                      <Stethoscope className="h-3 w-3 text-muted-foreground/60" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Consultation & Procedures</span>
-                    </div>
-                    <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-border/40 bg-muted/40">
-                            <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Description</th>
-                            <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
-                            <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground w-16">₹/Unit</th>
-                            <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
-                            <th className="w-7"></th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/30">
-                          {consultItems.map(({ svc, origIdx }) => {
-                            const itemKey = `${bill.id}-${origIdx}`;
-                            const isEditing = editingKey === itemKey;
-                            const isItemPaid = svc.paid || isBillPaid;
-                            return (
-                              <tr key={origIdx} className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : "bg-background hover:bg-muted/10"}`}
-                                data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                                <td className="py-1.5 pl-3 pr-2 text-foreground">
-                                  <span className="flex items-center gap-1">
-                                    {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
-                                    {svc.description}
-                                  </span>
-                                </td>
-                                <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                                <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{svc.unitPrice ? `₹${svc.unitPrice.toFixed(0)}` : "—"}</td>
-                                <td className="py-1.5 pl-2 pr-1 text-right tabular-nums font-semibold">
-                                  {isItemPaid ? (
-                                    <span className="flex items-center gap-0.5 justify-end text-emerald-600">
-                                      <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
+                    <button
+                      onClick={() => toggleSection("consultation")}
+                      className="w-full px-3 py-1.5 bg-muted/20 flex items-center gap-1.5 hover:bg-muted/30 transition-colors text-left"
+                      data-testid={`button-section-consultation-${bill.id}`}
+                    >
+                      <Stethoscope className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Consultation &amp; Procedures</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{consultItems.length} service{consultItems.length !== 1 ? "s" : ""}</span>
+                      <span className="text-xs font-semibold tabular-nums text-foreground ml-2 shrink-0">₹{consultTotal.toFixed(0)}</span>
+                      <ChevronDown className={`h-3 w-3 text-muted-foreground ml-1 shrink-0 transition-transform duration-200 ${consultOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {consultOpen && (
+                      <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-border/40 bg-muted/40">
+                              <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Description</th>
+                              <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
+                              <th className="text-right py-1.5 px-2 font-semibold text-muted-foreground w-16">₹/Unit</th>
+                              <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
+                              <th className="w-7"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/30">
+                            {consultItems.map(({ svc, origIdx }) => {
+                              const itemKey = `${bill.id}-${origIdx}`;
+                              const isEditing = editingKey === itemKey;
+                              const isItemPaid = svc.paid || isBillPaid;
+                              return (
+                                <tr key={origIdx} className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : "bg-background hover:bg-muted/10"}`}
+                                  data-testid={`billing-item-${bill.id}-${origIdx}`}>
+                                  <td className="py-1.5 pl-3 pr-2 text-foreground">
+                                    <span className="flex items-center gap-1">
+                                      {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                                      {svc.description}
                                     </span>
-                                  ) : isEditing ? (
-                                    <div className="relative inline-block">
-                                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                                      <Input type="number" min="0" value={editingAmount}
-                                        onChange={e => setEditingAmount(e.target.value)}
-                                        onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
-                                        onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
-                                        className="h-6 w-20 pl-4 text-xs" autoFocus
-                                        data-testid={`input-item-amount-${itemKey}`} />
-                                    </div>
-                                  ) : (
-                                    <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
-                                      className="flex items-center gap-0.5 ml-auto hover:text-primary transition-colors"
-                                      data-testid={`amount-${itemKey}`}>
-                                      ₹{svc.amount.toFixed(0)}
-                                      <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
-                                    </button>
-                                  )}
-                                </td>
-                                <td className="py-1.5 pr-2">
-                                  {isItemPaid ? (
-                                    <span title="Paid — cannot remove" className="h-3 w-3 mx-auto">
-                                      <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
-                                    </span>
-                                  ) : (
-                                    <button
-                                      onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
-                                      disabled={deleteItemMutation.isPending}
-                                      className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
-                                      data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                                  </td>
+                                  <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
+                                  <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{svc.unitPrice ? `₹${svc.unitPrice.toFixed(0)}` : "—"}</td>
+                                  <td className="py-1.5 pl-2 pr-1 text-right tabular-nums font-semibold">
+                                    {isItemPaid ? (
+                                      <span className="flex items-center gap-0.5 justify-end text-emerald-600">
+                                        <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
+                                      </span>
+                                    ) : isEditing ? (
+                                      <div className="relative inline-block">
+                                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+                                        <Input type="number" min="0" value={editingAmount}
+                                          onChange={e => setEditingAmount(e.target.value)}
+                                          onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
+                                          onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
+                                          className="h-6 w-20 pl-4 text-xs" autoFocus
+                                          data-testid={`input-item-amount-${itemKey}`} />
+                                      </div>
+                                    ) : (
+                                      <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
+                                        className="flex items-center gap-0.5 ml-auto hover:text-primary transition-colors"
+                                        data-testid={`amount-${itemKey}`}>
+                                        ₹{svc.amount.toFixed(0)}
+                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td className="py-1.5 pr-2">
+                                    {isItemPaid ? (
+                                      <span title="Paid — cannot remove" className="h-3 w-3 mx-auto">
+                                        <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
+                                      </span>
+                                    ) : (
+                                      <button
+                                        onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
+                                        disabled={deleteItemMutation.isPending}
+                                        className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
+                                        data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
+                                        <X className="h-3 w-3" />
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Pharmacy — with Dosage column */}
+                {/* Pharmacy */}
                 {pharmacyItems.length > 0 && (
                   <div>
-                    <div className="px-3 py-1 bg-muted/20 flex items-center gap-1.5">
-                      <Pill className="h-3 w-3 text-muted-foreground/60" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Pharmacy</span>
-                    </div>
-                    <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-border/40 bg-muted/40">
-                            <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Medicine</th>
-                            <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-14">Dosage</th>
-                            <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Frequency</th>
-                            <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Duration</th>
-                            <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
-                            <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
-                            <th className="w-7"></th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/30">
-                          {pharmacyItems.map(({ svc, origIdx }) => {
-                            const itemKey = `${bill.id}-${origIdx}`;
-                            const isEditing = editingKey === itemKey;
-                            const isItemPaid = svc.paid || isBillPaid;
-                            const isUnpriced = svc.amount === 0 && !isBillPaid;
-                            const { medicine, dosage, frequency, duration } = getPharmacyFields(svc);
-                            return (
-                              <tr key={origIdx}
-                                className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "bg-background hover:bg-muted/10"}`}
-                                data-testid={`billing-item-${bill.id}-${origIdx}`}>
-                                <td className="py-1.5 pl-3 pr-2 font-medium text-foreground">
-                                  <span className="flex items-center gap-1">
-                                    {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
-                                    {medicine}
-                                  </span>
-                                </td>
-                                <td className="py-1.5 px-2 text-muted-foreground">{dosage || "—"}</td>
-                                <td className="py-1.5 px-2 text-muted-foreground">{frequency || "—"}</td>
-                                <td className="py-1.5 px-2 text-muted-foreground">{duration || "—"}</td>
-                                <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
-                                <td className="py-1.5 pl-2 pr-1 text-right tabular-nums font-semibold">
-                                  {isItemPaid ? (
-                                    <span className="flex items-center gap-0.5 justify-end text-emerald-600">
-                                      <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
-                                    </span>
-                                  ) : isEditing ? (
-                                    <div className="relative inline-block">
-                                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                                      <Input type="number" min="0" value={editingAmount}
-                                        onChange={e => setEditingAmount(e.target.value)}
-                                        onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
-                                        onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
-                                        className={`h-6 w-20 pl-4 text-xs ${isUnpriced ? "border-amber-400" : ""}`} autoFocus
-                                        data-testid={`input-item-amount-${itemKey}`} />
-                                    </div>
-                                  ) : (
-                                    <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
-                                      className={`flex items-center gap-0.5 ml-auto transition-colors ${isUnpriced ? "text-amber-600 hover:text-amber-700" : "hover:text-primary"}`}
-                                      data-testid={`amount-${itemKey}`}>
-                                      ₹{svc.amount.toFixed(0)}
-                                      <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
-                                    </button>
-                                  )}
-                                </td>
-                                <td className="py-1.5 pr-2">
-                                  {isItemPaid ? (
-                                    <span title="Paid — cannot remove" className="h-3 w-3 mx-auto">
-                                      <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
-                                    </span>
-                                  ) : (
-                                    <button
-                                      onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
-                                      disabled={deleteItemMutation.isPending}
-                                      className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
-                                      data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  )}
-                                </td>
+                    <button
+                      onClick={() => toggleSection("pharmacy")}
+                      className="w-full px-3 py-1.5 bg-muted/20 flex items-center gap-1.5 hover:bg-muted/30 transition-colors text-left"
+                      data-testid={`button-section-pharmacy-${bill.id}`}
+                    >
+                      <Pill className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Pharmacy</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{pharmacyItems.length} medicine{pharmacyItems.length !== 1 ? "s" : ""}</span>
+                      <span className="text-xs font-semibold tabular-nums text-foreground ml-2 shrink-0">₹{pharmacyTotal.toFixed(0)}</span>
+                      <ChevronDown className={`h-3 w-3 text-muted-foreground ml-1 shrink-0 transition-transform duration-200 ${pharmacyOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {pharmacyOpen && (() => {
+                      const visiblePharmacy = showAllPharmacy ? pharmacyItems : pharmacyItems.slice(0, 5);
+                      const hasMore = pharmacyItems.length > 5 && !showAllPharmacy;
+                      return (
+                        <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
+                          {/* Desktop table — hidden on mobile */}
+                          <table className="hidden sm:table w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-border/40 bg-muted/40">
+                                <th className="text-left py-1.5 pl-3 pr-2 font-semibold text-muted-foreground">Medicine</th>
+                                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-14">Dosage</th>
+                                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Frequency</th>
+                                <th className="text-left py-1.5 px-2 font-semibold text-muted-foreground w-16">Duration</th>
+                                <th className="text-center py-1.5 px-2 font-semibold text-muted-foreground w-10">Qty</th>
+                                <th className="text-right py-1.5 pl-2 pr-2 font-semibold text-muted-foreground w-16">Total</th>
+                                <th className="w-7"></th>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                            </thead>
+                            <tbody className="divide-y divide-border/30">
+                              {visiblePharmacy.map(({ svc, origIdx }) => {
+                                const itemKey = `${bill.id}-${origIdx}`;
+                                const isEditing = editingKey === itemKey;
+                                const isItemPaid = svc.paid || isBillPaid;
+                                const isUnpriced = svc.amount === 0 && !isBillPaid;
+                                const { medicine, dosage, frequency, duration } = getPharmacyFields(svc);
+                                return (
+                                  <tr key={origIdx}
+                                    className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "bg-background hover:bg-muted/10"}`}
+                                    data-testid={`billing-item-${bill.id}-${origIdx}`}>
+                                    <td className="py-1.5 pl-3 pr-2 font-medium text-foreground">
+                                      <span className="flex items-center gap-1">
+                                        {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                                        {medicine}
+                                      </span>
+                                    </td>
+                                    <td className="py-1.5 px-2 text-muted-foreground">{dosage || "—"}</td>
+                                    <td className="py-1.5 px-2 text-muted-foreground">{frequency || "—"}</td>
+                                    <td className="py-1.5 px-2 text-muted-foreground">{duration || "—"}</td>
+                                    <td className="py-1.5 px-2 text-center tabular-nums text-muted-foreground">{svc.qty ?? 1}</td>
+                                    <td className="py-1.5 pl-2 pr-1 text-right tabular-nums font-semibold">
+                                      {isItemPaid ? (
+                                        <span className="flex items-center gap-0.5 justify-end text-emerald-600">
+                                          <CheckCircle2 className="h-2.5 w-2.5 shrink-0" /> ₹{svc.amount.toFixed(0)}
+                                        </span>
+                                      ) : isEditing ? (
+                                        <div className="relative inline-block">
+                                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+                                          <Input type="number" min="0" value={editingAmount}
+                                            onChange={e => setEditingAmount(e.target.value)}
+                                            onBlur={() => saveEditAmount(makeItemMeta(svc, origIdx))}
+                                            onKeyDown={e => { if (e.key === "Enter") saveEditAmount(makeItemMeta(svc, origIdx)); if (e.key === "Escape") setEditingKey(null); }}
+                                            className={`h-6 w-20 pl-4 text-xs ${isUnpriced ? "border-amber-400" : ""}`} autoFocus
+                                            data-testid={`input-item-amount-${itemKey}`} />
+                                        </div>
+                                      ) : (
+                                        <button onClick={() => startEditAmount(makeItemMeta(svc, origIdx))} title="Click to edit"
+                                          className={`flex items-center gap-0.5 ml-auto transition-colors ${isUnpriced ? "text-amber-600 hover:text-amber-700" : "hover:text-primary"}`}
+                                          data-testid={`amount-${itemKey}`}>
+                                          ₹{svc.amount.toFixed(0)}
+                                          <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/row:opacity-60 transition-opacity ml-0.5" />
+                                        </button>
+                                      )}
+                                    </td>
+                                    <td className="py-1.5 pr-2">
+                                      {isItemPaid ? (
+                                        <span title="Paid — cannot remove" className="h-3 w-3 mx-auto">
+                                          <Lock className="h-full w-full text-muted-foreground/30" aria-hidden />
+                                        </span>
+                                      ) : (
+                                        <button
+                                          onClick={() => deleteItemMutation.mutate({ bill, itemIndex: origIdx })}
+                                          disabled={deleteItemMutation.isPending}
+                                          className="opacity-0 group-hover/row:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 block mx-auto"
+                                          data-testid={`button-delete-item-${bill.id}-${origIdx}`}>
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                          {/* Mobile cards — shown only on mobile */}
+                          <div className="sm:hidden divide-y divide-border/30">
+                            {visiblePharmacy.map(({ svc, origIdx }) => {
+                              const itemKey = `${bill.id}-${origIdx}`;
+                              const isItemPaid = svc.paid || isBillPaid;
+                              const isUnpriced = svc.amount === 0 && !isBillPaid;
+                              const { medicine, frequency, duration } = getPharmacyFields(svc);
+                              return (
+                                <div key={origIdx}
+                                  className={`px-3 py-2 ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10" : "bg-background"}`}
+                                  data-testid={`billing-item-mobile-${bill.id}-${origIdx}`}>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <span className="text-xs font-medium text-foreground flex items-center gap-1">
+                                      {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+                                      {medicine}
+                                    </span>
+                                    <span className={`text-xs font-semibold tabular-nums shrink-0 ${isItemPaid ? "text-emerald-600" : isUnpriced ? "text-amber-600" : "text-foreground"}`}>
+                                      ₹{svc.amount.toFixed(0)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    {frequency && <span className="text-[10px] text-muted-foreground">{frequency}</span>}
+                                    {duration && <span className="text-[10px] text-muted-foreground">· {duration}</span>}
+                                    <span className="text-[10px] text-muted-foreground">· Qty: {svc.qty ?? 1}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {/* View all / Show first 5 toggle */}
+                          {hasMore && (
+                            <button
+                              onClick={() => setPharmacyShowAll(prev => ({ ...prev, [bill.id]: true }))}
+                              className="w-full py-2 text-xs text-primary flex items-center justify-center gap-1 border-t border-border/30 hover:bg-muted/20 transition-colors"
+                              data-testid={`button-view-all-pharmacy-${bill.id}`}
+                            >
+                              <Eye className="h-3 w-3" /> View all {pharmacyItems.length} medicines
+                            </button>
+                          )}
+                          {showAllPharmacy && pharmacyItems.length > 5 && (
+                            <button
+                              onClick={() => setPharmacyShowAll(prev => ({ ...prev, [bill.id]: false }))}
+                              className="w-full py-2 text-xs text-muted-foreground flex items-center justify-center gap-1 border-t border-border/30 hover:bg-muted/20 transition-colors"
+                              data-testid={`button-collapse-pharmacy-${bill.id}`}
+                            >
+                              <ChevronUp className="h-3 w-3" /> Show fewer
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
                 {/* Other items */}
                 {otherItems.length > 0 && (
                   <div>
-                    <div className="px-3 py-1 bg-muted/20 flex items-center gap-1.5">
-                      <ClipboardList className="h-3 w-3 text-muted-foreground/60" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Other</span>
-                    </div>
-                    {otherItems.map(({ svc, origIdx }) => {
+                    <button
+                      onClick={() => toggleSection("other")}
+                      className="w-full px-3 py-1.5 bg-muted/20 flex items-center gap-1.5 hover:bg-muted/30 transition-colors text-left"
+                      data-testid={`button-section-other-${bill.id}`}
+                    >
+                      <ClipboardList className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Other</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{otherItems.length} item{otherItems.length !== 1 ? "s" : ""}</span>
+                      <span className="text-xs font-semibold tabular-nums text-foreground ml-2 shrink-0">₹{otherTotal.toFixed(0)}</span>
+                      <ChevronDown className={`h-3 w-3 text-muted-foreground ml-1 shrink-0 transition-transform duration-200 ${otherOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {otherOpen && otherItems.map(({ svc, origIdx }) => {
                       const itemKey = `${bill.id}-${origIdx}`;
                       const isEditing = editingKey === itemKey;
                       const isItemPaid = svc.paid || isBillPaid;
@@ -1343,8 +1439,10 @@ export function BillingHistoryPanel({
                   </div>
                 )}
                 <div className="flex items-center justify-between pt-0.5 border-t border-border/30">
-                  <span className="text-xs font-bold text-foreground">{isBillPaid ? "Total Paid" : "Outstanding"}</span>
-                  <span className="text-sm font-bold tabular-nums text-primary">₹{totalAmt.toFixed(0)}</span>
+                  <span className={`text-sm font-black tracking-wide ${isBillPaid ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}>
+                    {isBillPaid ? "PAID" : "Outstanding"}
+                  </span>
+                  <span className={`text-sm font-bold tabular-nums ${isBillPaid ? "text-emerald-600" : "text-primary"}`}>₹{totalAmt.toFixed(0)}</span>
                 </div>
               </div>
             )}
@@ -1356,10 +1454,14 @@ export function BillingHistoryPanel({
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-xs text-muted-foreground">
                   {allPaid || isBillPaid ? (
-                    <span className="text-emerald-600 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" /> Fully settled
+                    <span className="flex flex-col">
+                      <span className="text-emerald-600 font-bold flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Fully settled
+                      </span>
                       {(bill as PatientBill & { cashierId?: string }).cashierId && (
-                        <span className="font-normal opacity-75">· by {(bill as PatientBill & { cashierId?: string }).cashierId}</span>
+                        <span className="text-[10px] text-muted-foreground mt-0.5">
+                          Processed by {(bill as PatientBill & { cashierId?: string }).cashierId}
+                        </span>
                       )}
                     </span>
                   ) : isDraft ? (
@@ -1439,40 +1541,34 @@ export function BillingHistoryPanel({
                 </div>
               )}
 
-              {/* Secondary actions — Print & Delete */}
+              {/* Secondary actions — Delete only (print is in the card header) */}
+              {!isBillPaid && (
               <div className="flex items-center gap-1 pt-0.5 border-t border-border/20">
-                <Button size="sm" variant="ghost"
-                  onClick={() => onPrintBill(bill)}
-                  className="h-6 px-2 text-xs gap-1 text-muted-foreground/70 hover:text-foreground"
-                  data-testid={`button-reprint-${bill.id}`}>
-                  <Printer className="h-3 w-3" /> Print receipt
-                </Button>
-                {!isBillPaid && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm"
-                        className="h-6 px-2 text-xs gap-1 text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10"
-                        data-testid={`button-delete-bill-${bill.id}`}>
-                        <Trash2 className="h-3 w-3" /> Delete bill
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently remove {bill.billNumber} and all its entries. This cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Back</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteBillMutation.mutate(bill)} className="bg-destructive text-destructive-foreground">
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="sm"
+                      className="h-6 px-2 text-xs gap-1 text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10"
+                      data-testid={`button-delete-bill-${bill.id}`}>
+                      <Trash2 className="h-3 w-3" /> Delete bill
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently remove {bill.billNumber} and all its entries. This cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Back</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteBillMutation.mutate(bill)} className="bg-destructive text-destructive-foreground">
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
+              )}
 
             </div>
 
