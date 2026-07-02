@@ -6,7 +6,7 @@ import {
   AlertCircle, UserCheck, Activity, CalendarPlus, PenLine,
   Stethoscope, MoreHorizontal, UserX, ShieldCheck, Bell,
   Clock, Tag, Repeat2, RefreshCw, Copy, Check, BadgeAlert,
-  LogOut, AlertTriangle, ChevronDown,
+  LogOut, AlertTriangle, ChevronDown, Download,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
