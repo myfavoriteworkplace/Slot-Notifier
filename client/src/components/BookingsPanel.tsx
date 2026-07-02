@@ -108,6 +108,11 @@ function BookingCardSkeleton() {
 }
 
 type QuickFilterType = 'all' | 'today' | 'upcoming' | 'past' | 'this-week' | 'next-week' | 'today-confirmed' | 'pending-7days' | 'all-pending' | 'confirmed-7days';
+
+type RescheduleSlotAvailRow = {
+  slotIndex: number; label: string; startTimeISO: string;
+  count: number; max: number; isCancelled: boolean; spotsLeft: number;
+};
 type ModalTabType = 'overview' | 'clinical' | 'notes' | 'actions' | 'billing';
 
 interface BookingsPanelProps {
@@ -254,6 +259,26 @@ export default function BookingsPanel({
   const { data: allDoctorLeaves = [] } = useQuery<{ doctorEmail?: string; doctorName?: string; leaveDate: string; reason?: string | null }[]>({
     queryKey: ['/api/clinic/doctor-leaves/all'],
     enabled: isAuthenticated,
+  });
+
+  const { data: rescheduleSlotAvailability, isFetching: rescheduleAvailFetching } = useQuery<RescheduleSlotAvailRow[]>({
+    queryKey: ['reschedule-slot-availability', clinic?.id, format(rescheduleDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      if (!clinic?.id) return [];
+      const payload = {
+        clinicId: clinic.id,
+        slots: slotTimings.map((slot, idx) => {
+          const t = new Date(rescheduleDate);
+          t.setHours(slot.startHour, slot.startMinute, 0, 0);
+          return { slotIndex: idx, label: slot.label, startTimeISO: t.toISOString() };
+        }),
+      };
+      const res = await apiRequest('POST', '/api/public/slot-availability', payload);
+      if (!res.ok) throw new Error('Failed to fetch slot availability');
+      return res.json();
+    },
+    enabled: !!clinic?.id && rescheduleBookingId !== null,
+    staleTime: 30_000,
   });
 
   const todaysBookingsCount = bookings?.filter(b => {
@@ -2518,18 +2543,20 @@ export default function BookingsPanel({
                                     </ScrollArea>
                                   </div>
                                   <div className="space-y-1.5">
-                                    <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider block">Select Slot</span>
+                                      {rescheduleAvailFetching && (
+                                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                      )}
+                                    </div>
                                     <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
-                                      {slotTimings.map((slot) => {
-                                        const slotTime = new Date(rescheduleDate);
-                                        slotTime.setHours(slot.startHour, slot.startMinute, 0, 0);
-                                        const isoString = slotTime.toISOString();
-                                        const currentBookings = bookings?.filter(b =>
-                                          new Date(b.slot.startTime).toISOString() === isoString && b.id !== booking.id
-                                        ).length || 0;
-                                        const slotMaxBookings = bookings?.find(b => new Date(b.slot.startTime).toISOString() === isoString)?.slot.maxBookings ?? DEFAULT_SECTION_CAPACITY[slot.id] ?? 3;
-                                        const isFull = currentBookings >= slotMaxBookings;
+                                      {slotTimings.map((slot, slotIdx) => {
+                                        const avail = rescheduleSlotAvailability?.find(a => a.slotIndex === slotIdx);
+                                        const isSlotCancelled = avail?.isCancelled ?? false;
+                                        const spotsLeft = avail ? avail.spotsLeft : (DEFAULT_SECTION_CAPACITY[slot.id] ?? 3);
+                                        const isFull = avail ? avail.spotsLeft === 0 : false;
                                         const isSelected = rescheduleSlot === slot.id;
+                                        if (isSlotCancelled) return null;
                                         return (
                                           <button
                                             key={slot.id}
@@ -2546,9 +2573,11 @@ export default function BookingsPanel({
                                           >
                                             <span className="text-xs font-bold leading-tight px-1 text-center">{slot.label}</span>
                                             <span className="text-xs opacity-60 leading-tight mt-0.5">{formatTime(slot.startHour, slot.startMinute)}</span>
-                                            {isFull && (
-                                              <span className="absolute -top-1.5 -right-1.5 text-xs font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
-                                            )}
+                                            {isFull ? (
+                                              <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-destructive text-destructive-foreground px-1 rounded-full">FULL</span>
+                                            ) : avail && spotsLeft <= 2 ? (
+                                              <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-amber-500 text-white px-1 rounded-full">{spotsLeft} left</span>
+                                            ) : null}
                                           </button>
                                         );
                                       })}

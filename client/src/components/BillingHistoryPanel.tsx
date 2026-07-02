@@ -1824,25 +1824,24 @@ export function BillingHistoryPanel({
           {latestBill && renderBillCard(latestBill)}
           {olderBills.length > 0 && (
             <>
-              {/* Older Bills section label — mirrors "Latest Bill" style */}
+              {/* Older Bills section label — matches "Latest Bill" left-label style */}
               <div className="flex items-center gap-2 px-0.5 pt-1">
-                <div className="h-px flex-1 bg-border/50" />
                 <div className="flex items-center gap-1.5 shrink-0">
                   <History className="h-3 w-3 text-muted-foreground/70" />
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70">Older Bills</span>
                 </div>
-                <div className="h-px flex-1 bg-border/50" />
+                <div className="h-px flex-1 bg-border/40" />
               </div>
               <button
                 onClick={() => setShowOlderBills(v => !v)}
-                className="w-full flex items-center gap-2 px-1 py-1 text-left group"
+                className="w-full flex items-center gap-2 px-1 py-1 text-left"
                 data-testid="button-toggle-older-bills">
-                <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors flex-1">
+                <span className="text-xs text-primary hover:text-primary/70 font-medium transition-colors flex-1">
                   {showOlderBills ? "Hide" : "Show"} {olderBills.length} older bill{olderBills.length !== 1 ? "s" : ""}
                 </span>
                 {showOlderBills
-                  ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                  ? <ChevronUp className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                  : <ChevronDown className="h-3.5 w-3.5 text-primary/70 shrink-0" />}
               </button>
               {showOlderBills && (
                 <div className="rounded-xl border border-border/60 bg-muted/40 dark:bg-muted/30 p-2.5 space-y-2">

@@ -203,6 +203,11 @@ export function AppointmentCard({
   const hasUnpaidBill = isVisitCompleted && openBillsCount > 0;
   const noBill        = isVisitCompleted && totalBillsCount === 0;
 
+  // Auto No-Show: confirmed, slot date has fully passed, patient never progressed — visual-only flag
+  const isAutoNoShow = isPast && isConfirmed
+    && !isCheckedIn && !isInConsultation
+    && !isTreatmentCompleted && !isVisitCompleted && !isTerminal;
+
   // Past-due: slot time has passed but visit still unresolved (no terminal or active state)
   const slotAgeMs    = Date.now() - startTime.getTime();
   const isPastDue    = slotAgeMs > 2 * 60 * 60 * 1000
@@ -339,6 +344,11 @@ export function AppointmentCard({
         </span>Awaiting Dr
       </span>
     );
+    if (isAutoNoShow) return (
+      <span className="text-xs font-bold text-orange-500 dark:text-orange-400 flex items-center gap-1">
+        <UserX className="h-2.5 w-2.5" />No Show
+      </span>
+    );
     if (isConfirmed) return (
       <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
         <CheckCircle2 className="h-2.5 w-2.5" />Confirmed
@@ -359,6 +369,8 @@ export function AppointmentCard({
     ? "Appointment cancelled"
     : isNoShowState
     ? "Patient did not arrive"
+    : isAutoNoShow
+    ? "Booking confirmed but patient did not show up — mark No Show to close"
     : isLeftEarlyState
     ? "Patient left before the visit was completed"
     : isVisitCompleted

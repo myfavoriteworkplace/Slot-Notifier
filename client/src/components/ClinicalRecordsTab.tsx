@@ -5,7 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { format } from "date-fns";
 import {
-  Loader2, Plus, Pencil, Trash2, Download, FileText, Stethoscope,
+  Loader2, Plus, Pencil, Trash2, Printer, Eye, FileText, Stethoscope,
   ChevronDown, ChevronUp, ChevronRight, ClipboardList, Pill, CheckCircle2, X, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -288,7 +288,7 @@ function HistoryRow({
           <Button size="sm" variant="ghost"
             className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
             onClick={e => { e.stopPropagation(); onPdf(); }}>
-            <Download className="h-3.5 w-3.5" />
+            <Printer className="h-3.5 w-3.5" />
           </Button>
           {mode === "doctor" && onEdit && (
             <Button size="sm" variant="ghost"
@@ -570,6 +570,15 @@ export default function ClinicalRecordsTab({
       {(mode === "admin" || visibleTab === "diagnosis") && (
         <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-left-1 duration-150">
 
+          {/* Section divider — admin mode only (doctor mode uses tab bar) */}
+          {mode === "admin" && (
+            <div className="flex items-center gap-2 px-0.5">
+              <ClipboardList className="h-3 w-3 text-primary shrink-0" />
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Diagnosis</span>
+              <div className="h-px flex-1 bg-primary/20" />
+            </div>
+          )}
+
           {/* ── Add / Edit form — floats on top when open ── */}
           {mode === "doctor" && showDxForm && (
             <div className="rounded-xl border border-primary/30 bg-primary/[0.03] overflow-hidden animate-in slide-in-from-top-2 duration-200">
@@ -678,6 +687,21 @@ export default function ClinicalRecordsTab({
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button size="sm" variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                    onClick={() => printClinicalRecord({
+                      type: "diagnosis",
+                      clinicName,
+                      patientName,
+                      patientPhone,
+                      doctorName: latestDx.doctorName,
+                      date: format(new Date(latestDx.createdAt!), "MMM d, yyyy · h:mm a"),
+                      diagnosis: latestDx.diagnosis ?? [],
+                      notes: latestDx.notes,
+                    })}
+                    data-testid="button-preview-dx-pdf">
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
                   <Button size="sm" variant="outline"
                     className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/10"
                     onClick={() => printClinicalRecord({
@@ -690,8 +714,8 @@ export default function ClinicalRecordsTab({
                       diagnosis: latestDx.diagnosis ?? [],
                       notes: latestDx.notes,
                     })}
-                    data-testid="button-download-dx-pdf">
-                    <Download className="h-3.5 w-3.5" />
+                    data-testid="button-print-dx-pdf">
+                    <Printer className="h-3.5 w-3.5" />
                   </Button>
                   {mode === "doctor" && (
                     <>
@@ -748,10 +772,10 @@ export default function ClinicalRecordsTab({
             <div>
               <button
                 onClick={() => setShowDxHistory(v => !v)}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary font-medium w-full py-1.5 min-h-[44px] transition-colors"
+                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/70 font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-dx-history">
                 {mode === "admin" ? (
-                  <>View all {historyDx.length + 1} records <ChevronRight className="h-3 w-3" /></>
+                  <>View all {historyDx.length + 1} diagnosis <ChevronRight className="h-3 w-3" /></>
                 ) : (
                   <>
                     {showDxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -792,6 +816,15 @@ export default function ClinicalRecordsTab({
       ══════════════════════════════════════════════════════════════════ */}
       {(mode === "admin" || visibleTab === "prescription") && (
         <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-right-1 duration-150">
+
+          {/* Section divider — admin mode only */}
+          {mode === "admin" && (
+            <div className="flex items-center gap-2 px-0.5 pt-1">
+              <Pill className="h-3 w-3 text-primary shrink-0" />
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Prescription</span>
+              <div className="h-px flex-1 bg-primary/20" />
+            </div>
+          )}
 
           {/* ── Add / Edit form — floats on top when open ── */}
           {mode === "doctor" && showRxForm && (
@@ -965,6 +998,21 @@ export default function ClinicalRecordsTab({
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button size="sm" variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                    onClick={() => printClinicalRecord({
+                      type: "prescription",
+                      clinicName,
+                      patientName,
+                      patientPhone,
+                      doctorName: latestRx.doctorName,
+                      date: format(new Date(latestRx.createdAt!), "MMM d, yyyy · h:mm a"),
+                      medicines: parsePrescription(latestRx.prescription),
+                      rawPrescription: latestRx.prescription,
+                    })}
+                    data-testid="button-preview-rx-pdf">
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
                   <Button size="sm" variant="outline"
                     className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/10"
                     onClick={() => printClinicalRecord({
@@ -977,8 +1025,8 @@ export default function ClinicalRecordsTab({
                       medicines: parsePrescription(latestRx.prescription),
                       rawPrescription: latestRx.prescription,
                     })}
-                    data-testid="button-download-rx-pdf">
-                    <Download className="h-3.5 w-3.5" />
+                    data-testid="button-print-rx-pdf">
+                    <Printer className="h-3.5 w-3.5" />
                   </Button>
                   {mode === "doctor" && (
                     <>
@@ -1023,10 +1071,10 @@ export default function ClinicalRecordsTab({
             <div>
               <button
                 onClick={() => setShowRxHistory(v => !v)}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary font-medium w-full py-1.5 min-h-[44px] transition-colors"
+                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/70 font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-rx-history">
                 {mode === "admin" ? (
-                  <>View all {historyRx.length + 1} records <ChevronRight className="h-3 w-3" /></>
+                  <>View all {historyRx.length + 1} prescriptions <ChevronRight className="h-3 w-3" /></>
                 ) : (
                   <>
                     {showRxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
