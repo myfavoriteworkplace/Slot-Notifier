@@ -6,7 +6,7 @@ import { notify } from "@/lib/notify";
 import { format } from "date-fns";
 import {
   Loader2, Plus, Pencil, Trash2, Download, FileText, Stethoscope,
-  ChevronDown, ChevronUp, ClipboardList, Pill, CheckCircle2, X, AlertTriangle,
+  ChevronDown, ChevronUp, ChevronRight, ClipboardList, Pill, CheckCircle2, X, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import type { ClinicalRecord, PharmacyStockItem } from "@shared/schema";
+import { printClinicalRecord } from "@/lib/clinic-pdf";
 
 // ─── Medicine row type (JSON-stored in prescription TEXT column) ──────────────
 
@@ -89,203 +90,8 @@ const DIAGNOSIS_TAGS = [
   "Bruxism", "Dry Socket", "Oral Ulcer", "Calculus", "Recession",
 ];
 
-// ─── PDF export (disabled — jsPDF unavailable) ─────────────────────────────────
-
-function generatePrescriptionPDF(record: ClinicalRecord, clinicName?: string) {
-  // eslint-disable-next-line no-console
-  console.warn("PDF export disabled — jspdf is not installed");
-  return;
-}
-
-// ─── Original PDF export (BookMySlot brand template) — disabled ─────────────
-/*
-function _generatePrescriptionPDF(record: ClinicalRecord, clinicName?: string) {
-  Promise.all([
-    import("jspdf"),
-    import("jspdf-autotable"),
-  ]).then(([{ default: jsPDF }, { default: autoTable }]) => {
-    const doc = new jsPDF();
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const margin = 14;
-
-    // ── Colour palette (matches docs/pdf-template.md) ─────────────
-    const indigoDark: [number, number, number] = [8, 80, 65];
-    const magenta: [number, number, number] = [29, 158, 117];
-    const indigoMid: [number, number, number] = [15, 155, 110];
-    const lightBg: [number, number, number] = [225, 245, 238];
-    const metaBg: [number, number, number] = [209, 237, 226];
-    const textDark: [number, number, number] = [8, 40, 32];
-    const textMid: [number, number, number] = [50, 100, 80];
-    const textLight: [number, number, number] = [150, 148, 180];
-    const white: [number, number, number] = [255, 255, 255];
-
-    // ── §3.1 Top Gradient Bar ─────────────────────────────────────
-    doc.setFillColor(...indigoDark);
-    doc.rect(0, 0, pageW * 0.55, 7, "F");
-    doc.setFillColor(...magenta);
-    doc.rect(pageW * 0.55, 0, pageW * 0.45, 7, "F");
-
-    // ── §3.2 Clinic Header ────────────────────────────────────────
-    const cs = 4.5, cw = 1.4;
-    doc.setFillColor(...indigoMid);
-    doc.rect(margin + (cs - cw) / 2, 12, cw, cs, "F");
-    doc.rect(margin, 12 + (cs - cw) / 2, cs, cw, "F");
-
-    const nameX = margin + cs + 3;
-    doc.setFontSize(19); doc.setFont("helvetica", "bold"); doc.setTextColor(...textDark);
-    doc.text(clinicName || "Clinic", nameX, 20);
-    doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...indigoMid);
-    doc.text("Caring for Your Smile", nameX, 27);
-
-    const docType = (record.prescription && record.prescription.length > 0)
-      ? "Prescription" : "Diagnosis Record";
-    doc.setFontSize(7.5); doc.setTextColor(...textMid);
-    doc.text(docType, pageW - margin, 15, { align: "right" });
-    doc.text(`Date: ${format(new Date(record.createdAt!), "MMM d, yyyy")}`, pageW - margin, 20, { align: "right" });
-
-    doc.setDrawColor(...indigoDark); doc.setLineWidth(0.5);
-    doc.line(margin, 33, pageW - margin, 33);
-
-    // ── §3.3 Meta Band ────────────────────────────────────────────
-    const metaY = 34;
-    doc.setFillColor(...metaBg);
-    doc.rect(margin, metaY, pageW - margin * 2, 17, "F");
-
-    doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...textMid);
-    doc.text(`Ref #: ${String(record.bookingId || "—").padStart(4, "0")}`, margin + 3, metaY + 5.5);
-
-    if (record.doctorName) {
-      doc.text(`Dr. ${record.doctorName}`, pageW / 2, metaY + 5.5, { align: "center" });
-    }
-
-    doc.setFont("helvetica", "bold"); doc.setTextColor(...indigoDark);
-    doc.text(
-      format(new Date(record.createdAt!), "MMM d, yyyy · h:mm a"),
-      pageW - margin - 3, metaY + 5.5, { align: "right" }
-    );
-
-    doc.setFont("helvetica", "normal"); doc.setTextColor(...textMid);
-    doc.text("Type:", margin + 3, metaY + 12.5);
-    doc.setFont("helvetica", "bold"); doc.setTextColor(...indigoDark);
-    doc.text(docType, margin + 16, metaY + 12.5);
-
-    // ── §3.4 Patient Information Table ────────────────────────────
-    const patientRows: [string, string][] = [
-      ["Name", record.patientName || "—"],
-      ["Phone", record.patientPhone || "—"],
-    ];
-    if (record.doctorName) patientRows.push(["Attending Doctor", `Dr. ${record.doctorName}`]);
-    patientRows.push(["Record Date", format(new Date(record.createdAt!), "MMMM d, yyyy · h:mm a")]);
-
-    autoTable(doc, {
-      startY: metaY + 17 + 5,
-      head: [["Patient Information", ""]],
-      body: patientRows,
-      theme: "grid",
-      headStyles: { fillColor: indigoDark, textColor: white, fontSize: 9, fontStyle: "bold" },
-      columnStyles: {
-        0: { fontStyle: "bold", cellWidth: 48, fillColor: lightBg, textColor: textMid, fontSize: 8 },
-        1: { textColor: textMid, fontSize: 8 },
-      },
-      styles: { cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
-      margin: { left: margin, right: margin },
-    });
-    let currentY = (doc as any).lastAutoTable.finalY + 6;
-
-    // ── §3.5-ish Diagnosis Table ──────────────────────────────────
-    if (record.diagnosis && record.diagnosis.length > 0) {
-      const dxBody: [string, string][] = [
-        ["Findings", record.diagnosis.join(" · ")],
-      ];
-      if (record.notes) dxBody.push(["Notes", record.notes]);
-
-      autoTable(doc, {
-        startY: currentY,
-        head: [["Diagnosis", ""]],
-        body: dxBody,
-        theme: "grid",
-        headStyles: { fillColor: indigoDark, textColor: white, fontSize: 9, fontStyle: "bold" },
-        columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 48, fillColor: lightBg, textColor: textMid, fontSize: 8 },
-          1: { textColor: textMid, fontSize: 8 },
-        },
-        styles: { cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
-        margin: { left: margin, right: margin },
-      });
-      currentY = (doc as any).lastAutoTable.finalY + 6;
-    }
-
-    // ── §3.5 Prescription Summary Table ──────────────────────────
-    const rxRows = parsePrescription(record.prescription);
-    if (rxRows && rxRows.length > 0) {
-      autoTable(doc, {
-        startY: currentY,
-        head: [["Medicine", "Dosage", "Qty", "Freq.", "Duration", "Route"]],
-        body: rxRows.map(r => [
-          r.name || "—",
-          r.dosage || "—",
-          r.qty || "—",
-          r.frequency || "—",
-          r.durationNum ? `${r.durationNum} ${r.durationUnit || "days"}` : (r.duration || "—"),
-          r.route || "Oral",
-        ]),
-        theme: "grid",
-        headStyles: { fillColor: indigoDark, textColor: white, fontSize: 9, fontStyle: "bold" },
-        columnStyles: {
-          0: { textColor: textDark, fontSize: 8 },
-          1: { textColor: textMid, fontSize: 8, cellWidth: 24 },
-          2: { textColor: textMid, fontSize: 8, cellWidth: 14, halign: "center" },
-          3: { textColor: textMid, fontSize: 8, cellWidth: 16, halign: "center" },
-          4: { textColor: textMid, fontSize: 8, cellWidth: 20, halign: "center" },
-          5: { textColor: textMid, fontSize: 8, cellWidth: 22 },
-        },
-        alternateRowStyles: { fillColor: [240, 250, 246] as [number, number, number] },
-        styles: { cellPadding: { top: 2, bottom: 2, left: 4, right: 4 } },
-        margin: { left: margin, right: margin },
-      });
-      currentY = (doc as any).lastAutoTable.finalY + 6;
-    } else if (record.prescription) {
-      autoTable(doc, {
-        startY: currentY,
-        head: [["Prescription", ""]],
-        body: [["Notes", record.prescription]],
-        theme: "grid",
-        headStyles: { fillColor: indigoDark, textColor: white, fontSize: 9, fontStyle: "bold" },
-        columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 48, fillColor: lightBg, textColor: textMid, fontSize: 8 },
-          1: { textColor: textMid, fontSize: 8 },
-        },
-        styles: { cellPadding: { top: 2.5, bottom: 2.5, left: 5, right: 5 } },
-        margin: { left: margin, right: margin },
-      });
-      currentY = (doc as any).lastAutoTable.finalY + 6;
-    }
-
-    // ── §3.9 Thank-You Footer ─────────────────────────────────────
-    const footerY = pageH - 20;
-    doc.setDrawColor(...indigoMid); doc.setLineWidth(0.4);
-    doc.line(margin, footerY, pageW - margin, footerY);
-    doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...indigoMid);
-    doc.text(`Thank you for choosing ${clinicName || "us"}!`, pageW / 2, footerY + 6, { align: "center" });
-    doc.setFontSize(6.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...textLight);
-    doc.text("This is a computer generated clinical record. Generated by BookMySlot.", pageW / 2, footerY + 11, { align: "center" });
-
-    // ── §3.10 Bottom Gradient Bar ─────────────────────────────────
-    doc.setFillColor(...indigoDark);
-    doc.rect(0, pageH - 8, pageW * 0.55, 8, "F");
-    doc.setFillColor(...magenta);
-    doc.rect(pageW * 0.55, pageH - 8, pageW * 0.45, 8, "F");
-    doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...white);
-    doc.text("Powered by BookMySlot", pageW / 2, pageH - 3, { align: "center" });
-
-    // ── Save ──────────────────────────────────────────────────────
-    const safeName = record.patientName.replace(/\s+/g, "_");
-    const dateStr = format(new Date(record.createdAt!), "yyyyMMdd");
-    doc.save(`clinical_record_${safeName}_${dateStr}.pdf`);
-  });
-}
-*/
+// ─── Legacy PDF export (jsPDF-based) — removed; see printClinicalRecord() in
+//     @/lib/clinic-pdf.ts for the current window.open + print implementation ──
 
 // ─── Prescription table display ───────────────────────────────────────────────
 
@@ -719,8 +525,9 @@ export default function ClinicalRecordsTab({
     </div>
   );
 
-  // ── Inline tab bar (hidden when parent controls the tab) ──────────────────
-  const TabBar = !hideTabBar ? (
+  // ── Inline tab bar (hidden when parent controls the tab, or in admin
+  //     read-only mode where both records are shown stacked at once) ─────────
+  const TabBar = !hideTabBar && mode !== "admin" ? (
     <div className="flex rounded-lg overflow-hidden border border-border/60 bg-muted/20 p-0.5 gap-0.5">
       {(["diagnosis", "prescription"] as const).map(tab => {
         const count = tab === "diagnosis" ? dxRecords.length : rxRecords.length;
@@ -758,9 +565,9 @@ export default function ClinicalRecordsTab({
       {TabBar}
 
       {/* ══════════════════════════════════════════════════════════════════
-          DIAGNOSIS TAB
+          DIAGNOSIS TAB — always shown alongside Prescription in admin mode
       ══════════════════════════════════════════════════════════════════ */}
-      {visibleTab === "diagnosis" && (
+      {(mode === "admin" || visibleTab === "diagnosis") && (
         <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-left-1 duration-150">
 
           {/* ── Add / Edit form — floats on top when open ── */}
@@ -873,7 +680,16 @@ export default function ClinicalRecordsTab({
                 <div className="flex items-center gap-1">
                   <Button size="sm" variant="outline"
                     className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/10"
-                    onClick={() => generatePrescriptionPDF(latestDx, clinicName)}
+                    onClick={() => printClinicalRecord({
+                      type: "diagnosis",
+                      clinicName,
+                      patientName,
+                      patientPhone,
+                      doctorName: latestDx.doctorName,
+                      date: format(new Date(latestDx.createdAt!), "MMM d, yyyy · h:mm a"),
+                      diagnosis: latestDx.diagnosis ?? [],
+                      notes: latestDx.notes,
+                    })}
                     data-testid="button-download-dx-pdf">
                     <Download className="h-3.5 w-3.5" />
                   </Button>
@@ -934,8 +750,14 @@ export default function ClinicalRecordsTab({
                 onClick={() => setShowDxHistory(v => !v)}
                 className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-dx-history">
-                {showDxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                {showDxHistory ? "Hide" : `Show ${historyDx.length} older`} diagnosis {historyDx.length === 1 ? "entry" : "entries"}
+                {mode === "admin" ? (
+                  <>View all {historyDx.length + 1} records <ChevronRight className="h-3 w-3" /></>
+                ) : (
+                  <>
+                    {showDxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    {showDxHistory ? "Hide" : `Show ${historyDx.length} older`} diagnosis {historyDx.length === 1 ? "entry" : "entries"}
+                  </>
+                )}
               </button>
               {showDxHistory && (
                 <div className="rounded-xl border border-border/60 bg-muted/10 overflow-hidden mt-1 divide-y divide-border/30 animate-in slide-in-from-top-1 duration-150">
@@ -946,7 +768,16 @@ export default function ClinicalRecordsTab({
                       type="diagnosis"
                       mode={mode}
                       onEdit={mode === "doctor" ? () => startEditDx(record) : undefined}
-                      onPdf={() => generatePrescriptionPDF(record, clinicName)}
+                      onPdf={() => printClinicalRecord({
+                        type: "diagnosis",
+                        clinicName,
+                        patientName,
+                        patientPhone,
+                        doctorName: record.doctorName,
+                        date: format(new Date(record.createdAt!), "MMM d, yyyy · h:mm a"),
+                        diagnosis: record.diagnosis ?? [],
+                        notes: record.notes,
+                      })}
                     />
                   ))}
                 </div>
@@ -957,9 +788,9 @@ export default function ClinicalRecordsTab({
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          PRESCRIPTION TAB
+          PRESCRIPTION TAB — always shown alongside Diagnosis in admin mode
       ══════════════════════════════════════════════════════════════════ */}
-      {visibleTab === "prescription" && (
+      {(mode === "admin" || visibleTab === "prescription") && (
         <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-right-1 duration-150">
 
           {/* ── Add / Edit form — floats on top when open ── */}
@@ -1136,7 +967,16 @@ export default function ClinicalRecordsTab({
                 <div className="flex items-center gap-1">
                   <Button size="sm" variant="outline"
                     className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/10"
-                    onClick={() => generatePrescriptionPDF(latestRx, clinicName)}
+                    onClick={() => printClinicalRecord({
+                      type: "prescription",
+                      clinicName,
+                      patientName,
+                      patientPhone,
+                      doctorName: latestRx.doctorName,
+                      date: format(new Date(latestRx.createdAt!), "MMM d, yyyy · h:mm a"),
+                      medicines: parsePrescription(latestRx.prescription),
+                      rawPrescription: latestRx.prescription,
+                    })}
                     data-testid="button-download-rx-pdf">
                     <Download className="h-3.5 w-3.5" />
                   </Button>
@@ -1185,8 +1025,14 @@ export default function ClinicalRecordsTab({
                 onClick={() => setShowRxHistory(v => !v)}
                 className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-rx-history">
-                {showRxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                {showRxHistory ? "Hide" : `Show ${historyRx.length} older`} prescription {historyRx.length === 1 ? "entry" : "entries"}
+                {mode === "admin" ? (
+                  <>View all {historyRx.length + 1} records <ChevronRight className="h-3 w-3" /></>
+                ) : (
+                  <>
+                    {showRxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    {showRxHistory ? "Hide" : `Show ${historyRx.length} older`} prescription {historyRx.length === 1 ? "entry" : "entries"}
+                  </>
+                )}
               </button>
               {showRxHistory && (
                 <div className="rounded-xl border border-border/60 bg-muted/10 overflow-hidden mt-1 divide-y divide-border/30 animate-in slide-in-from-top-1 duration-150">
@@ -1197,7 +1043,16 @@ export default function ClinicalRecordsTab({
                       type="prescription"
                       mode={mode}
                       onEdit={mode === "doctor" ? () => startEditRx(record) : undefined}
-                      onPdf={() => generatePrescriptionPDF(record, clinicName)}
+                      onPdf={() => printClinicalRecord({
+                        type: "prescription",
+                        clinicName,
+                        patientName,
+                        patientPhone,
+                        doctorName: record.doctorName,
+                        date: format(new Date(record.createdAt!), "MMM d, yyyy · h:mm a"),
+                        medicines: parsePrescription(record.prescription),
+                        rawPrescription: record.prescription,
+                      })}
                     />
                   ))}
                 </div>

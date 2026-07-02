@@ -317,3 +317,56 @@ export function generateConsentPdf(booking: BookingWithSlot, clinic: ClinicInfo)
   printHTML(wrapDoc(`Consent \u2014 ${esc(booking.customerName)}`, body));
   notify.success("Consent ready to print", { description: "Use the print dialog to save as PDF." });
 }
+
+// ── Public: print a diagnosis or prescription record (window.open + print) ────
+
+export type PrintableMedicine = {
+  name: string; dosage?: string; qty?: string;
+  frequency?: string; duration?: string; route?: string; remarks?: string;
+};
+
+export function printClinicalRecord(opts: {
+  type: "diagnosis" | "prescription";
+  clinicName?: string;
+  patientName: string;
+  patientPhone?: string | null;
+  doctorName?: string | null;
+  date: string;
+  diagnosis?: string[];
+  notes?: string | null;
+  medicines?: PrintableMedicine[] | null;
+  rawPrescription?: string | null;
+}): void {
+  const clinicName = opts.clinicName || "Clinic";
+  const clinicInfo: ClinicInfo = { name: clinicName };
+  const title = opts.type === "diagnosis" ? "Diagnosis Record" : "Prescription";
+
+  const dxBlock = opts.diagnosis && opts.diagnosis.length > 0 ? `
+    <div class="sec">Diagnosis</div>
+    <p>${opts.diagnosis.map(d => esc(d)).join(", ")}</p>
+    ${opts.notes ? `<p style="white-space:pre-line">${esc(opts.notes)}</p>` : ""}` : "";
+
+  const rxBlock = opts.medicines && opts.medicines.length > 0 ? `
+    <div class="sec">Medicines</div>
+    <table>
+      <thead><tr><th>Medicine</th><th>Dosage</th><th>Freq.</th><th>Duration</th><th>Route</th></tr></thead>
+      <tbody>${opts.medicines.map(m => `
+        <tr><td>${esc(m.name)}</td><td>${esc(m.dosage) || "&mdash;"}</td><td>${esc(m.frequency) || "&mdash;"}</td><td>${esc(m.duration) || "&mdash;"}</td><td>${esc(m.route) || "&mdash;"}</td></tr>`).join("")}
+      </tbody>
+    </table>` : (opts.rawPrescription ? `<div class="sec">Prescription</div><p style="white-space:pre-line">${esc(opts.rawPrescription)}</p>` : "");
+
+  const body = `
+    ${headerHTML(clinicName, "Caring for Your Smile", clinicInfo)}
+    <div class="meta">
+      <span><strong>${esc(title)}</strong>&nbsp;&middot;&nbsp;<strong>Date:</strong> ${esc(opts.date)}${opts.doctorName ? `&nbsp;&middot;&nbsp;<strong>Dr.</strong> ${esc(opts.doctorName)}` : ""}</span>
+    </div>
+    <div class="sec">Patient Information</div>
+    <table><tbody>
+      <tr><td class="lbl">Name</td><td>${esc(opts.patientName)}</td><td class="lbl">Phone</td><td>${esc(opts.patientPhone) || "&mdash;"}</td></tr>
+    </tbody></table>
+    ${dxBlock}${rxBlock}
+    ${footerHTML(clinicName)}`;
+
+  printHTML(wrapDoc(title, body));
+  notify.success("Print ready", { description: "Use the print dialog to save as PDF." });
+}

@@ -760,7 +760,7 @@ export default function BookingsPanel({
   });
 
   const updateClinicalStatusMutation = useMutation({
-    mutationFn: async ({ bookingId, clinicalStatus }: { bookingId: number; clinicalStatus: string }) => {
+    mutationFn: async ({ bookingId, clinicalStatus }: { bookingId: number; clinicalStatus: string | null }) => {
       const response = await apiRequest('PATCH', `/api/auth/clinic/bookings/${bookingId}/clinical-status`, { clinicalStatus });
       if (!response.ok) throw new Error('Failed to update clinical status');
       return response.json();
@@ -2367,35 +2367,62 @@ export default function BookingsPanel({
                         {getModalTab(booking.id) === 'clinical' && (
                           <div className="p-4 space-y-3">
 
-                            {/* Clinical Status — now interactive for admin */}
+                            {/* Clinical Status — single chip + dropdown, editable by admin */}
                             <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
                               <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
                                 <ClipboardCheck className="h-3 w-3 text-primary" />
                                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinical Status</span>
                               </div>
-                              <div className="px-3 py-3 flex flex-wrap gap-2">
-                                {([
-                                  { value: 'follow_up_required', label: 'Follow-up Required', Icon: Clock,         activeClass: 'bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-200 dark:shadow-amber-900/30' },
-                                  { value: 'case_closed',        label: 'Case Closed',        Icon: CheckCircle2,  activeClass: 'bg-emerald-500 text-white border-emerald-500 shadow-sm shadow-emerald-200 dark:shadow-emerald-900/30' },
-                                ] as const).map(({ value, label, Icon, activeClass }) => {
-                                  const isActive = booking.clinicalStatus === value;
+                              <div className="px-3 py-3">
+                                {(() => {
+                                  const CLINICAL_STATUS_OPTIONS = [
+                                    { value: 'follow_up_required', label: 'Follow-up Required', dotClass: 'bg-amber-500' },
+                                    { value: 'case_closed',        label: 'Case Closed',        dotClass: 'bg-emerald-500' },
+                                  ] as const;
+                                  const current = CLINICAL_STATUS_OPTIONS.find(o => o.value === booking.clinicalStatus);
+                                  const chipCls = current
+                                    ? (OVERVIEW_CLINICAL_STATUS[current.value]?.cls ?? '')
+                                    : 'bg-muted/40 text-muted-foreground border-border/60';
                                   return (
-                                    <button
-                                      key={value}
-                                      onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: value })}
-                                      disabled={updateClinicalStatusMutation.isPending}
-                                      className={`inline-flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-xl text-sm font-semibold border transition-all active:scale-[0.97] ${
-                                        isActive
-                                          ? activeClass
-                                          : 'bg-background border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground hover:bg-muted/30'
-                                      }`}
-                                      data-testid={`clinical-status-${value}-${booking.id}`}
-                                    >
-                                      <Icon className="h-4 w-4 shrink-0" />
-                                      {label}
-                                    </button>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <button
+                                          disabled={updateClinicalStatusMutation.isPending}
+                                          className={`inline-flex items-center gap-2 pl-3 pr-2.5 min-h-[44px] rounded-full text-sm font-semibold border transition-all active:scale-[0.97] ${chipCls}`}
+                                          data-testid={`clinical-status-trigger-${booking.id}`}
+                                        >
+                                          <span className={`h-2 w-2 rounded-full shrink-0 ${current ? current.dotClass : 'bg-muted-foreground/40'}`} />
+                                          {current ? current.label : 'Not set'}
+                                          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                                        </button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="start" className="w-56">
+                                        {CLINICAL_STATUS_OPTIONS.map(({ value, label, dotClass }) => (
+                                          <DropdownMenuItem
+                                            key={value}
+                                            onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: value })}
+                                            className="gap-2 min-h-[44px]"
+                                            data-testid={`clinical-status-${value}-${booking.id}`}
+                                          >
+                                            <span className={`h-2 w-2 rounded-full shrink-0 ${dotClass}`} />
+                                            {label}
+                                            {booking.clinicalStatus === value && <CheckCircle2 className="h-3.5 w-3.5 ml-auto text-primary" />}
+                                          </DropdownMenuItem>
+                                        ))}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={() => updateClinicalStatusMutation.mutate({ bookingId: booking.id, clinicalStatus: null })}
+                                          disabled={!booking.clinicalStatus}
+                                          className="gap-2 min-h-[44px] text-muted-foreground"
+                                          data-testid={`clinical-status-clear-${booking.id}`}
+                                        >
+                                          <X className="h-3.5 w-3.5 shrink-0" />
+                                          Clear status
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   );
-                                })}
+                                })()}
                               </div>
                             </div>
 
