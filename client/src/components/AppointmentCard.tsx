@@ -1261,13 +1261,25 @@ export function AppointmentCard({
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />No Dues
               </Button>
+            ) : openBillsCount > 0 ? (
+              <Button
+                className="w-full h-10 text-sm font-semibold border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 gap-2 active:scale-[0.98] transition-all"
+                variant="outline"
+                onClick={() => onBill?.()}
+                title="Payment outstanding — tap to settle"
+                data-testid={`button-settle-bill-${booking.id}`}
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                {openBillsCount > 1 ? `Settle ${openBillsCount} Bills` : "Settle Bill"}
+              </Button>
             ) : (
               <Button
                 className="w-full h-10 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 active:scale-[0.98] transition-all"
                 onClick={() => onBill?.()}
+                title="Preview or download invoice"
                 data-testid={`button-bill-complete-${booking.id}`}
               >
-                <IndianRupee className="h-3.5 w-3.5" />{openBillsCount > 0 ? `${openBillsCount} Unpaid Bill${openBillsCount > 1 ? 's' : ''} ↓` : "Download Bill ↓"}
+                <Download className="h-3.5 w-3.5" />Download Bill ↓
               </Button>
             )
           )}

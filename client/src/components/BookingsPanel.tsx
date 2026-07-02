@@ -2886,14 +2886,25 @@ export default function BookingsPanel({
                                 >
                                   <CheckCircle2 className="h-4 w-4" />No Dues
                                 </Button>
+                              ) : modalOpenBills > 0 ? (
+                                <Button
+                                  className="w-full gap-1.5 h-11 text-sm font-semibold border border-amber-400 bg-amber-50/60 text-amber-700 hover:bg-amber-100/60 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40 active:scale-[0.98] transition-all"
+                                  variant="outline"
+                                  onClick={() => handleOpenBilling(booking)}
+                                  title="Payment outstanding — tap to settle"
+                                  data-testid={`button-dialog-settle-bill-${booking.id}`}
+                                >
+                                  <CreditCard className="h-4 w-4" />
+                                  {modalOpenBills > 1 ? `Settle ${modalOpenBills} Bills` : "Settle Bill"}
+                                </Button>
                               ) : (
                                 <Button
                                   className="w-full gap-1.5 h-11 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98] transition-all border-0"
                                   onClick={() => handleOpenBilling(booking)}
+                                  title="Preview or download invoice"
                                   data-testid={`button-dialog-bill-done-${booking.id}`}
                                 >
-                                  <IndianRupee className="h-4 w-4" />
-                                  {modalOpenBills > 0 ? `${modalOpenBills} Unpaid Bill${modalOpenBills > 1 ? 's' : ''} ↓` : "Download Bill ↓"}
+                                  <Download className="h-4 w-4" />Download Bill ↓
                                 </Button>
                               )}
                               <div className="flex gap-2">
