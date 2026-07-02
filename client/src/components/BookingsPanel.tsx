@@ -2894,8 +2894,7 @@ export default function BookingsPanel({
                                   title="Payment outstanding — tap to settle"
                                   data-testid={`button-dialog-settle-bill-${booking.id}`}
                                 >
-                                  <CreditCard className="h-4 w-4" />
-                                  {modalOpenBills > 1 ? `Settle ${modalOpenBills} Bills` : "Settle Bill"}
+                                  Payment Pending
                                 </Button>
                               ) : (
                                 <Button
@@ -2904,7 +2903,7 @@ export default function BookingsPanel({
                                   title="Preview or download invoice"
                                   data-testid={`button-dialog-bill-done-${booking.id}`}
                                 >
-                                  <Download className="h-4 w-4" />Download Bill ↓
+                                  <Download className="h-4 w-4" />Paid
                                 </Button>
                               )}
                               <div className="flex gap-2">

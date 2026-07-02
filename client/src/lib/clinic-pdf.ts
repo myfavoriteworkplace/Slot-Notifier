@@ -64,7 +64,7 @@ function printHTML(html: string): void {
   setTimeout(() => {
     win.print();
     win.close();
-  }, 300);
+  }, 80);
 }
 
 // ── Private: shared print styles (A4, green palette) ─────────────────────────

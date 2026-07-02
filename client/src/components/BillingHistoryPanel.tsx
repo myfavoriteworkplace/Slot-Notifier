@@ -7,7 +7,7 @@ import {
   IndianRupee, FileText, Trash2, Loader2, Plus, CheckCircle2,
   Clock, AlertCircle, Check, ChevronDown, ChevronUp, X, History,
   Pill, Stethoscope, Receipt, Bell, CreditCard, User, Lock,
-  Pencil, AlertTriangle, ShieldCheck, ClipboardList, Printer,
+  Pencil, AlertTriangle, ShieldCheck, ClipboardList, Printer, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -369,6 +369,7 @@ export function BillingHistoryPanel({
   const [cashierForm, setCashierForm] = useState<CashierForm | null>(null);
   const [loadingPrescription, setLoadingPrescription] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewBill, setPreviewBill] = useState<PatientBill | null>(null);
   const [showOlderBills, setShowOlderBills] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<number, Set<string>>>({});
 
@@ -948,6 +949,14 @@ export function BillingHistoryPanel({
             </div>
           </button>
           <span className="text-sm font-bold text-primary shrink-0">₹{totalAmt.toFixed(0)}</span>
+          <button
+            onClick={() => { setPreviewBill(bill); setPreviewModalOpen(true); }}
+            className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-primary shrink-0 active:scale-95 transition-transform"
+            title="Preview bill"
+            aria-label="Preview bill"
+            data-testid={`button-preview-bill-${bill.id}`}>
+            <Eye className="h-3.5 w-3.5" />
+          </button>
           <button
             onClick={() => onPrintBill(bill)}
             className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-primary shrink-0 active:scale-95 transition-transform"
@@ -1949,8 +1958,8 @@ export function BillingHistoryPanel({
       {/* ── INVOICE PREVIEW MODAL ─────────────────────────────────────── */}
       <InvoicePreviewModal
         open={previewModalOpen}
-        onClose={() => setPreviewModalOpen(false)}
-        bills={bills}
+        onClose={() => { setPreviewModalOpen(false); setPreviewBill(null); }}
+        bills={previewBill ? [previewBill] : bills}
         patientName={patientName}
         patientCode={patientCode}
       />

@@ -1100,8 +1100,7 @@ export function AppointmentCard({
           onClick={(e) => { e.stopPropagation(); onBill?.(); }}
           data-testid={`banner-unpaid-bill-${booking.id}`}
         >
-          <IndianRupee className="h-3 w-3 shrink-0" />
-          <span className="truncate min-w-0 flex-1">{openBillsCount} unpaid bill{openBillsCount > 1 ? 's' : ''} — tap to settle</span>
+          <span className="truncate min-w-0 flex-1">Payment Pending</span>
         </div>
       )}
 
@@ -1269,8 +1268,7 @@ export function AppointmentCard({
                 title="Payment outstanding — tap to settle"
                 data-testid={`button-settle-bill-${booking.id}`}
               >
-                <CreditCard className="h-3.5 w-3.5" />
-                {openBillsCount > 1 ? `Settle ${openBillsCount} Bills` : "Settle Bill"}
+                Payment Pending
               </Button>
             ) : (
               <Button
@@ -1279,7 +1277,7 @@ export function AppointmentCard({
                 title="Preview or download invoice"
                 data-testid={`button-bill-complete-${booking.id}`}
               >
-                <Download className="h-3.5 w-3.5" />Download Bill ↓
+                <Download className="h-3.5 w-3.5" />Paid
               </Button>
             )
           )}
