@@ -565,57 +565,9 @@ export default function DoctorDashboard() {
     });
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="h-14 border-b border-border/50 bg-card px-6 flex items-center gap-3">
-          <Skeleton className="h-8 w-8 rounded-full" />
-          <Skeleton className="h-4 w-40" />
-          <div className="flex-1" />
-          <Skeleton className="h-8 w-24 rounded-md" />
-        </div>
-        <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[1,2,3,4].map(i => (
-              <div key={i} className="rounded-xl border border-border/50 p-4 space-y-2">
-                <Skeleton className="h-3.5 w-24" />
-                <Skeleton className="h-8 w-12" />
-              </div>
-            ))}
-          </div>
-          <div className="rounded-xl border border-border/50 p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-5 w-5 rounded" />
-              <Skeleton className="h-5 w-40" />
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {[1,2,3,4].map(i => <Skeleton key={i} className="h-8 w-28 rounded-lg" />)}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {[1,2,3,4,5,6].map(i => (
-                <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Skeleton className="h-4 w-28" />
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                  </div>
-                  <Skeleton className="h-3.5 w-32" />
-                  <div className="flex gap-2 pt-1">
-                    <Skeleton className="h-7 flex-1 rounded-md" />
-                    <Skeleton className="h-7 flex-1 rounded-md" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  if (!doctor) return null;
-
   const allBookings = useMemo(() => (Array.isArray(bookings) ? bookings : []), [bookings]);
   const myBookings = useMemo(
-    () => allBookings.filter((b: any) => b.assignedDoctorEmail === (doctor as any).email),
+    () => allBookings.filter((b: any) => b.assignedDoctorEmail === (doctor as any)?.email),
     [allBookings, doctor]
   );
   const awaitingBookings = useMemo(
@@ -682,7 +634,6 @@ export default function DoctorDashboard() {
     }).length,
     [confirmedBookings, nextWeekStart, nextWeekEnd]
   );
-  const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setFilterDate(undefined); setFilterEndDate(undefined); };
 
   const filteredBookings = useMemo(() => {
     const sourceBookings = quickFilter === "awaiting" || quickFilter === "pending-7days" ? awaitingBookings : confirmedBookings;
@@ -711,6 +662,56 @@ export default function DoctorDashboard() {
   useEffect(() => {
     setVisibleBookingCount(50);
   }, [quickFilter, appointmentClinicFilter, filterDate, filterEndDate]);
+
+  const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setFilterDate(undefined); setFilterEndDate(undefined); };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="h-14 border-b border-border/50 bg-card px-6 flex items-center gap-3">
+          <Skeleton className="h-8 w-8 rounded-full" />
+          <Skeleton className="h-4 w-40" />
+          <div className="flex-1" />
+          <Skeleton className="h-8 w-24 rounded-md" />
+        </div>
+        <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="rounded-xl border border-border/50 p-4 space-y-2">
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-8 w-12" />
+              </div>
+            ))}
+          </div>
+          <div className="rounded-xl border border-border/50 p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-5 rounded" />
+              <Skeleton className="h-5 w-40" />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {[1,2,3,4].map(i => <Skeleton key={i} className="h-8 w-28 rounded-lg" />)}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {[1,2,3,4,5,6].map(i => (
+                <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3.5 w-32" />
+                  <div className="flex gap-2 pt-1">
+                    <Skeleton className="h-7 flex-1 rounded-md" />
+                    <Skeleton className="h-7 flex-1 rounded-md" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (!doctor) return null;
 
   const greet = new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening";
 
