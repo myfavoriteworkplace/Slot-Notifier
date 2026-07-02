@@ -922,7 +922,7 @@ export function BillingHistoryPanel({
 
     return (
       <div key={bill.id}
-        className={`rounded-xl border overflow-hidden ${isActiveBill && !isBillPaid ? "border-primary/40" : "border-border/50 bg-background/50"}`}
+        className={`rounded-xl border overflow-hidden ${isActiveBill && !isBillPaid ? "border-primary/40 bg-background" : "border-border/60 bg-background"}`}
         data-testid={`billing-card-${bill.id}`}>
 
         {/* ── HEADER ── */}
@@ -1026,17 +1026,18 @@ export function BillingHistoryPanel({
                     <X className="h-3 w-3" />
                   </button>
                 </div>
-                {/* Single-row input strip — wraps on very small screens */}
-                <div className="flex flex-wrap items-center gap-1.5">
+                {/* Description on its own row, controls on second row */}
+                <div className="space-y-1.5">
                   <Input
                     value={addForm.description}
                     onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
                     placeholder="Description…"
-                    className="h-8 text-xs flex-[3] min-w-[120px]"
+                    className="h-8 text-xs w-full"
                     data-testid="input-entry-description"
                   />
+                <div className="flex flex-wrap items-center gap-1.5">
                   <Select value={addForm.category} onValueChange={v => setAddForm(f => ({ ...f, category: v }))}>
-                    <SelectTrigger className="h-8 text-xs flex-[2] min-w-[90px]" data-testid="select-entry-category">
+                    <SelectTrigger className="h-8 text-xs flex-1 min-w-[90px]" data-testid="select-entry-category">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
@@ -1074,6 +1075,7 @@ export function BillingHistoryPanel({
                     Add
                   </Button>
                 </div>
+                </div>
               </div>
             )}
 
@@ -1101,15 +1103,15 @@ export function BillingHistoryPanel({
                   <div>
                     <button
                       onClick={() => toggleSection("consultation")}
-                      className="w-full px-3 py-1.5 bg-muted/20 flex items-center gap-1.5 hover:bg-muted/30 transition-colors text-left"
+                      className="w-full px-3 py-2 bg-muted/40 flex items-center gap-1.5 hover:bg-muted/50 transition-colors text-left"
                       data-testid={`button-section-consultation-${bill.id}`}
                     >
-                      <Stethoscope className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Consultation &amp; Procedures</span>
+                      <Stethoscope className="h-3 w-3 text-muted-foreground/80 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">Consultation &amp; Procedures</span>
                       <ChevronDown className={`h-3 w-3 text-muted-foreground ml-1 shrink-0 transition-transform duration-200 ${consultOpen ? "rotate-180" : ""}`} />
                     </button>
                     {consultOpen && (
-                      <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
+                      <div className="mx-3 mb-2.5 rounded-lg border border-border/70 overflow-hidden shadow-sm">
                         <div className="overflow-x-auto">
                           {/* 8-col grid: #(4%) | Description spans cols2-4(43%+9%+9%) | ₹/Unit(9%) | Qty(9%) | Total(9%) | Actions(8%) */}
                           <div className="max-h-[10.5rem] overflow-y-scroll" style={{ scrollbarGutter: "stable" }}>
@@ -1125,7 +1127,7 @@ export function BillingHistoryPanel({
                                 <col style={{ width: "8%" }} />
                               </colgroup>
                               <thead className="sticky top-0 z-10">
-                                <tr className="border-b border-border/40 bg-muted/40">
+                                <tr className="border-b border-border/50 bg-muted/60">
                                   <th className="text-center py-1 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
                                   <th colSpan={3} className="text-left py-1 px-2 font-semibold text-muted-foreground">Description</th>
                                   <th className="text-right py-1 px-2 font-semibold text-muted-foreground">₹/Unit</th>
@@ -1140,7 +1142,7 @@ export function BillingHistoryPanel({
                                   const isEditing = editingKey === itemKey;
                                   const isItemPaid = svc.paid || isBillPaid;
                                   return (
-                                    <tr key={origIdx} className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : "bg-background hover:bg-muted/10"}`}
+                                    <tr key={origIdx} className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : "bg-card hover:bg-muted/20"}`}
                                       data-testid={`billing-item-${bill.id}-${origIdx}`}>
                                       <td className="py-1 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
                                       <td colSpan={3} className="py-1 px-2 text-foreground">
@@ -1240,15 +1242,15 @@ export function BillingHistoryPanel({
                   <div>
                     <button
                       onClick={() => toggleSection("pharmacy")}
-                      className="w-full px-3 py-1.5 bg-muted/20 flex items-center gap-1.5 hover:bg-muted/30 transition-colors text-left"
+                      className="w-full px-3 py-2 bg-muted/40 flex items-center gap-1.5 hover:bg-muted/50 transition-colors text-left"
                       data-testid={`button-section-pharmacy-${bill.id}`}
                     >
-                      <Pill className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Pharmacy</span>
+                      <Pill className="h-3 w-3 text-muted-foreground/80 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">Pharmacy</span>
                       <ChevronDown className={`h-3 w-3 text-muted-foreground ml-1 shrink-0 transition-transform duration-200 ${pharmacyOpen ? "rotate-180" : ""}`} />
                     </button>
                     {pharmacyOpen && (
-                      <div className="mx-3 mb-2 rounded-lg border border-border/50 overflow-hidden">
+                      <div className="mx-3 mb-2.5 rounded-lg border border-border/70 overflow-hidden shadow-sm">
                         <div className="overflow-x-auto">
                           {/* 8-col grid: #(4%) | Medicine(43%) | Dos.(9%) | Freq.(9%) | Dur.(9%) | Qty(9%) | Total(9%) | Actions(8%) */}
                           <div className="max-h-[10.5rem] overflow-y-scroll" style={{ scrollbarGutter: "stable" }}>
@@ -1264,7 +1266,7 @@ export function BillingHistoryPanel({
                                 <col style={{ width: "8%" }} />
                               </colgroup>
                               <thead className="sticky top-0 z-10">
-                                <tr className="border-b border-border/40 bg-muted/40">
+                                <tr className="border-b border-border/50 bg-muted/60">
                                   <th className="text-center py-1 pl-2 pr-1 font-semibold text-muted-foreground">#</th>
                                   <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Medicine</th>
                                   <th className="text-left py-1 px-2 font-semibold text-muted-foreground">Dos.</th>
@@ -1284,7 +1286,7 @@ export function BillingHistoryPanel({
                                   const { medicine, dosage, frequency, duration } = getPharmacyFields(svc);
                                   return (
                                     <tr key={origIdx}
-                                      className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : isUnpriced ? "bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50/70" : "bg-background hover:bg-muted/10"}`}
+                                      className={`group/row transition-colors ${isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : isUnpriced ? "bg-amber-50/60 dark:bg-amber-950/15 hover:bg-amber-50/80" : "bg-card hover:bg-muted/20"}`}
                                       data-testid={`billing-item-${bill.id}-${origIdx}`}>
                                       <td className="py-1 pl-2 pr-1 text-center tabular-nums text-muted-foreground/60">{rowIdx + 1}</td>
                                       <td className="py-1 px-2 font-medium text-foreground">
@@ -1386,11 +1388,11 @@ export function BillingHistoryPanel({
                   <div>
                     <button
                       onClick={() => toggleSection("other")}
-                      className="w-full px-3 py-1.5 bg-muted/20 flex items-center gap-1.5 hover:bg-muted/30 transition-colors text-left"
+                      className="w-full px-3 py-2 bg-muted/40 flex items-center gap-1.5 hover:bg-muted/50 transition-colors text-left"
                       data-testid={`button-section-other-${bill.id}`}
                     >
-                      <ClipboardList className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Other</span>
+                      <ClipboardList className="h-3 w-3 text-muted-foreground/80 shrink-0" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">Other</span>
                       <ChevronDown className={`h-3 w-3 text-muted-foreground ml-1 shrink-0 transition-transform duration-200 ${otherOpen ? "rotate-180" : ""}`} />
                     </button>
                     {otherOpen && otherItems.map(({ svc, origIdx }) => {
@@ -1398,7 +1400,7 @@ export function BillingHistoryPanel({
                       const isEditing = editingKey === itemKey;
                       const isItemPaid = svc.paid || isBillPaid;
                       return (
-                        <div key={origIdx} className={`flex items-center gap-2 px-3 py-1.5 group/row border-b border-border/10 last:border-0 ${isItemPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : "hover:bg-muted/10"}`}
+                        <div key={origIdx} className={`flex items-center gap-2 px-3 py-1.5 group/row border-b border-border/10 last:border-0 ${isItemPaid ? "bg-emerald-50/40 dark:bg-emerald-950/15" : "hover:bg-muted/20"}`}
                           data-testid={`billing-item-${bill.id}-${origIdx}`}>
                           <span className="flex-1 text-xs min-w-0 truncate text-foreground flex items-center gap-1">
                             {isItemPaid && <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
@@ -1562,27 +1564,27 @@ export function BillingHistoryPanel({
                       <FileText className="h-3 w-3" /> This draft will be confirmed &amp; marked paid in one step.
                     </p>
                   )}
-                  {/* Compact inline row */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <div className="relative shrink-0 w-24">
+                  {/* 2-column grid — responsive on all screen sizes */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div className="relative">
                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
                       <Input type="number" min="0"
                         value={cashierForm!.amountReceived}
                         onChange={e => setCashierForm(f => f ? { ...f, amountReceived: e.target.value } : f)}
-                        className="pl-5 h-8 text-xs" data-testid="input-cashier-amount" />
+                        className="pl-5 h-8 text-xs w-full" data-testid="input-cashier-amount" />
                     </div>
                     <Select value={cashierForm!.paymentMethod} onValueChange={v => setCashierForm(f => f ? { ...f, paymentMethod: v } : f)}>
-                      <SelectTrigger className="h-8 text-xs w-24 shrink-0" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs w-full" data-testid="select-payment-method"><SelectValue /></SelectTrigger>
                       <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                     </Select>
                     <Input value={cashierForm!.cashierName}
                       onChange={e => setCashierForm(f => f ? { ...f, cashierName: e.target.value } : f)}
                       placeholder="Cashier name…"
-                      className="h-8 text-xs flex-[2] min-w-[100px]" data-testid="input-cashier-name" />
+                      className="h-8 text-xs w-full" data-testid="input-cashier-name" />
                     <Input value={cashierForm!.notes}
                       onChange={e => setCashierForm(f => f ? { ...f, notes: e.target.value } : f)}
                       placeholder="Notes (optional)…"
-                      className="h-8 text-xs flex-[2] min-w-[100px]" data-testid="input-cashier-notes" />
+                      className="h-8 text-xs w-full" data-testid="input-cashier-notes" />
                   </div>
                   <div className="flex gap-2 justify-end">
                     <Button size="sm" variant="ghost" onClick={() => setCashierForm(null)} className="h-7 px-2 text-xs" disabled={markPaidMutation.isPending}>
@@ -1770,11 +1772,11 @@ export function BillingHistoryPanel({
           <div className="h-px flex-1 bg-border/40" />
           <div className="flex items-center gap-1.5 shrink-0">
             <IndianRupee className="h-3 w-3 text-muted-foreground/60" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70">
               {bills.length} Bill{bills.length !== 1 ? "s" : ""}
             </span>
             {bills.length > 1 && (
-              <span className="text-[10px] text-muted-foreground/60">· ₹{consolidatedTotal.toFixed(0)}</span>
+              <span className="text-xs text-muted-foreground/60">· ₹{consolidatedTotal.toFixed(0)}</span>
             )}
           </div>
           <div className="h-px flex-1 bg-border/40" />
@@ -1805,30 +1807,36 @@ export function BillingHistoryPanel({
       ) : (
         <div className="space-y-2">
           {latestBill && olderBills.length > 0 && (
-            <div className="flex items-center gap-2 px-0.5 pb-0.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Latest Bill</span>
+            <div className="flex items-center gap-2 px-0.5 pb-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Latest Bill</span>
               <div className="h-px flex-1 bg-primary/20" />
             </div>
           )}
           {latestBill && renderBillCard(latestBill)}
           {olderBills.length > 0 && (
             <>
+              {/* Older Bills section label — mirrors "Latest Bill" style */}
+              <div className="flex items-center gap-2 px-0.5 pt-1">
+                <div className="h-px flex-1 bg-border/50" />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <History className="h-3 w-3 text-muted-foreground/70" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70">Older Bills</span>
+                </div>
+                <div className="h-px flex-1 bg-border/50" />
+              </div>
               <button
                 onClick={() => setShowOlderBills(v => !v)}
-                className="w-full flex items-center gap-2 px-1 py-1.5 text-left group mt-4 pt-2 border-t border-border/30"
+                className="w-full flex items-center gap-2 px-1 py-1 text-left group"
                 data-testid="button-toggle-older-bills">
-                <div className="flex items-center gap-1.5">
-                  <History className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-muted-foreground transition-colors" />
-                  <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-                    {showOlderBills ? "Hide" : "Show"} {olderBills.length} older bill{olderBills.length !== 1 ? "s" : ""}
-                  </span>
-                </div>
+                <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors flex-1">
+                  {showOlderBills ? "Hide" : "Show"} {olderBills.length} older bill{olderBills.length !== 1 ? "s" : ""}
+                </span>
                 {showOlderBills
                   ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
               </button>
               {showOlderBills && (
-                <div className="rounded-xl border border-border/30 bg-muted/20 p-2 space-y-1.5">
+                <div className="rounded-xl border border-border/60 bg-muted/40 dark:bg-muted/30 p-2.5 space-y-2">
                   {Array.from(groupByDate(olderBills)).map(([dateLabel, dateBills]) => (
                     <div key={dateLabel} className="space-y-1.5">
                       <div className="flex items-center gap-2">
