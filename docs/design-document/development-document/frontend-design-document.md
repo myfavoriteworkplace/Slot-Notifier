@@ -91,6 +91,7 @@ grep -rn "console\.log\|console\.warn\|console\.error\|debugger" client/src/
 [ ] No console.log / debugger in files you touched
 [ ] Layout verified at mobile (375px), tablet (768px), desktop (1280px)
 [ ] Every new interactive element has data-testid and aria-label (if icon-only)
+[ ] Section cards inside detail popups use green two-tier header pattern (NOT bg-muted/bg-border)
 ```
 
 ---
@@ -318,6 +319,8 @@ Core tokens: `var(--primary)` · `var(--accent)` · `var(--background)` · `var(
 | Page bg | `#F8F8F6` | Near-white surface |
 
 Use Tailwind's `bg-primary/10`, `text-primary`, `border-primary/20` etc. rather than arbitrary hex values.
+
+> **Exception — clinical section cards:** Section cards inside patient/booking detail popups use `green-800` / `green-50` as a semantic domain token for clinical content. See **PATIENT DETAIL POPUP — SECTION CARD PATTERN** below for the full pattern and rules.
 
 ### Semantic status colours (use consistently across all screens)
 | Status | Classes |
@@ -839,6 +842,100 @@ Add `justify-between` to the gradient row and wrap the title+icon in a `flex ite
 3. **Icon size**: always `h-[18px] w-[18px]` inside a `h-9 w-9 rounded-xl` box.
 4. **No new accent colours**: pick from the table above. Adding a new panel means picking the closest unused colour and adding a row to the table.
 5. **New panels**: add the new panel's row to the correct dashboard table above before writing any code.
+
+---
+
+## PATIENT DETAIL POPUP — SECTION CARD PATTERN
+
+This pattern applies exclusively to **section cards inside patient/booking detail popups and dialogs** — the grouped content blocks within a card view. It is **not** for top-level dashboard panel headers (those use the gradient + accent-colour system above).
+
+### When to use this pattern
+
+- Any labelled section block inside a `Dialog`, `Sheet`, or patient card popup
+- Examples: "Clinical Status", "Clinical Records", "Latest Diagnosis", "Billing Summary", "Consent Status" — grouped content cards that live *inside* a detail view, not at the dashboard panel level
+
+### Two-tier header hierarchy
+
+There are exactly two header tiers. Choose based on visual emphasis:
+
+| Tier | Use for | Header background | Text + icon colour |
+|---|---|---|---|
+| **Primary** | Highest-emphasis block — an actionable status or single-decision field (e.g. "Clinical Status") | `bg-green-800` | `text-white` + white icon |
+| **Secondary** | Content/records block — displays data, lists, or nested sub-records (e.g. "Clinical Records", "Latest Diagnosis") | `bg-green-50` | `text-green-800` + `text-green-800` icon |
+
+### Card container (both tiers)
+
+```tsx
+<div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+```
+
+### Primary header (dark green — actionable / status block)
+
+```tsx
+<div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+  <div className="px-3 py-2.5 bg-green-800 border-b border-green-900/20 flex items-center gap-1.5">
+    <Icon className="h-3 w-3 text-white" />
+    <span className="text-xs font-semibold uppercase tracking-wide text-white">Section Title</span>
+  </div>
+  <div className="px-3 py-3">
+    {/* action chip, dropdown, or single status control */}
+  </div>
+</div>
+```
+
+### Secondary header (mint — content / records block)
+
+```tsx
+<div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+  <div className="px-3 py-2.5 bg-green-50 border-b border-green-800/30 flex items-center gap-1.5">
+    <Icon className="h-3 w-3 text-green-800" />
+    <span className="text-xs font-semibold uppercase tracking-wide text-green-800">Section Title</span>
+  </div>
+  <div className="p-3">
+    {/* records list, diagnosis cards, nested content */}
+  </div>
+</div>
+```
+
+### Content chips and tag badges (inside the card body)
+
+Diagnosis tags, status chips, and any tinted label badge inside these section cards:
+
+```tsx
+<Badge variant="outline"
+  className="text-xs px-2 py-0.5 rounded-full border-green-800/30 bg-green-50 text-green-800 font-semibold">
+  Tag Label
+</Badge>
+```
+
+### Neutral / "Not set" state chips (dropdown triggers)
+
+When a status field has no value selected, the trigger chip must use the mint tint — never the old grey:
+
+```tsx
+// ✅ Correct — mint tint for unset state
+'bg-green-50 text-green-800 border-green-800/30'
+
+// ❌ Wrong — invisible grey (old pattern, do not use)
+'bg-muted/40 text-muted-foreground border-border/60'
+```
+
+### What NOT to use in detail popup section cards
+
+| Old (incorrect) class | Replace with |
+|---|---|
+| `bg-muted/40` (header bg) | `bg-green-800` (primary) or `bg-green-50` (secondary) |
+| `border-border/60` (card border) | `border-green-800/30` |
+| `text-muted-foreground` (header label) | `text-white` (primary) or `text-green-800` (secondary) |
+| `bg-muted/20` (card body bg) | `bg-white` |
+| No shadow | `shadow-sm` |
+
+### Rules
+
+1. **One primary, any number of secondary.** A detail popup should have at most one primary (dark green) header — the most critical actionable field. Everything else uses the secondary (mint) tier.
+2. **Never use this pattern for top-level dashboard panel headers** — those use the gradient + accent-colour system.
+3. **Hardcoded `green-800` is the exception to the no-hardcode rule.** The clinical section pattern uses `green-800` / `green-50` because it is a semantic, domain-specific design token for clinical content. Do not replace with `primary` — `primary` is `#0F9B6E` (a brighter teal-green), not the forest green used here.
+4. **Dark mode note:** `bg-green-800` and `bg-green-50` currently render correctly in light mode. When dark mode support is extended to popup detail views, add `dark:bg-green-900` / `dark:bg-green-950/30` variants at that time.
 
 ---
 
