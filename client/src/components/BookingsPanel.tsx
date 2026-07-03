@@ -2485,11 +2485,11 @@ export default function BookingsPanel({
                           <div className="p-4 space-y-3">
 
                             {/* Reschedule */}
-                            <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                              <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
+                            <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+                              <div className="px-3 py-2 bg-green-50 border-b border-green-800/30 flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-1.5">
-                                  <CalendarDays className="h-3 w-3 text-primary" />
-                                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reschedule Appointment</span>
+                                  <CalendarDays className="h-3 w-3 text-green-800" />
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800">Reschedule Appointment</span>
                                 </div>
                                 {rescheduleBookingId === booking.id ? (
                                   <button
@@ -2620,11 +2620,11 @@ export default function BookingsPanel({
                             </div>
 
                             {/* Digital Consent */}
-                            <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                              <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
+                            <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+                              <div className="px-3 py-2 bg-green-50 border-b border-green-800/30 flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-1.5">
-                                  <ClipboardCheck className="h-3 w-3 text-primary" />
-                                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Request Digital Consent</span>
+                                  <ClipboardCheck className="h-3 w-3 text-green-800" />
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-green-800">Request Digital Consent</span>
                                 </div>
                                 {booking.consentSignedAt ? (
                                   <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 px-2 py-0.5 rounded-full">
@@ -2704,11 +2704,11 @@ export default function BookingsPanel({
                                   ((email && l.doctorEmail === email) || (name && l.doctorName === name))
                                 )?.reason;
                               return (
-                                <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                                  <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center justify-between gap-2">
+                                <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+                                  <div className="px-3 py-2 bg-green-50 border-b border-green-800/30 flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5">
-                                      <Stethoscope className="h-3 w-3 text-primary" />
-                                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assign Doctor</span>
+                                      <Stethoscope className="h-3 w-3 text-green-800" />
+                                      <span className="text-xs font-semibold uppercase tracking-wide text-green-800">Assign Doctor</span>
                                     </div>
                                     <span className="text-xs text-muted-foreground">{format(new Date(booking.slot.startTime), "MMM d · h:mm a")}</span>
                                   </div>
