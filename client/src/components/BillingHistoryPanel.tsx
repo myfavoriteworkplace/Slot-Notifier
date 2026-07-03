@@ -368,6 +368,8 @@ export function BillingHistoryPanel({
   const [auditExpanded, setAuditExpanded] = useState(false);
   const [cashierForm, setCashierForm] = useState<CashierForm | null>(null);
   const [loadingPrescription, setLoadingPrescription] = useState(false);
+  const [rxPickerOpen, setRxPickerOpen] = useState(false);
+  const [rxPickerRecords, setRxPickerRecords] = useState<ClinicalRecord[]>([]);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewBill, setPreviewBill] = useState<PatientBill | null>(null);
   const [showOlderBills, setShowOlderBills] = useState(false);
@@ -672,109 +674,113 @@ export function BillingHistoryPanel({
 
   // ── Load Prescription Items ───────────────────────────────────────────────
 
-  const handleLoadPrescription = async (fromRecord?: ClinicalRecord) => {
-    setLoadingPrescription(true);
-    try {
-      let record: ClinicalRecord | null = null;
+  // Core loader — called after a specific record has been chosen (by picker or auto-select)
+  const doLoadPrescription = async (record: ClinicalRecord) => {
+    const rows = parsePrescription(record.prescription);
+    if (!rows || rows.length === 0) {
+      notify.warning("Prescription is empty");
+      return;
+    }
 
-      if (fromRecord) {
-        record = fromRecord;
-      } else {
-        const res = await apiRequest("GET", `/api/clinical-records/booking/${bookingId}`);
-        if (res.ok) {
-          const records: ClinicalRecord[] = await res.json();
-          record = records?.[0] ?? null;
-        }
+    const newServices: ServiceItem[] = rows
+      .filter(r => r.name?.trim())
+      .map(r => {
+        const qty = parseInt(r.qty) || 1;
+        const match = pharmacy.find(p =>
+          p.medicineName.toLowerCase().trim() === r.name.toLowerCase().trim()
+        );
+        const unitPrice = match ? (match.unitPrice ?? 0) : 0;
+        const amount = qty * unitPrice;
+        const durationStr = r.durationNum ? `${r.durationNum} ${r.durationUnit || 'days'}` : (r.duration || '');
+        return {
+          description: [r.name.trim(), `×${qty}`, r.frequency, durationStr].filter(Boolean).join(" "),
+          category: "Pharmacy",
+          amount, paid: false, qty, unitPrice,
+          medicineName: r.name.trim(),
+          dosage: r.dosage || undefined,
+          frequency: r.frequency || undefined,
+          duration: durationStr || undefined,
+          route: r.route || undefined,
+          remarks: r.remarks || undefined,
+        };
+      });
+
+    if (newServices.length === 0) {
+      notify.warning("No valid prescription items found");
+      return;
+    }
+
+    const activeBill = findActiveBill();
+
+    if (activeBill) {
+      const existing = (activeBill.services ?? []) as ServiceItem[];
+      const existingKeys = new Set(
+        existing.filter(s => s.category === "Pharmacy").map(s => (s.medicineName || s.description.split(" ")[0]).toLowerCase())
+      );
+      const unique = newServices.filter(s => !existingKeys.has((s.medicineName || s.description.split(" ")[0]).toLowerCase()));
+
+      if (unique.length === 0) {
+        notify.warning("Already loaded", { description: "All prescription items are already in this bill." });
+        return;
       }
 
-      if (!record?.prescription) {
+      const combined = [...existing, ...unique];
+      const { subtotal, total } = computeTotals(combined, activeBill.discountPct ?? 0, activeBill.taxPct ?? 0);
+      const res = await apiRequest("PATCH", `/api/auth/clinic/bills/${activeBill.id}`, {
+        services: combined, subtotal, total,
+        paymentStatus: activeBill.paymentStatus === "draft" ? "draft" : computeStatus(combined),
+      });
+      if (!res.ok) throw new Error("Failed to update bill");
+      await logAudit("prescription_loaded", { count: unique.length, recordId: record.id }, activeBill.id);
+    } else {
+      const { subtotal, total } = computeTotals(newServices, 0, 0);
+      const res = await apiRequest("POST", "/api/auth/clinic/bills", {
+        bookingId,
+        patientId: patientId || null,
+        billNumber: uniqueBillNumber(bookingId),
+        patientName: patientName || "Patient",
+        patientPhone: patientPhone || "",
+        patientEmail: patientEmail || "",
+        services: newServices,
+        subtotal, total,
+        paymentStatus: "draft",
+      });
+      if (!res.ok) throw new Error("Failed to create bill");
+      const newBill = await res.json();
+      await logAudit("prescription_loaded", { count: newServices.length, recordId: record.id, newDraft: true }, newBill.id);
+    }
+
+    invalidate();
+    const matched = newServices.filter(s => (s.unitPrice ?? 0) > 0).length;
+    const unmatched = newServices.length - matched;
+    notify.success(`${newServices.length} prescription item${newServices.length !== 1 ? "s" : ""} loaded`, {
+      description: matched > 0
+        ? `${matched} auto-priced from catalog${unmatched > 0 ? ` · ${unmatched} need manual pricing` : ""}`
+        : `${unmatched} item${unmatched !== 1 ? "s" : ""} added — please set prices below`,
+    });
+  };
+
+  // Entry point — fetches all records for this booking, filters to those with a prescription,
+  // auto-loads if exactly one exists, or opens the picker when there are multiple choices.
+  const handleLoadPrescription = async () => {
+    setLoadingPrescription(true);
+    try {
+      const res = await apiRequest("GET", `/api/clinical-records/booking/${bookingId}`);
+      if (!res.ok) throw new Error("Failed to fetch clinical records");
+      const all: ClinicalRecord[] = await res.json();
+      const withRx = all.filter(r => !!r.prescription);
+
+      if (withRx.length === 0) {
         notify.warning("No prescription found", { description: "Add a prescription in the Clinical tab first." });
         return;
       }
-
-      const rows = parsePrescription(record.prescription);
-      if (!rows || rows.length === 0) {
-        notify.warning("Prescription is empty");
+      if (withRx.length === 1) {
+        await doLoadPrescription(withRx[0]);
         return;
       }
-
-      const newServices: ServiceItem[] = rows
-        .filter(r => r.name?.trim())
-        .map(r => {
-          const qty = parseInt(r.qty) || 1;
-          const match = pharmacy.find(p =>
-            p.medicineName.toLowerCase().trim() === r.name.toLowerCase().trim()
-          );
-          const unitPrice = match ? (match.unitPrice ?? 0) : 0;
-          const amount = qty * unitPrice;
-          const durationStr = r.durationNum ? `${r.durationNum} ${r.durationUnit || 'days'}` : (r.duration || '');
-          return {
-            description: [r.name.trim(), `×${qty}`, r.frequency, durationStr].filter(Boolean).join(" "),
-            category: "Pharmacy",
-            amount, paid: false, qty, unitPrice,
-            // Structured fields for clean display in billing tables
-            medicineName: r.name.trim(),
-            dosage: r.dosage || undefined,
-            frequency: r.frequency || undefined,
-            duration: durationStr || undefined,
-            route: r.route || undefined,
-            remarks: r.remarks || undefined,
-          };
-        });
-
-      if (newServices.length === 0) {
-        notify.warning("No valid prescription items found");
-        return;
-      }
-
-      const activeBill = findActiveBill();
-
-      if (activeBill) {
-        const existing = (activeBill.services ?? []) as ServiceItem[];
-        const existingKeys = new Set(
-          existing.filter(s => s.category === "Pharmacy").map(s => (s.medicineName || s.description.split(" ")[0]).toLowerCase())
-        );
-        const unique = newServices.filter(s => !existingKeys.has((s.medicineName || s.description.split(" ")[0]).toLowerCase()));
-
-        if (unique.length === 0) {
-          notify.warning("Already loaded", { description: "All prescription items are already in this bill." });
-          return;
-        }
-
-        const combined = [...existing, ...unique];
-        const { subtotal, total } = computeTotals(combined, activeBill.discountPct ?? 0, activeBill.taxPct ?? 0);
-        const res = await apiRequest("PATCH", `/api/auth/clinic/bills/${activeBill.id}`, {
-          services: combined, subtotal, total,
-          paymentStatus: activeBill.paymentStatus === "draft" ? "draft" : computeStatus(combined),
-        });
-        if (!res.ok) throw new Error("Failed to update bill");
-        await logAudit("prescription_loaded", { count: unique.length, recordId: record.id }, activeBill.id);
-      } else {
-        const { subtotal, total } = computeTotals(newServices, 0, 0);
-        const res = await apiRequest("POST", "/api/auth/clinic/bills", {
-          bookingId,
-          patientId: patientId || null,
-          billNumber: uniqueBillNumber(bookingId),
-          patientName: patientName || "Patient",
-          patientPhone: patientPhone || "",
-          patientEmail: patientEmail || "",
-          services: newServices,
-          subtotal, total,
-          paymentStatus: "draft",
-        });
-        if (!res.ok) throw new Error("Failed to create bill");
-        const newBill = await res.json();
-        await logAudit("prescription_loaded", { count: newServices.length, recordId: record.id, newDraft: true }, newBill.id);
-      }
-
-      invalidate();
-      const matched = newServices.filter(s => (s.unitPrice ?? 0) > 0).length;
-      const unmatched = newServices.length - matched;
-      notify.success(`${newServices.length} prescription item${newServices.length !== 1 ? "s" : ""} loaded`, {
-        description: matched > 0
-          ? `${matched} auto-priced from catalog${unmatched > 0 ? ` · ${unmatched} need manual pricing` : ""}`
-          : `${unmatched} item${unmatched !== 1 ? "s" : ""} added — please set prices below`,
-      });
+      // Multiple prescriptions — let the user pick
+      setRxPickerRecords(withRx);
+      setRxPickerOpen(true);
     } catch {
       notify.error("Could not load prescription items");
     } finally {
@@ -1953,6 +1959,72 @@ export function BillingHistoryPanel({
           </div>
         )}
       </div>
+
+      {/* ── PRESCRIPTION PICKER DIALOG ────────────────────────────────── */}
+      <Dialog open={rxPickerOpen} onOpenChange={open => { if (!open) setRxPickerOpen(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <Pill className="h-4 w-4 text-primary" /> Choose a Prescription to Load
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-1">
+            {rxPickerRecords.length} prescriptions found for this appointment — select one to import into the bill.
+          </p>
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {rxPickerRecords.map(record => {
+              const meds = parsePrescription(record.prescription) ?? [];
+              const preview = meds.slice(0, 2).map(m => m.name).filter(Boolean).join(", ") + (meds.length > 2 ? `… +${meds.length - 2}` : "");
+              const hasLinkedDx = !!(record.diagnosis && record.diagnosis.length > 0);
+              return (
+                <button
+                  key={record.id}
+                  onClick={async () => {
+                    setRxPickerOpen(false);
+                    setLoadingPrescription(true);
+                    try {
+                      await doLoadPrescription(record);
+                    } catch {
+                      notify.error("Could not load prescription items");
+                    } finally {
+                      setLoadingPrescription(false);
+                    }
+                  }}
+                  className="w-full text-left rounded-xl border border-border/60 bg-muted/10 hover:bg-primary/5 hover:border-primary/30 px-3 py-2.5 space-y-1 transition-colors"
+                  data-testid={`button-rx-picker-${record.id}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-foreground">
+                      {record.createdAt ? format(new Date(record.createdAt), "d MMM yyyy · h:mm a") : "Unknown date"}
+                    </span>
+                    {hasLinkedDx && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold leading-none shrink-0">
+                        Rx ✓ Linked to Dx
+                      </span>
+                    )}
+                  </div>
+                  {record.doctorName && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Stethoscope className="h-3 w-3" /> Dr. {record.doctorName}
+                    </p>
+                  )}
+                  {hasLinkedDx && (
+                    <div className="flex flex-wrap gap-1">
+                      {(record.diagnosis ?? []).slice(0, 3).map(d => (
+                        <span key={d} className="text-[10px] px-1.5 py-0.5 rounded-full border border-primary/20 bg-primary/5 text-primary font-medium">{d}</span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground/80 flex items-center gap-1">
+                    <Pill className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{preview || `${meds.length} medicine${meds.length !== 1 ? "s" : ""}`}</span>
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── INVOICE PREVIEW MODAL ─────────────────────────────────────── */}
       <InvoicePreviewModal
