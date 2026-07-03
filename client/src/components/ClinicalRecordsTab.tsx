@@ -142,6 +142,10 @@ function PrescriptionDisplay({ prescription }: { prescription: string | null | u
 
 // ─── Medicine autocomplete combobox ───────────────────────────────────────────
 
+function capitalizeFirst(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
 function MedicineCombobox({
   value, onChange, onSelect, catalogue, idx,
 }: {
@@ -154,6 +158,9 @@ function MedicineCombobox({
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0, width: 240 });
+  // Tracks whether the user's pointer is down inside the dropdown — prevents
+  // the input's onBlur from closing the dropdown before the click fires.
+  const clickingDropdownRef = useRef(false);
 
   const matches = catalogue.filter(i =>
     !value.trim() ||
@@ -177,9 +184,14 @@ function MedicineCombobox({
       <Input
         ref={inputRef}
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => onChange(capitalizeFirst(e.target.value))}
         onFocus={() => { updatePos(); setOpen(true); }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onBlur={() => {
+          // If a dropdown item is being clicked, do not close yet — the click
+          // handler will close it after onSelect fires.
+          if (clickingDropdownRef.current) return;
+          setTimeout(() => setOpen(false), 150);
+        }}
         placeholder="Medicine name"
         className="h-7 text-xs px-2"
         autoComplete="off"
@@ -189,6 +201,8 @@ function MedicineCombobox({
         <div
           style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
           className="bg-popover border border-border/60 rounded-lg shadow-xl overflow-hidden py-0.5"
+          onPointerDown={() => { clickingDropdownRef.current = true; }}
+          onPointerUp={() => { clickingDropdownRef.current = false; }}
         >
           {matches.map(item => {
             const expired = isExpired(item);
@@ -200,8 +214,12 @@ function MedicineCombobox({
                 type="button"
                 className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-muted/60 transition-colors gap-2"
                 onMouseDown={e => {
+                  // Prevent focus from leaving the input so blur does not fire.
                   e.preventDefault();
+                }}
+                onClick={() => {
                   onSelect(item.medicineName, item.dosage || "");
+                  clickingDropdownRef.current = false;
                   setOpen(false);
                 }}
               >
@@ -891,9 +909,9 @@ export default function ClinicalRecordsTab({
 
                   {/* Column headers */}
                   <div className="overflow-x-auto">
-                    <div className="min-w-[560px]">
-                      <div className="grid gap-x-1 mb-1 px-1" style={{ gridTemplateColumns: "1fr 62px 40px 58px 40px 66px 70px 22px" }}>
-                        {["Medicine", "Dosage", "Qty", "Freq", "Dur.", "Unit", "Route", ""].map((h, i) => (
+                    <div className="min-w-[664px]">
+                      <div className="grid gap-x-1 mb-1 px-1" style={{ gridTemplateColumns: "20px 1fr 56px 32px 52px 32px 58px 62px 20px" }}>
+                        {["#", "Medicine", "Dosage", "Qty", "Freq", "Dur.", "Unit", "Route", ""].map((h, i) => (
                           <span key={i} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 truncate">{h}</span>
                         ))}
                       </div>
@@ -906,7 +924,12 @@ export default function ClinicalRecordsTab({
                           <div key={idx} className="space-y-0.5" data-testid={`medicine-row-${idx}`}>
                             <div
                               className="grid gap-x-1 items-center"
-                              style={{ gridTemplateColumns: "1fr 62px 40px 58px 40px 66px 70px 22px" }}>
+                              style={{ gridTemplateColumns: "20px 1fr 56px 32px 52px 32px 58px 62px 20px" }}>
+
+                            {/* Serial number */}
+                            <span className="text-xs text-muted-foreground/60 font-semibold text-center select-none">
+                              {idx + 1}
+                            </span>
 
                             {mode === "doctor" ? (
                               <MedicineCombobox
@@ -922,7 +945,7 @@ export default function ClinicalRecordsTab({
                                 idx={idx}
                               />
                             ) : (
-                              <Input value={row.name} onChange={e => updateRxRow(idx, "name", e.target.value)}
+                              <Input value={row.name} onChange={e => updateRxRow(idx, "name", capitalizeFirst(e.target.value))}
                                 placeholder="Medicine name"
                                 className="h-7 text-xs px-2" data-testid={`input-medicine-name-${idx}`} />
                             )}
