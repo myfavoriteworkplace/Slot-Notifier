@@ -2033,7 +2033,7 @@ export default function BookingsPanel({
                             <div className="px-4 pt-3 pb-4 space-y-2.5">
 
                               {/* ── Patient info card — matches info grid row pattern ── */}
-                              <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                              <div className="rounded-xl border border-green-800/30 bg-white shadow-sm px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
 
                                 {/* Patient ID */}
                                 <div className="flex items-center gap-1.5 text-xs min-w-0">
