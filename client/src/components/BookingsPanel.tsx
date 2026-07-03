@@ -1435,10 +1435,17 @@ export default function BookingsPanel({
             <div className="grid grid-cols-[46px_1fr_1fr_1fr] gap-x-2 gap-y-1.5 items-center sm:hidden">
               {/* STATUS row 1: label | Confirmed | Pending | Cancelled */}
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50">Status</span>
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
-                <span className="text-xs font-medium text-emerald-500 truncate">Confirmed</span>
-              </div>
+              <TooltipProvider delayDuration={400}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 min-w-0 cursor-default">
+                      <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
+                      <span className="text-xs font-medium text-emerald-500 truncate">Confirmed</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">Confirmed · Visit Completed</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <div className="flex items-center gap-1 min-w-0">
                 <span className="h-4 w-[4px] rounded-sm shrink-0 bg-amber-400" />
                 <span className="text-xs font-medium text-amber-500 truncate">Pending</span>
@@ -1449,70 +1456,114 @@ export default function BookingsPanel({
               </div>
               {/* STATUS row 2: empty | No Show | In Consult | empty */}
               <span />
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-slate-400" />
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">No Show</span>
-              </div>
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="h-4 w-[4px] rounded-sm shrink-0 bg-teal-400" />
-                <span className="text-xs font-medium text-teal-600 dark:text-teal-400 truncate">In Consult</span>
-              </div>
+              <TooltipProvider delayDuration={400}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 min-w-0 cursor-default">
+                      <span className="h-4 w-[4px] rounded-sm shrink-0 bg-slate-400" />
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">No Show</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">No Show · Left Early</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={400}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 min-w-0 cursor-default">
+                      {/* Ring swatch — matches full-border card treatment for active visit states */}
+                      <span className="h-4 w-4 rounded-sm shrink-0 border-2 border-violet-500 bg-transparent" />
+                      <span className="text-xs font-medium text-violet-600 dark:text-violet-400 truncate">In Consult</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">Checked In · In Consult · Treatment in Progress</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <span />
-              {/* WHEN row: only when showing all bookings without a date filter */}
-              {quickFilter === 'all' && !filterDate && (
-                <>
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50">When</span>
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="h-[5px] w-5 rounded-sm shrink-0 bg-sky-400" />
-                    <span className="text-xs font-medium text-sky-500 truncate">Today</span>
-                  </div>
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="h-[5px] w-5 rounded-sm shrink-0 bg-primary" />
-                    <span className="text-xs font-medium text-primary truncate">Upcoming</span>
-                  </div>
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="h-[5px] w-5 rounded-sm shrink-0 bg-slate-300 dark:bg-slate-500" />
-                    <span className="text-xs font-medium text-slate-400 dark:text-slate-500 truncate">Past</span>
-                  </div>
-                </>
-              )}
+              {/* WHEN row — always visible so top-bar colour is explained on every filter */}
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50">When</span>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-[5px] w-5 rounded-sm shrink-0 bg-sky-400" />
+                <span className="text-xs font-medium text-sky-500 truncate">Today</span>
+              </div>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-[5px] w-5 rounded-sm shrink-0 bg-primary" />
+                <span className="text-xs font-medium text-primary truncate">Upcoming</span>
+              </div>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="h-[5px] w-5 rounded-sm shrink-0 bg-slate-300 dark:bg-slate-500" />
+                <span className="text-xs font-medium text-slate-400 dark:text-slate-500 truncate">Past</span>
+              </div>
             </div>
 
             {/* ── Desktop layout: single flex row ── */}
             <div className="hidden sm:flex sm:items-center sm:gap-x-3 group">
               <div className="flex items-center gap-x-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 shrink-0">Status</span>
-                {([
-                  { color: "bg-emerald-400", label: "Confirmed",  text: "text-emerald-500"                  },
-                  { color: "bg-amber-400",   label: "Pending",    text: "text-amber-500"                    },
-                  { color: "bg-rose-400",    label: "Cancelled",  text: "text-rose-500"                     },
-                  { color: "bg-slate-400",   label: "No Show",    text: "text-slate-500 dark:text-slate-400"},
-                  { color: "bg-teal-400",    label: "In Consult", text: "text-teal-600 dark:text-teal-400"  },
-                ] as const).map(({ color, label, text }) => (
-                  <div key={label} className="flex items-center gap-1 shrink-0">
-                    <span className={`h-4 w-[4px] rounded-sm shrink-0 ${color}`} />
-                    <span className={`text-xs font-medium ${text}`}>{label}</span>
-                  </div>
-                ))}
-              </div>
-              {quickFilter === 'all' && !filterDate && (
-                <>
-                  <span className="h-3.5 w-px bg-border/60 shrink-0" />
-                  <div className="flex items-center gap-x-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 shrink-0">When</span>
-                    {([
-                      { color: "bg-sky-400",                     label: "Today",    text: "text-sky-500"                       },
-                      { color: "bg-primary",                     label: "Upcoming", text: "text-primary"                       },
-                      { color: "bg-slate-300 dark:bg-slate-500", label: "Past",     text: "text-slate-400 dark:text-slate-500" },
-                    ] as const).map(({ color, label, text }) => (
-                      <div key={label} className="flex items-center gap-1 shrink-0">
-                        <span className={`h-[5px] w-5 rounded-sm shrink-0 ${color}`} />
-                        <span className={`text-xs font-medium ${text}`}>{label}</span>
+                {/* Confirmed — merges Visit Completed */}
+                <TooltipProvider delayDuration={400}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 shrink-0 cursor-default">
+                        <span className="h-4 w-[4px] rounded-sm shrink-0 bg-emerald-400" />
+                        <span className="text-xs font-medium text-emerald-500">Confirmed</span>
                       </div>
-                    ))}
-                  </div>
-                </>
-              )}
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">Confirmed · Visit Completed</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                {/* Pending */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="h-4 w-[4px] rounded-sm shrink-0 bg-amber-400" />
+                  <span className="text-xs font-medium text-amber-500">Pending</span>
+                </div>
+                {/* Cancelled */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="h-4 w-[4px] rounded-sm shrink-0 bg-rose-400" />
+                  <span className="text-xs font-medium text-rose-500">Cancelled</span>
+                </div>
+                {/* No Show — merges Left Early */}
+                <TooltipProvider delayDuration={400}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 shrink-0 cursor-default">
+                        <span className="h-4 w-[4px] rounded-sm shrink-0 bg-slate-400" />
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">No Show</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[160px] text-center">No Show · Left Early</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                {/* In Consult — ring swatch, merges Checked In + Treatment Completed */}
+                <TooltipProvider delayDuration={400}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 shrink-0 cursor-default">
+                        <span className="h-4 w-4 rounded-sm shrink-0 border-2 border-violet-500 bg-transparent" />
+                        <span className="text-xs font-medium text-violet-600 dark:text-violet-400">In Consult</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[180px] text-center">Checked In · In Consult · Treatment in Progress</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              {/* WHEN — always visible so the top-bar colour is explained on every filter */}
+              <>
+                <span className="h-3.5 w-px bg-border/60 shrink-0" />
+                <div className="flex items-center gap-x-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/50 shrink-0">When</span>
+                  {([
+                    { color: "bg-sky-400",                     label: "Today",    text: "text-sky-500"                       },
+                    { color: "bg-primary",                     label: "Upcoming", text: "text-primary"                       },
+                    { color: "bg-slate-300 dark:bg-slate-500", label: "Past",     text: "text-slate-400 dark:text-slate-500" },
+                  ] as const).map(({ color, label, text }) => (
+                    <div key={label} className="flex items-center gap-1 shrink-0">
+                      <span className={`h-[5px] w-5 rounded-sm shrink-0 ${color}`} />
+                      <span className={`text-xs font-medium ${text}`}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
               <button
                 onClick={() => setLegendCollapsed(true)}
                 title="Hide legend"

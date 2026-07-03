@@ -230,51 +230,44 @@ export function AppointmentCard({
     : "booked";
 
   // ── Visual classes ──
-  const accentBar = isNoShowState
-    ? "bg-gradient-to-r from-slate-400 to-slate-300"
-    : isCancelled
-    ? "bg-gradient-to-r from-rose-400 to-rose-300"
-    : isLeftEarlyState
-    ? "bg-gradient-to-r from-amber-400 to-orange-300"
-    : isVisitCompleted
-    ? "bg-gradient-to-r from-emerald-400 to-teal-400"
-    : isTreatmentCompleted
-    ? "bg-gradient-to-r from-amber-400 to-yellow-300"
-    : isToday
+  // Top bar encodes WHEN only — status is always on the left/full border.
+  const accentBar = isToday
     ? "bg-gradient-to-r from-sky-400 to-cyan-400"
     : isPast
     ? "bg-gradient-to-r from-slate-300 to-slate-200"
     : "bg-gradient-to-r from-primary to-accent";
 
-  // Full-border for active live states; left-border accent for everything else
+  // Left border = STATUS dimension.
+  // In Consult group (checked-in → in consult → treatment done) → violet full/left border.
+  // Visit Completed merges with Confirmed → emerald.
+  // Left Early merges with No Show → slate.
   const cardBorderClass = isInConsultation
-    ? "border-2 border-teal-400/70 shadow-sm shadow-teal-400/10"
+    ? "border-2 border-violet-500/70 shadow-sm shadow-violet-500/10"
     : role === "doctor" && isCheckedIn
-    ? "border-2 border-primary/60 shadow-sm shadow-primary/10"
+    ? "border-2 border-violet-500/60 shadow-sm shadow-violet-500/10"
     : isCheckedIn
-    ? "border-l-[3px] border-l-sky-400 dark:border-l-sky-500"
+    ? "border-l-[3px] border-l-violet-400 dark:border-l-violet-500"
     : isCancelled
     ? "border-l-[3px] border-l-rose-400 dark:border-l-rose-500"
     : isNoShowState
     ? "border-l-[3px] border-l-slate-400 dark:border-l-slate-500"
     : isLeftEarlyState
-    ? "border-l-[3px] border-l-amber-400 dark:border-l-amber-500"
+    ? "border-l-[3px] border-l-slate-400 dark:border-l-slate-500"
     : isVisitCompleted
     ? "border-l-[3px] border-l-emerald-400 dark:border-l-emerald-500"
     : isTreatmentCompleted
-    ? "border-l-[3px] border-l-amber-400 dark:border-l-amber-500"
+    ? "border-l-[3px] border-l-violet-400 dark:border-l-violet-500"
     : isConfirmed
     ? "border-l-[3px] border-l-emerald-400 dark:border-l-emerald-500"
     : "border-l-[3px] border-l-amber-400 dark:border-l-amber-500";
 
-  const headerBg = isNoShowState || isCancelled || isLeftEarlyState
+  // Header tint follows WHEN; terminal states are muted regardless of date.
+  const headerBg = (isNoShowState || isCancelled || isLeftEarlyState)
     ? "bg-muted/30"
-    : isVisitCompleted
-    ? "bg-gradient-to-r from-emerald-500/5 to-teal-500/5"
-    : isTreatmentCompleted
-    ? "bg-gradient-to-r from-amber-500/5 to-yellow-500/5"
     : isToday
     ? "bg-gradient-to-r from-sky-500/10 to-cyan-500/5"
+    : isPast
+    ? "bg-muted/20"
     : "bg-gradient-to-r from-primary/5 to-accent/5";
 
 
