@@ -2835,6 +2835,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // GET /api/auth/clinic/bookings/stats — lightweight stats object for hero cards
+  app.get("/api/auth/clinic/bookings/stats", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.clinicId) return res.status(403).json({ message: "Clinic session required" });
+    try {
+      const stats = await storage.getClinicBookingStats(sess.clinicId);
+      return res.json(stats);
+    } catch (err) {
+      return res.status(500).json({ message: "Failed to fetch booking stats" });
+    }
+  });
+
   app.get("/api/auth/clinic/bookings", isAuthenticated, async (req, res) => {
     const sess = req.session as any;
     if (sess.role === 'doctor') {
@@ -2854,6 +2866,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.json(results.map(r => ({ ...r.booking, clinicId: r.slot.clinicId, slot: r.slot, clinic: r.clinic })));
     }
     if (sess.clinicId) {
+      // Paginated path (when ?page is provided)
+      if (req.query.page !== undefined) {
+        const parseResult = z.object({
+          filter:   z.string().optional().default('all'),
+          page:     z.coerce.number().min(1).optional().default(1),
+          pageSize: z.coerce.number().min(1).max(500).optional().default(20),
+          dateFrom: z.string().optional(),
+          dateTo:   z.string().optional(),
+          search:   z.string().optional(),
+          patientId: z.coerce.number().optional(),
+        }).safeParse(req.query);
+        if (!parseResult.success) return res.status(400).json({ message: "Invalid query params" });
+        const paged = await storage.getClinicBookingsPaged(sess.clinicId, parseResult.data);
+        return res.json(paged);
+      }
+      // Legacy flat path (no page param — used by ExportDataPanel / AccountsPanel)
       const b = await storage.getClinicBookings(sess.clinicId);
       return res.json(b);
     }

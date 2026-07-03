@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
@@ -72,7 +72,8 @@ import {
 import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity, CalendarPlus, RefreshCw, Lightbulb, Maximize2, Minimize2 } from "lucide-react";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
-import { filterAndSortBookings, getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber } from "@/lib/booking-list";
+import { filterAndSortBookings, getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber, type BookingsPagedResponse } from "@/lib/booking-list";
+import { BookingsPagination } from "@/components/BookingsPagination";
 import type { PatientBill, Patient } from "@shared/schema";
 
 function BookingCardSkeleton() {
@@ -211,6 +212,9 @@ export default function BookingsPanel({
   const [legendCollapsed, setLegendCollapsed] = useState(false);
   const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   const [bookingPatientSearch, setBookingPatientSearch] = useState("");
   const [bookingPatientResults, setBookingPatientResults] = useState<Patient[]>([]);
   const [bookingPatientResultsLoading, setBookingPatientResultsLoading] = useState(false);
@@ -243,18 +247,37 @@ export default function BookingsPanel({
   const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
   const dates = useMemo(() => Array.from({ length: 14 }, (_, idx) => addDays(startOfToday(), idx)), []);
 
-  const { data: bookings, isLoading: bookingsLoading, isError: bookingsError, error: bookingsErrorDetails, refetch: refetchBookings } = useQuery<BookingWithSlot[]>({
-    queryKey: ['/api/auth/clinic/bookings'],
+  // Reset to page 1 whenever the filter/dates/patient change
+  useEffect(() => { setPage(1); }, [quickFilter, filterDate, filterEndDate, activePatientFilter]);
+
+  const bookingsQueryKey = ['/api/auth/clinic/bookings', {
+    filter: quickFilter,
+    page,
+    pageSize,
+    dateFrom: filterDate ? format(filterDate, 'yyyy-MM-dd') : undefined,
+    dateTo: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : undefined,
+    patientId: activePatientFilter?.id,
+  }];
+
+  const { data: pagedResponse, isLoading: bookingsLoading, isError: bookingsError, error: bookingsErrorDetails, refetch: refetchBookings } = useQuery<BookingsPagedResponse>({
+    queryKey: bookingsQueryKey,
     queryFn: async () => {
-      const res = await apiRequest('GET', '/api/auth/clinic/bookings');
+      const params = new URLSearchParams({ filter: quickFilter, page: String(page), pageSize: String(pageSize) });
+      if (filterDate) params.set('dateFrom', format(filterDate, 'yyyy-MM-dd'));
+      if (filterEndDate) params.set('dateTo', format(filterEndDate, 'yyyy-MM-dd'));
+      if (activePatientFilter) params.set('patientId', String(activePatientFilter.id));
+      const res = await apiRequest('GET', `/api/auth/clinic/bookings?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch bookings');
       return res.json();
     },
     enabled: isAuthenticated,
     refetchOnMount: true,
-    refetchInterval: 30_000,
-    staleTime: 30_000,
+    refetchInterval: quickFilter === 'today' ? 30_000 : false,
+    staleTime: quickFilter === 'today' ? 30_000 : 5 * 60_000,
   });
+
+  const bookings = pagedResponse?.data;
+  const bookingStats = pagedResponse?.stats;
 
   const { data: allDoctorLeaves = [] } = useQuery<{ doctorEmail?: string; doctorName?: string; leaveDate: string; reason?: string | null }[]>({
     queryKey: ['/api/clinic/doctor-leaves/all'],
@@ -281,36 +304,16 @@ export default function BookingsPanel({
     staleTime: 30_000,
   });
 
-  const todaysBookingsCount = bookings?.filter(b => {
-    const bookingDateStr = format(new Date(b.slot.startTime), 'yyyy-MM-dd');
-    return bookingDateStr === todayStr;
-  }).length || 0;
+  // Chip badge counts come from the server stats (across all pages)
+  const todaysBookingsCount = bookingStats?.todayCount ?? 0;
+  const futureBookingsCount = bookingStats?.upcomingCount ?? 0;
+  const pastBookingsCount   = bookingStats?.pastCount ?? 0;
+  const thisWeekCount       = bookingStats?.thisWeekCount ?? 0;
+  const nextWeekCount       = bookingStats?.nextWeekCount ?? 0;
 
-  const futureBookingsCount = bookings?.filter(b => {
-    const bookingDateStr = format(new Date(b.slot.startTime), 'yyyy-MM-dd');
-    return bookingDateStr > todayStr &&
-      b.visitStatus !== 'completed' &&
-      b.visitStatus !== 'patient_left_early';
-  }).length || 0;
-
-  const pastBookingsCount = bookings?.filter(b => {
-    const bookingDate = new Date(b.slot.startTime);
-    return bookingDate < todayStart;
-  }).length || 0;
-
-  const thisWeekCount = bookings?.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= thisWeekStart && d <= thisWeekEnd;
-  }).length || 0;
-
-  const nextWeekCount = bookings?.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= nextWeekStart && d <= nextWeekEnd;
-  }).length || 0;
-
-  const activePatientBookings = activePatientFilter && bookings
-    ? bookings.filter(booking => (booking as any).patientId === activePatientFilter.id)
-    : [];
+  // Patient-context bookings for smart empty-state hints
+  // When a patient filter is active, `bookings` already only contains that patient's bookings
+  const activePatientBookings = activePatientFilter && bookings ? bookings : [];
 
   const patientPastBk = activePatientBookings.filter(booking => {
     const bookingDate = new Date(booking.slot.startTime);
@@ -334,23 +337,8 @@ export default function BookingsPanel({
     return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
   });
 
-  const filteredBookings = useMemo(() => {
-    if (!bookings) return [];
-    return filterAndSortBookings({
-      bookings,
-      quickFilter,
-      activePatientFilter,
-      filterDate,
-      filterEndDate,
-      todayStart,
-      todayStr,
-      thisWeekStart,
-      thisWeekEnd,
-      nextWeekStart,
-      nextWeekEnd,
-      statNext7DaysEnd,
-    });
-  }, [bookings, quickFilter, activePatientFilter, filterDate, filterEndDate, todayStart, todayStr, thisWeekStart, thisWeekEnd, nextWeekStart, nextWeekEnd, statNext7DaysEnd]);
+  // The server already filtered and paginated — use the page data directly
+  const filteredBookings = useMemo(() => bookings ?? [], [bookings]);
 
   const emptyStateMeta = useMemo(() => getBookingEmptyStateMeta({
     activePatientFilter,
@@ -511,8 +499,8 @@ export default function BookingsPanel({
   // ─────────────────────────────────────────────────────────────────────────
 
   const bookingNumber = (booking: BookingWithSlot) => {
-    if (!bookings) return "0";
-    return getBookingNumber({ booking, bookings });
+    if (!filteredBookings.length) return "0";
+    return getBookingNumber({ booking, bookings: filteredBookings });
   };
 
   const statusGroup = (booking: BookingWithSlot) => {
@@ -745,7 +733,7 @@ export default function BookingsPanel({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clinic/bookings'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Booking cancelled");
       setCancellingBookingId(null);
       setCancelReason("");
@@ -763,7 +751,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Doctor assigned");
     },
     onError: (error: any) => { notify.apiError(error, "Failed to assign doctor"); },
@@ -776,7 +764,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       setRescheduleBookingId(null);
       setRescheduleSlot(null);
       notify.success("Booking rescheduled");
@@ -791,7 +779,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Clinical status updated");
     },
     onError: (error: any) => { notify.apiError(error, "Failed to update clinical status"); },
@@ -804,7 +792,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: (_data, { undo }) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success(undo ? "Check-in undone" : "Patient marked as arrived");
     },
     onError: (error: any) => notify.apiError(error, "Failed to update check-in"),
@@ -817,7 +805,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Visit marked as complete");
     },
     onError: (error: any) => notify.apiError(error, "Failed to complete visit"),
@@ -830,7 +818,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Marked as no-show");
     },
     onError: (error: any) => notify.apiError(error, "Failed to mark no-show"),
@@ -853,7 +841,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Visit marked as complete (override)");
     },
     onError: (error: any) => notify.apiError(error, "Failed to override complete"),
@@ -866,7 +854,7 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Recorded — patient left before completion");
     },
     onError: (error: any) => notify.apiError(error, "Failed to record early departure"),
@@ -883,7 +871,7 @@ export default function BookingsPanel({
     },
     onSuccess: (data, bookingId) => {
       setConsentUrls(prev => ({ ...prev, [bookingId]: data.consentUrl }));
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Consent request sent", { description: "WhatsApp link sent to the patient." });
     },
     onError: (error: any) => { notify.apiError(error, "Failed to send consent request"); },
@@ -899,30 +887,16 @@ export default function BookingsPanel({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/clinic/bookings'], exact: false });
       notify.success("Booking Confirmed", { description: "A confirmation email has been sent to the patient." });
     },
     onError: (error: any) => { notify.apiError(error, "Failed to confirm booking"); },
   });
 
-  const next7DaysEnd = addDays(todayStart, 7);
-  const todayConfirmedCount = bookings?.filter(b =>
-    format(new Date(b.slot.startTime), 'yyyy-MM-dd') === todayStr &&
-    (b.verificationStatus === 'confirmed' || !!b.confirmedBy)
-  ).length ?? 0;
-  const pendingNext7Count = bookings?.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= todayStart && d <= next7DaysEnd &&
-      b.verificationStatus !== 'confirmed' && !b.confirmedBy;
-  }).length ?? 0;
-  const totalPendingCount = bookings?.filter(b =>
-    b.verificationStatus !== 'confirmed' && !b.confirmedBy
-  ).length ?? 0;
-  const confirmedNext7Count = bookings?.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= todayStart && d <= next7DaysEnd &&
-      (b.verificationStatus === 'confirmed' || !!b.confirmedBy);
-  }).length ?? 0;
+  const todayConfirmedCount = bookingStats?.todayConfirmedCount ?? 0;
+  const pendingNext7Count   = bookingStats?.pendingNext7Count ?? 0;
+  const totalPendingCount   = bookingStats?.totalPendingCount ?? 0;
+  const confirmedNext7Count = bookingStats?.confirmedNext7Count ?? 0;
 
   return (
           <div className="space-y-5" ref={bookingsSectionRef}>
@@ -1016,7 +990,7 @@ export default function BookingsPanel({
             </span>
             <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
               quickFilter === 'all' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
-            }`}>{bookings?.length || 0}</span>
+            }`}>{pagedResponse?.total ?? 0}</span>
           </button>
 
           {/* Search slot — magnifier, expanded input, or active-patient chip */}

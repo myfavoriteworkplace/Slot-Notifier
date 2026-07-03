@@ -381,13 +381,13 @@ export default function ClinicDashboard() {
     setPatientSearchHighlightIdx(-1);
   };
 
-  const { data: bookings, isLoading: bookingsLoading } = useQuery<BookingWithSlot[]>({
-    queryKey: ['/api/auth/clinic/bookings'],
-    queryFn: async () => {
-      const res = await apiRequest('GET', '/api/auth/clinic/bookings');
-      if (!res.ok) throw new Error('Failed to fetch bookings');
-      return res.json();
-    },
+  // Lightweight stats for hero stat cards — fetched independently of the paginated BookingsPanel query
+  const { data: bookingHeroStats, isLoading: bookingsLoading } = useQuery<{
+    todayCount: number; todayConfirmedCount: number; upcomingCount: number; pastCount: number;
+    thisWeekCount: number; nextWeekCount: number; pendingNext7Count: number;
+    confirmedNext7Count: number; totalPendingCount: number;
+  }>({
+    queryKey: ['/api/auth/clinic/bookings/stats'],
     enabled: isAuthenticated && activePanel === 'bookings',
     refetchOnMount: true,
     refetchInterval: activePanel === 'bookings' ? 30_000 : false,
@@ -417,61 +417,12 @@ export default function ClinicDashboard() {
     services: [{ description: "Dental Consultation", amount: "500", category: "Consultation" }],
   });
 
-  // Count today's bookings using the same timezone-safe comparison
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const todayStart = startOfDay(new Date());
-  const statNext7DaysEnd = addDays(todayStart, 7);
-
-  const todaysBookingsCount = bookings?.filter(b => {
-    const bookingDateStr = format(new Date(b.slot.startTime), 'yyyy-MM-dd');
-    return bookingDateStr === todayStr;
-  }).length || 0;
-
-  // Count upcoming bookings (after today, non-completed — matches the "upcoming" filter chip)
-  const futureBookingsCount = bookings?.filter(b => {
-    const bookingDateStr = format(new Date(b.slot.startTime), 'yyyy-MM-dd');
-    return bookingDateStr > todayStr &&
-      b.visitStatus !== 'completed' &&
-      b.visitStatus !== 'patient_left_early';
-  }).length || 0;
-
-  // Count past bookings (before today)
-  const pastBookingsCount = bookings?.filter(b => {
-    const bookingDate = new Date(b.slot.startTime);
-    return bookingDate < todayStart;
-  }).length || 0;
-
-  const thisWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const thisWeekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
-  const nextWeekStart = startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
-  const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
-
-  const thisWeekCount = bookings?.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= thisWeekStart && d <= thisWeekEnd;
-  }).length || 0;
-
-  const nextWeekCount = bookings?.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= nextWeekStart && d <= nextWeekEnd;
-  }).length || 0;
-
-  const filteredBookings = bookings
-    ? filterAndSortBookings({
-        bookings,
-        quickFilter,
-        activePatientFilter,
-        filterDate,
-        filterEndDate,
-        todayStart,
-        todayStr,
-        thisWeekStart,
-        thisWeekEnd,
-        nextWeekStart,
-        nextWeekEnd,
-        statNext7DaysEnd,
-      })
-    : [];
+  // Derived counts for the hero stat cards — sourced from the server stats endpoint
+  const todaysBookingsCount = bookingHeroStats?.todayCount ?? 0;
+  const futureBookingsCount = bookingHeroStats?.upcomingCount ?? 0;
+  const pastBookingsCount   = bookingHeroStats?.pastCount ?? 0;
+  const thisWeekCount       = bookingHeroStats?.thisWeekCount ?? 0;
+  const nextWeekCount       = bookingHeroStats?.nextWeekCount ?? 0;
 
   const handleOpenBilling = async (booking: BookingWithSlot, existingBill?: PatientBill) => {
     setBillingBooking(booking);
@@ -873,24 +824,10 @@ export default function ClinicDashboard() {
     return null;
   }
 
-  const next7DaysEnd = addDays(todayStart, 7);
-  const todayConfirmedCount = bookings?.filter(b =>
-    format(new Date(b.slot.startTime), 'yyyy-MM-dd') === todayStr &&
-    (b.verificationStatus === 'confirmed' || !!b.confirmedBy)
-  ).length ?? 0;
-  const pendingNext7Count = bookings?.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= todayStart && d <= next7DaysEnd &&
-      b.verificationStatus !== 'confirmed' && !b.confirmedBy;
-  }).length ?? 0;
-  const totalPendingCount = bookings?.filter(b =>
-    b.verificationStatus !== 'confirmed' && !b.confirmedBy
-  ).length ?? 0;
-  const confirmedNext7Count = bookings?.filter(b => {
-    const d = new Date(b.slot.startTime);
-    return d >= todayStart && d <= next7DaysEnd &&
-      (b.verificationStatus === 'confirmed' || !!b.confirmedBy);
-  }).length ?? 0;
+  const todayConfirmedCount = bookingHeroStats?.todayConfirmedCount ?? 0;
+  const pendingNext7Count   = bookingHeroStats?.pendingNext7Count ?? 0;
+  const totalPendingCount   = bookingHeroStats?.totalPendingCount ?? 0;
+  const confirmedNext7Count = bookingHeroStats?.confirmedNext7Count ?? 0;
 
   return (
     <div className="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 2xl:px-16 lg:pb-0">
@@ -1452,7 +1389,7 @@ export default function ClinicDashboard() {
             <AccountsPanel
               clinic={clinic}
               allBills={allBills}
-              bookings={bookings}
+              bookings={undefined}
               onViewPatient={handleViewPatient}
             />
           )}

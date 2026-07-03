@@ -1,6 +1,27 @@
 import { format, startOfDay, endOfDay } from "date-fns";
 import type { BookingWithSlot } from "@/lib/clinic-constants";
 
+export interface BookingStats {
+  todayCount: number;
+  todayConfirmedCount: number;
+  upcomingCount: number;
+  pastCount: number;
+  thisWeekCount: number;
+  nextWeekCount: number;
+  pendingNext7Count: number;
+  confirmedNext7Count: number;
+  totalPendingCount: number;
+}
+
+export interface BookingsPagedResponse {
+  data: BookingWithSlot[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  stats: BookingStats;
+}
+
 export type BookingListFilters = {
   bookings: BookingWithSlot[];
   quickFilter: string;

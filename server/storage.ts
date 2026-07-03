@@ -29,7 +29,39 @@ import {
   type PatientBill, type InsertPatientBill,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns } from "drizzle-orm";
+import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne } from "drizzle-orm";
+import { format, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, addWeeks } from "date-fns";
+
+export interface BookingQueryParams {
+  filter?: string;
+  page?: number;
+  pageSize?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+  patientId?: number;
+}
+
+export interface BookingStats {
+  todayCount: number;
+  todayConfirmedCount: number;
+  upcomingCount: number;
+  pastCount: number;
+  thisWeekCount: number;
+  nextWeekCount: number;
+  pendingNext7Count: number;
+  confirmedNext7Count: number;
+  totalPendingCount: number;
+}
+
+export interface BookingsPagedResult {
+  data: (Booking & { slot: Slot; patientCode?: string | null })[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  stats: BookingStats;
+}
 
 export interface IStorage {
   // Login audit
@@ -74,6 +106,8 @@ export interface IStorage {
   configureClinicSlots(clinicId: number, date: string, slots: any[]): Promise<Slot[]>;
   getClinicSlots(clinicId: number, date?: string): Promise<Slot[]>;
   getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
+  getClinicBookingsPaged(clinicId: number, params: BookingQueryParams): Promise<BookingsPagedResult>;
+  getClinicBookingStats(clinicId: number): Promise<BookingStats>;
   getBooking(id: number): Promise<Booking | undefined>;
   updateBookingStatus(id: number, status: string): Promise<Booking>;
   updateBookingAssignment(id: number, doctorName: string, doctorEmail?: string | null, doctorApprovalStatus?: string | null): Promise<Booking>;
@@ -432,6 +466,191 @@ export class DatabaseStorage implements IStorage {
     .where(eq(slots.clinicId, Number(clinicId)));
     
     return results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot, patientCode: r.patientCode }));
+  }
+
+  async getClinicBookingStats(clinicId: number): Promise<BookingStats> {
+    const now = new Date();
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const todayStart = startOfDay(now);
+    const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+    const next7DaysEnd = addDays(todayStart, 7);
+
+    const statRows = await db.select({
+      startTime: slots.startTime,
+      verificationStatus: bookings.verificationStatus,
+      confirmedBy: bookings.confirmedBy,
+      visitStatus: bookings.visitStatus,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(eq(slots.clinicId, Number(clinicId)));
+
+    const stats: BookingStats = {
+      todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
+      thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
+      totalPendingCount: 0,
+    };
+    for (const r of statRows) {
+      const d = new Date(r.startTime);
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
+      const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
+      if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
+      if (d >= new Date() && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
+      if (d < todayStart) stats.pastCount++;
+      if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
+      if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
+      if (d >= todayStart && d <= next7DaysEnd) {
+        if (isPending) stats.pendingNext7Count++;
+        if (isConfirmed) stats.confirmedNext7Count++;
+      }
+      if (isPending) stats.totalPendingCount++;
+    }
+    return stats;
+  }
+
+  async getClinicBookingsPaged(clinicId: number, params: BookingQueryParams): Promise<BookingsPagedResult> {
+    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, search, patientId } = params;
+
+    const now = new Date();
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const tomorrowStart = startOfDay(addDays(now, 1));
+    const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+    const next7DaysEnd = addDays(todayStart, 7);
+
+    const clinicCondition = eq(slots.clinicId, Number(clinicId));
+
+    // Build filter condition based on quick filter or date range
+    let filterCond;
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? startOfDay(new Date(dateFrom)) : undefined;
+      const to = dateTo ? endOfDay(new Date(dateTo)) : undefined;
+      if (from && to) filterCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
+      else if (from) filterCond = gte(slots.startTime, from);
+      else if (to) filterCond = lte(slots.startTime, to);
+    } else {
+      switch (filter) {
+        case 'today':
+          filterCond = and(gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
+          break;
+        case 'upcoming':
+          filterCond = and(gte(slots.startTime, tomorrowStart), ne(bookings.visitStatus, 'completed'), ne(bookings.visitStatus, 'patient_left_early'));
+          break;
+        case 'past':
+          filterCond = lt(slots.startTime, todayStart);
+          break;
+        case 'this-week':
+          filterCond = and(gte(slots.startTime, thisWeekStart), lte(slots.startTime, thisWeekEnd));
+          break;
+        case 'next-week':
+          filterCond = and(gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
+          break;
+        case 'today-confirmed':
+          filterCond = and(
+            gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd),
+            or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+          );
+          break;
+        case 'pending-7days':
+          filterCond = and(
+            gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
+            ne(bookings.verificationStatus, 'confirmed'), isNull(bookings.confirmedBy),
+            ne(bookings.verificationStatus, 'cancelled'),
+          );
+          break;
+        case 'all-pending':
+          filterCond = and(ne(bookings.verificationStatus, 'confirmed'), isNull(bookings.confirmedBy), ne(bookings.verificationStatus, 'cancelled'));
+          break;
+        case 'confirmed-7days':
+          filterCond = and(
+            gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd),
+            or(eq(bookings.verificationStatus, 'confirmed'), isNotNull(bookings.confirmedBy)),
+          );
+          break;
+        default:
+          filterCond = undefined;
+      }
+    }
+
+    // Search condition (patient name, phone, email)
+    let searchCond;
+    if (search && search.trim().length >= 1) {
+      const term = `%${search.trim()}%`;
+      searchCond = or(ilike(bookings.customerName, term), ilike(bookings.customerPhone, term));
+    }
+
+    // Patient filter
+    const patientCond = patientId ? eq(bookings.patientId, patientId) : undefined;
+
+    const whereClause = and(clinicCondition, filterCond, searchCond, patientCond);
+
+    // Count total matching rows
+    const [countRow] = await db.select({ total: count() })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(whereClause);
+    const total = Number(countRow?.total ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const offset = (safePage - 1) * pageSize;
+
+    // Fetch paginated data
+    const results = await db.select({
+      booking: bookings,
+      slot: slots,
+      patientCode: patients.patientCode,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .leftJoin(patients, eq(bookings.patientId, patients.id))
+    .where(whereClause)
+    .orderBy(asc(slots.startTime), asc(bookings.id))
+    .limit(pageSize)
+    .offset(offset);
+
+    // Lightweight stats across ALL clinic bookings (independent of current filter)
+    const statRows = await db.select({
+      startTime: slots.startTime,
+      verificationStatus: bookings.verificationStatus,
+      confirmedBy: bookings.confirmedBy,
+      visitStatus: bookings.visitStatus,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(clinicCondition);
+
+    const stats: BookingStats = {
+      todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
+      thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
+      totalPendingCount: 0,
+    };
+    for (const r of statRows) {
+      const d = new Date(r.startTime);
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
+      const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
+      if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
+      if (d >= now && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
+      if (d < todayStart) stats.pastCount++;
+      if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
+      if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
+      if (d >= todayStart && d <= next7DaysEnd) {
+        if (isPending) stats.pendingNext7Count++;
+        if (isConfirmed) stats.confirmedNext7Count++;
+      }
+      if (isPending) stats.totalPendingCount++;
+    }
+
+    const data = results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot, patientCode: r.patientCode }));
+    return { data, total, page: safePage, pageSize, totalPages, stats };
   }
 
   async getBooking(id: number): Promise<Booking | undefined> {
