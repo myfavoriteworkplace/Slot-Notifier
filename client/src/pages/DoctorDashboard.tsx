@@ -744,7 +744,7 @@ export default function DoctorDashboard() {
       )}
 
       {/* ═══ PAGE CONTAINER — single wrapper for hero + content (matches ClinicDashboard) ═══ */}
-      <div className="max-w-7xl mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-6 lg:pb-8">
+      <div className="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 2xl:px-16 lg:pb-8">
 
       {/* ═══ DOCTOR HERO BAR ═══ */}
       <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">

@@ -126,7 +126,7 @@ function BookingCardSkeleton() {
 
 function ClinicDashboardSkeleton() {
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-6 lg:pb-0">
+    <div className="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 2xl:px-16 lg:pb-0">
       {/* Header skeleton — mirrors dark gradient hero */}
       <div className="rounded-2xl overflow-hidden shadow-2xl mb-6 sm:mb-8 border border-white/10">
         <div className="h-[3px] bg-gradient-to-r from-accent via-primary to-accent" />
@@ -893,7 +893,7 @@ export default function ClinicDashboard() {
   }).length ?? 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 pb-24 sm:px-6 lg:px-6 lg:pb-0">
+    <div className="w-full px-4 py-6 pb-24 sm:px-6 lg:px-8 2xl:px-16 lg:pb-0">
 
       {/* Subscription payment pending banner */}
       {(clinic as any)?.subscriptionStatus === "pending_payment" && (
