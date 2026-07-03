@@ -308,6 +308,13 @@ function HistoryRow({
         <div className="flex items-center gap-1 shrink-0">
           <Button size="sm" variant="ghost"
             className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+            aria-label="Preview record"
+            onClick={e => { e.stopPropagation(); onPdf(); }}>
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant="ghost"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+            aria-label="Print record"
             onClick={e => { e.stopPropagation(); onPdf(); }}>
             <Printer className="h-3.5 w-3.5" />
           </Button>
@@ -335,7 +342,7 @@ function HistoryRow({
             <div className="flex flex-wrap gap-1">
               {record.diagnosis.map(d => (
                 <Badge key={d} variant="outline"
-                  className="text-xs px-1.5 py-0 rounded-full border-primary/20 bg-primary/5 text-primary">
+                  className="text-xs px-1.5 py-0 rounded-full border-green-800/30 bg-green-50 text-green-800 font-semibold">
                   {d}
                 </Badge>
               ))}
@@ -723,6 +730,7 @@ export default function ClinicalRecordsTab({
                 <div className="flex items-center gap-1">
                   <Button size="sm" variant="ghost"
                     className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                    aria-label="Preview diagnosis"
                     onClick={() => printClinicalRecord({
                       type: "diagnosis",
                       clinicName,
@@ -736,8 +744,9 @@ export default function ClinicalRecordsTab({
                     data-testid="button-preview-dx-pdf">
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
-                  <Button size="sm" variant="outline"
-                    className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/10"
+                  <Button size="sm" variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                    aria-label="Print diagnosis"
                     onClick={() => printClinicalRecord({
                       type: "diagnosis",
                       clinicName,
@@ -832,7 +841,7 @@ export default function ClinicalRecordsTab({
                 className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/70 font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-dx-history">
                 {mode === "admin" ? (
-                  <>View all {historyDx.length + 1} diagnosis <ChevronRight className="h-3 w-3" /></>
+                  <>View all old diagnosis ({historyDx.length + 1}) <ChevronRight className="h-3 w-3" /></>
                 ) : (
                   <>
                     {showDxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -841,7 +850,7 @@ export default function ClinicalRecordsTab({
                 )}
               </button>
               {showDxHistory && (
-                <div className="rounded-xl border border-border/60 bg-muted/10 overflow-hidden mt-1 divide-y divide-border/30 animate-in slide-in-from-top-1 duration-150">
+                <div className="rounded-xl border border-border/60 bg-muted/30 overflow-hidden mt-1 divide-y divide-border/30 animate-in slide-in-from-top-1 duration-150">
                   {historyDx.map(record => (
                     <HistoryRow
                       key={record.id}
@@ -1055,7 +1064,7 @@ export default function ClinicalRecordsTab({
               <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
                   <Pill className="h-3 w-3 text-primary" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Latest Prescription</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-primary">Latest Prescription</span>
                   <span className="text-xs text-muted-foreground/60 font-medium">
                     {format(new Date(latestRx.createdAt!), "MMM d, yyyy · h:mm a")}
                   </span>
@@ -1063,6 +1072,7 @@ export default function ClinicalRecordsTab({
                 <div className="flex items-center gap-1">
                   <Button size="sm" variant="ghost"
                     className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                    aria-label="Preview prescription"
                     onClick={() => printClinicalRecord({
                       type: "prescription",
                       clinicName,
@@ -1076,8 +1086,9 @@ export default function ClinicalRecordsTab({
                     data-testid="button-preview-rx-pdf">
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
-                  <Button size="sm" variant="outline"
-                    className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/10"
+                  <Button size="sm" variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                    aria-label="Print prescription"
                     onClick={() => printClinicalRecord({
                       type: "prescription",
                       clinicName,
@@ -1137,7 +1148,7 @@ export default function ClinicalRecordsTab({
                 className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/70 font-medium w-full py-1.5 min-h-[44px] transition-colors"
                 data-testid="button-toggle-rx-history">
                 {mode === "admin" ? (
-                  <>View all {historyRx.length + 1} prescriptions <ChevronRight className="h-3 w-3" /></>
+                  <>View all old prescriptions ({historyRx.length + 1}) <ChevronRight className="h-3 w-3" /></>
                 ) : (
                   <>
                     {showRxHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -1146,7 +1157,7 @@ export default function ClinicalRecordsTab({
                 )}
               </button>
               {showRxHistory && (
-                <div className="rounded-xl border border-border/60 bg-muted/10 overflow-hidden mt-1 divide-y divide-border/30 animate-in slide-in-from-top-1 duration-150">
+                <div className="rounded-xl border border-border/60 bg-muted/30 overflow-hidden mt-1 divide-y divide-border/30 animate-in slide-in-from-top-1 duration-150">
                   {historyRx.map(record => (
                     <HistoryRow
                       key={record.id}

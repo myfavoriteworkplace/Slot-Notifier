@@ -929,7 +929,7 @@ export function BillingHistoryPanel({
 
     return (
       <div key={bill.id}
-        className={`rounded-xl border overflow-hidden ${isActiveBill && !isBillPaid ? "border-primary/40 bg-background" : "border-border/60 bg-background"}`}
+        className={`rounded-xl border overflow-hidden shadow-sm ${isActiveBill && !isBillPaid ? "border-primary/40 bg-primary/[0.02]" : "border-border/50 bg-card"}`}
         data-testid={`billing-card-${bill.id}`}>
 
         {/* ── HEADER ── */}
@@ -1832,11 +1832,8 @@ export function BillingHistoryPanel({
             <>
               {/* Older Bills section label — matches "Latest Bill" left-label style */}
               <div className="flex items-center gap-2 px-0.5 pt-1">
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <History className="h-3 w-3 text-muted-foreground/70" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70">Older Bills</span>
-                </div>
-                <div className="h-px flex-1 bg-border/40" />
+                <span className="text-xs font-bold uppercase tracking-wider text-primary">Older Bills</span>
+                <div className="h-px flex-1 bg-primary/20" />
               </div>
               <button
                 onClick={() => setShowOlderBills(v => !v)}
@@ -1850,7 +1847,7 @@ export function BillingHistoryPanel({
                   : <ChevronDown className="h-3.5 w-3.5 text-primary/70 shrink-0" />}
               </button>
               {showOlderBills && (
-                <div className="rounded-xl border border-border/60 bg-muted/40 dark:bg-muted/30 p-2.5 space-y-2">
+                <div className="rounded-xl border border-border/50 bg-muted/50 dark:bg-muted/20 p-2.5 space-y-2">
                   {Array.from(groupByDate(olderBills)).map(([dateLabel, dateBills]) => (
                     <div key={dateLabel} className="space-y-1.5">
                       <div className="flex items-center gap-2">
