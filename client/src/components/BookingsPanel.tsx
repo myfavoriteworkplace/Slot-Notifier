@@ -2393,10 +2393,10 @@ export default function BookingsPanel({
                           <div className="p-4 space-y-3">
 
                             {/* Clinical Status — single chip + dropdown, editable by admin */}
-                            <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                              <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                                <ClipboardCheck className="h-3 w-3 text-primary" />
-                                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinical Status</span>
+                            <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+                              <div className="px-3 py-2.5 bg-green-800 border-b border-green-900/20 flex items-center gap-1.5">
+                                <ClipboardCheck className="h-3 w-3 text-white" />
+                                <span className="text-xs font-semibold uppercase tracking-wide text-white">Clinical Status</span>
                               </div>
                               <div className="px-3 py-3">
                                 {(() => {
@@ -2407,7 +2407,7 @@ export default function BookingsPanel({
                                   const current = CLINICAL_STATUS_OPTIONS.find(o => o.value === booking.clinicalStatus);
                                   const chipCls = current
                                     ? (OVERVIEW_CLINICAL_STATUS[current.value]?.cls ?? '')
-                                    : 'bg-muted/40 text-muted-foreground border-border/60';
+                                    : 'bg-green-50 text-green-800 border-green-800/30';
                                   return (
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
@@ -2452,10 +2452,10 @@ export default function BookingsPanel({
                             </div>
 
                             {/* Clinical Records */}
-                            <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
-                              <div className="px-3 py-2 bg-muted/40 border-b border-border/50 flex items-center gap-1.5">
-                                <ClipboardList className="h-3 w-3 text-primary" />
-                                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinical Records</span>
+                            <div className="rounded-xl border border-green-800/30 bg-white shadow-sm overflow-hidden">
+                              <div className="px-3 py-2.5 bg-green-50 border-b border-green-800/30 flex items-center gap-1.5">
+                                <ClipboardList className="h-3 w-3 text-green-800" />
+                                <span className="text-xs font-semibold uppercase tracking-wide text-green-800">Clinical Records</span>
                               </div>
                               <div className="p-3">
                                 <ClinicalRecordsTab
