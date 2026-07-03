@@ -283,6 +283,9 @@ function HistoryRow({
           {preview && (
             <span className="text-xs text-primary/70 font-semibold truncate">{preview}</span>
           )}
+          {type === "diagnosis" && record.prescription && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold leading-none shrink-0">Rx ✓</span>
+          )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <Button size="sm" variant="ghost"
@@ -320,6 +323,15 @@ function HistoryRow({
               ))}
             </div>
           )}
+          {type === "diagnosis" && record.prescription && (
+            <div className="pt-1.5 border-t border-border/20 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <Pill className="h-3 w-3 text-primary" />
+                <span className="text-xs font-semibold text-primary">Linked Prescription</span>
+              </div>
+              <PrescriptionDisplay prescription={record.prescription} />
+            </div>
+          )}
           {type === "prescription" && record.prescription && (
             <PrescriptionDisplay prescription={record.prescription} />
           )}
@@ -354,6 +366,8 @@ export default function ClinicalRecordsTab({
   const [rxEditId, setRxEditId] = useState<number | null>(null);
   const [rxRows, setRxRows] = useState<MedicineRow[]>([emptyRow()]);
   const [showRxHistory, setShowRxHistory] = useState(false);
+  // When set, saving the Rx form PATCHes this record id (links Rx to an existing Dx row)
+  const [rxLinkedToDxId, setRxLinkedToDxId] = useState<number | null>(null);
 
 
   // ── Pharmacy catalogue (doctor mode only) — loaded once, used for autocomplete ──
@@ -397,7 +411,9 @@ export default function ClinicalRecordsTab({
 
   // ── Derived record streams ─────────────────────────────────────────────────
   const dxRecords = records.filter(r => r.diagnosis && r.diagnosis.length > 0);
-  const rxRecords = records.filter(r => !!r.prescription);
+  // Records that have BOTH diagnosis + prescription show inside the Dx card (linked).
+  // Standalone prescriptions (no diagnosis on the same row) get their own Rx section.
+  const rxRecords = records.filter(r => !!r.prescription && (!r.diagnosis || r.diagnosis.length === 0));
   const latestDx = dxRecords[0] ?? null;
   const historyDx = dxRecords.slice(1);
   const latestRx = rxRecords[0] ?? null;
@@ -463,7 +479,7 @@ export default function ClinicalRecordsTab({
   // ── Reset all forms ────────────────────────────────────────────────────────
   const resetForms = () => {
     setShowDxForm(false); setDxEditId(null); setDxTags([]); setDxNotes("");
-    setShowRxForm(false); setRxEditId(null); setRxRows([emptyRow()]);
+    setShowRxForm(false); setRxEditId(null); setRxRows([emptyRow()]); setRxLinkedToDxId(null);
   };
 
   // ── Start edit helpers ─────────────────────────────────────────────────────
@@ -755,6 +771,29 @@ export default function ClinicalRecordsTab({
                     {latestDx.notes}
                   </p>
                 )}
+
+                {/* Linked prescription — shown inline when the Dx record also has a prescription */}
+                {latestDx.prescription && (
+                  <div className="pt-2 border-t border-border/20 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Pill className="h-3 w-3 text-primary" />
+                      <span className="text-xs font-semibold text-primary">Linked Prescription</span>
+                    </div>
+                    <PrescriptionDisplay prescription={latestDx.prescription} />
+                  </div>
+                )}
+
+                {/* Add prescription link — doctor mode only, no Rx yet, form not open */}
+                {mode === "doctor" && !latestDx.prescription && !showRxForm && (
+                  <div className="pt-2 border-t border-border/20">
+                    <button
+                      onClick={() => { setRxLinkedToDxId(latestDx.id); setShowRxForm(true); }}
+                      className="flex items-center gap-1 text-xs text-primary hover:text-primary/70 font-medium transition-colors"
+                      data-testid="button-add-rx-for-dx">
+                      <Pill className="h-3 w-3" /> Add prescription for this diagnosis →
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -814,7 +853,7 @@ export default function ClinicalRecordsTab({
       {/* ══════════════════════════════════════════════════════════════════
           PRESCRIPTION TAB — always shown alongside Diagnosis in admin mode
       ══════════════════════════════════════════════════════════════════ */}
-      {(mode === "admin" || visibleTab === "prescription") && (
+      {(mode === "admin" || visibleTab === "prescription" || (rxLinkedToDxId !== null && showRxForm)) && (
         <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-right-1 duration-150">
 
           {/* Section divider — admin mode only */}
@@ -833,7 +872,7 @@ export default function ClinicalRecordsTab({
                 <div className="flex items-center gap-1.5">
                   <Pill className="h-3 w-3 text-primary" />
                   <span className="text-xs font-semibold uppercase tracking-wide text-primary">
-                    {rxEditId ? "Edit Prescription" : "New Prescription"}
+                    {rxEditId ? "Edit Prescription" : rxLinkedToDxId ? "Prescription for this Diagnosis" : "New Prescription"}
                   </span>
                 </div>
                 <button onClick={resetForms} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -961,6 +1000,7 @@ export default function ClinicalRecordsTab({
                     onClick={() => {
                       const payload = rxPayload();
                       if (rxEditId) updateMutation.mutate({ id: rxEditId, payload: { prescription: payload } });
+                      else if (rxLinkedToDxId) updateMutation.mutate({ id: rxLinkedToDxId, payload: { prescription: payload } });
                       else createMutation.mutate({ prescription: payload });
                     }}
                     disabled={isSaving || !rxRows.some(r => r.name.trim())}
@@ -987,7 +1027,7 @@ export default function ClinicalRecordsTab({
           )}
 
           {/* Latest Prescription */}
-          {latestRx && !(showRxForm && rxEditId === latestRx.id) ? (
+          {latestRx && !(showRxForm && rxEditId === latestRx.id) && !rxLinkedToDxId ? (
             <div className="rounded-xl border border-primary/25 bg-primary/[0.03] overflow-hidden">
               <div className="px-3 py-2 bg-primary/8 border-b border-primary/15 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
