@@ -811,8 +811,7 @@ export default function ClinicDashboard() {
       await logout();
       setLocation("/clinic-login");
       notify.success("Logged out");
-    } catch (error: any) {
-      console.error("[CLINIC-DASHBOARD] Logout error:", error);
+    } catch {
       // Even if API fails, clear local state and redirect
       setLocation("/clinic-login");
     }
