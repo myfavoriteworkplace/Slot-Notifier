@@ -52,6 +52,7 @@ export interface BookingStats {
   pendingNext7Count: number;
   confirmedNext7Count: number;
   totalPendingCount: number;
+  totalAllCount: number;
 }
 
 export interface BookingsPagedResult {
@@ -491,7 +492,7 @@ export class DatabaseStorage implements IStorage {
     const stats: BookingStats = {
       todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
       thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
-      totalPendingCount: 0,
+      totalPendingCount: 0, totalAllCount: statRows.length,
     };
     for (const r of statRows) {
       const d = new Date(r.startTime);
@@ -630,7 +631,7 @@ export class DatabaseStorage implements IStorage {
     const stats: BookingStats = {
       todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
       thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
-      totalPendingCount: 0,
+      totalPendingCount: 0, totalAllCount: statRows.length,
     };
     for (const r of statRows) {
       const d = new Date(r.startTime);

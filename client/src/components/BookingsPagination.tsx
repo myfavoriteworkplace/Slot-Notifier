@@ -28,7 +28,7 @@ export function BookingsPagination({
   const pages = buildPageList(page, totalPages);
 
   return (
-    <div className="mt-2 rounded-xl border border-border/50 bg-card shadow-sm px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+    <div className="border-t border-border/50 bg-card px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
 
       {/* Left — count + per-page selector */}
       <div className="flex items-center gap-2.5 text-xs text-muted-foreground order-2 sm:order-1">
