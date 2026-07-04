@@ -20,22 +20,27 @@ export function BookingsPagination({
   onPageSizeChange,
   isLoading,
 }: BookingsPaginationProps) {
-  if (total === 0) return null;
+  if (total === 0 || totalPages <= 1) return null;
 
   const from = (page - 1) * pageSize + 1;
-  const to = Math.min(page * pageSize, total);
+  const to   = Math.min(page * pageSize, total);
 
   const pages = buildPageList(page, totalPages);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-border/50">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground order-2 sm:order-1">
-        <span className="tabular-nums">
-          {isLoading ? "Loading…" : `Showing ${from}–${to} of ${total}`}
+    <div className="mt-2 rounded-xl border border-border/50 bg-card shadow-sm px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+
+      {/* Left — count + per-page selector */}
+      <div className="flex items-center gap-2.5 text-xs text-muted-foreground order-2 sm:order-1">
+        <span className="tabular-nums font-medium">
+          {isLoading ? "Loading…" : `${from}–${to} of ${total} bookings`}
         </span>
-        <div className="w-px h-4 bg-border/60" />
+        <div className="w-px h-4 bg-border/60 shrink-0" />
         <span className="shrink-0">Per page</span>
-        <Select value={String(pageSize)} onValueChange={(v) => { onPageSizeChange(Number(v)); onPageChange(1); }}>
+        <Select
+          value={String(pageSize)}
+          onValueChange={(v) => onPageSizeChange(Number(v))}
+        >
           <SelectTrigger
             className="h-7 w-[60px] text-xs rounded-lg border-border/60"
             data-testid="select-page-size"
@@ -50,6 +55,7 @@ export function BookingsPagination({
         </Select>
       </div>
 
+      {/* Right — prev / page buttons / next */}
       <div className="flex items-center gap-1 order-1 sm:order-2">
         <button
           onClick={() => onPageChange(page - 1)}
@@ -63,15 +69,21 @@ export function BookingsPagination({
 
         {pages.map((p, i) =>
           p === "…" ? (
-            <span key={`ellipsis-${i}`} className="w-8 text-center text-xs text-muted-foreground/60">…</span>
+            <span
+              key={`ellipsis-${i}`}
+              className="w-8 text-center text-xs text-muted-foreground/60 select-none"
+            >
+              …
+            </span>
           ) : (
             <button
               key={p}
               onClick={() => onPageChange(Number(p))}
               disabled={isLoading}
+              aria-current={p === page ? "page" : undefined}
               className={`h-8 min-w-[32px] px-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-[0.97] disabled:cursor-not-allowed ${
                 p === page
-                  ? "bg-primary text-white border-primary"
+                  ? "bg-primary text-white border-primary shadow-sm shadow-primary/20"
                   : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary"
               }`}
               data-testid={`pagination-page-${p}`}
@@ -97,6 +109,7 @@ export function BookingsPagination({
 
 function buildPageList(current: number, total: number): (number | "…")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
   const pages: (number | "…")[] = [];
   pages.push(1);
   if (current > 3) pages.push("…");
