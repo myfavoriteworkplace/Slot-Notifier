@@ -4887,6 +4887,53 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── GET /api/doctor/bookings/:id/chart — fetch patient odontogram ──────────
+  app.get("/api/doctor/bookings/:id/chart", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== "doctor") return res.status(403).json({ message: "Forbidden" });
+    try {
+      const bookingId = parseInt(req.params.id);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Access denied" });
+      const patientId = (booking as any).patientId as number | null;
+      if (!patientId) return res.status(404).json({ message: "Patient record not linked to this booking — chart unavailable" });
+      const clinicId = (booking as any).clinicId as number;
+      const chart = await storage.getPatientChart(patientId, clinicId);
+      return res.json({
+        patientId,
+        clinicId,
+        chartData: chart ? JSON.parse(chart.chartData) : {},
+        updatedAt: chart?.updatedAt ?? null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── PUT /api/doctor/bookings/:id/chart — save patient odontogram ────────────
+  app.put("/api/doctor/bookings/:id/chart", isAuthenticated, async (req, res) => {
+    const sess = req.session as any;
+    if (!sess.doctorLoggedIn || sess.role !== "doctor") return res.status(403).json({ message: "Forbidden" });
+    const parsed = z.object({ chartData: z.record(z.string(), z.any()) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid chart data" });
+    try {
+      const bookingId = parseInt(req.params.id);
+      if (isNaN(bookingId)) return res.status(400).json({ message: "Invalid booking ID" });
+      const booking = await storage.getBooking(bookingId);
+      if (!booking) return res.status(404).json({ message: "Booking not found" });
+      if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Access denied" });
+      const patientId = (booking as any).patientId as number | null;
+      if (!patientId) return res.status(400).json({ message: "Patient record not linked — chart cannot be saved" });
+      const clinicId = (booking as any).clinicId as number;
+      const chart = await storage.upsertPatientChart(patientId, clinicId, JSON.stringify(parsed.data.chartData));
+      return res.json({ chartData: JSON.parse(chart.chartData), updatedAt: chart.updatedAt });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // POST /api/doctor/bookings/:id/request-consent
   // Doctor-authenticated endpoint — generates / refreshes consent token and sends WhatsApp link
   app.post("/api/doctor/bookings/:id/request-consent", isAuthenticated, async (req, res) => {

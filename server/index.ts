@@ -929,6 +929,24 @@ By signing below, I confirm that I have read and understood the above and volunt
       } catch (e: any) {
         log(`notifications column migration warning: ${e.message}`, "system");
       }
+
+      // ── patient_charts table (odontogram — one chart per patient per clinic) ──
+      try {
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS patient_charts (
+            id          SERIAL PRIMARY KEY,
+            patient_id  INTEGER NOT NULL REFERENCES patients(id),
+            clinic_id   INTEGER NOT NULL REFERENCES clinics(id),
+            chart_data  TEXT NOT NULL DEFAULT '{}',
+            updated_at  TIMESTAMP DEFAULT NOW(),
+            created_at  TIMESTAMP DEFAULT NOW(),
+            UNIQUE(patient_id, clinic_id)
+          );
+        `);
+        log("patient_charts table ensured", "system");
+      } catch (e: any) {
+        log(`patient_charts migration warning: ${e.message}`, "system");
+      }
       // ─────────────────────────────────────────────────────────────────────────
 
     } catch (dbErr: any) {

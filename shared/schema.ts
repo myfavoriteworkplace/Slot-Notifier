@@ -714,6 +714,19 @@ export const auditLogs = pgTable("audit_logs", {
 export type AuditLog       = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = typeof auditLogs.$inferInsert;
 
+// ── PATIENT CHARTS (Odontogram) ──────────────────────────────────────────────
+// One chart per patient per clinic.  chart_data is a JSON string keyed by FDI
+// tooth number; each tooth entry stores current condition + append-only history.
+export const patientCharts = pgTable("patient_charts", {
+  id:        serial("id").primaryKey(),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  clinicId:  integer("clinic_id").notNull().references(() => clinics.id),
+  chartData: text("chart_data").notNull().default("{}"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type PatientChart = typeof patientCharts.$inferSelect;
+
 // ────────────────────────────────────────────────────────────────────────────
 
 export interface ClinicSession {

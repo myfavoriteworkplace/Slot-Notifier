@@ -2,7 +2,7 @@ import { encryptField, decryptField } from "./encryption.js";
 import { 
   users, slots, bookings, notifications, clinics, doctors, clinicDoctors, patients, smileDeals, exportHistory,
   doctorCertifications, doctorCases, bookingNotes, doctorLeaves, consentTokens, consentTextVersions, clinicalRecords,
-  inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock,
+  inventoryCategories, inventoryItems, stockTransactions, stockAlerts, loginEvents, patientBills, pharmacyStock, patientCharts,
   type User,
   type Slot, type InsertSlot,
   type Booking, type InsertBooking,
@@ -27,6 +27,7 @@ import {
   type StockAlert, type InsertStockAlert,
   type LoginEvent, type InsertLoginEvent,
   type PatientBill, type InsertPatientBill,
+  type PatientChart,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, or, isNull, gt, sql, getTableColumns, count, asc, ilike, isNotNull, lt, ne } from "drizzle-orm";
@@ -246,6 +247,10 @@ export interface IStorage {
 
   // Analytics
   getClinicAnalytics(clinicId: number, range: string): Promise<Record<string, any>>;
+
+  // Patient Charts (Odontogram)
+  getPatientChart(patientId: number, clinicId: number): Promise<PatientChart | null>;
+  upsertPatientChart(patientId: number, clinicId: number, chartData: string): Promise<PatientChart>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1811,6 +1816,34 @@ export class DatabaseStorage implements IStorage {
       patients: { total: totalPatients, newPatients, repeatPatients, growthByMonth },
       compliance: { consentRate, signedCount, totalWithConsent: totalBookings, inventoryAlerts: alertRows.length, lowStockItems, expiringItems, loginSuccess, loginFail },
     };
+  }
+
+  // ── Patient Charts (Odontogram) ─────────────────────────────────────────────
+
+  async getPatientChart(patientId: number, clinicId: number): Promise<PatientChart | null> {
+    const [chart] = await db
+      .select()
+      .from(patientCharts)
+      .where(and(eq(patientCharts.patientId, patientId), eq(patientCharts.clinicId, clinicId)))
+      .limit(1);
+    return chart ?? null;
+  }
+
+  async upsertPatientChart(patientId: number, clinicId: number, chartData: string): Promise<PatientChart> {
+    const existing = await this.getPatientChart(patientId, clinicId);
+    if (existing) {
+      const [updated] = await db
+        .update(patientCharts)
+        .set({ chartData, updatedAt: new Date() })
+        .where(and(eq(patientCharts.patientId, patientId), eq(patientCharts.clinicId, clinicId)))
+        .returning();
+      return updated;
+    }
+    const [chart] = await db
+      .insert(patientCharts)
+      .values({ patientId, clinicId, chartData })
+      .returning();
+    return chart;
   }
 }
 

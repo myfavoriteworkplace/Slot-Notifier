@@ -28,7 +28,7 @@ import {
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
   Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound,
   MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck, Microscope, RefreshCw,
-  SlidersHorizontal, Maximize2, Minimize2
+  SlidersHorizontal, Maximize2, Minimize2, Layers
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -39,6 +39,7 @@ import { compressImage } from "@/lib/imageCompression";
 import { filterAndSortBookings } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
+import OdontogramTab from "@/components/OdontogramTab";
 
 type QuickFilter = "all" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days" | "this-week" | "next-week";
 type Tab = "appointments" | "profile" | "certifications" | "cases" | "leaves" | "xray";
@@ -121,7 +122,7 @@ export default function DoctorDashboard() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [patientModalId, setPatientModalId] = useState<number | null>(null);
   const [dialogExpanded, setDialogExpanded] = useState(false);
-  const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription'>('overview');
+  const [patientModalTab, setPatientModalTab] = useState<'overview' | 'notes' | 'diagnosis' | 'prescription' | 'chart'>('overview');
   const [statusDraft, setStatusDraft] = useState("");
   const [pendingNotifNav, setPendingNotifNav] = useState<{ bookingId?: number } | null>(() => {
     if (typeof window === "undefined") return null;
@@ -2510,13 +2511,14 @@ export default function DoctorDashboard() {
                   <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent/30 via-primary/50 to-accent/30" />
                 </div>
 
-                {/* Tab strip — Overview | Notes | Diagnosis | Prescription */}
+                {/* Tab strip — Overview | Notes | Diagnosis | Prescription | Chart */}
                 <div className="shrink-0 flex border-b border-border/60 bg-card">
                   {([
                     { key: 'overview'     as const, label: 'Overview',    icon: <User className="h-3.5 w-3.5" /> },
                     { key: 'notes'        as const, label: 'Notes',       icon: <FileText className="h-3.5 w-3.5" /> },
                     { key: 'diagnosis'    as const, label: 'Diagnosis',   icon: <ClipboardList className="h-3.5 w-3.5" /> },
-                    { key: 'prescription' as const, label: 'Prescription',icon: <Pill className="h-3.5 w-3.5" /> },
+                    { key: 'prescription' as const, label: 'Rx',          icon: <Pill className="h-3.5 w-3.5" /> },
+                    { key: 'chart'        as const, label: 'Chart',       icon: <Layers className="h-3.5 w-3.5" /> },
                   ]).map(({ key, label, icon }) => {
                     const isActive = patientModalTab === key;
                     return (
@@ -2786,6 +2788,23 @@ export default function DoctorDashboard() {
                       />
                     </div>
                   )}
+
+                  {/* CHART TAB — Odontogram */}
+                  {patientModalTab === 'chart' && (() => {
+                    const bIsTerminal = b.verificationStatus === 'cancelled' || b.verificationStatus === 'no_show' || (b as any).visitStatus === 'patient_left_early';
+                    const bIsVisitCompleted = (b as any).visitStatus === 'completed';
+                    const chartEditable = !bIsTerminal && !bIsVisitCompleted;
+                    const bRef = `REF-${String(b.id).padStart(4, '0')}`;
+                    const bDoctorName = profName || b.assignedDoctor || 'Doctor';
+                    return (
+                      <OdontogramTab
+                        bookingId={b.id}
+                        bookingRef={bRef}
+                        doctorName={bDoctorName}
+                        isEditable={chartEditable}
+                      />
+                    );
+                  })()}
                 </div>
 
                 {/* ── STICKY FOOTER — lifecycle action buttons ── */}
