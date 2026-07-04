@@ -3173,6 +3173,17 @@ export default function BookingsPanel({
                 });
               })()
             )}
+
+          {/* ── Pagination controls — always rendered in success state ── */}
+          {pagedResponse && pagedResponse.total > pageSize && (
+            <BookingsPagination
+              page={page}
+              pageSize={pageSize}
+              total={pagedResponse.total}
+              onPageChange={setPage}
+              onPageSizeChange={(newSize) => { setPageSize(newSize); setPage(1); }}
+            />
+          )}
           </div>
         )}
         </div>

@@ -90,7 +90,6 @@ import type { ElementType } from "react";
 import type { Slot, Booking, PatientBill, ClinicalRecord, Patient } from "@shared/schema";
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
-import { filterAndSortBookings, getBookingDisplayMeta, getBookingNumber } from "@/lib/booking-list";
 
 function BookingCardSkeleton() {
   return (
@@ -1355,7 +1354,7 @@ export default function ClinicDashboard() {
                   </div>
                 </div>
               </div>
-              <ExportDataPanel clinic={clinic} bookings={bookings} />
+              <ExportDataPanel clinic={clinic} />
             </div>
           )}
 

@@ -46,7 +46,6 @@ const DATE_PRESETS: { id: DatePreset; label: string }[] = [
 
 interface ExportDataPanelProps {
   clinic: Clinic | null | undefined;
-  bookings: BookingWithSlot[] | undefined;
 }
 
 function getReminderState(): { show: boolean } {
@@ -117,7 +116,7 @@ const clinicalLabel    = (s: string | null | undefined) =>
   !s ? "" : s === "first_visit" ? "First Visit" : s === "revisit" ? "Revisit" :
   s === "follow_up_required" ? "Follow-up Required" : s === "case_closed" ? "Case Closed" : s;
 
-export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelProps) {
+export default function ExportDataPanel({ clinic }: ExportDataPanelProps) {
   const qc = useQueryClient();
 
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>("xlsx");
@@ -130,6 +129,17 @@ export default function ExportDataPanel({ clinic, bookings }: ExportDataPanelPro
   const [progressLabel, setProgressLabel]   = useState("");
   const [reminderVisible, setReminderVisible] = useState(() => getReminderState().show);
   const [snoozeOpen, setSnoozeOpen]           = useState(false);
+
+  // Fetch all bookings using the legacy flat endpoint (no ?page param) for export purposes
+  const { data: bookings } = useQuery<BookingWithSlot[]>({
+    queryKey: ["/api/auth/clinic/bookings"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/auth/clinic/bookings");
+      if (!res.ok) throw new Error("Failed to fetch bookings");
+      return res.json();
+    },
+    enabled: selectedScopes.has("patients") || selectedScopes.has("appointments"),
+  });
 
   const { data: history = [], isLoading: historyLoading } = useQuery<ExportHistory[]>({
     queryKey: ["/api/auth/clinic/export-history"],
