@@ -4897,9 +4897,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const booking = await storage.getBooking(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Access denied" });
-      const patientId = (booking as any).patientId as number | null;
+      const patientId = booking.patientId ?? null;
       if (!patientId) return res.status(404).json({ message: "Patient record not linked to this booking — chart unavailable" });
-      const clinicId = (booking as any).clinicId as number;
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(404).json({ message: "Clinic not found for this booking" });
+      const clinicId = slot.clinicId;
       const chart = await storage.getPatientChart(patientId, clinicId);
       return res.json({
         patientId,
@@ -4924,9 +4926,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const booking = await storage.getBooking(bookingId);
       if (!booking) return res.status(404).json({ message: "Booking not found" });
       if (booking.assignedDoctorEmail !== sess.doctorEmail) return res.status(403).json({ message: "Access denied" });
-      const patientId = (booking as any).patientId as number | null;
+      const patientId = booking.patientId ?? null;
       if (!patientId) return res.status(400).json({ message: "Patient record not linked — chart cannot be saved" });
-      const clinicId = (booking as any).clinicId as number;
+      const slot = await storage.getSlot(booking.slotId);
+      if (!slot?.clinicId) return res.status(400).json({ message: "Clinic not found for this booking — chart cannot be saved" });
+      const clinicId = slot.clinicId;
       const chart = await storage.upsertPatientChart(patientId, clinicId, JSON.stringify(parsed.data.chartData));
       return res.json({ chartData: JSON.parse(chart.chartData), updatedAt: chart.updatedAt });
     } catch (err: any) {
