@@ -63,18 +63,116 @@ const UPPER_LEFT  = [21,22,23,24,25,26,27,28] as const;
 const LOWER_RIGHT = [48,47,46,45,44,43,42,41] as const;
 const LOWER_LEFT  = [31,32,33,34,35,36,37,38] as const;
 
-// SVG geometry
-const STEP = 24;
+// ── Tooth-type geometry ───────────────────────────────────────────────────────
+
+type ToothType = "incisor" | "canine" | "premolar" | "molar";
+
+function getToothType(fdi: number): ToothType {
+  const d = fdi % 10;
+  if (d === 1 || d === 2) return "incisor";
+  if (d === 3) return "canine";
+  if (d === 4 || d === 5) return "premolar";
+  return "molar";
+}
+
+// cW = cervical (gum) width — the wider side; oW = occlusal/incisal — narrower; h = crown height
+interface CrownDims { cW: number; oW: number; h: number }
+const CROWN_DIMS: Record<ToothType, CrownDims> = {
+  incisor:  { cW: 17, oW: 15, h: 21 },
+  canine:   { cW: 15, oW:  9, h: 24 },
+  premolar: { cW: 15, oW: 13, h: 18 },
+  molar:    { cW: 20, oW: 18, h: 14 },
+};
+
+// nW = neck width at cervical margin; h = root length; dual = two roots
+interface RootDims { nW: number; h: number; dual: boolean }
+const ROOT_DIMS: Record<ToothType, RootDims> = {
+  incisor:  { nW:  7, h: 43, dual: false },
+  canine:   { nW:  7, h: 43, dual: false },
+  premolar: { nW:  8, h: 43, dual: false },
+  molar:    { nW: 18, h: 43, dual: true  },
+};
+
+// ── SVG path generators ───────────────────────────────────────────────────────
+
+// Single root pointing UP (upper arch) — tapers from neckW at cervicalY to a rounded apex at apexY
+function rootUp(cx: number, cervY: number, apexY: number, nW: number): string {
+  const n = nW / 2, h = cervY - apexY;
+  return `M ${cx-n},${cervY} C ${cx-n},${cervY-h*0.55} ${cx-0.5},${apexY+5} ${cx},${apexY} C ${cx+0.5},${apexY+5} ${cx+n},${cervY-h*0.55} ${cx+n},${cervY} Z`;
+}
+
+// Single root pointing DOWN (lower arch)
+function rootDown(cx: number, cervY: number, apexY: number, nW: number): string {
+  const n = nW / 2, h = apexY - cervY;
+  return `M ${cx-n},${cervY} C ${cx-n},${cervY+h*0.55} ${cx-0.5},${apexY-5} ${cx},${apexY} C ${cx+0.5},${apexY-5} ${cx+n},${cervY+h*0.55} ${cx+n},${cervY} Z`;
+}
+
+// Two diverging roots pointing UP (upper molars)
+function dualRootsUp(cx: number, cervY: number, apexY: number, nW: number): string {
+  const n = nW / 2, h = cervY - apexY, s = 4.5, g = 2;
+  const lA = cx - s, rA = cx + s;
+  return (
+    `M ${cx-n},${cervY} C ${cx-n},${cervY-h*0.5} ${lA-2},${apexY+7} ${lA},${apexY} C ${lA+1.5},${apexY+7} ${cx-g},${cervY-h*0.45} ${cx-g},${cervY} ` +
+    `M ${cx+g},${cervY} C ${cx+g},${cervY-h*0.45} ${rA-1.5},${apexY+7} ${rA},${apexY} C ${rA+2},${apexY+7} ${cx+n},${cervY-h*0.5} ${cx+n},${cervY} Z`
+  );
+}
+
+// Two diverging roots pointing DOWN (lower molars)
+function dualRootsDown(cx: number, cervY: number, apexY: number, nW: number): string {
+  const n = nW / 2, h = apexY - cervY, s = 4.5, g = 2;
+  const lA = cx - s, rA = cx + s;
+  return (
+    `M ${cx-n},${cervY} C ${cx-n},${cervY+h*0.5} ${lA-2},${apexY-7} ${lA},${apexY} C ${lA+1.5},${apexY-7} ${cx-g},${cervY+h*0.45} ${cx-g},${cervY} ` +
+    `M ${cx+g},${cervY} C ${cx+g},${cervY+h*0.45} ${rA-1.5},${apexY-7} ${rA},${apexY} C ${rA+2},${apexY-7} ${cx+n},${cervY+h*0.5} ${cx+n},${cervY} Z`
+  );
+}
+
+// Crown for UPPER arch: cervical (wider) at top y0, occlusal (narrower) at bottom y0+h
+function crownUp(cx: number, y0: number, { cW, oW, h }: CrownDims, type: ToothType): string {
+  const r = 2, y1 = y0 + h, c = cW / 2, o = oW / 2;
+  if (type === "canine")
+    return `M ${cx-c+r},${y0} L ${cx+c-r},${y0} Q ${cx+c},${y0} ${cx+c},${y0+r} L ${cx+o},${y1-5} L ${cx},${y1} L ${cx-o},${y1-5} L ${cx-c},${y0+r} Q ${cx-c},${y0} ${cx-c+r},${y0} Z`;
+  if (type === "molar") {
+    const d = 3;
+    return `M ${cx-c+r},${y0} L ${cx+c-r},${y0} Q ${cx+c},${y0} ${cx+c},${y0+r} L ${cx+o},${y1-d} Q ${cx+o*0.4},${y1} ${cx},${y1-d*0.5} Q ${cx-o*0.4},${y1} ${cx-o},${y1-d} L ${cx-c},${y0+r} Q ${cx-c},${y0} ${cx-c+r},${y0} Z`;
+  }
+  if (type === "premolar") {
+    const d = 2.5;
+    return `M ${cx-c+r},${y0} L ${cx+c-r},${y0} Q ${cx+c},${y0} ${cx+c},${y0+r} L ${cx+o},${y1-d} Q ${cx},${y1} ${cx-o},${y1-d} L ${cx-c},${y0+r} Q ${cx-c},${y0} ${cx-c+r},${y0} Z`;
+  }
+  // incisor — gently tapered rectangle
+  return `M ${cx-c+r},${y0} L ${cx+c-r},${y0} Q ${cx+c},${y0} ${cx+c},${y0+r} L ${cx+o},${y1-r} Q ${cx+o},${y1} ${cx+o-r},${y1} L ${cx-o+r},${y1} Q ${cx-o},${y1} ${cx-o},${y1-r} L ${cx-c},${y0+r} Q ${cx-c},${y0} ${cx-c+r},${y0} Z`;
+}
+
+// Crown for LOWER arch: occlusal (narrower) at top y0, cervical (wider) at bottom y0+h
+function crownDown(cx: number, y0: number, { cW, oW, h }: CrownDims, type: ToothType): string {
+  const r = 2, y1 = y0 + h, c = cW / 2, o = oW / 2;
+  if (type === "canine")
+    return `M ${cx},${y0} L ${cx+o},${y0+5} L ${cx+c},${y1-r} Q ${cx+c},${y1} ${cx+c-r},${y1} L ${cx-c+r},${y1} Q ${cx-c},${y1} ${cx-c},${y1-r} L ${cx-o},${y0+5} Z`;
+  if (type === "molar") {
+    const d = 3;
+    return `M ${cx+o},${y0+d} Q ${cx+o*0.4},${y0} ${cx},${y0+d*0.5} Q ${cx-o*0.4},${y0} ${cx-o},${y0+d} L ${cx-c},${y1-r} Q ${cx-c},${y1} ${cx-c+r},${y1} L ${cx+c-r},${y1} Q ${cx+c},${y1} ${cx+c},${y1-r} Z`;
+  }
+  if (type === "premolar") {
+    const d = 2.5;
+    return `M ${cx+o},${y0+d} Q ${cx},${y0} ${cx-o},${y0+d} L ${cx-c},${y1-r} Q ${cx-c},${y1} ${cx-c+r},${y1} L ${cx+c-r},${y1} Q ${cx+c},${y1} ${cx+c},${y1-r} Z`;
+  }
+  // incisor
+  return `M ${cx-o+r},${y0} L ${cx+o-r},${y0} Q ${cx+o},${y0} ${cx+o},${y0+r} L ${cx+c},${y1-r} Q ${cx+c},${y1} ${cx+c-r},${y1} L ${cx-c+r},${y1} Q ${cx-c},${y1} ${cx-c},${y1-r} L ${cx-o},${y0+r} Q ${cx-o},${y0} ${cx-o+r},${y0} Z`;
+}
+
+// ── Fixed Y anchors ───────────────────────────────────────────────────────────
+
+const STEP         = 24;
 const MIDLINE_EXTRA = 8;
-const START_CX = 19; // center x of first tooth (8px left margin + 11px half-tooth)
-const CROWN_W = 20, CROWN_H = 26, ROOT_W = 10, ROOT_H = 43;
-const UPPER_ROOT_Y  = 6;
-const UPPER_CROWN_Y = UPPER_ROOT_Y + ROOT_H;          // 49
-const UPPER_LABEL_Y = UPPER_CROWN_Y + CROWN_H + 7;    // 82
-const MIDLINE_Y     = UPPER_LABEL_Y + 9;              // 91
-const LOWER_LABEL_Y = MIDLINE_Y + 8;                  // 99
-const LOWER_CROWN_Y = LOWER_LABEL_Y + 5;              // 104
-const LOWER_ROOT_Y  = LOWER_CROWN_Y + CROWN_H;        // 130
+const START_CX     = 19;   // cx of first tooth slot
+
+const UPPER_ROOT_Y  = 6;   // tip of upper roots
+const UPPER_CROWN_Y = 49;  // cervical margin for upper arch (root meets crown)
+const UPPER_LABEL_Y = 82;  // FDI label for upper teeth
+const MIDLINE_Y     = 91;  // horizontal midline between arches
+const LOWER_LABEL_Y = 99;  // FDI label for lower teeth
+const LOWER_CROWN_Y = 104; // occlusal surface of lower teeth (top of lower crown)
 
 function toothCx(tooth: number): number {
   let idx = (UPPER_RIGHT as readonly number[]).indexOf(tooth);
@@ -101,88 +199,97 @@ interface ToothProps {
 }
 
 function ToothSvg({ tooth, arch, state, isSelected, isNewThisVisit, isEditable, onClick }: ToothProps) {
-  const cx = toothCx(tooth);
-  const cond = state?.condition ?? null;
-  const meta = cond ? CONDITION_META[cond] : null;
+  const cx    = toothCx(tooth);
+  const cond  = state?.condition ?? null;
+  const meta  = cond ? CONDITION_META[cond] : null;
   const crownFill   = meta ? meta.fill   : HEALTHY_STYLE.fill;
   const crownStroke = meta ? meta.stroke : HEALTHY_STYLE.stroke;
   const isMissing   = cond === "missing";
   const hasHistory  = (state?.history?.length ?? 0) > 0;
 
-  const selectedStroke = "#0F9B6E";
-  const selectedSW     = 1.8;
+  const type  = getToothType(tooth);
+  const dims  = CROWN_DIMS[type];
+  const rdims = ROOT_DIMS[type];
 
-  const rootY  = arch === "upper" ? UPPER_ROOT_Y  : LOWER_ROOT_Y;
-  const crownY = arch === "upper" ? UPPER_CROWN_Y : LOWER_CROWN_Y;
-  const labelY = arch === "upper" ? UPPER_LABEL_Y : LOWER_LABEL_Y;
+  const SEL   = "#0F9B6E";
+  const cSW   = isSelected ? 1.8 : 1;
+  const cCol  = isSelected ? SEL : crownStroke;
 
-  const rootRect = (
-    <rect
-      x={cx - ROOT_W / 2} y={rootY} width={ROOT_W} height={ROOT_H} rx={2}
+  // Y anchors
+  const crownY0 = arch === "upper" ? UPPER_CROWN_Y : LOWER_CROWN_Y;
+  const labelY  = arch === "upper" ? UPPER_LABEL_Y : LOWER_LABEL_Y;
+  // cervical margin (root meets crown)
+  const cervY   = arch === "upper" ? UPPER_CROWN_Y : LOWER_CROWN_Y + dims.h;
+  // root apex
+  const apexY   = arch === "upper" ? UPPER_ROOT_Y  : LOWER_CROWN_Y + dims.h + rdims.h;
+
+  // ── Paths ──
+  const crownPath = arch === "upper"
+    ? crownUp(cx, crownY0, dims, type)
+    : crownDown(cx, crownY0, dims, type);
+
+  const rootPath = rdims.dual
+    ? (arch === "upper" ? dualRootsUp(cx, cervY, apexY, rdims.nW) : dualRootsDown(cx, cervY, apexY, rdims.nW))
+    : (arch === "upper" ? rootUp(cx, cervY, apexY, rdims.nW)      : rootDown(cx, cervY, apexY, rdims.nW));
+
+  // ── Elements ──
+  const rootEl = (
+    <path d={rootPath}
       fill={isMissing ? "#F3F4F6" : "#EEF5F1"}
-      stroke={isSelected ? selectedStroke : "#C5D9CE"}
-      strokeWidth={isSelected ? selectedSW : 0.6}
+      stroke={isSelected ? SEL : "#C5D9CE"}
+      strokeWidth={isSelected ? 1.5 : 0.6}
       strokeDasharray={isMissing ? "3 2" : undefined}
     />
   );
 
-  const crownRect = (
-    <rect
-      x={cx - CROWN_W / 2} y={crownY} width={CROWN_W} height={CROWN_H} rx={3}
+  const crownEl = (
+    <path d={crownPath}
       fill={crownFill}
-      stroke={isSelected ? selectedStroke : crownStroke}
-      strokeWidth={isSelected ? selectedSW : 1}
+      stroke={cCol}
+      strokeWidth={cSW}
       strokeDasharray={isMissing ? "3 2" : undefined}
     />
   );
 
+  // Missing X — crosses through the crown bounding box
+  const mxH = dims.cW / 2;
   const missingX = isMissing && (
     <g>
-      <line x1={cx - CROWN_W/2 + 4} y1={crownY + 4}
-            x2={cx + CROWN_W/2 - 4} y2={crownY + CROWN_H - 4}
-            stroke="#9CA3AF" strokeWidth={1.2} />
-      <line x1={cx + CROWN_W/2 - 4} y1={crownY + 4}
-            x2={cx - CROWN_W/2 + 4} y2={crownY + CROWN_H - 4}
-            stroke="#9CA3AF" strokeWidth={1.2} />
+      <line x1={cx - mxH + 4} y1={crownY0 + 3} x2={cx + mxH - 4} y2={crownY0 + dims.h - 3} stroke="#9CA3AF" strokeWidth={1.2} />
+      <line x1={cx + mxH - 4} y1={crownY0 + 3} x2={cx - mxH + 4} y2={crownY0 + dims.h - 3} stroke="#9CA3AF" strokeWidth={1.2} />
     </g>
   );
 
-  const newDot = isNewThisVisit && (
-    <circle cx={cx + CROWN_W/2 - 1} cy={crownY + 1} r={3} fill="#0F9B6E" />
-  );
-
-  const histDot = !isNewThisVisit && hasHistory && (
-    <circle cx={cx + CROWN_W/2 - 1} cy={crownY + 1} r={2.5} fill="#6B7280" opacity={0.7} />
-  );
-
-  const label = (
-    <text
-      x={cx} y={labelY} textAnchor="middle"
-      fontSize={6.5} fontFamily="monospace"
-      fill={isSelected ? "#0F9B6E" : "#6B8F7E"}
-      fontWeight={isSelected ? "700" : "500"}
-    >{tooth}</text>
-  );
-
+  // Selection ring — dashed rect around crown bounding box
   const selRing = isSelected && (
     <rect
-      x={cx - CROWN_W/2 - 2} y={crownY - 2} width={CROWN_W + 4} height={CROWN_H + 4} rx={4}
-      fill="none" stroke="#0F9B6E" strokeWidth={1.2} strokeDasharray="3 2" opacity={0.6}
+      x={cx - dims.cW / 2 - 2} y={crownY0 - 2}
+      width={dims.cW + 4} height={dims.h + 4}
+      rx={3} fill="none"
+      stroke={SEL} strokeWidth={1.2} strokeDasharray="3 2" opacity={0.6}
     />
   );
 
+  // Indicator dots — top-right of crown
+  const dotX = cx + dims.cW / 2 - 1;
+  const newDot  = isNewThisVisit && <circle cx={dotX} cy={crownY0 + 1} r={3} fill="#0F9B6E" />;
+  const histDot = !isNewThisVisit && hasHistory && <circle cx={dotX} cy={crownY0 + 1} r={2.5} fill="#6B7280" opacity={0.7} />;
+
+  const label = (
+    <text x={cx} y={labelY} textAnchor="middle" fontSize={6.5} fontFamily="monospace"
+      fill={isSelected ? "#0F9B6E" : "#6B8F7E"} fontWeight={isSelected ? "700" : "500"}>
+      {tooth}
+    </text>
+  );
+
   return (
-    <g
-      key={tooth}
-      onClick={isEditable ? onClick : undefined}
-      style={{ cursor: isEditable ? "pointer" : "default" }}
-      opacity={isMissing && !isSelected ? 0.7 : 1}
-    >
-      {arch === "upper" ? (
-        <>{rootRect}{crownRect}{missingX}{selRing}{newDot}{histDot}{label}</>
-      ) : (
-        <>{label}{crownRect}{missingX}{selRing}{newDot}{histDot}{rootRect}</>
-      )}
+    <g onClick={isEditable ? onClick : undefined}
+       style={{ cursor: isEditable ? "pointer" : "default" }}
+       opacity={isMissing && !isSelected ? 0.7 : 1}>
+      {arch === "upper"
+        ? <>{rootEl}{crownEl}{missingX}{selRing}{newDot}{histDot}{label}</>
+        : <>{label}{crownEl}{missingX}{selRing}{newDot}{histDot}{rootEl}</>
+      }
     </g>
   );
 }
@@ -298,7 +405,7 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
   }
 
   // ── Chart SVG ───────────────────────────────────────────────────────────────
-  const svgViewBox = "0 0 410 178";
+  const svgViewBox = "0 0 410 185";
 
   const MidlineY    = MIDLINE_Y;
   const MidlineX1   = 6;
@@ -315,12 +422,12 @@ export default function OdontogramTab({ bookingId, bookingRef, doctorName, isEdi
       {/* Quadrant labels */}
       <text x={100} y={5} textAnchor="middle" fontSize={6} fill="#9BB8A8" fontFamily="monospace" fontWeight="600">Q1 · UPPER RIGHT</text>
       <text x={308} y={5} textAnchor="middle" fontSize={6} fill="#9BB8A8" fontFamily="monospace" fontWeight="600">Q2 · UPPER LEFT</text>
-      <text x={308} y={176} textAnchor="middle" fontSize={6} fill="#9BB8A8" fontFamily="monospace" fontWeight="600">Q3 · LOWER LEFT</text>
-      <text x={100} y={176} textAnchor="middle" fontSize={6} fill="#9BB8A8" fontFamily="monospace" fontWeight="600">Q4 · LOWER RIGHT</text>
+      <text x={308} y={183} textAnchor="middle" fontSize={6} fill="#9BB8A8" fontFamily="monospace" fontWeight="600">Q3 · LOWER LEFT</text>
+      <text x={100} y={183} textAnchor="middle" fontSize={6} fill="#9BB8A8" fontFamily="monospace" fontWeight="600">Q4 · LOWER RIGHT</text>
 
       {/* Midline cross lines */}
       <line x1={MidlineX1} y1={MidlineY} x2={MidlineX2} y2={MidlineY} stroke="#D1E8DC" strokeWidth={0.8} />
-      <line x1={VertMidX} y1={UPPER_ROOT_Y} x2={VertMidX} y2={LOWER_ROOT_Y + ROOT_H} stroke="#D1E8DC" strokeWidth={0.8} strokeDasharray="2 2" />
+      <line x1={VertMidX} y1={UPPER_ROOT_Y} x2={VertMidX} y2={172} stroke="#D1E8DC" strokeWidth={0.8} strokeDasharray="2 2" />
 
       {/* Upper right teeth */}
       {UPPER_RIGHT.map(t => (
