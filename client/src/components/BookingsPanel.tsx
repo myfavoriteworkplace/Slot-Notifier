@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import noBookingsImg from "@assets/Copilot_20260603_191746_1780494897553.png";
@@ -73,7 +73,6 @@ import { Stethoscope, Trash2, Upload, Repeat2, Tag, UserX, ShieldCheck, Activity
 import { BookingProgressStrip, type LifecycleStage } from "@/components/BookingProgressStrip";
 import { AppointmentCard } from "@/components/AppointmentCard";
 import { filterAndSortBookings, getBookingActionState, getBookingDisplayMeta, getBookingEmptyStateMeta, getBookingNumber, type BookingsPagedResponse } from "@/lib/booking-list";
-import { BookingsPagination } from "@/components/BookingsPagination";
 import type { PatientBill, Patient } from "@shared/schema";
 
 function BookingCardSkeleton() {
@@ -212,8 +211,7 @@ export default function BookingsPanel({
   const [legendCollapsed, setLegendCollapsed] = useState(false);
   const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
 
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const [bookingPatientSearch, setBookingPatientSearch] = useState("");
   const [bookingPatientResults, setBookingPatientResults] = useState<Patient[]>([]);
@@ -247,22 +245,26 @@ export default function BookingsPanel({
   const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
   const dates = useMemo(() => Array.from({ length: 14 }, (_, idx) => addDays(startOfToday(), idx)), []);
 
-  // Reset to page 1 whenever the filter/dates/patient change
-  useEffect(() => { setPage(1); }, [quickFilter, filterDate, filterEndDate, activePatientFilter]);
-
   const bookingsQueryKey = ['/api/auth/clinic/bookings', {
     filter: quickFilter,
-    page,
-    pageSize,
     dateFrom: filterDate ? format(filterDate, 'yyyy-MM-dd') : undefined,
     dateTo: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : undefined,
     patientId: activePatientFilter?.id,
   }];
 
-  const { data: pagedResponse, isLoading: bookingsLoading, isError: bookingsError, error: bookingsErrorDetails, refetch: refetchBookings } = useQuery<BookingsPagedResponse>({
+  const {
+    data: bookingsInfiniteData,
+    isLoading: bookingsLoading,
+    isError: bookingsError,
+    error: bookingsErrorDetails,
+    refetch: refetchBookings,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<BookingsPagedResponse>({
     queryKey: bookingsQueryKey,
-    queryFn: async () => {
-      const params = new URLSearchParams({ filter: quickFilter, page: String(page), pageSize: String(pageSize) });
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20' });
       if (filterDate) params.set('dateFrom', format(filterDate, 'yyyy-MM-dd'));
       if (filterEndDate) params.set('dateTo', format(filterEndDate, 'yyyy-MM-dd'));
       if (activePatientFilter) params.set('patientId', String(activePatientFilter.id));
@@ -270,14 +272,17 @@ export default function BookingsPanel({
       if (!res.ok) throw new Error('Failed to fetch bookings');
       return res.json();
     },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
     enabled: isAuthenticated,
     refetchOnMount: true,
     refetchInterval: quickFilter === 'today' ? 30_000 : false,
     staleTime: quickFilter === 'today' ? 30_000 : 5 * 60_000,
   });
 
-  const bookings = pagedResponse?.data;
-  const bookingStats = pagedResponse?.stats;
+  const bookings = useMemo(() => bookingsInfiniteData?.pages.flatMap(p => p.data) ?? [], [bookingsInfiniteData]);
+  const bookingStats = bookingsInfiniteData?.pages[0]?.stats;
+  const bookingsTotal = bookingsInfiniteData?.pages[0]?.total ?? 0;
 
   const { data: allDoctorLeaves = [] } = useQuery<{ doctorEmail?: string; doctorName?: string; leaveDate: string; reason?: string | null }[]>({
     queryKey: ['/api/clinic/doctor-leaves/all'],
@@ -337,8 +342,7 @@ export default function BookingsPanel({
     return bookingDate >= thisWeekStart && bookingDate <= thisWeekEnd;
   });
 
-  // The server already filtered and paginated — use the page data directly
-  const filteredBookings = useMemo(() => bookings ?? [], [bookings]);
+  const filteredBookings = bookings;
 
   const emptyStateMeta = useMemo(() => getBookingEmptyStateMeta({
     activePatientFilter,
@@ -897,6 +901,21 @@ export default function BookingsPanel({
   const pendingNext7Count   = bookingStats?.pendingNext7Count ?? 0;
   const totalPendingCount   = bookingStats?.totalPendingCount ?? 0;
   const confirmedNext7Count = bookingStats?.confirmedNext7Count ?? 0;
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1, rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
           <div className="space-y-5" ref={bookingsSectionRef}>
@@ -1578,6 +1597,7 @@ export default function BookingsPanel({
             </Button>
           </div>
         ) : (
+          <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredBookings.length === 0 ? (
               <div className="col-span-full py-12 flex flex-col items-center gap-5 text-center bg-muted/10 rounded-2xl border border-dashed border-border/60">
@@ -3175,19 +3195,20 @@ export default function BookingsPanel({
             )}
 
           </div>
+          {isFetchingNextPage && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+              {[1,2,3].map(i => <BookingCardSkeleton key={i} />)}
+            </div>
+          )}
+          {!hasNextPage && !bookingsLoading && filteredBookings.length > 0 && (
+            <p className="text-center text-xs text-muted-foreground/60 py-3 tabular-nums">
+              All {bookingsTotal} bookings loaded
+            </p>
+          )}
+          <div ref={sentinelRef} className="h-2" />
+          </>
         )}
         </div>
-          {pagedResponse && pagedResponse.totalPages > 1 && (
-            <BookingsPagination
-              page={page}
-              pageSize={pageSize}
-              total={pagedResponse.total}
-              totalPages={pagedResponse.totalPages}
-              onPageChange={setPage}
-              onPageSizeChange={(newSize) => { setPageSize(newSize); setPage(1); }}
-              isLoading={bookingsLoading}
-            />
-          )}
         </div>
           </div>
   );

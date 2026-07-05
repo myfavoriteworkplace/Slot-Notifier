@@ -30,7 +30,7 @@ import {
   MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck, Microscope, RefreshCw,
   SlidersHorizontal, Maximize2, Minimize2, Layers
 } from "lucide-react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { notify } from "@/lib/notify";
 import { Clinic, DoctorCertification, DoctorCase, DoctorLeave } from "@shared/schema";
@@ -38,7 +38,6 @@ import { format, differenceInCalendarDays, startOfDay, endOfDay, startOfWeek, en
 import { compressImage } from "@/lib/imageCompression";
 import { type BookingsPagedResponse } from "@/lib/booking-list";
 import { AppointmentCard } from "@/components/AppointmentCard";
-import { BookingsPagination } from "@/components/BookingsPagination";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 import OdontogramTab from "@/components/OdontogramTab";
 
@@ -141,8 +140,7 @@ export default function DoctorDashboard() {
       return null;
     }
   });
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const [openedBooking, setOpenedBooking] = useState<any>(null);
 
   const [certSheetOpen, setCertSheetOpen] = useState(false);
@@ -236,16 +234,22 @@ export default function DoctorDashboard() {
   });
 
   const bookingsQueryKey = ["/api/auth/clinic/bookings", {
-    filter: quickFilter, page, pageSize,
+    filter: quickFilter,
     clinicId: appointmentClinicFilter !== "all" ? appointmentClinicFilter : undefined,
     dateFrom: filterDate ? format(filterDate, "yyyy-MM-dd") : undefined,
     dateTo: filterEndDate ? format(filterEndDate, "yyyy-MM-dd") : undefined,
   }];
 
-  const { data: pagedResponse, isLoading: isBookingsLoading } = useQuery<BookingsPagedResponse>({
+  const {
+    data: bookingsInfiniteData,
+    isLoading: isBookingsLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<BookingsPagedResponse>({
     queryKey: bookingsQueryKey,
-    queryFn: async () => {
-      const params = new URLSearchParams({ filter: quickFilter, page: String(page), pageSize: String(pageSize) });
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({ filter: quickFilter, page: String(pageParam), pageSize: '20' });
       if (appointmentClinicFilter !== "all") params.set("clinicId", appointmentClinicFilter);
       if (filterDate) params.set("dateFrom", format(filterDate, "yyyy-MM-dd"));
       if (filterEndDate) params.set("dateTo", format(filterEndDate, "yyyy-MM-dd"));
@@ -256,6 +260,8 @@ export default function DoctorDashboard() {
       }
       return res.json();
     },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
     enabled: isAuthenticated && activeTab === "appointments",
     refetchOnMount: "always",
     staleTime: 30_000,
@@ -580,8 +586,8 @@ export default function DoctorDashboard() {
     });
   }
 
-  const displayBookings = useMemo(() => pagedResponse?.data ?? [], [pagedResponse]);
-  const bookingStats = pagedResponse?.stats;
+  const displayBookings = useMemo(() => bookingsInfiniteData?.pages.flatMap(p => p.data) ?? [], [bookingsInfiniteData]);
+  const bookingStats = bookingsInfiniteData?.pages[0]?.stats;
 
   const awaitingApprovalCount = bookingStats?.awaitingApprovalCount ?? 0;
   const todayBookingsCount    = bookingStats?.todayCount ?? 0;
@@ -602,9 +608,22 @@ export default function DoctorDashboard() {
   const nextWeekStart = useMemo(() => startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), []);
   const nextWeekEnd   = useMemo(() => endOfWeek(addWeeks(new Date(), 1),   { weekStartsOn: 1 }), []);
 
-  useEffect(() => { setPage(1); }, [quickFilter, appointmentClinicFilter, filterDate, filterEndDate]);
+  const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setFilterDate(undefined); setFilterEndDate(undefined); };
 
-  const handleQuickFilter = (f: QuickFilter) => { setQuickFilter(f); setPage(1); setFilterDate(undefined); setFilterEndDate(undefined); };
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1, rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   if (isLoading) {
     return (
@@ -1212,8 +1231,8 @@ export default function DoctorDashboard() {
                            : "All Appointments"}
                         </h2>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          <span className="tabular-nums font-semibold">{pagedResponse?.total ?? 0}</span>{" "}
-                          {(pagedResponse?.total ?? 0) === 1 ? "appointment" : "appointments"}{" · "}
+                          <span className="tabular-nums font-semibold">{bookingsInfiniteData?.pages[0]?.total ?? 0}</span>{" "}
+                          {(bookingsInfiniteData?.pages[0]?.total ?? 0) === 1 ? "appointment" : "appointments"}{" · "}
                           {quickFilter === "today"             ? "Appointments assigned to you today"
                            : quickFilter === "upcoming"        ? "Future appointments beyond today"
                            : quickFilter === "awaiting"        ? "All unconfirmed bookings across all dates"
@@ -1322,19 +1341,32 @@ export default function DoctorDashboard() {
                     );
                   })}
                 </div>
-                {pagedResponse && pagedResponse.totalPages > 1 && (
-                  <div className="mt-4">
-                    <BookingsPagination
-                      page={pagedResponse.page}
-                      pageSize={pageSize}
-                      total={pagedResponse.total}
-                      totalPages={pagedResponse.totalPages}
-                      onPageChange={setPage}
-                      onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
-                      isLoading={isBookingsLoading}
-                    />
+                {isFetchingNextPage && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-6">
+                    {[1,2,3].map(i => (
+                      <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Skeleton className="h-4 w-28" />
+                          <Skeleton className="h-5 w-16 rounded-full" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Skeleton className="h-3.5 w-36" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <Skeleton className="h-7 flex-1 rounded-md" />
+                          <Skeleton className="h-7 flex-1 rounded-md" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
+                {!hasNextPage && displayBookings.length > 0 && (
+                  <p className="text-center text-xs text-muted-foreground/60 py-3 tabular-nums">
+                    All {bookingsInfiniteData?.pages[0]?.total ?? displayBookings.length} appointments loaded
+                  </p>
+                )}
+                <div ref={sentinelRef} className="h-2" />
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
