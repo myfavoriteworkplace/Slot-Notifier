@@ -41,6 +41,7 @@ export interface BookingQueryParams {
   dateTo?: string;
   search?: string;
   patientId?: number;
+  clinicId?: number;
 }
 
 export interface BookingStats {
@@ -54,6 +55,7 @@ export interface BookingStats {
   confirmedNext7Count: number;
   totalPendingCount: number;
   totalAllCount: number;
+  awaitingApprovalCount?: number;
 }
 
 export interface BookingsPagedResult {
@@ -109,6 +111,7 @@ export interface IStorage {
   getClinicSlots(clinicId: number, date?: string): Promise<Slot[]>;
   getClinicBookings(clinicId: number): Promise<(Booking & { slot: Slot })[]>;
   getClinicBookingsPaged(clinicId: number, params: BookingQueryParams): Promise<BookingsPagedResult>;
+  getDoctorBookingsPaged(doctorEmail: string, params: BookingQueryParams): Promise<BookingsPagedResult>;
   getClinicBookingStats(clinicId: number): Promise<BookingStats>;
   getBooking(id: number): Promise<Booking | undefined>;
   updateBookingStatus(id: number, status: string): Promise<Booking>;
@@ -656,6 +659,143 @@ export class DatabaseStorage implements IStorage {
     }
 
     const data = results.map(r => ({ ...this.decryptBooking(r.booking), slot: r.slot, patientCode: r.patientCode }));
+    return { data, total, page: safePage, pageSize, totalPages, stats };
+  }
+
+  async getDoctorBookingsPaged(doctorEmail: string, params: BookingQueryParams): Promise<BookingsPagedResult> {
+    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, clinicId } = params;
+
+    const now = new Date();
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const tomorrowStart = startOfDay(addDays(now, 1));
+    const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+    const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 });
+    const next7DaysEnd = addDays(todayStart, 7);
+
+    const emailCond = eq(bookings.assignedDoctorEmail, doctorEmail);
+    const clinicCond = clinicId ? eq(slots.clinicId, clinicId) : undefined;
+
+    // "approved" = not pending AND not declined doctor approval
+    const approvedCond = and(
+      ne(bookings.doctorApprovalStatus, 'pending'),
+      ne(bookings.doctorApprovalStatus, 'declined'),
+    );
+    const awaitingCond = eq(bookings.doctorApprovalStatus, 'pending');
+
+    let filterCond;
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? startOfDay(new Date(dateFrom)) : undefined;
+      const to   = dateTo   ? endOfDay(new Date(dateTo))     : undefined;
+      if (from && to) filterCond = and(approvedCond, gte(slots.startTime, from), lte(slots.startTime, to));
+      else if (from)  filterCond = and(approvedCond, gte(slots.startTime, from));
+      else            filterCond = and(approvedCond, lte(slots.startTime, to!));
+    } else {
+      switch (filter) {
+        case 'today':
+          filterCond = and(approvedCond, gte(slots.startTime, todayStart), lte(slots.startTime, todayEnd));
+          break;
+        case 'upcoming':
+          filterCond = and(approvedCond, gte(slots.startTime, tomorrowStart), ne(bookings.visitStatus, 'completed'), ne(bookings.visitStatus, 'patient_left_early'));
+          break;
+        case 'past':
+          filterCond = and(approvedCond, lt(slots.startTime, todayStart));
+          break;
+        case 'this-week':
+          filterCond = and(approvedCond, gte(slots.startTime, thisWeekStart), lte(slots.startTime, thisWeekEnd));
+          break;
+        case 'next-week':
+          filterCond = and(approvedCond, gte(slots.startTime, nextWeekStart), lte(slots.startTime, nextWeekEnd));
+          break;
+        case 'confirmed-7days':
+          filterCond = and(approvedCond, gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd));
+          break;
+        case 'awaiting':
+          filterCond = awaitingCond;
+          break;
+        case 'pending-7days':
+          filterCond = and(awaitingCond, gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd));
+          break;
+        default:
+          filterCond = approvedCond;
+      }
+    }
+
+    const whereClause = and(emailCond, clinicCond, filterCond);
+
+    const [countRow] = await db.select({ total: count() })
+      .from(bookings)
+      .innerJoin(slots, eq(bookings.slotId, slots.id))
+      .where(whereClause);
+    const total = Number(countRow?.total ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const offset = (safePage - 1) * pageSize;
+
+    const results = await db.select({
+      booking: bookings,
+      slot: slots,
+      clinic: clinics,
+      patientCode: patients.patientCode,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .leftJoin(clinics, eq(slots.clinicId, clinics.id))
+    .leftJoin(patients, eq(bookings.patientId, patients.id))
+    .where(whereClause)
+    .orderBy(asc(slots.startTime), asc(bookings.id))
+    .limit(pageSize)
+    .offset(offset);
+
+    // Stats across ALL bookings assigned to this doctor (independent of filter)
+    const statRows = await db.select({
+      startTime: slots.startTime,
+      verificationStatus: bookings.verificationStatus,
+      confirmedBy: bookings.confirmedBy,
+      visitStatus: bookings.visitStatus,
+      doctorApprovalStatus: bookings.doctorApprovalStatus,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(and(emailCond, clinicCond));
+
+    const stats: BookingStats = {
+      todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
+      thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
+      totalPendingCount: 0, totalAllCount: statRows.length, awaitingApprovalCount: 0,
+    };
+    for (const r of statRows) {
+      const d = new Date(r.startTime);
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const isApproved = r.doctorApprovalStatus !== 'pending' && r.doctorApprovalStatus !== 'declined';
+      const isAwaiting = r.doctorApprovalStatus === 'pending';
+      const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
+      const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
+      if (isAwaiting) stats.awaitingApprovalCount!++;
+      if (isApproved) {
+        if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
+        if (d >= now && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
+        if (d < todayStart) stats.pastCount++;
+        if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
+        if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
+      }
+      if (d >= todayStart && d < next7DaysEnd) {
+        if (isAwaiting) stats.pendingNext7Count++;
+        if (isApproved && isConfirmed) stats.confirmedNext7Count++;
+      }
+      if (isPending) stats.totalPendingCount++;
+    }
+
+    const data = results.map(r => ({
+      ...this.decryptBooking(r.booking),
+      slot: r.slot,
+      clinic: (r as any).clinic,
+      clinicId: r.slot.clinicId,
+      patientCode: r.patientCode,
+    }));
     return { data, total, page: safePage, pageSize, totalPages, stats };
   }
 

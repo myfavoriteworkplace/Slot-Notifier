@@ -2851,13 +2851,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const sess = req.session as any;
     if (sess.role === 'doctor') {
       const email = sess.doctorEmail;
+      // Paginated path (when ?page is provided — used by DoctorDashboard appointments)
+      if (req.query.page !== undefined) {
+        const parseResult = z.object({
+          filter:   z.string().optional().default('all'),
+          page:     z.coerce.number().min(1).optional().default(1),
+          pageSize: z.coerce.number().min(1).max(500).optional().default(20),
+          dateFrom: z.string().optional(),
+          dateTo:   z.string().optional(),
+          clinicId: z.coerce.number().optional(),
+        }).safeParse(req.query);
+        if (!parseResult.success) return res.status(400).json({ message: "Invalid query params" });
+        const paged = await storage.getDoctorBookingsPaged(email, parseResult.data);
+        return res.json(paged);
+      }
+      // Legacy flat path (no ?page — kept for backward compatibility)
       const doctorId = sess.doctorId;
-      // Get the clinic IDs this doctor is linked to via the authoritative join table
       const clinicLinks = await db.select({ clinicId: clinicDoctors.clinicId })
         .from(clinicDoctors)
         .where(eq(clinicDoctors.doctorId, doctorId));
       if (!clinicLinks.length) return res.json([]);
-      // Return all bookings assigned to this doctor by email
       const results = await db.select({ booking: bookings, slot: slots, clinic: clinics })
         .from(bookings)
         .innerJoin(slots, eq(bookings.slotId, slots.id))
