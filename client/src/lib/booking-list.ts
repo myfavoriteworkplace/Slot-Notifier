@@ -12,6 +12,7 @@ export interface BookingStats {
   confirmedNext7Count: number;
   totalPendingCount: number;
   totalAllCount: number;
+  totalOwnedCount?: number;
   awaitingApprovalCount?: number;
 }
 

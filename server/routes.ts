@@ -2860,6 +2860,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           dateFrom: z.string().optional(),
           dateTo:   z.string().optional(),
           clinicId: z.coerce.number().optional(),
+          search:   z.string().optional(),
         }).safeParse(req.query);
         if (!parseResult.success) return res.status(400).json({ message: "Invalid query params" });
         const paged = await storage.getDoctorBookingsPaged(email, parseResult.data);

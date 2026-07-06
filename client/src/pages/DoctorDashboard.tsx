@@ -28,7 +28,7 @@ import {
   Copy, Check, Link as LinkIcon, Image as ImageIcon, Tag, GraduationCap, Star, Eye,
   Upload, Play, Globe, Share2, FileText, ChevronDown, ChevronUp, BriefcaseMedical, KeyRound,
   MoreHorizontal, CalendarOff, Phone, Pill, Repeat2, PenLine, ClipboardCheck, Microscope, RefreshCw,
-  SlidersHorizontal, Maximize2, Minimize2, Layers
+  SlidersHorizontal, Maximize2, Minimize2, Layers, Search
 } from "lucide-react";
 import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -41,7 +41,7 @@ import { AppointmentCard } from "@/components/AppointmentCard";
 import XrayAnalysisTab from "@/components/XrayAnalysisTab";
 import OdontogramTab from "@/components/OdontogramTab";
 
-type QuickFilter = "all" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days" | "this-week" | "next-week";
+type QuickFilter = "all" | "owned" | "today" | "upcoming" | "awaiting" | "pending-7days" | "confirmed-7days" | "this-week" | "next-week";
 type Tab = "appointments" | "profile" | "certifications" | "cases" | "leaves" | "xray";
 
 function isVideo(url: string) {
@@ -100,6 +100,11 @@ export default function DoctorDashboard() {
   const [filterRowOpen, setFilterRowOpen] = useState(true);
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
+  const [apptSearch, setApptSearch] = useState("");
+  const [apptSearchInput, setApptSearchInput] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const apptSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [heroStatsCollapsed, setHeroStatsCollapsed] = useState(false);
   const appointmentsSectionRef = useRef<HTMLDivElement>(null);
@@ -238,6 +243,7 @@ export default function DoctorDashboard() {
     clinicId: appointmentClinicFilter !== "all" ? appointmentClinicFilter : undefined,
     dateFrom: filterDate ? format(filterDate, "yyyy-MM-dd") : undefined,
     dateTo: filterEndDate ? format(filterEndDate, "yyyy-MM-dd") : undefined,
+    search: apptSearch || undefined,
   }];
 
   const {
@@ -253,6 +259,7 @@ export default function DoctorDashboard() {
       if (appointmentClinicFilter !== "all") params.set("clinicId", appointmentClinicFilter);
       if (filterDate) params.set("dateFrom", format(filterDate, "yyyy-MM-dd"));
       if (filterEndDate) params.set("dateTo", format(filterEndDate, "yyyy-MM-dd"));
+      if (apptSearch) params.set("search", apptSearch);
       const res = await apiRequest("GET", `/api/auth/clinic/bookings?${params.toString()}`);
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) return { data: [], total: 0, page: 1, pageSize: 20, totalPages: 1, stats: { todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0, thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0, totalPendingCount: 0, totalAllCount: 0, awaitingApprovalCount: 0 } };
@@ -593,6 +600,7 @@ export default function DoctorDashboard() {
   const todayBookingsCount    = bookingStats?.todayCount ?? 0;
   const upcomingBookingsCount = bookingStats?.upcomingCount ?? 0;
   const confirmedAllCount     = bookingStats?.totalAllCount ?? 0;
+  const ownedCount            = bookingStats?.totalOwnedCount ?? 0;
 
   const todayStr    = useMemo(() => new Date().toISOString().split("T")[0], []);
   const todayStart  = useMemo(() => startOfDay(new Date()), []);

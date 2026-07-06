@@ -55,6 +55,7 @@ export interface BookingStats {
   confirmedNext7Count: number;
   totalPendingCount: number;
   totalAllCount: number;
+  totalOwnedCount?: number;
   awaitingApprovalCount?: number;
 }
 
@@ -694,7 +695,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDoctorBookingsPaged(doctorEmail: string, params: BookingQueryParams): Promise<BookingsPagedResult> {
-    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, clinicId } = params;
+    const { filter = 'all', page = 1, pageSize = 20, dateFrom, dateTo, clinicId, search } = params;
 
     const now = new Date();
     const todayStr = format(now, 'yyyy-MM-dd');
@@ -725,14 +726,23 @@ export class DatabaseStorage implements IStorage {
       ne(bookings.visitStatus, 'treatment_completed'),
       gte(slots.startTime, todayStart),
     );
+    // Patient name/phone/email search (plain text columns — no encryption)
+    const searchCond = search
+      ? or(
+          ilike(bookings.patientName, `%${search}%`),
+          ilike(sql`coalesce(${bookings.patientPhone}, '')`, `%${search}%`),
+          ilike(sql`coalesce(${bookings.patientEmail}, '')`, `%${search}%`),
+        )
+      : undefined;
 
     let filterCond;
     if (dateFrom || dateTo) {
+      // Date-range: show ALL assigned bookings in range (no approval filter)
       const from = dateFrom ? startOfDay(new Date(dateFrom)) : undefined;
       const to   = dateTo   ? endOfDay(new Date(dateTo))     : undefined;
-      if (from && to) filterCond = and(approvedCond, gte(slots.startTime, from), lte(slots.startTime, to));
-      else if (from)  filterCond = and(approvedCond, gte(slots.startTime, from));
-      else            filterCond = and(approvedCond, lte(slots.startTime, to!));
+      if (from && to) filterCond = and(gte(slots.startTime, from), lte(slots.startTime, to));
+      else if (from)  filterCond = and(gte(slots.startTime, from));
+      else            filterCond = and(lte(slots.startTime, to!));
     } else {
       switch (filter) {
         case 'today':
@@ -759,12 +769,20 @@ export class DatabaseStorage implements IStorage {
         case 'pending-7days':
           filterCond = and(awaitingCond, lt(slots.startTime, next7DaysEnd));
           break;
+        case 'owned':
+          // "All Owned" = appointments the doctor has accepted (approved/admin_confirmed), all dates
+          filterCond = approvedCond;
+          break;
+        case 'all':
+          // "All Bookings" = every booking assigned to this doctor, any approval status
+          filterCond = undefined;
+          break;
         default:
           filterCond = approvedCond;
       }
     }
 
-    const whereClause = and(emailCond, clinicCond, filterCond);
+    const whereClause = and(emailCond, clinicCond, filterCond, searchCond);
 
     const [countRow] = await db.select({ total: count() })
       .from(bookings)
@@ -805,7 +823,7 @@ export class DatabaseStorage implements IStorage {
     const stats: BookingStats = {
       todayCount: 0, todayConfirmedCount: 0, upcomingCount: 0, pastCount: 0,
       thisWeekCount: 0, nextWeekCount: 0, pendingNext7Count: 0, confirmedNext7Count: 0,
-      totalPendingCount: 0, totalAllCount: statRows.length, awaitingApprovalCount: 0,
+      totalPendingCount: 0, totalAllCount: statRows.length, totalOwnedCount: 0, awaitingApprovalCount: 0,
     };
     for (const r of statRows) {
       const d = new Date(r.startTime);
@@ -822,8 +840,10 @@ export class DatabaseStorage implements IStorage {
       const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
       if (isAwaiting) stats.awaitingApprovalCount!++;
       if (isApproved) {
+        stats.totalOwnedCount!++;
         if (dateStr === todayStr) { stats.todayCount++; if (isConfirmed) stats.todayConfirmedCount++; }
-        if (d >= now && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
+        // "upcoming" boundary matches the server filter: tomorrowStart (not now), so today's slots don't inflate the count
+        if (d >= tomorrowStart && r.visitStatus !== 'completed' && r.visitStatus !== 'patient_left_early') stats.upcomingCount++;
         if (d < todayStart) stats.pastCount++;
         if (d >= thisWeekStart && d <= thisWeekEnd) stats.thisWeekCount++;
         if (d >= nextWeekStart && d <= nextWeekEnd) stats.nextWeekCount++;
