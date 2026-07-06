@@ -5,7 +5,7 @@ import { notify } from "@/lib/notify";
 import { format } from "date-fns";
 import type { PatientBill } from "@shared/schema";
 import {
-  Loader2, IndianRupee, Download, Clock, CheckCircle2, ChevronDown, Trash2,
+  Loader2, IndianRupee, Download, Clock, CheckCircle2, ChevronDown, Trash2, Users, AlertCircle,
   ChevronLeft, ChevronRight, Search, SlidersHorizontal, Calendar as CalendarIcon, X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -232,51 +232,46 @@ export default function AccountsPanel({ clinic, onViewPatient }: AccountsPanelPr
 
       <div className="space-y-6">
 
-      {/* ── Stats (shared) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="rounded-xl border border-border/60 bg-card p-4">
-              <Skeleton className="h-3 w-20 mb-2" />
-              <Skeleton className="h-8 w-16" />
-            </div>
-          ))
-        ) : (
-          <>
-            <div className="rounded-xl border border-border/60 bg-card p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Patients</p>
-              <p className="text-2xl font-black text-foreground">{accountsView === 'ledger' ? total : '–'}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{stats.paidCount} receipts paid</p>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-card p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Collected</p>
-              <p className="text-2xl font-black text-primary">₹{stats.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">from paid bills</p>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-card p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Outstanding</p>
-              <p className="text-2xl font-black text-amber-600">₹{stats.pendingAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">pending + partial</p>
-            </div>
-            <button
-              onClick={() => { setAccountsView('register'); setStatusFilter('overdue'); }}
-              data-testid="stat-overdue"
-              className={`rounded-xl border p-4 text-left transition-all ${
-                stats.overdueCount > 0
-                  ? 'border-red-300/60 bg-red-50/60 dark:bg-red-950/20 dark:border-red-800/40 hover:bg-red-100/60 dark:hover:bg-red-950/30'
-                  : 'border-border/60 bg-card'
-              }`}
+      {/* ── Stats ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Receipts Paid',  value: isLoading ? null : stats.paidCount,                                    icon: CheckCircle2, color: 'emerald', subtitle: isLoading ? null : 'from paid bills' },
+          { label: 'Revenue',        value: isLoading ? null : `₹${stats.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, icon: IndianRupee,   color: 'primary', subtitle: isLoading ? null : 'total collected' },
+          { label: 'Outstanding',    value: isLoading ? null : `₹${stats.pendingAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,   icon: Clock,         color: 'amber',   subtitle: isLoading ? null : 'pending + partial' },
+          { label: 'Overdue',        value: isLoading ? null : (stats.overdueCount > 0 ? `₹${stats.overdueAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'), icon: AlertCircle,   color: 'red',     subtitle: isLoading ? null : (stats.overdueCount > 0 ? `${stats.overdueCount} bill${stats.overdueCount !== 1 ? 's' : ''} · 3+ days` : 'no overdue bills') },
+        ].map(({ label, value, icon: Icon, color, subtitle }) => {
+          const bgCls = color === 'emerald' ? 'bg-emerald-500/10' : color === 'primary' ? 'bg-primary/10' : color === 'amber' ? 'bg-amber-500/10' : 'bg-red-500/10';
+          const textCls = color === 'emerald' ? 'text-emerald-600' : color === 'primary' ? 'text-primary' : color === 'amber' ? 'text-amber-600' : 'text-red-600';
+          const isOverdueCard = label === 'Overdue';
+          const CardWrapper = isOverdueCard ? 'button' : 'div';
+          const overdueClick = isOverdueCard ? () => { setAccountsView('register'); setStatusFilter('overdue'); } : undefined;
+          const overdueCls = isOverdueCard && stats.overdueCount > 0
+            ? 'border-red-300/60 bg-red-50/60 dark:bg-red-950/20 dark:border-red-800/40 hover:bg-red-100/60 dark:hover:bg-red-950/30 text-left'
+            : isOverdueCard ? 'border-border/50 bg-card text-left' : 'border-border/50 bg-card';
+          return (
+            <CardWrapper
+              key={label}
+              {...(isOverdueCard ? { onClick: overdueClick, 'data-testid': 'stat-overdue' } : {})}
+              className={`rounded-xl border p-3 sm:p-4 ${overdueCls} transition-all ${isOverdueCard ? 'cursor-pointer' : ''}`}
             >
-              <p className="text-xs font-bold uppercase tracking-wider text-red-600/80 dark:text-red-400/80 mb-1">Overdue</p>
-              <p className={`text-2xl font-black ${stats.overdueCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
-                {stats.overdueCount > 0 ? `₹${stats.overdueAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {stats.overdueCount > 0 ? `${stats.overdueCount} bill${stats.overdueCount !== 1 ? 's' : ''} · 3+ days` : 'no overdue bills'}
-              </p>
-            </button>
-          </>
-        )}
+              {isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <Skeleton className="h-6 w-12" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              ) : (
+                <>
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center mb-2 ${bgCls}`}>
+                    <Icon className={`h-4 w-4 ${textCls}`} />
+                  </div>
+                  <p className="text-xl font-bold text-foreground">{value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+                </>
+              )}
+            </CardWrapper>
+          );
+        })}
       </div>
 
       {/* ── Overdue banner ── */}
