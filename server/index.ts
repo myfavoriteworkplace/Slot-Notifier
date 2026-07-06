@@ -54,7 +54,7 @@ const sessionSecret = (() => {
 console.log("[Environment]", process.env.NODE_ENV);
 
 const ALLOWED_FRONTEND_ORIGINS = new Set(FRONTEND_ORIGINS);
-const REPLIT_ORIGIN_REGEX = /^https:\/\/[a-z0-9-]+\.replit\.dev$/;
+const REPLIT_ORIGIN_REGEX = /^https:\/\/[a-z0-9.-]+\.replit\.dev$/;
 
 app.use(
   session({

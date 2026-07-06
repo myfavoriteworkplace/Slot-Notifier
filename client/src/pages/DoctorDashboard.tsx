@@ -105,6 +105,17 @@ export default function DoctorDashboard() {
   const [searchOpen, setSearchOpen] = useState(false);
   const apptSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (apptSearchDebounceRef.current) clearTimeout(apptSearchDebounceRef.current);
+    apptSearchDebounceRef.current = setTimeout(() => {
+      setApptSearch(apptSearchInput.trim());
+    }, 300);
+    return () => {
+      if (apptSearchDebounceRef.current) clearTimeout(apptSearchDebounceRef.current);
+    };
+  }, [apptSearchInput]);
+
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [heroStatsCollapsed, setHeroStatsCollapsed] = useState(false);
   const appointmentsSectionRef = useRef<HTMLDivElement>(null);
@@ -1022,7 +1033,7 @@ export default function DoctorDashboard() {
                   }`}>{awaitingApprovalCount}</span>
                 </button>
 
-                {/* All Bookings */}
+                {/* All Appointments */}
                 <button
                   onClick={() => { setActiveTab("appointments"); handleQuickFilter("all"); }}
                   className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
@@ -1034,12 +1045,79 @@ export default function DoctorDashboard() {
                 >
                   <span className="flex items-center gap-1.5 min-w-0">
                     <ClipboardList className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">All Bookings</span>
+                    <span className="truncate">All Appointments</span>
                   </span>
                   <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
                     quickFilter === "all" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
                   }`}>{confirmedAllCount}</span>
                 </button>
+
+                {/* All Owned */}
+                <button
+                  onClick={() => { setActiveTab("appointments"); handleQuickFilter("owned"); }}
+                  className={`w-[calc(50%-3px)] sm:w-auto flex items-center justify-between gap-2 px-3 py-2 min-h-[44px] rounded-xl border text-xs font-medium transition-all active:scale-[0.97] ${
+                    quickFilter === "owned"
+                      ? "bg-teal-500/10 border-teal-400/50 text-teal-700 dark:text-teal-400"
+                      : "bg-transparent border-teal-400/30 text-muted-foreground hover:bg-teal-500/8 hover:text-teal-700 dark:hover:text-teal-400"
+                  }`}
+                  data-testid="chip-filter-owned"
+                >
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <BadgeCheck className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">All Owned</span>
+                  </span>
+                  <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 leading-none min-w-[20px] text-center shrink-0 ${
+                    quickFilter === "owned" ? "bg-teal-500/15 text-teal-700 dark:text-teal-400" : "bg-muted text-muted-foreground"
+                  }`}>{ownedCount}</span>
+                </button>
+
+                {/* Patient search — collapsed magnifier or expanded input */}
+                {searchOpen ? (
+                  <div className="flex items-center gap-2 bg-card border border-border/50 hover:border-border focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 rounded-xl px-3 min-h-[44px] shadow-sm transition-all flex-1 min-w-[180px] sm:flex-none sm:w-[260px]">
+                    <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={apptSearchInput}
+                      onChange={(e) => setApptSearchInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setApptSearchInput("");
+                          setApptSearch("");
+                          setSearchOpen(false);
+                          searchInputRef.current?.blur();
+                        }
+                      }}
+                      placeholder="Search by patient name, phone or email…"
+                      className="flex-1 min-w-0 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/55 outline-none border-none focus:ring-0 h-5 leading-none"
+                      data-testid="input-appointment-search"
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setApptSearchInput("");
+                        setApptSearch("");
+                        setSearchOpen(false);
+                      }}
+                      className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                      title="Close search"
+                      data-testid="button-clear-appointment-search"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97] shrink-0"
+                    data-testid="button-open-appointment-search"
+                    title="Search patient"
+                  >
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                )}
 
                 {/* Filter row toggle — only visible when row is collapsed */}
                 {!filterRowOpen && (
@@ -1052,17 +1130,6 @@ export default function DoctorDashboard() {
                     <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
                   </button>
                 )}
-
-                {/* All Clinics — always visible, pinned right */}
-                <div className="ml-auto">
-                  <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
-                    <SelectTrigger className="h-11 w-full sm:w-[170px] text-xs rounded-xl" data-testid="select-clinic-filter"><SelectValue placeholder="All Clinics" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Clinics</SelectItem>
-                      {doctorClinics.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               {/* Date range + Quick week — collapsible filter row */}
@@ -1203,6 +1270,20 @@ export default function DoctorDashboard() {
                     </button>
                   )}
 
+                  {/* Desktop-only divider before clinic select */}
+                  <div className="hidden sm:block w-px h-4 bg-border/40 mx-0.5 shrink-0" />
+
+                  {/* All Clinics — moved into filter row */}
+                  <div className="col-span-2 sm:col-span-1">
+                    <Select value={appointmentClinicFilter} onValueChange={setAppointmentClinicFilter}>
+                      <SelectTrigger className="h-11 w-full sm:w-[170px] text-xs rounded-xl" data-testid="select-clinic-filter"><SelectValue placeholder="All Clinics" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Clinics</SelectItem>
+                        {doctorClinics.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Close — desktop only */}
                   <div className="hidden sm:flex sm:ml-auto">
                     <button
@@ -1230,6 +1311,7 @@ export default function DoctorDashboard() {
                         <h2 className="text-sm sm:text-base font-semibold tracking-tight truncate">
                           {quickFilter === "today"             ? "Today's Appointments"
                            : quickFilter === "upcoming"        ? "Upcoming Appointments"
+                           : quickFilter === "owned"           ? "All Owned Appointments"
                            : quickFilter === "awaiting"        ? "All Pending Bookings"
                            : quickFilter === "confirmed-7days" ? "Confirmed Bookings (Next 7 Days)"
                            : quickFilter === "pending-7days"   ? "Pending Confirmations (Next 7 Days)"
@@ -1243,6 +1325,7 @@ export default function DoctorDashboard() {
                           {(bookingsInfiniteData?.pages[0]?.total ?? 0) === 1 ? "appointment" : "appointments"}{" · "}
                           {quickFilter === "today"             ? "Appointments assigned to you today"
                            : quickFilter === "upcoming"        ? "Future appointments beyond today"
+                           : quickFilter === "owned"           ? "Only appointments you've confirmed or accepted"
                            : quickFilter === "awaiting"        ? "All unconfirmed bookings across all dates"
                            : quickFilter === "confirmed-7days" ? "Confirmed appointments in the next 7 days"
                            : quickFilter === "pending-7days"   ? "Pending confirmations in the next 7 days"

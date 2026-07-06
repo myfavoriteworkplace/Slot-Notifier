@@ -729,9 +729,9 @@ export class DatabaseStorage implements IStorage {
     // Patient name/phone/email search (plain text columns — no encryption)
     const searchCond = search
       ? or(
-          ilike(bookings.patientName, `%${search}%`),
-          ilike(sql`coalesce(${bookings.patientPhone}, '')`, `%${search}%`),
-          ilike(sql`coalesce(${bookings.patientEmail}, '')`, `%${search}%`),
+          ilike(bookings.customerName, `%${search}%`),
+          ilike(bookings.customerPhone, `%${search}%`),
+          ilike(bookings.customerEmail, `%${search}%`),
         )
       : undefined;
 
