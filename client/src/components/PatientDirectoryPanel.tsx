@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { format, subDays } from "date-fns";
 import type { Patient, PatientBill, ClinicalRecord, Booking, Slot } from "@shared/schema";
 import {
-  Download, Loader2, Search, ArrowUpDown, TrendingUp, BadgeCheck, IndianRupee,
+  Download, Loader2, Search, TrendingUp, BadgeCheck, IndianRupee,
   Users, User, X, FileText, Stethoscope, CalendarDays, SlidersHorizontal,
   ChevronLeft, ChevronRight, Calendar as CalendarIcon,
 } from "lucide-react";
@@ -210,8 +210,8 @@ export default function PatientDirectoryPanel({
         ))}
       </div>
 
-      {/* Search + Sort + Filter toggle */}
-      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+      {/* Search + Filters */}
+      <div className="flex flex-col sm:flex-row gap-2">
         {/* Search */}
         <div className="flex-1 min-w-[200px] relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -224,133 +224,130 @@ export default function PatientDirectoryPanel({
           />
         </div>
 
-        {/* Sort */}
-        <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card p-1 shrink-0">
-          {(['recent', 'visits', 'billed'] as const).map(s => (
+        {/* Filters popover */}
+        <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+          <PopoverTrigger asChild>
             <button
-              key={s}
-              onClick={() => setPatientSort(s)}
-              data-testid={`button-sort-${s}`}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${patientSort === s ? 'bg-rose-500/10 text-rose-600' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`h-9 px-3 rounded-lg border text-sm font-semibold flex items-center gap-2 transition-all ${
+                filterOpen || hasDateFilter || patientSort !== 'recent'
+                  ? 'bg-rose-500/10 border-rose-400/40 text-rose-600'
+                  : 'bg-background border-border/60 text-muted-foreground hover:text-foreground'
+              }`}
+              data-testid="button-patient-filters"
             >
-              <ArrowUpDown className="h-3 w-3" />
-              {s === 'recent' ? 'Recent' : s === 'visits' ? 'Most Visits' : 'Highest Billed'}
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Filters
+              {hasDateFilter && <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />}
             </button>
-          ))}
-        </div>
-
-        {/* Filter toggle */}
-        <button
-          onClick={() => setFilterOpen(o => !o)}
-          data-testid="button-toggle-patient-filter"
-          className={`h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 transition-all active:scale-[0.97] ${filterOpen || hasDateFilter ? 'bg-rose-500/10 border-rose-400/40 text-rose-600' : 'border-border/60 bg-card text-muted-foreground hover:text-foreground hover:border-rose-400/30'}`}
-          title="Toggle date filters"
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-        </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-4 space-y-4" align="end">
+            {/* Sort */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sort by</p>
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  { value: 'recent', label: 'Recent' },
+                  { value: 'visits', label: 'Most Visits' },
+                  { value: 'billed', label: 'Highest Billed' },
+                ] as const).map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => setPatientSort(o.value)}
+                    data-testid={`button-sort-${o.value}`}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${
+                      patientSort === o.value
+                        ? 'bg-rose-500/10 text-rose-600 border-rose-400/50'
+                        : 'bg-background border-border/60 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Date range */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Date range</p>
+              <div className="flex gap-2">
+                <Popover open={fromPickerOpen} onOpenChange={setFromPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <button className={`flex-1 h-8 px-2 rounded-md border text-xs font-medium flex items-center gap-1.5 ${lastVisitFrom ? 'bg-rose-500/10 border-rose-400/40 text-rose-600' : 'bg-background border-border/60 text-muted-foreground'}`}>
+                      <CalendarIcon className="h-3 w-3" />
+                      {lastVisitFrom ? format(lastVisitFrom, 'dd MMM') : 'From'}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={lastVisitFrom}
+                      onSelect={d => {
+                        setLastVisitFrom(d ?? undefined);
+                        setQuickChip('all');
+                        setFromPickerOpen(false);
+                        setPage(1);
+                      }}
+                      disabled={{ after: lastVisitTo ?? new Date() }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Popover open={toPickerOpen} onOpenChange={setToPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <button className={`flex-1 h-8 px-2 rounded-md border text-xs font-medium flex items-center gap-1.5 ${lastVisitTo ? 'bg-rose-500/10 border-rose-400/40 text-rose-600' : 'bg-background border-border/60 text-muted-foreground'}`}>
+                      <CalendarIcon className="h-3 w-3" />
+                      {lastVisitTo ? format(lastVisitTo, 'dd MMM') : 'To'}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={lastVisitTo}
+                      onSelect={d => {
+                        setLastVisitTo(d ?? undefined);
+                        setQuickChip('all');
+                        setToPickerOpen(false);
+                        setPage(1);
+                      }}
+                      disabled={{ before: lastVisitFrom, after: new Date() }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              {hasDateFilter && (
+                <button onClick={clearDates} className="text-xs text-rose-600 font-semibold hover:underline flex items-center gap-1">
+                  <X className="h-3 w-3" /> Clear dates
+                </button>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
-      {/* Date filter row (collapsible) */}
-      {filterOpen && (
-        <div className="rounded-xl border border-border/50 bg-card p-4 space-y-3">
-          {/* Quick chips */}
-          <div className="flex flex-wrap gap-2">
-            {([
-              { key: 'all',         label: 'All time' },
-              { key: 'this-month',  label: 'Active this month' },
-              { key: 'last-3m',     label: 'Last 3 months' },
-              { key: 'inactive-6m', label: 'Inactive 6m+' },
-            ] as { key: QuickChip; label: string }[]).map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => applyQuickChip(key)}
-                data-testid={`chip-patient-${key}`}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-[0.97] min-h-[36px] ${
-                  quickChip === key && !hasDateFilter
-                    ? 'bg-rose-500/10 border-rose-400/50 text-rose-600'
-                    : quickChip === key && hasDateFilter
-                    ? 'bg-rose-500/10 border-rose-400/50 text-rose-600'
-                    : 'border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/40'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Date pickers — 2-col on mobile, inline on larger */}
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:items-center sm:gap-3">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Last visit from</p>
-              <Popover open={fromPickerOpen} onOpenChange={setFromPickerOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    data-testid="button-last-visit-from"
-                    className={`w-full flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs transition-all min-h-[36px] ${lastVisitFrom ? 'border-rose-400/50 bg-rose-500/5 text-rose-700 dark:text-rose-400' : 'border-border/60 bg-muted/30 text-muted-foreground hover:border-rose-400/30'}`}
-                  >
-                    <CalendarIcon className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{lastVisitFrom ? format(lastVisitFrom, 'dd MMM yyyy') : 'Pick date…'}</span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={lastVisitFrom}
-                    onSelect={d => {
-                      setLastVisitFrom(d ?? undefined);
-                      setQuickChip('all');
-                      setFromPickerOpen(false);
-                      setPage(1);
-                    }}
-                    disabled={{ after: lastVisitTo ?? new Date() }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Last visit to</p>
-              <Popover open={toPickerOpen} onOpenChange={setToPickerOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    data-testid="button-last-visit-to"
-                    className={`w-full flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs transition-all min-h-[36px] ${lastVisitTo ? 'border-rose-400/50 bg-rose-500/5 text-rose-700 dark:text-rose-400' : 'border-border/60 bg-muted/30 text-muted-foreground hover:border-rose-400/30'}`}
-                  >
-                    <CalendarIcon className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{lastVisitTo ? format(lastVisitTo, 'dd MMM yyyy') : 'Pick date…'}</span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 rounded-xl" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={lastVisitTo}
-                    onSelect={d => {
-                      setLastVisitTo(d ?? undefined);
-                      setQuickChip('all');
-                      setToPickerOpen(false);
-                      setPage(1);
-                    }}
-                    disabled={{ before: lastVisitFrom, after: new Date() }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {hasDateFilter && (
-              <button
-                onClick={clearDates}
-                data-testid="button-clear-date-filter"
-                className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border/60 bg-muted/30 text-xs text-muted-foreground hover:text-foreground transition-all min-h-[36px]"
-              >
-                <X className="h-3 w-3" />
-                Clear dates
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Quick chips — visible inline like Accounts status pills */}
+      <div className="flex gap-1.5 flex-wrap">
+        {([
+          { key: 'all',         label: 'All time' },
+          { key: 'this-month',  label: 'Active this month' },
+          { key: 'last-3m',     label: 'Last 3 months' },
+          { key: 'inactive-6m', label: 'Inactive 6m+' },
+        ] as { key: QuickChip; label: string }[]).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => applyQuickChip(key)}
+            data-testid={`chip-patient-${key}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all capitalize ${
+              quickChip === key && !hasDateFilter
+                ? 'bg-rose-500/10 border-rose-400/50 text-rose-600'
+                : quickChip === key && hasDateFilter
+                ? 'bg-rose-500/10 border-rose-400/50 text-rose-600'
+                : 'bg-background border-border/60 text-muted-foreground hover:border-rose-400/40 hover:text-foreground'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {/* Patient list */}
       {isLoading ? (
