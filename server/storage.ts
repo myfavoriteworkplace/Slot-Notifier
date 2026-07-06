@@ -715,7 +715,16 @@ export class DatabaseStorage implements IStorage {
       ne(bookings.doctorApprovalStatus, 'pending'),
       ne(bookings.doctorApprovalStatus, 'declined'),
     );
-    const awaitingCond = eq(bookings.doctorApprovalStatus, 'pending');
+    // "awaiting" = pending doctor approval, slot is today or future, not cancelled/terminal
+    const awaitingCond = and(
+      eq(bookings.doctorApprovalStatus, 'pending'),
+      ne(bookings.verificationStatus, 'cancelled'),
+      ne(bookings.verificationStatus, 'no_show'),
+      ne(bookings.visitStatus, 'completed'),
+      ne(bookings.visitStatus, 'patient_left_early'),
+      ne(bookings.visitStatus, 'treatment_completed'),
+      gte(slots.startTime, todayStart),
+    );
 
     let filterCond;
     if (dateFrom || dateTo) {
@@ -748,7 +757,7 @@ export class DatabaseStorage implements IStorage {
           filterCond = awaitingCond;
           break;
         case 'pending-7days':
-          filterCond = and(awaitingCond, gte(slots.startTime, todayStart), lt(slots.startTime, next7DaysEnd));
+          filterCond = and(awaitingCond, lt(slots.startTime, next7DaysEnd));
           break;
         default:
           filterCond = approvedCond;
@@ -802,7 +811,13 @@ export class DatabaseStorage implements IStorage {
       const d = new Date(r.startTime);
       const dateStr = format(d, 'yyyy-MM-dd');
       const isApproved = r.doctorApprovalStatus !== 'pending' && r.doctorApprovalStatus !== 'declined';
-      const isAwaiting = r.doctorApprovalStatus === 'pending';
+      const isAwaiting = r.doctorApprovalStatus === 'pending'
+        && r.verificationStatus !== 'cancelled'
+        && r.verificationStatus !== 'no_show'
+        && r.visitStatus !== 'completed'
+        && r.visitStatus !== 'patient_left_early'
+        && r.visitStatus !== 'treatment_completed'
+        && d >= todayStart;
       const isConfirmed = r.verificationStatus === 'confirmed' || !!r.confirmedBy;
       const isPending = !isConfirmed && r.verificationStatus !== 'cancelled';
       if (isAwaiting) stats.awaitingApprovalCount!++;
