@@ -269,6 +269,12 @@ export interface IStorage {
 
   // Pharmacy Stock
   getPharmacyStock(clinicId: number): Promise<PharmacyStockItem[]>;
+  getPharmacyStockPaged(clinicId: number, opts: {
+    q?: string; sort?: string; page?: number; pageSize?: number;
+  }): Promise<{
+    data: PharmacyStockItem[]; total: number; page: number; totalPages: number;
+    stats: { total: number; expiringSoon: number; expired: number; lowStock: number };
+  }>;
   createPharmacyItem(data: InsertPharmacyStockItem): Promise<PharmacyStockItem>;
   updatePharmacyItem(id: number, clinicId: number, updates: Partial<PharmacyStockItem>): Promise<PharmacyStockItem>;
   deletePharmacyItem(id: number, clinicId: number): Promise<void>;
@@ -2128,6 +2134,72 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(pharmacyStock)
       .where(eq(pharmacyStock.clinicId, clinicId))
       .orderBy(pharmacyStock.medicineName);
+  }
+
+  async getPharmacyStockPaged(clinicId: number, opts: {
+    q?: string; sort?: string; page?: number; pageSize?: number;
+  }) {
+    const page = Math.max(1, opts.page ?? 1);
+    const pageSize = Math.max(1, Math.min(100, opts.pageSize ?? 10));
+    const q = opts.q?.trim();
+    const sort = opts.sort ?? 'name';
+
+    // Search filter
+    const searchCond = q
+      ? or(
+          ilike(pharmacyStock.medicineName, `%${q}%`),
+          ilike(pharmacyStock.dosage, `%${q}%`)
+        )
+      : undefined;
+
+    const whereClause = and(
+      eq(pharmacyStock.clinicId, clinicId),
+      searchCond
+    );
+
+    // Total count
+    const [{ total }] = await db.select({ total: sql<number>`count(*)` })
+      .from(pharmacyStock)
+      .where(whereClause);
+
+    // Stats from ALL clinic items (unfiltered)
+    const allItems = await db.select().from(pharmacyStock)
+      .where(eq(pharmacyStock.clinicId, clinicId));
+    const now = Date.now();
+    const stats = {
+      total: allItems.length,
+      expiringSoon: allItems.filter(i => {
+        if (!i.expiryDate) return false;
+        const d = new Date(i.expiryDate).getTime();
+        const diff = (d - now) / (1000 * 60 * 60 * 24);
+        return diff < 30 && diff >= 0;
+      }).length,
+      expired: allItems.filter(i => {
+        if (!i.expiryDate) return false;
+        return new Date(i.expiryDate).getTime() < now;
+      }).length,
+      lowStock: allItems.filter(i => i.availableQty <= 5).length,
+    };
+
+    // Sorting
+    const orderByClause =
+      sort === 'price-asc' ? asc(pharmacyStock.unitPrice) :
+      sort === 'price-desc' ? desc(pharmacyStock.unitPrice) :
+      sort === 'qty-asc' ? asc(pharmacyStock.availableQty) :
+      sort === 'qty-desc' ? desc(pharmacyStock.availableQty) :
+      sort === 'expiry' ? asc(pharmacyStock.expiryDate) :
+      asc(pharmacyStock.medicineName);
+
+    // Data
+    const data = await db.select().from(pharmacyStock)
+      .where(whereClause)
+      .orderBy(orderByClause)
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+    return { data, total, page, totalPages, stats };
   }
 
   async createPharmacyItem(data: InsertPharmacyStockItem): Promise<PharmacyStockItem> {

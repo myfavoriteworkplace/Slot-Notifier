@@ -5390,13 +5390,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ── PHARMACY STOCK ─────────────────────────────────────────────────────────
 
-  // GET /api/auth/clinic/pharmacy — list all catalog items
+  // GET /api/auth/clinic/pharmacy — list all catalog items (for doctor autocomplete)
   app.get("/api/auth/clinic/pharmacy", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
       const items = await storage.getPharmacyStock(clinicId);
       res.json(items);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // GET /api/auth/clinic/pharmacy/paged — paginated + search + sort + stats
+  app.get("/api/auth/clinic/pharmacy/paged", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const q = typeof req.query.q === 'string' ? req.query.q : undefined;
+      const sort = typeof req.query.sort === 'string' ? req.query.sort : 'name';
+      const page = parseInt(req.query.page as string) || 1;
+      const pageSize = parseInt(req.query.pageSize as string) || 10;
+      const result = await storage.getPharmacyStockPaged(clinicId, { q, sort, page, pageSize });
+      res.json(result);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
