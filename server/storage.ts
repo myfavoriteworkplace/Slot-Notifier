@@ -242,6 +242,30 @@ export interface IStorage {
   getPatientBillsByEmail(clinicId: number, email: string): Promise<PatientBill[]>;
   updatePatientBill(id: number, clinicId: number, updates: Partial<PatientBill>): Promise<PatientBill>;
   deletePatientBill(id: number, clinicId: number): Promise<void>;
+  // Paginated bill listing for Accounts panel (Register view)
+  getPatientBillsByClinicIdPaged(clinicId: number, opts: {
+    q?: string; status?: string; dateFrom?: string; dateTo?: string; sort?: string;
+    page?: number; pageSize?: number; exportAll?: boolean;
+  }): Promise<{
+    data: (PatientBill & { patientCode?: string | null })[];
+    total: number; page: number; totalPages: number;
+    stats: { totalRevenue: number; pendingAmt: number; paidCount: number; overdueCount: number; overdueAmt: number; };
+  }>;
+  // Paginated patient-group listing for Accounts panel (Ledger view)
+  getPatientBillGroupsByClinicIdPaged(clinicId: number, opts: {
+    q?: string; status?: string; dateFrom?: string; dateTo?: string; sort?: string;
+    page?: number; pageSize?: number; exportAll?: boolean;
+  }): Promise<{
+    data: {
+      key: string; patientId: number | null; patientCode: string | null;
+      name: string; email: string; phone: string;
+      bills: (PatientBill & { patientCode?: string | null })[];
+      totalBilled: number; totalCollected: number; outstanding: number;
+      oldestUnpaidDays: number; hasOverdue: boolean;
+    }[];
+    total: number; page: number; totalPages: number;
+    stats: { totalRevenue: number; pendingAmt: number; paidCount: number; overdueCount: number; overdueAmt: number; };
+  }>;
 
   // Pharmacy Stock
   getPharmacyStock(clinicId: number): Promise<PharmacyStockItem[]>;
@@ -1586,6 +1610,250 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(patientBills)
       .where(and(eq(patientBills.clinicId, clinicId), eq(patientBills.patientEmail, email.toLowerCase().trim())))
       .orderBy(desc(patientBills.createdAt));
+  }
+
+  // ── PAGINATED REGISTER VIEW ──
+  async getPatientBillsByClinicIdPaged(clinicId: number, opts: {
+    q?: string; status?: string; dateFrom?: string; dateTo?: string; sort?: string;
+    page?: number; pageSize?: number; exportAll?: boolean;
+  }): Promise<{
+    data: (PatientBill & { patientCode?: string | null })[];
+    total: number; page: number; totalPages: number;
+    stats: { totalRevenue: number; pendingAmt: number; paidCount: number; overdueCount: number; overdueAmt: number; };
+  }> {
+    const { q = '', status = 'all', dateFrom, dateTo, sort = 'date', page = 1, pageSize = 25, exportAll = false } = opts;
+    const OVERDUE_DAYS = 3;
+    const nowMs = Date.now();
+    const isBillOverdue = (b: PatientBill) =>
+      (b.paymentStatus === 'pending' || b.paymentStatus === 'partial') &&
+      !!b.createdAt && (nowMs - new Date(b.createdAt).getTime()) > OVERDUE_DAYS * 24 * 60 * 60 * 1000;
+
+    // Base where
+    let whereClause = eq(patientBills.clinicId, clinicId) as any;
+
+    // Search filter
+    if (q.trim()) {
+      const qLike = `%${q.toLowerCase().trim()}%`;
+      whereClause = and(whereClause, sql`(
+        LOWER(${patientBills.patientName}) LIKE ${qLike}
+        OR LOWER(COALESCE(${patientBills.patientEmail}, '')) LIKE ${qLike}
+        OR COALESCE(${patientBills.patientPhone}, '') LIKE ${qLike}
+        OR LOWER(COALESCE(${patientBills.billNumber}, '')) LIKE ${qLike}
+      )`);
+    }
+
+    // Date range
+    if (dateFrom) {
+      whereClause = and(whereClause, gte(patientBills.createdAt, new Date(dateFrom)));
+    }
+    if (dateTo) {
+      whereClause = and(whereClause, lte(patientBills.createdAt, new Date(dateTo)));
+    }
+
+    // Status filter
+    if (status !== 'all') {
+      if (status === 'overdue') {
+        const cutoff = new Date(nowMs - OVERDUE_DAYS * 24 * 60 * 60 * 1000);
+        whereClause = and(whereClause,
+          or(eq(patientBills.paymentStatus, 'pending'), eq(patientBills.paymentStatus, 'partial')),
+          lte(patientBills.createdAt, cutoff)
+        );
+      } else {
+        whereClause = and(whereClause, eq(patientBills.paymentStatus, status));
+      }
+    }
+
+    // Total count
+    const [countRow] = await db.select({ c: sql<number>`COUNT(*)` }).from(patientBills).where(whereClause);
+    const total = Number(countRow?.c ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const actualPage = exportAll ? 1 : Math.max(1, Math.min(page, totalPages));
+    const offset = exportAll ? 0 : (actualPage - 1) * pageSize;
+    const lim = exportAll ? 10000 : pageSize;
+
+    // Sort
+    const order =
+      sort === 'amount' ? desc(patientBills.total) :
+      sort === 'patient' ? asc(patientBills.patientName) :
+      desc(patientBills.createdAt);
+
+    const rows = await db.select({
+      bill: patientBills,
+      patientCode: patients.patientCode,
+    })
+    .from(patientBills)
+    .leftJoin(patients, eq(patientBills.patientId, patients.id))
+    .where(whereClause)
+    .orderBy(order)
+    .limit(lim)
+    .offset(offset);
+
+    const data = rows.map(r => ({ ...r.bill, patientCode: r.patientCode ?? null }));
+
+    // Stats from ALL clinic bills (unfiltered, for the stat cards)
+    const allBills = await db.select().from(patientBills).where(eq(patientBills.clinicId, clinicId));
+    const totalRevenue = allBills.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+    const pendingAmt = allBills.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+    const paidCount = allBills.filter(b => b.paymentStatus === 'paid').length;
+    const overdueList = allBills.filter(isBillOverdue);
+    const overdueCount = overdueList.length;
+    const overdueAmt = overdueList.reduce((s, b) => s + (b.total ?? 0), 0);
+
+    return {
+      data,
+      total,
+      page: actualPage,
+      totalPages,
+      stats: { totalRevenue, pendingAmt, paidCount, overdueCount, overdueAmt },
+    };
+  }
+
+  // ── PAGINATED LEDGER VIEW ──
+  async getPatientBillGroupsByClinicIdPaged(clinicId: number, opts: {
+    q?: string; status?: string; dateFrom?: string; dateTo?: string; sort?: string;
+    page?: number; pageSize?: number; exportAll?: boolean;
+  }): Promise<{
+    data: {
+      key: string; patientId: number | null; patientCode: string | null;
+      name: string; email: string; phone: string;
+      bills: (PatientBill & { patientCode?: string | null })[];
+      totalBilled: number; totalCollected: number; outstanding: number;
+      oldestUnpaidDays: number; hasOverdue: boolean;
+    }[];
+    total: number; page: number; totalPages: number;
+    stats: { totalRevenue: number; pendingAmt: number; paidCount: number; overdueCount: number; overdueAmt: number; };
+  }> {
+    const { q = '', status = 'all', dateFrom, dateTo, sort = 'outstanding', page = 1, pageSize = 25, exportAll = false } = opts;
+    const OVERDUE_DAYS = 3;
+    const nowMs = Date.now();
+    const isBillOverdue = (b: PatientBill) =>
+      (b.paymentStatus === 'pending' || b.paymentStatus === 'partial') &&
+      !!b.createdAt && (nowMs - new Date(b.createdAt).getTime()) > OVERDUE_DAYS * 24 * 60 * 60 * 1000;
+    const daysSince = (bill: PatientBill) =>
+      Math.floor((nowMs - new Date(bill.createdAt!).getTime()) / (24 * 60 * 60 * 1000));
+
+    // Fetch all bills for this clinic, with patientCode join
+    let whereClause = eq(patientBills.clinicId, clinicId) as any;
+    if (dateFrom) {
+      whereClause = and(whereClause, gte(patientBills.createdAt, new Date(dateFrom)));
+    }
+    if (dateTo) {
+      whereClause = and(whereClause, lte(patientBills.createdAt, new Date(dateTo)));
+    }
+
+    const billRows = await db.select({
+      bill: patientBills,
+      patientCode: patients.patientCode,
+    })
+    .from(patientBills)
+    .leftJoin(patients, eq(patientBills.patientId, patients.id))
+    .where(whereClause)
+    .orderBy(desc(patientBills.createdAt));
+
+    let allBills = billRows.map(r => ({ ...r.bill, patientCode: r.patientCode ?? null }));
+
+    // Build patient groups (same logic as frontend)
+    type RawGroup = {
+      key: string; patientId: number | null; patientCode: string | null;
+      name: string; email: string; phone: string;
+      bills: (PatientBill & { patientCode?: string | null })[];
+      totalBilled: number; totalCollected: number; outstanding: number;
+      oldestUnpaidDays: number; hasOverdue: boolean;
+    };
+    const groupMap = new Map<string, RawGroup>();
+    for (const bill of allBills) {
+      const key = bill.patientId
+        ? `pid:${bill.patientId}`
+        : (bill.patientEmail?.toLowerCase().trim()
+            || bill.patientPhone?.trim()
+            || bill.patientName.toLowerCase().trim());
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          key,
+          patientId: bill.patientId ?? null,
+          patientCode: (bill as any).patientCode ?? null,
+          name: bill.patientName,
+          email: bill.patientEmail ?? '',
+          phone: bill.patientPhone ?? '',
+          bills: [],
+          totalBilled: 0, totalCollected: 0, outstanding: 0,
+          oldestUnpaidDays: 0, hasOverdue: false,
+        });
+      }
+      const g = groupMap.get(key)!;
+      g.bills.push(bill);
+      if ((bill.patientEmail ?? '').length > g.email.length) g.email = bill.patientEmail!;
+      if ((bill.patientPhone ?? '').length > g.phone.length) g.phone = bill.patientPhone!;
+      if (bill.patientName.length > g.name.length) g.name = bill.patientName;
+      if (!g.patientCode && (bill as any).patientCode) g.patientCode = (bill as any).patientCode;
+    }
+
+    let patientGroups = [...groupMap.values()].map(g => {
+      const totalBilled = g.bills.reduce((s, b) => s + (b.total ?? 0), 0);
+      const totalCollected = g.bills.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+      const outstanding = totalBilled - totalCollected;
+      const unpaidBills = g.bills.filter(b => b.paymentStatus !== 'paid' && b.createdAt);
+      const oldestUnpaidDays = unpaidBills.length > 0 ? Math.max(...unpaidBills.map(b => daysSince(b))) : 0;
+      const hasOverdue = unpaidBills.some(b => isBillOverdue(b));
+      return { ...g, totalBilled, totalCollected, outstanding, oldestUnpaidDays, hasOverdue };
+    });
+
+    // Search filter (on groups)
+    if (q.trim()) {
+      const ql = q.toLowerCase().trim();
+      patientGroups = patientGroups.filter(g =>
+        g.name.toLowerCase().includes(ql) ||
+        g.email.toLowerCase().includes(ql) ||
+        g.phone.includes(q) ||
+        (g.patientCode ?? '').toLowerCase().includes(ql)
+      );
+    }
+
+    // Status filter (on groups)
+    if (status !== 'all') {
+      if (status === 'overdue') {
+        patientGroups = patientGroups.filter(g => g.hasOverdue);
+      } else if (status === 'paid') {
+        patientGroups = patientGroups.filter(g => g.outstanding === 0 && g.totalBilled > 0);
+      } else if (status === 'pending' || status === 'partial') {
+        patientGroups = patientGroups.filter(g => g.outstanding > 0);
+      }
+    }
+
+    // Sort
+    const sorted = patientGroups.sort((a, b) => {
+      if (sort === 'outstanding') return b.outstanding - a.outstanding || b.totalBilled - a.totalBilled;
+      if (sort === 'billed') return b.totalBilled - a.totalBilled || b.outstanding - a.outstanding;
+      if (sort === 'patient') return a.name.localeCompare(b.name);
+      if (sort === 'oldest') return b.oldestUnpaidDays - a.oldestUnpaidDays;
+      return b.outstanding - a.outstanding || b.totalBilled - a.totalBilled;
+    });
+
+    // Pagination
+    const total = sorted.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const actualPage = exportAll ? 1 : Math.max(1, Math.min(page, totalPages));
+    const offset = exportAll ? 0 : (actualPage - 1) * pageSize;
+    const lim = exportAll ? 10000 : pageSize;
+    const data = sorted.slice(offset, offset + lim);
+
+    // Stats from ALL clinic bills (unfiltered)
+    const fullBillRows = await db.select({ bill: patientBills }).from(patientBills).where(eq(patientBills.clinicId, clinicId));
+    const fullBills = fullBillRows.map(r => r.bill);
+    const totalRevenue = fullBills.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+    const pendingAmt = fullBills.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + (b.total ?? 0), 0);
+    const paidCount = fullBills.filter(b => b.paymentStatus === 'paid').length;
+    const overdueList = fullBills.filter(isBillOverdue);
+    const overdueCount = overdueList.length;
+    const overdueAmt = overdueList.reduce((s, b) => s + (b.total ?? 0), 0);
+
+    return {
+      data,
+      total,
+      page: actualPage,
+      totalPages,
+      stats: { totalRevenue, pendingAmt, paidCount, overdueCount, overdueAmt },
+    };
   }
 
   async upsertPatientByEmail(clinicId: number, email: string, name: string, phone: string): Promise<Patient> {

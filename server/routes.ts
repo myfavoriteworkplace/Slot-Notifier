@@ -5453,6 +5453,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  // GET /api/auth/clinic/bills/paged — paginated accounts data (Register or Ledger view)
+  app.get("/api/auth/clinic/bills/paged", isAuthenticated, async (req, res) => {
+    try {
+      const { clinicId, loggedIn } = clinicSession(req);
+      if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
+      const { view, page, pageSize, q, status, dateFrom, dateTo, sort, exportAll } = req.query;
+      const opts = {
+        page: page ? parseInt(page as string) : 1,
+        pageSize: pageSize ? Math.min(parseInt(pageSize as string), 100) : 25,
+        q: typeof q === 'string' ? q : '',
+        status: typeof status === 'string' ? status : 'all',
+        dateFrom: typeof dateFrom === 'string' ? dateFrom : undefined,
+        dateTo: typeof dateTo === 'string' ? dateTo : undefined,
+        sort: typeof sort === 'string' ? sort : undefined,
+        exportAll: exportAll === 'true',
+      };
+      const result = view === 'ledger'
+        ? await storage.getPatientBillGroupsByClinicIdPaged(clinicId, opts)
+        : await storage.getPatientBillsByClinicIdPaged(clinicId, opts);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // GET /api/auth/clinic/bills/patient/:phone — all bills for a patient by phone across all bookings
   app.get("/api/auth/clinic/bills/patient/:phone", isAuthenticated, async (req, res) => {
     try {

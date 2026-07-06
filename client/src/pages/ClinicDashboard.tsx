@@ -301,7 +301,7 @@ export default function ClinicDashboard() {
   const [slotTimings] = useState<SlotTiming[]>(DEFAULT_SLOT_TIMINGS);
 
 
-  // All clinic bills — loaded on demand only when the Accounts panel is open
+  // All clinic bills — loaded on demand only when the Accounts or Bookings panel is open
   const { data: allBills = [] } = useQuery<(PatientBill & { patientCode?: string | null })[]>({
     queryKey: ['/api/auth/clinic/bills'],
     queryFn: async () => {
@@ -1386,8 +1386,6 @@ export default function ClinicDashboard() {
           {activePanel === 'accounts' && (
             <AccountsPanel
               clinic={clinic}
-              allBills={allBills}
-              bookings={undefined}
               onViewPatient={handleViewPatient}
             />
           )}
