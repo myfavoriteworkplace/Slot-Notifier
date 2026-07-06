@@ -50,7 +50,7 @@ export default function AccountsPanel({ clinic, onViewPatient }: AccountsPanelPr
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'partial' | 'overdue'>('all');
   const [sort, setSort] = useState<string>('date');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<typeof PAGE_SIZE_OPTIONS[number]>(25);
+  const [pageSize, setPageSize] = useState<typeof PAGE_SIZE_OPTIONS[number]>(10);
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -206,7 +206,7 @@ export default function AccountsPanel({ clinic, onViewPatient }: AccountsPanelPr
                     onClick={() => setAccountsView(v)}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all capitalize ${
                       accountsView === v
-                        ? 'bg-background shadow-sm text-foreground border border-border/60'
+                        ? 'bg-primary text-primary-foreground border border-primary'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                     data-testid={`accounts-view-${v}`}
@@ -306,16 +306,25 @@ export default function AccountsPanel({ clinic, onViewPatient }: AccountsPanelPr
       {/* ── Search + Filters ── */}
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={accountsView === 'ledger'
               ? "Search by patient name, email or phone…"
               : "Search by patient name, email, phone or receipt #…"}
-            className="pl-8 h-9 text-sm"
+            className="pl-8 pr-8 h-9 text-sm"
             data-testid="input-accounts-search"
           />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              data-testid="button-clear-accounts-search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </div>
         <Popover open={filterOpen} onOpenChange={setFilterOpen}>
           <PopoverTrigger asChild>
