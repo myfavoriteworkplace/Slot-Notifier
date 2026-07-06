@@ -1375,7 +1375,7 @@ export default function BookingsPanel({
         )}
 
         {/* Bookings Section */}
-        <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden flex flex-col max-h-[calc(100vh-240px)]">
+        <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden flex flex-col">
 
           {/* Bookings header */}
           <div className="bg-gradient-to-r from-primary to-accent px-5 py-4 flex items-center justify-between shrink-0">
@@ -1419,7 +1419,7 @@ export default function BookingsPanel({
             </Button>
           </div>
 
-        <div className="p-5 space-y-5 flex-1 min-h-0 overflow-y-auto">
+        <div className="p-5 space-y-5">
         {/* ── Colour key: ─ horizontal dash = accentBar (top header strip)  │ vertical bar = left border ── */}
         {!bookingsLoading && (filteredBookings?.length ?? 0) > 0 && !legendCollapsed && (
           <div className="border border-border/40 rounded-lg bg-muted/20 px-3 py-2">
