@@ -34,7 +34,7 @@ interface PatientDirectoryPanelProps {
   onSelectPatient: (id: number | null) => void;
 }
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 
 const EMPTY_STATS = { totalAll: 0, activeThisMonth: 0, newThisMonth: 0, totalRevenue: 0 };
 const EMPTY_RESPONSE: PatientPagedResponse = { data: [], total: 0, page: 1, totalPages: 1, stats: EMPTY_STATS };
@@ -48,6 +48,7 @@ export default function PatientDirectoryPanel({
   const [debouncedQ, setDebouncedQ] = useState("");
   const [patientSort, setPatientSort] = useState<'recent' | 'visits' | 'billed'>('recent');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<typeof PAGE_SIZE_OPTIONS[number]>(10);
   const [lastVisitFrom, setLastVisitFrom] = useState<Date | undefined>();
   const [lastVisitTo, setLastVisitTo] = useState<Date | undefined>();
   const [quickChip, setQuickChip] = useState<QuickChip>('all');
@@ -66,20 +67,20 @@ export default function PatientDirectoryPanel({
     return () => clearTimeout(t);
   }, [patientSearch]);
 
-  // Reset page on sort / date filter change
-  useEffect(() => { setPage(1); }, [patientSort, lastVisitFrom, lastVisitTo]);
+  // Reset page on sort / date filter / pageSize change
+  useEffect(() => { setPage(1); }, [patientSort, lastVisitFrom, lastVisitTo, pageSize]);
 
   const buildParams = useCallback((overrides: { exportAll?: boolean } = {}) => {
-    const p = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE), sort: patientSort });
+    const p = new URLSearchParams({ page: String(page), pageSize: String(pageSize), sort: patientSort });
     if (debouncedQ) p.set('q', debouncedQ);
     if (lastVisitFrom) p.set('lastVisitFrom', lastVisitFrom.toISOString());
     if (lastVisitTo) p.set('lastVisitTo', lastVisitTo.toISOString());
     if (overrides.exportAll) p.set('exportAll', 'true');
     return p.toString();
-  }, [page, patientSort, debouncedQ, lastVisitFrom, lastVisitTo]);
+  }, [page, pageSize, patientSort, debouncedQ, lastVisitFrom, lastVisitTo]);
 
   const { data: response = EMPTY_RESPONSE, isLoading } = useQuery<PatientPagedResponse>({
-    queryKey: ['/api/auth/clinic/patients', debouncedQ, patientSort, page, lastVisitFrom?.toISOString(), lastVisitTo?.toISOString()],
+    queryKey: ['/api/auth/clinic/patients', debouncedQ, patientSort, page, pageSize, lastVisitFrom?.toISOString(), lastVisitTo?.toISOString()],
     queryFn: async () => {
       const res = await apiRequest('GET', `/api/auth/clinic/patients?${buildParams()}`);
       if (!res.ok) return EMPTY_RESPONSE;
@@ -142,8 +143,8 @@ export default function PatientDirectoryPanel({
     URL.revokeObjectURL(url);
   };
 
-  const pageStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const pageEnd = Math.min(page * PAGE_SIZE, total);
+  const pageStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const pageEnd = Math.min(page * pageSize, total);
 
   return (
     <>
@@ -407,7 +408,7 @@ export default function PatientDirectoryPanel({
 
           <div className="divide-y divide-border/50">
             {patientList.map((patient, idx) => {
-              const rowNumber = (page - 1) * PAGE_SIZE + idx + 1;
+              const rowNumber = (page - 1) * pageSize + idx + 1;
               return (
                 <div
                   key={patient.id}
@@ -470,35 +471,54 @@ export default function PatientDirectoryPanel({
             })}
           </div>
 
-          {/* Table footer — count + pagination */}
+          {/* Table footer — rows per page + count + pagination */}
           <div className="px-4 py-2.5 bg-muted/30 border-t border-border/50 flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-xs text-muted-foreground tabular-nums">
-              {total === 0 ? 'No patients' : `Showing ${pageStart}–${pageEnd} of ${total} patient${total !== 1 ? 's' : ''}`}
-            </p>
 
-            {totalPages > 1 && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(p => p - 1)}
-                  disabled={page <= 1}
-                  data-testid="button-patients-prev-page"
-                  className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage(p => p + 1)}
-                  disabled={page >= totalPages}
-                  data-testid="button-patients-next-page"
-                  className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
+            {/* Left: rows-per-page selector + count */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Rows per page:</span>
+                <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-background p-0.5">
+                  {PAGE_SIZE_OPTIONS.map(n => (
+                    <button
+                      key={n}
+                      onClick={() => { setPageSize(n); setPage(1); }}
+                      data-testid={`button-pagesize-${n}`}
+                      className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors ${pageSize === n ? 'bg-rose-500/10 text-rose-600' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
               </div>
-            )}
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {total === 0 ? 'No patients' : `Showing ${pageStart}–${pageEnd} of ${total} patient${total !== 1 ? 's' : ''}`}
+              </p>
+            </div>
+
+            {/* Right: prev / page indicator / next — always visible when list is non-empty */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => p - 1)}
+                disabled={page <= 1}
+                data-testid="button-patients-prev-page"
+                className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <span className="text-xs text-muted-foreground tabular-nums min-w-[72px] text-center">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => p + 1)}
+                disabled={page >= totalPages}
+                data-testid="button-patients-next-page"
+                className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
           </div>
         </div>
       )}
