@@ -158,6 +158,7 @@ export interface IStorage {
   incrementPatientVisit(patientId: number): Promise<Patient>;
   searchPatients(clinicId: number, query: string): Promise<Patient[]>;
   getPatientsByClinic(clinicId: number): Promise<(Patient & { totalBilled: number })[]>;
+  getPatientsByClinicPaged(clinicId: number, opts: { q?: string; sort?: string; lastVisitFrom?: string; lastVisitTo?: string; page?: number; pageSize?: number; exportAll?: boolean; }): Promise<{ data: (Patient & { totalBilled: number })[]; total: number; page: number; totalPages: number; stats: { totalAll: number; activeThisMonth: number; newThisMonth: number; totalRevenue: number; }; }>;
   getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }>;
 
   // Doctor Profile
@@ -1736,6 +1737,87 @@ export class DatabaseStorage implements IStorage {
     .groupBy(patients.id)
     .orderBy(desc(patients.lastVisitAt));
     return rows.map(r => ({ ...r.patient, totalBilled: Number(r.totalBilled) }));
+  }
+
+  async getPatientsByClinicPaged(clinicId: number, opts: {
+    q?: string;
+    sort?: string;
+    lastVisitFrom?: string;
+    lastVisitTo?: string;
+    page?: number;
+    pageSize?: number;
+    exportAll?: boolean;
+  }): Promise<{
+    data: (Patient & { totalBilled: number })[];
+    total: number;
+    page: number;
+    totalPages: number;
+    stats: { totalAll: number; activeThisMonth: number; newThisMonth: number; totalRevenue: number };
+  }> {
+    const { q = '', sort = 'recent', lastVisitFrom, lastVisitTo, page = 1, pageSize = 25, exportAll = false } = opts;
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Stats — always unfiltered, clinic-wide totals
+    const [statsRow] = await db.select({
+      totalAll: sql<number>`COUNT(DISTINCT ${patients.id})`,
+      activeThisMonth: sql<number>`COUNT(DISTINCT CASE WHEN ${patients.lastVisitAt} >= ${thirtyDaysAgo} THEN ${patients.id} END)`,
+      newThisMonth: sql<number>`COUNT(DISTINCT CASE WHEN ${patients.createdAt} >= ${thirtyDaysAgo} THEN ${patients.id} END)`,
+      totalRevenue: sql<number>`COALESCE(SUM(CASE WHEN ${patientBills.paymentStatus} = 'paid' THEN ${patientBills.total} ELSE 0 END), 0)`,
+    })
+    .from(patients)
+    .leftJoin(patientBills, eq(patientBills.patientId, patients.id))
+    .where(and(eq(patients.clinicId, clinicId), sql`${patients.patientCode} IS NOT NULL`));
+
+    // Build dynamic WHERE
+    let whereClause = and(eq(patients.clinicId, clinicId), sql`${patients.patientCode} IS NOT NULL`);
+    if (q.trim()) {
+      const qLike = `%${q.toLowerCase().trim()}%`;
+      whereClause = and(whereClause, sql`(
+        LOWER(${patients.name}) LIKE ${qLike}
+        OR LOWER(COALESCE(${patients.email}, '')) LIKE ${qLike}
+        OR COALESCE(${patients.phone}, '') LIKE ${qLike}
+        OR LOWER(COALESCE(${patients.patientCode}, '')) LIKE ${qLike}
+      )`);
+    }
+    if (lastVisitFrom) whereClause = and(whereClause, gte(patients.lastVisitAt, new Date(lastVisitFrom)));
+    if (lastVisitTo)   whereClause = and(whereClause, lte(patients.lastVisitAt, new Date(lastVisitTo)));
+
+    // Total count (no join needed — filters are on patients columns only)
+    const [countRow] = await db.select({ c: sql<number>`COUNT(*)` }).from(patients).where(whereClause);
+    const total = Number(countRow?.c ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const actualPage = exportAll ? 1 : Math.max(1, Math.min(page, totalPages));
+    const offset = exportAll ? 0 : (actualPage - 1) * pageSize;
+    const lim = exportAll ? 10000 : pageSize;
+
+    // Data rows — branched by sort to keep Drizzle types clean
+    const base = () => db.select({
+      patient: patients,
+      totalBilled: sql<number>`COALESCE(SUM(CASE WHEN ${patientBills.paymentStatus} = 'paid' THEN ${patientBills.total} ELSE 0 END), 0)`,
+    })
+    .from(patients)
+    .leftJoin(patientBills, eq(patientBills.patientId, patients.id))
+    .where(whereClause)
+    .groupBy(patients.id);
+
+    const rows = await (
+      sort === 'visits' ? base().orderBy(desc(patients.visitCount), desc(patients.lastVisitAt)) :
+      sort === 'billed' ? base().orderBy(sql`COALESCE(SUM(CASE WHEN ${patientBills.paymentStatus} = 'paid' THEN ${patientBills.total} ELSE 0 END), 0) DESC`, desc(patients.lastVisitAt)) :
+      base().orderBy(desc(patients.lastVisitAt))
+    ).limit(lim).offset(offset);
+
+    return {
+      data: rows.map(r => ({ ...r.patient, totalBilled: Number(r.totalBilled) })),
+      total,
+      page: actualPage,
+      totalPages,
+      stats: {
+        totalAll:       Number(statsRow?.totalAll ?? 0),
+        activeThisMonth: Number(statsRow?.activeThisMonth ?? 0),
+        newThisMonth:   Number(statsRow?.newThisMonth ?? 0),
+        totalRevenue:   Number(statsRow?.totalRevenue ?? 0),
+      },
+    };
   }
 
   async getPatientHistory(clinicId: number, patientId: number): Promise<{ bookings: (Booking & { slot: Slot })[]; bills: PatientBill[]; clinicalRecords: ClinicalRecord[] }> {

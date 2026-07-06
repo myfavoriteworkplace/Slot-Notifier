@@ -1,12 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import type { Patient, PatientBill, ClinicalRecord, Booking, Slot } from "@shared/schema";
 import {
   Download, Loader2, Search, ArrowUpDown, TrendingUp, BadgeCheck, IndianRupee,
-  Users, User, X, FileText, Stethoscope, CalendarDays,
+  Users, User, X, FileText, Stethoscope, CalendarDays, SlidersHorizontal,
+  ChevronLeft, ChevronRight, Calendar as CalendarIcon,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+
+type PatientPagedResponse = {
+  data: (Patient & { totalBilled: number })[];
+  total: number;
+  page: number;
+  totalPages: number;
+  stats: { totalAll: number; activeThisMonth: number; newThisMonth: number; totalRevenue: number };
+};
 
 type PatientHistory = {
   bookings: (Booking & { slot: Slot })[];
@@ -14,11 +26,18 @@ type PatientHistory = {
   clinicalRecords: ClinicalRecord[];
 };
 
+type QuickChip = 'all' | 'this-month' | 'last-3m' | 'inactive-6m';
+
 interface PatientDirectoryPanelProps {
   isAuthenticated: boolean;
   selectedPatientId: number | null;
   onSelectPatient: (id: number | null) => void;
 }
+
+const PAGE_SIZE = 25;
+
+const EMPTY_STATS = { totalAll: 0, activeThisMonth: 0, newThisMonth: 0, totalRevenue: 0 };
+const EMPTY_RESPONSE: PatientPagedResponse = { data: [], total: 0, page: 1, totalPages: 1, stats: EMPTY_STATS };
 
 export default function PatientDirectoryPanel({
   isAuthenticated,
@@ -26,13 +45,44 @@ export default function PatientDirectoryPanel({
   onSelectPatient,
 }: PatientDirectoryPanelProps) {
   const [patientSearch, setPatientSearch] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [patientSort, setPatientSort] = useState<'recent' | 'visits' | 'billed'>('recent');
+  const [page, setPage] = useState(1);
+  const [lastVisitFrom, setLastVisitFrom] = useState<Date | undefined>();
+  const [lastVisitTo, setLastVisitTo] = useState<Date | undefined>();
+  const [quickChip, setQuickChip] = useState<QuickChip>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [fromPickerOpen, setFromPickerOpen] = useState(false);
+  const [toPickerOpen, setToPickerOpen] = useState(false);
+  // Cache the selected patient so the drawer header works across page changes
+  const [selectedPatientCache, setSelectedPatientCache] = useState<(Patient & { totalBilled: number }) | null>(null);
 
-  const { data: patientDirectory = [], isLoading: patientsLoading } = useQuery<(Patient & { totalBilled: number })[]>({
-    queryKey: ['/api/auth/clinic/patients'],
+  // Debounce search — reset page when query changes
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedQ(patientSearch);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [patientSearch]);
+
+  // Reset page on sort / date filter change
+  useEffect(() => { setPage(1); }, [patientSort, lastVisitFrom, lastVisitTo]);
+
+  const buildParams = useCallback((overrides: { exportAll?: boolean } = {}) => {
+    const p = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE), sort: patientSort });
+    if (debouncedQ) p.set('q', debouncedQ);
+    if (lastVisitFrom) p.set('lastVisitFrom', lastVisitFrom.toISOString());
+    if (lastVisitTo) p.set('lastVisitTo', lastVisitTo.toISOString());
+    if (overrides.exportAll) p.set('exportAll', 'true');
+    return p.toString();
+  }, [page, patientSort, debouncedQ, lastVisitFrom, lastVisitTo]);
+
+  const { data: response = EMPTY_RESPONSE, isLoading } = useQuery<PatientPagedResponse>({
+    queryKey: ['/api/auth/clinic/patients', debouncedQ, patientSort, page, lastVisitFrom?.toISOString(), lastVisitTo?.toISOString()],
     queryFn: async () => {
-      const res = await apiRequest('GET', '/api/auth/clinic/patients');
-      if (!res.ok) return [];
+      const res = await apiRequest('GET', `/api/auth/clinic/patients?${buildParams()}`);
+      if (!res.ok) return EMPTY_RESPONSE;
       return res.json();
     },
     enabled: isAuthenticated,
@@ -48,33 +98,36 @@ export default function PatientDirectoryPanel({
     enabled: !!selectedPatientId,
   });
 
-  const q = patientSearch.toLowerCase().trim();
-  const filtered = patientDirectory.filter(p =>
-    !q ||
-    (p.patientCode ?? '').toLowerCase().includes(q) ||
-    (p.name ?? '').toLowerCase().includes(q) ||
-    (p.email ?? '').toLowerCase().includes(q) ||
-    (p.phone ?? '').toLowerCase().includes(q)
-  );
-  const sorted = [...filtered].sort((a, b) => {
-    if (patientSort === 'visits') return b.visitCount - a.visitCount;
-    if (patientSort === 'billed') return b.totalBilled - a.totalBilled;
-    return new Date(b.lastVisitAt ?? 0).getTime() - new Date(a.lastVisitAt ?? 0).getTime();
-  });
+  const patientList = response.data;
+  const total = response.total;
+  const totalPages = response.totalPages;
+  const stats = response.stats;
 
-  const totalPatients = patientDirectory.length;
-  const nowMs = Date.now();
-  const activeThisMonth = patientDirectory.filter(p =>
-    p.lastVisitAt && (nowMs - new Date(p.lastVisitAt).getTime()) < 30 * 24 * 60 * 60 * 1000
-  ).length;
-  const newThisMonth = patientDirectory.filter(p =>
-    p.createdAt && (nowMs - new Date(p.createdAt).getTime()) < 30 * 24 * 60 * 60 * 1000
-  ).length;
-  const totalRevenue = patientDirectory.reduce((s, p) => s + p.totalBilled, 0);
+  const applyQuickChip = (chip: QuickChip) => {
+    const now = new Date();
+    setQuickChip(chip);
+    setPage(1);
+    if (chip === 'all')         { setLastVisitFrom(undefined);     setLastVisitTo(undefined); }
+    else if (chip === 'this-month')  { setLastVisitFrom(subDays(now, 30)); setLastVisitTo(undefined); }
+    else if (chip === 'last-3m')     { setLastVisitFrom(subDays(now, 90)); setLastVisitTo(undefined); }
+    else if (chip === 'inactive-6m') { setLastVisitFrom(undefined);     setLastVisitTo(subDays(now, 180)); }
+  };
 
-  const exportCSV = () => {
+  const clearDates = () => {
+    setLastVisitFrom(undefined);
+    setLastVisitTo(undefined);
+    setQuickChip('all');
+    setPage(1);
+  };
+
+  const hasDateFilter = !!(lastVisitFrom || lastVisitTo);
+
+  const exportCSV = async () => {
+    const res = await apiRequest('GET', `/api/auth/clinic/patients?${buildParams({ exportAll: true })}`);
+    if (!res.ok) return;
+    const result: PatientPagedResponse = await res.json();
     const header = ['PAT Code', 'Name', 'Email', 'Phone', 'Visits', 'Last Visit', 'Total Billed (₹)'];
-    const rows = patientDirectory.map(p => [
+    const rows = result.data.map(p => [
       p.patientCode ?? '',
       p.name ?? '',
       p.email ?? '',
@@ -89,9 +142,13 @@ export default function PatientDirectoryPanel({
     URL.revokeObjectURL(url);
   };
 
+  const pageStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(page * PAGE_SIZE, total);
+
   return (
     <>
     <div className="space-y-5">
+
       {/* Panel header */}
       <div className="rounded-2xl border border-border/50 bg-card shadow-sm overflow-hidden">
         <div className="flex">
@@ -109,7 +166,7 @@ export default function PatientDirectoryPanel({
             <button
               onClick={exportCSV}
               data-testid="button-export-patients"
-              disabled={patientDirectory.length === 0}
+              disabled={total === 0}
               className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl border border-border/60 bg-background hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Download className="h-4 w-4" />
@@ -119,34 +176,42 @@ export default function PatientDirectoryPanel({
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats row — always clinic-wide, unaffected by filters */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Patients', value: totalPatients, icon: Users, color: 'rose' },
-          { label: 'Active This Month', value: activeThisMonth, icon: TrendingUp, color: 'emerald' },
-          { label: 'New This Month', value: newThisMonth, icon: BadgeCheck, color: 'blue' },
-          { label: 'Revenue Collected', value: `₹${totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, icon: IndianRupee, color: 'amber' },
+          { label: 'Total Patients',    value: stats.totalAll,        icon: Users,       color: 'rose' },
+          { label: 'Active This Month', value: stats.activeThisMonth, icon: TrendingUp,  color: 'emerald' },
+          { label: 'New This Month',    value: stats.newThisMonth,    icon: BadgeCheck,  color: 'blue' },
+          { label: 'Revenue Collected', value: `₹${stats.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, icon: IndianRupee, color: 'amber' },
         ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="rounded-xl border border-border/50 bg-card p-4">
-            <div className={`h-8 w-8 rounded-lg flex items-center justify-center mb-2 ${
-              color === 'rose' ? 'bg-rose-500/10' :
-              color === 'emerald' ? 'bg-emerald-500/10' :
-              color === 'blue' ? 'bg-blue-500/10' : 'bg-amber-500/10'
-            }`}>
-              <Icon className={`h-4 w-4 ${
-                color === 'rose' ? 'text-rose-500' :
-                color === 'emerald' ? 'text-emerald-600' :
-                color === 'blue' ? 'text-blue-500' : 'text-amber-600'
-              }`} />
-            </div>
-            <p className="text-xl font-bold text-foreground">{value}</p>
-            <p className="text-xs text-muted-foreground">{label}</p>
+          <div key={label} className="rounded-xl border border-border/50 bg-card p-3 sm:p-4">
+            {isLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-12" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            ) : (
+              <>
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center mb-2 ${
+                  color === 'rose' ? 'bg-rose-500/10' : color === 'emerald' ? 'bg-emerald-500/10' :
+                  color === 'blue' ? 'bg-blue-500/10' : 'bg-amber-500/10'
+                }`}>
+                  <Icon className={`h-4 w-4 ${
+                    color === 'rose' ? 'text-rose-500' : color === 'emerald' ? 'text-emerald-600' :
+                    color === 'blue' ? 'text-blue-500' : 'text-amber-600'
+                  }`} />
+                </div>
+                <p className="text-xl font-bold text-foreground">{value}</p>
+                <p className="text-xs text-muted-foreground">{label}</p>
+              </>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Search + Sort bar */}
-      <div className="flex items-center gap-3 flex-wrap">
+      {/* Search + Sort + Filter toggle */}
+      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+        {/* Search */}
         <div className="flex-1 min-w-[200px] relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <input
@@ -157,7 +222,9 @@ export default function PatientDirectoryPanel({
             className="w-full h-9 pl-9 pr-3 text-sm rounded-xl border border-border/60 bg-card focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500/10 transition-all placeholder:text-muted-foreground"
           />
         </div>
-        <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card p-1">
+
+        {/* Sort */}
+        <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card p-1 shrink-0">
           {(['recent', 'visits', 'billed'] as const).map(s => (
             <button
               key={s}
@@ -170,24 +237,159 @@ export default function PatientDirectoryPanel({
             </button>
           ))}
         </div>
+
+        {/* Filter toggle */}
+        <button
+          onClick={() => setFilterOpen(o => !o)}
+          data-testid="button-toggle-patient-filter"
+          className={`h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 transition-all active:scale-[0.97] ${filterOpen || hasDateFilter ? 'bg-rose-500/10 border-rose-400/40 text-rose-600' : 'border-border/60 bg-card text-muted-foreground hover:text-foreground hover:border-rose-400/30'}`}
+          title="Toggle date filters"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+        </button>
       </div>
 
-      {/* Patient list */}
-      {patientsLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      {/* Date filter row (collapsible) */}
+      {filterOpen && (
+        <div className="rounded-xl border border-border/50 bg-card p-4 space-y-3">
+          {/* Quick chips */}
+          <div className="flex flex-wrap gap-2">
+            {([
+              { key: 'all',         label: 'All time' },
+              { key: 'this-month',  label: 'Active this month' },
+              { key: 'last-3m',     label: 'Last 3 months' },
+              { key: 'inactive-6m', label: 'Inactive 6m+' },
+            ] as { key: QuickChip; label: string }[]).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => applyQuickChip(key)}
+                data-testid={`chip-patient-${key}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-[0.97] min-h-[36px] ${
+                  quickChip === key && !hasDateFilter
+                    ? 'bg-rose-500/10 border-rose-400/50 text-rose-600'
+                    : quickChip === key && hasDateFilter
+                    ? 'bg-rose-500/10 border-rose-400/50 text-rose-600'
+                    : 'border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Date pickers — 2-col on mobile, inline on larger */}
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:items-center sm:gap-3">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Last visit from</p>
+              <Popover open={fromPickerOpen} onOpenChange={setFromPickerOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    data-testid="button-last-visit-from"
+                    className={`w-full flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs transition-all min-h-[36px] ${lastVisitFrom ? 'border-rose-400/50 bg-rose-500/5 text-rose-700 dark:text-rose-400' : 'border-border/60 bg-muted/30 text-muted-foreground hover:border-rose-400/30'}`}
+                  >
+                    <CalendarIcon className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{lastVisitFrom ? format(lastVisitFrom, 'dd MMM yyyy') : 'Pick date…'}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={lastVisitFrom}
+                    onSelect={d => {
+                      setLastVisitFrom(d ?? undefined);
+                      setQuickChip('all');
+                      setFromPickerOpen(false);
+                      setPage(1);
+                    }}
+                    disabled={{ after: lastVisitTo ?? new Date() }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Last visit to</p>
+              <Popover open={toPickerOpen} onOpenChange={setToPickerOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    data-testid="button-last-visit-to"
+                    className={`w-full flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs transition-all min-h-[36px] ${lastVisitTo ? 'border-rose-400/50 bg-rose-500/5 text-rose-700 dark:text-rose-400' : 'border-border/60 bg-muted/30 text-muted-foreground hover:border-rose-400/30'}`}
+                  >
+                    <CalendarIcon className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{lastVisitTo ? format(lastVisitTo, 'dd MMM yyyy') : 'Pick date…'}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 rounded-xl" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={lastVisitTo}
+                    onSelect={d => {
+                      setLastVisitTo(d ?? undefined);
+                      setQuickChip('all');
+                      setToPickerOpen(false);
+                      setPage(1);
+                    }}
+                    disabled={{ before: lastVisitFrom, after: new Date() }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {hasDateFilter && (
+              <button
+                onClick={clearDates}
+                data-testid="button-clear-date-filter"
+                className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border/60 bg-muted/30 text-xs text-muted-foreground hover:text-foreground transition-all min-h-[36px]"
+              >
+                <X className="h-3 w-3" />
+                Clear dates
+              </button>
+            )}
+          </div>
         </div>
-      ) : sorted.length === 0 ? (
+      )}
+
+      {/* Patient list */}
+      {isLoading ? (
+        <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+          <div className="divide-y divide-border/50">
+            {[1,2,3,4,5].map(i => (
+              <div key={i} className="px-4 py-3 flex items-center gap-3">
+                <Skeleton className="h-4 w-4 rounded-sm shrink-0" />
+                <Skeleton className="h-4 w-16 rounded-md" />
+                <Skeleton className="h-4 flex-1 rounded-md" />
+                <Skeleton className="h-4 w-32 rounded-md hidden sm:block" />
+                <Skeleton className="h-4 w-20 rounded-md hidden sm:block" />
+                <Skeleton className="h-5 w-8 rounded-full hidden sm:block" />
+                <Skeleton className="h-4 w-20 rounded-md hidden sm:block" />
+                <Skeleton className="h-4 w-16 rounded-md hidden sm:block" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : patientList.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
             <Users className="h-6 w-6 text-muted-foreground" />
           </div>
           <p className="text-sm font-semibold text-muted-foreground">
-            {patientSearch ? 'No patients match your search' : 'No patients yet'}
+            {debouncedQ || hasDateFilter ? 'No patients match your filters' : 'No patients yet'}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {patientSearch ? 'Try a different name, email, or PAT code' : 'Patients appear here once they book with email OTP verification'}
+            {debouncedQ || hasDateFilter
+              ? 'Try adjusting the search or date range'
+              : 'Patients appear here once they book with email OTP verification'}
           </p>
+          {(debouncedQ || hasDateFilter) && (
+            <button
+              onClick={() => { setPatientSearch(''); setDebouncedQ(''); clearDates(); }}
+              className="mt-3 text-xs text-rose-600 hover:underline"
+            >
+              Clear all filters
+            </button>
+          )}
         </div>
       ) : (
         <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
@@ -204,81 +406,104 @@ export default function PatientDirectoryPanel({
           </div>
 
           <div className="divide-y divide-border/50">
-            {sorted.map((patient, idx) => (
-              <div
-                key={patient.id}
-                data-testid={`row-patient-${patient.id}`}
-                onClick={() => onSelectPatient(patient.id)}
-                className="px-4 py-3 hover:bg-rose-500/5 cursor-pointer transition-colors group"
-              >
-                {/* Desktop row */}
-                <div className="hidden sm:grid grid-cols-[1.5rem_auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center">
-                  <span className="text-xs font-mono text-muted-foreground/60 text-center select-none">{idx + 1}</span>
-                  <span className="w-20 font-mono text-xs font-bold bg-rose-500/10 text-rose-600 px-2 py-1 rounded-md">
-                    {patient.patientCode ?? '—'}
-                  </span>
-                  <span className="text-sm font-medium text-foreground truncate group-hover:text-rose-600 transition-colors">{patient.name ?? '—'}</span>
-                  <span className="text-xs text-muted-foreground truncate">{patient.email ?? '—'}</span>
-                  <span className="text-xs text-muted-foreground truncate">{patient.phone ?? '—'}</span>
-                  <span className="w-14 text-right">
-                    <span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-primary/10 text-primary text-xs font-bold px-1.5">
-                      {patient.visitCount}
+            {patientList.map((patient, idx) => {
+              const rowNumber = (page - 1) * PAGE_SIZE + idx + 1;
+              return (
+                <div
+                  key={patient.id}
+                  data-testid={`row-patient-${patient.id}`}
+                  onClick={() => { setSelectedPatientCache(patient); onSelectPatient(patient.id); }}
+                  className="px-4 py-3 hover:bg-rose-500/5 cursor-pointer transition-colors group"
+                >
+                  {/* Desktop row */}
+                  <div className="hidden sm:grid grid-cols-[1.5rem_auto_1fr_1fr_1fr_auto_auto_auto] gap-3 items-center">
+                    <span className="text-xs font-mono text-muted-foreground/60 text-center select-none">{rowNumber}</span>
+                    <span className="w-20 font-mono text-xs font-bold bg-rose-500/10 text-rose-600 px-2 py-1 rounded-md">
+                      {patient.patientCode ?? '—'}
                     </span>
-                  </span>
-                  <span className="w-24 text-right text-xs text-muted-foreground">
-                    {patient.lastVisitAt ? format(new Date(patient.lastVisitAt), 'dd MMM yyyy') : '—'}
-                  </span>
-                  <span className="w-24 text-right text-sm font-semibold text-emerald-600">
-                    {patient.totalBilled > 0 ? `₹${patient.totalBilled.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
-                  </span>
-                </div>
-
-                {/* Mobile card */}
-                <div className="sm:hidden flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-9 w-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0 relative">
-                      <User className="h-4 w-4 text-rose-500" />
-                      <span className="absolute -top-1.5 -left-1.5 h-4 w-4 rounded-full bg-muted border border-border/60 flex items-center justify-center text-[10px] font-bold text-muted-foreground">{idx + 1}</span>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-foreground truncate">{patient.name ?? '—'}</p>
-                        <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 px-1.5 py-0.5 rounded-md shrink-0">
-                          {patient.patientCode ?? '—'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">{patient.email ?? '—'}</p>
-                      <p className="text-xs text-muted-foreground">{patient.phone ?? '—'}</p>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-emerald-600">
+                    <span className="text-sm font-medium text-foreground truncate group-hover:text-rose-600 transition-colors">{patient.name ?? '—'}</span>
+                    <span className="text-xs text-muted-foreground truncate">{patient.email ?? '—'}</span>
+                    <span className="text-xs text-muted-foreground truncate">{patient.phone ?? '—'}</span>
+                    <span className="w-14 text-right">
+                      <span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-primary/10 text-primary text-xs font-bold px-1.5">
+                        {patient.visitCount}
+                      </span>
+                    </span>
+                    <span className="w-24 text-right text-xs text-muted-foreground">
+                      {patient.lastVisitAt ? format(new Date(patient.lastVisitAt), 'dd MMM yyyy') : '—'}
+                    </span>
+                    <span className="w-24 text-right text-sm font-semibold text-emerald-600">
                       {patient.totalBilled > 0 ? `₹${patient.totalBilled.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{patient.visitCount} visit{patient.visitCount !== 1 ? 's' : ''}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {patient.lastVisitAt ? format(new Date(patient.lastVisitAt), 'dd MMM') : '—'}
-                    </p>
+                    </span>
+                  </div>
+
+                  {/* Mobile card */}
+                  <div className="sm:hidden flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-9 w-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0 relative">
+                        <User className="h-4 w-4 text-rose-500" />
+                        <span className="absolute -top-1.5 -left-1.5 h-4 w-4 rounded-full bg-muted border border-border/60 flex items-center justify-center text-[10px] font-bold text-muted-foreground">{rowNumber}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground truncate">{patient.name ?? '—'}</p>
+                          <span className="font-mono text-xs font-bold bg-rose-500/10 text-rose-600 px-1.5 py-0.5 rounded-md shrink-0">
+                            {patient.patientCode ?? '—'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{patient.email ?? '—'}</p>
+                        <p className="text-xs text-muted-foreground">{patient.phone ?? '—'}</p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold text-emerald-600">
+                        {patient.totalBilled > 0 ? `₹${patient.totalBilled.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{patient.visitCount} visit{patient.visitCount !== 1 ? 's' : ''}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {patient.lastVisitAt ? format(new Date(patient.lastVisitAt), 'dd MMM') : '—'}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {/* Footer */}
+          {/* Table footer — count + pagination */}
           <div className="px-4 py-2.5 bg-muted/30 border-t border-border/50 flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-xs text-muted-foreground">
-              Showing {sorted.length} of {totalPatients} patient{totalPatients !== 1 ? 's' : ''}
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {total === 0 ? 'No patients' : `Showing ${pageStart}–${pageEnd} of ${total} patient${total !== 1 ? 's' : ''}`}
             </p>
-            <p className="text-xs text-muted-foreground">
-              Total collected <span className="font-bold text-emerald-600">₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-            </p>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => p - 1)}
+                  disabled={page <= 1}
+                  data-testid="button-patients-prev-page"
+                  className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={page >= totalPages}
+                  data-testid="button-patients-next-page"
+                  className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* "Click a row to view history" hint */}
-      {sorted.length > 0 && (
+      {patientList.length > 0 && (
         <p className="text-center text-xs text-muted-foreground mt-2">
           Click any patient row to view their full visit history
         </p>
@@ -287,7 +512,7 @@ export default function PatientDirectoryPanel({
 
     {/* ── PATIENT HISTORY SLIDE-OVER ── */}
     {selectedPatientId && (() => {
-      const selPatient = patientDirectory.find(p => p.id === selectedPatientId);
+      const selPatient = selectedPatientCache;
       const visitBookings = patientHistory?.bookings ?? [];
       const visitBills = patientHistory?.bills ?? [];
       const visitRecords = patientHistory?.clinicalRecords ?? [];
@@ -330,9 +555,9 @@ export default function PatientDirectoryPanel({
             {/* Quick stats bar */}
             <div className="grid grid-cols-3 divide-x divide-border/50 border-b border-border/60 shrink-0">
               {[
-                { label: 'Total Visits', value: selPatient?.visitCount ?? 0 },
-                { label: 'Bills Raised', value: visitBills.length },
-                { label: 'Total Billed', value: `₹${(selPatient?.totalBilled ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` },
+                { label: 'Total Visits',  value: selPatient?.visitCount ?? 0 },
+                { label: 'Bills Raised',  value: visitBills.length },
+                { label: 'Total Billed',  value: `₹${(selPatient?.totalBilled ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` },
               ].map(({ label, value }) => (
                 <div key={label} className="px-4 py-3 text-center">
                   <p className="text-base font-bold text-foreground">{value}</p>
@@ -356,7 +581,7 @@ export default function PatientDirectoryPanel({
                       Visit Timeline ({visitBookings.length})
                     </p>
                     {visitBookings.length === 0 ? (
-                      <p className="text-[12px] text-muted-foreground italic">No bookings linked yet</p>
+                      <p className="text-xs text-muted-foreground italic">No bookings linked yet</p>
                     ) : (
                       <div className="space-y-2">
                         {visitBookings.map((bk) => {
@@ -372,7 +597,7 @@ export default function PatientDirectoryPanel({
                               <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-muted/30 border-b border-border/40">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                  <span className="text-[12px] font-semibold text-foreground">
+                                  <span className="text-xs font-semibold text-foreground">
                                     {format(new Date(bk.slot.startTime), 'dd MMM yyyy')}
                                   </span>
                                   <span className="text-xs text-muted-foreground">
@@ -388,7 +613,6 @@ export default function PatientDirectoryPanel({
                               </div>
 
                               <div className="px-3 py-2.5 space-y-2">
-                                {/* Doctor */}
                                 {bk.assignedDoctor && (
                                   <div className="flex items-center gap-2">
                                     <Stethoscope className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -396,7 +620,6 @@ export default function PatientDirectoryPanel({
                                   </div>
                                 )}
 
-                                {/* Clinical record */}
                                 {slotRecord && (
                                   <div className="rounded-lg bg-blue-500/5 border border-blue-500/15 p-2.5 space-y-1">
                                     {(slotRecord.diagnosis as string[])?.length > 0 && (
@@ -428,7 +651,6 @@ export default function PatientDirectoryPanel({
                                   </div>
                                 )}
 
-                                {/* Bills */}
                                 {slotBills.length > 0 && (
                                   <div className="space-y-1">
                                     {slotBills.map(bill => (
@@ -441,7 +663,7 @@ export default function PatientDirectoryPanel({
                                           <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${bill.paymentStatus === 'paid' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
                                             {bill.paymentStatus}
                                           </span>
-                                          <span className="text-[12px] font-bold text-foreground">₹{(bill.total ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                          <span className="text-xs font-bold text-foreground">₹{(bill.total ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                                         </div>
                                       </div>
                                     ))}
@@ -455,7 +677,7 @@ export default function PatientDirectoryPanel({
                     )}
                   </section>
 
-                  {/* Unlinked bills (no bookingId match) */}
+                  {/* Unlinked bills */}
                   {(() => {
                     const linkedBillIds = new Set(visitBookings.map(b => b.id));
                     const unlinked = visitBills.filter(b => !b.bookingId || !linkedBillIds.has(b.bookingId));
@@ -471,7 +693,7 @@ export default function PatientDirectoryPanel({
                               <div className="flex items-center gap-2 min-w-0">
                                 <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                 <div className="min-w-0">
-                                  <p className="text-[12px] font-semibold text-foreground font-mono">{bill.billNumber}</p>
+                                  <p className="text-xs font-semibold text-foreground font-mono">{bill.billNumber}</p>
                                   <p className="text-xs text-muted-foreground">
                                     {bill.createdAt ? format(new Date(bill.createdAt), 'dd MMM yyyy') : '—'}
                                   </p>

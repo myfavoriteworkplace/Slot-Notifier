@@ -5477,13 +5477,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
-  // GET /api/auth/clinic/patients — all patient profiles for this clinic
+  // GET /api/auth/clinic/patients — paginated patient directory for this clinic
   app.get("/api/auth/clinic/patients", isAuthenticated, async (req, res) => {
     try {
       const { clinicId, loggedIn } = clinicSession(req);
       if (!loggedIn || !clinicId) return res.status(401).json({ message: "Unauthorized" });
-      const patientList = await storage.getPatientsByClinic(clinicId);
-      res.json(patientList);
+      const { q, sort, lastVisitFrom, lastVisitTo, page, pageSize, exportAll } = req.query;
+      const result = await storage.getPatientsByClinicPaged(clinicId, {
+        q: typeof q === 'string' ? q : undefined,
+        sort: typeof sort === 'string' ? sort : undefined,
+        lastVisitFrom: typeof lastVisitFrom === 'string' ? lastVisitFrom : undefined,
+        lastVisitTo: typeof lastVisitTo === 'string' ? lastVisitTo : undefined,
+        page: page ? parseInt(page as string) : 1,
+        pageSize: pageSize ? Math.min(parseInt(pageSize as string), 100) : 25,
+        exportAll: exportAll === 'true',
+      });
+      res.json(result);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
