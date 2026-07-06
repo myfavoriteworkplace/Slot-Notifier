@@ -5,7 +5,7 @@ import { notify } from "@/lib/notify";
 import { format } from "date-fns";
 import type { PatientBill } from "@shared/schema";
 import {
-  Loader2, IndianRupee, Download, Filter, Clock, CheckCircle2, ChevronDown, Trash2,
+  Loader2, IndianRupee, Download, Clock, CheckCircle2, ChevronDown, Trash2,
   ChevronLeft, ChevronRight, Search, SlidersHorizontal, Calendar as CalendarIcon, X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -333,25 +333,6 @@ export default function AccountsPanel({ clinic, onViewPatient }: AccountsPanelPr
             </button>
           </PopoverTrigger>
           <PopoverContent className="w-72 p-4 space-y-4" align="end">
-            {/* Sort */}
-            <div className="space-y-1.5">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sort by</p>
-              <div className="flex flex-wrap gap-1.5">
-                {sortOptions.map(o => (
-                  <button
-                    key={o.value}
-                    onClick={() => setSort(o.value)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${
-                      sort === o.value
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background border-border/60 text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-            </div>
             {/* Date range */}
             <div className="space-y-1.5">
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Date range</p>
@@ -385,21 +366,21 @@ export default function AccountsPanel({ clinic, onViewPatient }: AccountsPanelPr
                 </button>
               )}
             </div>
-            {/* Page size */}
+            {/* Sort */}
             <div className="space-y-1.5">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Page size</p>
-              <div className="flex gap-1.5">
-                {PAGE_SIZE_OPTIONS.map(s => (
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sort by</p>
+              <div className="flex flex-wrap gap-1.5">
+                {sortOptions.map(o => (
                   <button
-                    key={s}
-                    onClick={() => setPageSize(s)}
+                    key={o.value}
+                    onClick={() => setSort(o.value)}
                     className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${
-                      pageSize === s
+                      sort === o.value
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'bg-background border-border/60 text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    {s}
+                    {o.label}
                   </button>
                 ))}
               </div>
@@ -770,50 +751,50 @@ export default function AccountsPanel({ clinic, onViewPatient }: AccountsPanelPr
         </div>
       )}
 
-      {/* ── Pagination ── */}
-      {!isLoading && totalPages > 1 && (
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <p className="text-xs text-muted-foreground">
-            Showing <span className="font-semibold text-foreground">{pageStart}</span>–<span className="font-semibold text-foreground">{pageEnd}</span> of <span className="font-semibold text-foreground">{total}</span>
-          </p>
-          <div className="flex items-center gap-1.5">
+      {/* ── Table footer: rows per page + count + pagination ── */}
+      {!isLoading && total > 0 && (
+        <div className="px-4 py-2.5 bg-muted/30 border-t border-border/50 flex items-center justify-between gap-3 flex-wrap">
+          {/* Left: rows-per-page selector + count */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Rows per page:</span>
+              <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-background p-0.5">
+                {PAGE_SIZE_OPTIONS.map(n => (
+                  <button
+                    key={n}
+                    onClick={() => { setPageSize(n); setPage(1); }}
+                    data-testid={`button-pagesize-${n}`}
+                    className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors ${pageSize === n ? 'bg-rose-500/10 text-rose-600' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {total === 0 ? 'No bills' : `Showing ${pageStart}–${pageEnd} of ${total} bill${total !== 1 ? 's' : ''}`}
+            </p>
+          </div>
+          {/* Right: prev / page indicator / next */}
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
+              onClick={() => setPage(p => p - 1)}
               disabled={page <= 1}
-              className="h-8 w-8 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              data-testid="button-prev-page"
+              data-testid="button-accounts-prev-page"
+              className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-3.5 w-3.5" />
             </button>
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              // Show window around current page
-              let start = Math.max(1, page - 2);
-              let end = Math.min(totalPages, start + 4);
-              if (end - start < 4) start = Math.max(1, end - 4);
-              const pg = start + i;
-              if (pg > totalPages) return null;
-              return (
-                <button
-                  key={pg}
-                  onClick={() => setPage(pg)}
-                  className={`h-8 w-8 rounded-lg text-xs font-semibold border transition-all ${
-                    page === pg
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                  }`}
-                  data-testid={`button-page-${pg}`}
-                >
-                  {pg}
-                </button>
-              );
-            })}
+            <span className="text-xs text-muted-foreground tabular-nums min-w-[72px] text-center">
+              Page {page} of {totalPages}
+            </span>
             <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              onClick={() => setPage(p => p + 1)}
               disabled={page >= totalPages}
-              className="h-8 w-8 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              data-testid="button-next-page"
+              data-testid="button-accounts-next-page"
+              className="h-7 w-7 rounded-lg border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
