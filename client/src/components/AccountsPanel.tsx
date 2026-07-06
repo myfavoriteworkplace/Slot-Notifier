@@ -256,17 +256,22 @@ export default function AccountsPanel({ clinic, onViewPatient }: AccountsPanelPr
             >
               {isLoading ? (
                 <div className="space-y-2">
-                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <div className="flex items-center gap-1.5">
+                    <Skeleton className="h-5 w-5 rounded-md" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
                   <Skeleton className="h-6 w-12" />
-                  <Skeleton className="h-3 w-20" />
                 </div>
               ) : (
                 <>
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center mb-2 ${bgCls}`}>
-                    <Icon className={`h-4 w-4 ${textCls}`} />
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <div className={`h-5 w-5 rounded-md flex items-center justify-center ${bgCls}`}>
+                      <Icon className={`h-3 w-3 ${textCls}`} />
+                    </div>
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide leading-none">{label}</p>
                   </div>
                   <p className="text-xl font-bold text-foreground">{value}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+                  {subtitle && <p className="text-[10px] text-muted-foreground/70 mt-0.5">{subtitle}</p>}
                 </>
               )}
             </CardWrapper>

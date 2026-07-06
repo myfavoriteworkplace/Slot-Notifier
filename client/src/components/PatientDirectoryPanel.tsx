@@ -188,22 +188,27 @@ export default function PatientDirectoryPanel({
           <div key={label} className="rounded-xl border border-border/50 bg-card p-3 sm:p-4">
             {isLoading ? (
               <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Skeleton className="h-5 w-5 rounded-md" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
                 <Skeleton className="h-6 w-12" />
-                <Skeleton className="h-3 w-20" />
               </div>
             ) : (
               <>
-                <div className={`h-8 w-8 rounded-lg flex items-center justify-center mb-2 ${
-                  color === 'rose' ? 'bg-rose-500/10' : color === 'emerald' ? 'bg-emerald-500/10' :
-                  color === 'blue' ? 'bg-blue-500/10' : 'bg-amber-500/10'
-                }`}>
-                  <Icon className={`h-4 w-4 ${
-                    color === 'rose' ? 'text-rose-500' : color === 'emerald' ? 'text-emerald-600' :
-                    color === 'blue' ? 'text-blue-500' : 'text-amber-600'
-                  }`} />
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <div className={`h-5 w-5 rounded-md flex items-center justify-center ${
+                    color === 'rose' ? 'bg-rose-500/10' : color === 'emerald' ? 'bg-emerald-500/10' :
+                    color === 'blue' ? 'bg-blue-500/10' : 'bg-amber-500/10'
+                  }`}>
+                    <Icon className={`h-3 w-3 ${
+                      color === 'rose' ? 'text-rose-500' : color === 'emerald' ? 'text-emerald-600' :
+                      color === 'blue' ? 'text-blue-500' : 'text-amber-600'
+                    }`} />
+                  </div>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide leading-none">{label}</p>
                 </div>
                 <p className="text-xl font-bold text-foreground">{value}</p>
-                <p className="text-xs text-muted-foreground">{label}</p>
               </>
             )}
           </div>
