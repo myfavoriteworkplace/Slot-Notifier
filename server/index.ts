@@ -39,6 +39,7 @@ const FRONTEND_ORIGINS = [
   "https://api.bookmyslot.dental.mossaic.in",
   "https://book-my-slot-client.onrender.com",
   ...FRONTEND_URL_RAW.split(",").map((u) => u.trim()).filter(Boolean),
+  ...(process.env.EXTRA_CORS_ORIGINS || "").split(",").map((u) => u.trim()).filter(Boolean),
 ];
 
 // ------------------ SESSION ------------------
