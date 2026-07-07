@@ -23,7 +23,7 @@ import { wakeAndAnalyse } from "./aiService";
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'BookMySlot <onboarding@resend.dev>';
 const RESEND_MODE = (process.env.RESEND || 'DEV').toUpperCase();
-const TEST_EMAIL = 'itsmyfavoriteworkplace@gmail.com';
+const TEST_EMAIL = process.env.RESEND_TEST_EMAIL || 'itsmyfavoriteworkplace@gmail.com';
 
 const razorpay = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
   ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET })
