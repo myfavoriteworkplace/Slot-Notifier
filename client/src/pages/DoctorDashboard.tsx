@@ -97,12 +97,12 @@ export default function DoctorDashboard() {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
-  const [filterRowOpen, setFilterRowOpen] = useState(true);
+  const [filterRowOpen, setFilterRowOpen] = useState(false);
   const [appointmentClinicFilter, setAppointmentClinicFilter] = useState<string>("all");
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<string>("");
   const [apptSearch, setApptSearch] = useState("");
   const [apptSearchInput, setApptSearchInput] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(true);
   const apptSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -1075,7 +1075,7 @@ export default function DoctorDashboard() {
 
                 {/* Patient search — collapsed magnifier or expanded input */}
                 {searchOpen ? (
-                  <div className="flex items-center gap-2 bg-card border border-border/50 hover:border-border focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 rounded-xl px-3 min-h-[44px] shadow-sm transition-all flex-1 min-w-[180px] sm:flex-none sm:w-[260px]">
+                  <div className="flex items-center gap-2 bg-card border border-border/50 hover:border-border focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 rounded-xl px-3 min-h-[44px] shadow-sm transition-all flex-1 min-w-[160px]">
                     <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <input
                       ref={searchInputRef}

@@ -163,8 +163,8 @@ export default function BookingsPanel({
   setTabBadges,
 }: BookingsPanelProps) {
   const [copiedUrlType, setCopiedUrlType] = useState<'booking' | 'about' | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [filterRowOpen, setFilterRowOpen] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(true);
+  const [filterRowOpen, setFilterRowOpen] = useState(false);
 
   const copyClinicUrl = (type: 'booking' | 'about') => {
     if (!clinic?.id) return;
@@ -208,7 +208,7 @@ export default function BookingsPanel({
   const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
   const [consentUrls, setConsentUrls] = useState<Record<number, string>>({});
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
-  const [legendCollapsed, setLegendCollapsed] = useState(false);
+  const [legendCollapsed, setLegendCollapsed] = useState(true);
   const [copiedConsentId, setCopiedConsentId] = useState<number | null>(null);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -1041,59 +1041,89 @@ export default function BookingsPanel({
                 </button>
               </div>
             ) : searchOpen ? (
-              /* Expanded search input */
-              <div className={`flex items-center gap-2.5 bg-card border rounded-xl px-3 min-h-[44px] shadow-sm transition-all duration-150 ${
-                patientSearchFocused
-                  ? 'border-primary/50 ring-1 ring-primary/20 shadow-md'
-                  : 'border-border/50 hover:border-border'
-              }`}>
-                {bookingPatientResultsLoading
-                  ? <Loader2 className="h-3.5 w-3.5 text-primary shrink-0 animate-spin" />
-                  : <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                }
-                <input
-                  ref={patientSearchInputRef}
-                  type="text"
-                  value={bookingPatientSearch}
-                  onChange={e => handleBookingPatientSearchInput(e.target.value)}
-                  onFocus={() => setPatientSearchFocused(true)}
-                  onBlur={() => setTimeout(() => { setPatientSearchFocused(false); setPatientSearchHighlightIdx(-1); }, 160)}
-                  onKeyDown={e => {
-                    if (e.key === 'ArrowDown') {
+              /* Expanded search input + filter/legend icons when collapsed */
+              <div className="flex items-center gap-1.5">
+                <div className={`flex-1 flex items-center gap-2.5 bg-card border rounded-xl px-3 min-h-[44px] shadow-sm transition-all duration-150 ${
+                  patientSearchFocused
+                    ? 'border-primary/50 ring-1 ring-primary/20 shadow-md'
+                    : 'border-border/50 hover:border-border'
+                }`}>
+                  {bookingPatientResultsLoading
+                    ? <Loader2 className="h-3.5 w-3.5 text-primary shrink-0 animate-spin" />
+                    : <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  }
+                  <input
+                    ref={patientSearchInputRef}
+                    type="text"
+                    value={bookingPatientSearch}
+                    onChange={e => handleBookingPatientSearchInput(e.target.value)}
+                    onFocus={() => setPatientSearchFocused(true)}
+                    onBlur={() => setTimeout(() => { setPatientSearchFocused(false); setPatientSearchHighlightIdx(-1); }, 160)}
+                    onKeyDown={e => {
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setPatientSearchHighlightIdx(i => Math.min(i + 1, bookingPatientResults.length - 1));
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setPatientSearchHighlightIdx(i => Math.max(i - 1, -1));
+                      } else if (e.key === 'Enter' && patientSearchHighlightIdx >= 0 && bookingPatientResults[patientSearchHighlightIdx]) {
+                        e.preventDefault();
+                        applyBookingPatientFilter(bookingPatientResults[patientSearchHighlightIdx]);
+                      } else if (e.key === 'Escape') {
+                        setBookingPatientSearch("");
+                        setBookingPatientResults([]);
+                        setPatientSearchFocused(false);
+                        setSearchOpen(false);
+                        patientSearchInputRef.current?.blur();
+                      }
+                    }}
+                    placeholder="Search patient — name, PAT code, phone or email…"
+                    className="flex-1 min-w-0 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/55 outline-none border-none focus:ring-0 h-5 leading-none"
+                    data-testid="input-booking-patient-search"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <button
+                    onMouseDown={e => {
                       e.preventDefault();
-                      setPatientSearchHighlightIdx(i => Math.min(i + 1, bookingPatientResults.length - 1));
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      setPatientSearchHighlightIdx(i => Math.max(i - 1, -1));
-                    } else if (e.key === 'Enter' && patientSearchHighlightIdx >= 0 && bookingPatientResults[patientSearchHighlightIdx]) {
-                      e.preventDefault();
-                      applyBookingPatientFilter(bookingPatientResults[patientSearchHighlightIdx]);
-                    } else if (e.key === 'Escape') {
                       setBookingPatientSearch("");
                       setBookingPatientResults([]);
-                      setPatientSearchFocused(false);
                       setSearchOpen(false);
-                      patientSearchInputRef.current?.blur();
-                    }
-                  }}
-                  placeholder="Search patient — name, PAT code, phone or email…"
-                  className="flex-1 min-w-0 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/55 outline-none border-none focus:ring-0 h-5 leading-none"
-                  data-testid="input-booking-patient-search"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                <button
-                  onMouseDown={e => {
-                    e.preventDefault();
-                    setBookingPatientSearch("");
-                    setBookingPatientResults([]);
-                    setSearchOpen(false);
-                  }}
-                  className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-                  title="Close search"
-                >
-                  <X className="h-3 w-3" />
-                </button>
+                    }}
+                    className="shrink-0 -mr-1 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                    title="Close search"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+                {!filterRowOpen && (
+                  <button
+                    onClick={() => setFilterRowOpen(true)}
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex items-center justify-center hover:border-primary/40 hover:text-primary transition-all active:scale-[0.97] shrink-0"
+                    data-testid="button-open-filter-row"
+                    title="Show date & week filters"
+                  >
+                    <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                )}
+                {legendCollapsed && (
+                  <button
+                    onClick={() => setLegendCollapsed(false)}
+                    title="Show colour legend"
+                    className="h-11 w-11 rounded-xl border bg-muted/50 border-border flex flex-col items-center justify-center gap-[5px] hover:border-primary/40 hover:bg-muted/80 transition-all active:scale-[0.97] shrink-0"
+                  >
+                    <div className="flex items-center gap-[3px]">
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-sky-400 shrink-0" />
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-primary shrink-0" />
+                      <span className="h-[2.5px] w-[5px] rounded-full bg-slate-400 dark:bg-slate-500 shrink-0" />
+                    </div>
+                    <div className="flex items-end gap-[3px]">
+                      <span className="h-[9px] w-[5px] rounded-sm bg-emerald-400 shrink-0" />
+                      <span className="h-[9px] w-[5px] rounded-sm bg-amber-400 shrink-0" />
+                      <span className="h-[9px] w-[5px] rounded-sm bg-rose-400 shrink-0" />
+                    </div>
+                  </button>
+                )}
               </div>
             ) : (
               /* Collapsed — magnifier + optional filter icon + legend toggle */
